@@ -1,0 +1,10 @@
+
+> music-data-base@0.1.0 dev
+> next dev -p 3020
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3020
+- Network:       http://192.168.1.219:3020
+- Environments: .env.local
+✓ Ready in 786ms
+[?25h

@@ -1,0 +1,81 @@
+▲ Next.js 16.2.6
+- Local:         http://localhost:3023
+- Network:       http://192.168.1.219:3023
+✓ Ready in 218ms
+ALBUM UPLOAD PAYLOAD {
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  title: 'Codex Album API Smoke Test',
+  creatorName: 'Codex Test Artist',
+  ownerType: 'artist',
+  artistId: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  producerId: ''
+}
+ALBUM CREATE ROW PAYLOAD {
+  id: '30f5651a-6413-422b-b391-c1d6359e763e',
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  title: 'Codex Album API Smoke Test',
+  creator_name: 'Codex Test Artist',
+  owner_type: 'artist',
+  artist_name: 'Codex Test Artist',
+  artist_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  producer_name: null,
+  producer_id: null,
+  producer_profile_id: null,
+  cover_url: '/music-data-base-logo.png',
+  category: 'Album',
+  release_date: null,
+  created_at: '2026-06-07T06:13:40.244Z',
+  updated_at: '2026-06-07T06:13:40.244Z'
+}
+ALBUMS TABLE CHECK { exists: true, count: 0, error: null }
+ALBUM INSERT RESULT {
+  id: '30f5651a-6413-422b-b391-c1d6359e763e',
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  title: 'Codex Album API Smoke Test',
+  error: null
+}
+ALBUM CREATE ROW RESULT { id: '30f5651a-6413-422b-b391-c1d6359e763e', error: null }
+ALBUM ITEMS INSERT PAYLOAD {
+  albumId: '30f5651a-6413-422b-b391-c1d6359e763e',
+  itemRows: [
+    {
+      id: '09cabfe0-4ea1-41c6-be3a-148c60b43231',
+      album_id: '30f5651a-6413-422b-b391-c1d6359e763e',
+      item_id: 'e0d1f2be-6d6b-400f-90c4-47a9c3c221ed',
+      item_type: 'song',
+      position: 1,
+      created_at: '2026-06-07T06:13:40.883Z'
+    }
+  ]
+}
+ALBUM ITEMS INSERT RESULT {
+  albumId: '30f5651a-6413-422b-b391-c1d6359e763e',
+  itemCount: 1,
+  error: null
+}
+ALBUM TRACKS INSERT RESULT {
+  albumId: '30f5651a-6413-422b-b391-c1d6359e763e',
+  itemCount: 1,
+  error: "Could not find the table 'public.album_tracks' in the schema cache"
+}
+LOAD RECENT ALBUMS USER 33564e29-6f65-4efd-8a27-6b58bc45a455
+LOAD RECENT ALBUMS RESULT [
+  {
+    id: '30f5651a-6413-422b-b391-c1d6359e763e',
+    user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+    artist_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+    title: 'Codex Album API Smoke Test',
+    songs: 1,
+    videos: 0
+  }
+]
+RECENT ALBUMS RESULT [
+  {
+    id: '30f5651a-6413-422b-b391-c1d6359e763e',
+    user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+    artist_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+    title: 'Codex Album API Smoke Test',
+    songs: 1,
+    videos: 0
+  }
+]

@@ -1,0 +1,21729 @@
+"use client";
+/* eslint-disable @next/next/no-img-element */
+import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, Home, ListMusic, LogIn, LogOut, MessageCircle, Music2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
+import { supabase } from "../lib/supabase";
+type Song = {
+    id: string;
+    title: string;
+    artist: string;
+    producer?: string;
+    producerId?: string;
+    beatId?: string;
+    category: string;
+    type: string;
+    mediaKind?: "audio" | "video";
+    time: string;
+    plays: number;
+    likes: number;
+    uploaded: string;
+    cover: string;
+    avatar: string;
+    audio: string;
+    audioPath?: string;
+    video?: string;
+    ownerId?: string;
+    albumId?: string;
+};
+type SongTableRow = {
+    id: string;
+    title: string | null;
+    artist: string | null;
+    producer?: string | null;
+    producer_id?: string | null;
+    beat_id?: string | null;
+    description?: string | null;
+    category: string | null;
+    type: string | null;
+    audio_url: string | null;
+    storage_path: string | null;
+    cover_url: string | null;
+    avatar_url: string | null;
+    duration: number | string | null;
+    plays: number | null;
+    likes: number | null;
+    created_at: string | null;
+    user_id?: string | null;
+    album_id?: string | null;
+};
+type VideoItem = {
+    id: string;
+    title: string;
+    creator: string;
+    artistName?: string;
+    artistId?: string;
+    producer?: string;
+    producerId?: string;
+    producerName?: string;
+    producerProfileId?: string;
+    beatId?: string;
+    category: string;
+    description?: string;
+    cover: string;
+    cover_url?: string;
+    videoUrl: string;
+    video_url: string;
+    url?: string;
+    file_url?: string;
+    public_url?: string;
+    storagePath: string;
+    storage_path?: string;
+    thumbnail_url?: string;
+    uploaded: string;
+    views: number;
+    likes?: number;
+    likedByUser?: boolean;
+    created_at?: string;
+    ownerId?: string;
+    albumId?: string;
+};
+type VideoCardOptions = {
+    showRemove?: boolean;
+    showLibraryRemove?: boolean;
+    isLibraryCard?: boolean;
+    unlikeLabel?: string;
+    sourceLabel?: string;
+};
+type VideoTableRow = {
+    id: string;
+    title: string | null;
+    description: string | null;
+    artist_name?: string | null;
+    artist_id?: string | null;
+    producer?: string | null;
+    producer_name?: string | null;
+    producer_id?: string | null;
+    producer_profile_id?: string | null;
+    beat_id?: string | null;
+    video_url: string | null;
+    file_url?: string | null;
+    cover_url?: string | null;
+    storage_path: string | null;
+    thumbnail_url: string | null;
+    views: number | null;
+    likes: number | null;
+    liked_by_user?: boolean | null;
+    created_at: string | null;
+    category?: string | null;
+    user_id?: string | null;
+    album_id?: string | null;
+};
+type RecentPlay = {
+    playId: string;
+    songId: string;
+    itemId?: string;
+    itemType?: "song" | "video" | "album";
+    playedAt: string;
+    position?: number;
+    duration?: number;
+    song?: Song;
+    video?: VideoItem;
+    album?: Album;
+};
+type Playlist = {
+    id: string;
+    name: string;
+    cover: string;
+    playlistType: PlaylistType;
+    songIds: string[];
+    videoIds: string[];
+    createdAt: string;
+    updatedAt: string;
+};
+type UploadForm = Pick<Song, "title" | "artist" | "type" | "cover"> & {
+    producerId: string;
+};
+type VideoUploadForm = {
+    title: string;
+    creator: string;
+    category: string;
+    cover: string;
+    producerId: string;
+};
+type EditSongForm = Pick<Song, "title" | "artist" | "category" | "type" | "time" | "cover">;
+type EditVideoForm = Pick<VideoUploadForm, "title" | "creator" | "category" | "cover">;
+type DashboardSort = "Newest" | "Oldest" | "Most Plays" | "Most Likes" | "Title";
+type AccountRole = "Listener" | "Artist" | "Producer";
+type BeatLicense = "Free" | "Lease" | "Exclusive" | "Split percentage";
+type ArtistProfileForm = Pick<ArtistProfile, "name" | "banner" | "avatar" | "bio" | "socialLinks" | "monthlyListeners" | "followers">;
+type ProducerProfileForm = Pick<ProducerProfile, "name" | "avatar" | "banner" | "bio" | "tagline" | "website">;
+type PlatformNotification = {
+    id: string;
+    title: string;
+    body: string;
+    itemId?: string;
+    itemType?: "song" | "video" | "album" | "artist" | "producer" | "playlist";
+    read: boolean;
+    createdAt: string;
+};
+type ContentComment = {
+    id: string;
+    itemId: string;
+    itemType: "song" | "video" | "album";
+    userId: string;
+    authorName: string;
+    body: string;
+    likes: number;
+    likedBy: string[];
+    createdAt: string;
+};
+type CommentTarget = {
+    type: "song";
+    item: Song;
+} | {
+    type: "video";
+    item: VideoItem;
+} | {
+    type: "album";
+    item: ResolvedAlbum;
+} | null;
+type ModerationItemType = "song" | "video" | "album" | "comment" | "artist" | "producer" | "beat" | "playlist";
+type ModerationStatus = "open" | "reviewing" | "takedown_pending" | "removed" | "dismissed" | "resolved";
+type ModerationReport = {
+    id: string;
+    itemId: string;
+    itemType: ModerationItemType;
+    itemTitle: string;
+    reason: string;
+    status: ModerationStatus;
+    reporterId: string;
+    reporterName: string;
+    targetUserId?: string;
+    targetUserName?: string;
+    createdAt: string;
+    updatedAt: string;
+};
+type CopyrightClaim = {
+    id: string;
+    itemId: string;
+    itemType: Extract<ModerationItemType, "song" | "video" | "album" | "beat">;
+    itemTitle: string;
+    claimantId: string;
+    claimantName: string;
+    creatorName: string;
+    evidenceNotes: string;
+    status: "open" | "reviewing" | "resolved" | "rejected";
+    createdAt: string;
+    updatedAt: string;
+};
+type BlockedUser = {
+    id: string;
+    blockerId: string;
+    blockedUserId: string;
+    blockedUserName: string;
+    reason: string;
+    createdAt: string;
+};
+type VerificationReviewRequest = {
+    id: string;
+    creatorType: "artist" | "producer";
+    creatorId: string;
+    creatorName: string;
+    requesterId: string;
+    status: "pending" | "approved" | "rejected";
+    notes: string;
+    createdAt: string;
+    updatedAt: string;
+};
+type SupportTicketStatus = "open" | "in_progress" | "waiting_on_user" | "resolved" | "closed";
+type SupportPriority = "low" | "medium" | "high" | "urgent";
+type SupportTicket = {
+    id: string;
+    userId: string;
+    userName: string;
+    category: "account" | "upload" | "billing" | "playback" | "marketplace" | "trust" | "general";
+    title: string;
+    body: string;
+    priority: SupportPriority;
+    status: SupportTicketStatus;
+    createdAt: string;
+    updatedAt: string;
+};
+type PlatformIncident = {
+    id: string;
+    title: string;
+    area: "api" | "storage" | "auth" | "player" | "marketplace" | "database";
+    severity: "minor" | "major" | "critical";
+    status: "investigating" | "identified" | "monitoring" | "resolved";
+    message: string;
+    createdAt: string;
+    updatedAt: string;
+};
+type ReleaseNote = {
+    id: string;
+    title: string;
+    body: string;
+    version: string;
+    publishedAt: string;
+};
+type UserFeedback = {
+    id: string;
+    userId: string;
+    userName: string;
+    sentiment: "positive" | "neutral" | "issue";
+    area: "dashboard" | "upload" | "player" | "marketplace" | "mobile" | "general";
+    message: string;
+    createdAt: string;
+};
+type VerificationState = {
+    artists: Record<string, boolean>;
+    producers: Record<string, boolean>;
+};
+type TrendingPeriod = "Today" | "Week" | "Month" | "All Time";
+type PlaylistType = "song" | "video" | "mixed";
+type PlaylistForm = Pick<Playlist, "name" | "cover" | "playlistType">;
+type PlaylistContentTab = "Songs" | "Videos";
+type PlaylistTarget = {
+    type: "song";
+    item: Song;
+} | {
+    type: "video";
+    item: VideoItem;
+} | {
+    type: "album";
+    item: ResolvedAlbum;
+} | null;
+type AlbumOwnerType = "artist" | "producer";
+type Album = {
+    id: string;
+    userId: string;
+    title: string;
+    creatorName: string;
+    ownerType: AlbumOwnerType;
+    artistName: string;
+    artistId: string;
+    producerName: string;
+    producerId: string;
+    producerProfileId: string;
+    cover: string;
+    category: string;
+    releaseDate: string;
+    createdAt: string;
+    updatedAt: string;
+    songIds: string[];
+    videoIds: string[];
+};
+type ResolvedAlbum = Album & {
+    songs: Song[];
+    videos: VideoItem[];
+};
+type AlbumTrackPointer = {
+    type: "song" | "video";
+    id: string;
+};
+type ActiveAlbumPlayback = {
+    albumId: string;
+    title: string;
+    cover: string;
+    tracks: AlbumTrackPointer[];
+};
+type AlbumUploadForm = {
+    title: string;
+    creatorName: string;
+    cover: string;
+    category: string;
+    releaseDate: string;
+};
+type EditAlbumForm = AlbumUploadForm;
+type AuthMode = "login" | "signup";
+type RepeatMode = "off" | "one" | "all";
+type ActiveMediaType = "song" | "video" | null;
+type ActiveMedia = {
+    type: "song";
+    item: Song;
+} | {
+    type: "video";
+    item: VideoItem;
+} | null;
+type ToastMessage = {
+    id: string;
+    message: string;
+    tone: "success" | "error" | "info";
+};
+type ArtistProfile = {
+    id: string;
+    name: string;
+    banner: string;
+    avatar: string;
+    bio: string;
+    socialLinks: string;
+    monthlyListeners: number;
+    followers: number;
+    totalPlays: number;
+};
+type ProducerProfile = {
+    id: string;
+    userId: string;
+    name: string;
+    avatar: string;
+    banner: string;
+    bio: string;
+    tagline: string;
+    website: string;
+    followers: number;
+    following: number;
+    createdAt: string;
+};
+type ProducerBeat = {
+    id: string;
+    songId: string;
+    producerId: string;
+    producerUserId: string;
+    producerName: string;
+    title: string;
+    category: string;
+    cover: string;
+    audioUrl: string;
+    storagePath: string;
+    license: BeatLicense;
+    leasePrice: number;
+    exclusivePrice: number;
+    splitPercentage: number;
+    plays: number;
+    likes: number;
+    downloads: number;
+    leases: number;
+    payouts: number;
+    createdAt: string;
+};
+type ProducerBeatTableRow = {
+    id: string;
+    song_id: string | null;
+    producer_id: string | null;
+    producer_user_id: string | null;
+    producer_name: string | null;
+    title: string | null;
+    category?: string | null;
+    cover_url: string | null;
+    audio_url: string | null;
+    storage_path: string | null;
+    license: string | null;
+    lease_price: number | null;
+    exclusive_price: number | null;
+    split_percentage: number | null;
+    plays: number | null;
+    likes: number | null;
+    downloads: number | null;
+    leases: number | null;
+    payouts: number | null;
+    created_at: string | null;
+};
+type ProducerProfileTableRow = {
+    id: string;
+    user_id: string | null;
+    name: string | null;
+    avatar_url: string | null;
+    banner_url: string | null;
+    bio: string | null;
+    tagline: string | null;
+    website?: string | null;
+    followers: number | null;
+    following: number | null;
+    created_at: string | null;
+};
+type AddSource = "Library" | "Liked" | "Queue" | "Search";
+type LikedTab = "All" | "Songs" | "Videos";
+type LibraryTab = "Songs" | "Videos" | "Albums";
+type RecentTab = "Songs" | "Videos" | "Albums";
+type DisplayMode = "grid" | "list";
+type UploadMode = "song" | "video" | "beat" | "producerVideo" | "album" | "producerAlbum";
+type MarketplaceContentFilter = "All" | "Songs" | "Videos" | "Albums" | "Beats";
+type MarketplacePriceFilter = "All Prices" | "Free" | "Paid" | "Premium";
+type MarketplaceFilters = {
+    genre: string;
+    artist: string;
+    producer: string;
+    content: MarketplaceContentFilter;
+    price: MarketplacePriceFilter;
+};
+type MarketplaceReleaseType = "song" | "video" | "album" | "beat";
+type MarketplaceRelease = {
+    id: string;
+    releaseType: MarketplaceReleaseType;
+    title: string;
+    creatorName: string;
+    producerName: string;
+    genre: string;
+    cover: string;
+    priceCents: number;
+    premium: boolean;
+    metricLabel: string;
+    dateLabel: string;
+    sortValue: number;
+    score: number;
+    item: Song | VideoItem | ResolvedAlbum | ProducerBeat;
+};
+type MarketplaceStorePlacement = {
+    id: string;
+    creatorType: "artist" | "producer";
+    creatorId: string;
+    creatorName: string;
+    cover: string;
+    headline: string;
+    detail: string;
+    score: number;
+};
+type MarketplaceDiscountCode = {
+    code: string;
+    label: string;
+    percentOff: number;
+    appliesTo: "songs" | "albums" | "beats" | "store";
+    detail: string;
+};
+type MarketplaceBundle = {
+    id: string;
+    title: string;
+    creatorName: string;
+    cover: string;
+    releases: MarketplaceRelease[];
+    priceCents: number;
+    originalPriceCents: number;
+    bundleType: "artist" | "producer";
+};
+type MarketplaceLimitedRelease = {
+    id: string;
+    release: MarketplaceRelease;
+    label: string;
+    remaining: number;
+    endsAt: string;
+};
+type MarketplacePreorder = {
+    id: string;
+    title: string;
+    creatorName: string;
+    cover: string;
+    releaseType: MarketplaceReleaseType;
+    releaseDate: string;
+    priceCents: number;
+    sourceRelease?: MarketplaceRelease;
+};
+type DiscoveryItemType = "song" | "video" | "album" | "artist" | "producer" | "playlist" | "beat";
+type DiscoverySuggestion = {
+    id: string;
+    type: DiscoveryItemType;
+    title: string;
+    subtitle: string;
+    cover: string;
+    score: number;
+};
+type DiscoveryFeedItem = DiscoverySuggestion & {
+    metric: string;
+    badge: string;
+};
+type LicenseType = "Basic" | "Premium" | "Unlimited" | "Exclusive";
+type LicenseRecord = {
+    id: string;
+    userId: string;
+    beatId: string;
+    beatTitle: string;
+    producerId: string;
+    producerName: string;
+    buyerName: string;
+    licenseType: LicenseType;
+    priceCents: number;
+    currency: string;
+    issuedAt: string;
+    terms: string[];
+    pdfFileName: string;
+    transactionId?: string;
+};
+type SalesItemType = "song" | "album" | "beat";
+type SalesCartItem = {
+    id: string;
+    userId: string;
+    itemId: string;
+    itemType: SalesItemType;
+    title: string;
+    creatorName: string;
+    cover: string;
+    downloadUrl: string;
+    priceCents: number;
+    currency: string;
+    addedAt: string;
+    licenseType?: LicenseType;
+    licenseTerms?: string[];
+    licenseId?: string;
+    licensePdfFileName?: string;
+};
+type PurchaseHistoryItem = {
+    id: string;
+    userId: string;
+    itemId: string;
+    itemType: SalesItemType;
+    title: string;
+    creatorName: string;
+    cover: string;
+    downloadUrl: string;
+    priceCents: number;
+    currency: string;
+    status: "pending" | "completed" | "refunded";
+    purchasedAt: string;
+    licenseType?: LicenseType;
+    licenseTerms?: string[];
+    licenseId?: string;
+    licensePdfFileName?: string;
+};
+type DownloadVaultItem = {
+    id: string;
+    userId: string;
+    purchaseId: string;
+    itemId: string;
+    itemType: SalesItemType;
+    title: string;
+    creatorName: string;
+    cover: string;
+    downloadUrl: string;
+    priceCents?: number;
+    currency?: string;
+    addedAt: string;
+    licenseType?: LicenseType;
+    licenseTerms?: string[];
+    licenseId?: string;
+    licensePdfFileName?: string;
+};
+type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "Platform Stability";
+type PlatformErrorRow = {
+    id: string;
+    user_id: string | null;
+    category: string;
+    action: string;
+    item_id: string | null;
+    item_type: string | null;
+    message: string;
+    details?: Record<string, unknown>;
+    status: string;
+    created_at: string;
+};
+type LaunchChecklistStatus = "pending" | "in_progress" | "passed" | "blocked";
+type LaunchChecklistItem = {
+    id?: string;
+    area: string;
+    status: LaunchChecklistStatus;
+    details: string;
+    checked_by?: string | null;
+    checked_at?: string | null;
+    updated_at?: string | null;
+};
+type LaunchStatusCheck = {
+    name: string;
+    ok: boolean;
+    message: string;
+    path?: string;
+};
+type LaunchStatusReport = {
+    ok: boolean;
+    checkedAt: string;
+    env: {
+        siteUrl: string;
+        hasSupabaseUrl: boolean;
+        hasAnonKey: boolean;
+        hasServiceRoleKey: boolean;
+        nodeEnv: string;
+        usesLocalhost?: boolean;
+    };
+    productionChecks: LaunchStatusCheck[];
+    tables: LaunchStatusCheck[];
+    storageBuckets: LaunchStatusCheck[];
+    publicRoutes: LaunchStatusCheck[];
+    checklist: {
+        ok: boolean;
+        message: string;
+        items: LaunchChecklistItem[];
+    };
+};
+type SubscriptionPlan = {
+    id: string;
+    name: string;
+    audience: "listener" | "artist" | "producer" | "creator" | "admin";
+    priceCents: number;
+    currency: string;
+    billingInterval: "month" | "year" | "one_time";
+    features: string[];
+    active: boolean;
+};
+type MonetizationTransaction = {
+    id: string;
+    userId: string;
+    itemId: string;
+    itemType: "song" | "video" | "album" | "beat" | "subscription" | "playlist" | "exclusive";
+    itemTitle: string;
+    transactionType: "purchase" | "download" | "subscription" | "license";
+    amountCents: number;
+    currency: string;
+    status: "pending" | "succeeded" | "failed" | "refunded";
+    creatorType: "artist" | "producer" | "platform";
+    creatorName: string;
+    createdAt: string;
+};
+type PayoutRequest = {
+    id: string;
+    userId: string;
+    creatorType: "artist" | "producer" | "platform";
+    creatorName: string;
+    amountCents: number;
+    currency: string;
+    status: "pending" | "processing" | "paid" | "failed" | "canceled";
+    requestedAt: string;
+    reviewedAt?: string;
+    notes?: string;
+};
+type RevenueSplitSummary = {
+    id: string;
+    itemId: string;
+    itemType: "song" | "video" | "album" | "beat";
+    title: string;
+    artistName: string;
+    producerName: string;
+    artistShare: number;
+    producerShare: number;
+    platformShare: number;
+};
+type MonthlyStatementSummary = {
+    id: string;
+    label: string;
+    streamCount: number;
+    videoViewCount: number;
+    purchaseCount: number;
+    subscriberCount: number;
+    grossCents: number;
+    artistCents: number;
+    producerCents: number;
+    platformCents: number;
+    pendingCents: number;
+    paidCents: number;
+};
+type StorefrontItemSummary = {
+    id: string;
+    title: string;
+    itemType: "song" | "video" | "album" | "beat" | "playlist" | "exclusive";
+    creatorType: "artist" | "producer" | "platform";
+    creatorName: string;
+    priceCents: number;
+    subscriberOnly: boolean;
+    exclusive: boolean;
+    cover: string;
+};
+type CreatorGrowthAction = {
+    id: string;
+    label: string;
+    detail: string;
+    priority: "High" | "Medium" | "Low";
+};
+type CreatorGrowthTrendPoint = {
+    label: string;
+    followers: number;
+    engagement: number;
+};
+type CreatorGrowthContent = {
+    id: string;
+    title: string;
+    itemType: "song" | "video" | "album" | "beat";
+    metric: string;
+    score: number;
+};
+type CreatorGrowthSummary = {
+    creatorType: "artist" | "producer";
+    creatorName: string;
+    engagementScore: number;
+    fanConversionRate: number;
+    followerGrowthRate: number;
+    totalAudience: number;
+    activeContentCount: number;
+    followerTrend: CreatorGrowthTrendPoint[];
+    topContent: CreatorGrowthContent[];
+    recommendedActions: CreatorGrowthAction[];
+};
+type InitialDataReloadActions = {
+    clearRemovedPlaceholderArtwork: () => void;
+    reloadSongLibrary: () => Promise<Song[]>;
+    reloadVideoLibrary: () => Promise<VideoItem[]>;
+    reloadUserMusicState: (availableSongs?: Song[], availableVideos?: VideoItem[]) => Promise<unknown>;
+    reloadLibrarySaves: () => Promise<unknown>;
+    reloadPlaylists: () => Promise<unknown>;
+    reloadProducerData: () => Promise<unknown>;
+    reloadAlbums: () => Promise<unknown>;
+    reloadArtistFollows: () => Promise<unknown>;
+    reloadSongLikes: () => Promise<unknown>;
+    fallbackSongs: Song[];
+    showLibraryFailureToast: () => void;
+};
+type StorageCleanupFile = {
+    bucket: string;
+    path: string;
+    fileName: string;
+    size: number;
+    updatedAt: string;
+    status: "Already linked" | "Possible duplicate";
+    reason: string;
+    deletable: boolean;
+    matchedBy: string[];
+    linkedSources: string[];
+    matchedItems: {
+        itemType: "song" | "video" | "album";
+        itemId: string;
+        title: string;
+        source: string;
+    }[];
+};
+type StorageDeletedFileLog = {
+    deletedAt: string;
+    userId: string;
+    bucket: string;
+    path: string;
+    fileName: string;
+    size: number;
+    statusBeforeDelete: StorageCleanupFile["status"];
+};
+type BrokenMediaIssue = {
+    id: string;
+    title: string;
+    itemType: "song" | "video";
+    bucket: string;
+    storagePath: string;
+    reason: string;
+};
+type AlbumItemIssue = {
+    albumId: string;
+    albumTitle: string;
+    itemId: string;
+    itemType: string;
+    reason: string;
+};
+type StorageCleanupReport = {
+    generatedAt: string;
+    counts: {
+        songs: number;
+        videos: number;
+        albums: number;
+        storageFiles: number;
+        brokenMedia: number;
+        orphanStorageFiles: number;
+        possibleDuplicates?: number;
+        alreadyLinkedStorageFiles?: number;
+        missingAlbumItems: number;
+    };
+    brokenMedia: BrokenMediaIssue[];
+    orphanStorageFiles: StorageCleanupFile[];
+    missingAlbumItems: AlbumItemIssue[];
+};
+const STORAGE_KEYS = {
+    songs: "zml_songs",
+    videos: "zml_videos",
+    library: "zml_library",
+    liked: "zml_liked",
+    followed: "zml_followed",
+    queue: "zml_queue",
+    recent: "zml_recently_played",
+    legacyHistory: "zml_history",
+    current: "zml_current",
+    playlists: "zml_playlists",
+    activePlaylist: "zml_active_playlist",
+    artists: "zml_artists",
+    followedArtists: "zml_followed_artists",
+    displayMode: "zml_display_mode",
+    notifications: "zml_notifications",
+    comments: "zml_comments",
+    verifications: "zml_verifications",
+    moderationReports: "zml_moderation_reports",
+    copyrightClaims: "zml_copyright_claims",
+    blockedUsers: "zml_blocked_users",
+    verificationRequests: "zml_verification_requests",
+    supportTickets: "zml_support_tickets",
+    platformIncidents: "zml_platform_incidents",
+    releaseNotes: "zml_release_notes",
+    userFeedback: "zml_user_feedback",
+    storageDeleteLog: "zml_storage_delete_log",
+    monetizationTransactions: "zml_monetization_transactions",
+    payoutRequests: "zml_payout_requests",
+    activeSubscriptionPlan: "zml_active_subscription_plan",
+    licenseRecords: "zml_license_records",
+    salesCart: "zml_sales_cart",
+    purchaseHistory: "zml_purchase_history",
+    downloadVault: "zml_download_vault",
+};
+const LICENSE_TYPES: LicenseType[] = ["Basic", "Premium", "Unlimited", "Exclusive"];
+const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+    {
+        id: "free-listener",
+        name: "Free Listener",
+        audience: "listener",
+        priceCents: 0,
+        currency: "USD",
+        billingInterval: "month",
+        features: ["Free listening", "Library saves", "Playlists"],
+        active: true,
+    },
+    {
+        id: "premium-listener",
+        name: "Premium Listener",
+        audience: "listener",
+        priceCents: 699,
+        currency: "USD",
+        billingInterval: "month",
+        features: ["Subscriber-only albums", "Subscriber-only videos", "Exclusive playlists", "Early releases"],
+        active: true,
+    },
+    {
+        id: "creator-free",
+        name: "Creator Free",
+        audience: "creator",
+        priceCents: 0,
+        currency: "USD",
+        billingInterval: "month",
+        features: ["Upload music and videos", "Library, likes, follows", "Basic dashboard"],
+        active: true,
+    },
+    {
+        id: "artist-pro",
+        name: "Artist Pro",
+        audience: "artist",
+        priceCents: 999,
+        currency: "USD",
+        billingInterval: "month",
+        features: ["Payout dashboard", "Revenue split tracking", "Download and purchase foundation"],
+        active: true,
+    },
+    {
+        id: "producer-pro",
+        name: "Producer Pro",
+        audience: "producer",
+        priceCents: 1499,
+        currency: "USD",
+        billingInterval: "month",
+        features: ["Beat license tracking", "Producer payouts", "Split and transaction history"],
+        active: true,
+    },
+];
+const ARTIST_REVENUE_SHARE = 70;
+const PRODUCER_REVENUE_SHARE = 20;
+const PLATFORM_REVENUE_SHARE = 10;
+const PRODUCER_BEAT_SALE_SHARE = 90;
+const STREAM_REVENUE_CENTS = 0.4;
+const VIDEO_VIEW_REVENUE_CENTS = 0.2;
+const LIBRARY_SAVE_TABLE = "library_saves";
+const BRAND_LOGO = "/music-data-base-logo.png";
+const REMOVED_PLACEHOLDER_IMAGES = [
+    "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=900&q=80",
+];
+const DEFAULT_COVER = BRAND_LOGO;
+const DEFAULT_PLAYLIST_COVER = BRAND_LOGO;
+const DEFAULT_ARTIST_BANNER = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1600&q=80";
+const BRAND_TAGLINE = "STREAM • DISCOVER • CREATE";
+const VIDEOS_STORAGE_BUCKET = "videos";
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
+const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
+function normalizeSalesItemType(value: unknown): SalesItemType {
+    return value === "album" || value === "beat" ? value : "song";
+}
+function normalizeLicenseType(value: unknown): LicenseType | undefined {
+    return LICENSE_TYPES.includes(value as LicenseType) ? (value as LicenseType) : undefined;
+}
+function normalizeLicenseTerms(value: unknown): string[] {
+    if (Array.isArray(value))
+        return value.map((term) => String(term)).filter(Boolean);
+    return [];
+}
+function normalizeSalesCartItem(value: unknown): SalesCartItem | null {
+    if (!value || typeof value !== "object")
+        return null;
+    const record = value as Record<string, unknown>;
+    const userId = String(record.userId || record.user_id || "");
+    const itemId = String(record.itemId || record.item_id || "");
+    const itemType = normalizeSalesItemType(record.itemType || record.item_type);
+    if (!userId || !itemId)
+        return null;
+    return {
+        id: String(record.id || `${userId}-${itemType}-${itemId}`),
+        userId,
+        itemId,
+        itemType,
+        title: String(record.title || "Untitled"),
+        creatorName: String(record.creatorName || record.creator_name || ""),
+        cover: String(record.cover || record.cover_url || BRAND_LOGO),
+        downloadUrl: String(record.downloadUrl || record.download_url || ""),
+        priceCents: Math.max(0, Number(record.priceCents || record.price_cents || 0)),
+        currency: String(record.currency || "USD"),
+        addedAt: String(record.addedAt || record.created_at || new Date().toISOString()),
+        licenseType: normalizeLicenseType(record.licenseType || record.license_type),
+        licenseTerms: normalizeLicenseTerms(record.licenseTerms || record.license_terms),
+        licenseId: String(record.licenseId || record.license_id || ""),
+        licensePdfFileName: String(record.licensePdfFileName || record.license_pdf_file_name || ""),
+    };
+}
+function normalizePurchaseHistoryItem(value: unknown): PurchaseHistoryItem | null {
+    if (!value || typeof value !== "object")
+        return null;
+    const record = value as Record<string, unknown>;
+    const userId = String(record.userId || record.user_id || "");
+    const itemId = String(record.itemId || record.item_id || "");
+    const itemType = normalizeSalesItemType(record.itemType || record.item_type);
+    if (!userId || !itemId)
+        return null;
+    const statusValue = String(record.status || "completed");
+    return {
+        id: String(record.id || createToastId()),
+        userId,
+        itemId,
+        itemType,
+        title: String(record.title || "Untitled"),
+        creatorName: String(record.creatorName || record.creator_name || ""),
+        cover: String(record.cover || record.cover_url || BRAND_LOGO),
+        downloadUrl: String(record.downloadUrl || record.download_url || ""),
+        priceCents: Math.max(0, Number(record.priceCents || record.price_cents || 0)),
+        currency: String(record.currency || "USD"),
+        status: statusValue === "pending" || statusValue === "refunded" ? statusValue : "completed",
+        purchasedAt: String(record.purchasedAt || record.purchased_at || record.created_at || new Date().toISOString()),
+        licenseType: normalizeLicenseType(record.licenseType || record.license_type),
+        licenseTerms: normalizeLicenseTerms(record.licenseTerms || record.license_terms),
+        licenseId: String(record.licenseId || record.license_id || ""),
+        licensePdfFileName: String(record.licensePdfFileName || record.license_pdf_file_name || ""),
+    };
+}
+function normalizeDownloadVaultItem(value: unknown): DownloadVaultItem | null {
+    if (!value || typeof value !== "object")
+        return null;
+    const record = value as Record<string, unknown>;
+    const userId = String(record.userId || record.user_id || "");
+    const itemId = String(record.itemId || record.item_id || "");
+    const itemType = normalizeSalesItemType(record.itemType || record.item_type);
+    if (!userId || !itemId)
+        return null;
+    return {
+        id: String(record.id || createToastId()),
+        userId,
+        purchaseId: String(record.purchaseId || record.purchase_id || ""),
+        itemId,
+        itemType,
+        title: String(record.title || "Untitled"),
+        creatorName: String(record.creatorName || record.creator_name || ""),
+        cover: String(record.cover || record.cover_url || BRAND_LOGO),
+        downloadUrl: String(record.downloadUrl || record.download_url || ""),
+        priceCents: Math.max(0, Number(record.priceCents || record.price_cents || 0)),
+        currency: String(record.currency || "USD"),
+        addedAt: String(record.addedAt || record.created_at || new Date().toISOString()),
+        licenseType: normalizeLicenseType(record.licenseType || record.license_type),
+        licenseTerms: normalizeLicenseTerms(record.licenseTerms || record.license_terms),
+        licenseId: String(record.licenseId || record.license_id || ""),
+        licensePdfFileName: String(record.licensePdfFileName || record.license_pdf_file_name || ""),
+    };
+}
+function normalizeRecentForSongs(savedRecent: unknown, availableSongs: Song[], availableVideos: VideoItem[] = [], availableAlbums: Album[] = []) {
+    const songMap = new Map(availableSongs.map((song) => [song.id, song]));
+    const videoMap = new Map(uniqueVideos(availableVideos).map((video) => [video.id, video]));
+    const albumMap = new Map(availableAlbums.map((album) => [album.id, album]));
+    if (!Array.isArray(savedRecent))
+        return [];
+    return savedRecent
+        .filter((entry): entry is RecentPlay => Boolean(entry && typeof entry === "object" && "playedAt" in entry))
+        .map((entry) => {
+        const itemType = entry.itemType || "song";
+        const itemId = entry.itemId || entry.songId;
+        return {
+            ...entry,
+            itemType,
+            itemId,
+            songId: itemType === "song" ? itemId : entry.songId || "",
+            playId: entry.playId || `${itemType}-${itemId}-${entry.playedAt}`,
+            song: itemType === "song" ? songMap.get(itemId) || entry.song : entry.song,
+            video: itemType === "video" ? videoMap.get(itemId) || entry.video : entry.video,
+            album: itemType === "album" ? albumMap.get(itemId) || entry.album : entry.album,
+            position: Math.max(0, Number(entry.position) || 0),
+            duration: Math.max(0, Number(entry.duration) || 0),
+        };
+    })
+        .filter((entry) => Boolean((entry.itemType === "video" && entry.video) || (entry.itemType === "album" && entry.album) || (entry.itemType === "song" && entry.song)))
+        .slice(0, 100);
+}
+function getTrendingPeriodWeight(uploaded: string | undefined, period: TrendingPeriod) {
+    if (period === "All Time")
+        return 1;
+    const label = (uploaded || "").toLowerCase();
+    if (period === "Today")
+        return label.includes("now") || label.includes("hour") || label.includes("minute") ? 1 : 0.25;
+    if (period === "Week")
+        return label.includes("now") || label.includes("hour") || label.includes("minute") || label.includes("d ago") || label.includes("day") ? 1 : 0.45;
+    return label.includes("year") ? 0.35 : 1;
+}
+function getSearchMatchScore(keyword: string, parts: string[], popularityBoost = 0) {
+    const query = keyword.trim().toLowerCase();
+    if (!query)
+        return 0;
+    let score = 0;
+    parts
+        .map((part) => part.trim().toLowerCase())
+        .filter(Boolean)
+        .forEach((part) => {
+        if (part === query)
+            score = Math.max(score, 120);
+        else if (part.startsWith(query))
+            score = Math.max(score, 90);
+        else if (part.split(/\s+/).some((word) => word.startsWith(query)))
+            score = Math.max(score, 70);
+        else if (part.includes(query))
+            score = Math.max(score, 45);
+    });
+    return score > 0 ? score + popularityBoost : 0;
+}
+function clampProducerSplitShare(value: unknown) {
+    const numericValue = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(numericValue))
+        return 0;
+    return Math.min(100 - PLATFORM_REVENUE_SHARE, Math.max(0, Math.round(numericValue)));
+}
+const STORAGE_SETUP_SQL = `-- Run this in the Supabase SQL editor for the Z Music project.
+-- Audio files upload to songs. Video files upload to videos/{auth.uid()}/{uuid}.mp4.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values
+  ('songs', 'songs', true, 104857600, null),
+  ('videos', 'videos', true, null, null)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+create extension if not exists pgcrypto;
+
+create table if not exists public.songs (
+  id uuid primary key default gen_random_uuid(),
+  title text,
+  artist text,
+  description text,
+  producer text,
+  producer_id text,
+  beat_id text,
+  category text,
+  type text,
+  audio_url text,
+  storage_path text,
+  cover_url text,
+  avatar_url text,
+  duration integer,
+  plays integer default 0,
+  likes integer default 0,
+  user_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz default now()
+);
+
+alter table public.songs add column if not exists producer text;
+alter table public.songs add column if not exists producer_id text;
+alter table public.songs add column if not exists beat_id text;
+
+alter table public.songs enable row level security;
+
+drop policy if exists "Anyone can read songs" on public.songs;
+drop policy if exists "Authenticated users can insert songs" on public.songs;
+drop policy if exists "Authenticated users can update songs" on public.songs;
+drop policy if exists "Authenticated users can delete songs" on public.songs;
+
+create policy "Anyone can read songs"
+on public.songs
+for select
+using (true);
+
+create policy "Authenticated users can insert songs"
+on public.songs
+for insert
+to authenticated
+with check (true);
+
+create policy "Authenticated users can update songs"
+on public.songs
+for update
+to authenticated
+using (true)
+with check (true);
+
+create policy "Authenticated users can delete songs"
+on public.songs
+for delete
+to authenticated
+using (true);
+
+create index if not exists songs_created_at_idx on public.songs (created_at desc);
+create index if not exists songs_user_id_idx on public.songs (user_id);
+
+create table if not exists public.videos (
+  id uuid primary key default gen_random_uuid(),
+  title text,
+  description text,
+  artist_name text,
+  artist_id text,
+  producer text,
+  producer_name text,
+  producer_id text,
+  producer_profile_id text,
+  beat_id text,
+  category text,
+  video_url text,
+  cover_url text,
+  storage_path text,
+  thumbnail_url text,
+  views integer default 0,
+  likes integer default 0,
+  user_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz default now()
+);
+
+alter table public.videos add column if not exists artist_name text;
+alter table public.videos add column if not exists artist_id text;
+alter table public.videos add column if not exists producer text;
+alter table public.videos add column if not exists producer_name text;
+alter table public.videos add column if not exists producer_id text;
+alter table public.videos add column if not exists producer_profile_id text;
+alter table public.videos add column if not exists beat_id text;
+alter table public.videos add column if not exists cover_url text;
+
+alter table public.videos enable row level security;
+
+drop policy if exists "Anyone can read videos" on public.videos;
+drop policy if exists "Authenticated users can insert videos" on public.videos;
+drop policy if exists "Authenticated users can update videos" on public.videos;
+drop policy if exists "Authenticated users can delete videos" on public.videos;
+
+create policy "Anyone can read videos"
+on public.videos
+for select
+using (true);
+
+create policy "Authenticated users can insert videos"
+on public.videos
+for insert
+to authenticated
+with check (true);
+
+create policy "Authenticated users can update videos"
+on public.videos
+for update
+to authenticated
+using (true)
+with check (true);
+
+create policy "Authenticated users can delete videos"
+on public.videos
+for delete
+to authenticated
+using (true);
+
+create index if not exists videos_created_at_idx on public.videos (created_at desc);
+create index if not exists videos_user_id_idx on public.videos (user_id);
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
+  account_type text default 'listener',
+  updated_at timestamptz default now()
+);
+
+alter table public.profiles add column if not exists user_id uuid references auth.users(id) on delete cascade;
+alter table public.profiles add column if not exists account_type text default 'listener';
+alter table public.profiles add column if not exists updated_at timestamptz default now();
+create index if not exists profiles_user_id_idx on public.profiles (user_id);
+
+create table if not exists public.playlists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  name text not null,
+  playlist_type text default 'mixed' check (playlist_type in ('song', 'video', 'mixed')),
+  cover_url text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.playlists add column if not exists playlist_type text default 'mixed';
+alter table public.playlists drop constraint if exists playlists_playlist_type_check;
+alter table public.playlists add constraint playlists_playlist_type_check check (playlist_type in ('song', 'video', 'mixed'));
+
+update public.playlists
+set playlist_type = 'video'
+where lower(name) = 'videos';
+
+delete from public.playlist_items
+using public.playlists
+where playlist_items.playlist_id = playlists.id
+  and lower(playlists.name) = 'videos'
+  and playlist_items.item_type = 'song';
+
+create index if not exists playlists_user_id_idx on public.playlists (user_id);
+
+alter table public.playlists enable row level security;
+
+drop policy if exists "Users can read own playlists" on public.playlists;
+drop policy if exists "Users can insert own playlists" on public.playlists;
+drop policy if exists "Users can update own playlists" on public.playlists;
+drop policy if exists "Users can delete own playlists" on public.playlists;
+
+create policy "Users can read own playlists"
+on public.playlists
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "Users can insert own playlists"
+on public.playlists
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "Users can update own playlists"
+on public.playlists
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+create policy "Users can delete own playlists"
+on public.playlists
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+create table if not exists public.playlist_items (
+  id uuid primary key default gen_random_uuid(),
+  playlist_id uuid references public.playlists(id) on delete cascade,
+  item_id text not null,
+  item_type text not null check (item_type in ('song', 'video')),
+  created_at timestamptz default now()
+);
+
+alter table public.playlist_items alter column item_id type text using item_id::text;
+
+create unique index if not exists playlist_items_unique_item_idx
+on public.playlist_items (playlist_id, item_id, item_type);
+
+create index if not exists playlist_items_playlist_id_idx on public.playlist_items (playlist_id);
+create index if not exists playlist_items_item_idx on public.playlist_items (item_id, item_type);
+
+alter table public.playlist_items enable row level security;
+
+drop policy if exists "Users can read own playlist items" on public.playlist_items;
+drop policy if exists "Users can insert own playlist items" on public.playlist_items;
+drop policy if exists "Users can delete own playlist items" on public.playlist_items;
+
+create policy "Users can read own playlist items"
+on public.playlist_items
+for select
+to authenticated
+using (exists (select 1 from public.playlists where playlists.id = playlist_items.playlist_id and playlists.user_id = auth.uid()));
+
+create policy "Users can insert own playlist items"
+on public.playlist_items
+for insert
+to authenticated
+with check (exists (select 1 from public.playlists where playlists.id = playlist_items.playlist_id and playlists.user_id = auth.uid()));
+
+create policy "Users can delete own playlist items"
+on public.playlist_items
+for delete
+to authenticated
+using (exists (select 1 from public.playlists where playlists.id = playlist_items.playlist_id and playlists.user_id = auth.uid()));
+
+create table if not exists public.library_saves (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  item_id uuid not null,
+  item_type text not null check (item_type in ('song', 'video')),
+  created_at timestamptz not null default now(),
+  unique (user_id, item_id, item_type)
+);
+
+alter table public.library_saves add column if not exists item_id uuid;
+alter table public.library_saves add column if not exists item_type text;
+alter table public.library_saves add column if not exists created_at timestamptz default now();
+alter table public.library_saves drop constraint if exists library_saves_item_type_check;
+alter table public.library_saves add constraint library_saves_item_type_check check (item_type in ('song', 'video'));
+
+alter table public.library_saves drop constraint if exists library_saves_user_item_type_key;
+alter table public.library_saves add constraint library_saves_user_item_type_key unique (user_id, item_id, item_type);
+
+create index if not exists library_saves_user_type_idx on public.library_saves (user_id, item_type);
+
+alter table public.library_saves enable row level security;
+
+drop policy if exists "Users can read own library saves" on public.library_saves;
+drop policy if exists "Users can insert own library saves" on public.library_saves;
+drop policy if exists "Users can delete own library saves" on public.library_saves;
+
+create policy "Users can read own library saves"
+on public.library_saves
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "Users can insert own library saves"
+on public.library_saves
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "Users can delete own library saves"
+on public.library_saves
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+create table if not exists public.song_likes (
+  id uuid primary key default gen_random_uuid(),
+  song_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique (song_id, user_id)
+);
+
+alter table public.song_likes enable row level security;
+
+drop policy if exists "Users can read their song likes" on public.song_likes;
+drop policy if exists "Users can insert their song likes" on public.song_likes;
+drop policy if exists "Users can delete their song likes" on public.song_likes;
+
+create policy "Users can read their song likes"
+on public.song_likes
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "Users can insert their song likes"
+on public.song_likes
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "Users can delete their song likes"
+on public.song_likes
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+create index if not exists song_likes_song_id_idx on public.song_likes (song_id);
+create index if not exists song_likes_user_id_idx on public.song_likes (user_id);
+
+create table if not exists public.video_likes (
+  id uuid primary key default gen_random_uuid(),
+  video_id uuid not null references public.videos(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique (video_id, user_id)
+);
+
+alter table public.video_likes enable row level security;
+
+drop policy if exists "Users can read their video likes" on public.video_likes;
+drop policy if exists "Users can insert their video likes" on public.video_likes;
+drop policy if exists "Users can delete their video likes" on public.video_likes;
+
+create policy "Users can read their video likes"
+on public.video_likes
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "Users can insert their video likes"
+on public.video_likes
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "Users can delete their video likes"
+on public.video_likes
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+create index if not exists video_likes_video_id_idx on public.video_likes (video_id);
+create index if not exists video_likes_user_id_idx on public.video_likes (user_id);
+
+create table if not exists public.artist_follows (
+  id uuid primary key default gen_random_uuid(),
+  artist_id text not null,
+  artist_name text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique (artist_id, user_id)
+);
+
+alter table public.artist_follows enable row level security;
+
+drop policy if exists "Users can read their artist follows" on public.artist_follows;
+drop policy if exists "Users can insert their artist follows" on public.artist_follows;
+drop policy if exists "Users can delete their artist follows" on public.artist_follows;
+
+create policy "Users can read their artist follows"
+on public.artist_follows
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "Users can insert their artist follows"
+on public.artist_follows
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "Users can delete their artist follows"
+on public.artist_follows
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+create index if not exists artist_follows_user_id_idx on public.artist_follows (user_id);
+create index if not exists artist_follows_artist_id_idx on public.artist_follows (artist_id);
+
+drop policy if exists "Anyone can read songs" on storage.objects;
+drop policy if exists "Public read songs" on storage.objects;
+drop policy if exists "Users can upload songs to their folder" on storage.objects;
+drop policy if exists "Authenticated users can upload songs" on storage.objects;
+drop policy if exists "Users can update their songs" on storage.objects;
+drop policy if exists "Users can delete their songs" on storage.objects;
+
+drop policy if exists "Anyone can read videos" on storage.objects;
+drop policy if exists "Public read videos" on storage.objects;
+drop policy if exists "Allow public read videos" on storage.objects;
+drop policy if exists "Allow public read videos l1ivt5k_0" on storage.objects;
+drop policy if exists "Users can read videos from their own folder" on storage.objects;
+drop policy if exists "Users can read videos from their own folder l1ivt5k_0" on storage.objects;
+drop policy if exists "Authenticated users can upload videos" on storage.objects;
+drop policy if exists "Authenticated users can upload videos t9jwe_0" on storage.objects;
+drop policy if exists "Authenticated users can upload videos l1ivt5k_0" on storage.objects;
+drop policy if exists "Allow logged in uploads to videos" on storage.objects;
+drop policy if exists "Allow logged in uploads to videos l1ivt5k_0" on storage.objects;
+drop policy if exists "TEMP allow all uploads videos" on storage.objects;
+drop policy if exists "TEMP allow all uploads videos l1ivt5k_0" on storage.objects;
+drop policy if exists "Authenticated users can manage videos" on storage.objects;
+drop policy if exists "Users can update their videos" on storage.objects;
+drop policy if exists "Users can delete their videos" on storage.objects;
+drop policy if exists "Authenticated users can insert own videos" on storage.objects;
+drop policy if exists "Authenticated users can update own videos" on storage.objects;
+drop policy if exists "Authenticated users can delete own videos" on storage.objects;
+
+create policy "Public read songs"
+on storage.objects
+for select
+using (bucket_id = 'songs');
+
+create policy "Authenticated users can upload songs"
+on storage.objects
+for insert
+to authenticated
+with check (bucket_id = 'songs');
+
+create policy "Users can update their songs"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'songs'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'songs'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Users can delete their songs"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'songs'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Public read videos"
+on storage.objects
+for select
+using (bucket_id = 'videos');
+
+create policy "Authenticated users can insert own videos"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'videos'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Authenticated users can update own videos"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'videos'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'videos'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Authenticated users can delete own videos"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'videos'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);`;
+const DEFAULT_SONGS: Song[] = [
+    {
+        id: "z-music-session",
+        title: "Z Music Session",
+        artist: "Z Artist",
+        category: "Trending",
+        type: "Artists",
+        time: "3:12",
+        plays: 8669,
+        likes: 14,
+        uploaded: "2 hours ago",
+        cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=900&q=80",
+        avatar: "https://images.unsplash.com/photo-1492447166138-50c3889fccb1?auto=format&fit=crop&w=200&q=80",
+        audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    },
+    {
+        id: "night-energy",
+        title: "Night Energy",
+        artist: "DJ Neon",
+        category: "New Releases",
+        type: "Hip Hop",
+        time: "2:44",
+        plays: 3321,
+        likes: 84,
+        uploaded: "2 hours ago",
+        cover: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80",
+        avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
+        audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+    },
+    {
+        id: "studio-waves",
+        title: "Studio Waves",
+        artist: "Wave Creator",
+        category: "Trending",
+        type: "Beats",
+        time: "4:11",
+        plays: 9123,
+        likes: 152,
+        uploaded: "2 hours ago",
+        cover: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80",
+        avatar: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=200&q=80",
+        audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+    },
+];
+const BEAT_CATEGORIES = [
+    "Beats",
+    "Hip Hop",
+    "R&B",
+    "Electronic",
+    "Reggae",
+    "Dancehall",
+    "Afrobeat",
+    "Trap",
+    "Drill",
+    "Pop",
+    "Soul",
+    "Gospel",
+    "Jazz",
+    "Rock",
+    "Latin",
+    "Soca",
+    "Kompa",
+    "Instrumental",
+    "Lo-Fi",
+    "House",
+    "Amapiano",
+    "Riddim",
+    "Freestyle",
+    "R&B Slow Jam",
+];
+const TABS = ["Trending", "New Releases", "Beats", "Artists", "Producers", "Hip Hop", "R&B", "Trap", "Dancehall", "Afrobeat"];
+const ACCEPTED_AUDIO_TYPES = new Set([
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/wave",
+    "audio/mp4",
+    "audio/m4a",
+    "audio/x-m4a",
+]);
+const ACCEPTED_AUDIO_EXTENSIONS = new Set(["mp3", "wav", "m4a"]);
+const ACCEPTED_VIDEO_EXTENSIONS = new Set(["mp4", "mov", "webm", "m4v"]);
+function uniqueSongs(list: Song[]) {
+    const seen = new Set<string>();
+    return list.filter((song) => {
+        if (!song.id || seen.has(song.id))
+            return false;
+        seen.add(song.id);
+        return true;
+    });
+}
+function uniqueVideos(list: VideoItem[]) {
+    const seen = new Set<string>();
+    return list.flatMap((video) => {
+        if (!video.id || seen.has(video.id))
+            return [];
+        seen.add(video.id);
+        const storagePath = video.storagePath || video.storage_path || "";
+        return [{ ...normalizeVideoForPlayback(video), storagePath, storage_path: storagePath }];
+    });
+}
+function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown> | null) {
+    if (!video)
+        return "";
+    const record = video as Record<string, unknown>;
+    const directUrl = ["video_url", "file_url", "url", "public_url", "videoUrl"]
+        .map((key) => record[key])
+        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+    if (directUrl)
+        return directUrl.trim();
+    const storagePath = ["storage_path", "storagePath"]
+        .map((key) => record[key])
+        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+    if (!storagePath)
+        return "";
+    const { data } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(storagePath.trim());
+    return data.publicUrl || "";
+}
+function getStringField(record: Record<string, unknown>, keys: string[]) {
+    for (const key of keys) {
+        const value = record[key];
+        if (typeof value === "string" && value.trim())
+            return value.trim();
+        if (typeof value === "number" && Number.isFinite(value))
+            return String(value);
+    }
+    return "";
+}
+function getNumberField(record: Record<string, unknown>, keys: string[], fallback = 0) {
+    for (const key of keys) {
+        const value = record[key];
+        if (typeof value === "number" && Number.isFinite(value))
+            return value;
+        if (typeof value === "string" && value.trim() && Number.isFinite(Number(value)))
+            return Number(value);
+    }
+    return fallback;
+}
+function isUuid(value: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+}
+function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
+    const record = video as Record<string, unknown>;
+    const title = getStringField(record, ["title", "name"]) || "Untitled video";
+    const artist = getStringField(record, ["artist", "artist_name", "producer_name", "creator", "description", "producer"]) ||
+        "Unknown creator";
+    const producerName = getStringField(record, ["producer_name", "producer"]);
+    const videoUrl = getStringField(record, ["video_url", "file_url", "url", "public_url", "videoUrl"]);
+    const coverUrl = getArtworkUrl(getStringField(record, ["cover_url", "cover_image_url", "thumbnail_url", "cover", "poster"]));
+    const storagePath = getStringField(record, ["storagePath", "storage_path"]);
+    const id = getStringField(record, ["id"]) || videoUrl || storagePath || createId(title);
+    return {
+        ...video,
+        id,
+        title,
+        creator: artist,
+        artistName: artist,
+        artistId: getStringField(record, ["artistId", "artist_id", "user_id", "ownerId"]),
+        producer: producerName,
+        producerName,
+        producerId: getStringField(record, ["producerId", "producer_id", "producer_profile_id"]),
+        producerProfileId: getStringField(record, ["producerProfileId", "producer_profile_id", "producer_id"]),
+        beatId: getStringField(record, ["beatId", "beat_id"]),
+        category: getStringField(record, ["category", "type"]) || "Music Video",
+        description: getStringField(record, ["description", "artist", "artist_name", "producer_name"]) || artist,
+        cover: coverUrl,
+        cover_url: coverUrl,
+        thumbnail_url: coverUrl,
+        videoUrl,
+        video_url: videoUrl,
+        url: getStringField(record, ["url"]) || videoUrl,
+        file_url: getStringField(record, ["file_url"]) || videoUrl,
+        public_url: getStringField(record, ["public_url"]) || videoUrl,
+        storagePath,
+        storage_path: storagePath,
+        uploaded: getStringField(record, ["uploaded"]) || formatVideoCreatedAt(getStringField(record, ["created_at"])),
+        views: getNumberField(record, ["views", "plays"]),
+        likes: getNumberField(record, ["likes"]),
+        likedByUser: Boolean(record.likedByUser || record.liked_by_user),
+        created_at: getStringField(record, ["created_at"]),
+        ownerId: getStringField(record, ["ownerId", "user_id"]),
+    };
+}
+function normalizeVideoForPlayback(video: VideoItem | Record<string, unknown>) {
+    return normalizeVideo(video);
+}
+function getPlaylistTypeFromRecord(record: Record<string, unknown>): PlaylistType {
+    const rawType = getStringField(record, ["playlistType", "playlist_type", "type"]).toLowerCase();
+    if (rawType === "video" || rawType === "song" || rawType === "mixed")
+        return rawType;
+    const name = getStringField(record, ["name"]).toLowerCase();
+    if (name === "videos" || name === "video" || name.includes("video playlist"))
+        return "video";
+    if (name === "songs" || name === "song" || name.includes("song playlist"))
+        return "song";
+    const songIds = Array.isArray(record.songIds) ? record.songIds : [];
+    const videoIds = Array.isArray(record.videoIds) ? record.videoIds : [];
+    if (videoIds.length > 0 && songIds.length === 0)
+        return "video";
+    if (songIds.length > 0 && videoIds.length === 0)
+        return "song";
+    return "mixed";
+}
+function normalizePlaylistMediaByType(playlist: Playlist): Playlist {
+    return playlist;
+}
+function getPlaylistSummary(playlist: Playlist) {
+    const songLabel = `${playlist.songIds.length} Song${playlist.songIds.length === 1 ? "" : "s"}`;
+    const videoLabel = `${playlist.videoIds.length} Video${playlist.videoIds.length === 1 ? "" : "s"}`;
+    return `${songLabel} • ${videoLabel}`;
+}
+function getLegacyPlaylistSummary(playlist: Playlist) {
+    return `${playlist.songIds.length} Songs • ${playlist.videoIds.length} Videos`;
+}
+function normalizeAlbumRecord(album: Partial<Album> | Record<string, unknown>): Album {
+    const record = album as Record<string, unknown>;
+    const ownerType: AlbumOwnerType = getStringField(record, ["ownerType", "owner_type"]) === "producer" ? "producer" : "artist";
+    const songIdsSource = Array.isArray(record.songIds) ? record.songIds : record.song_ids;
+    const videoIdsSource = Array.isArray(record.videoIds) ? record.videoIds : record.video_ids;
+    return {
+        id: getStringField(record, ["id"]) || createId(getStringField(record, ["title"]) || "album"),
+        userId: getStringField(record, ["userId", "user_id"]),
+        title: getStringField(record, ["title", "name"]) || "Untitled album",
+        creatorName: getStringField(record, ["creatorName", "creator_name", "artistName", "artist_name", "producerName", "producer_name"]) ||
+            "Unknown creator",
+        ownerType,
+        artistName: getStringField(record, ["artistName", "artist_name"]),
+        artistId: getStringField(record, ["artistId", "artist_id"]),
+        producerName: getStringField(record, ["producerName", "producer_name"]),
+        producerId: getStringField(record, ["producerId", "producer_id"]),
+        producerProfileId: getStringField(record, ["producerProfileId", "producer_profile_id"]),
+        cover: getArtworkUrl(getStringField(record, ["cover", "coverUrl", "cover_url", "coverImage", "cover_image", "image", "image_url", "thumbnail_url"])),
+        category: getStringField(record, ["category", "genre"]) || "Album",
+        releaseDate: getStringField(record, ["releaseDate", "release_date"]),
+        createdAt: getStringField(record, ["createdAt", "created_at"]),
+        updatedAt: getStringField(record, ["updatedAt", "updated_at", "createdAt", "created_at"]),
+        songIds: uniqueIds(songIdsSource),
+        videoIds: uniqueIds(videoIdsSource),
+    };
+}
+function getUploadTitleFromFile(file: File, fallback: string) {
+    const cleanName = file.name
+        .replace(/\.[^.]+$/, "")
+        .replace(/[-_]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    return cleanName || fallback;
+}
+function getAlbumSongCount(album: Album | ResolvedAlbum) {
+    const resolvedSongs = Array.isArray((album as Partial<ResolvedAlbum>).songs)
+        ? (album as Partial<ResolvedAlbum>).songs || []
+        : [];
+    const linkedSongIds = Array.isArray(album.songIds) ? album.songIds : [];
+    return Math.max(resolvedSongs.length, uniqueIds(linkedSongIds).length);
+}
+function getAlbumVideoCount(album: Album | ResolvedAlbum) {
+    const resolvedVideos = Array.isArray((album as Partial<ResolvedAlbum>).videos)
+        ? (album as Partial<ResolvedAlbum>).videos || []
+        : [];
+    const linkedVideoIds = Array.isArray(album.videoIds) ? album.videoIds : [];
+    return Math.max(resolvedVideos.length, uniqueIds(linkedVideoIds).length);
+}
+function getAlbumMediaSummary(album: ResolvedAlbum) {
+    const songCount = getAlbumSongCount(album);
+    const videoCount = getAlbumVideoCount(album);
+    const songLabel = `${songCount} Song${songCount === 1 ? "" : "s"}`;
+    const videoLabel = `${videoCount} Video${videoCount === 1 ? "" : "s"}`;
+    return `${songLabel} â€¢ ${videoLabel}`;
+}
+function uniqueIds(value: unknown): string[] {
+    if (!Array.isArray(value))
+        return [];
+    return [
+        ...new Set(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)),
+    ];
+}
+function isRemovedPlaceholderImage(value: string | null | undefined) {
+    if (!value)
+        return false;
+    return REMOVED_PLACEHOLDER_IMAGES.includes(value.trim());
+}
+function getArtworkUrl(value: string | null | undefined) {
+    const cleanValue = value?.trim() || "";
+    return cleanValue && !isRemovedPlaceholderImage(cleanValue) ? cleanValue : DEFAULT_COVER;
+}
+function uniqueArtists(list: ArtistProfile[]) {
+    const seen = new Set<string>();
+    return list.filter((artist) => {
+        if (!artist.id || seen.has(artist.id))
+            return false;
+        seen.add(artist.id);
+        return true;
+    });
+}
+function readJson<T>(key: string, fallback: T): T {
+    try {
+        const value = localStorage.getItem(key);
+        return value ? (JSON.parse(value) as T) : fallback;
+    }
+    catch {
+        return fallback;
+    }
+}
+function clearOversizedMediaStorageKeys() {
+    try {
+        const blockedKeys = new Set([STORAGE_KEYS.songs, STORAGE_KEYS.videos]);
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+            const key = localStorage.key(index);
+            if (!key)
+                continue;
+            const value = localStorage.getItem(key) || "";
+            const lowerValue = value.slice(0, 400).toLowerCase();
+            const looksLikeMediaPayload = value.length > 250000 ||
+                lowerValue.includes("data:video/") ||
+                lowerValue.includes("data:audio/") ||
+                lowerValue.includes("blob:") ||
+                lowerValue.includes("base64,");
+            if (blockedKeys.has(key) || looksLikeMediaPayload) {
+                localStorage.removeItem(key);
+            }
+        }
+    }
+    catch (error) {
+    }
+}
+function clearRemovedPlaceholderArtworkFromLocalStorage() {
+    try {
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+            const key = localStorage.key(index);
+            if (!key)
+                continue;
+            const value = localStorage.getItem(key);
+            if (!value || !REMOVED_PLACEHOLDER_IMAGES.some((image) => value.includes(image)))
+                continue;
+            const cleanValue = REMOVED_PLACEHOLDER_IMAGES.reduce((nextValue, image) => nextValue.split(image).join(BRAND_LOGO), value);
+            localStorage.setItem(key, cleanValue);
+        }
+    }
+    catch (error) {
+    }
+}
+function createId(value: string) {
+    const slug = value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+    return `${slug || "item"}-${Date.now()}`;
+}
+function formatVideoCreatedAt(value: string | null | undefined) {
+    if (!value)
+        return "Just now";
+    const createdAt = new Date(value);
+    if (Number.isNaN(createdAt.getTime()))
+        return "Just now";
+    const diffMs = Date.now() - createdAt.getTime();
+    const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+    if (diffMinutes < 1)
+        return "Just now";
+    if (diffMinutes < 60)
+        return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24)
+        return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7)
+        return `${diffDays}d ago`;
+    return createdAt.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+function formatAlbumCreatedDate(value: string | null | undefined) {
+    if (!value)
+        return "Date unavailable";
+    const createdAt = new Date(value);
+    if (Number.isNaN(createdAt.getTime()))
+        return "Date unavailable";
+    return createdAt.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+function formatDurationLabel(value: number | string | null | undefined) {
+    if (typeof value === "string" && value.trim())
+        return value;
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
+        return "3:00";
+    const minutes = Math.floor(value / 60);
+    const seconds = Math.floor(value % 60)
+        .toString()
+        .padStart(2, "0");
+    return `${minutes}:${seconds}`;
+}
+function mapVideoRowToVideoItem(row: VideoTableRow): VideoItem {
+    const videoUrl = row.video_url || row.file_url || "";
+    const thumbnailUrl = getArtworkUrl(row.cover_url || row.thumbnail_url);
+    const description = row.description || "";
+    const creator = row.artist_name || description || row.producer_name || row.producer || "Unknown creator";
+    const category = row.category || "Music Video";
+    return {
+        id: row.id,
+        title: row.title || "Untitled video",
+        creator,
+        artistName: row.artist_name || creator,
+        artistId: row.artist_id || row.user_id || "",
+        producer: row.producer_name || row.producer || "",
+        producerName: row.producer_name || row.producer || "",
+        producerId: row.producer_id || row.producer_profile_id || "",
+        producerProfileId: row.producer_profile_id || row.producer_id || "",
+        beatId: row.beat_id || "",
+        category,
+        description,
+        cover: thumbnailUrl,
+        cover_url: thumbnailUrl,
+        thumbnail_url: thumbnailUrl,
+        videoUrl,
+        video_url: videoUrl,
+        file_url: row.file_url || "",
+        storagePath: row.storage_path || "",
+        storage_path: row.storage_path || "",
+        uploaded: formatVideoCreatedAt(row.created_at),
+        views: row.views || 0,
+        likes: row.likes || 0,
+        likedByUser: Boolean(row.liked_by_user),
+        created_at: row.created_at || "",
+        ownerId: row.user_id || "",
+        albumId: row.album_id || "",
+    };
+}
+function mapSavedSongVideoToVideoItem(song: Song): VideoItem {
+    const videoUrl = song.video || song.audio || "";
+    return {
+        id: song.id,
+        title: song.title,
+        creator: song.artist,
+        producer: song.producer || "",
+        producerId: song.producerId || "",
+        beatId: song.beatId || "",
+        category: song.category || "Music Video",
+        description: song.artist,
+        cover: getArtworkUrl(song.cover),
+        thumbnail_url: getArtworkUrl(song.cover),
+        videoUrl,
+        video_url: videoUrl,
+        url: videoUrl,
+        public_url: videoUrl,
+        storagePath: song.audioPath || "",
+        storage_path: song.audioPath || "",
+        uploaded: song.uploaded,
+        views: song.plays || 0,
+        likes: song.likes || 0,
+        likedByUser: false,
+        created_at: "",
+        ownerId: song.ownerId || "",
+        albumId: song.albumId || "",
+    };
+}
+function isVideoSong(song: Song) {
+    return song.mediaKind === "video" || song.type.toLowerCase().includes("video");
+}
+function mapSongRowToSong(row: SongTableRow): Song {
+    const cover = getArtworkUrl(row.cover_url);
+    return {
+        id: row.id,
+        title: row.title || "Untitled song",
+        artist: row.artist || row.description || "Unknown artist",
+        producer: row.producer || "",
+        producerId: row.producer_id || "",
+        beatId: row.beat_id || "",
+        category: row.category || "New Releases",
+        type: row.type || "Beats",
+        mediaKind: "audio",
+        time: formatDurationLabel(row.duration),
+        plays: row.plays || 0,
+        likes: row.likes || 0,
+        uploaded: formatVideoCreatedAt(row.created_at),
+        cover,
+        avatar: getArtworkUrl(row.avatar_url || cover),
+        audio: row.audio_url || "",
+        audioPath: row.storage_path || "",
+        ownerId: row.user_id || "",
+        albumId: row.album_id || "",
+    };
+}
+function mapProducerProfileRow(row: ProducerProfileTableRow): ProducerProfile {
+    const name = row.name || "Producer";
+    return {
+        id: row.id || createArtistId(name),
+        userId: row.user_id || "",
+        name,
+        avatar: getArtworkUrl(row.avatar_url),
+        banner: row.banner_url || DEFAULT_ARTIST_BANNER,
+        bio: row.bio || `${name} is building a beat catalog on Music Data Base.`,
+        tagline: row.tagline || "Beat maker and producer",
+        website: row.website || "",
+        followers: row.followers || 0,
+        following: row.following || 0,
+        createdAt: row.created_at || "",
+    };
+}
+function normalizeBeatLicense(value: string | null | undefined): BeatLicense {
+    if (value === "Free" || value === "Lease" || value === "Exclusive" || value === "Split percentage") {
+        return value;
+    }
+    return "Lease";
+}
+function normalizeAccountRole(value: unknown): AccountRole {
+    if (value === "Artist" || value === "Producer" || value === "Listener") {
+        return value;
+    }
+    return "Listener";
+}
+function mapProducerBeatRow(row: ProducerBeatTableRow): ProducerBeat {
+    const title = row.title || "Untitled beat";
+    return {
+        id: row.id,
+        songId: row.song_id || "",
+        producerId: row.producer_id || "",
+        producerUserId: row.producer_user_id || "",
+        producerName: row.producer_name || "Producer",
+        title,
+        category: row.category || "Beats",
+        cover: getArtworkUrl(row.cover_url),
+        audioUrl: row.audio_url || "",
+        storagePath: row.storage_path || "",
+        license: normalizeBeatLicense(row.license),
+        leasePrice: row.lease_price || 0,
+        exclusivePrice: row.exclusive_price || 0,
+        splitPercentage: clampProducerSplitShare(row.split_percentage),
+        plays: row.plays || 0,
+        likes: row.likes || 0,
+        downloads: row.downloads || 0,
+        leases: row.leases || 0,
+        payouts: row.payouts || 0,
+        createdAt: row.created_at || "",
+    };
+}
+function getFileExtension(fileName: string) {
+    return fileName.split(".").pop()?.toLowerCase() || "";
+}
+function isPublicAudioUrl(value: string) {
+    if (value.startsWith("/api/audio?")) {
+        return true;
+    }
+    try {
+        const url = new URL(value);
+        return url.protocol === "https:" || url.protocol === "http:";
+    }
+    catch {
+        return false;
+    }
+}
+function getAudioPlaybackUrl(song: Song | null | undefined) {
+    if (!song?.audio)
+        return "";
+    if (song.audioPath) {
+        return `/api/audio?path=${encodeURIComponent(song.audioPath)}`;
+    }
+    try {
+        const url = new URL(song.audio);
+        const marker = "/storage/v1/object/public/songs/";
+        const markerIndex = url.href.indexOf(marker);
+        if (markerIndex >= 0) {
+            const storagePath = decodeURIComponent(url.href.slice(markerIndex + marker.length));
+            return `/api/audio?path=${encodeURIComponent(storagePath)}`;
+        }
+    }
+    catch {
+        return song.audio;
+    }
+    return song.audio;
+}
+function getAudioFileError(file: File | null) {
+    if (!file)
+        return "Choose an MP3, WAV, or M4A audio file.";
+    const extension = getFileExtension(file.name);
+    const hasAllowedType = file.type ? ACCEPTED_AUDIO_TYPES.has(file.type) : false;
+    const hasAllowedExtension = ACCEPTED_AUDIO_EXTENSIONS.has(extension);
+    if (!hasAllowedType && !hasAllowedExtension) {
+        return "Only MP3, WAV, and M4A audio files can be uploaded.";
+    }
+    return "";
+}
+function getVideoFileError(file: File | null) {
+    if (!file)
+        return "Choose a video file.";
+    const extension = getFileExtension(file.name);
+    const hasAllowedType = file.type ? file.type.toLowerCase().startsWith("video/") : false;
+    const hasAllowedExtension = ACCEPTED_VIDEO_EXTENSIONS.has(extension);
+    if (!hasAllowedType && !hasAllowedExtension) {
+        return "Only video files can be uploaded.";
+    }
+    if (file.size > MAX_VIDEO_SIZE) {
+        return VIDEO_UPLOAD_LIMIT_MESSAGE;
+    }
+    return "";
+}
+function getStorageErrorMessage(error: unknown, mediaKind: "audio" | "video") {
+    const details = getUploadErrorMessage(error);
+    const status = error && typeof error === "object" && "status" in error ? (error as {
+        status?: unknown;
+    }).status : null;
+    const route = error && typeof error === "object" && "route" in error ? (error as {
+        route?: unknown;
+    }).route : null;
+    const isVideoUploadError = error && typeof error === "object" && "isVideoUploadError" in error
+        ? (error as {
+            isVideoUploadError?: unknown;
+        }).isVideoUploadError === true
+        : false;
+    if (mediaKind === "video" && isVideoUploadError) {
+        return details;
+    }
+    if (mediaKind === "video" && status === 400) {
+        const routeText = typeof route === "string" ? ` Upload route: ${route}.` : "";
+        return `${details}${routeText}`;
+    }
+    if (mediaKind === "video" && details.toLowerCase().includes("maximum allowed size")) {
+        return `${details} Run the updated setup SQL so the "videos" bucket allows larger files.`;
+    }
+    return details;
+}
+function getVideoUploadErrorMessage(error: unknown) {
+    if (error && typeof error === "object" && "message" in error) {
+        const message = (error as {
+            message?: unknown;
+        }).message;
+        if (typeof message === "string" && message.trim()) {
+            return message;
+        }
+    }
+    return getStorageErrorMessage(error, "video");
+}
+function getUploadErrorMessage(error: unknown) {
+    const details = getErrorDetails(error);
+    const detailText = details ? ` Supabase said: ${details}` : "";
+    if (error &&
+        typeof error === "object" &&
+        "status" in error &&
+        (error as {
+            status?: unknown;
+        }).status === 400) {
+        return `Supabase rejected the media upload.${detailText}`;
+    }
+    return details || "The media upload failed. Please try again.";
+}
+function getErrorDetails(error: unknown) {
+    if (error instanceof Error)
+        return error.message;
+    if (typeof error === "string")
+        return error;
+    if (!error || typeof error !== "object")
+        return "";
+    const messages = ["message", "error", "name", "status", "statusCode", "code"]
+        .map((key) => {
+        const value = (error as Record<string, unknown>)[key];
+        return typeof value === "string" || typeof value === "number" ? String(value) : "";
+    })
+        .filter(Boolean);
+    return [...new Set(messages)].join(" ");
+}
+function isAbortError(error: unknown) {
+    return (error instanceof DOMException && error.name === "AbortError") || (Boolean(error) &&
+        typeof error === "object" &&
+        String((error as Record<string, unknown>).name || "") === "AbortError");
+}
+function isStorageSetupError(message: string) {
+    const normalized = message.toLowerCase();
+    return (normalized.includes("row-level security") ||
+        normalized.includes("policy") ||
+        normalized.includes("bucket not found") ||
+        normalized.includes("bucket does not exist"));
+}
+function createArtistId(name: string) {
+    return (name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "artist");
+}
+function formatCount(value: number) {
+    return new Intl.NumberFormat("en", {
+        notation: value >= 1000 ? "compact" : "standard",
+        maximumFractionDigits: value >= 10000 ? 1 : 0,
+    }).format(Math.max(0, Math.round(value)));
+}
+function getCreatorEarningAmountCents(transaction: MonetizationTransaction) {
+    if (transaction.transactionType === "download")
+        return 0;
+    if (transaction.creatorType === "platform")
+        return transaction.amountCents;
+    if (transaction.creatorType === "producer" && (transaction.itemType === "beat" || transaction.transactionType === "license")) {
+        return Math.round(transaction.amountCents * (PRODUCER_BEAT_SALE_SHARE / 100));
+    }
+    if (transaction.creatorType === "producer") {
+        return Math.round(transaction.amountCents * (PRODUCER_REVENUE_SHARE / 100));
+    }
+    return Math.round(transaction.amountCents * (ARTIST_REVENUE_SHARE / 100));
+}
+function getPlatformCommissionCents(transaction: MonetizationTransaction) {
+    if (transaction.transactionType === "download")
+        return 0;
+    if (transaction.creatorType === "platform")
+        return transaction.amountCents;
+    return Math.max(0, transaction.amountCents - getCreatorEarningAmountCents(transaction));
+}
+function buildArtistProfiles(songs: Song[], savedArtists: ArtistProfile[] = []) {
+    const savedMap = new Map(savedArtists.map((artist) => [artist.id, artist]));
+    const groupedSongs = new Map<string, Song[]>();
+    songs.forEach((song) => {
+        const id = createArtistId(song.artist);
+        groupedSongs.set(id, [...(groupedSongs.get(id) || []), song]);
+    });
+    return Array.from(groupedSongs.entries()).map(([id, artistSongs]) => {
+        const saved = savedMap.get(id);
+        const firstSong = artistSongs[0];
+        const totalPlays = artistSongs.reduce((sum, song) => sum + song.plays, 0);
+        const monthlyListeners = saved?.monthlyListeners || Math.max(1200, totalPlays * 8 + artistSongs.length * 4300);
+        const followers = saved?.followers || Math.max(240, Math.floor(monthlyListeners * 0.18));
+        return {
+            id,
+            name: firstSong.artist,
+            banner: isRemovedPlaceholderImage(saved?.banner) ? DEFAULT_ARTIST_BANNER : saved?.banner || firstSong.cover || DEFAULT_ARTIST_BANNER,
+            avatar: getArtworkUrl(saved?.avatar || firstSong.avatar || firstSong.cover),
+            bio: saved?.bio ||
+                `${firstSong.artist} is building a catalog on Z Music with ${artistSongs.length} track${artistSongs.length === 1 ? "" : "s"} across ${[...new Set(artistSongs.map((song) => song.type))].join(", ")}.`,
+            socialLinks: saved?.socialLinks || "",
+            monthlyListeners,
+            followers,
+            totalPlays,
+        };
+    });
+}
+function formatPlayedAt(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime()))
+        return "Just now";
+    return date.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
+}
+function formatFileSize(bytes: number) {
+    if (!Number.isFinite(bytes) || bytes <= 0)
+        return "0 MB";
+    const units = ["B", "KB", "MB", "GB"];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex += 1;
+    }
+    return `${size >= 10 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unitIndex]}`;
+}
+function formatCurrencyFromCents(cents: number, currency = "USD") {
+    return new Intl.NumberFormat("en", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    }).format(Math.max(0, cents) / 100);
+}
+function shuffleSongs(list: Song[]) {
+    return [...list]
+        .map((song) => ({ song, sort: Math.random() }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ song }) => song);
+}
+function pickRandomItem<T>(list: T[]) {
+    return list[Math.floor(Math.random() * list.length)] || null;
+}
+function createToastId() {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+function createRecordId() {
+    return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : createToastId();
+}
+function ArtistNameButton({ name, className = "", onOpen, }: {
+    name: string;
+    className?: string;
+    onOpen: (name: string) => void;
+}) {
+    return (<button className={`artist-link ${className}`.trim()} onClick={(event) => {
+            event.stopPropagation();
+            onOpen(name);
+        }} title={`Open ${name} profile`} type="button">
+      {name}
+    </button>);
+}
+function HorizontalRail({ children, className, label, }: {
+    children: ReactNode;
+    className: string;
+    label: string;
+}) {
+    const trackRef = useRef<HTMLElement | null>(null);
+    function scrollByCard(direction: -1 | 1) {
+        const track = trackRef.current;
+        if (!track)
+            return;
+        const firstCard = track.querySelector<HTMLElement>("article, button, .playlist-tile, .artist-playlist-card");
+        const cardWidth = firstCard?.offsetWidth || Math.max(180, Math.round(track.clientWidth * 0.8));
+        track.scrollBy({ left: direction * (cardWidth + 12), behavior: "smooth" });
+    }
+    function handleWheel(event: WheelEvent<HTMLElement>) {
+        const track = trackRef.current;
+        if (!track || track.scrollWidth <= track.clientWidth)
+            return;
+        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX))
+            return;
+        event.preventDefault();
+        track.scrollLeft += event.deltaY;
+    }
+    return (<div className="horizontal-rail" aria-label={label}>
+      <button className="rail-arrow rail-arrow-left" onClick={() => scrollByCard(-1)} type="button" aria-label={`Scroll ${label} left`}>
+        <span aria-hidden="true">{"<"}</span>
+      </button>
+      <section ref={trackRef} className={`horizontal-rail-track ${className}`} onWheel={handleWheel} tabIndex={0}>
+        {children}
+      </section>
+      <button className="rail-arrow rail-arrow-right" onClick={() => scrollByCard(1)} type="button" aria-label={`Scroll ${label} right`}>
+        <span aria-hidden="true">{">"}</span>
+      </button>
+    </div>);
+}
+export default function Page() {
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const mainVideoRef = useRef<HTMLVideoElement | null>(null);
+    const videoPreviewRef = useRef<HTMLElement | null>(null);
+    const albumUploadUserRef = useRef<SupabaseUser | null>(null);
+    const activeUploadKeysRef = useRef<Set<string>>(new Set());
+    const uploadInProgressRef = useRef(false);
+    const musicPlayRequestRef = useRef(0);
+    const recentPositionUpdateRef = useRef(0);
+    const localStorageSnapshotRef = useRef<Record<string, string>>({});
+    const initialDataLoadedKeyRef = useRef("");
+    const initialDataLoadInFlightKeyRef = useRef("");
+    const licenseLoadedUserRef = useRef("");
+    const licenseLoadInFlightUserRef = useRef("");
+    const salesLoadedUserRef = useRef("");
+    const salesLoadInFlightUserRef = useRef("");
+    const remoteMusicStateSaveSnapshotRef = useRef("");
+    const initialDataReloadRef = useRef<InitialDataReloadActions>({
+        clearRemovedPlaceholderArtwork: () => undefined,
+        reloadSongLibrary: async () => DEFAULT_SONGS,
+        reloadVideoLibrary: async () => [],
+        reloadUserMusicState: async () => undefined,
+        reloadLibrarySaves: async () => undefined,
+        reloadPlaylists: async () => undefined,
+        reloadProducerData: async () => undefined,
+        reloadAlbums: async () => undefined,
+        reloadArtistFollows: async () => undefined,
+        reloadSongLikes: async () => undefined,
+        fallbackSongs: DEFAULT_SONGS,
+        showLibraryFailureToast: () => undefined,
+    });
+    const saveLocalStorageSnapshot = useCallback((key: string, value: string) => {
+        if (localStorageSnapshotRef.current[key] === value)
+            return;
+        localStorageSnapshotRef.current[key] = value;
+        localStorage.setItem(key, value);
+    }, []);
+    const [songs, setSongs] = useState<Song[]>(DEFAULT_SONGS);
+    const [videos, setVideos] = useState<VideoItem[]>([]);
+    const [view, setView] = useState<View>("Home");
+    const [activeTab, setActiveTab] = useState("Trending");
+    const [search, setSearch] = useState("");
+    const [searchInput, setSearchInput] = useState("");
+    const [searchFocused, setSearchFocused] = useState(false);
+    const [marketplaceFilters, setMarketplaceFilters] = useState<MarketplaceFilters>({
+        genre: "All Genres",
+        artist: "All Artists",
+        producer: "All Producers",
+        content: "All",
+        price: "All Prices",
+    });
+    const [selectedBeatLicenses, setSelectedBeatLicenses] = useState<Record<string, LicenseType>>({});
+    const [activeBeatDetailId, setActiveBeatDetailId] = useState("");
+    const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
+        if (typeof window === "undefined")
+            return "grid";
+        const savedMode = window.localStorage.getItem(STORAGE_KEYS.displayMode);
+        return savedMode === "list" ? "list" : "grid";
+    });
+    const [queue, setQueue] = useState<Song[]>([]);
+    const [recentlyPlayed, setRecentlyPlayed] = useState<RecentPlay[]>([]);
+    const [recentTab, setRecentTab] = useState<RecentTab>("Songs");
+    const [libraryIds, setLibraryIds] = useState<string[]>([]);
+    const [savedVideoIds, setSavedVideoIds] = useState<string[]>([]);
+    const [savedAlbumIds, setSavedAlbumIds] = useState<string[]>([]);
+    const [likedIds, setLikedIds] = useState<string[]>([]);
+    const [libraryTab, setLibraryTab] = useState<LibraryTab>("Songs");
+    const [libraryLoadError, setLibraryLoadError] = useState("");
+    const [likedTab, setLikedTab] = useState<LikedTab>("All");
+    const [followedIds, setFollowedIds] = useState<string[]>([]);
+    const [followedArtistIds, setFollowedArtistIds] = useState<string[]>([]);
+    const [artistFollowerCounts, setArtistFollowerCounts] = useState<Record<string, number>>({});
+    const [playlists, setPlaylists] = useState<Playlist[]>([]);
+    const [albums, setAlbums] = useState<Album[]>([]);
+    const [artistProfiles, setArtistProfiles] = useState<ArtistProfile[]>(buildArtistProfiles(DEFAULT_SONGS));
+    const [activeArtistId, setActiveArtistId] = useState("");
+    const [activePlaylistId, setActivePlaylistId] = useState("");
+    const [playlistForm, setPlaylistForm] = useState<PlaylistForm>({ name: "", cover: "", playlistType: "mixed" });
+    const [playlistContentTab, setPlaylistContentTab] = useState<PlaylistContentTab>("Songs");
+    const [addSource, setAddSource] = useState<AddSource>("Library");
+    const [playlistSearch, setPlaylistSearch] = useState("");
+    const [playlistTarget, setPlaylistTarget] = useState<PlaylistTarget>(null);
+    const [currentSong, setCurrentSong] = useState<Song | null>(DEFAULT_SONGS[2]);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [volume, setVolume] = useState(0.9);
+    const [showUpload, setShowUpload] = useState(false);
+    const [uploadMode, setUploadMode] = useState<UploadMode>("song");
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [authReady, setAuthReady] = useState(false);
+    const [user, setUser] = useState<SupabaseUser | null>(null);
+    const [authMode, setAuthMode] = useState<AuthMode>("login");
+    const [authEmail, setAuthEmail] = useState("");
+    const [authPassword, setAuthPassword] = useState("");
+    const [authName, setAuthName] = useState("");
+    const [authMessage, setAuthMessage] = useState("");
+    const [authBusy, setAuthBusy] = useState(false);
+    const [accountRole, setAccountRole] = useState<AccountRole>("Listener");
+    const [uploadForm, setUploadForm] = useState<UploadForm>({
+        title: "",
+        artist: "",
+        type: "Beats",
+        cover: "",
+        producerId: "",
+    });
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadBusy, setUploadBusy] = useState(false);
+    const [uploadError, setUploadError] = useState("");
+    const [storageSetupCopied, setStorageSetupCopied] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState("");
+    const [videoForm, setVideoForm] = useState<VideoUploadForm>({
+        title: "",
+        creator: "",
+        category: "Music Video",
+        cover: "",
+        producerId: "",
+    });
+    const [videoFile, setVideoFile] = useState<File | null>(null);
+    const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+    const [videoUploadBusy, setVideoUploadBusy] = useState(false);
+    const [videoUploadError, setVideoUploadError] = useState("");
+    const [videoUploadStatus, setVideoUploadStatus] = useState("");
+    const [albumForm, setAlbumForm] = useState<AlbumUploadForm>({
+        title: "",
+        creatorName: "",
+        cover: "",
+        category: "Album",
+        releaseDate: "",
+    });
+    const [albumSongFiles, setAlbumSongFiles] = useState<File[]>([]);
+    const [albumVideoFiles, setAlbumVideoFiles] = useState<File[]>([]);
+    const [albumUploadBusy, setAlbumUploadBusy] = useState(false);
+    const [albumUploadProgress, setAlbumUploadProgress] = useState(0);
+    const [albumUploadError, setAlbumUploadError] = useState("");
+    const [albumUploadStatus, setAlbumUploadStatus] = useState("");
+    const [platformErrors, setPlatformErrors] = useState<PlatformErrorRow[]>([]);
+    const [storageReport, setStorageReport] = useState<StorageCleanupReport | null>(null);
+    const [stabilityLoading, setStabilityLoading] = useState(false);
+    const [stabilityError, setStabilityError] = useState("");
+    const [cleanupBusy, setCleanupBusy] = useState(false);
+    const [cleanupPreviewReady, setCleanupPreviewReady] = useState(false);
+    const [selectedCleanupFiles, setSelectedCleanupFiles] = useState<string[]>([]);
+    const [cleanupDeleteLog, setCleanupDeleteLog] = useState<StorageDeletedFileLog[]>([]);
+    const [backupBusy, setBackupBusy] = useState(false);
+    const [launchChecklist, setLaunchChecklist] = useState<LaunchChecklistItem[]>([]);
+    const [launchChecklistLoading, setLaunchChecklistLoading] = useState(false);
+    const [launchChecklistError, setLaunchChecklistError] = useState("");
+    const [launchChecklistSetupRequired, setLaunchChecklistSetupRequired] = useState(false);
+    const [launchChecklistUpdatingArea, setLaunchChecklistUpdatingArea] = useState("");
+    const [launchStatus, setLaunchStatus] = useState<LaunchStatusReport | null>(null);
+    const [launchStatusLoading, setLaunchStatusLoading] = useState(false);
+    const [launchStatusError, setLaunchStatusError] = useState("");
+    const [monetizationTransactions, setMonetizationTransactions] = useState<MonetizationTransaction[]>([]);
+    const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
+    const [activeSubscriptionPlanId, setActiveSubscriptionPlanId] = useState("creator-free");
+    const [licenseRecords, setLicenseRecords] = useState<LicenseRecord[]>([]);
+    const [salesCart, setSalesCart] = useState<SalesCartItem[]>([]);
+    const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
+    const [downloadVault, setDownloadVault] = useState<DownloadVaultItem[]>([]);
+    const normalizeLicenseRecord = useCallback((value: unknown): LicenseRecord | null => {
+        if (!value || typeof value !== "object")
+            return null;
+        const record = value as Record<string, unknown>;
+        const id = String(record.id || "");
+        const userId = String(record.userId || record.user_id || "");
+        const beatId = String(record.beatId || record.beat_id || "");
+        const licenseTypeValue = String(record.licenseType || record.license_type || "Basic");
+        const licenseType = LICENSE_TYPES.includes(licenseTypeValue as LicenseType) ? (licenseTypeValue as LicenseType) : "Basic";
+        if (!id || !userId || !beatId)
+            return null;
+        return {
+            id,
+            userId,
+            beatId,
+            beatTitle: String(record.beatTitle || record.beat_title || "Untitled Beat"),
+            producerId: String(record.producerId || record.producer_id || ""),
+            producerName: String(record.producerName || record.producer_name || ""),
+            buyerName: String(record.buyerName || record.buyer_name || ""),
+            licenseType,
+            priceCents: Math.max(0, Number(record.priceCents || record.price_cents || 0)),
+            currency: String(record.currency || "USD"),
+            issuedAt: String(record.issuedAt || record.issued_at || new Date().toISOString()),
+            terms: Array.isArray(record.terms) ? record.terms.map((term) => String(term)) : [],
+            pdfFileName: String(record.pdfFileName || record.pdf_file_name || "music-data-base-license.pdf"),
+            transactionId: String(record.transactionId || record.transaction_id || ""),
+        };
+    }, []);
+    const mergeLicenseRecords = useCallback((records: LicenseRecord[]) => {
+        setLicenseRecords((previous) => {
+            const byKey = new Map<string, LicenseRecord>();
+            [...records, ...previous].forEach((record) => {
+                byKey.set(`${record.userId}-${record.beatId}-${record.licenseType}`, record);
+            });
+            return [...byKey.values()]
+                .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime())
+                .slice(0, 200);
+        });
+    }, []);
+    const reloadLicenseRecordsFromApi = useCallback(async (userId: string) => {
+        try {
+            const response = await fetch(`/api/licenses?userId=${encodeURIComponent(userId)}`);
+            const result = await response.json().catch(() => ({})) as { licenses?: unknown[]; error?: string };
+            if (!response.ok) {
+                console.error("LICENSE HISTORY LOAD ERROR", result.error || response.statusText);
+                return;
+            }
+            const records = Array.isArray(result.licenses)
+                ? result.licenses.map((record) => normalizeLicenseRecord(record)).filter((record): record is LicenseRecord => Boolean(record))
+                : [];
+            if (records.length > 0)
+                mergeLicenseRecords(records);
+        }
+        catch (error) {
+            console.error("LICENSE HISTORY LOAD ERROR", error);
+        }
+    }, [mergeLicenseRecords, normalizeLicenseRecord]);
+    const saveLicenseRecordToApi = useCallback(async (record: LicenseRecord) => {
+        try {
+            const response = await fetch("/api/licenses", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(record),
+            });
+            const result = await response.json().catch(() => ({})) as { license?: unknown; error?: string };
+            if (!response.ok) {
+                console.error("LICENSE SAVE ERROR", result.error || response.statusText);
+                return;
+            }
+            const savedRecord = normalizeLicenseRecord(result.license);
+            if (savedRecord)
+                mergeLicenseRecords([savedRecord]);
+        }
+        catch (error) {
+            console.error("LICENSE SAVE ERROR", error);
+        }
+    }, [mergeLicenseRecords, normalizeLicenseRecord]);
+    const reloadSalesFromApi = useCallback(async (userId: string) => {
+        try {
+            const response = await fetch(`/api/sales?userId=${encodeURIComponent(userId)}`);
+            const result = await response.json().catch(() => ({})) as {
+                cartItems?: unknown[];
+                purchases?: unknown[];
+                vaultItems?: unknown[];
+                error?: string;
+            };
+            if (!response.ok) {
+                return;
+            }
+            const cartItems = Array.isArray(result.cartItems)
+                ? result.cartItems.map((item) => normalizeSalesCartItem(item)).filter((item): item is SalesCartItem => Boolean(item))
+                : [];
+            const purchases = Array.isArray(result.purchases)
+                ? result.purchases.map((item) => normalizePurchaseHistoryItem(item)).filter((item): item is PurchaseHistoryItem => Boolean(item))
+                : [];
+            const vaultItems = Array.isArray(result.vaultItems)
+                ? result.vaultItems.map((item) => normalizeDownloadVaultItem(item)).filter((item): item is DownloadVaultItem => Boolean(item))
+                : [];
+            if (cartItems.length > 0)
+                setSalesCart((previous) => {
+                    const byKey = new Map<string, SalesCartItem>();
+                    [...cartItems, ...previous].forEach((item) => byKey.set(`${item.userId}-${item.itemType}-${item.itemId}`, item));
+                    return [...byKey.values()];
+                });
+            if (purchases.length > 0)
+                setPurchaseHistory((previous) => {
+                    const byKey = new Map<string, PurchaseHistoryItem>();
+                    [...purchases, ...previous].forEach((item) => byKey.set(item.id, item));
+                    return [...byKey.values()].sort((a, b) => new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime()).slice(0, 200);
+                });
+            if (vaultItems.length > 0)
+                setDownloadVault((previous) => {
+                    const byKey = new Map<string, DownloadVaultItem>();
+                    [...vaultItems, ...previous].forEach((item) => byKey.set(`${item.userId}-${item.itemType}-${item.itemId}`, item));
+                    return [...byKey.values()].sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()).slice(0, 200);
+                });
+        }
+        catch (error) {
+            console.error("SALES SYNC ERROR", error);
+        }
+    }, []);
+    const postSalesAction = useCallback(async (action: string, payload: Record<string, unknown>) => {
+        try {
+            const response = await fetch("/api/sales", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action, ...payload }),
+            });
+            const result = await response.json().catch(() => ({})) as { error?: string };
+            if (!response.ok)
+                console.error("SALES ACTION ERROR", result.error || response.statusText);
+        }
+        catch (error) {
+            console.error("SALES ACTION ERROR", error);
+        }
+    }, []);
+    const [videoLibraryError, setVideoLibraryError] = useState("");
+    const [selectedVideoId, setSelectedVideoId] = useState("");
+    const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
+    const [videoAutoplayRequestId, setVideoAutoplayRequestId] = useState("");
+    const [videoPlaying, setVideoPlaying] = useState(false);
+    const [videoProgress, setVideoProgress] = useState(0);
+    const [videoDuration, setVideoDuration] = useState(0);
+    const [videoVolume, setVideoVolume] = useState(1);
+    const [videoRepeat, setVideoRepeat] = useState(false);
+    const [videoPlaybackQueue, setVideoPlaybackQueue] = useState<VideoItem[]>([]);
+    const [showQueueDrawer, setShowQueueDrawer] = useState(false);
+    const [draggedQueueItem, setDraggedQueueItem] = useState<AlbumTrackPointer | null>(null);
+    const [activeAlbumPlayback, setActiveAlbumPlayback] = useState<ActiveAlbumPlayback | null>(null);
+    const [activeMediaType, setActiveMediaType] = useState<ActiveMediaType>("song");
+    const [activeMedia, setActiveMedia] = useState<ActiveMedia>({ type: "song", item: DEFAULT_SONGS[2] });
+    const [remoteMusicStateReady, setRemoteMusicStateReady] = useState(false);
+    const [toast, setToast] = useState<ToastMessage | null>(null);
+    const [shuffleOn, setShuffleOn] = useState(false);
+    const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
+    const [editingSongId, setEditingSongId] = useState("");
+    const [editingVideoId, setEditingVideoId] = useState("");
+    const [editingAlbumId, setEditingAlbumId] = useState("");
+    const [dashboardMusicSearch, setDashboardMusicSearch] = useState("");
+    const [dashboardVideoSearch, setDashboardVideoSearch] = useState("");
+    const [dashboardMusicSort, setDashboardMusicSort] = useState<DashboardSort>("Newest");
+    const [dashboardVideoSort, setDashboardVideoSort] = useState<DashboardSort>("Newest");
+    const [editSongForm, setEditSongForm] = useState<EditSongForm>({
+        title: "",
+        artist: "",
+        category: "New Releases",
+        type: "Beats",
+        time: "3:00",
+        cover: "",
+    });
+    const [editVideoForm, setEditVideoForm] = useState<EditVideoForm>({
+        title: "",
+        creator: "",
+        category: "Music Video",
+        cover: "",
+    });
+    const [editAlbumForm, setEditAlbumForm] = useState<EditAlbumForm>({
+        title: "",
+        creatorName: "",
+        cover: "",
+        category: "Album",
+        releaseDate: "",
+    });
+    const [producerProfiles, setProducerProfiles] = useState<ProducerProfile[]>([]);
+    const [producerBeats, setProducerBeats] = useState<ProducerBeat[]>([]);
+    const [activeProducerId, setActiveProducerId] = useState("");
+    const [producerDashboardSearch, setProducerDashboardSearch] = useState("");
+    const [producerDashboardSort, setProducerDashboardSort] = useState<DashboardSort>("Newest");
+    const [producerLicense, setProducerLicense] = useState<BeatLicense>("Lease");
+    const [producerLeasePrice, setProducerLeasePrice] = useState(29);
+    const [producerExclusivePrice, setProducerExclusivePrice] = useState(299);
+    const [producerSplitPercentage, setProducerSplitPercentage] = useState(50);
+    const [producerProfileForm, setProducerProfileForm] = useState<ProducerProfileForm>({
+        name: "",
+        avatar: "",
+        banner: "",
+        bio: "",
+        tagline: "",
+        website: "",
+    });
+    const [dashboardArtistId, setDashboardArtistId] = useState("");
+    const [artistProfileForm, setArtistProfileForm] = useState<ArtistProfileForm>({
+        name: "",
+        banner: "",
+        avatar: "",
+        bio: "",
+        socialLinks: "",
+        monthlyListeners: 0,
+        followers: 0,
+    });
+    const [notifications, setNotifications] = useState<PlatformNotification[]>([]);
+    const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+    const [commentsByItem, setCommentsByItem] = useState<Record<string, ContentComment[]>>({});
+    const [commentTarget, setCommentTarget] = useState<CommentTarget>(null);
+    const [commentDraft, setCommentDraft] = useState("");
+    const [verificationState, setVerificationState] = useState<VerificationState>({ artists: {}, producers: {} });
+    const [moderationReports, setModerationReports] = useState<ModerationReport[]>([]);
+    const [copyrightClaims, setCopyrightClaims] = useState<CopyrightClaim[]>([]);
+    const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
+    const [verificationRequests, setVerificationRequests] = useState<VerificationReviewRequest[]>([]);
+    const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+    const [platformIncidents, setPlatformIncidents] = useState<PlatformIncident[]>([]);
+    const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
+    const [userFeedback, setUserFeedback] = useState<UserFeedback[]>([]);
+    const [trendingPeriod, setTrendingPeriod] = useState<TrendingPeriod>("Week");
+    function showToast(message: string, tone: ToastMessage["tone"] = "info") {
+        const id = createToastId();
+        setToast({ id, message, tone });
+        window.setTimeout(() => {
+            setToast((current) => (current?.id === id ? null : current));
+        }, 3200);
+    }
+    function pushNotification(title: string, body: string, itemType?: PlatformNotification["itemType"], itemId?: string) {
+        const notification: PlatformNotification = {
+            id: createToastId(),
+            title,
+            body,
+            itemId,
+            itemType,
+            read: false,
+            createdAt: new Date().toISOString(),
+        };
+        setNotifications((previous) => [notification, ...previous].slice(0, 50));
+    }
+    function markNotificationsRead() {
+        setNotifications((previous) => previous.map((notification) => ({ ...notification, read: true })));
+    }
+    function getCommentKey(itemType: ContentComment["itemType"], itemId: string) {
+        return `${itemType}:${itemId}`;
+    }
+    function getCommentsForItem(itemType: ContentComment["itemType"], itemId: string) {
+        return commentsByItem[getCommentKey(itemType, itemId)] || [];
+    }
+    function openComments(itemType: ContentComment["itemType"], item: Song | VideoItem | ResolvedAlbum) {
+        setCommentTarget(itemType === "song"
+            ? { type: "song", item: item as Song }
+            : itemType === "video"
+                ? { type: "video", item: item as VideoItem }
+                : { type: "album", item: item as ResolvedAlbum });
+        setCommentDraft("");
+    }
+    function postComment() {
+        if (!commentTarget)
+            return;
+        if (!user?.id) {
+            showToast("Log in before posting comments.", "error");
+            return;
+        }
+        const body = commentDraft.trim();
+        if (!body) {
+            showToast("Write a comment first.", "info");
+            return;
+        }
+        const itemId = commentTarget.item.id;
+        const key = getCommentKey(commentTarget.type, itemId);
+        const comment: ContentComment = {
+            id: createToastId(),
+            itemId,
+            itemType: commentTarget.type,
+            userId: user.id,
+            authorName: user.user_metadata?.displayName || user.email?.split("@")[0] || "Music fan",
+            body,
+            likes: 0,
+            likedBy: [],
+            createdAt: new Date().toISOString(),
+        };
+        setCommentsByItem((previous) => ({ ...previous, [key]: [comment, ...(previous[key] || [])] }));
+        setCommentDraft("");
+        showToast("Comment posted.", "success");
+    }
+    function deleteComment(comment: ContentComment) {
+        if (!user?.id || comment.userId !== user.id) {
+            showToast("You can only delete your own comments.", "error");
+            return;
+        }
+        const key = getCommentKey(comment.itemType, comment.itemId);
+        setCommentsByItem((previous) => ({ ...previous, [key]: (previous[key] || []).filter((item) => item.id !== comment.id) }));
+    }
+    function likeComment(comment: ContentComment) {
+        if (!user?.id) {
+            showToast("Log in before liking comments.", "error");
+            return;
+        }
+        const key = getCommentKey(comment.itemType, comment.itemId);
+        setCommentsByItem((previous) => ({
+            ...previous,
+            [key]: (previous[key] || []).map((item) => {
+                if (item.id !== comment.id)
+                    return item;
+                const liked = item.likedBy.includes(user.id);
+                return {
+                    ...item,
+                    likedBy: liked ? item.likedBy.filter((id) => id !== user.id) : [...item.likedBy, user.id],
+                    likes: Math.max(0, item.likes + (liked ? -1 : 1)),
+                };
+            }),
+        }));
+    }
+    function getCurrentUserDisplayName() {
+        return user?.user_metadata?.displayName || user?.email?.split("@")[0] || "Music Data Base user";
+    }
+    function createModerationReport(itemType: ModerationItemType, itemId: string, itemTitle: string, reason = "Community report", targetUserName = "", targetUserId = "") {
+        if (!user?.id) {
+            showToast("Log in before reporting content.", "error");
+            return;
+        }
+        const now = new Date().toISOString();
+        const report: ModerationReport = {
+            id: createToastId(),
+            itemId,
+            itemType,
+            itemTitle,
+            reason,
+            status: "open",
+            reporterId: user.id,
+            reporterName: getCurrentUserDisplayName(),
+            targetUserId,
+            targetUserName,
+            createdAt: now,
+            updatedAt: now,
+        };
+        setModerationReports((previous) => [report, ...previous].slice(0, 100));
+        const notificationType: PlatformNotification["itemType"] | undefined = itemType === "comment" || itemType === "beat" ? undefined : itemType;
+        pushNotification("New moderation report", `${itemTitle} was added to the moderation queue.`, notificationType, itemId);
+        showToast("Report sent to moderation.", "success");
+    }
+    function updateModerationReportStatus(reportId: string, status: ModerationStatus) {
+        setModerationReports((previous) => previous.map((report) => report.id === reportId ? { ...report, status, updatedAt: new Date().toISOString() } : report));
+        showToast(`Moderation status updated to ${status.replace("_", " ")}.`, status === "removed" || status === "takedown_pending" ? "success" : "info");
+    }
+    function createCopyrightClaim(itemType: CopyrightClaim["itemType"], itemId: string, itemTitle: string, creatorName: string) {
+        if (!user?.id) {
+            showToast("Log in before filing a claim.", "error");
+            return;
+        }
+        const now = new Date().toISOString();
+        const claim: CopyrightClaim = {
+            id: createToastId(),
+            itemId,
+            itemType,
+            itemTitle,
+            claimantId: user.id,
+            claimantName: getCurrentUserDisplayName(),
+            creatorName: creatorName || "Unknown creator",
+            evidenceNotes: "Rights review requested from the in-app trust queue.",
+            status: "open",
+            createdAt: now,
+            updatedAt: now,
+        };
+        setCopyrightClaims((previous) => [claim, ...previous].slice(0, 100));
+        const notificationType: PlatformNotification["itemType"] | undefined = itemType === "beat" ? undefined : itemType;
+        pushNotification("Copyright claim filed", `${itemTitle} needs rights review.`, notificationType, itemId);
+        showToast("Copyright claim filed.", "success");
+    }
+    function updateCopyrightClaimStatus(claimId: string, status: CopyrightClaim["status"]) {
+        setCopyrightClaims((previous) => previous.map((claim) => claim.id === claimId ? { ...claim, status, updatedAt: new Date().toISOString() } : claim));
+        showToast(`Claim marked ${status}.`, status === "resolved" ? "success" : "info");
+    }
+    function blockUserFoundation(blockedUserId: string, blockedUserName: string, reason = "Moderation block") {
+        if (!user?.id) {
+            showToast("Log in before blocking users.", "error");
+            return;
+        }
+        const normalizedBlockedId = blockedUserId || createArtistId(blockedUserName);
+        if (!normalizedBlockedId || !blockedUserName.trim()) {
+            showToast("No user selected to block.", "error");
+            return;
+        }
+        setBlockedUsers((previous) => {
+            const alreadyBlocked = previous.some((entry) => entry.blockerId === user.id && entry.blockedUserId === normalizedBlockedId);
+            if (alreadyBlocked)
+                return previous;
+            return [{
+                    id: createToastId(),
+                    blockerId: user.id,
+                    blockedUserId: normalizedBlockedId,
+                    blockedUserName,
+                    reason,
+                    createdAt: new Date().toISOString(),
+                }, ...previous].slice(0, 100);
+        });
+        showToast(`${blockedUserName} added to blocked users.`, "success");
+    }
+    function unblockUserFoundation(blockedUserId: string) {
+        setBlockedUsers((previous) => previous.filter((entry) => entry.id !== blockedUserId));
+        showToast("Blocked user removed.", "info");
+    }
+    function requestVerificationReview(creatorType: VerificationReviewRequest["creatorType"], creatorId: string, creatorName: string) {
+        if (!user?.id) {
+            showToast("Log in before requesting verification.", "error");
+            return;
+        }
+        const normalizedCreatorId = creatorId || createArtistId(creatorName);
+        if (!normalizedCreatorId || !creatorName.trim()) {
+            showToast("Save a creator profile before requesting verification.", "error");
+            return;
+        }
+        const existing = verificationRequests.some((request) => request.creatorType === creatorType && request.creatorId === normalizedCreatorId && request.status === "pending");
+        if (existing) {
+            showToast("Verification review is already pending.", "info");
+            return;
+        }
+        const now = new Date().toISOString();
+        const request: VerificationReviewRequest = {
+            id: createToastId(),
+            creatorType,
+            creatorId: normalizedCreatorId,
+            creatorName,
+            requesterId: user.id,
+            status: "pending",
+            notes: "Creator requested manual verification review.",
+            createdAt: now,
+            updatedAt: now,
+        };
+        setVerificationRequests((previous) => [request, ...previous].slice(0, 100));
+        showToast("Verification review requested.", "success");
+    }
+    function updateVerificationRequestStatus(requestId: string, status: VerificationReviewRequest["status"]) {
+        const request = verificationRequests.find((item) => item.id === requestId);
+        setVerificationRequests((previous) => previous.map((item) => item.id === requestId ? { ...item, status, updatedAt: new Date().toISOString() } : item));
+        if (request && status === "approved") {
+            setVerificationState((previous) => request.creatorType === "artist"
+                ? { ...previous, artists: { ...previous.artists, [request.creatorId]: true, [request.creatorName]: true } }
+                : { ...previous, producers: { ...previous.producers, [request.creatorId]: true, [request.creatorName]: true } });
+        }
+        showToast(`Verification request ${status}.`, status === "approved" ? "success" : "info");
+    }
+    function createSupportTicket(category: SupportTicket["category"], title: string, body: string, priority: SupportPriority = "medium") {
+        if (!user?.id) {
+            showToast("Log in before opening a support ticket.", "error");
+            return;
+        }
+        const now = new Date().toISOString();
+        const ticket: SupportTicket = {
+            id: createToastId(),
+            userId: user.id,
+            userName: getCurrentUserDisplayName(),
+            category,
+            title,
+            body,
+            priority,
+            status: "open",
+            createdAt: now,
+            updatedAt: now,
+        };
+        setSupportTickets((previous) => [ticket, ...previous].slice(0, 100));
+        pushNotification("Support ticket opened", title);
+        showToast("Support ticket opened.", "success");
+    }
+    function updateSupportTicketStatus(ticketId: string, status: SupportTicketStatus) {
+        setSupportTickets((previous) => previous.map((ticket) => ticket.id === ticketId ? { ...ticket, status, updatedAt: new Date().toISOString() } : ticket));
+        showToast(`Ticket marked ${status.replace("_", " ")}.`, status === "resolved" ? "success" : "info");
+    }
+    function createPlatformIncident(area: PlatformIncident["area"], severity: PlatformIncident["severity"], title: string, message: string) {
+        const now = new Date().toISOString();
+        const incident: PlatformIncident = {
+            id: createToastId(),
+            title,
+            area,
+            severity,
+            status: "investigating",
+            message,
+            createdAt: now,
+            updatedAt: now,
+        };
+        setPlatformIncidents((previous) => [incident, ...previous].slice(0, 50));
+        showToast("Incident added to status board.", "success");
+    }
+    function updatePlatformIncidentStatus(incidentId: string, status: PlatformIncident["status"]) {
+        setPlatformIncidents((previous) => previous.map((incident) => incident.id === incidentId ? { ...incident, status, updatedAt: new Date().toISOString() } : incident));
+        showToast(`Incident marked ${status}.`, status === "resolved" ? "success" : "info");
+    }
+    function publishReleaseNote(title: string, body: string) {
+        const now = new Date().toISOString();
+        const note: ReleaseNote = {
+            id: createToastId(),
+            title,
+            body,
+            version: `7E-${releaseNotes.length + 1}`,
+            publishedAt: now,
+        };
+        setReleaseNotes((previous) => [note, ...previous].slice(0, 50));
+        showToast("Release note published.", "success");
+    }
+    function addUserFeedback(sentiment: UserFeedback["sentiment"], area: UserFeedback["area"], message: string) {
+        if (!user?.id) {
+            showToast("Log in before sending feedback.", "error");
+            return;
+        }
+        const feedback: UserFeedback = {
+            id: createToastId(),
+            userId: user.id,
+            userName: getCurrentUserDisplayName(),
+            sentiment,
+            area,
+            message,
+            createdAt: new Date().toISOString(),
+        };
+        setUserFeedback((previous) => [feedback, ...previous].slice(0, 100));
+        showToast("Feedback sent.", "success");
+    }
+    function getShareUrl(itemType: "song" | "video" | "album", itemId: string) {
+        const url = new URL(window.location.href);
+        url.search = "";
+        url.hash = `${itemType}-${itemId}`;
+        return url.toString();
+    }
+    async function copyShareLink(itemType: "song" | "video" | "album", itemId: string, title: string) {
+        const shareUrl = getShareUrl(itemType, itemId);
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            showToast(`${title} link copied.`, "success");
+        }
+        catch (error) {
+            window.prompt("Copy this link", shareUrl);
+        }
+    }
+    const isArtistVerified = useCallback((nameOrId: string) => {
+        const id = createArtistId(nameOrId);
+        return Boolean(verificationState.artists[id] || verificationState.artists[nameOrId]);
+    }, [verificationState.artists]);
+    const isProducerVerified = useCallback((idOrName: string) => {
+        const id = createArtistId(idOrName);
+        return Boolean(verificationState.producers[id] || verificationState.producers[idOrName]);
+    }, [verificationState.producers]);
+    function renderVerifiedBadge(isVerified: boolean, label: string) {
+        if (!isVerified)
+            return null;
+        return <span className="verified-badge" title={label}>✓</span>;
+    }
+    function toggleVerification(kind: "artist" | "producer", id: string) {
+        if (!id)
+            return;
+        setVerificationState((previous) => {
+            if (kind === "artist") {
+                return {
+                    ...previous,
+                    artists: {
+                        ...previous.artists,
+                        [id]: !previous.artists[id],
+                    },
+                };
+            }
+            return {
+                ...previous,
+                producers: {
+                    ...previous.producers,
+                    [id]: !previous.producers[id],
+                },
+            };
+        });
+    }
+    function getUploadGuardKey(kind: string, title: string, files: File[]) {
+        const fileSignature = files
+            .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
+            .join("|");
+        return [kind, user?.id || "anonymous", title.trim().toLowerCase(), fileSignature].join("::");
+    }
+    function beginUploadGuard(key: string, duplicateMessage: string) {
+        if (activeUploadKeysRef.current.has(key)) {
+            showToast(duplicateMessage, "error");
+            return false;
+        }
+        activeUploadKeysRef.current.add(key);
+        uploadInProgressRef.current = true;
+        return true;
+    }
+    function endUploadGuard(key: string) {
+        activeUploadKeysRef.current.delete(key);
+        uploadInProgressRef.current = activeUploadKeysRef.current.size > 0;
+    }
+    function reportPlatformError(category: string, action: string, message: string, details: Record<string, unknown> = {}) {
+        if (!message.trim())
+            return;
+        fetch("/api/platform/errors", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "omit",
+            body: JSON.stringify({
+                userId: user?.id || "",
+                category,
+                action,
+                message,
+                details,
+            }),
+        }).catch(() => undefined);
+    }
+    function getCleanupFileKey(file: Pick<StorageCleanupFile, "bucket" | "path">) {
+        return `${file.bucket}:${file.path}`;
+    }
+    function isCleanupFileSelected(file: StorageCleanupFile) {
+        return selectedCleanupFiles.includes(getCleanupFileKey(file));
+    }
+    function toggleCleanupFile(file: StorageCleanupFile) {
+        if (!file.deletable || file.status === "Already linked") {
+            showToast("Already linked files are protected.", "info");
+            return;
+        }
+        const key = getCleanupFileKey(file);
+        setSelectedCleanupFiles((previous) => previous.includes(key) ? previous.filter((item) => item !== key) : [...previous, key]);
+    }
+    function persistCleanupDeleteLog(rows: StorageDeletedFileLog[]) {
+        if (rows.length === 0)
+            return;
+        setCleanupDeleteLog((previous) => {
+            const next = [...rows, ...previous].slice(0, 100);
+            try {
+                localStorage.setItem(STORAGE_KEYS.storageDeleteLog, JSON.stringify(next));
+            }
+            catch {
+                // Keep the in-memory log even if browser storage is unavailable.
+            }
+            return next;
+        });
+    }
+    async function loadPlatformStabilityReport() {
+        if (!user?.id) {
+            setStabilityError("Log in before loading platform stability.");
+            return false;
+        }
+        setStabilityLoading(true);
+        setStabilityError("");
+        try {
+            const [errorsResponse, storageResponse] = await Promise.all([
+                fetch(`/api/platform/errors?userId=${encodeURIComponent(user.id)}`, { cache: "no-store", credentials: "omit" }),
+                fetch("/api/platform/storage-cleanup", { cache: "no-store", credentials: "omit" }),
+            ]);
+            const errorsData = (await errorsResponse.json().catch(() => ({}))) as {
+                errors?: PlatformErrorRow[];
+                error?: string;
+            };
+            const storageData = (await storageResponse.json().catch(() => ({}))) as StorageCleanupReport & {
+                error?: string;
+            };
+            if (!errorsResponse.ok) {
+                throw new Error(errorsData.error || "Error report could not load.");
+            }
+            if (!storageResponse.ok) {
+                throw new Error(storageData.error || "Storage cleanup scan could not load.");
+            }
+            setPlatformErrors(errorsData.errors || []);
+            setStorageReport(storageData);
+            setSelectedCleanupFiles([]);
+            return true;
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setStabilityError(message);
+            reportPlatformError("storage", "load-stability-report", message);
+            return false;
+        }
+        finally {
+            setStabilityLoading(false);
+        }
+    }
+    async function previewStorageCleanup() {
+        const loaded = await loadPlatformStabilityReport();
+        if (loaded) {
+            setCleanupPreviewReady(true);
+            showToast("Cleanup preview ready. Choose files before deleting.", "info");
+        }
+    }
+    async function deleteSelectedStorageFiles() {
+        if (!user?.id) {
+            showToast("Log in before deleting selected files.", "error");
+            return;
+        }
+        if (!storageReport || selectedCleanupFiles.length === 0) {
+            showToast("Choose storage files from the preview first.", "info");
+            return;
+        }
+        const filesToDelete = storageReport.orphanStorageFiles.filter((file) => selectedCleanupFiles.includes(getCleanupFileKey(file)) && file.deletable && file.status !== "Already linked");
+        if (filesToDelete.length === 0) {
+            showToast("No selected files are eligible for deletion.", "info");
+            return;
+        }
+        if (!window.confirm("Deleting storage files is permanent.\n\nConfirm Delete Selected?")) {
+            return;
+        }
+        setCleanupBusy(true);
+        try {
+            const response = await fetch("/api/platform/storage-cleanup", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                credentials: "omit",
+                body: JSON.stringify({
+                    userId: user.id,
+                    confirm: "Confirm Delete Selected",
+                    files: filesToDelete.map((file) => ({ bucket: file.bucket, path: file.path })),
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                deleted?: StorageCleanupFile[];
+                deletedLog?: StorageDeletedFileLog[];
+                protected?: StorageCleanupFile[];
+                error?: string;
+            };
+            if (!response.ok) {
+                throw new Error(data.error || "Delete selected cleanup failed.");
+            }
+            persistCleanupDeleteLog(data.deletedLog || []);
+            showToast(`Deleted ${data.deleted?.length || 0} selected storage file${(data.deleted?.length || 0) === 1 ? "" : "s"}.`, "success");
+            await loadPlatformStabilityReport();
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            showToast(message, "error");
+            reportPlatformError("storage", "delete-selected-cleanup", message);
+        }
+        finally {
+            setCleanupBusy(false);
+        }
+    }
+    async function exportDatabaseBackup() {
+        if (!user?.id) {
+            showToast("Log in before exporting a backup.", "error");
+            return;
+        }
+        setBackupBusy(true);
+        try {
+            const response = await fetch(`/api/platform/backup?userId=${encodeURIComponent(user.id)}`, {
+                cache: "no-store",
+                credentials: "omit",
+            });
+            if (!response.ok) {
+                const data = (await response.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                throw new Error(data.error || "Database backup export failed.");
+            }
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `music-data-base-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            showToast("Database backup exported.", "success");
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            showToast(message, "error");
+            reportPlatformError("backup", "export", message);
+        }
+        finally {
+            setBackupBusy(false);
+        }
+    }
+    function normalizeLaunchChecklistItem(value: unknown): LaunchChecklistItem | null {
+        if (!value || typeof value !== "object")
+            return null;
+        const record = value as Record<string, unknown>;
+        const area = String(record.area || "").trim();
+        const rawStatus = String(record.status || "pending");
+        const status: LaunchChecklistStatus = rawStatus === "passed" || rawStatus === "blocked" || rawStatus === "in_progress" ? rawStatus : "pending";
+        if (!area)
+            return null;
+        return {
+            id: String(record.id || ""),
+            area,
+            status,
+            details: String(record.details || ""),
+            checked_by: record.checked_by ? String(record.checked_by) : null,
+            checked_at: record.checked_at ? String(record.checked_at) : null,
+            updated_at: record.updated_at ? String(record.updated_at) : null,
+        };
+    }
+    function normalizeLaunchStatusCheck(value: unknown): LaunchStatusCheck | null {
+        if (!value || typeof value !== "object")
+            return null;
+        const record = value as Record<string, unknown>;
+        const name = String(record.name || "").trim();
+        if (!name)
+            return null;
+        return {
+            name,
+            ok: Boolean(record.ok),
+            message: String(record.message || ""),
+            path: record.path ? String(record.path) : undefined,
+        };
+    }
+    function normalizeLaunchStatusReport(value: unknown): LaunchStatusReport | null {
+        if (!value || typeof value !== "object")
+            return null;
+        const record = value as Record<string, unknown>;
+        const envRecord = (record.env && typeof record.env === "object" ? record.env : {}) as Record<string, unknown>;
+        const checklistRecord = (record.checklist && typeof record.checklist === "object" ? record.checklist : {}) as Record<string, unknown>;
+        return {
+            ok: Boolean(record.ok),
+            checkedAt: String(record.checkedAt || new Date().toISOString()),
+            env: {
+                siteUrl: String(envRecord.siteUrl || ""),
+                hasSupabaseUrl: Boolean(envRecord.hasSupabaseUrl),
+                hasAnonKey: Boolean(envRecord.hasAnonKey),
+                hasServiceRoleKey: Boolean(envRecord.hasServiceRoleKey),
+                nodeEnv: String(envRecord.nodeEnv || "development"),
+                usesLocalhost: Boolean(envRecord.usesLocalhost),
+            },
+            productionChecks: Array.isArray(record.productionChecks)
+                ? record.productionChecks.map((item) => normalizeLaunchStatusCheck(item)).filter((item): item is LaunchStatusCheck => Boolean(item))
+                : [],
+            tables: Array.isArray(record.tables)
+                ? record.tables.map((item) => normalizeLaunchStatusCheck(item)).filter((item): item is LaunchStatusCheck => Boolean(item))
+                : [],
+            storageBuckets: Array.isArray(record.storageBuckets)
+                ? record.storageBuckets.map((item) => normalizeLaunchStatusCheck(item)).filter((item): item is LaunchStatusCheck => Boolean(item))
+                : [],
+            publicRoutes: Array.isArray(record.publicRoutes)
+                ? record.publicRoutes.map((item) => normalizeLaunchStatusCheck(item)).filter((item): item is LaunchStatusCheck => Boolean(item))
+                : [],
+            checklist: {
+                ok: Boolean(checklistRecord.ok),
+                message: String(checklistRecord.message || ""),
+                items: Array.isArray(checklistRecord.items)
+                    ? checklistRecord.items.map((item) => normalizeLaunchChecklistItem(item)).filter((item): item is LaunchChecklistItem => Boolean(item))
+                    : [],
+            },
+        };
+    }
+    async function loadLaunchStatus() {
+        setLaunchStatusLoading(true);
+        setLaunchStatusError("");
+        try {
+            const response = await fetch("/api/launch/status", {
+                cache: "no-store",
+                credentials: "omit",
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(typeof data?.error === "string" ? data.error : "Launch status could not load.");
+            }
+            const report = normalizeLaunchStatusReport(data);
+            if (!report) {
+                throw new Error("Launch status response was invalid.");
+            }
+            setLaunchStatus(report);
+            return true;
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setLaunchStatusError(message);
+            reportPlatformError("unknown", "load-launch-status", message);
+            return false;
+        }
+        finally {
+            setLaunchStatusLoading(false);
+        }
+    }
+    async function loadLaunchChecklist() {
+        setLaunchChecklistLoading(true);
+        setLaunchChecklistError("");
+        try {
+            const response = await fetch("/api/launch/checklist", {
+                cache: "no-store",
+                credentials: "omit",
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                checklist?: unknown[];
+                setupRequired?: boolean;
+                message?: string;
+                error?: string;
+            };
+            if (!response.ok) {
+                throw new Error(data.error || "Launch checklist could not load.");
+            }
+            const items = Array.isArray(data.checklist)
+                ? data.checklist.map((item) => normalizeLaunchChecklistItem(item)).filter((item): item is LaunchChecklistItem => Boolean(item))
+                : [];
+            setLaunchChecklist(items);
+            setLaunchChecklistSetupRequired(Boolean(data.setupRequired));
+            if (data.setupRequired) {
+                setLaunchChecklistError(data.message || "Run the Phase 6 launch-readiness SQL to save checklist updates.");
+            }
+            return true;
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setLaunchChecklistError(message);
+            reportPlatformError("unknown", "load-launch-checklist", message);
+            return false;
+        }
+        finally {
+            setLaunchChecklistLoading(false);
+        }
+    }
+    async function refreshLaunchReadiness() {
+        await Promise.all([
+            loadLaunchStatus(),
+            loadPlatformStabilityReport(),
+            loadLaunchChecklist(),
+        ]);
+    }
+    async function updateLaunchChecklistStatus(area: string, status: LaunchChecklistStatus) {
+        if (!user?.id) {
+            showToast("Log in as admin before updating launch checklist.", "error");
+            return;
+        }
+        setLaunchChecklistUpdatingArea(area);
+        setLaunchChecklistError("");
+        try {
+            const response = await fetch("/api/launch/checklist", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "omit",
+                body: JSON.stringify({
+                    userId: user.id,
+                    area,
+                    status,
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                item?: unknown;
+                error?: string;
+            };
+            if (!response.ok) {
+                throw new Error(data.error || "Launch checklist update failed.");
+            }
+            const updatedItem = normalizeLaunchChecklistItem(data.item);
+            if (updatedItem) {
+                setLaunchChecklist((previous) => previous.map((item) => item.area === updatedItem.area ? updatedItem : item));
+            }
+            showToast(`Launch checklist marked ${status.replace("_", " ")}.`, "success");
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setLaunchChecklistError(message);
+            showToast(message, "error");
+            reportPlatformError("unknown", "update-launch-checklist", message, { area, status });
+        }
+        finally {
+            setLaunchChecklistUpdatingArea("");
+        }
+    }
+    function retryCurrentUpload() {
+        const retryEvent = { preventDefault() { } } as FormEvent<HTMLFormElement>;
+        if (uploadMode === "album" || uploadMode === "producerAlbum") {
+            void addUploadedAlbum(retryEvent);
+            return;
+        }
+        if (uploadMode === "video" || uploadMode === "producerVideo") {
+            void addUploadedVideo(retryEvent);
+            return;
+        }
+        if (uploadMode === "beat") {
+            void addUploadedProducerBeat(retryEvent);
+            return;
+        }
+        void addUploadedSong(retryEvent);
+    }
+    function retryVideoUpload() {
+        const retryEvent = { preventDefault() { } } as FormEvent<HTMLFormElement>;
+        void addUploadedVideo(retryEvent);
+    }
+    function clearSupabaseAuthStorage() {
+        try {
+            for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+                const key = localStorage.key(index);
+                if (!key)
+                    continue;
+                const normalizedKey = key.toLowerCase();
+                if (normalizedKey.includes("supabase") || normalizedKey.startsWith("sb-")) {
+                    localStorage.removeItem(key);
+                }
+            }
+            for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+                const key = sessionStorage.key(index);
+                if (!key)
+                    continue;
+                const normalizedKey = key.toLowerCase();
+                if (normalizedKey.includes("supabase") || normalizedKey.startsWith("sb-")) {
+                    sessionStorage.removeItem(key);
+                }
+            }
+        }
+        catch (error) {
+        }
+    }
+    function clearAllBrowserSessionStorage() {
+        try {
+            localStorage.clear();
+            sessionStorage.clear();
+        }
+        catch (error) {
+            clearSupabaseAuthStorage();
+        }
+    }
+    function clearLocalSessionState() {
+        audioRef.current?.pause();
+        mainVideoRef.current?.pause();
+        setUser(null);
+        setAuthMode("login");
+        setAuthEmail("");
+        setAuthPassword("");
+        setAuthName("");
+        setAuthMessage("");
+        setAuthBusy(false);
+        setView("Home");
+        setShowUpload(false);
+        setSearch("");
+        setSearchInput("");
+        setActiveMediaType(null);
+        setActiveMedia(null);
+        setIsPlaying(false);
+        setVideoPlaying(false);
+        setProgress(0);
+        setVideoProgress(0);
+        setActiveVideo(null);
+        setSavedAlbumIds([]);
+        setAlbums([]);
+        setNotifications([]);
+        setCommentsByItem({});
+        setCommentTarget(null);
+        setCommentDraft("");
+        setVerificationState({ artists: {}, producers: {} });
+        setShowQueueDrawer(false);
+        setDraggedQueueItem(null);
+        setActiveAlbumPlayback(null);
+        setCleanupPreviewReady(false);
+        setSelectedCleanupFiles([]);
+        setCleanupDeleteLog([]);
+        setMonetizationTransactions([]);
+        setPayoutRequests([]);
+        setActiveSubscriptionPlanId("creator-free");
+    }
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            clearOversizedMediaStorageKeys();
+            clearRemovedPlaceholderArtworkFromLocalStorage();
+            const loadedSongs = DEFAULT_SONGS;
+            const loadedVideos: VideoItem[] = [];
+            const songMap = new Map(loadedSongs.map((song) => [song.id, song]));
+            const savedArtists = readJson<ArtistProfile[] | null>(STORAGE_KEYS.artists, null);
+            const cleanArtists = buildArtistProfiles(loadedSongs, Array.isArray(savedArtists) ? savedArtists : []);
+            const savedQueueIds = readJson<unknown>(STORAGE_KEYS.queue, []);
+            const cleanQueue = uniqueIds(savedQueueIds)
+                .map((id) => songMap.get(id))
+                .filter((song): song is Song => Boolean(song));
+            const savedRecent = readJson<RecentPlay[] | null>(STORAGE_KEYS.recent, null);
+            const legacyHistoryIds = readJson<unknown>(STORAGE_KEYS.legacyHistory, []);
+            const cleanRecent = Array.isArray(savedRecent) && savedRecent.length > 0
+                ? normalizeRecentForSongs(savedRecent, loadedSongs, loadedVideos, [])
+                : uniqueIds(legacyHistoryIds)
+                    .map((id) => songMap.get(id))
+                    .filter((song): song is Song => Boolean(song))
+                    .map((song, index) => ({
+                    playId: `${song.id}-legacy-${index}`,
+                    songId: song.id,
+                    itemId: song.id,
+                    itemType: "song" as const,
+                    playedAt: new Date(Date.now() - index * 60000).toISOString(),
+                    position: 0,
+                    song,
+                }));
+            const savedPlaylists = readJson<Playlist[] | null>(STORAGE_KEYS.playlists, null);
+            const savedNotifications = readJson<PlatformNotification[] | null>(STORAGE_KEYS.notifications, null);
+            const savedComments = readJson<Record<string, ContentComment[]> | null>(STORAGE_KEYS.comments, null);
+            const savedVerifications = readJson<VerificationState | null>(STORAGE_KEYS.verifications, null);
+            const savedModerationReports = readJson<ModerationReport[] | null>(STORAGE_KEYS.moderationReports, null);
+            const savedCopyrightClaims = readJson<CopyrightClaim[] | null>(STORAGE_KEYS.copyrightClaims, null);
+            const savedBlockedUsers = readJson<BlockedUser[] | null>(STORAGE_KEYS.blockedUsers, null);
+            const savedVerificationRequests = readJson<VerificationReviewRequest[] | null>(STORAGE_KEYS.verificationRequests, null);
+            const savedSupportTickets = readJson<SupportTicket[] | null>(STORAGE_KEYS.supportTickets, null);
+            const savedPlatformIncidents = readJson<PlatformIncident[] | null>(STORAGE_KEYS.platformIncidents, null);
+            const savedReleaseNotes = readJson<ReleaseNote[] | null>(STORAGE_KEYS.releaseNotes, null);
+            const savedUserFeedback = readJson<UserFeedback[] | null>(STORAGE_KEYS.userFeedback, null);
+            const savedCleanupLog = readJson<StorageDeletedFileLog[] | null>(STORAGE_KEYS.storageDeleteLog, null);
+            const savedMonetizationTransactions = readJson<MonetizationTransaction[] | null>(STORAGE_KEYS.monetizationTransactions, null);
+            const savedPayoutRequests = readJson<PayoutRequest[] | null>(STORAGE_KEYS.payoutRequests, null);
+            const savedSubscriptionPlan = localStorage.getItem(STORAGE_KEYS.activeSubscriptionPlan) || "creator-free";
+            const savedLicenseRecords = readJson<LicenseRecord[] | null>(STORAGE_KEYS.licenseRecords, null);
+            const savedSalesCart = readJson<SalesCartItem[] | null>(STORAGE_KEYS.salesCart, null);
+            const savedPurchaseHistory = readJson<PurchaseHistoryItem[] | null>(STORAGE_KEYS.purchaseHistory, null);
+            const savedDownloadVault = readJson<DownloadVaultItem[] | null>(STORAGE_KEYS.downloadVault, null);
+            const rawLibraryIds = uniqueIds(readJson<unknown>(STORAGE_KEYS.library, []));
+            const cleanPlaylists = Array.isArray(savedPlaylists) && savedPlaylists.length > 0
+                ? savedPlaylists
+                    .filter((playlist) => playlist?.id && playlist?.name)
+                    .map((playlist) => normalizePlaylistMediaByType({
+                    id: playlist.id,
+                    name: playlist.name,
+                    cover: playlist.cover || DEFAULT_PLAYLIST_COVER,
+                    playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
+                    songIds: uniqueIds(playlist.songIds).filter((id) => songMap.has(id)),
+                    videoIds: uniqueIds(playlist.videoIds),
+                    createdAt: playlist.createdAt || new Date().toISOString(),
+                    updatedAt: playlist.updatedAt || new Date().toISOString(),
+                }))
+                : [];
+            const savedCurrentId = localStorage.getItem(STORAGE_KEYS.current);
+            const savedActivePlaylistId = localStorage.getItem(STORAGE_KEYS.activePlaylist) || "";
+            const cleanCurrent = songMap.get(savedCurrentId || "") || loadedSongs[2] || loadedSongs[0] || DEFAULT_SONGS[0];
+            setSongs(loadedSongs);
+            setVideos(loadedVideos);
+            setLibraryIds(rawLibraryIds.filter((id) => songMap.has(id)));
+            setSavedVideoIds(rawLibraryIds.filter((id) => !songMap.has(id)));
+            setSavedAlbumIds([]);
+            setLikedIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.liked, [])).filter((id) => songMap.has(id)));
+            setFollowedIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.followed, [])).filter((id) => songMap.has(id)));
+            setFollowedArtistIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.followedArtists, [])).filter((id) => cleanArtists.some((artist) => artist.id === id)));
+            setQueue(cleanQueue);
+            setRecentlyPlayed(cleanRecent);
+            setPlaylists(cleanPlaylists);
+            setArtistProfiles(cleanArtists);
+            setNotifications(Array.isArray(savedNotifications) ? savedNotifications.slice(0, 50) : []);
+            setCommentsByItem(savedComments && typeof savedComments === "object" ? savedComments : {});
+            setVerificationState(savedVerifications && typeof savedVerifications === "object"
+                ? {
+                    artists: savedVerifications.artists || {},
+                    producers: savedVerifications.producers || {},
+                }
+                : { artists: {}, producers: {} });
+            setModerationReports(Array.isArray(savedModerationReports) ? savedModerationReports.slice(0, 100) : []);
+            setCopyrightClaims(Array.isArray(savedCopyrightClaims) ? savedCopyrightClaims.slice(0, 100) : []);
+            setBlockedUsers(Array.isArray(savedBlockedUsers) ? savedBlockedUsers.slice(0, 100) : []);
+            setVerificationRequests(Array.isArray(savedVerificationRequests) ? savedVerificationRequests.slice(0, 100) : []);
+            setSupportTickets(Array.isArray(savedSupportTickets) ? savedSupportTickets.slice(0, 100) : []);
+            setPlatformIncidents(Array.isArray(savedPlatformIncidents) ? savedPlatformIncidents.slice(0, 50) : []);
+            setReleaseNotes(Array.isArray(savedReleaseNotes) ? savedReleaseNotes.slice(0, 50) : []);
+            setUserFeedback(Array.isArray(savedUserFeedback) ? savedUserFeedback.slice(0, 100) : []);
+            setCleanupDeleteLog(Array.isArray(savedCleanupLog) ? savedCleanupLog.slice(0, 100) : []);
+            setMonetizationTransactions(Array.isArray(savedMonetizationTransactions) ? savedMonetizationTransactions.slice(0, 150) : []);
+            setPayoutRequests(Array.isArray(savedPayoutRequests) ? savedPayoutRequests.slice(0, 100) : []);
+            setActiveSubscriptionPlanId(SUBSCRIPTION_PLANS.some((plan) => plan.id === savedSubscriptionPlan) ? savedSubscriptionPlan : "creator-free");
+            setLicenseRecords(Array.isArray(savedLicenseRecords) ? savedLicenseRecords.filter((record) => record?.id && record?.beatId).slice(0, 200) : []);
+            setSalesCart(Array.isArray(savedSalesCart) ? savedSalesCart.map((item) => normalizeSalesCartItem(item)).filter((item): item is SalesCartItem => Boolean(item)) : []);
+            setPurchaseHistory(Array.isArray(savedPurchaseHistory) ? savedPurchaseHistory.map((item) => normalizePurchaseHistoryItem(item)).filter((item): item is PurchaseHistoryItem => Boolean(item)).slice(0, 200) : []);
+            setDownloadVault(Array.isArray(savedDownloadVault) ? savedDownloadVault.map((item) => normalizeDownloadVaultItem(item)).filter((item): item is DownloadVaultItem => Boolean(item)).slice(0, 200) : []);
+            setActivePlaylistId(cleanPlaylists.some((playlist) => playlist.id === savedActivePlaylistId) ? savedActivePlaylistId : "");
+            setCurrentSong(cleanCurrent);
+            setSelectedVideoId(loadedVideos[0]?.id || "");
+            setHasLoaded(true);
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, []);
+    const accountUserId = user?.id || "";
+    useEffect(() => {
+        if (!authReady)
+            return;
+        if (!accountUserId) {
+            licenseLoadedUserRef.current = "";
+            licenseLoadInFlightUserRef.current = "";
+            return;
+        }
+        if (licenseLoadedUserRef.current === accountUserId || licenseLoadInFlightUserRef.current === accountUserId)
+            return;
+        licenseLoadInFlightUserRef.current = accountUserId;
+        const timer = window.setTimeout(() => {
+            reloadLicenseRecordsFromApi(accountUserId)
+                .catch((error) => console.error("LICENSE HISTORY LOAD ERROR", error))
+                .finally(() => {
+                licenseLoadedUserRef.current = accountUserId;
+                if (licenseLoadInFlightUserRef.current === accountUserId)
+                    licenseLoadInFlightUserRef.current = "";
+            });
+        }, 0);
+        return () => {
+            window.clearTimeout(timer);
+            if (licenseLoadInFlightUserRef.current === accountUserId && licenseLoadedUserRef.current !== accountUserId)
+                licenseLoadInFlightUserRef.current = "";
+        };
+    }, [accountUserId, authReady, reloadLicenseRecordsFromApi]);
+    useEffect(() => {
+        if (!authReady)
+            return;
+        if (!accountUserId) {
+            salesLoadedUserRef.current = "";
+            salesLoadInFlightUserRef.current = "";
+            return;
+        }
+        if (salesLoadedUserRef.current === accountUserId || salesLoadInFlightUserRef.current === accountUserId)
+            return;
+        salesLoadInFlightUserRef.current = accountUserId;
+        const timer = window.setTimeout(() => {
+            reloadSalesFromApi(accountUserId)
+                .catch((error) => console.error("SALES SYNC ERROR", error))
+                .finally(() => {
+                salesLoadedUserRef.current = accountUserId;
+                if (salesLoadInFlightUserRef.current === accountUserId)
+                    salesLoadInFlightUserRef.current = "";
+            });
+        }, 0);
+        return () => {
+            window.clearTimeout(timer);
+            if (salesLoadInFlightUserRef.current === accountUserId && salesLoadedUserRef.current !== accountUserId)
+                salesLoadInFlightUserRef.current = "";
+        };
+    }, [accountUserId, authReady, reloadSalesFromApi]);
+    const mergedArtistProfiles = useMemo(() => {
+        const profiles = buildArtistProfiles(songs, artistProfiles);
+        videos.forEach((video) => {
+            const id = createArtistId(video.creator);
+            if (profiles.some((artist) => artist.id === id))
+                return;
+            profiles.push({
+                id,
+                name: video.creator,
+                banner: video.cover || DEFAULT_ARTIST_BANNER,
+                avatar: getArtworkUrl(video.cover),
+                bio: `${video.creator} is sharing music videos on Music Data Base.`,
+                socialLinks: "",
+                monthlyListeners: 0,
+                followers: 0,
+                totalPlays: video.views || 0,
+            });
+        });
+        return uniqueArtists(profiles).map((artist) => ({
+            ...artist,
+            followers: artistFollowerCounts[artist.id] ?? artist.followers,
+        }));
+    }, [artistFollowerCounts, artistProfiles, songs, videos]);
+    const currentProducerProfile = useMemo(() => {
+        const byUser = accountUserId ? producerProfiles.find((profile) => profile.userId === accountUserId) : null;
+        if (byUser)
+            return byUser;
+        const fallbackName = user?.user_metadata?.displayName || user?.email?.split("@")[0] || "Producer";
+        return {
+            id: "",
+            userId: accountUserId,
+            name: fallbackName,
+            avatar: DEFAULT_COVER,
+            banner: DEFAULT_ARTIST_BANNER,
+            bio: `${fallbackName} is building a producer catalog on Music Data Base.`,
+            tagline: "Beat maker and producer",
+            website: "",
+            followers: 0,
+            following: followedArtistIds.length,
+            createdAt: "",
+        };
+    }, [accountUserId, followedArtistIds.length, producerProfiles, user]);
+    const activeProducerProfile = useMemo(() => producerProfiles.find((profile) => profile.id === activeProducerId) ||
+        producerProfiles.find((profile) => profile.userId === accountUserId) ||
+        null, [accountUserId, activeProducerId, producerProfiles]);
+    const producerDashboardBeats = useMemo(() => producerBeats.filter((beat) => (accountUserId && beat.producerUserId === accountUserId) ||
+        (currentProducerProfile.id && beat.producerId === currentProducerProfile.id)), [accountUserId, currentProducerProfile.id, producerBeats]);
+    const sortedProducerDashboardBeats = sortDashboardSongs(producerDashboardBeats.map((beat) => ({
+        id: beat.id,
+        title: beat.title,
+        artist: beat.producerName,
+        producer: beat.producerName,
+        producerId: beat.producerId,
+        category: beat.category,
+        type: beat.category,
+        mediaKind: "audio",
+        time: "3:00",
+        plays: beat.plays,
+        likes: beat.likes,
+        uploaded: formatVideoCreatedAt(beat.createdAt),
+        cover: beat.cover,
+        avatar: beat.cover,
+        audio: beat.audioUrl,
+        audioPath: beat.storagePath,
+        ownerId: beat.producerUserId,
+    })), producerDashboardSort)
+        .filter((beat) => {
+        const keyword = producerDashboardSearch.trim().toLowerCase();
+        return !keyword || beat.title.toLowerCase().includes(keyword) || beat.type.toLowerCase().includes(keyword) || beat.category.toLowerCase().includes(keyword);
+    })
+        .map((songLikeBeat) => producerDashboardBeats.find((beat) => beat.id === songLikeBeat.id))
+        .filter((beat): beat is ProducerBeat => Boolean(beat));
+    const producerBeatSongIds = new Set(producerDashboardBeats.map((beat) => beat.songId).filter(Boolean));
+    const producerBeatIds = new Set(producerDashboardBeats.map((beat) => beat.id).filter(Boolean));
+    const songsUsingProducerBeats = songs.filter((song) => Boolean(song.beatId && producerBeatIds.has(song.beatId)) ||
+        Boolean(song.id && producerBeatSongIds.has(song.id)) ||
+        Boolean(song.producerId && currentProducerProfile.id && song.producerId === currentProducerProfile.id) ||
+        Boolean(song.producer && song.producer === currentProducerProfile.name));
+    const videosUsingProducerBeats = videos.filter((video) => Boolean(video.beatId && producerBeatIds.has(video.beatId)) ||
+        Boolean(video.producerId && currentProducerProfile.id && video.producerId === currentProducerProfile.id) ||
+        Boolean(video.producerProfileId && currentProducerProfile.id && video.producerProfileId === currentProducerProfile.id) ||
+        Boolean(video.producerName && video.producerName === currentProducerProfile.name) ||
+        Boolean(video.producer && video.producer === currentProducerProfile.name) ||
+        Boolean(video.creator && video.creator === currentProducerProfile.name) ||
+        Boolean(video.artistName && video.artistName === currentProducerProfile.name) ||
+        Boolean(accountUserId && video.ownerId && video.ownerId === accountUserId && view === "Producer Dashboard"));
+    const activeProducerBeats = activeProducerProfile
+        ? producerBeats.filter((beat) => beat.producerId === activeProducerProfile.id)
+        : [];
+    const activeProducerBeatIds = new Set(activeProducerBeats.map((beat) => beat.id));
+    const activeProducerBeatSongIds = new Set(activeProducerBeats.map((beat) => beat.songId));
+    const activeProducerSongsUsingBeats = songs.filter((song) => Boolean(song.beatId && activeProducerBeatIds.has(song.beatId)) ||
+        Boolean(song.id && activeProducerBeatSongIds.has(song.id)) ||
+        Boolean(song.producerId && activeProducerProfile?.id && song.producerId === activeProducerProfile.id) ||
+        Boolean(song.producer && activeProducerProfile?.name && song.producer === activeProducerProfile.name));
+    const activeProducerVideosUsingBeats = videos.filter((video) => Boolean(video.beatId && activeProducerBeatIds.has(video.beatId)) ||
+        Boolean(video.producerId && activeProducerProfile?.id && video.producerId === activeProducerProfile.id) ||
+        Boolean(video.producerProfileId && activeProducerProfile?.id && video.producerProfileId === activeProducerProfile.id) ||
+        Boolean(video.producerName && activeProducerProfile?.name && video.producerName === activeProducerProfile.name) ||
+        Boolean(video.producer && activeProducerProfile?.name && video.producer === activeProducerProfile.name) ||
+        Boolean(video.creator && activeProducerProfile?.name && video.creator === activeProducerProfile.name) ||
+        Boolean(video.artistName && activeProducerProfile?.name && video.artistName === activeProducerProfile.name) ||
+        Boolean(activeProducerProfile?.userId && video.ownerId && video.ownerId === activeProducerProfile.userId));
+    useEffect(() => {
+        let isMounted = true;
+        async function loadSession() {
+            const { data } = await supabase.auth.getSession();
+            if (!isMounted)
+                return;
+            const sessionUser = data.session?.user || null;
+            if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
+                setAuthReady(true);
+                return;
+            }
+            setUser(sessionUser);
+            setAccountRole(normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
+            setAuthReady(true);
+        }
+        loadSession();
+        const { data: { subscription }, } = supabase.auth.onAuthStateChange((_event, session) => {
+            const sessionUser = session?.user || null;
+            if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
+                setAuthReady(true);
+                return;
+            }
+            setUser(sessionUser);
+            setAccountRole(normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
+            setAuthReady(true);
+        });
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
+    }, []);
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEYS.displayMode, displayMode);
+    }, [displayMode]);
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setSearch(searchInput.trim());
+        }, 140);
+        return () => window.clearTimeout(timer);
+    }, [searchInput]);
+    async function reloadSongLibraryFromSupabase() {
+        const response = await fetch("/api/songs", { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as {
+            songs?: SongTableRow[];
+            error?: string;
+        };
+        if (!response.ok) {
+            console.error("[music library] LOAD FAILED:", data.error || response.statusText);
+            throw new Error(data.error || "Could not load songs from Supabase.");
+        }
+        const databaseSongs = uniqueSongs((data.songs || []).map((row) => mapSongRowToSong(row)));
+        const nextSongs = uniqueSongs([...databaseSongs, ...DEFAULT_SONGS]);
+        setSongs(nextSongs);
+        setCurrentSong((previous) => previous &&
+            (databaseSongs.some((song) => song.id === previous.id) || DEFAULT_SONGS.some((song) => song.id === previous.id))
+            ? previous
+            : databaseSongs[0] || DEFAULT_SONGS[2]);
+        return nextSongs;
+    }
+    async function reloadVideoLibraryFromSupabase() {
+        const userIdQuery = user?.id ? `?userId=${encodeURIComponent(user.id)}` : "";
+        const response = await fetch(`/api/videos${userIdQuery}`, { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as {
+            videos?: VideoTableRow[];
+            error?: string;
+        };
+        if (!response.ok) {
+            console.error("[video library] LOAD FAILED:", data.error || response.statusText);
+            setVideoLibraryError(data.error || "Could not load videos from Supabase.");
+            throw new Error(data.error || "Could not load videos from Supabase.");
+        }
+        const databaseVideos = uniqueVideos((data.videos || []).map((row) => mapVideoRowToVideoItem(row)));
+        setVideoLibraryError("");
+        setVideos(databaseVideos);
+        setSavedVideoIds((previous) => {
+            const videoIds = new Set(databaseVideos.map((video) => video.id));
+            const legacyVideoIds = libraryIds.filter((id) => videoIds.has(id));
+            return uniqueIds([...previous, ...legacyVideoIds]);
+        });
+        setLibraryIds((previous) => previous.filter((id) => !databaseVideos.some((video) => video.id === id)));
+        setSelectedVideoId((previous) => databaseVideos.some((video) => video.id === previous) ? previous : databaseVideos[0]?.id || "");
+        setActiveVideo((previous) => previous ? databaseVideos.find((video) => video.id === previous.id) || previous : databaseVideos[0] || null);
+        return databaseVideos;
+    }
+    async function reloadPlaylistsFromSupabase() {
+        if (!user?.id)
+            return [];
+        const response = await fetch(`/api/playlists?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as {
+            playlists?: Playlist[];
+            error?: string;
+        };
+        if (!response.ok) {
+            throw new Error(data.error || "Could not load playlists from Supabase.");
+        }
+        const nextPlaylists = (data.playlists || []).map((playlist) => {
+            const nextPlaylist = {
+                id: playlist.id,
+                name: playlist.name,
+                cover: getArtworkUrl(playlist.cover),
+                playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
+                songIds: uniqueIds(playlist.songIds),
+                videoIds: uniqueIds(playlist.videoIds),
+                createdAt: playlist.createdAt || new Date().toISOString(),
+                updatedAt: playlist.updatedAt || new Date().toISOString(),
+            };
+            return normalizePlaylistMediaByType(nextPlaylist);
+        });
+        if (nextPlaylists.length > 0) {
+            setPlaylists(nextPlaylists);
+            setActivePlaylistId((previous) => nextPlaylists.some((playlist) => playlist.id === previous) ? previous : nextPlaylists[0]?.id || "");
+        }
+        return nextPlaylists;
+    }
+    async function reloadProducerDataFromSupabase() {
+        const response = await fetch("/api/producers", { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as {
+            profiles?: ProducerProfileTableRow[];
+            beats?: ProducerBeatTableRow[];
+            error?: string;
+            profileError?: string;
+            beatsError?: string;
+        };
+        if (!response.ok) {
+            setProducerProfiles([]);
+            setProducerBeats([]);
+            return { profiles: [], beats: [] };
+        }
+        if (data.profileError || data.beatsError) {
+        }
+        const profiles = (data.profiles || []).map((row) => mapProducerProfileRow(row));
+        const beats = (data.beats || []).map((row) => mapProducerBeatRow(row));
+        setProducerProfiles(profiles);
+        setProducerBeats(beats);
+        if (accountUserId && profiles.some((profile) => profile.userId === accountUserId)) {
+            setAccountRole("Producer");
+        }
+        setActiveProducerId((previous) => (profiles.some((profile) => profile.id === previous) ? previous : profiles[0]?.id || ""));
+        return { profiles, beats };
+    }
+    async function reloadAlbumsFromSupabase(userIdOverride = "") {
+        const recentUserId = userIdOverride || user?.id || accountUserId;
+        const albumsQuery = recentUserId ? `?userId=${encodeURIComponent(recentUserId)}` : "";
+        const response = await fetch(`/api/albums${albumsQuery}`, { cache: "no-store", credentials: "omit" });
+        const data = (await response.json().catch(() => ({}))) as {
+            albums?: Album[];
+            recentAlbums?: Album[];
+            setupRequired?: boolean;
+            error?: string;
+        };
+        if (!response.ok || data.setupRequired) {
+            return albums;
+        }
+        const nextAlbums = (data.albums || []).map((album) => normalizeAlbumRecord(album));
+        setAlbums(nextAlbums);
+        return nextAlbums;
+    }
+    async function loadAlbums(userIdOverride = "") {
+        return reloadAlbumsFromSupabase(userIdOverride);
+    }
+    async function reloadArtistFollowsFromSupabase() {
+        if (!user?.id) {
+            setFollowedArtistIds([]);
+            return [];
+        }
+        const artistIds = uniqueIds(mergedArtistProfiles.map((artist) => artist.id));
+        const query = new URLSearchParams({
+            userId: user.id,
+            artistIds: artistIds.join(","),
+        });
+        const response = await fetch(`/api/artist-follows?${query.toString()}`, { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as {
+            follows?: {
+                artist_id: string;
+            }[];
+            followerCounts?: Record<string, number>;
+            error?: string;
+        };
+        if (!response.ok) {
+            return followedArtistIds;
+        }
+        const ids = uniqueIds((data.follows || []).map((follow) => follow.artist_id));
+        setFollowedArtistIds(ids);
+        setArtistFollowerCounts(data.followerCounts || {});
+        return ids;
+    }
+    async function reloadSongLikesFromSupabase() {
+        if (!user?.id)
+            return [];
+        const response = await fetch(`/api/song-likes?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as {
+            likedSongIds?: string[];
+            error?: string;
+        };
+        if (!response.ok) {
+            return likedIds;
+        }
+        const ids = uniqueIds(data.likedSongIds || []);
+        setLikedIds(ids);
+        return ids;
+    }
+    async function reloadLibrarySavesFromSupabase() {
+        if (!user?.id)
+            return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
+        const response = await fetch(`/api/library-saves?userId=${encodeURIComponent(user.id)}`, {
+            cache: "no-store",
+            credentials: "omit",
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            rows?: unknown[];
+            songIds?: string[];
+            videoIds?: string[];
+            albumIds?: string[];
+            songs?: SongTableRow[];
+            videos?: VideoTableRow[];
+            albums?: Album[];
+            savedSongs?: SongTableRow[];
+            savedVideos?: VideoTableRow[];
+            savedAlbums?: Album[];
+            saveCount?: number;
+            setupRequired?: boolean;
+            error?: string;
+        };
+        if (!response.ok || data.setupRequired) {
+            const error = data.error || response.statusText;
+            console.error("LIBRARY ERROR:", error);
+            setLibraryLoadError(error);
+            showToast(error, "error");
+            return { songIds: libraryIds, videoIds: savedVideoIds, albumIds: savedAlbumIds, videos: [] as VideoItem[], albums: [] as Album[] };
+        }
+        const savedSongRows = data.savedSongs || data.songs || [];
+        const savedVideoRows = data.savedVideos || data.videos || [];
+        const savedAlbumRows = data.savedAlbums || data.albums || [];
+        const savedSongIds = uniqueIds(data.songIds || []);
+        const savedSongs = uniqueSongs(savedSongRows.map((row) => mapSongRowToSong(row)));
+        const savedVideos = uniqueVideos(savedVideoRows.map((row) => mapVideoRowToVideoItem(row)));
+        const savedAlbums = savedAlbumRows.map((album) => normalizeAlbumRecord(album));
+        const savedIds = uniqueIds([...(data.videoIds || []), ...savedVideos.map((video) => video.id)]);
+        const savedAlbumIdsFromRows = uniqueIds([...(data.albumIds || []), ...savedAlbums.map((album) => album.id)]);
+        setLibraryLoadError("");
+        setLibraryIds(uniqueIds([...savedSongIds, ...savedSongs.map((song) => song.id)]));
+        setSavedVideoIds(savedIds);
+        setSavedAlbumIds(savedAlbumIdsFromRows);
+        if (savedSongs.length > 0) {
+            setSongs((previous) => uniqueSongs([...savedSongs, ...previous]));
+        }
+        if (savedVideos.length > 0) {
+            setVideos((previous) => uniqueVideos([...savedVideos, ...previous]));
+        }
+        if (savedAlbums.length > 0) {
+            setAlbums((previous) => {
+                const existing = new Set(savedAlbums.map((album) => album.id));
+                return [...savedAlbums, ...previous.filter((album) => !existing.has(album.id))];
+            });
+        }
+        return { songIds: savedSongIds, videoIds: savedIds, albumIds: savedAlbumIdsFromRows, videos: savedVideos, albums: savedAlbums };
+    }
+    async function loadLibrary() {
+        return reloadLibrarySavesFromSupabase();
+    }
+    function normalizePlaylistsForSongs(savedPlaylists: unknown, availableSongs: Song[]) {
+        const songMap = new Map(availableSongs.map((song) => [song.id, song]));
+        if (!Array.isArray(savedPlaylists))
+            return [];
+        return savedPlaylists
+            .filter((playlist): playlist is Playlist => Boolean(playlist && typeof playlist === "object" && "id" in playlist && "name" in playlist))
+            .map((playlist) => normalizePlaylistMediaByType({
+            id: String(playlist.id),
+            name: String(playlist.name),
+            cover: typeof playlist.cover === "string" ? playlist.cover : DEFAULT_PLAYLIST_COVER,
+            playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
+            songIds: uniqueIds(Array.isArray(playlist.songIds) ? playlist.songIds : []).filter((id) => songMap.has(id)),
+            videoIds: uniqueIds(Array.isArray(playlist.videoIds) ? playlist.videoIds : []),
+            createdAt: typeof playlist.createdAt === "string" ? playlist.createdAt : new Date().toISOString(),
+            updatedAt: typeof playlist.updatedAt === "string" ? playlist.updatedAt : new Date().toISOString(),
+        }));
+    }
+    async function reloadUserMusicStateFromSupabase(availableSongs = songs, availableVideos = videos) {
+        if (!user?.id) {
+            setRemoteMusicStateReady(false);
+            return null;
+        }
+        const response = await fetch(`/api/user-music-state?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as {
+            hasState?: boolean;
+            libraryIds?: string[];
+            recentlyPlayed?: RecentPlay[];
+            playlists?: Playlist[];
+            activePlaylistId?: string;
+            setupRequired?: boolean;
+            error?: string;
+        };
+        if (!response.ok) {
+            showToast("Saved library state could not be loaded. Local browser state is still available.", "error");
+            setRemoteMusicStateReady(true);
+            return null;
+        }
+        if (data.setupRequired) {
+            setRemoteMusicStateReady(true);
+            return null;
+        }
+        if (!data.hasState) {
+            setRemoteMusicStateReady(true);
+            return null;
+        }
+        const legacySavedIds = uniqueIds(data.libraryIds || []);
+        const availableSongIds = new Set(availableSongs.filter((song) => !isVideoSong(song)).map((song) => song.id));
+        const availableVideoIds = new Set(uniqueVideos(availableVideos).map((video) => video.id));
+        const nextLibraryIds = legacySavedIds.filter((id) => availableSongIds.has(id));
+        const nextSavedVideoIds = legacySavedIds.filter((id) => availableVideoIds.has(id));
+        const nextRecent = normalizeRecentForSongs(data.recentlyPlayed || [], availableSongs, availableVideos, albums);
+        const nextPlaylists = normalizePlaylistsForSongs(data.playlists || [], availableSongs);
+        const nextActivePlaylistId = nextPlaylists.some((playlist) => playlist.id === data.activePlaylistId)
+            ? data.activePlaylistId || ""
+            : "";
+        setLibraryIds(nextLibraryIds);
+        setSavedVideoIds((previous) => uniqueIds([...previous, ...nextSavedVideoIds]));
+        setRecentlyPlayed(nextRecent);
+        setPlaylists(nextPlaylists);
+        setActivePlaylistId(nextActivePlaylistId);
+        setRemoteMusicStateReady(true);
+        return { libraryIds: nextLibraryIds, savedVideoIds: nextSavedVideoIds, recentlyPlayed: nextRecent, playlists: nextPlaylists };
+    }
+    useEffect(() => {
+        initialDataReloadRef.current = {
+            clearRemovedPlaceholderArtwork: clearRemovedPlaceholderArtworkFromLocalStorage,
+            reloadSongLibrary: reloadSongLibraryFromSupabase,
+            reloadVideoLibrary: reloadVideoLibraryFromSupabase,
+            reloadUserMusicState: reloadUserMusicStateFromSupabase,
+            reloadLibrarySaves: reloadLibrarySavesFromSupabase,
+            reloadPlaylists: reloadPlaylistsFromSupabase,
+            reloadProducerData: reloadProducerDataFromSupabase,
+            reloadAlbums: reloadAlbumsFromSupabase,
+            reloadArtistFollows: reloadArtistFollowsFromSupabase,
+            reloadSongLikes: reloadSongLikesFromSupabase,
+            fallbackSongs: songs,
+            showLibraryFailureToast: () => showToast("Saved library could not load from Supabase.", "error"),
+        };
+    });
+    useEffect(() => {
+        if (!authReady)
+            return;
+        const loadKey = accountUserId || "guest";
+        if (initialDataLoadedKeyRef.current === loadKey || initialDataLoadInFlightKeyRef.current === loadKey)
+            return;
+        initialDataLoadInFlightKeyRef.current = loadKey;
+        const timer = window.setTimeout(() => {
+            const reloadActions = initialDataReloadRef.current;
+            reloadActions.clearRemovedPlaceholderArtwork();
+            setRemoteMusicStateReady(false);
+            Promise.all([reloadActions.reloadSongLibrary(), reloadActions.reloadVideoLibrary()])
+                .then(([loadedSongs, loadedVideos]) => reloadActions.reloadUserMusicState(loadedSongs, loadedVideos))
+                .then(() => reloadActions.reloadLibrarySaves())
+                .catch((error) => {
+                console.error("LIBRARY ERROR:", error);
+                setLibraryLoadError(error instanceof Error ? error.message : String(error));
+                reloadActions.showLibraryFailureToast();
+                reloadActions.reloadUserMusicState(reloadActions.fallbackSongs).catch(() => {
+                    setRemoteMusicStateReady(true);
+                });
+            })
+                .finally(() => {
+                initialDataLoadedKeyRef.current = loadKey;
+                if (initialDataLoadInFlightKeyRef.current === loadKey)
+                    initialDataLoadInFlightKeyRef.current = "";
+            });
+            reloadActions.reloadPlaylists().catch(() => undefined);
+            reloadActions.reloadProducerData().catch(() => undefined);
+            reloadActions.reloadAlbums().catch(() => undefined);
+            reloadActions.reloadArtistFollows().catch(() => undefined);
+            reloadActions.reloadSongLikes().catch(() => undefined);
+        }, 0);
+        return () => {
+            window.clearTimeout(timer);
+            if (initialDataLoadInFlightKeyRef.current === loadKey && initialDataLoadedKeyRef.current !== loadKey)
+                initialDataLoadInFlightKeyRef.current = "";
+        };
+    }, [accountUserId, authReady]);
+    const libraryStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds([...libraryIds, ...savedVideoIds, ...savedAlbumIds])), [libraryIds, savedAlbumIds, savedVideoIds]);
+    const likedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(likedIds)), [likedIds]);
+    const followedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedIds)), [followedIds]);
+    const followedArtistsStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedArtistIds)), [followedArtistIds]);
+    const queueStorageSnapshot = useMemo(() => JSON.stringify(uniqueSongs(queue).map((song) => song.id)), [queue]);
+    const recentStorageSnapshot = useMemo(() => JSON.stringify(recentlyPlayed), [recentlyPlayed]);
+    const playlistStorageSnapshot = useMemo(() => JSON.stringify(playlists), [playlists]);
+    const artistStorageSnapshot = useMemo(() => JSON.stringify(uniqueArtists(mergedArtistProfiles)), [mergedArtistProfiles]);
+    const notificationStorageSnapshot = useMemo(() => JSON.stringify(notifications.slice(0, 50)), [notifications]);
+    const commentStorageSnapshot = useMemo(() => JSON.stringify(commentsByItem), [commentsByItem]);
+    const verificationStorageSnapshot = useMemo(() => JSON.stringify(verificationState), [verificationState]);
+    const moderationReportStorageSnapshot = useMemo(() => JSON.stringify(moderationReports.slice(0, 100)), [moderationReports]);
+    const copyrightClaimStorageSnapshot = useMemo(() => JSON.stringify(copyrightClaims.slice(0, 100)), [copyrightClaims]);
+    const blockedUserStorageSnapshot = useMemo(() => JSON.stringify(blockedUsers.slice(0, 100)), [blockedUsers]);
+    const verificationRequestStorageSnapshot = useMemo(() => JSON.stringify(verificationRequests.slice(0, 100)), [verificationRequests]);
+    const supportTicketStorageSnapshot = useMemo(() => JSON.stringify(supportTickets.slice(0, 100)), [supportTickets]);
+    const platformIncidentStorageSnapshot = useMemo(() => JSON.stringify(platformIncidents.slice(0, 50)), [platformIncidents]);
+    const releaseNoteStorageSnapshot = useMemo(() => JSON.stringify(releaseNotes.slice(0, 50)), [releaseNotes]);
+    const userFeedbackStorageSnapshot = useMemo(() => JSON.stringify(userFeedback.slice(0, 100)), [userFeedback]);
+    const monetizationStorageSnapshot = useMemo(() => JSON.stringify(monetizationTransactions.slice(0, 150)), [monetizationTransactions]);
+    const payoutStorageSnapshot = useMemo(() => JSON.stringify(payoutRequests.slice(0, 100)), [payoutRequests]);
+    const licenseStorageSnapshot = useMemo(() => JSON.stringify(licenseRecords.slice(0, 200)), [licenseRecords]);
+    const salesCartStorageSnapshot = useMemo(() => JSON.stringify(salesCart), [salesCart]);
+    const purchaseHistoryStorageSnapshot = useMemo(() => JSON.stringify(purchaseHistory.slice(0, 200)), [purchaseHistory]);
+    const downloadVaultStorageSnapshot = useMemo(() => JSON.stringify(downloadVault.slice(0, 200)), [downloadVault]);
+    useEffect(() => {
+        if (!hasLoaded)
+            return;
+        saveLocalStorageSnapshot(STORAGE_KEYS.library, libraryStorageSnapshot);
+    }, [hasLoaded, libraryStorageSnapshot, saveLocalStorageSnapshot]);
+    useEffect(() => {
+        if (!hasLoaded)
+            return;
+        saveLocalStorageSnapshot(STORAGE_KEYS.liked, likedStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.followed, followedStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.followedArtists, followedArtistsStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.queue, queueStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.recent, recentStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.playlists, playlistStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.artists, artistStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.activePlaylist, activePlaylistId);
+        saveLocalStorageSnapshot(STORAGE_KEYS.notifications, notificationStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.comments, commentStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.verifications, verificationStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.moderationReports, moderationReportStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.copyrightClaims, copyrightClaimStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.blockedUsers, blockedUserStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.verificationRequests, verificationRequestStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.supportTickets, supportTicketStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.platformIncidents, platformIncidentStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.releaseNotes, releaseNoteStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.userFeedback, userFeedbackStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.monetizationTransactions, monetizationStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.payoutRequests, payoutStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.activeSubscriptionPlan, activeSubscriptionPlanId);
+        saveLocalStorageSnapshot(STORAGE_KEYS.licenseRecords, licenseStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.salesCart, salesCartStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.purchaseHistory, purchaseHistoryStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.downloadVault, downloadVaultStorageSnapshot);
+    }, [
+        activePlaylistId,
+        activeSubscriptionPlanId,
+        artistStorageSnapshot,
+        blockedUserStorageSnapshot,
+        commentStorageSnapshot,
+        copyrightClaimStorageSnapshot,
+        downloadVaultStorageSnapshot,
+        followedArtistsStorageSnapshot,
+        followedStorageSnapshot,
+        hasLoaded,
+        likedStorageSnapshot,
+        licenseStorageSnapshot,
+        moderationReportStorageSnapshot,
+        monetizationStorageSnapshot,
+        notificationStorageSnapshot,
+        payoutStorageSnapshot,
+        platformIncidentStorageSnapshot,
+        playlistStorageSnapshot,
+        purchaseHistoryStorageSnapshot,
+        queueStorageSnapshot,
+        recentStorageSnapshot,
+        releaseNoteStorageSnapshot,
+        salesCartStorageSnapshot,
+        saveLocalStorageSnapshot,
+        supportTicketStorageSnapshot,
+        userFeedbackStorageSnapshot,
+        verificationRequestStorageSnapshot,
+        verificationStorageSnapshot,
+    ]);
+    useEffect(() => {
+        if (!hasLoaded || !currentSong?.id)
+            return;
+        saveLocalStorageSnapshot(STORAGE_KEYS.current, currentSong.id);
+    }, [currentSong?.id, hasLoaded, saveLocalStorageSnapshot]);
+    const remoteMusicStateSaveBody = useMemo(() => JSON.stringify({
+        userId: accountUserId,
+        libraryIds: uniqueIds([...libraryIds, ...savedVideoIds, ...savedAlbumIds]),
+        recentlyPlayed: recentlyPlayed.slice(0, 100),
+        playlists,
+        activePlaylistId,
+    }), [accountUserId, activePlaylistId, libraryIds, playlists, recentlyPlayed, savedAlbumIds, savedVideoIds]);
+    useEffect(() => {
+        if (!hasLoaded || !accountUserId || !remoteMusicStateReady) {
+            if (!accountUserId)
+                remoteMusicStateSaveSnapshotRef.current = "";
+            return;
+        }
+        if (remoteMusicStateSaveSnapshotRef.current === remoteMusicStateSaveBody)
+            return;
+        remoteMusicStateSaveSnapshotRef.current = remoteMusicStateSaveBody;
+        const timer = window.setTimeout(() => {
+            fetch("/api/user-music-state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: remoteMusicStateSaveBody,
+            })
+                .then(async (response) => {
+                if (!response.ok) {
+                    const data = (await response.json().catch(() => ({}))) as {
+                        error?: string;
+                        setupRequired?: boolean;
+                    };
+                }
+            })
+                .catch((error) => {
+            });
+        }, 650);
+        return () => window.clearTimeout(timer);
+    }, [accountUserId, hasLoaded, remoteMusicStateReady, remoteMusicStateSaveBody]);
+    useEffect(() => {
+        if (!audioRef.current)
+            return;
+        const audio = audioRef.current;
+        const audioUrl = getAudioPlaybackUrl(currentSong);
+        if (!audioUrl || !isPublicAudioUrl(audioUrl)) {
+            audio.pause();
+            audio.removeAttribute("src");
+            audio.load();
+            return;
+        }
+        if (audio.getAttribute("src") !== audioUrl) {
+            audio.src = audioUrl;
+            audio.load();
+        }
+        if (isPlaying) {
+            const playRequestId = musicPlayRequestRef.current + 1;
+            musicPlayRequestRef.current = playRequestId;
+            audio.play().catch((error) => {
+                if (musicPlayRequestRef.current !== playRequestId)
+                    return;
+                if (isAbortError(error)) {
+                    return;
+                }
+                setIsPlaying(false);
+                showToast("Music playback could not start. Try pressing Play again.", "error");
+            });
+        }
+    }, [currentSong, isPlaying]);
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.volume = volume;
+        }
+    }, [volume]);
+    const cleanQueue = useMemo(() => uniqueSongs(queue).filter((song) => !isVideoSong(song)), [queue]);
+    const audioSongs = useMemo(() => songs.filter((song) => !isVideoSong(song)), [songs]);
+    const librarySongs = useMemo(() => audioSongs.filter((song) => libraryIds.includes(song.id)), [audioSongs, libraryIds]);
+    const libraryVideos = useMemo(() => {
+        const savedIds = new Set(savedVideoIds);
+        const savedDatabaseVideos = uniqueVideos(videos).filter((video) => savedIds.has(video.id));
+        const savedSongVideos = songs
+            .filter((song) => savedIds.has(song.id) && isVideoSong(song) && Boolean(song.video || song.audio))
+            .map(mapSavedSongVideoToVideoItem);
+        return uniqueVideos([...savedDatabaseVideos, ...savedSongVideos]);
+    }, [savedVideoIds, songs, videos]);
+    const libraryContentSongs = useMemo(() => uniqueSongs(audioSongs), [audioSongs]);
+    const libraryContentVideos = useMemo(() => {
+        const songVideos = songs
+            .filter((song) => isVideoSong(song) && Boolean(song.video || song.audio))
+            .map(mapSavedSongVideoToVideoItem);
+        return uniqueVideos([...videos, ...songVideos]);
+    }, [songs, videos]);
+    const albumVideoPool = useMemo(() => {
+        const songVideos = songs
+            .filter((song) => isVideoSong(song) && Boolean(song.video || song.audio))
+            .map(mapSavedSongVideoToVideoItem);
+        return uniqueVideos([...videos, ...songVideos]);
+    }, [songs, videos]);
+    const resolvedAlbums = useMemo(() => {
+        const songMap = new Map(audioSongs.map((song) => [song.id, song]));
+        const videoMap = new Map(albumVideoPool.map((video) => [video.id, video]));
+        return albums.map((album) => {
+            const normalizedAlbum = normalizeAlbumRecord(album);
+            const albumSongs = uniqueSongs(normalizedAlbum.songIds
+                .map((id) => songMap.get(id))
+                .filter((song): song is Song => Boolean(song)));
+            const albumVideos = uniqueVideos(normalizedAlbum.videoIds.flatMap((id) => {
+                const video = videoMap.get(id);
+                return video ? [video] : [];
+            }));
+            return {
+                ...normalizedAlbum,
+                songs: albumSongs,
+                videos: albumVideos,
+            };
+        });
+    }, [albumVideoPool, albums, audioSongs]);
+    const libraryAlbums = useMemo(() => {
+        const savedIds = new Set(savedAlbumIds);
+        return resolvedAlbums.filter((album) => savedIds.has(album.id) || Boolean(accountUserId && album.userId === accountUserId));
+    }, [accountUserId, resolvedAlbums, savedAlbumIds]);
+    const producerDashboardAlbums = useMemo(() => resolvedAlbums.filter((album) => album.ownerType === "producer" &&
+        ((accountUserId && album.userId === accountUserId) ||
+            (accountUserId && album.producerId === accountUserId) ||
+            (accountUserId && album.producerProfileId === accountUserId) ||
+            Boolean(currentProducerProfile.id && album.producerId === currentProducerProfile.id) ||
+            Boolean(currentProducerProfile.id && album.producerProfileId === currentProducerProfile.id) ||
+            createArtistId(album.creatorName) === createArtistId(currentProducerProfile.name) ||
+            createArtistId(album.producerName) === createArtistId(currentProducerProfile.name))), [accountUserId, currentProducerProfile.id, currentProducerProfile.name, resolvedAlbums]);
+    const producerStats = {
+        beats: producerDashboardBeats.length,
+        albums: producerDashboardAlbums.length,
+        plays: producerDashboardBeats.reduce((sum, beat) => sum + beat.plays, 0) +
+            songsUsingProducerBeats.reduce((sum, song) => sum + song.plays, 0),
+        views: videosUsingProducerBeats.reduce((sum, video) => sum + video.views, 0),
+        likes: producerDashboardBeats.reduce((sum, beat) => sum + beat.likes, 0) +
+            songsUsingProducerBeats.reduce((sum, song) => sum + song.likes + (likedIds.includes(song.id) ? 1 : 0), 0) +
+            videosUsingProducerBeats.reduce((sum, video) => sum + (video.likes || 0) + (video.likedByUser ? 1 : 0), 0),
+        downloads: producerDashboardBeats.reduce((sum, beat) => sum + beat.downloads, 0),
+        leases: producerDashboardBeats.reduce((sum, beat) => sum + beat.leases, 0),
+        payouts: producerDashboardBeats.reduce((sum, beat) => sum + beat.payouts, 0),
+        followers: currentProducerProfile.followers,
+        songsUsingBeats: songsUsingProducerBeats.length,
+        videosUsingBeats: videosUsingProducerBeats.length,
+    };
+    const activeProducerAlbums = useMemo(() => {
+        if (!activeProducerProfile)
+            return [];
+        return resolvedAlbums.filter((album) => album.ownerType === "producer" &&
+            (album.userId === activeProducerProfile.userId ||
+                album.producerId === activeProducerProfile.id ||
+                album.producerProfileId === activeProducerProfile.id ||
+                createArtistId(album.creatorName) === createArtistId(activeProducerProfile.name) ||
+                createArtistId(album.producerName) === createArtistId(activeProducerProfile.name) ||
+                album.songs.some((song) => song.producerId === activeProducerProfile.id ||
+                    createArtistId(song.producer || "") === createArtistId(activeProducerProfile.name) ||
+                    createArtistId(song.artist) === createArtistId(activeProducerProfile.name)) ||
+                album.videos.some((video) => video.producerId === activeProducerProfile.id ||
+                    video.producerProfileId === activeProducerProfile.id ||
+                    createArtistId(video.producerName || video.producer || "") === createArtistId(activeProducerProfile.name) ||
+                    createArtistId(video.creator) === createArtistId(activeProducerProfile.name))));
+    }, [activeProducerProfile, resolvedAlbums]);
+    const likedSongs = useMemo(() => audioSongs.filter((song) => likedIds.includes(song.id)), [audioSongs, likedIds]);
+    const likedVideos = useMemo(() => uniqueVideos(videos).filter((video) => video.likedByUser), [videos]);
+    const likedArtists = useMemo(() => mergedArtistProfiles.filter((artist) => followedArtistIds.includes(artist.id)), [followedArtistIds, mergedArtistProfiles]);
+    const activePlaylist = useMemo(() => playlists.find((playlist) => playlist.id === activePlaylistId) || playlists[0], [playlists, activePlaylistId]);
+    const activePlaylistSongs = useMemo(() => {
+        if (!activePlaylist)
+            return [];
+        const songMap = new Map(audioSongs.map((song) => [song.id, song]));
+        return activePlaylist.songIds.map((id) => songMap.get(id)).filter((song): song is Song => Boolean(song));
+    }, [activePlaylist, audioSongs]);
+    const activePlaylistVideos = useMemo(() => {
+        if (!activePlaylist)
+            return [];
+        const songVideos = songs.filter((song) => isVideoSong(song) && Boolean(song.video || song.audio)).map(mapSavedSongVideoToVideoItem);
+        const playlistVideos: VideoItem[] = uniqueVideos([...videos, ...songVideos]);
+        const videoMap = new Map<string, VideoItem>(playlistVideos.map((video) => [video.id, video]));
+        return activePlaylist.videoIds.map((id) => videoMap.get(id)).filter((video): video is VideoItem => Boolean(video));
+    }, [activePlaylist, songs, videos]);
+    const activeArtist = useMemo(() => mergedArtistProfiles.find((artist) => artist.id === activeArtistId) || null, [mergedArtistProfiles, activeArtistId]);
+    const activeArtistSongs = useMemo(() => {
+        if (!activeArtist)
+            return [];
+        return audioSongs.filter((song) => createArtistId(song.artist) === activeArtist.id);
+    }, [activeArtist, audioSongs]);
+    const activeArtistVideos = useMemo(() => {
+        if (!activeArtist)
+            return [];
+        const databaseVideos = uniqueVideos(videos).filter((video) => createArtistId(video.artistName || video.creator) === activeArtist.id ||
+            createArtistId(video.creator) === activeArtist.id ||
+            video.artistId === activeArtist.id ||
+            video.artistName === activeArtist.name);
+        const songVideos = songs
+            .filter((song) => isVideoSong(song) && createArtistId(song.artist) === activeArtist.id && Boolean(song.video || song.audio))
+            .map(mapSavedSongVideoToVideoItem);
+        return uniqueVideos([...databaseVideos, ...songVideos]);
+    }, [activeArtist, songs, videos]);
+    const followingSongs = useMemo(() => audioSongs.filter((song) => followedArtistIds.includes(createArtistId(song.artist))), [audioSongs, followedArtistIds]);
+    const followingVideos = useMemo(() => uniqueVideos(videos).filter((video) => followedArtistIds.includes(createArtistId(video.creator))), [followedArtistIds, videos]);
+    const activeArtistAlbums = useMemo(() => {
+        if (!activeArtist)
+            return [];
+        return resolvedAlbums.filter((album) => {
+            if (album.ownerType !== "artist")
+                return false;
+            const albumArtistIds = [
+                album.artistId,
+                createArtistId(album.artistName),
+                createArtistId(album.creatorName),
+            ].filter(Boolean);
+            return (albumArtistIds.includes(activeArtist.id) ||
+                album.songs.some((song) => createArtistId(song.artist) === activeArtist.id) ||
+                album.videos.some((video) => createArtistId(video.creator) === activeArtist.id ||
+                    createArtistId(video.artistName || "") === activeArtist.id));
+        });
+    }, [activeArtist, resolvedAlbums]);
+    const activeArtistPlaylists = useMemo(() => {
+        const artistSongIds = new Set(activeArtistSongs.map((song) => song.id));
+        const artistVideoIds = new Set(activeArtistVideos.map((video) => video.id));
+        return playlists.filter((playlist) => playlist.songIds.some((songId) => artistSongIds.has(songId)) ||
+            playlist.videoIds.some((videoId) => artistVideoIds.has(videoId)));
+    }, [activeArtistSongs, activeArtistVideos, playlists]);
+    const trendingSongs = useMemo(() => uniqueSongs(audioSongs)
+        .map((song) => ({
+        song,
+        score: (song.plays * 3 + song.likes * 8 + (artistFollowerCounts[createArtistId(song.artist)] || 0) * 2) * getTrendingPeriodWeight(song.uploaded, trendingPeriod),
+    }))
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.song), [artistFollowerCounts, audioSongs, trendingPeriod]);
+    const trendingVideos = useMemo(() => uniqueVideos(videos)
+        .map((video) => ({
+        video,
+        score: (video.views * 3 + (video.likes || 0) * 8 + (artistFollowerCounts[createArtistId(video.creator)] || 0) * 2) * getTrendingPeriodWeight(video.uploaded, trendingPeriod),
+    }))
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.video), [artistFollowerCounts, trendingPeriod, videos]);
+    const trendingArtists = useMemo(() => [...mergedArtistProfiles]
+        .sort((a, b) => (b.totalPlays + b.followers * 8) - (a.totalPlays + a.followers * 8))
+        .slice(0, 8), [mergedArtistProfiles]);
+    const visibleSongs = useMemo(() => {
+        let list = audioSongs;
+        if (view === "Library")
+            list = librarySongs;
+        if (view === "Liked")
+            list = likedSongs;
+        if (view === "Following")
+            list = followingSongs;
+        if (view === "Queue")
+            list = cleanQueue;
+        if (view === "Beats")
+            list = audioSongs.filter((song) => BEAT_CATEGORIES.includes(song.type) || song.category === "Producer Beats");
+        if (view === "Artists")
+            list = audioSongs.filter((song) => song.type === "Artists");
+        if (view === "Trending")
+            list = trendingSongs;
+        if (view === "Home") {
+            if (activeTab === "Trending")
+                list = trendingSongs;
+            else if (activeTab === "New Releases")
+                list = audioSongs.filter((song) => song.category === "New Releases");
+            else
+                list = audioSongs.filter((song) => song.type === activeTab);
+        }
+        if (search.trim()) {
+            const keyword = search.toLowerCase();
+            list = audioSongs
+                .map((song) => ({
+                song,
+                score: getSearchMatchScore(keyword, [song.title, song.artist, song.producer || "", song.type, song.category], Math.min(35, song.plays * 0.02 + song.likes * 0.6) + (isArtistVerified(song.artist) ? 20 : 0)),
+            }))
+                .filter((entry) => entry.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .map((entry) => entry.song);
+        }
+        return uniqueSongs(list);
+    }, [audioSongs, view, activeTab, search, librarySongs, likedSongs, followingSongs, cleanQueue, trendingSongs, isArtistVerified]);
+    const visibleVideos = useMemo(() => {
+        let list = uniqueVideos(videos);
+        if (search.trim()) {
+            const keyword = search.toLowerCase();
+            list = list
+                .map((video) => ({
+                video,
+                score: getSearchMatchScore(keyword, [video.title, video.creator, video.category, video.producerName || video.producer || ""], Math.min(35, video.views * 0.02 + (video.likes || 0) * 0.6) + (isArtistVerified(video.creator) ? 20 : 0)),
+            }))
+                .filter((entry) => entry.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .map((entry) => entry.video);
+        }
+        return list;
+    }, [isArtistVerified, search, videos]);
+    const visibleAlbums = useMemo(() => {
+        if (!search.trim())
+            return [];
+        const keyword = search.toLowerCase();
+        return resolvedAlbums
+            .map((album) => ({
+            album,
+            score: getSearchMatchScore(keyword, [
+                album.title,
+                album.creatorName,
+                album.artistName,
+                album.producerName,
+                album.category,
+                ...album.songs.flatMap((song) => [song.title, song.artist, song.producer || ""]),
+                ...album.videos.flatMap((video) => [video.title, video.creator, video.producerName || video.producer || ""]),
+            ], getAlbumSongCount(album) * 2 + getAlbumVideoCount(album) * 3 + (isArtistVerified(album.creatorName) || isProducerVerified(album.producerId || album.creatorName) ? 20 : 0)),
+        }))
+            .filter((entry) => entry.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .map((entry) => entry.album);
+    }, [isArtistVerified, isProducerVerified, resolvedAlbums, search]);
+    const searchArtistResults = useMemo(() => {
+        if (!search.trim())
+            return [];
+        const keyword = search.toLowerCase();
+        return mergedArtistProfiles
+            .map((artist) => ({
+            artist,
+            score: getSearchMatchScore(keyword, [artist.name, artist.bio, artist.socialLinks], Math.min(45, artist.totalPlays * 0.01 + artist.followers * 0.5) + (isArtistVerified(artist.id) || isArtistVerified(artist.name) ? 35 : 0)),
+        }))
+            .filter((entry) => entry.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .map((entry) => entry.artist);
+    }, [isArtistVerified, mergedArtistProfiles, search]);
+    const searchProducerResults = useMemo(() => {
+        if (!search.trim())
+            return [];
+        const keyword = search.toLowerCase();
+        return producerProfiles
+            .map((producer) => ({
+            producer,
+            score: getSearchMatchScore(keyword, [producer.name, producer.bio, producer.tagline, producer.website], Math.min(45, producer.followers * 0.7 + producerBeats.filter((beat) => beat.producerId === producer.id || createArtistId(beat.producerName) === createArtistId(producer.name)).length * 4) + (isProducerVerified(producer.id) || isProducerVerified(producer.name) ? 35 : 0)),
+        }))
+            .filter((entry) => entry.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .map((entry) => entry.producer);
+    }, [isProducerVerified, producerBeats, producerProfiles, search]);
+    const searchPlaylistResults = useMemo(() => {
+        if (!search.trim())
+            return [];
+        const keyword = search.toLowerCase();
+        return playlists
+            .map((playlist) => {
+            const playlistSongs = playlist.songIds.map((songId) => songs.find((song) => song.id === songId)).filter((song): song is Song => Boolean(song));
+            const playlistVideos = playlist.videoIds.map((videoId) => videos.find((video) => video.id === videoId)).filter((video): video is VideoItem => Boolean(video));
+            return {
+                playlist,
+                score: getSearchMatchScore(keyword, [
+                    playlist.name,
+                    playlist.playlistType,
+                    ...playlistSongs.map((song) => song.title),
+                    ...playlistVideos.map((video) => video.title),
+                ], playlist.songIds.length + playlist.videoIds.length),
+            };
+        })
+            .filter((entry) => entry.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .map((entry) => entry.playlist);
+    }, [playlists, search, songs, videos]);
+    const videoLibraryStats = useMemo(() => {
+        const libraryVideos = uniqueVideos(videos);
+        return libraryVideos.reduce((totals, video) => ({
+            totalVideos: totals.totalVideos + 1,
+            totalViews: totals.totalViews + (video.views || 0),
+            totalLikes: totals.totalLikes + (video.likes || 0),
+        }), { totalVideos: 0, totalViews: 0, totalLikes: 0 });
+    }, [videos]);
+    const inlineVideos = useMemo(() => {
+        if (search.trim())
+            return visibleVideos;
+        if (view === "Library")
+            return libraryVideos;
+        if (view === "Trending" || (view === "Home" && activeTab === "Trending")) {
+            return trendingVideos;
+        }
+        return [];
+    }, [activeTab, libraryVideos, search, trendingVideos, view, visibleVideos]);
+    const recentlyPlayedSongs = useMemo(() => recentlyPlayed.filter((entry) => (entry.itemType || "song") === "song" && entry.song), [recentlyPlayed]);
+    const recentlyPlayedVideos = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "video" && entry.video), [recentlyPlayed]);
+    const recentlyPlayedAlbums = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "album" && entry.album), [recentlyPlayed]);
+    const visibleRecentPlays = recentTab === "Videos" ? recentlyPlayedVideos : recentTab === "Albums" ? recentlyPlayedAlbums : recentlyPlayedSongs;
+    const sponsoredVideo = visibleVideos[0] || null;
+    const sponsoredImage = getArtworkUrl(sponsoredVideo?.cover || currentSong?.cover);
+    const sponsoredTitle = sponsoredVideo?.title || currentSong?.title || "Music Data Base";
+    const sponsoredCreator = sponsoredVideo?.creator || currentSong?.artist || "Music Data Base";
+    const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
+    const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
+    useEffect(() => {
+        const video = mainVideoRef.current;
+        if (!video)
+            return;
+        video.muted = false;
+        setVideoProgress(0);
+        setVideoDuration(0);
+        setVideoPlaying(false);
+    }, [activeVideoPlaybackUrl]);
+    useEffect(() => {
+        const video = mainVideoRef.current;
+        if (!video)
+            return;
+        video.volume = videoVolume;
+    }, [videoVolume]);
+    useEffect(() => {
+        const mainVideo = mainVideoRef.current;
+        if (!mainVideo || !activeVideo || !activeVideoPlaybackUrl)
+            return;
+        if (videoAutoplayRequestId === activeVideo.id)
+            return;
+        if (mainVideo.getAttribute("src") !== activeVideoPlaybackUrl) {
+            mainVideo.pause();
+            mainVideo.removeAttribute("src");
+            mainVideo.src = activeVideoPlaybackUrl;
+            mainVideo.load();
+        }
+    }, [activeVideo, activeVideoPlaybackUrl, videoAutoplayRequestId]);
+    useEffect(() => {
+        const video = mainVideoRef.current;
+        if (!video || !activeVideo || videoAutoplayRequestId !== activeVideo.id)
+            return;
+        if (!activeVideoPlaybackUrl)
+            return;
+        if (audioRef.current && !audioRef.current.paused) {
+            audioRef.current.pause();
+        }
+        if (video.getAttribute("src") !== activeVideoPlaybackUrl) {
+            video.removeAttribute("src");
+            video.src = activeVideoPlaybackUrl;
+            video.load();
+        }
+        video.muted = false;
+        video.volume = videoVolume;
+        const playPromise = video.play();
+        playPromise.catch((error) => {
+            setVideoPlaying(false);
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.toLowerCase().includes("interrupted")) {
+                return;
+            }
+            showToast("Video is ready. Press Play if your browser blocked autoplay.", "info");
+        });
+        window.setTimeout(() => setVideoAutoplayRequestId(""), 0);
+    }, [activeVideo, activeVideoPlaybackUrl, videoAutoplayRequestId, videoVolume]);
+    const playlistAddSongs = useMemo(() => {
+        let list: Song[] = librarySongs;
+        if (addSource === "Liked")
+            list = likedSongs;
+        if (addSource === "Queue")
+            list = cleanQueue;
+        if (addSource === "Search")
+            list = audioSongs;
+        if (playlistSearch.trim()) {
+            const keyword = playlistSearch.toLowerCase();
+            list = list.filter((song) => song.title.toLowerCase().includes(keyword) ||
+                song.artist.toLowerCase().includes(keyword) ||
+                song.type.toLowerCase().includes(keyword) ||
+                song.category.toLowerCase().includes(keyword));
+        }
+        return uniqueSongs(list);
+    }, [addSource, cleanQueue, librarySongs, likedSongs, playlistSearch, audioSongs]);
+    const playlistAddVideos = useMemo(() => {
+        const keyword = playlistSearch.trim().toLowerCase();
+        let list = uniqueVideos([...libraryVideos, ...likedVideos, ...videos]);
+        if (keyword) {
+            list = list.filter((video) => video.title.toLowerCase().includes(keyword) ||
+                video.creator.toLowerCase().includes(keyword) ||
+                video.category.toLowerCase().includes(keyword));
+        }
+        return list;
+    }, [libraryVideos, likedVideos, playlistSearch, videos]);
+    const totalPlays = useMemo(() => songs.reduce((sum, song) => sum + song.plays, 0), [songs]);
+    const dashboardSongs = useMemo(() => songs.filter((song) => (accountUserId && song.ownerId === accountUserId) ||
+        Boolean(song.audioPath) ||
+        song.uploaded === "Just now"), [accountUserId, songs]);
+    const dashboardVideos = useMemo(() => uniqueVideos(videos).filter((video) => (accountUserId && video.ownerId === accountUserId) ||
+        Boolean(video.storagePath || video.storage_path) ||
+        video.uploaded === "Just now"), [accountUserId, videos]);
+    function getUploadSortTime(value: string | undefined) {
+        if (!value)
+            return 0;
+        if (value === "Just now")
+            return Number.MAX_SAFE_INTEGER;
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    function sortDashboardSongs(list: Song[], sortMode: DashboardSort) {
+        return [...list].sort((a, b) => {
+            if (sortMode === "Oldest")
+                return getUploadSortTime(a.uploaded) - getUploadSortTime(b.uploaded);
+            if (sortMode === "Most Plays")
+                return b.plays - a.plays;
+            if (sortMode === "Most Likes")
+                return b.likes - a.likes;
+            if (sortMode === "Title")
+                return a.title.localeCompare(b.title);
+            return getUploadSortTime(b.uploaded) - getUploadSortTime(a.uploaded);
+        });
+    }
+    function sortDashboardVideos(list: VideoItem[], sortMode: DashboardSort) {
+        return [...list].sort((a, b) => {
+            if (sortMode === "Oldest")
+                return getUploadSortTime(a.uploaded) - getUploadSortTime(b.uploaded);
+            if (sortMode === "Most Plays")
+                return b.views - a.views;
+            if (sortMode === "Most Likes")
+                return (b.likes || 0) - (a.likes || 0);
+            if (sortMode === "Title")
+                return a.title.localeCompare(b.title);
+            return getUploadSortTime(b.uploaded) - getUploadSortTime(a.uploaded);
+        });
+    }
+    const recentDashboardSongs = sortDashboardSongs(dashboardSongs, "Newest").slice(0, 5);
+    const recentDashboardVideos = sortDashboardVideos(dashboardVideos, "Newest").slice(0, 5);
+    const dashboardMusicKeyword = dashboardMusicSearch.trim().toLowerCase();
+    const dashboardVideoKeyword = dashboardVideoSearch.trim().toLowerCase();
+    const filteredDashboardSongs = sortDashboardSongs(dashboardMusicKeyword
+        ? dashboardSongs.filter((song) => song.title.toLowerCase().includes(dashboardMusicKeyword) ||
+            song.artist.toLowerCase().includes(dashboardMusicKeyword) ||
+            song.type.toLowerCase().includes(dashboardMusicKeyword) ||
+            song.category.toLowerCase().includes(dashboardMusicKeyword))
+        : dashboardSongs, dashboardMusicSort);
+    const filteredDashboardVideos = sortDashboardVideos(dashboardVideoKeyword
+        ? dashboardVideos.filter((video) => video.title.toLowerCase().includes(dashboardVideoKeyword) ||
+            video.creator.toLowerCase().includes(dashboardVideoKeyword) ||
+            video.category.toLowerCase().includes(dashboardVideoKeyword))
+        : dashboardVideos, dashboardVideoSort);
+    const dashboardArtistProfiles = useMemo(() => {
+        const artistIds = new Set([
+            ...dashboardSongs.map((song) => createArtistId(song.artist)),
+            ...dashboardVideos.map((video) => createArtistId(video.creator)),
+        ]);
+        return mergedArtistProfiles.filter((artist) => artistIds.has(artist.id));
+    }, [dashboardSongs, dashboardVideos, mergedArtistProfiles]);
+    const selectedDashboardArtist = useMemo(() => dashboardArtistProfiles.find((artist) => artist.id === dashboardArtistId) ||
+        dashboardArtistProfiles[0] ||
+        null, [dashboardArtistId, dashboardArtistProfiles]);
+    const dashboardArtistAlbums = useMemo(() => {
+        const artistIds = new Set(dashboardArtistProfiles.map((artist) => artist.id));
+        const artistNames = new Set(dashboardArtistProfiles.map((artist) => createArtistId(artist.name)));
+        return resolvedAlbums.filter((album) => album.ownerType === "artist" &&
+            ((accountUserId && album.userId === accountUserId) ||
+                (accountUserId && album.artistId === accountUserId) ||
+                Boolean(album.artistId && artistIds.has(album.artistId)) ||
+                artistIds.has(createArtistId(album.creatorName)) ||
+                artistIds.has(createArtistId(album.artistName)) ||
+                artistNames.has(createArtistId(album.creatorName)) ||
+                artistNames.has(createArtistId(album.artistName)) ||
+                album.songs.some((song) => artistIds.has(createArtistId(song.artist))) ||
+                album.videos.some((video) => artistIds.has(createArtistId(video.creator)) ||
+                    artistIds.has(createArtistId(video.artistName || "")))));
+    }, [accountUserId, dashboardArtistProfiles, resolvedAlbums]);
+    const recentDashboardAlbums = useMemo(() => resolvedAlbums
+        .filter((album) => album.ownerType === "artist" &&
+        Boolean(accountUserId) &&
+        (album.userId === accountUserId || album.artistId === accountUserId))
+        .sort((a, b) => getUploadSortTime(b.createdAt || b.updatedAt) - getUploadSortTime(a.createdAt || a.updatedAt))
+        .slice(0, 5), [accountUserId, resolvedAlbums]);
+    const dashboardAnalytics = useMemo(() => {
+        const artistIds = new Set(dashboardArtistProfiles.map((artist) => artist.id));
+        const songIds = new Set(dashboardSongs.map((song) => song.id));
+        const artistFollowerCount = Array.from(artistIds).reduce((sum, artistId) => sum + (artistFollowerCounts[artistId] || 0), 0);
+        return {
+            songs: dashboardSongs.length,
+            videos: dashboardVideos.length,
+            albums: dashboardArtistAlbums.length,
+            uploads: dashboardSongs.length + dashboardVideos.length,
+            musicPlays: dashboardSongs.reduce((sum, song) => sum + song.plays, 0),
+            videoViews: dashboardVideos.reduce((sum, video) => sum + video.views, 0),
+            likes: dashboardSongs.reduce((sum, song) => sum + song.likes + (likedIds.includes(song.id) ? 1 : 0), dashboardVideos.reduce((sum, video) => sum + (video.likes || 0) + (video.likedByUser ? 1 : 0), 0)),
+            followers: artistFollowerCount,
+            following: followedArtistIds.length,
+            saves: libraryIds.filter((id) => songIds.has(id)).length,
+        };
+    }, [artistFollowerCounts, dashboardArtistAlbums.length, dashboardArtistProfiles, dashboardSongs, dashboardVideos, followedArtistIds.length, libraryIds, likedIds]);
+    const activeSubscriptionPlan = SUBSCRIPTION_PLANS.find((plan) => plan.id === activeSubscriptionPlanId) || SUBSCRIPTION_PLANS[0];
+    const artistStreamGrossCents = Math.round(dashboardAnalytics.musicPlays * STREAM_REVENUE_CENTS);
+    const artistVideoGrossCents = Math.round(dashboardAnalytics.videoViews * VIDEO_VIEW_REVENUE_CENTS);
+    const artistUsageRevenueCents = Math.round((artistStreamGrossCents + artistVideoGrossCents) * (ARTIST_REVENUE_SHARE / 100));
+    const producerUsageRevenueCents = Math.round((songsUsingProducerBeats.reduce((sum, song) => sum + song.plays, 0) * STREAM_REVENUE_CENTS +
+        videosUsingProducerBeats.reduce((sum, video) => sum + video.views, 0) * VIDEO_VIEW_REVENUE_CENTS) * (PRODUCER_REVENUE_SHARE / 100));
+    const artistRevenueSplits = useMemo<RevenueSplitSummary[]>(() => {
+        const splitRows: RevenueSplitSummary[] = [];
+        dashboardSongs.slice(0, 8).forEach((song) => {
+            const hasProducer = Boolean(song.producer || song.producerId);
+            splitRows.push({
+                id: `song-${song.id}`,
+                itemId: song.id,
+                itemType: "song",
+                title: song.title,
+                artistName: song.artist,
+                producerName: song.producer || "No producer assigned",
+                artistShare: hasProducer ? 70 : 90,
+                producerShare: hasProducer ? 20 : 0,
+                platformShare: 10,
+            });
+        });
+        dashboardVideos.slice(0, 6).forEach((video) => {
+            const hasProducer = Boolean(video.producerName || video.producer || video.producerId || video.producerProfileId);
+            splitRows.push({
+                id: `video-${video.id}`,
+                itemId: video.id,
+                itemType: "video",
+                title: video.title,
+                artistName: video.creator,
+                producerName: video.producerName || video.producer || "No producer assigned",
+                artistShare: hasProducer ? 70 : 90,
+                producerShare: hasProducer ? 20 : 0,
+                platformShare: 10,
+            });
+        });
+        dashboardArtistAlbums.slice(0, 4).forEach((album) => {
+            splitRows.push({
+                id: `album-${album.id}`,
+                itemId: album.id,
+                itemType: "album",
+                title: album.title,
+                artistName: album.creatorName,
+                producerName: album.producerName || "Album collaborators",
+                artistShare: 80,
+                producerShare: 10,
+                platformShare: 10,
+            });
+        });
+        return splitRows.slice(0, 12);
+    }, [dashboardArtistAlbums, dashboardSongs, dashboardVideos]);
+    const producerRevenueSplits: RevenueSplitSummary[] = (() => {
+        const beatRows = producerDashboardBeats.slice(0, 8).map((beat) => {
+            const producerShare = clampProducerSplitShare(beat.splitPercentage);
+            return {
+                id: `beat-${beat.id}`,
+                itemId: beat.id,
+                itemType: "beat" as const,
+                title: beat.title,
+                artistName: "Licensed artist",
+                producerName: beat.producerName,
+                artistShare: 100 - producerShare - PLATFORM_REVENUE_SHARE,
+                producerShare,
+                platformShare: PLATFORM_REVENUE_SHARE,
+            };
+        });
+        const songRows = songsUsingProducerBeats.slice(0, 6).map((song) => ({
+            id: `producer-song-${song.id}`,
+            itemId: song.id,
+            itemType: "song" as const,
+            title: song.title,
+            artistName: song.artist,
+            producerName: song.producer || currentProducerProfile.name,
+            artistShare: 70,
+            producerShare: 20,
+            platformShare: 10,
+        }));
+        return [...beatRows, ...songRows].slice(0, 12);
+    })();
+    const artistRevenueCents = artistUsageRevenueCents + getCreatorTransactionRevenueCents("artist");
+    const producerRevenueCents = producerUsageRevenueCents + getCreatorTransactionRevenueCents("producer");
+    const artistPendingPayoutCents = getCreatorRequestedPayoutCents("artist");
+    const producerPendingPayoutCents = getCreatorRequestedPayoutCents("producer");
+    const artistTransactions = monetizationTransactions.filter((transaction) => transaction.creatorType === "artist");
+    const producerTransactions = monetizationTransactions.filter((transaction) => transaction.creatorType === "producer");
+    const pendingPayoutReviews = payoutRequests.filter((payout) => payout.status === "pending" || payout.status === "processing");
+    const adminRevenueSummary = useMemo(() => {
+        const activeTransactions = monetizationTransactions.filter((transaction) => transaction.status !== "failed" && transaction.status !== "refunded");
+        const grossRevenueCents = activeTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0) + artistStreamGrossCents + artistVideoGrossCents;
+        const artistRevenue = artistRevenueCents;
+        const producerRevenue = producerRevenueCents;
+        const estimatedPlatformShare = activeTransactions.reduce((sum, transaction) => sum + getPlatformCommissionCents(transaction), 0) +
+            Math.round((artistStreamGrossCents + artistVideoGrossCents) * (PLATFORM_REVENUE_SHARE / 100));
+        const activeSubscriptionTransactions = activeTransactions.filter((transaction) => transaction.transactionType === "subscription");
+        const monthlyRecurringRevenueCents = activeSubscriptionTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0);
+        const pendingPayouts = payoutRequests.filter((payout) => payout.status === "pending" || payout.status === "processing").reduce((sum, payout) => sum + payout.amountCents, 0);
+        const paidPayouts = payoutRequests.filter((payout) => payout.status === "paid").reduce((sum, payout) => sum + payout.amountCents, 0);
+        return {
+            grossRevenueCents,
+            artistRevenue,
+            producerRevenue,
+            platformRevenue: estimatedPlatformShare,
+            monthlyRecurringRevenueCents,
+            totalSubscribers: activeSubscriptionTransactions.length,
+            pendingPayouts,
+            paidPayouts,
+            transactionCount: activeTransactions.length,
+            payoutRequestCount: payoutRequests.length,
+        };
+    }, [artistRevenueCents, artistStreamGrossCents, artistVideoGrossCents, monetizationTransactions, payoutRequests, producerRevenueCents]);
+    const artistSubscriberCount = selectedDashboardArtist
+        ? getCreatorSubscriberCount("artist", selectedDashboardArtist.id)
+        : artistTransactions.filter((transaction) => transaction.transactionType === "subscription").length;
+    const producerSubscriberCount = getCreatorSubscriberCount("producer", currentProducerProfile.id || currentProducerProfile.name);
+    const adminTopArtists = useMemo(() => [...mergedArtistProfiles]
+        .sort((a, b) => (b.totalPlays + b.followers * 10) - (a.totalPlays + a.followers * 10))
+        .slice(0, 5), [mergedArtistProfiles]);
+    const adminTopProducers = useMemo(() => [...producerProfiles]
+        .map((producer) => {
+        const producerBeatRevenue = producerBeats
+            .filter((beat) => beat.producerId === producer.id || beat.producerUserId === producer.userId || createArtistId(beat.producerName) === createArtistId(producer.name))
+            .reduce((sum, beat) => sum + Math.round(beat.payouts * 100), 0);
+        return {
+            ...producer,
+            score: producer.followers * 10 + producerBeatRevenue,
+            revenueCents: producerBeatRevenue,
+        };
+    })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5), [producerBeats, producerProfiles]);
+    const statementPeriodLabel = useMemo(() => new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" }), []);
+    const artistMonthlyStatements: MonthlyStatementSummary[] = [
+        {
+            id: "artist-current-month",
+            label: statementPeriodLabel,
+            streamCount: dashboardAnalytics.musicPlays,
+            videoViewCount: dashboardAnalytics.videoViews,
+            purchaseCount: artistTransactions.filter((transaction) => transaction.transactionType === "purchase").length,
+            subscriberCount: artistSubscriberCount,
+            grossCents: artistStreamGrossCents + artistVideoGrossCents + artistTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0),
+            artistCents: artistRevenueCents,
+            producerCents: Math.round((artistStreamGrossCents + artistVideoGrossCents) * (PRODUCER_REVENUE_SHARE / 100)),
+            platformCents: Math.round((artistStreamGrossCents + artistVideoGrossCents) * (PLATFORM_REVENUE_SHARE / 100)) + artistTransactions.reduce((sum, transaction) => sum + getPlatformCommissionCents(transaction), 0),
+            pendingCents: Math.max(0, artistRevenueCents - artistPendingPayoutCents),
+            paidCents: payoutRequests.filter((payout) => payout.creatorType === "artist" && payout.status === "paid").reduce((sum, payout) => sum + payout.amountCents, 0),
+        },
+    ];
+    const producerMonthlyStatements: MonthlyStatementSummary[] = [
+        {
+            id: "producer-current-month",
+            label: statementPeriodLabel,
+            streamCount: songsUsingProducerBeats.reduce((sum, song) => sum + song.plays, 0),
+            videoViewCount: videosUsingProducerBeats.reduce((sum, video) => sum + video.views, 0),
+            purchaseCount: producerTransactions.filter((transaction) => transaction.transactionType === "purchase" || transaction.transactionType === "license").length,
+            subscriberCount: producerSubscriberCount,
+            grossCents: producerTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0),
+            artistCents: Math.round(producerTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0) * (ARTIST_REVENUE_SHARE / 100)),
+            producerCents: producerRevenueCents,
+            platformCents: producerTransactions.reduce((sum, transaction) => sum + getPlatformCommissionCents(transaction), 0),
+            pendingCents: Math.max(0, producerRevenueCents - producerPendingPayoutCents),
+            paidCents: payoutRequests.filter((payout) => payout.creatorType === "producer" && payout.status === "paid").reduce((sum, payout) => sum + payout.amountCents, 0),
+        },
+    ];
+    const artistStorefrontItems = useMemo<StorefrontItemSummary[]>(() => [
+        ...dashboardArtistAlbums.map((album) => ({
+            id: album.id,
+            title: album.title,
+            itemType: "album" as const,
+            creatorType: "artist" as const,
+            creatorName: album.creatorName,
+            priceCents: 499,
+            subscriberOnly: false,
+            exclusive: false,
+            cover: album.cover,
+        })),
+        ...dashboardSongs.map((song) => ({
+            id: song.id,
+            title: song.title,
+            itemType: "song" as const,
+            creatorType: "artist" as const,
+            creatorName: song.artist,
+            priceCents: 129,
+            subscriberOnly: false,
+            exclusive: false,
+            cover: song.cover,
+        })),
+        ...dashboardVideos.map((video) => ({
+            id: video.id,
+            title: video.title,
+            itemType: "video" as const,
+            creatorType: "artist" as const,
+            creatorName: video.creator,
+            priceCents: 199,
+            subscriberOnly: true,
+            exclusive: false,
+            cover: video.cover,
+        })),
+    ], [dashboardArtistAlbums, dashboardSongs, dashboardVideos]);
+    const producerStorefrontItems = useMemo<StorefrontItemSummary[]>(() => producerDashboardBeats.map((beat) => ({
+        id: beat.id,
+        title: beat.title,
+        itemType: "beat" as const,
+        creatorType: "producer" as const,
+        creatorName: beat.producerName,
+        priceCents: Math.max(0, Math.round((beat.license === "Exclusive" ? beat.exclusivePrice : beat.leasePrice) * 100)),
+        subscriberOnly: false,
+        exclusive: beat.license === "Exclusive",
+        cover: beat.cover,
+    })), [producerDashboardBeats]);
+    const premiumContentItems = useMemo<StorefrontItemSummary[]>(() => [
+        ...artistStorefrontItems.filter((item) => item.subscriberOnly || item.exclusive),
+        ...producerStorefrontItems.filter((item) => item.subscriberOnly || item.exclusive),
+        ...playlists.slice(0, 4).map((playlist) => ({
+            id: playlist.id,
+            title: playlist.name,
+            itemType: "playlist" as const,
+            creatorType: "platform" as const,
+            creatorName: "Music Data Base",
+            priceCents: 0,
+            subscriberOnly: true,
+            exclusive: playlist.playlistType === "mixed",
+            cover: playlist.cover,
+        })),
+    ], [artistStorefrontItems, playlists, producerStorefrontItems]);
+    function createFollowerTrend(currentFollowers: number, engagementScore: number, contentCount: number): CreatorGrowthTrendPoint[] {
+        const baseGrowth = Math.max(1, Math.round(currentFollowers * Math.min(0.22, Math.max(0.04, engagementScore / 600)) + contentCount * 2));
+        const startFollowers = Math.max(0, currentFollowers - baseGrowth);
+        return [
+            { label: "28d", followers: startFollowers, engagement: Math.max(0, engagementScore - 18) },
+            { label: "21d", followers: Math.round(startFollowers + baseGrowth * 0.28), engagement: Math.max(0, engagementScore - 12) },
+            { label: "14d", followers: Math.round(startFollowers + baseGrowth * 0.55), engagement: Math.max(0, engagementScore - 7) },
+            { label: "7d", followers: Math.round(startFollowers + baseGrowth * 0.8), engagement: Math.max(0, engagementScore - 3) },
+            { label: "Now", followers: currentFollowers, engagement: engagementScore },
+        ];
+    }
+    function clampGrowthScore(value: number) {
+        return Math.max(0, Math.min(100, Math.round(value)));
+    }
+    function createGrowthAction(id: string, label: string, detail: string, priority: CreatorGrowthAction["priority"]): CreatorGrowthAction {
+        return { id, label, detail, priority };
+    }
+    const artistGrowthSummary = useMemo<CreatorGrowthSummary>(() => {
+        const totalReach = dashboardAnalytics.musicPlays + dashboardAnalytics.videoViews;
+        const contentCount = dashboardSongs.length + dashboardVideos.length + dashboardArtistAlbums.length;
+        const subscriberBoost = artistSubscriberCount * 12;
+        const saveBoost = dashboardAnalytics.saves * 5;
+        const activityScore = totalReach * 0.018 + dashboardAnalytics.likes * 1.8 + dashboardAnalytics.followers * 2.4 + saveBoost + subscriberBoost + contentCount * 4;
+        const engagementScore = clampGrowthScore(activityScore / Math.max(1, contentCount + 8));
+        const fanConversionRate = totalReach > 0 ? Math.min(100, dashboardAnalytics.followers / totalReach * 100) : 0;
+        const followerGrowthRate = dashboardAnalytics.followers > 0 ? Math.min(100, (dashboardAnalytics.likes + dashboardAnalytics.saves + artistSubscriberCount) / dashboardAnalytics.followers * 100) : 0;
+        const topSongContent = dashboardSongs.map((song) => ({
+            id: song.id,
+            title: song.title,
+            itemType: "song" as const,
+            metric: `${formatCount(song.plays)} plays | ${formatCount(song.likes)} likes`,
+            score: song.plays + song.likes * 8 + (libraryIds.includes(song.id) ? 20 : 0),
+        }));
+        const topVideoContent = dashboardVideos.map((video) => ({
+            id: video.id,
+            title: video.title,
+            itemType: "video" as const,
+            metric: `${formatCount(video.views)} views | ${formatCount(video.likes || 0)} likes`,
+            score: video.views + (video.likes || 0) * 10 + (savedVideoIds.includes(video.id) ? 24 : 0),
+        }));
+        const topAlbumContent = dashboardArtistAlbums.map((album) => ({
+            id: album.id,
+            title: album.title,
+            itemType: "album" as const,
+            metric: `${getAlbumSongCount(album)} songs | ${getAlbumVideoCount(album)} videos`,
+            score: getAlbumSongCount(album) * 18 + getAlbumVideoCount(album) * 24,
+        }));
+        const recommendedActions: CreatorGrowthAction[] = [];
+        if (dashboardVideos.length === 0)
+            recommendedActions.push(createGrowthAction("artist-video", "Post a short performance video", "Video views give fans another way to discover your songs.", "High"));
+        if (dashboardArtistAlbums.length === 0)
+            recommendedActions.push(createGrowthAction("artist-album", "Package your best songs into an album", "Albums make your profile feel complete and improve storefront readiness.", "High"));
+        if (fanConversionRate < 2 && totalReach > 0)
+            recommendedActions.push(createGrowthAction("artist-follow-cta", "Ask listeners to follow after plays", "Your plays are ahead of follower conversion. Add stronger follow calls in profile and captions.", "Medium"));
+        if (artistSubscriberCount === 0 && premiumContentItems.some((item) => item.creatorType === "artist"))
+            recommendedActions.push(createGrowthAction("artist-premium", "Promote subscriber-only drops", "You have premium-ready content but no creator subscriptions yet.", "Medium"));
+        if (dashboardAnalytics.likes < Math.max(3, contentCount))
+            recommendedActions.push(createGrowthAction("artist-engagement", "Share one track for feedback", "Likes are below your catalog size. Push one clear single this week.", "Low"));
+        if (recommendedActions.length === 0)
+            recommendedActions.push(createGrowthAction("artist-momentum", "Keep release cadence steady", "Your catalog has healthy engagement. Keep feeding new releases and profile updates.", "Low"));
+        return {
+            creatorType: "artist",
+            creatorName: selectedDashboardArtist?.name || user?.email?.split("@")[0] || "Artist",
+            engagementScore,
+            fanConversionRate,
+            followerGrowthRate,
+            totalAudience: totalReach,
+            activeContentCount: contentCount,
+            followerTrend: createFollowerTrend(dashboardAnalytics.followers, engagementScore, contentCount),
+            topContent: [...topSongContent, ...topVideoContent, ...topAlbumContent].sort((a, b) => b.score - a.score).slice(0, 5),
+            recommendedActions: recommendedActions.slice(0, 4),
+        };
+    }, [artistSubscriberCount, dashboardAnalytics, dashboardArtistAlbums, dashboardSongs, dashboardVideos, libraryIds, premiumContentItems, savedVideoIds, selectedDashboardArtist?.name, user?.email]);
+    const producerGrowthSummary = useMemo<CreatorGrowthSummary>(() => {
+        const beatPlays = producerDashboardBeats.reduce((sum, beat) => sum + beat.plays, 0);
+        const creditedSongPlays = songsUsingProducerBeats.reduce((sum, song) => sum + song.plays, 0);
+        const creditedVideoViews = videosUsingProducerBeats.reduce((sum, video) => sum + video.views, 0);
+        const totalReach = beatPlays + creditedSongPlays + creditedVideoViews;
+        const contentCount = producerDashboardBeats.length + songsUsingProducerBeats.length + videosUsingProducerBeats.length + producerDashboardAlbums.length;
+        const licenseSignals = producerDashboardBeats.reduce((sum, beat) => sum + beat.downloads + beat.leases * 3 + beat.likes * 2, 0);
+        const transactionBoost = producerTransactions.reduce((sum, transaction) => sum + transaction.amountCents / 100, 0);
+        const engagementScore = clampGrowthScore((totalReach * 0.016 + producerStats.followers * 2.5 + licenseSignals * 3 + transactionBoost + contentCount * 5) / Math.max(1, contentCount + 8));
+        const fanConversionRate = totalReach > 0 ? Math.min(100, producerStats.followers / totalReach * 100) : 0;
+        const followerGrowthRate = producerStats.followers > 0 ? Math.min(100, (licenseSignals + producerSubscriberCount) / producerStats.followers * 100) : 0;
+        const topBeatContent = producerDashboardBeats.map((beat) => ({
+            id: beat.id,
+            title: beat.title,
+            itemType: "beat" as const,
+            metric: `${formatCount(beat.plays)} plays | ${formatCount(beat.downloads)} downloads`,
+            score: beat.plays + beat.likes * 8 + beat.downloads * 12 + beat.leases * 30 + beat.payouts * 10,
+        }));
+        const topCreditSongs = songsUsingProducerBeats.map((song) => ({
+            id: song.id,
+            title: song.title,
+            itemType: "song" as const,
+            metric: `${formatCount(song.plays)} plays | ${song.artist}`,
+            score: song.plays + song.likes * 6,
+        }));
+        const topCreditVideos = videosUsingProducerBeats.map((video) => ({
+            id: video.id,
+            title: video.title,
+            itemType: "video" as const,
+            metric: `${formatCount(video.views)} views | ${video.creator}`,
+            score: video.views + (video.likes || 0) * 8,
+        }));
+        const recommendedActions: CreatorGrowthAction[] = [];
+        if (producerDashboardBeats.length === 0)
+            recommendedActions.push(createGrowthAction("producer-upload-beat", "Upload a beat pack", "Your producer growth starts with beats artists can lease or credit.", "High"));
+        if (producerDashboardBeats.some((beat) => beat.license === "Free" && beat.leasePrice === 0 && beat.exclusivePrice === 0))
+            recommendedActions.push(createGrowthAction("producer-license", "Add clear license pricing", "Free beats are good discovery, but priced tiers help convert serious artists.", "High"));
+        if (songsUsingProducerBeats.length + videosUsingProducerBeats.length === 0 && producerDashboardBeats.length > 0)
+            recommendedActions.push(createGrowthAction("producer-credits", "Invite artists to credit your beats", "Credits connect your profile to released songs and videos.", "Medium"));
+        if (fanConversionRate < 2 && totalReach > 0)
+            recommendedActions.push(createGrowthAction("producer-follow-cta", "Push producer profile follows", "Beat activity is ahead of follower conversion. Add a follow CTA to beat descriptions.", "Medium"));
+        if (producerStats.downloads === 0 && producerDashboardBeats.length > 0)
+            recommendedActions.push(createGrowthAction("producer-downloads", "Enable download-focused promotion", "Downloads are a strong purchase intent signal for future licensing.", "Low"));
+        if (recommendedActions.length === 0)
+            recommendedActions.push(createGrowthAction("producer-momentum", "Keep beat releases consistent", "Your beat catalog has active signals. Keep release cadence and licensing visible.", "Low"));
+        return {
+            creatorType: "producer",
+            creatorName: currentProducerProfile.name || "Producer",
+            engagementScore,
+            fanConversionRate,
+            followerGrowthRate,
+            totalAudience: totalReach,
+            activeContentCount: contentCount,
+            followerTrend: createFollowerTrend(producerStats.followers, engagementScore, contentCount),
+            topContent: [...topBeatContent, ...topCreditSongs, ...topCreditVideos].sort((a, b) => b.score - a.score).slice(0, 5),
+            recommendedActions: recommendedActions.slice(0, 4),
+        };
+    }, [currentProducerProfile.name, producerDashboardAlbums.length, producerDashboardBeats, producerStats.downloads, producerStats.followers, producerSubscriberCount, producerTransactions, songsUsingProducerBeats, videosUsingProducerBeats]);
+    const marketplaceGenreOptions = useMemo(() => [
+        "All Genres",
+        ...Array.from(new Set([
+            ...audioSongs.flatMap((song) => [song.category, song.type]),
+            ...uniqueVideos(videos).map((video) => video.category),
+            ...resolvedAlbums.map((album) => album.category),
+            ...producerBeats.map((beat) => beat.category),
+        ].map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    ], [audioSongs, producerBeats, resolvedAlbums, videos]);
+    const marketplaceArtistOptions = useMemo(() => [
+        "All Artists",
+        ...Array.from(new Set([
+            ...mergedArtistProfiles.map((artist) => artist.name),
+            ...audioSongs.map((song) => song.artist),
+            ...uniqueVideos(videos).map((video) => video.creator),
+        ].map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    ], [audioSongs, mergedArtistProfiles, videos]);
+    const marketplaceProducerOptions = useMemo(() => [
+        "All Producers",
+        ...Array.from(new Set([
+            ...producerProfiles.map((producer) => producer.name),
+            ...producerBeats.map((beat) => beat.producerName),
+            ...audioSongs.map((song) => song.producer || ""),
+            ...uniqueVideos(videos).map((video) => video.producerName || video.producer || ""),
+            ...resolvedAlbums.map((album) => album.producerName),
+        ].map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    ], [audioSongs, producerBeats, producerProfiles, resolvedAlbums, videos]);
+    const marketplaceReleases = useMemo<MarketplaceRelease[]>(() => {
+        const keyword = search.trim().toLowerCase();
+        const matchesText = (parts: string[]) => !keyword || parts.some((part) => part.toLowerCase().includes(keyword));
+        const matchesChoice = (selected: string, allLabel: string, parts: string[]) => selected === allLabel || parts.some((part) => createArtistId(part) === createArtistId(selected));
+        const matchesPrice = (priceCents: number, premium: boolean) => {
+            if (marketplaceFilters.price === "Free")
+                return priceCents === 0;
+            if (marketplaceFilters.price === "Paid")
+                return priceCents > 0;
+            if (marketplaceFilters.price === "Premium")
+                return premium;
+            return true;
+        };
+        const filterRelease = (release: MarketplaceRelease) => {
+            const contentMatches = marketplaceFilters.content === "All" ||
+                (marketplaceFilters.content === "Songs" && release.releaseType === "song") ||
+                (marketplaceFilters.content === "Videos" && release.releaseType === "video") ||
+                (marketplaceFilters.content === "Albums" && release.releaseType === "album") ||
+                (marketplaceFilters.content === "Beats" && release.releaseType === "beat");
+            return (contentMatches &&
+                matchesChoice(marketplaceFilters.genre, "All Genres", [release.genre]) &&
+                matchesChoice(marketplaceFilters.artist, "All Artists", [release.creatorName]) &&
+                matchesChoice(marketplaceFilters.producer, "All Producers", [release.producerName]) &&
+                matchesPrice(release.priceCents, release.premium) &&
+                matchesText([release.title, release.creatorName, release.producerName, release.genre, release.releaseType]));
+        };
+        const songReleases = audioSongs.map<MarketplaceRelease>((song) => ({
+            id: song.id,
+            releaseType: "song",
+            title: song.title,
+            creatorName: song.artist,
+            producerName: song.producer || producerBeats.find((beat) => beat.songId === song.id || beat.id === song.beatId)?.producerName || "",
+            genre: song.type || song.category,
+            cover: song.cover,
+            priceCents: 129,
+            premium: false,
+            metricLabel: `${formatCount(song.plays)} plays | ${formatCount(song.likes)} likes`,
+            dateLabel: song.uploaded,
+            sortValue: getUploadSortTime(song.uploaded),
+            score: song.plays * 3 + song.likes * 8,
+            item: song,
+        }));
+        const videoReleases = uniqueVideos(videos).map<MarketplaceRelease>((video) => ({
+            id: video.id,
+            releaseType: "video",
+            title: video.title,
+            creatorName: video.creator,
+            producerName: video.producer || producerBeats.find((beat) => beat.id === video.beatId)?.producerName || "",
+            genre: video.category,
+            cover: video.cover,
+            priceCents: 199,
+            premium: Boolean((video as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).subscriberOnly ||
+                (video as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).subscriber_only ||
+                (video as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).exclusive),
+            metricLabel: `${formatCount(video.views)} views | ${formatCount(video.likes || 0)} likes`,
+            dateLabel: video.uploaded,
+            sortValue: getUploadSortTime(video.uploaded),
+            score: video.views * 3 + (video.likes || 0) * 8,
+            item: video,
+        }));
+        const albumReleases = resolvedAlbums.map<MarketplaceRelease>((album) => ({
+            id: album.id,
+            releaseType: "album",
+            title: album.title,
+            creatorName: album.creatorName,
+            producerName: album.producerName,
+            genre: album.category,
+            cover: getAlbumDisplayCover(album),
+            priceCents: 499,
+            premium: Boolean((album as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).subscriberOnly ||
+                (album as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).subscriber_only ||
+                (album as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).exclusive),
+            metricLabel: `${getAlbumSongCount(album)} songs | ${getAlbumVideoCount(album)} videos`,
+            dateLabel: formatAlbumCreatedDate(album.createdAt),
+            sortValue: getUploadSortTime(album.createdAt || album.updatedAt),
+            score: getAlbumSongCount(album) * 12 + getAlbumVideoCount(album) * 14,
+            item: album,
+        }));
+        const beatReleases = producerBeats.map<MarketplaceRelease>((beat) => {
+            const priceCents = Math.max(0, Math.round((beat.license === "Exclusive" ? beat.exclusivePrice : beat.license === "Free" ? 0 : beat.leasePrice) * 100));
+            return {
+                id: beat.id,
+                releaseType: "beat",
+                title: beat.title,
+                creatorName: beat.producerName,
+                producerName: beat.producerName,
+                genre: beat.category,
+                cover: beat.cover,
+                priceCents,
+                premium: beat.license === "Exclusive",
+                metricLabel: `${formatCount(beat.plays)} plays | ${formatCount(beat.leases)} leases`,
+                dateLabel: formatAlbumCreatedDate(beat.createdAt),
+                sortValue: getUploadSortTime(beat.createdAt),
+                score: beat.plays * 3 + beat.likes * 8 + beat.leases * 10 + beat.downloads,
+                item: beat,
+            };
+        });
+        return [...songReleases, ...videoReleases, ...albumReleases, ...beatReleases].filter(filterRelease);
+    }, [audioSongs, marketplaceFilters, producerBeats, resolvedAlbums, search, videos]);
+    const marketplaceFeaturedReleases = useMemo(() => [...marketplaceReleases].sort((a, b) => b.score - a.score).slice(0, 12), [marketplaceReleases]);
+    const marketplaceNewReleases = useMemo(() => [...marketplaceReleases].sort((a, b) => b.sortValue - a.sortValue).slice(0, 16), [marketplaceReleases]);
+    const marketplaceTopCharts = useMemo(() => [...marketplaceReleases].sort((a, b) => b.score - a.score).slice(0, 10), [marketplaceReleases]);
+    const discoveryPreference = useMemo(() => {
+        const categories = new Map<string, number>();
+        const artists = new Map<string, number>();
+        const producers = new Map<string, number>();
+        const addCategory = (value: string | undefined, weight: number) => {
+            const key = (value || "").trim();
+            if (!key)
+                return;
+            categories.set(createArtistId(key), (categories.get(createArtistId(key)) || 0) + weight);
+        };
+        const addArtist = (value: string | undefined, weight: number) => {
+            const key = (value || "").trim();
+            if (!key)
+                return;
+            artists.set(createArtistId(key), (artists.get(createArtistId(key)) || 0) + weight);
+        };
+        const addProducer = (value: string | undefined, weight: number) => {
+            const key = (value || "").trim();
+            if (!key)
+                return;
+            producers.set(createArtistId(key), (producers.get(createArtistId(key)) || 0) + weight);
+        };
+        const songMap = new Map(audioSongs.map((song) => [song.id, song]));
+        const videoMap = new Map(uniqueVideos(videos).map((video) => [video.id, video]));
+        const albumMap = new Map(resolvedAlbums.map((album) => [album.id, album]));
+        likedIds.forEach((id) => {
+            const song = songMap.get(id);
+            if (!song)
+                return;
+            addCategory(song.category, 5);
+            addCategory(song.type, 4);
+            addArtist(song.artist, 6);
+            addProducer(song.producer, 3);
+        });
+        libraryIds.forEach((id) => {
+            const song = songMap.get(id);
+            if (!song)
+                return;
+            addCategory(song.category, 4);
+            addCategory(song.type, 3);
+            addArtist(song.artist, 5);
+            addProducer(song.producer, 2);
+        });
+        savedVideoIds.forEach((id) => {
+            const video = videoMap.get(id);
+            if (!video)
+                return;
+            addCategory(video.category, 4);
+            addArtist(video.creator, 5);
+            addProducer(video.producerName || video.producer, 3);
+        });
+        savedAlbumIds.forEach((id) => {
+            const album = albumMap.get(id);
+            if (!album)
+                return;
+            addCategory(album.category, 5);
+            addArtist(album.creatorName || album.artistName, 6);
+            addProducer(album.producerName, 3);
+        });
+        followedArtistIds.forEach((id) => {
+            const artist = mergedArtistProfiles.find((profile) => profile.id === id || createArtistId(profile.name) === id);
+            addArtist(artist?.name || id, 8);
+        });
+        recentlyPlayed.slice(0, 30).forEach((entry) => {
+            if (entry.itemType === "video" && entry.video) {
+                addCategory(entry.video.category, 5);
+                addArtist(entry.video.creator, 6);
+                addProducer(entry.video.producerName || entry.video.producer, 3);
+            }
+            else if (entry.itemType === "album" && entry.album) {
+                addCategory(entry.album.category, 5);
+                addArtist(entry.album.creatorName, 6);
+                addProducer(entry.album.producerName, 3);
+            }
+            else if (entry.song) {
+                addCategory(entry.song.category, 5);
+                addCategory(entry.song.type, 4);
+                addArtist(entry.song.artist, 6);
+                addProducer(entry.song.producer, 3);
+            }
+        });
+        playlists.forEach((playlist) => {
+            playlist.songIds.forEach((songId) => {
+                const song = songMap.get(songId);
+                if (!song)
+                    return;
+                addCategory(song.category, 2);
+                addCategory(song.type, 2);
+                addArtist(song.artist, 2);
+                addProducer(song.producer, 1);
+            });
+            playlist.videoIds.forEach((videoId) => {
+                const video = videoMap.get(videoId);
+                if (!video)
+                    return;
+                addCategory(video.category, 2);
+                addArtist(video.creator, 2);
+                addProducer(video.producerName || video.producer, 1);
+            });
+        });
+        return { categories, artists, producers };
+    }, [audioSongs, followedArtistIds, libraryIds, likedIds, mergedArtistProfiles, playlists, recentlyPlayed, resolvedAlbums, savedAlbumIds, savedVideoIds, videos]);
+    const recommendedSongs = useMemo(() => uniqueSongs(audioSongs)
+        .map((song) => {
+        const categoryScore = (discoveryPreference.categories.get(createArtistId(song.category)) || 0) + (discoveryPreference.categories.get(createArtistId(song.type)) || 0);
+        const artistScore = discoveryPreference.artists.get(createArtistId(song.artist)) || 0;
+        const producerScore = discoveryPreference.producers.get(createArtistId(song.producer || "")) || 0;
+        const freshness = getTrendingPeriodWeight(song.uploaded, "Week") * 8;
+        return {
+            song,
+            score: categoryScore * 7 + artistScore * 8 + producerScore * 4 + song.plays * 0.08 + song.likes * 1.5 + freshness,
+        };
+    })
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.song)
+        .slice(0, 12), [audioSongs, discoveryPreference]);
+    const recommendedVideos = useMemo(() => uniqueVideos(videos)
+        .map((video) => {
+        const categoryScore = discoveryPreference.categories.get(createArtistId(video.category)) || 0;
+        const artistScore = discoveryPreference.artists.get(createArtistId(video.creator)) || 0;
+        const producerScore = discoveryPreference.producers.get(createArtistId(video.producerName || video.producer || "")) || 0;
+        const freshness = getTrendingPeriodWeight(video.uploaded, "Week") * 8;
+        return {
+            video,
+            score: categoryScore * 7 + artistScore * 8 + producerScore * 4 + video.views * 0.08 + (video.likes || 0) * 1.5 + freshness,
+        };
+    })
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.video)
+        .slice(0, 12), [discoveryPreference, videos]);
+    const trendingAlbums = useMemo(() => resolvedAlbums
+        .map((album) => ({
+        album,
+        score: album.songs.reduce((sum, song) => sum + song.plays * 0.08 + song.likes * 1.2, 0) +
+            album.videos.reduce((sum, video) => sum + video.views * 0.08 + (video.likes || 0) * 1.2, 0) +
+            getAlbumSongCount(album) * 6 +
+            getAlbumVideoCount(album) * 8 +
+            getTrendingPeriodWeight(album.createdAt, trendingPeriod) * 10,
+    }))
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.album)
+        .slice(0, 10), [resolvedAlbums, trendingPeriod]);
+    const recommendedAlbums = useMemo(() => resolvedAlbums
+        .map((album) => {
+        const categoryScore = discoveryPreference.categories.get(createArtistId(album.category)) || 0;
+        const artistScore = discoveryPreference.artists.get(createArtistId(album.creatorName || album.artistName)) || 0;
+        const producerScore = discoveryPreference.producers.get(createArtistId(album.producerName)) || 0;
+        return {
+            album,
+            score: categoryScore * 8 + artistScore * 9 + producerScore * 4 + getAlbumSongCount(album) * 4 + getAlbumVideoCount(album) * 5 + getTrendingPeriodWeight(album.createdAt, "Week") * 8,
+        };
+    })
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.album)
+        .slice(0, 12), [discoveryPreference, resolvedAlbums]);
+    const trendingProducers = useMemo(() => producerProfiles
+        .map((producer) => {
+        const beats = producerBeats.filter((beat) => beat.producerId === producer.id || createArtistId(beat.producerName) === createArtistId(producer.name));
+        return {
+            producer,
+            score: producer.followers * 8 + beats.length * 18 + beats.reduce((sum, beat) => sum + beat.plays * 0.08 + beat.likes * 1.4 + beat.leases * 8 + beat.downloads * 2, 0),
+        };
+    })
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.producer)
+        .slice(0, 10), [producerBeats, producerProfiles]);
+    const suggestedArtists = useMemo(() => mergedArtistProfiles
+        .map((artist) => ({
+        artist,
+        score: (discoveryPreference.artists.get(createArtistId(artist.name)) || 0) * 8 + artist.totalPlays * 0.04 + artist.followers * 1.6 + (isArtistVerified(artist.id) || isArtistVerified(artist.name) ? 20 : 0),
+    }))
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.artist)
+        .slice(0, 10), [discoveryPreference, isArtistVerified, mergedArtistProfiles]);
+    const suggestedProducers = useMemo(() => producerProfiles
+        .map((producer) => {
+        const beats = producerBeats.filter((beat) => beat.producerId === producer.id || createArtistId(beat.producerName) === createArtistId(producer.name));
+        return {
+            producer,
+            score: (discoveryPreference.producers.get(createArtistId(producer.name)) || 0) * 8 + producer.followers * 1.6 + beats.length * 10 + (isProducerVerified(producer.id) || isProducerVerified(producer.name) ? 20 : 0),
+        };
+    })
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.producer)
+        .slice(0, 10), [discoveryPreference, isProducerVerified, producerBeats, producerProfiles]);
+    const discoveryForYouItems = useMemo<DiscoveryFeedItem[]>(() => [
+        ...recommendedSongs.slice(0, 4).map((song) => ({
+            id: song.id,
+            type: "song" as const,
+            title: song.title,
+            subtitle: song.artist,
+            cover: song.cover,
+            score: song.plays * 0.08 + song.likes * 1.5,
+            metric: `${formatCount(song.plays)} plays | ${formatCount(song.likes)} likes`,
+            badge: "Song",
+        })),
+        ...recommendedVideos.slice(0, 4).map((video) => ({
+            id: video.id,
+            type: "video" as const,
+            title: video.title,
+            subtitle: video.creator,
+            cover: video.cover,
+            score: video.views * 0.08 + (video.likes || 0) * 1.5,
+            metric: `${formatCount(video.views)} views | ${formatCount(video.likes || 0)} likes`,
+            badge: "Video",
+        })),
+        ...recommendedAlbums.slice(0, 4).map((album) => ({
+            id: album.id,
+            type: "album" as const,
+            title: album.title,
+            subtitle: album.creatorName,
+            cover: getAlbumDisplayCover(album),
+            score: getAlbumSongCount(album) * 6 + getAlbumVideoCount(album) * 8,
+            metric: `${getAlbumSongCount(album)} songs | ${getAlbumVideoCount(album)} videos`,
+            badge: "Album",
+        })),
+    ].sort((a, b) => b.score - a.score).slice(0, 12), [recommendedAlbums, recommendedSongs, recommendedVideos]);
+    const newReleaseDiscoveryItems = useMemo<DiscoveryFeedItem[]>(() => [
+        ...audioSongs
+            .filter((song) => song.category === "New Releases")
+            .map((song) => ({
+            id: song.id,
+            type: "song" as const,
+            title: song.title,
+            subtitle: song.artist,
+            cover: song.cover,
+            score: getUploadSortTime(song.uploaded),
+            metric: song.uploaded,
+            badge: "New Song",
+        })),
+        ...uniqueVideos(videos).map((video) => ({
+            id: video.id,
+            type: "video" as const,
+            title: video.title,
+            subtitle: video.creator,
+            cover: video.cover,
+            score: getUploadSortTime(video.uploaded),
+            metric: video.uploaded,
+            badge: "New Video",
+        })),
+        ...resolvedAlbums.map((album) => ({
+            id: album.id,
+            type: "album" as const,
+            title: album.title,
+            subtitle: album.creatorName,
+            cover: getAlbumDisplayCover(album),
+            score: getUploadSortTime(album.createdAt),
+            metric: formatAlbumCreatedDate(album.createdAt),
+            badge: "New Album",
+        })),
+    ].sort((a, b) => b.score - a.score).slice(0, 14), [audioSongs, resolvedAlbums, videos]);
+    const trendingDiscoveryItems = useMemo<DiscoveryFeedItem[]>(() => [
+        ...trendingSongs.slice(0, 5).map((song) => ({
+            id: song.id,
+            type: "song" as const,
+            title: song.title,
+            subtitle: song.artist,
+            cover: song.cover,
+            score: song.plays * 0.08 + song.likes * 1.5,
+            metric: `${formatCount(song.plays)} plays | ${formatCount(song.likes)} likes`,
+            badge: "Trending Song",
+        })),
+        ...trendingVideos.slice(0, 5).map((video) => ({
+            id: video.id,
+            type: "video" as const,
+            title: video.title,
+            subtitle: video.creator,
+            cover: video.cover,
+            score: video.views * 0.08 + (video.likes || 0) * 1.5,
+            metric: `${formatCount(video.views)} views | ${formatCount(video.likes || 0)} likes`,
+            badge: "Trending Video",
+        })),
+        ...trendingAlbums.slice(0, 4).map((album) => ({
+            id: album.id,
+            type: "album" as const,
+            title: album.title,
+            subtitle: album.creatorName,
+            cover: getAlbumDisplayCover(album),
+            score: getAlbumSongCount(album) * 6 + getAlbumVideoCount(album) * 8,
+            metric: `${getAlbumSongCount(album)} songs | ${getAlbumVideoCount(album)} videos`,
+            badge: "Trending Album",
+        })),
+    ].sort((a, b) => b.score - a.score).slice(0, 14), [trendingAlbums, trendingSongs, trendingVideos]);
+    const suggestedCreatorItems = useMemo<DiscoveryFeedItem[]>(() => [
+        ...suggestedArtists.slice(0, 6).map((artist) => ({
+            id: artist.id,
+            type: "artist" as const,
+            title: artist.name,
+            subtitle: "Suggested artist",
+            cover: artist.avatar,
+            score: artist.totalPlays + artist.followers * 8,
+            metric: `${formatCount(artist.totalPlays)} plays | ${formatCount(artist.followers)} followers`,
+            badge: "Artist",
+        })),
+        ...suggestedProducers.slice(0, 6).map((producer) => ({
+            id: producer.id,
+            type: "producer" as const,
+            title: producer.name,
+            subtitle: "Suggested producer",
+            cover: producer.avatar,
+            score: producer.followers * 8 + producerBeats.filter((beat) => beat.producerId === producer.id || createArtistId(beat.producerName) === createArtistId(producer.name)).length * 20,
+            metric: `${formatCount(producer.followers)} followers`,
+            badge: "Producer",
+        })),
+    ].sort((a, b) => b.score - a.score).slice(0, 12), [producerBeats, suggestedArtists, suggestedProducers]);
+    const creatorGrowthItems = useMemo<DiscoveryFeedItem[]>(() => {
+        const risingArtists = [...mergedArtistProfiles]
+            .map((artist) => ({
+            id: artist.id,
+            type: "artist" as const,
+            title: artist.name,
+            subtitle: "Rising artist",
+            cover: artist.avatar,
+            score: artist.totalPlays / Math.max(1, artist.followers + 1) + artist.totalPlays * 0.02,
+            metric: `${formatCount(artist.totalPlays)} plays | ${formatCount(artist.followers)} followers`,
+            badge: "Rising",
+        }))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 4);
+        const risingProducers = [...producerProfiles]
+            .map((producer) => {
+            const beats = producerBeats.filter((beat) => beat.producerId === producer.id || createArtistId(beat.producerName) === createArtistId(producer.name));
+            const beatEngagement = beats.reduce((sum, beat) => sum + beat.plays + beat.likes * 12 + beat.leases * 20, 0);
+            return {
+                id: producer.id,
+                type: "producer" as const,
+                title: producer.name,
+                subtitle: "Rising producer",
+                cover: producer.avatar,
+                score: beatEngagement / Math.max(1, producer.followers + 1),
+                metric: `${beats.length} beats | ${formatCount(producer.followers)} followers`,
+                badge: "Rising",
+            };
+        })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 4);
+        const collaboration = audioSongs
+            .filter((song) => song.producer)
+            .map((song) => ({
+            id: song.id,
+            type: "song" as const,
+            title: `${song.artist} x ${song.producer}`,
+            subtitle: song.title,
+            cover: song.cover,
+            score: song.plays + song.likes * 12,
+            metric: `${song.type} collaboration`,
+            badge: "Collab",
+        }))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 4);
+        return [...risingArtists, ...risingProducers, ...collaboration].slice(0, 12);
+    }, [audioSongs, mergedArtistProfiles, producerBeats, producerProfiles]);
+    const popularSearches = useMemo(() => Array.from(new Set([
+        ...trendingSongs.slice(0, 4).map((song) => song.title),
+        ...trendingVideos.slice(0, 4).map((video) => video.title),
+        ...trendingAlbums.slice(0, 3).map((album) => album.title),
+        ...trendingArtists.slice(0, 3).map((artist) => artist.name),
+        ...trendingProducers.slice(0, 3).map((producer) => producer.name),
+        ...marketplaceGenreOptions.slice(1, 5),
+    ].map((value) => value.trim()).filter(Boolean))).slice(0, 10), [marketplaceGenreOptions, trendingAlbums, trendingArtists, trendingProducers, trendingSongs, trendingVideos]);
+    const searchSuggestions = useMemo<DiscoverySuggestion[]>(() => {
+        const keyword = searchInput.trim().toLowerCase();
+        if (!keyword) {
+            return popularSearches.map((term, index) => ({
+                id: `popular-${createArtistId(term)}-${index}`,
+                type: "song",
+                title: term,
+                subtitle: "Popular search",
+                cover: BRAND_LOGO,
+                score: 100 - index,
+            }));
+        }
+        return [
+            ...audioSongs.map((song) => ({
+                id: song.id,
+                type: "song" as const,
+                title: song.title,
+                subtitle: song.artist,
+                cover: song.cover,
+                score: getSearchMatchScore(keyword, [song.title, song.artist, song.producer || "", song.category, song.type], Math.min(45, song.plays * 0.02 + song.likes * 0.6) + (isArtistVerified(song.artist) ? 30 : 0)),
+            })),
+            ...uniqueVideos(videos).map((video) => ({
+                id: video.id,
+                type: "video" as const,
+                title: video.title,
+                subtitle: video.creator,
+                cover: video.cover,
+                score: getSearchMatchScore(keyword, [video.title, video.creator, video.category, video.producerName || video.producer || ""], Math.min(45, video.views * 0.02 + (video.likes || 0) * 0.6) + (isArtistVerified(video.creator) ? 30 : 0)),
+            })),
+            ...resolvedAlbums.map((album) => ({
+                id: album.id,
+                type: "album" as const,
+                title: album.title,
+                subtitle: album.creatorName,
+                cover: getAlbumDisplayCover(album),
+                score: getSearchMatchScore(keyword, [album.title, album.creatorName, album.artistName, album.producerName, album.category], getAlbumSongCount(album) + getAlbumVideoCount(album) + (isArtistVerified(album.creatorName) ? 30 : 0)),
+            })),
+            ...mergedArtistProfiles.map((artist) => ({
+                id: artist.id,
+                type: "artist" as const,
+                title: artist.name,
+                subtitle: "Artist",
+                cover: artist.avatar,
+                score: getSearchMatchScore(keyword, [artist.name, artist.bio], Math.min(50, artist.totalPlays * 0.01 + artist.followers * 0.4) + (isArtistVerified(artist.id) || isArtistVerified(artist.name) ? 40 : 0)),
+            })),
+            ...producerProfiles.map((producer) => ({
+                id: producer.id,
+                type: "producer" as const,
+                title: producer.name,
+                subtitle: "Producer",
+                cover: producer.avatar,
+                score: getSearchMatchScore(keyword, [producer.name, producer.bio, producer.tagline, producer.website], Math.min(50, producer.followers * 0.5) + (isProducerVerified(producer.id) || isProducerVerified(producer.name) ? 40 : 0)),
+            })),
+            ...playlists.map((playlist) => ({
+                id: playlist.id,
+                type: "playlist" as const,
+                title: playlist.name,
+                subtitle: `${playlist.playlistType} playlist`,
+                cover: playlist.cover,
+                score: getSearchMatchScore(keyword, [playlist.name, playlist.playlistType], playlist.songIds.length + playlist.videoIds.length),
+            })),
+            ...producerBeats.map((beat) => ({
+                id: beat.id,
+                type: "beat" as const,
+                title: beat.title,
+                subtitle: beat.producerName,
+                cover: beat.cover,
+                score: getSearchMatchScore(keyword, [beat.title, beat.producerName, beat.category, beat.license], Math.min(40, beat.plays * 0.02 + beat.likes * 0.5 + beat.leases)),
+            })),
+        ]
+            .filter((item) => item.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 8);
+    }, [audioSongs, isArtistVerified, isProducerVerified, mergedArtistProfiles, playlists, popularSearches, producerBeats, producerProfiles, resolvedAlbums, searchInput, videos]);
+    const marketplaceArtistStores = useMemo(() => mergedArtistProfiles
+        .filter((artist) => marketplaceFilters.artist === "All Artists" || createArtistId(artist.name) === createArtistId(marketplaceFilters.artist))
+        .filter((artist) => !search.trim() || artist.name.toLowerCase().includes(search.trim().toLowerCase()) || artist.bio.toLowerCase().includes(search.trim().toLowerCase()))
+        .sort((a, b) => (b.totalPlays + b.followers * 8) - (a.totalPlays + a.followers * 8))
+        .slice(0, 12), [marketplaceFilters.artist, mergedArtistProfiles, search]);
+    const marketplaceProducerStores = useMemo(() => producerProfiles
+        .filter((producer) => marketplaceFilters.producer === "All Producers" || createArtistId(producer.name) === createArtistId(marketplaceFilters.producer))
+        .filter((producer) => !search.trim() || producer.name.toLowerCase().includes(search.trim().toLowerCase()) || producer.bio.toLowerCase().includes(search.trim().toLowerCase()) || producer.tagline.toLowerCase().includes(search.trim().toLowerCase()))
+        .sort((a, b) => {
+        const bScore = b.followers * 8 + producerBeats.filter((beat) => beat.producerId === b.id || createArtistId(beat.producerName) === createArtistId(b.name)).length * 25;
+        const aScore = a.followers * 8 + producerBeats.filter((beat) => beat.producerId === a.id || createArtistId(beat.producerName) === createArtistId(a.name)).length * 25;
+        return bScore - aScore;
+    })
+        .slice(0, 12), [marketplaceFilters.producer, producerBeats, producerProfiles, search]);
+    const marketplaceFeaturedStorePlacements = useMemo<MarketplaceStorePlacement[]>(() => {
+        const artistPlacements = marketplaceArtistStores.slice(0, 4).map((artist) => ({
+            id: `artist-${artist.id}`,
+            creatorType: "artist" as const,
+            creatorId: artist.id,
+            creatorName: artist.name,
+            cover: artist.banner || artist.avatar,
+            headline: "Featured artist store",
+            detail: `${formatCount(artist.totalPlays)} plays | ${formatCount(artist.followers)} followers`,
+            score: artist.totalPlays + artist.followers * 10,
+        }));
+        const producerPlacements = marketplaceProducerStores.slice(0, 4).map((producer) => {
+            const beatCount = producerBeats.filter((beat) => beat.producerId === producer.id || beat.producerUserId === producer.userId || createArtistId(beat.producerName) === createArtistId(producer.name)).length;
+            return {
+                id: `producer-${producer.id}`,
+                creatorType: "producer" as const,
+                creatorId: producer.id,
+                creatorName: producer.name,
+                cover: producer.banner || producer.avatar,
+                headline: "Featured producer store",
+                detail: `${beatCount} beats | ${formatCount(producer.followers)} followers`,
+                score: producer.followers * 10 + beatCount * 25,
+            };
+        });
+        return [...artistPlacements, ...producerPlacements].sort((a, b) => b.score - a.score).slice(0, 6);
+    }, [marketplaceArtistStores, marketplaceProducerStores, producerBeats]);
+    const marketplaceDiscountCodes = useMemo<MarketplaceDiscountCode[]>(() => [
+        {
+            code: "MDB10",
+            label: "New buyer code",
+            percentOff: 10,
+            appliesTo: "store",
+            detail: "Use as a launch promo foundation across marketplace items.",
+        },
+        {
+            code: "ALBUM20",
+            label: "Album bundle push",
+            percentOff: 20,
+            appliesTo: "albums",
+            detail: "Designed for artist album campaigns and bundle sales.",
+        },
+        {
+            code: "BEATPACK15",
+            label: "Producer beat pack",
+            percentOff: 15,
+            appliesTo: "beats",
+            detail: "Foundation code for beat packs and licensing promos.",
+        },
+    ], []);
+    const marketplaceBundles = useMemo<MarketplaceBundle[]>(() => {
+        const bundles: MarketplaceBundle[] = [];
+        marketplaceArtistStores.slice(0, 4).forEach((artist) => {
+            const releases = marketplaceReleases
+                .filter((release) => release.creatorName === artist.name && (release.releaseType === "song" || release.releaseType === "album" || release.releaseType === "beat"))
+                .slice(0, 4);
+            if (releases.length < 2)
+                return;
+            const originalPriceCents = releases.reduce((sum, release) => sum + release.priceCents, 0);
+            bundles.push({
+                id: `artist-bundle-${artist.id}`,
+                title: `${artist.name} Starter Pack`,
+                creatorName: artist.name,
+                cover: artist.avatar || releases[0]?.cover || DEFAULT_COVER,
+                releases,
+                originalPriceCents,
+                priceCents: Math.max(0, Math.round(originalPriceCents * 0.82)),
+                bundleType: "artist",
+            });
+        });
+        marketplaceProducerStores.slice(0, 4).forEach((producer) => {
+            const releases = marketplaceReleases
+                .filter((release) => release.releaseType === "beat" && createArtistId(release.producerName) === createArtistId(producer.name))
+                .slice(0, 4);
+            if (releases.length < 2)
+                return;
+            const originalPriceCents = releases.reduce((sum, release) => sum + Math.max(0, release.priceCents), 0);
+            bundles.push({
+                id: `producer-bundle-${producer.id}`,
+                title: `${producer.name} Beat Pack`,
+                creatorName: producer.name,
+                cover: producer.avatar || releases[0]?.cover || DEFAULT_COVER,
+                releases,
+                originalPriceCents,
+                priceCents: Math.max(0, Math.round(originalPriceCents * 0.78)),
+                bundleType: "producer",
+            });
+        });
+        return bundles.slice(0, 8);
+    }, [marketplaceArtistStores, marketplaceProducerStores, marketplaceReleases]);
+    const marketplaceLimitedReleases = useMemo<MarketplaceLimitedRelease[]>(() => marketplaceFeaturedReleases
+        .filter((release) => release.premium || release.priceCents > 0 || release.releaseType === "beat")
+        .slice(0, 8)
+        .map((release, index) => {
+        const baseTime = release.sortValue > 0 && release.sortValue < 4102444800000 ? release.sortValue : 1780272000000;
+        return {
+            id: `limited-${release.releaseType}-${release.id}`,
+            release,
+            label: release.premium ? "Premium drop" : release.releaseType === "beat" ? "License window" : "Limited release",
+            remaining: Math.max(5, 50 - index * 4),
+            endsAt: new Date(baseTime + (index + 3) * 86400000).toISOString(),
+        };
+    }), [marketplaceFeaturedReleases]);
+    const marketplacePreorders = useMemo<MarketplacePreorder[]>(() => marketplaceNewReleases
+        .slice(0, 6)
+        .map((release, index) => {
+        const baseTime = release.sortValue > 0 && release.sortValue < 4102444800000 ? release.sortValue : 1780272000000;
+        return {
+            id: `preorder-${release.releaseType}-${release.id}`,
+            title: `${release.title} preorder`,
+            creatorName: release.creatorName,
+            cover: release.cover,
+            releaseType: release.releaseType,
+            releaseDate: new Date(baseTime + (index + 7) * 86400000).toISOString(),
+            priceCents: release.releaseType === "beat" ? release.priceCents : Math.max(99, release.priceCents),
+            sourceRelease: release,
+        };
+    }), [marketplaceNewReleases]);
+    const activeBeatDetail = useMemo(() => producerBeats.find((beat) => beat.id === activeBeatDetailId) || null, [activeBeatDetailId, producerBeats]);
+    const activeUserId = user?.id || "";
+    const visibleLicenseRecords = useMemo(() => licenseRecords
+        .filter((record) => !activeUserId || record.userId === activeUserId)
+        .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()), [activeUserId, licenseRecords]);
+    const totalLicenseSpendCents = useMemo(() => visibleLicenseRecords.reduce((sum, record) => sum + record.priceCents, 0), [visibleLicenseRecords]);
+    const exclusiveLicenseCount = useMemo(() => visibleLicenseRecords.filter((record) => record.licenseType === "Exclusive").length, [visibleLicenseRecords]);
+    const visibleSalesCart = useMemo(() => salesCart.filter((item) => !activeUserId || item.userId === activeUserId), [activeUserId, salesCart]);
+    const visiblePurchaseHistory = useMemo(() => purchaseHistory
+        .filter((item) => !activeUserId || item.userId === activeUserId)
+        .sort((a, b) => new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime()), [activeUserId, purchaseHistory]);
+    const visibleDownloadVault = useMemo(() => downloadVault
+        .filter((item) => !activeUserId || item.userId === activeUserId)
+        .sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()), [activeUserId, downloadVault]);
+    const salesCartSubtotalCents = useMemo(() => visibleSalesCart.reduce((sum, item) => sum + item.priceCents, 0), [visibleSalesCart]);
+    const purchaseHistoryTotalCents = useMemo(() => visiblePurchaseHistory.reduce((sum, item) => sum + item.priceCents, 0), [visiblePurchaseHistory]);
+    const artistProfileValues: ArtistProfileForm = selectedDashboardArtist
+        ? {
+            name: artistProfileForm.name || selectedDashboardArtist.name,
+            banner: artistProfileForm.banner || selectedDashboardArtist.banner,
+            avatar: artistProfileForm.avatar || selectedDashboardArtist.avatar,
+            bio: artistProfileForm.bio || selectedDashboardArtist.bio,
+            socialLinks: artistProfileForm.socialLinks || selectedDashboardArtist.socialLinks,
+            monthlyListeners: artistProfileForm.monthlyListeners || selectedDashboardArtist.monthlyListeners,
+            followers: artistProfileForm.followers || selectedDashboardArtist.followers,
+        }
+        : artistProfileForm;
+    function parseDurationToSeconds(value: string | number | undefined | null) {
+        if (typeof value === "number" && Number.isFinite(value))
+            return Math.max(0, value);
+        if (typeof value !== "string")
+            return 0;
+        const parts = value.split(":").map((part) => Number(part));
+        if (parts.some((part) => !Number.isFinite(part)))
+            return 0;
+        return parts.reduce((total, part) => total * 60 + part, 0);
+    }
+    function formatRuntimeLabel(seconds: number) {
+        if (!Number.isFinite(seconds) || seconds <= 0)
+            return "0:00";
+        const rounded = Math.round(seconds);
+        const hours = Math.floor(rounded / 3600);
+        const minutes = Math.floor((rounded % 3600) / 60);
+        const remainingSeconds = rounded % 60;
+        if (hours > 0)
+            return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+        return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+    }
+    function getAlbumRuntimeSeconds(album: ResolvedAlbum) {
+        return album.songs.reduce((total, song) => total + parseDurationToSeconds(song.time), 0);
+    }
+    function getCreatorDisplayName(creatorType: "artist" | "producer" | "platform") {
+        if (creatorType === "producer")
+            return currentProducerProfile.name || user?.email?.split("@")[0] || "Producer";
+        if (creatorType === "artist")
+            return selectedDashboardArtist?.name || dashboardArtistProfiles[0]?.name || user?.email?.split("@")[0] || "Artist";
+        return "Music Data Base";
+    }
+    function getCreatorSubscriberCount(creatorType: "artist" | "producer", creatorIdOrName: string) {
+        if (!creatorIdOrName)
+            return 0;
+        const normalized = createArtistId(creatorIdOrName);
+        return monetizationTransactions.filter((transaction) => transaction.transactionType === "subscription" &&
+            transaction.creatorType === creatorType &&
+            (transaction.itemId === creatorIdOrName || createArtistId(transaction.itemId) === normalized || createArtistId(transaction.creatorName) === normalized) &&
+            transaction.status !== "failed" &&
+            transaction.status !== "refunded").length;
+    }
+    function subscribeToCreator(creatorType: "artist" | "producer", creatorId: string, creatorName: string) {
+        addMonetizationTransaction({
+            itemId: creatorId,
+            itemType: "subscription",
+            itemTitle: `${creatorName} monthly subscription`,
+            transactionType: "subscription",
+            amountCents: 499,
+            currency: "USD",
+            status: "pending",
+            creatorType,
+            creatorName,
+        });
+        showToast(`Subscription foundation saved for ${creatorName}. Stripe can be connected next.`, "success");
+    }
+    function exportPayoutReport(creatorType: "artist" | "producer" | "platform") {
+        const rows = payoutRequests.filter((payout) => payout.creatorType === creatorType);
+        const csvRows = [
+            ["creator_type", "creator_name", "amount", "currency", "status", "requested_at", "reviewed_at", "notes"],
+            ...rows.map((payout) => [
+                payout.creatorType,
+                payout.creatorName,
+                (payout.amountCents / 100).toFixed(2),
+                payout.currency,
+                payout.status,
+                payout.requestedAt,
+                payout.reviewedAt || "",
+                payout.notes || "",
+            ]),
+        ];
+        const csv = csvRows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${creatorType}-payout-report.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showToast("Payout report exported.", "success");
+    }
+    function addMonetizationTransaction(transaction: Omit<MonetizationTransaction, "id" | "userId" | "createdAt">) {
+        const nextTransaction: MonetizationTransaction = {
+            ...transaction,
+            id: createToastId(),
+            userId: user?.id || "guest",
+            createdAt: new Date().toISOString(),
+        };
+        setMonetizationTransactions((previous) => [nextTransaction, ...previous].slice(0, 150));
+        return nextTransaction;
+    }
+    function setupSubscriptionPlan(plan: SubscriptionPlan) {
+        setActiveSubscriptionPlanId(plan.id);
+        addMonetizationTransaction({
+            itemId: plan.id,
+            itemType: "subscription",
+            itemTitle: plan.name,
+            transactionType: "subscription",
+            amountCents: plan.priceCents,
+            currency: plan.currency,
+            status: "pending",
+            creatorType: "platform",
+            creatorName: "Music Data Base",
+        });
+        showToast(`${plan.name} subscription setup saved. Checkout gateway can be connected later.`, "success");
+    }
+    function recordDownloadFoundation(item: { id: string; title: string; itemType: MonetizationTransaction["itemType"]; creatorType: "artist" | "producer" | "platform"; creatorName: string; }) {
+        addMonetizationTransaction({
+            itemId: item.id,
+            itemType: item.itemType,
+            itemTitle: item.title,
+            transactionType: "download",
+            amountCents: 0,
+            currency: "USD",
+            status: "succeeded",
+            creatorType: item.creatorType,
+            creatorName: item.creatorName,
+        });
+        showToast("Download foundation recorded. File delivery can be connected later.", "success");
+    }
+    function recordPurchaseFoundation(item: { id: string; title: string; itemType: MonetizationTransaction["itemType"]; creatorType: "artist" | "producer" | "platform"; creatorName: string; amountCents?: number; transactionType?: MonetizationTransaction["transactionType"]; }) {
+        addMonetizationTransaction({
+            itemId: item.id,
+            itemType: item.itemType,
+            itemTitle: item.title,
+            transactionType: item.transactionType || "purchase",
+            amountCents: item.amountCents ?? 199,
+            currency: "USD",
+            status: "pending",
+            creatorType: item.creatorType,
+            creatorName: item.creatorName,
+        });
+        showToast("Purchase foundation recorded. Payment gateway can be connected later.", "success");
+    }
+    function getMarketplaceSalesType(release: MarketplaceRelease): SalesItemType | null {
+        if (release.releaseType === "song" || release.releaseType === "album" || release.releaseType === "beat")
+            return release.releaseType;
+        return null;
+    }
+    function getMarketplaceDownloadUrl(release: MarketplaceRelease) {
+        if (release.releaseType === "song")
+            return (release.item as Song).audio || "";
+        if (release.releaseType === "beat")
+            return (release.item as ProducerBeat).audioUrl || "";
+        if (release.releaseType === "album") {
+            const album = release.item as ResolvedAlbum;
+            return album.songs[0]?.audio || album.videos[0]?.url || "";
+        }
+        return "";
+    }
+    function getSelectedBeatLicense(beat: ProducerBeat) {
+        return selectedBeatLicenses[beat.id] || (beat.license === "Exclusive" ? "Exclusive" : "Basic");
+    }
+    function getBeatLicensePdfFileName(beat: ProducerBeat, licenseType: LicenseType) {
+        return `${beat.title || "beat"}-${licenseType}-license.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
+    }
+    function getBuyerDisplayName() {
+        const metadata = user?.user_metadata as Record<string, unknown> | undefined;
+        return getStringField(metadata || {}, ["displayName", "full_name", "name"]) || user?.email || "Music Data Base user";
+    }
+    function getBeatLicenseSummary(beat: ProducerBeat, licenseType: LicenseType) {
+        const terms = getBeatLicenseTerms(licenseType, beat);
+        return `${licenseType} license | ${formatCurrencyFromCents(getBeatLicensePriceCents(beat, licenseType))} | ${terms[0] || "License metadata ready."}`;
+    }
+    function buildBeatLicenseRecord(beat: ProducerBeat, licenseType: LicenseType, transactionId = ""): LicenseRecord {
+        const issuedAt = new Date().toISOString();
+        return {
+            id: transactionId || createRecordId(),
+            userId: user?.id || "",
+            beatId: beat.id,
+            beatTitle: beat.title,
+            producerId: beat.producerId || beat.producerUserId || "",
+            producerName: beat.producerName,
+            buyerName: getBuyerDisplayName(),
+            licenseType,
+            priceCents: getBeatLicensePriceCents(beat, licenseType),
+            currency: "USD",
+            issuedAt,
+            terms: getBeatLicenseTerms(licenseType, beat),
+            pdfFileName: getBeatLicensePdfFileName(beat, licenseType),
+            transactionId,
+        };
+    }
+    function selectBeatLicenseForCart(beat: ProducerBeat, licenseType: LicenseType) {
+        setSelectedBeatLicenses((previous) => ({ ...previous, [beat.id]: licenseType }));
+    }
+    function addMarketplaceReleaseToCart(release: MarketplaceRelease, beatLicenseOverride?: LicenseType) {
+        const itemType = getMarketplaceSalesType(release);
+        if (!itemType) {
+            showToast("Only songs, albums, and beats can be purchased right now.", "info");
+            return;
+        }
+        if (!user?.id) {
+            setAuthMode("login");
+            setAuthMessage("Log in before adding items to your cart.");
+            showToast("Log in before adding items to your cart.", "error");
+            return;
+        }
+        const beat = release.releaseType === "beat" ? release.item as ProducerBeat : null;
+        const beatLicenseType = beat ? beatLicenseOverride || getSelectedBeatLicense(beat) : undefined;
+        const beatLicenseTerms = beat && beatLicenseType ? getBeatLicenseTerms(beatLicenseType, beat) : [];
+        const existingBeatLicense = beat && beatLicenseType
+            ? salesCart.find((item) => item.userId === user.id && item.itemType === "beat" && item.itemId === beat.id && item.licenseType === beatLicenseType)
+            : null;
+        const beatLicenseId = existingBeatLicense?.licenseId || (beat && beatLicenseType ? createRecordId() : "");
+        const priceCents = beat && beatLicenseType ? getBeatLicensePriceCents(beat, beatLicenseType) : release.priceCents;
+        const cartItem: SalesCartItem = {
+            id: `${user.id}-${itemType}-${release.id}${beatLicenseType ? `-${beatLicenseType}` : ""}`,
+            userId: user.id,
+            itemId: release.id,
+            itemType,
+            title: release.title,
+            creatorName: itemType === "beat" ? release.producerName || release.creatorName : release.creatorName,
+            cover: release.cover,
+            downloadUrl: getMarketplaceDownloadUrl(release),
+            priceCents,
+            currency: "USD",
+            addedAt: new Date().toISOString(),
+            licenseType: beatLicenseType,
+            licenseTerms: beatLicenseTerms,
+            licenseId: beatLicenseId,
+            licensePdfFileName: beat && beatLicenseType ? getBeatLicensePdfFileName(beat, beatLicenseType) : "",
+        };
+        let alreadyInCart = false;
+        setSalesCart((previous) => {
+            alreadyInCart = previous.some((item) => item.userId === cartItem.userId &&
+                item.itemType === cartItem.itemType &&
+                item.itemId === cartItem.itemId &&
+                (item.licenseType || "") === (cartItem.licenseType || ""));
+            if (alreadyInCart)
+                return previous;
+            return [cartItem, ...previous];
+        });
+        if (alreadyInCart) {
+            showToast("Already in cart.", "info");
+            return;
+        }
+        void postSalesAction("addCartItem", { userId: user.id, item: cartItem });
+        showToast(`${itemType === "beat" ? `${beatLicenseType} beat license` : itemType === "album" ? "Album" : "Song"} added to cart.`, "success");
+    }
+    function addMarketplaceBundleToCart(bundle: MarketplaceBundle) {
+        const buyableReleases = bundle.releases.filter((release) => release.releaseType === "song" || release.releaseType === "album" || release.releaseType === "beat");
+        if (buyableReleases.length === 0) {
+            showToast("This bundle has no purchasable items yet.", "info");
+            return;
+        }
+        if (!user?.id) {
+            setAuthMode("login");
+            setAuthMessage("Log in before adding bundles to your cart.");
+            showToast("Log in before adding bundles to your cart.", "error");
+            return;
+        }
+        buyableReleases.forEach((release) => addMarketplaceReleaseToCart(release));
+        addMonetizationTransaction({
+            itemId: bundle.id,
+            itemType: "exclusive",
+            itemTitle: bundle.title,
+            transactionType: "purchase",
+            amountCents: bundle.priceCents,
+            currency: "USD",
+            status: "pending",
+            creatorType: bundle.bundleType === "producer" ? "producer" : "artist",
+            creatorName: bundle.creatorName,
+        });
+        showToast("Bundle sale foundation saved.", "success");
+    }
+    function reserveMarketplacePreorder(preorder: MarketplacePreorder) {
+        if (!user?.id) {
+            setAuthMode("login");
+            setAuthMessage("Log in before saving preorder interest.");
+            showToast("Log in before saving preorder interest.", "error");
+            return;
+        }
+        const preorderItemType: MonetizationTransaction["itemType"] = preorder.releaseType === "beat"
+            ? "beat"
+            : preorder.releaseType === "album"
+                ? "album"
+                : preorder.releaseType === "song"
+                    ? "song"
+                    : "video";
+        addMonetizationTransaction({
+            itemId: preorder.id,
+            itemType: preorderItemType,
+            itemTitle: preorder.title,
+            transactionType: "purchase",
+            amountCents: preorder.priceCents,
+            currency: "USD",
+            status: "pending",
+            creatorType: preorder.releaseType === "beat" ? "producer" : "artist",
+            creatorName: preorder.creatorName,
+        });
+        showToast("Preorder foundation saved.", "success");
+    }
+    function copyMarketplaceDiscountCode(code: string) {
+        void navigator.clipboard?.writeText(code).catch(() => undefined);
+        showToast(`${code} copied. Discount validation can be connected to checkout later.`, "success");
+    }
+    function removeSalesCartItem(item: SalesCartItem) {
+        setSalesCart((previous) => previous.filter((cartItem) => !(cartItem.userId === item.userId &&
+            cartItem.itemType === item.itemType &&
+            cartItem.itemId === item.itemId &&
+            (cartItem.licenseType || "") === (item.licenseType || ""))));
+        void postSalesAction("removeCartItem", {
+            userId: item.userId,
+            itemId: item.itemId,
+            itemType: item.itemType,
+            licenseType: item.licenseType || "",
+        });
+    }
+    function clearSalesCart() {
+        if (!user?.id)
+            return;
+        setSalesCart((previous) => previous.filter((item) => item.userId !== user.id));
+        void postSalesAction("clearCart", { userId: user.id });
+        showToast("Shopping cart cleared.", "success");
+    }
+    function checkoutSalesCart() {
+        if (!user?.id) {
+            showToast("Log in before checkout.", "error");
+            return;
+        }
+        const cartItems = salesCart.filter((item) => item.userId === user.id);
+        if (cartItems.length === 0) {
+            showToast("Your cart is empty.", "info");
+            return;
+        }
+        const purchasedAt = new Date().toISOString();
+        const purchases = cartItems.map<PurchaseHistoryItem>((item) => ({
+            id: createToastId(),
+            userId: user.id,
+            itemId: item.itemId,
+            itemType: item.itemType,
+            title: item.title,
+            creatorName: item.creatorName,
+            cover: item.cover,
+            downloadUrl: item.downloadUrl,
+            priceCents: item.priceCents,
+            currency: item.currency,
+            status: "completed",
+            purchasedAt,
+            licenseType: item.licenseType,
+            licenseTerms: item.licenseTerms,
+            licenseId: item.licenseId,
+            licensePdfFileName: item.licensePdfFileName,
+        }));
+        const vaultItems = purchases.map<DownloadVaultItem>((purchase) => ({
+            id: createToastId(),
+            userId: user.id,
+            purchaseId: purchase.id,
+            itemId: purchase.itemId,
+            itemType: purchase.itemType,
+            title: purchase.title,
+            creatorName: purchase.creatorName,
+            cover: purchase.cover,
+            downloadUrl: purchase.downloadUrl,
+            priceCents: purchase.priceCents,
+            currency: purchase.currency,
+            addedAt: purchasedAt,
+            licenseType: purchase.licenseType,
+            licenseTerms: purchase.licenseTerms,
+            licenseId: purchase.licenseId,
+            licensePdfFileName: purchase.licensePdfFileName,
+        }));
+        const beatLicenses = cartItems
+            .filter((item) => item.itemType === "beat" && item.licenseType)
+            .map((item) => {
+            const beat = producerBeats.find((producerBeat) => producerBeat.id === item.itemId);
+            if (!beat || !item.licenseType)
+                return null;
+            return {
+                ...buildBeatLicenseRecord(beat, item.licenseType, item.licenseId || createRecordId()),
+                priceCents: item.priceCents,
+                terms: item.licenseTerms && item.licenseTerms.length > 0 ? item.licenseTerms : getBeatLicenseTerms(item.licenseType, beat),
+                pdfFileName: item.licensePdfFileName || getBeatLicensePdfFileName(beat, item.licenseType),
+            };
+        })
+            .filter((record): record is LicenseRecord => Boolean(record));
+        purchases.forEach((purchase) => {
+            addMonetizationTransaction({
+                itemId: purchase.itemId,
+                itemType: purchase.itemType,
+                itemTitle: purchase.title,
+                transactionType: "purchase",
+                amountCents: purchase.priceCents,
+                currency: purchase.currency,
+                status: "succeeded",
+                creatorType: purchase.itemType === "beat" ? "producer" : "artist",
+                creatorName: purchase.creatorName,
+            });
+        });
+        if (beatLicenses.length > 0) {
+            setLicenseRecords((previous) => {
+                const byKey = new Map<string, LicenseRecord>();
+                [...beatLicenses, ...previous].forEach((record) => byKey.set(`${record.userId}-${record.beatId}-${record.licenseType}`, record));
+                return [...byKey.values()].sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()).slice(0, 200);
+            });
+            beatLicenses.forEach((record) => void saveLicenseRecordToApi(record));
+        }
+        setPurchaseHistory((previous) => [...purchases, ...previous].slice(0, 200));
+        setDownloadVault((previous) => {
+            const byKey = new Map<string, DownloadVaultItem>();
+            [...vaultItems, ...previous].forEach((item) => byKey.set(`${item.userId}-${item.itemType}-${item.itemId}-${item.licenseType || ""}`, item));
+            return [...byKey.values()].slice(0, 200);
+        });
+        setSalesCart((previous) => previous.filter((item) => item.userId !== user.id));
+        void postSalesAction("checkout", { userId: user.id, buyerName: getBuyerDisplayName(), cartItems });
+        showToast("Purchase complete. Downloads and license records are ready.", "success");
+    }
+    function openDownloadVaultItem(item: DownloadVaultItem) {
+        if (!item.downloadUrl) {
+            showToast("Download package is being prepared for this item.", "info");
+            return;
+        }
+        window.open(item.downloadUrl, "_blank", "noopener,noreferrer");
+    }
+    function downloadVaultLicense(item: DownloadVaultItem) {
+        if (item.itemType !== "beat" || !item.licenseType) {
+            showToast("No beat license document is attached to this vault item.", "info");
+            return;
+        }
+        const record = visibleLicenseRecords.find((license) => (item.licenseId && license.id === item.licenseId) ||
+            (license.beatId === item.itemId && license.licenseType === item.licenseType));
+        if (record) {
+            downloadLicensePdf(record);
+            return;
+        }
+        const beat = producerBeats.find((producerBeat) => producerBeat.id === item.itemId);
+        if (!beat) {
+            showToast("License details are still being prepared.", "info");
+            return;
+        }
+        downloadLicensePdf({
+            ...buildBeatLicenseRecord(beat, item.licenseType, item.licenseId || createRecordId()),
+            priceCents: item.priceCents ?? getBeatLicensePriceCents(beat, item.licenseType),
+            terms: item.licenseTerms && item.licenseTerms.length > 0 ? item.licenseTerms : getBeatLicenseTerms(item.licenseType, beat),
+            pdfFileName: item.licensePdfFileName || getBeatLicensePdfFileName(beat, item.licenseType),
+        });
+    }
+    function getBeatLicensePriceCents(beat: ProducerBeat, licenseType: LicenseType) {
+        const leaseCents = Math.max(0, Math.round((beat.leasePrice || 29) * 100));
+        const exclusiveCents = Math.max(0, Math.round((beat.exclusivePrice || 299) * 100));
+        if (licenseType === "Basic")
+            return leaseCents;
+        if (licenseType === "Premium")
+            return Math.max(leaseCents * 2, 7900);
+        if (licenseType === "Unlimited")
+            return Math.max(leaseCents * 4, 14900);
+        return exclusiveCents;
+    }
+    function getBeatLicenseTerms(licenseType: LicenseType, beat: ProducerBeat) {
+        const creditLine = `Credit required: produced by ${beat.producerName}.`;
+        if (licenseType === "Basic")
+            return [
+                "Non-exclusive license for demos, streaming, and limited commercial release.",
+                "Buyer may distribute one mastered song using this beat.",
+                "Beat ownership remains with the producer.",
+                creditLine,
+            ];
+        if (licenseType === "Premium")
+            return [
+                "Non-exclusive premium license for commercial streaming, music videos, and live performance.",
+                "Buyer may monetize one mastered song and one official video using this beat.",
+                "Producer keeps beat ownership and may continue licensing this beat.",
+                creditLine,
+            ];
+        if (licenseType === "Unlimited")
+            return [
+                "Non-exclusive unlimited license for unlimited streams, performances, and digital distribution.",
+                "Buyer may monetize one mastered song and related video content using this beat.",
+                "Beat resale, transfer, or standalone distribution is not allowed.",
+                creditLine,
+            ];
+        return [
+            "Exclusive license for one buyer after checkout and producer approval.",
+            "Producer should stop selling new licenses for this beat after exclusive completion.",
+            "Publishing, samples, and third-party clearances remain separate unless agreed in writing.",
+            creditLine,
+        ];
+    }
+    function escapePdfText(value: string) {
+        return value.replace(/[^\x20-\x7E]/g, "?").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+    }
+    function downloadLicensePdf(record: LicenseRecord) {
+        const lines = [
+            "Music Data Base License Agreement",
+            `License ID: ${record.id}`,
+            `Issued: ${formatPlayedAt(record.issuedAt)}`,
+            `License Type: ${record.licenseType}`,
+            `Beat: ${record.beatTitle}`,
+            `Producer: ${record.producerName}`,
+            `Buyer: ${record.buyerName}`,
+            `Price: ${formatCurrencyFromCents(record.priceCents, record.currency)}`,
+            `Transaction: ${record.transactionId || "Pending checkout connection"}`,
+            "",
+            "Terms",
+            ...record.terms.map((term, index) => `${index + 1}. ${term}`),
+            "",
+            "This generated PDF is a platform record for review and checkout connection.",
+        ];
+        const stream = lines
+            .slice(0, 34)
+            .map((line, index) => `BT /F1 ${index === 0 ? 18 : 11} Tf 54 ${760 - index * 20} Td (${escapePdfText(line)}) Tj ET`)
+            .join("\n");
+        const objects = [
+            "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj",
+            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj",
+            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj",
+            `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj`,
+            "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj",
+        ];
+        let pdf = "%PDF-1.4\n";
+        const offsets: number[] = [];
+        objects.forEach((object) => {
+            offsets.push(pdf.length);
+            pdf += `${object}\n`;
+        });
+        const xrefOffset = pdf.length;
+        pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n `).join("\n")}\n`;
+        pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+        const blob = new Blob([pdf], { type: "application/pdf" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = record.pdfFileName;
+        link.click();
+        window.URL.revokeObjectURL(url);
+    }
+    function createBeatLicense(beat: ProducerBeat, licenseType: LicenseType) {
+        if (!user?.id) {
+            showToast("Log in before generating a license.", "error");
+            return;
+        }
+        const priceCents = getBeatLicensePriceCents(beat, licenseType);
+        const record = buildBeatLicenseRecord(beat, licenseType);
+        setLicenseRecords((previous) => [record, ...previous.filter((item) => !(item.userId === record.userId && item.beatId === record.beatId && item.licenseType === record.licenseType))].slice(0, 200));
+        void saveLicenseRecordToApi(record);
+        addMonetizationTransaction({
+            itemId: beat.id,
+            itemType: "beat",
+            itemTitle: beat.title,
+            transactionType: "license",
+            amountCents: priceCents,
+            currency: "USD",
+            status: priceCents === 0 ? "succeeded" : "pending",
+            creatorType: "producer",
+            creatorName: beat.producerName,
+        });
+        void updateProducerBeat(beat, {
+            leases: beat.leases + 1,
+            payouts: Math.round((beat.payouts + priceCents * (PRODUCER_REVENUE_SHARE / 100) / 100) * 100) / 100,
+        });
+        downloadLicensePdf(record);
+        showToast(`${licenseType} license PDF generated.`, "success");
+    }
+    function getCreatorTransactionRevenueCents(creatorType: "artist" | "producer") {
+        return monetizationTransactions
+            .filter((transaction) => transaction.creatorType === creatorType && transaction.status !== "failed" && transaction.status !== "refunded")
+            .reduce((sum, transaction) => sum + getCreatorEarningAmountCents(transaction), 0);
+    }
+    function getCreatorRequestedPayoutCents(creatorType: "artist" | "producer") {
+        return payoutRequests
+            .filter((payout) => payout.creatorType === creatorType && payout.status !== "failed" && payout.status !== "canceled")
+            .reduce((sum, payout) => sum + payout.amountCents, 0);
+    }
+    function requestCreatorPayout(creatorType: "artist" | "producer") {
+        if (!user?.id) {
+            showToast("Log in before requesting a payout.", "error");
+            return;
+        }
+        const availableCents = Math.max(0, getCreatorTransactionRevenueCents(creatorType) - getCreatorRequestedPayoutCents(creatorType));
+        if (availableCents <= 0) {
+            showToast("No payout balance available yet.", "info");
+            return;
+        }
+        const payout: PayoutRequest = {
+            id: createToastId(),
+            userId: user.id,
+            creatorType,
+            creatorName: getCreatorDisplayName(creatorType),
+            amountCents: availableCents,
+            currency: "USD",
+            status: "pending",
+            requestedAt: new Date().toISOString(),
+            notes: "Phase 4 foundation payout request. Payment rail not connected yet.",
+        };
+        setPayoutRequests((previous) => [payout, ...previous].slice(0, 100));
+        showToast("Payout request added for admin review.", "success");
+    }
+    function updatePayoutReview(payoutId: string, status: PayoutRequest["status"], notes = "") {
+        setPayoutRequests((previous) => previous.map((payout) => payout.id === payoutId
+            ? {
+                ...payout,
+                status,
+                reviewedAt: new Date().toISOString(),
+                notes: notes || payout.notes,
+            }
+            : payout));
+        showToast(`Payout marked ${status}.`, "success");
+    }
+    function savePlay(song: Song) {
+        const playedSong = {
+            ...song,
+            plays: song.plays + 1,
+        };
+        const playedAt = new Date().toISOString();
+        const recentEntry: RecentPlay = {
+            playId: `${song.id}-${playedAt}`,
+            songId: song.id,
+            itemId: song.id,
+            itemType: "song",
+            playedAt,
+            position: 0,
+            duration: parseDurationToSeconds(song.time),
+            song: playedSong,
+        };
+        setRecentlyPlayed((previous) => [recentEntry, ...previous].slice(0, 100));
+    }
+    function saveVideoPlay(video: VideoItem) {
+        const playedVideo = normalizeVideoForPlayback(video);
+        const playedAt = new Date().toISOString();
+        const recentEntry: RecentPlay = {
+            playId: `${playedVideo.id}-${playedAt}`,
+            songId: "",
+            itemId: playedVideo.id,
+            itemType: "video",
+            playedAt,
+            position: 0,
+            duration: videoDuration,
+            video: playedVideo,
+        };
+        setRecentlyPlayed((previous) => [recentEntry, ...previous].slice(0, 100));
+    }
+    function saveAlbumPlay(album: Album | ResolvedAlbum) {
+        const resolvedAlbum = resolveAlbumTracksFromPools(album);
+        const playedAt = new Date().toISOString();
+        const recentEntry: RecentPlay = {
+            playId: `${resolvedAlbum.id}-${playedAt}`,
+            songId: "",
+            itemId: resolvedAlbum.id,
+            itemType: "album",
+            playedAt,
+            position: 0,
+            duration: getAlbumRuntimeSeconds(resolvedAlbum),
+            album: normalizeAlbumRecord(resolvedAlbum),
+        };
+        setRecentlyPlayed((previous) => [recentEntry, ...previous].slice(0, 100));
+    }
+    function updateRecentPlaybackPosition(itemType: "song" | "video", itemId: string, positionValue: number, durationValue: number, force = false) {
+        if (!itemId)
+            return;
+        const now = Date.now();
+        if (!force && now - recentPositionUpdateRef.current < 5000)
+            return;
+        recentPositionUpdateRef.current = now;
+        setRecentlyPlayed((previous) => previous.map((entry, index) => {
+            const entryType = entry.itemType || "song";
+            const entryId = entry.itemId || entry.songId;
+            if (index !== 0 || entryType !== itemType || entryId !== itemId)
+                return entry;
+            return {
+                ...entry,
+                position: Number.isFinite(positionValue) ? positionValue : entry.position,
+                duration: Number.isFinite(durationValue) && durationValue > 0 ? durationValue : entry.duration,
+            };
+        }));
+    }
+    function playSong(song: Song, options: { preserveAlbumPlayback?: boolean } = {}) {
+        stopAllMedia();
+        setActiveMediaType("song");
+        setActiveMedia({ type: "song", item: song });
+        setActiveVideo(null);
+        setCurrentSong(song);
+        setIsPlaying(isPublicAudioUrl(song.audio));
+        setProgress(0);
+        setDuration(0);
+        savePlay(song);
+        if (!options.preserveAlbumPlayback && !isActiveAlbumTrack("song", song.id)) {
+            setActiveAlbumPlayback(null);
+        }
+        setSongs((previous) => previous.map((item) => (item.id === song.id ? { ...item, plays: item.plays + 1 } : item)));
+    }
+    function playSongList(list: Song[], options: { preserveAlbumPlayback?: boolean } = {}) {
+        const cleanList = uniqueSongs(list);
+        if (cleanList.length === 0)
+            return;
+        const [firstSong, ...remainingSongs] = cleanList;
+        setQueue(remainingSongs);
+        playSong(firstSong, options);
+    }
+    function playVideoList(list: VideoItem[], startVideo?: VideoItem, sourceSection = "Playlist Videos") {
+        const cleanList = uniqueVideos(list.map((video) => normalizeVideoForPlayback(video)));
+        const firstVideo = startVideo
+            ? cleanList.find((video) => video.id === startVideo.id) || normalizeVideoForPlayback(startVideo)
+            : cleanList[0];
+        if (!firstVideo)
+            return;
+        setVideoPlaybackQueue(cleanList);
+        playVideo(firstVideo, sourceSection);
+    }
+    function getPlaybackList() {
+        const playbackList = view === "Playlists" && activePlaylistSongs.length > 0
+            ? activePlaylistSongs
+            : visibleSongs.length > 0
+                ? visibleSongs
+                : songs;
+        return uniqueSongs(playbackList);
+    }
+    function getVideoPlaybackList() {
+        const queuedVideos = uniqueVideos(videoPlaybackQueue);
+        if (activeVideo && queuedVideos.some((video) => video.id === activeVideo.id)) {
+            return queuedVideos;
+        }
+        return uniqueVideos(visibleVideos);
+    }
+    function getRandomNextSong(playbackList: Song[]) {
+        if (playbackList.length === 0)
+            return null;
+        if (playbackList.length === 1)
+            return playbackList[0];
+        const availableSongs = playbackList.filter((song) => song.id !== currentSong?.id);
+        return pickRandomItem(availableSongs) || playbackList[0];
+    }
+    function pauseVideoPlayer() {
+        mainVideoRef.current?.pause();
+    }
+    function stopAllMedia() {
+        musicPlayRequestRef.current += 1;
+        if (audioRef.current) {
+            audioRef.current.pause();
+        }
+        if (mainVideoRef.current) {
+            mainVideoRef.current.pause();
+        }
+        setIsPlaying(false);
+        setVideoPlaying(false);
+    }
+    async function togglePlay() {
+        if (!audioRef.current || !currentSong)
+            return;
+        if (isPlaying) {
+            musicPlayRequestRef.current += 1;
+            audioRef.current.pause();
+            setIsPlaying(false);
+            return;
+        }
+        const audioUrl = getAudioPlaybackUrl(currentSong);
+        if (!isPublicAudioUrl(audioUrl)) {
+            audioRef.current.pause();
+            audioRef.current.removeAttribute("src");
+            audioRef.current.load();
+            setActiveMediaType("song");
+            setIsPlaying(false);
+            setProgress(0);
+            setDuration(0);
+            return;
+        }
+        stopAllMedia();
+        savePlay(currentSong);
+        setActiveMediaType("song");
+        setActiveMedia({ type: "song", item: currentSong });
+        setActiveVideo(null);
+        setSongs((previous) => previous.map((item) => (item.id === currentSong.id ? { ...item, plays: item.plays + 1 } : item)));
+        try {
+            if (audioRef.current.getAttribute("src") !== audioUrl && audioUrl) {
+                audioRef.current.src = audioUrl;
+                audioRef.current.load();
+            }
+            const playRequestId = musicPlayRequestRef.current + 1;
+            musicPlayRequestRef.current = playRequestId;
+            await audioRef.current.play();
+            if (musicPlayRequestRef.current !== playRequestId)
+                return;
+            setIsPlaying(true);
+        }
+        catch (error) {
+            if (isAbortError(error)) {
+                return;
+            }
+            setIsPlaying(false);
+            showToast("Music playback could not start. Try pressing Play again.", "error");
+        }
+    }
+    function nextSong() {
+        if (cleanQueue.length > 0) {
+            const [nextQueuedSong, ...remainingQueue] = cleanQueue;
+            setQueue(remainingQueue);
+            playSong(nextQueuedSong);
+            return;
+        }
+        const playbackList = getPlaybackList();
+        if (playbackList.length === 0)
+            return;
+        if (shuffleOn) {
+            const randomSong = getRandomNextSong(playbackList);
+            if (randomSong)
+                playSong(randomSong);
+            return;
+        }
+        const currentIndex = playbackList.findIndex((song) => song.id === currentSong?.id);
+        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % playbackList.length : 0;
+        playSong(playbackList[nextIndex]);
+    }
+    function previousSong() {
+        const playbackList = getPlaybackList();
+        if (playbackList.length === 0)
+            return;
+        const currentIndex = playbackList.findIndex((song) => song.id === currentSong?.id);
+        const previousIndex = currentIndex >= 0 ? (currentIndex - 1 + playbackList.length) % playbackList.length : playbackList.length - 1;
+        playSong(playbackList[previousIndex]);
+    }
+    function handleTrackEnded() {
+        if (repeatMode === "one" && audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => setIsPlaying(false));
+            return;
+        }
+        if (cleanQueue.length > 0) {
+            nextSong();
+            return;
+        }
+        if (activeAlbumPlayback && currentSong) {
+            const currentAlbumIndex = activeAlbumPlayback.tracks.findIndex((track) => track.type === "song" && track.id === currentSong.id);
+            const nextAlbumTrack = currentAlbumIndex >= 0 ? activeAlbumPlayback.tracks[currentAlbumIndex + 1] : null;
+            if (nextAlbumTrack?.type === "video") {
+                const album = resolvedAlbums.find((item) => item.id === activeAlbumPlayback.albumId);
+                const resolvedAlbum = album ? resolveAlbumTracksFromPools(album) : null;
+                const nextVideo = resolvedAlbum?.videos.find((video) => video.id === nextAlbumTrack.id);
+                if (resolvedAlbum && nextVideo) {
+                    playVideoList(resolvedAlbum.videos, nextVideo, "Album Auto Next");
+                    return;
+                }
+            }
+        }
+        const playbackList = getPlaybackList();
+        const currentIndex = playbackList.findIndex((song) => song.id === currentSong?.id);
+        const isLastTrack = currentIndex >= 0 && currentIndex === playbackList.length - 1;
+        if (repeatMode === "off" && !shuffleOn && isLastTrack) {
+            setIsPlaying(false);
+            setProgress(0);
+            return;
+        }
+        if (repeatMode === "off" && shuffleOn && playbackList.length <= 1) {
+            setIsPlaying(false);
+            setProgress(0);
+            return;
+        }
+        nextSong();
+    }
+    function toggleRepeatMode() {
+        setRepeatMode((current) => {
+            if (current === "off")
+                return "one";
+            if (current === "one")
+                return "all";
+            return "off";
+        });
+    }
+    function updateProgress(event: SyntheticEvent<HTMLAudioElement>) {
+        const audio = event.currentTarget;
+        const nextProgress = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+        const nextDuration = Number.isFinite(audio.duration) ? audio.duration : duration;
+        setProgress(nextProgress);
+        if (Number.isFinite(audio.duration)) {
+            setDuration(audio.duration);
+        }
+        if (currentSong) {
+            updateRecentPlaybackPosition("song", currentSong.id, nextProgress, nextDuration);
+        }
+    }
+    function updateDuration(event: SyntheticEvent<HTMLAudioElement>) {
+        const audio = event.currentTarget;
+        setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+    }
+    function seekSong(event: ChangeEvent<HTMLInputElement>) {
+        if (!audioRef.current)
+            return;
+        const nextTime = Number(event.target.value);
+        audioRef.current.currentTime = nextTime;
+        setProgress(nextTime);
+        if (currentSong) {
+            updateRecentPlaybackPosition("song", currentSong.id, nextTime, duration, true);
+        }
+    }
+    function changeVolume(event: ChangeEvent<HTMLInputElement>) {
+        const nextVolume = Number(event.target.value) / 100;
+        setVolume(nextVolume);
+        if (audioRef.current) {
+            audioRef.current.volume = nextVolume;
+        }
+    }
+    async function toggleVideoPlayback() {
+        const video = mainVideoRef.current;
+        if (!video || !activeVideo || !activeVideoPlaybackUrl)
+            return;
+        if (videoPlaying) {
+            video.pause();
+            setVideoPlaying(false);
+            return;
+        }
+        if (activeMedia?.type !== "video") {
+            stopAllMedia();
+        }
+        else if (audioRef.current && !audioRef.current.paused) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        }
+        setActiveMediaType("video");
+        setActiveMedia({ type: "video", item: activeVideo });
+        video.muted = false;
+        video.volume = videoVolume;
+        try {
+            await video.play();
+            setVideoPlaying(true);
+        }
+        catch (error) {
+            setVideoPlaying(false);
+            showToast("Video playback could not start. Try pressing Play again.", "error");
+        }
+    }
+    function updateVideoProgress(event: SyntheticEvent<HTMLVideoElement>) {
+        const video = event.currentTarget;
+        const nextProgress = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+        const nextDuration = Number.isFinite(video.duration) ? video.duration : videoDuration;
+        setVideoProgress(nextProgress);
+        if (Number.isFinite(video.duration)) {
+            setVideoDuration(video.duration);
+        }
+        if (activeVideo) {
+            updateRecentPlaybackPosition("video", activeVideo.id, nextProgress, nextDuration);
+        }
+    }
+    function updateVideoDuration(event: SyntheticEvent<HTMLVideoElement>) {
+        const video = event.currentTarget;
+        setVideoDuration(Number.isFinite(video.duration) ? video.duration : 0);
+    }
+    function seekVideo(event: ChangeEvent<HTMLInputElement>) {
+        if (!mainVideoRef.current)
+            return;
+        const nextTime = Number(event.target.value);
+        mainVideoRef.current.currentTime = nextTime;
+        setVideoProgress(nextTime);
+        if (activeVideo) {
+            updateRecentPlaybackPosition("video", activeVideo.id, nextTime, videoDuration, true);
+        }
+    }
+    function changeVideoVolume(event: ChangeEvent<HTMLInputElement>) {
+        const nextVolume = Number(event.target.value) / 100;
+        setVideoVolume(nextVolume);
+        if (mainVideoRef.current) {
+            mainVideoRef.current.volume = nextVolume;
+            mainVideoRef.current.muted = nextVolume === 0;
+        }
+    }
+    function handleVideoPlay() {
+        if (audioRef.current && !audioRef.current.paused) {
+            audioRef.current.pause();
+        }
+        setIsPlaying(false);
+        setActiveMediaType("video");
+        if (activeVideo) {
+            setActiveMedia({ type: "video", item: activeVideo });
+        }
+        setVideoPlaying(true);
+    }
+    function handleVideoPause() {
+        setVideoPlaying(false);
+    }
+    function handleVideoEnded() {
+        if (videoRepeat && mainVideoRef.current) {
+            mainVideoRef.current.currentTime = 0;
+            mainVideoRef.current.play().catch((error) => {
+                setVideoPlaying(false);
+                showToast("Video repeat could not restart playback.", "error");
+            });
+            return;
+        }
+        const list = getVideoPlaybackList();
+        const currentIndex = list.findIndex((video) => video.id === activeVideo?.id);
+        const nextVideo = currentIndex >= 0 ? list[currentIndex + 1] : null;
+        if (nextVideo) {
+            playVideo(nextVideo, "Video Auto Next");
+            return;
+        }
+        setVideoPlaying(false);
+        setVideoProgress(0);
+    }
+    function formatTime(seconds: number) {
+        if (!Number.isFinite(seconds) || seconds <= 0)
+            return "0:00";
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    }
+    async function saveLibraryItem(item: Song | VideoItem | Album | ResolvedAlbum, itemType: "song" | "video" | "album") {
+        if (!user?.id) {
+            showToast("Log in before saving to Library.", "error");
+            return false;
+        }
+        try {
+            const payload = {
+                user_id: user.id,
+                item_id: item.id,
+                item_type: itemType,
+            };
+            const response = await fetch("/api/library/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "omit",
+                body: JSON.stringify(payload),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                code?: string;
+                details?: string;
+                error?: string;
+                hint?: string;
+                ok?: boolean;
+                rows?: unknown[];
+            };
+            if (!response.ok || data.error) {
+                const message = [data.error || response.statusText || "Library save could not sync to Supabase.", data.details, data.hint]
+                    .filter(Boolean)
+                    .join(" ");
+                console.error("SAVE INSERT ERROR", message);
+                reportPlatformError("save", `save-${itemType}`, message, { itemId: item.id, itemType });
+                setLibraryLoadError(message);
+                showToast(message, "error");
+                return false;
+            }
+            setLibraryLoadError("");
+            return true;
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("SAVE INSERT ERROR", error);
+            reportPlatformError("save", `save-${itemType}`, message, { itemId: item.id, itemType });
+            setLibraryLoadError(message);
+            showToast(message, "error");
+            return false;
+        }
+    }
+    async function removeLibraryItem(itemId: string, itemType: "song" | "video" | "album") {
+        if (!user?.id) {
+            showToast("Log in before removing from Library.", "error");
+            return false;
+        }
+        try {
+            const response = await fetch("/api/library-saves", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                credentials: "omit",
+                body: JSON.stringify({ userId: user.id, itemId, itemType }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            if (!response.ok) {
+                showToast(data.error || "Library remove could not sync to Supabase.", "error");
+                return false;
+            }
+            return true;
+        }
+        catch (error) {
+            showToast("Library remove could not sync to Supabase.", "error");
+            return false;
+        }
+    }
+    async function saveSongToLibrary(song: Song) {
+        const saved = await saveLibraryItem(song, "song");
+        if (!saved)
+            return;
+        setLibraryIds((previous) => {
+            const clean = uniqueIds(previous);
+            return clean.includes(song.id) ? clean : [...clean, song.id];
+        });
+        await loadLibrary();
+        showToast("Saved to Library", "success");
+        pushNotification("Song saved", `${song.title} was saved to your library.`, "song", song.id);
+    }
+    async function saveToLibrary(song: Song) {
+        return saveSongToLibrary(song);
+    }
+    async function removeFromLibrary(songId: string) {
+        setLibraryIds((previous) => uniqueIds(previous).filter((id) => id !== songId));
+        await removeLibraryItem(songId, "song");
+    }
+    async function saveVideoToLibrary(video: VideoItem) {
+        const saved = await saveLibraryItem(video, "video");
+        if (!saved)
+            return;
+        const normalized = normalizeVideoForPlayback(video);
+        setSavedVideoIds((previous) => {
+            const clean = uniqueIds(previous);
+            return clean.includes(normalized.id) ? clean : [...clean, normalized.id];
+        });
+        setVideos((previous) => uniqueVideos([normalized, ...previous]));
+        await loadLibrary();
+        showToast("Saved to Library", "success");
+        pushNotification("Video saved", `${normalized.title} was saved to your library.`, "video", normalized.id);
+    }
+    async function removeVideoFromLibrary(videoId: string) {
+        setSavedVideoIds((previous) => uniqueIds(previous).filter((id) => id !== videoId));
+        await removeLibraryItem(videoId, "video");
+    }
+    async function saveAlbumToLibrary(album: Album | ResolvedAlbum) {
+        const normalizedAlbum = normalizeAlbumRecord(album);
+        const saved = await saveLibraryItem(normalizedAlbum, "album");
+        if (!saved)
+            return;
+        setSavedAlbumIds((previous) => {
+            const clean = uniqueIds(previous);
+            return clean.includes(normalizedAlbum.id) ? clean : [...clean, normalizedAlbum.id];
+        });
+        setAlbums((previous) => {
+            const remaining = previous.filter((item) => item.id !== normalizedAlbum.id);
+            return [normalizedAlbum, ...remaining];
+        });
+        await loadLibrary();
+        showToast("Album saved to Library", "success");
+        pushNotification("Album saved", `${normalizedAlbum.title} was saved to your library.`, "album", normalizedAlbum.id);
+    }
+    async function removeAlbumFromLibrary(albumId: string) {
+        setSavedAlbumIds((previous) => uniqueIds(previous).filter((id) => id !== albumId));
+        await removeLibraryItem(albumId, "album");
+    }
+    function canDeleteUploadedSong(song: Song) {
+        return Boolean(accountUserId && (!song.ownerId || song.ownerId === accountUserId));
+    }
+    function clearSongPlayerIfDeleted(songId: string) {
+        if (activeMedia?.item.id !== songId && currentSong?.id !== songId)
+            return;
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.removeAttribute("src");
+            audioRef.current.load();
+        }
+        setIsPlaying(false);
+        setProgress(0);
+        setDuration(0);
+        setActiveMediaType(null);
+        setActiveMedia(null);
+        setCurrentSong(null);
+    }
+    function clearVideoPlayerIfDeleted(videoId: string) {
+        if (activeMedia?.type !== "video" && activeVideo?.id !== videoId && selectedVideoId !== videoId)
+            return;
+        pauseVideoPlayer();
+        if (mainVideoRef.current) {
+            mainVideoRef.current.removeAttribute("src");
+            mainVideoRef.current.load();
+        }
+        setVideoPlaying(false);
+        setVideoProgress(0);
+        setVideoDuration(0);
+        setActiveMediaType(null);
+        setActiveMedia(null);
+        setActiveVideo(null);
+        setSelectedVideoId("");
+    }
+    function purgeDeletedSongFromUi(songId: string) {
+        removeDeletedSongFromLocalStorage(songId);
+        setSongs((previous) => previous.filter((item) => item.id !== songId));
+        setLibraryIds((previous) => previous.filter((id) => id !== songId));
+        setLikedIds((previous) => previous.filter((id) => id !== songId));
+        setFollowedIds((previous) => previous.filter((id) => id !== songId));
+        setQueue((previous) => previous.filter((item) => item.id !== songId));
+        setRecentlyPlayed((previous) => previous.filter((entry) => entry.songId !== songId));
+        setPlaylists((previous) => previous.map((playlist) => ({
+            ...playlist,
+            songIds: playlist.songIds.filter((id) => id !== songId),
+            updatedAt: new Date().toISOString(),
+        })));
+        setAlbums((previous) => previous.map((album) => ({
+            ...album,
+            songIds: album.songIds.filter((id) => id !== songId),
+        })));
+        setProducerBeats((previous) => previous.filter((beat) => beat.songId !== songId && beat.id !== songId));
+        clearSongPlayerIfDeleted(songId);
+    }
+    function purgeDeletedVideoFromUi(videoId: string) {
+        removeDeletedVideoFromLocalStorage(videoId);
+        setVideos((previous) => previous.filter((item) => item.id !== videoId));
+        setLibraryIds((previous) => previous.filter((id) => id !== videoId));
+        setSavedVideoIds((previous) => previous.filter((id) => id !== videoId));
+        setPlaylists((previous) => previous.map((playlist) => ({
+            ...playlist,
+            videoIds: playlist.videoIds.filter((id) => id !== videoId),
+            updatedAt: new Date().toISOString(),
+        })));
+        setAlbums((previous) => previous.map((album) => ({
+            ...album,
+            videoIds: album.videoIds.filter((id) => id !== videoId),
+        })));
+        clearVideoPlayerIfDeleted(videoId);
+    }
+    function removeDeletedSongFromLocalStorage(songId: string) {
+        localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.library, [])).filter((id) => id !== songId)));
+        localStorage.setItem(STORAGE_KEYS.liked, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.liked, [])).filter((id) => id !== songId)));
+        localStorage.setItem(STORAGE_KEYS.followed, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.followed, [])).filter((id) => id !== songId)));
+        localStorage.setItem(STORAGE_KEYS.queue, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.queue, [])).filter((id) => id !== songId)));
+        localStorage.setItem(STORAGE_KEYS.recent, JSON.stringify(readJson<RecentPlay[]>(STORAGE_KEYS.recent, []).filter((entry) => entry.songId !== songId)));
+        localStorage.setItem(STORAGE_KEYS.playlists, JSON.stringify(readJson<Playlist[]>(STORAGE_KEYS.playlists, []).map((playlist) => ({
+            ...playlist,
+            songIds: uniqueIds(playlist.songIds || []).filter((id) => id !== songId),
+            updatedAt: new Date().toISOString(),
+        }))));
+        if (localStorage.getItem(STORAGE_KEYS.current) === songId) {
+            localStorage.removeItem(STORAGE_KEYS.current);
+        }
+    }
+    function removeDeletedVideoFromLocalStorage(videoId: string) {
+        localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.library, [])).filter((id) => id !== videoId)));
+        localStorage.setItem(STORAGE_KEYS.playlists, JSON.stringify(readJson<Playlist[]>(STORAGE_KEYS.playlists, []).map((playlist) => ({
+            ...playlist,
+            videoIds: uniqueIds(playlist.videoIds || []).filter((id) => id !== videoId),
+            updatedAt: new Date().toISOString(),
+        }))));
+    }
+    function restoreSongLocalStorageSnapshot(snapshot: {
+        libraryIds: string[];
+        likedIds: string[];
+        followedIds: string[];
+        queue: Song[];
+        recentlyPlayed: RecentPlay[];
+        playlists: Playlist[];
+        currentSong: Song | null;
+    }) {
+        localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(snapshot.libraryIds)));
+        localStorage.setItem(STORAGE_KEYS.liked, JSON.stringify(uniqueIds(snapshot.likedIds)));
+        localStorage.setItem(STORAGE_KEYS.followed, JSON.stringify(uniqueIds(snapshot.followedIds)));
+        localStorage.setItem(STORAGE_KEYS.queue, JSON.stringify(uniqueSongs(snapshot.queue).map((song) => song.id)));
+        localStorage.setItem(STORAGE_KEYS.recent, JSON.stringify(snapshot.recentlyPlayed));
+        localStorage.setItem(STORAGE_KEYS.playlists, JSON.stringify(snapshot.playlists));
+        if (snapshot.currentSong?.id) {
+            localStorage.setItem(STORAGE_KEYS.current, snapshot.currentSong.id);
+        }
+        else {
+            localStorage.removeItem(STORAGE_KEYS.current);
+        }
+    }
+    function restoreVideoLocalStorageSnapshot(snapshot: {
+        libraryIds: string[];
+    }) {
+        localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(snapshot.libraryIds)));
+    }
+    function addToQueue(song: Song) {
+        setQueue((previous) => {
+            const cleanPrevious = uniqueSongs(previous);
+            if (cleanPrevious.some((item) => item.id === song.id))
+                return cleanPrevious;
+            return [...cleanPrevious, song];
+        });
+    }
+    function removeFromQueue(songId: string) {
+        setQueue((previous) => previous.filter((song) => song.id !== songId));
+    }
+    function moveQueueItem(songId: string, direction: -1 | 1) {
+        setQueue((previous) => {
+            const nextQueue = uniqueSongs(previous);
+            const currentIndex = nextQueue.findIndex((song) => song.id === songId);
+            const nextIndex = currentIndex + direction;
+            if (currentIndex < 0 || nextIndex < 0 || nextIndex >= nextQueue.length)
+                return nextQueue;
+            const [item] = nextQueue.splice(currentIndex, 1);
+            nextQueue.splice(nextIndex, 0, item);
+            return nextQueue;
+        });
+    }
+    function moveQueueItemTo(songId: string, targetSongId: string) {
+        if (songId === targetSongId)
+            return;
+        setQueue((previous) => {
+            const nextQueue = uniqueSongs(previous);
+            const currentIndex = nextQueue.findIndex((song) => song.id === songId);
+            const targetIndex = nextQueue.findIndex((song) => song.id === targetSongId);
+            if (currentIndex < 0 || targetIndex < 0)
+                return nextQueue;
+            const [item] = nextQueue.splice(currentIndex, 1);
+            nextQueue.splice(targetIndex, 0, item);
+            return nextQueue;
+        });
+    }
+    function removeVideoFromQueue(videoId: string) {
+        setVideoPlaybackQueue((previous) => uniqueVideos(previous).filter((video) => video.id !== videoId));
+    }
+    function moveVideoQueueItem(videoId: string, direction: -1 | 1) {
+        setVideoPlaybackQueue((previous) => {
+            const nextQueue = uniqueVideos(previous);
+            const currentIndex = nextQueue.findIndex((video) => video.id === videoId);
+            const nextIndex = currentIndex + direction;
+            if (currentIndex < 0 || nextIndex < 0 || nextIndex >= nextQueue.length)
+                return nextQueue;
+            const [item] = nextQueue.splice(currentIndex, 1);
+            nextQueue.splice(nextIndex, 0, item);
+            return nextQueue;
+        });
+    }
+    function moveVideoQueueItemTo(videoId: string, targetVideoId: string) {
+        if (videoId === targetVideoId)
+            return;
+        setVideoPlaybackQueue((previous) => {
+            const nextQueue = uniqueVideos(previous);
+            const currentIndex = nextQueue.findIndex((video) => video.id === videoId);
+            const targetIndex = nextQueue.findIndex((video) => video.id === targetVideoId);
+            if (currentIndex < 0 || targetIndex < 0)
+                return nextQueue;
+            const [item] = nextQueue.splice(currentIndex, 1);
+            nextQueue.splice(targetIndex, 0, item);
+            return nextQueue;
+        });
+    }
+    async function toggleLike(songId: string) {
+        if (!user?.id) {
+            showToast("Log in before liking songs.", "error");
+            return;
+        }
+        const song = songs.find((item) => item.id === songId);
+        const wasLiked = likedIds.includes(songId);
+        const previousLikedIds = likedIds;
+        const previousLikes = song?.likes || 0;
+        const nextLikedIds = wasLiked ? likedIds.filter((id) => id !== songId) : uniqueIds([...likedIds, songId]);
+        const optimisticLikes = Math.max(0, previousLikes + (wasLiked ? -1 : 1));
+        setLikedIds(nextLikedIds);
+        setSongs((previous) => previous.map((item) => (item.id === songId ? { ...item, likes: optimisticLikes } : item)));
+        try {
+            const response = await fetch("/api/song-likes", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ songId, userId: user.id, like: !wasLiked }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+                likes?: number;
+                likedByUser?: boolean;
+            };
+            if (!response.ok) {
+                setLikedIds(previousLikedIds);
+                setSongs((previous) => previous.map((item) => (item.id === songId ? { ...item, likes: previousLikes } : item)));
+                reportPlatformError("like", wasLiked ? "song-unlike" : "song-like", data.error || "Could not update song like.", { songId });
+                showToast(data.error || "Could not update song like.", "error");
+                return;
+            }
+            setLikedIds((previous) => data.likedByUser ? uniqueIds([...previous, songId]) : previous.filter((id) => id !== songId));
+            if (typeof data.likes === "number") {
+                setSongs((previous) => previous.map((item) => (item.id === songId ? { ...item, likes: data.likes || 0 } : item)));
+            }
+            showToast(data.likedByUser ? "Song liked." : "Song unliked.", "success");
+            if (data.likedByUser && song) {
+                pushNotification("New like", `${song.title} was liked.`, "song", song.id);
+            }
+        }
+        catch (error) {
+            setLikedIds(previousLikedIds);
+            setSongs((previous) => previous.map((item) => (item.id === songId ? { ...item, likes: previousLikes } : item)));
+            reportPlatformError("like", wasLiked ? "song-unlike" : "song-like", error instanceof Error ? error.message : String(error), { songId });
+            showToast("Could not update song like. Check your connection and try again.", "error");
+        }
+    }
+    function openArtistProfile(artistName: string) {
+        const id = createArtistId(artistName);
+        setArtistProfiles((previous) => {
+            if (previous.some((artist) => artist.id === id))
+                return previous;
+            return buildArtistProfiles(songs, previous);
+        });
+        setActiveArtistId(id);
+        setSearch("");
+        setSearchInput("");
+        setShowUpload(false);
+        setView("Artist Profile");
+    }
+    async function toggleArtistFollow(artistId: string, artistName?: string) {
+        if (!user?.id) {
+            showToast("Log in before following artists.", "error");
+            return;
+        }
+        const artist = mergedArtistProfiles.find((item) => item.id === artistId);
+        const name = artistName || artist?.name || artistId;
+        const wasFollowing = followedArtistIds.includes(artistId);
+        const nextFollowedIds = wasFollowing
+            ? followedArtistIds.filter((id) => id !== artistId)
+            : uniqueIds([...followedArtistIds, artistId]);
+        setFollowedArtistIds(nextFollowedIds);
+        setArtistFollowerCounts((previous) => ({
+            ...previous,
+            [artistId]: Math.max(0, (previous[artistId] || 0) + (wasFollowing ? -1 : 1)),
+        }));
+        try {
+            const response = await fetch("/api/artist-follow", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    artistId,
+                    artistName: name,
+                    follow: !wasFollowing,
+                    userId: user.id,
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+                followerCount?: number;
+                followerCounts?: Record<string, number>;
+            };
+            if (!response.ok) {
+                setFollowedArtistIds(followedArtistIds);
+                setArtistFollowerCounts((previous) => ({
+                    ...previous,
+                    [artistId]: Math.max(0, (previous[artistId] || 0) + (wasFollowing ? 1 : -1)),
+                }));
+                reportPlatformError("follow", wasFollowing ? "artist-unfollow" : "artist-follow", data.error || "Could not update artist follow.", { artistId, artistName: name });
+                showToast(data.error || "Could not update artist follow.", "error");
+                return;
+            }
+            if (typeof data.followerCount === "number") {
+                setArtistFollowerCounts((previous) => ({ ...previous, [artistId]: data.followerCount || 0 }));
+            }
+            else if (data.followerCounts?.[artistId] !== undefined) {
+                setArtistFollowerCounts((previous) => ({ ...previous, [artistId]: data.followerCounts?.[artistId] || 0 }));
+            }
+            showToast(wasFollowing ? `Unfollowed ${name}.` : `Following ${name}.`, "success");
+            if (!wasFollowing) {
+                pushNotification("New follower", `You followed ${name}.`, "artist", artistId);
+            }
+        }
+        catch (error) {
+            setFollowedArtistIds(followedArtistIds);
+            setArtistFollowerCounts((previous) => ({
+                ...previous,
+                [artistId]: Math.max(0, (previous[artistId] || 0) + (wasFollowing ? 1 : -1)),
+            }));
+            reportPlatformError("follow", wasFollowing ? "artist-unfollow" : "artist-follow", error instanceof Error ? error.message : String(error), { artistId, artistName: name });
+            showToast("Could not update artist follow. Check your connection and try again.", "error");
+        }
+    }
+    async function shareArtist(artist: ArtistProfile) {
+        const shareText = `Listen to ${artist.name} on Z Music.`;
+        const shareUrl = `${window.location.origin}${window.location.pathname}#artist-${artist.id}`;
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: artist.name, text: shareText, url: shareUrl });
+                return;
+            }
+            await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+            alert("Artist link copied.");
+        }
+        catch {
+            alert("Artist share was canceled.");
+        }
+    }
+    function clearQueue() {
+        setQueue([]);
+        setVideoPlaybackQueue((previous) => activeVideo ? previous.filter((video) => video.id === activeVideo.id) : []);
+        setActiveAlbumPlayback(null);
+    }
+    function clearRecentlyPlayed() {
+        setRecentlyPlayed([]);
+    }
+    async function saveQueueAsPlaylist() {
+        if (cleanQueue.length === 0) {
+            showToast("Queue is empty.", "info");
+            return;
+        }
+        if (!user?.id) {
+            showToast("Log in before saving a queue playlist.", "error");
+            return;
+        }
+        const name = window.prompt("Save queue as playlist", `Queue ${new Date().toLocaleDateString()}`)?.trim();
+        if (!name)
+            return;
+        const now = new Date().toISOString();
+        const playlist: Playlist = {
+            id: crypto.randomUUID(),
+            name,
+            cover: cleanQueue[0]?.cover || DEFAULT_PLAYLIST_COVER,
+            playlistType: "song",
+            songIds: cleanQueue.map((song) => song.id),
+            videoIds: [],
+            createdAt: now,
+            updatedAt: now,
+        };
+        setPlaylists((previous) => [playlist, ...previous]);
+        setActivePlaylistId(playlist.id);
+        setPlaylistContentTab("Songs");
+        try {
+            const response = await fetch("/api/playlists", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    id: playlist.id,
+                    name: playlist.name,
+                    cover: playlist.cover,
+                    playlistType: playlist.playlistType,
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                playlist?: Playlist;
+                error?: string;
+            };
+            if (!response.ok || !data.playlist) {
+                showToast(data.error || "Queue playlist saved locally.", "info");
+                return;
+            }
+            const savedPlaylist = data.playlist as Playlist;
+            setPlaylists((previous) => previous.map((item) => (item.id === playlist.id ? { ...savedPlaylist, songIds: playlist.songIds, videoIds: [] } : item)));
+            await Promise.all(cleanQueue.map((song) => fetch("/api/playlist-items", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, playlistId: savedPlaylist.id, itemId: song.id, itemType: "song" }),
+            })));
+            setActivePlaylistId(savedPlaylist.id);
+            showToast("Queue saved as playlist.", "success");
+        }
+        catch (error) {
+            reportPlatformError("playlist", "save-queue", error instanceof Error ? error.message : String(error), { songCount: cleanQueue.length });
+            showToast("Queue playlist saved locally.", "info");
+        }
+    }
+    async function createPlaylist(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        const name = playlistForm.name.trim();
+        if (!name) {
+            alert("Name the playlist first.");
+            return;
+        }
+        if (!user?.id) {
+            showToast("Log in before creating playlists.", "error");
+            return;
+        }
+        const now = new Date().toISOString();
+        const playlist: Playlist = {
+            id: crypto.randomUUID(),
+            name,
+            cover: playlistForm.cover.trim() || DEFAULT_PLAYLIST_COVER,
+            playlistType: playlistForm.playlistType,
+            songIds: [],
+            videoIds: [],
+            createdAt: now,
+            updatedAt: now,
+        };
+        setPlaylists((previous) => [playlist, ...previous]);
+        setActivePlaylistId(playlist.id);
+        setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+        setPlaylistForm({ name: "", cover: "", playlistType: "mixed" });
+        setView("Playlists");
+        try {
+            const response = await fetch("/api/playlists", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    id: playlist.id,
+                    name: playlist.name,
+                    cover: playlist.cover,
+                    playlistType: playlist.playlistType,
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                playlist?: Playlist;
+                error?: string;
+            };
+            if (!response.ok || !data.playlist) {
+                setPlaylists((previous) => previous.filter((item) => item.id !== playlist.id));
+                reportPlatformError("playlist", "create-playlist", data.error || "Playlist could not be saved.", { playlistId: playlist.id, name: playlist.name });
+                showToast(data.error || "Playlist could not be saved.", "error");
+                return;
+            }
+            setPlaylists((previous) => [data.playlist as Playlist, ...previous.filter((item) => item.id !== playlist.id)]);
+            setActivePlaylistId(data.playlist.id);
+            showToast("Playlist created.", "success");
+        }
+        catch (error) {
+            setPlaylists((previous) => previous.filter((item) => item.id !== playlist.id));
+            reportPlatformError("playlist", "create-playlist", error instanceof Error ? error.message : String(error), { playlistId: playlist.id, name: playlist.name });
+            showToast("Playlist could not be saved. Check your connection and try again.", "error");
+        }
+    }
+    function updatePlaylist(playlistId: string, updates: Partial<Playlist>) {
+        setPlaylists((previous) => previous.map((playlist) => playlist.id === playlistId ? { ...playlist, ...updates, updatedAt: new Date().toISOString() } : playlist));
+    }
+    function renamePlaylist(playlistId: string) {
+        const playlist = playlists.find((item) => item.id === playlistId);
+        if (!playlist)
+            return;
+        const nextName = window.prompt("Rename playlist", playlist.name)?.trim();
+        if (!nextName)
+            return;
+        updatePlaylist(playlistId, { name: nextName });
+    }
+    async function deletePlaylist(playlistId: string) {
+        const playlist = playlists.find((item) => item.id === playlistId);
+        if (!playlist)
+            return;
+        if (!window.confirm(`Delete "${playlist.name}"?`))
+            return;
+        setPlaylists((previous) => previous.filter((item) => item.id !== playlistId));
+        setActivePlaylistId((previous) => (previous === playlistId ? "" : previous));
+        if (!user?.id || !isUuid(playlistId)) {
+            showToast("Playlist deleted.", "success");
+            return;
+        }
+        try {
+            const response = await fetch("/api/playlists", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, playlistId }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            if (!response.ok) {
+                reportPlatformError("playlist", "delete-playlist", data.error || "Playlist cloud delete failed.", { playlistId });
+                showToast("Playlist removed locally, but cloud delete failed.", "error");
+                return;
+            }
+            showToast("Playlist deleted.", "success");
+        }
+        catch (error) {
+            reportPlatformError("playlist", "delete-playlist", error instanceof Error ? error.message : String(error), { playlistId });
+            showToast("Playlist removed locally, but cloud delete failed.", "error");
+        }
+    }
+    function openPlaylistMenu(song: Song) {
+        if (!user?.id) {
+            showToast("Log in before adding songs to playlists.", "error");
+            return;
+        }
+        setPlaylistTarget({ type: "song", item: song });
+    }
+    function openVideoPlaylistMenu(video: VideoItem) {
+        if (!user?.id) {
+            showToast("Log in before adding videos to playlists.", "error");
+            return;
+        }
+        setPlaylistTarget({ type: "video", item: normalizeVideoForPlayback(video) });
+    }
+    function renderPlaylistButton(song: Song, className = "playlist-btn") {
+        return (<button className={className} onClick={() => openPlaylistMenu(song)} title="Add to playlist" type="button">
+        <Plus size={15}/>
+        <span>Playlist</span>
+      </button>);
+    }
+    function renderVideoPlaylistButton(video: VideoItem, className = "playlist-btn") {
+        return (<button className={className} onClick={() => openVideoPlaylistMenu(video)} title="Add video to playlist" type="button">
+        <Plus size={15}/>
+        <span>Playlist</span>
+      </button>);
+    }
+    async function addSongToPlaylist(playlistId: string, songId: string) {
+        if (!playlistId || !songId) {
+            showToast("Choose a playlist and song first.", "error");
+            return;
+        }
+        if (!user?.id) {
+            showToast("Log in before adding songs to playlists.", "error");
+            return;
+        }
+        const playlist = playlists.find((item) => item.id === playlistId);
+        if (!playlist) {
+            showToast("Choose a playlist first.", "error");
+            return;
+        }
+        if (playlist.songIds.includes(songId)) {
+            showToast("Already in this playlist.", "info");
+            return;
+        }
+        const now = new Date().toISOString();
+        setPlaylists((previous) => previous.map((playlist) => {
+            if (playlist.id !== playlistId)
+                return playlist;
+            const songIds = uniqueIds([...playlist.songIds, songId]);
+            return { ...playlist, songIds, updatedAt: now };
+        }));
+        if (!isUuid(playlistId)) {
+            showToast("Added to playlist locally. Recreate this playlist to sync it to Supabase.", "info");
+            pushNotification("New playlist add", `${songs.find((song) => song.id === songId)?.title || "Song"} was added to ${playlist.name}.`, "playlist", playlistId);
+            setPlaylistTarget(null);
+            return;
+        }
+        try {
+            const response = await fetch("/api/playlist-items", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, playlistId, itemId: songId, itemType: "song" }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+                alreadyAdded?: boolean;
+            };
+            if (!response.ok) {
+                reportPlatformError("playlist", "add-song", data.error || "Playlist item sync failed.", { playlistId, songId });
+                showToast("Added to playlist locally. Run playlist SQL to sync it to Supabase.", "info");
+                setPlaylistTarget(null);
+                return;
+            }
+            showToast(data.alreadyAdded ? "Already in this playlist." : "Added to playlist.", data.alreadyAdded ? "info" : "success");
+            if (!data.alreadyAdded) {
+                pushNotification("New playlist add", `${songs.find((song) => song.id === songId)?.title || "Song"} was added to ${playlist.name}.`, "playlist", playlistId);
+            }
+            setPlaylistTarget(null);
+        }
+        catch (error) {
+            reportPlatformError("playlist", "add-song", error instanceof Error ? error.message : String(error), { playlistId, songId });
+            showToast("Added to playlist locally. Run playlist SQL to sync it to Supabase.", "info");
+            setPlaylistTarget(null);
+        }
+    }
+    async function addVideoToPlaylist(playlistId: string, videoId: string) {
+        if (!playlistId || !videoId) {
+            showToast("Choose a playlist and video first.", "error");
+            return;
+        }
+        if (!user?.id) {
+            showToast("Log in before adding videos to playlists.", "error");
+            return;
+        }
+        const playlist = playlists.find((item) => item.id === playlistId);
+        if (!playlist) {
+            showToast("Choose a playlist first.", "error");
+            return;
+        }
+        if (playlist.videoIds.includes(videoId)) {
+            showToast("Already in this playlist.", "info");
+            return;
+        }
+        const now = new Date().toISOString();
+        setPlaylists((previous) => previous.map((playlist) => {
+            if (playlist.id !== playlistId)
+                return playlist;
+            const videoIds = uniqueIds([...playlist.videoIds, videoId]);
+            return { ...playlist, videoIds, updatedAt: now };
+        }));
+        if (!isUuid(playlistId)) {
+            showToast("Video added to playlist locally. Recreate this playlist to sync it to Supabase.", "info");
+            pushNotification("New playlist add", `${videos.find((video) => video.id === videoId)?.title || "Video"} was added to ${playlist.name}.`, "playlist", playlistId);
+            setPlaylistTarget(null);
+            return;
+        }
+        try {
+            const response = await fetch("/api/playlist-items", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, playlistId, itemId: videoId, itemType: "video" }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+                alreadyAdded?: boolean;
+            };
+            if (!response.ok) {
+                reportPlatformError("playlist", "add-video", data.error || "Playlist video sync failed.", { playlistId, videoId });
+                showToast("Video added to playlist locally. Run playlist SQL to sync it to Supabase.", "info");
+                setPlaylistTarget(null);
+                return;
+            }
+            showToast(data.alreadyAdded ? "Already in this playlist." : "Video added to playlist.", data.alreadyAdded ? "info" : "success");
+            if (!data.alreadyAdded) {
+                pushNotification("New playlist add", `${videos.find((video) => video.id === videoId)?.title || "Video"} was added to ${playlist.name}.`, "playlist", playlistId);
+            }
+            setPlaylistTarget(null);
+        }
+        catch (error) {
+            reportPlatformError("playlist", "add-video", error instanceof Error ? error.message : String(error), { playlistId, videoId });
+            showToast("Video added to playlist locally. Run playlist SQL to sync it to Supabase.", "info");
+            setPlaylistTarget(null);
+        }
+    }
+    async function addAlbumToPlaylist(playlistId: string, album: ResolvedAlbum) {
+        if (!playlistId || !album.id) {
+            showToast("Choose a playlist and album first.", "error");
+            return;
+        }
+        if (!user?.id) {
+            showToast("Log in before adding albums to playlists.", "error");
+            return;
+        }
+        const playlist = playlists.find((item) => item.id === playlistId);
+        if (!playlist) {
+            showToast("Choose a playlist first.", "error");
+            return;
+        }
+        const resolvedAlbum = await resolveAlbumTracksForAction(album);
+        const albumSongIds = uniqueIds([
+            ...resolvedAlbum.songIds,
+            ...resolvedAlbum.songs.map((song) => song.id),
+        ]);
+        const albumVideoIds = uniqueIds([
+            ...resolvedAlbum.videoIds,
+            ...resolvedAlbum.videos.map((video) => video.id),
+        ]);
+        if (albumSongIds.length === 0 && albumVideoIds.length === 0) {
+            showToast("No album tracks to add", "info");
+            return;
+        }
+        const songIdsToAdd = playlist.playlistType === "video"
+            ? []
+            : albumSongIds.filter((songId) => !playlist.songIds.includes(songId));
+        const videoIdsToAdd = playlist.playlistType === "song"
+            ? []
+            : albumVideoIds.filter((videoId) => !playlist.videoIds.includes(videoId));
+        if (songIdsToAdd.length === 0 && videoIdsToAdd.length === 0) {
+            showToast("Already in this playlist.", "info");
+            return;
+        }
+        const now = new Date().toISOString();
+        setPlaylists((previous) => previous.map((item) => item.id === playlistId
+            ? {
+                ...item,
+                songIds: uniqueIds([...item.songIds, ...songIdsToAdd]),
+                videoIds: uniqueIds([...item.videoIds, ...videoIdsToAdd]),
+                updatedAt: now,
+            }
+            : item));
+        if (!isUuid(playlistId)) {
+            showToast("Album added to playlist locally. Recreate this playlist to sync it to Supabase.", "info");
+            pushNotification("New playlist add", `${album.title} tracks were added to ${playlist.name}.`, "playlist", playlistId);
+            setPlaylistTarget(null);
+            return;
+        }
+        try {
+            const requests = [
+                ...songIdsToAdd.map((songId) => ({ itemId: songId, itemType: "song" as const })),
+                ...videoIdsToAdd.map((videoId) => ({ itemId: videoId, itemType: "video" as const })),
+            ].map((item) => fetch("/api/playlist-items", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, playlistId, itemId: item.itemId, itemType: item.itemType }),
+            }));
+            const responses = await Promise.all(requests);
+            const failedResponse = responses.find((response) => !response.ok);
+            if (failedResponse) {
+                const data = (await failedResponse.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                reportPlatformError("playlist", "add-album", data.error || "Album playlist item sync failed.", { playlistId, albumId: album.id });
+                showToast("Album added locally. Run playlist SQL to sync every item to Supabase.", "info");
+                setPlaylistTarget(null);
+                return;
+            }
+            showToast("Album added to playlist.", "success");
+            pushNotification("New playlist add", `${album.title} tracks were added to ${playlist.name}.`, "playlist", playlistId);
+            setPlaylistTarget(null);
+        }
+        catch (error) {
+            reportPlatformError("playlist", "add-album", error instanceof Error ? error.message : String(error), { playlistId, albumId: album.id });
+            showToast("Album added locally. Run playlist SQL to sync every item to Supabase.", "info");
+            setPlaylistTarget(null);
+        }
+    }
+    function addPlaylistTargetToPlaylist(playlistId: string, target: NonNullable<PlaylistTarget>) {
+        if (target.type === "album") {
+            addAlbumToPlaylist(playlistId, target.item);
+            return;
+        }
+        if (target.type === "video") {
+            addVideoToPlaylist(playlistId, target.item.id);
+            return;
+        }
+        addSongToPlaylist(playlistId, target.item.id);
+    }
+    function removeSongFromPlaylist(playlistId: string, songId: string) {
+        setPlaylists((previous) => previous.map((playlist) => playlist.id === playlistId
+            ? {
+                ...playlist,
+                songIds: uniqueIds(playlist.songIds).filter((id) => id !== songId),
+                updatedAt: new Date().toISOString(),
+            }
+            : playlist));
+    }
+    function removeVideoFromPlaylist(playlistId: string, videoId: string) {
+        setPlaylists((previous) => previous.map((playlist) => playlist.id === playlistId
+            ? {
+                ...playlist,
+                videoIds: uniqueIds(playlist.videoIds).filter((id) => id !== videoId),
+                updatedAt: new Date().toISOString(),
+            }
+            : playlist));
+    }
+    function getProducerById(producerId: string) {
+        if (!producerId)
+            return null;
+        if (currentProducerProfile.id === producerId)
+            return currentProducerProfile;
+        return producerProfiles.find((profile) => profile.id === producerId) || null;
+    }
+    async function getAlbumUploadUser() {
+        let sessionUser: SupabaseUser | null = null;
+        try {
+            const { data: { session }, error: sessionError, } = await supabase.auth.getSession();
+            if (sessionError) {
+            }
+            sessionUser = session?.user || null;
+        }
+        catch (error) {
+        }
+        const uploadUser = sessionUser || albumUploadUserRef.current || user;
+        if (!uploadUser?.id) {
+            throw new Error("Sign in first before uploading an album.");
+        }
+        albumUploadUserRef.current = uploadUser;
+        setUser((previous) => previous || uploadUser);
+        return uploadUser;
+    }
+    async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
+        const fileError = getAudioFileError(file);
+        if (fileError) {
+            throw new Error(fileError);
+        }
+        let sessionUser = uploadUser || null;
+        if (!sessionUser) {
+            const { data: { session }, error: sessionError, } = await supabase.auth.getSession();
+            if (sessionError || !session?.access_token || !session.user) {
+                throw new Error("You must log in again before uploading.");
+            }
+            sessionUser = session.user;
+        }
+        if (!sessionUser?.id) {
+            throw new Error("You must log in again before uploading.");
+        }
+        setUploadStatus("Preparing upload...");
+        setUploadProgress(4);
+        setUploadStatus("Uploading audio...");
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("userId", sessionUser.id);
+        formData.append("title", songDetails.title);
+        formData.append("artist", songDetails.artist);
+        formData.append("category", "New Releases");
+        formData.append("type", songDetails.type);
+        formData.append("cover_url", getArtworkUrl(songDetails.cover));
+        if (albumId) {
+            formData.append("album_id", albumId);
+        }
+        const producer = getProducerById(songDetails.producerId);
+        formData.append("producer_id", producer?.id || "");
+        formData.append("producer", producer?.name || "");
+        let response: Response;
+        try {
+            response = await fetch("/api/upload-audio", {
+                method: "POST",
+                body: formData,
+            });
+        }
+        catch (error) {
+            const details = getErrorDetails(error);
+            throw new Error(`Audio upload route could not be reached.${details ? ` ${details}` : ""}`);
+        }
+        const responseText = await response.text();
+        let uploadResult: {
+            publicUrl?: string;
+            storagePath?: string;
+            song?: SongTableRow;
+            error?: string;
+            details?: unknown;
+        } = {};
+        if (responseText) {
+            try {
+                uploadResult = JSON.parse(responseText) as typeof uploadResult;
+            }
+            catch {
+                uploadResult = { error: responseText };
+            }
+        }
+        if (!response.ok) {
+            const detailText = typeof uploadResult.details === "string"
+                ? uploadResult.details
+                : uploadResult.details
+                    ? JSON.stringify(uploadResult.details)
+                    : "";
+            console.error("SONG INSERT FAILED", uploadResult.error || response.statusText, detailText);
+            console.error("[music upload] INSERT FAILED public.songs:", uploadResult.error || response.statusText, detailText);
+            throw new Error([uploadResult.error || `Audio upload failed with HTTP ${response.status}.`, detailText]
+                .filter(Boolean)
+                .join(" "));
+        }
+        if (!uploadResult.publicUrl) {
+            throw new Error("Supabase did not return a public URL for the uploaded audio.");
+        }
+        if (!uploadResult.song) {
+            throw new Error("Supabase uploaded the audio, but the server did not return the saved songs table row.");
+        }
+        setUploadProgress(98);
+        setUploadStatus("Finishing upload...");
+        setUploadProgress(100);
+        return mapSongRowToSong(uploadResult.song);
+    }
+    async function uploadVideoToSupabase(file: File, videoDetails: Pick<VideoUploadForm, "title" | "creator" | "category" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
+        const fileError = getVideoFileError(file);
+        if (fileError) {
+            throw new Error(fileError);
+        }
+        let sessionUser = uploadUser || null;
+        if (!sessionUser) {
+            const { data: { session }, error: sessionError, } = await supabase.auth.getSession();
+            if (sessionError || !session?.access_token || !session.user) {
+                throw new Error("You must log in again before uploading.");
+            }
+            sessionUser = session.user;
+        }
+        if (!sessionUser?.id) {
+            throw new Error("You must log in again before uploading.");
+        }
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("userId", sessionUser.id);
+        formData.append("title", videoDetails.title);
+        formData.append("description", videoDetails.creator);
+        formData.append("artist_name", videoDetails.creator);
+        formData.append("artist_id", sessionUser.id);
+        formData.append("category", videoDetails.category);
+        formData.append("thumbnail_url", getArtworkUrl(videoDetails.cover));
+        if (albumId) {
+            formData.append("album_id", albumId);
+        }
+        const producer = getProducerById(videoDetails.producerId);
+        const producerId = producer?.id || videoDetails.producerId || "";
+        const producerName = producer?.name || (producerId === currentProducerProfile.id ? currentProducerProfile.name : "");
+        formData.append("producer_id", producerId);
+        formData.append("producer_profile_id", producerId);
+        formData.append("producer", producerName);
+        formData.append("producer_name", producerName);
+        setVideoUploadStatus("Preparing video...");
+        setVideoUploadProgress(4);
+        setVideoUploadStatus("Uploading video...");
+        setVideoUploadProgress(8);
+        let response: Response;
+        try {
+            response = await fetch("/api/upload-video", {
+                method: "POST",
+                body: formData,
+            });
+        }
+        catch (error) {
+            const details = getErrorDetails(error);
+            throw new Error(`Video upload route could not be reached.${details ? ` ${details}` : ""}`);
+        }
+        const responseText = await response.text();
+        let uploadResult: {
+            publicUrl?: string;
+            storagePath?: string;
+            video?: VideoTableRow;
+            error?: string;
+            details?: unknown;
+        } = {};
+        if (responseText) {
+            try {
+                uploadResult = JSON.parse(responseText) as typeof uploadResult;
+            }
+            catch {
+                uploadResult = { error: responseText };
+            }
+        }
+        if (!response.ok) {
+            const detailText = typeof uploadResult.details === "string"
+                ? uploadResult.details
+                : uploadResult.details
+                    ? JSON.stringify(uploadResult.details)
+                    : "";
+            console.error("VIDEO INSERT FAILED", uploadResult.error || response.statusText, detailText);
+            console.error("[video upload] INSERT FAILED public.videos:", uploadResult.error || response.statusText, detailText);
+            throw new Error([uploadResult.error || `Video upload failed with HTTP ${response.status}.`, detailText]
+                .filter(Boolean)
+                .join(" "));
+        }
+        if (!uploadResult.publicUrl) {
+            throw new Error("Supabase did not return a public URL for the uploaded video.");
+        }
+        setVideoUploadProgress(98);
+        setVideoUploadStatus("Finishing upload...");
+        setVideoUploadProgress(100);
+        if (!uploadResult.video) {
+            throw new Error("Supabase uploaded the video, but the server did not return the saved videos table row.");
+        }
+        return mapVideoRowToVideoItem(uploadResult.video);
+    }
+    async function copyStorageSetupSql() {
+        try {
+            await navigator.clipboard.writeText(STORAGE_SETUP_SQL);
+            setStorageSetupCopied(true);
+            window.setTimeout(() => setStorageSetupCopied(false), 1800);
+        }
+        catch {
+            setUploadError("Copy failed. Your browser blocked clipboard access.");
+        }
+    }
+    async function addUploadedSong(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setUploadError("");
+        setStorageSetupCopied(false);
+        const title = uploadForm.title.trim();
+        const artist = uploadForm.artist.trim();
+        if (!title || !artist) {
+            setUploadError("Add a song title and artist name first.");
+            return;
+        }
+        const fileError = getAudioFileError(uploadFile);
+        if (fileError) {
+            setUploadError(fileError);
+            return;
+        }
+        setUploadBusy(true);
+        setUploadProgress(1);
+        setUploadStatus("Starting upload...");
+        let uploadGuardActive = false;
+        let uploadGuardKey = "";
+        try {
+            const selectedFile = uploadFile;
+            if (!selectedFile) {
+                setUploadError("Choose an MP3, WAV, or M4A audio file.");
+                return;
+            }
+            uploadGuardKey = getUploadGuardKey("song", title, [selectedFile]);
+            uploadGuardActive = beginUploadGuard(uploadGuardKey, "This song upload is already running.");
+            if (!uploadGuardActive)
+                return;
+            const newSong = await uploadAudioToSupabase(selectedFile, {
+                title,
+                artist,
+                type: uploadForm.type,
+                cover: uploadForm.cover,
+                producerId: uploadForm.producerId,
+            });
+            const databaseSongs = await reloadSongLibraryFromSupabase();
+            const savedSong = databaseSongs.find((song) => song.id === newSong.id) || newSong;
+            saveToLibrary(savedSong);
+            setCurrentSong(savedSong);
+            setView("Library");
+            setShowUpload(false);
+            setUploadForm({
+                title: "",
+                artist: "",
+                type: "Beats",
+                cover: "",
+                producerId: "",
+            });
+            setUploadFile(null);
+            setUploadStatus("");
+        }
+        catch (error) {
+            const message = getStorageErrorMessage(error, "audio");
+            setUploadError(message);
+            setUploadStatus("");
+            reportPlatformError("upload", "song-upload", message, { title, artist });
+        }
+        finally {
+            if (uploadGuardActive) {
+                endUploadGuard(uploadGuardKey);
+            }
+            setUploadBusy(false);
+        }
+    }
+    async function saveAccountRole(nextRole: AccountRole) {
+        if (!user?.id) {
+            showToast("Log in before changing account type.", "error");
+            return;
+        }
+        const previousRole = accountRole;
+        setAccountRole(nextRole);
+        try {
+            const response = await fetch("/api/producers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "save-account-role",
+                    userId: user.id,
+                    accountType: nextRole.toLowerCase(),
+                    producerProfileId: currentProducerProfile.id,
+                    name: producerProfileForm.name.trim() || currentProducerProfile.name,
+                    avatar: producerProfileForm.avatar.trim() || currentProducerProfile.avatar,
+                    banner: producerProfileForm.banner.trim() || currentProducerProfile.banner,
+                    bio: producerProfileForm.bio.trim() || currentProducerProfile.bio,
+                    tagline: producerProfileForm.tagline.trim() || currentProducerProfile.tagline,
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+                profile?: ProducerProfileTableRow;
+                profileWarning?: string;
+            };
+            if (!response.ok) {
+                setAccountRole(previousRole);
+                showToast(data.error || "Account type could not be saved.", "error");
+                return;
+            }
+            if (data.profile) {
+                const savedProfile = mapProducerProfileRow(data.profile);
+                setProducerProfiles((previous) => {
+                    const remaining = previous.filter((profile) => profile.id !== savedProfile.id && profile.userId !== savedProfile.userId);
+                    return [savedProfile, ...remaining];
+                });
+                setActiveProducerId(savedProfile.id);
+                setProducerProfileForm({
+                    name: savedProfile.name,
+                    avatar: savedProfile.avatar,
+                    banner: savedProfile.banner,
+                    bio: savedProfile.bio,
+                    tagline: savedProfile.tagline,
+                    website: savedProfile.website,
+                });
+            }
+            if (data.profileWarning) {
+                showToast(`${nextRole} mode saved through creator profile. Profiles account_type needs setup.`, "info");
+            }
+            else {
+                showToast(`${nextRole} account mode saved.`, "success");
+            }
+        }
+        catch (error) {
+            setAccountRole(previousRole);
+            showToast("Account type could not be saved. Check your connection and try again.", "error");
+        }
+    }
+    async function saveProducerProfile(event?: FormEvent<HTMLFormElement> | null, profileUser?: SupabaseUser | null) {
+        event?.preventDefault();
+        const ownerUser = profileUser || user;
+        if (!ownerUser?.id) {
+            showToast("Log in before saving a producer profile.", "error");
+            return currentProducerProfile;
+        }
+        const nextProfile = {
+            id: currentProducerProfile.id,
+            userId: ownerUser.id,
+            name: producerProfileForm.name.trim() || currentProducerProfile.name,
+            avatar: producerProfileForm.avatar.trim() || currentProducerProfile.avatar,
+            banner: producerProfileForm.banner.trim() || currentProducerProfile.banner,
+            bio: producerProfileForm.bio.trim() || currentProducerProfile.bio,
+            tagline: producerProfileForm.tagline.trim() || currentProducerProfile.tagline,
+            website: producerProfileForm.website.trim() || currentProducerProfile.website,
+        };
+        const response = await fetch("/api/producers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "upsert-profile",
+                ...nextProfile,
+            }),
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            profile?: ProducerProfileTableRow;
+            error?: string;
+        };
+        if (!response.ok || !data.profile) {
+            showToast(data.error || "Producer profile save failed.", "error");
+            return currentProducerProfile;
+        }
+        const savedProfile = mapProducerProfileRow(data.profile);
+        setProducerProfiles((previous) => {
+            const remaining = previous.filter((profile) => profile.id !== savedProfile.id && profile.userId !== savedProfile.userId);
+            return [savedProfile, ...remaining];
+        });
+        setActiveProducerId(savedProfile.id);
+        setProducerProfileForm({
+            name: savedProfile.name,
+            avatar: savedProfile.avatar,
+            banner: savedProfile.banner,
+            bio: savedProfile.bio,
+            tagline: savedProfile.tagline,
+            website: savedProfile.website,
+        });
+        showToast("Producer profile saved.", "success");
+        return savedProfile;
+    }
+    async function saveProducerBeatMetadata(song: Song, profile: ProducerProfile) {
+        const response = await fetch("/api/producers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "upsert-beat",
+                songId: song.id,
+                producerId: profile.id,
+                producerUserId: profile.userId,
+                producerName: profile.name,
+                title: song.title,
+                category: song.type || "Beats",
+                cover: song.cover,
+                audioUrl: song.audio,
+                storagePath: song.audioPath || "",
+                license: producerLicense,
+                leasePrice: producerLeasePrice,
+                exclusivePrice: producerExclusivePrice,
+                splitPercentage: clampProducerSplitShare(producerSplitPercentage),
+            }),
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            beat?: ProducerBeatTableRow;
+            error?: string;
+        };
+        if (!response.ok || !data.beat) {
+            throw new Error(data.error || "Producer beat metadata save failed.");
+        }
+        const beat = mapProducerBeatRow(data.beat);
+        setProducerBeats((previous) => [beat, ...previous.filter((item) => item.id !== beat.id && item.songId !== beat.songId)]);
+        return beat;
+    }
+    async function addUploadedProducerBeat(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setUploadError("");
+        setStorageSetupCopied(false);
+        const title = uploadForm.title.trim();
+        const producerName = uploadForm.artist.trim() || currentProducerProfile.name;
+        if (!title || !producerName) {
+            setUploadError("Add a beat title and producer name first.");
+            return;
+        }
+        const fileError = getAudioFileError(uploadFile);
+        if (fileError) {
+            setUploadError(fileError);
+            return;
+        }
+        setUploadBusy(true);
+        setUploadProgress(1);
+        setUploadStatus("Starting beat upload...");
+        let uploadGuardActive = false;
+        let uploadGuardKey = "";
+        try {
+            if (!uploadFile) {
+                setUploadError("Choose an MP3, WAV, or M4A beat file.");
+                return;
+            }
+            uploadGuardKey = getUploadGuardKey("beat", title, [uploadFile]);
+            uploadGuardActive = beginUploadGuard(uploadGuardKey, "This beat upload is already running.");
+            if (!uploadGuardActive)
+                return;
+            const profile = currentProducerProfile.id ? currentProducerProfile : await saveProducerProfile();
+            const newSong = await uploadAudioToSupabase(uploadFile, {
+                title,
+                artist: producerName,
+                type: uploadForm.type,
+                cover: uploadForm.cover,
+                producerId: profile.id,
+            });
+            const beat = await saveProducerBeatMetadata(newSong, profile);
+            await reloadSongLibraryFromSupabase();
+            await reloadProducerDataFromSupabase();
+            saveToLibrary({ ...newSong, producer: profile.name, producerId: profile.id, beatId: beat.id });
+            setUploadForm({ title: "", artist: "", type: "Beats", cover: "", producerId: "" });
+            setUploadFile(null);
+            setUploadStatus("");
+            setShowUpload(false);
+            setView("Producer Dashboard");
+            showToast("Beat uploaded to Producer Dashboard.", "success");
+        }
+        catch (error) {
+            const message = getStorageErrorMessage(error, "audio");
+            setUploadError(message);
+            setUploadStatus("");
+            reportPlatformError("upload", "beat-upload", message, { title, producerName });
+        }
+        finally {
+            if (uploadGuardActive) {
+                endUploadGuard(uploadGuardKey);
+            }
+            setUploadBusy(false);
+        }
+    }
+    async function updateProducerBeat(beat: ProducerBeat, updates: Partial<ProducerBeat>) {
+        const safeUpdates = updates.splitPercentage === undefined ? updates : { ...updates, splitPercentage: clampProducerSplitShare(updates.splitPercentage) };
+        const nextBeat = { ...beat, ...safeUpdates };
+        setProducerBeats((previous) => previous.map((item) => (item.id === beat.id ? nextBeat : item)));
+        const response = await fetch("/api/producers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "update-beat",
+                id: beat.id,
+                license: safeUpdates.license,
+                leasePrice: safeUpdates.leasePrice,
+                exclusivePrice: safeUpdates.exclusivePrice,
+                splitPercentage: safeUpdates.splitPercentage,
+                plays: safeUpdates.plays,
+                likes: safeUpdates.likes,
+                downloads: safeUpdates.downloads,
+                leases: safeUpdates.leases,
+                payouts: safeUpdates.payouts,
+            }),
+        });
+        if (!response.ok) {
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            showToast(data.error || "Producer beat update failed.", "error");
+        }
+    }
+    function playProducerBeat(beat: ProducerBeat) {
+        const beatSong: Song = {
+            id: beat.songId || beat.id,
+            title: beat.title,
+            artist: beat.producerName,
+            producer: beat.producerName,
+            producerId: beat.producerId,
+            beatId: beat.id,
+            category: "Producer Beats",
+            type: beat.license,
+            mediaKind: "audio",
+            time: "3:00",
+            plays: beat.plays,
+            likes: beat.likes,
+            uploaded: formatVideoCreatedAt(beat.createdAt),
+            cover: beat.cover,
+            avatar: beat.cover,
+            audio: beat.audioUrl,
+            audioPath: beat.storagePath,
+            ownerId: beat.producerUserId,
+        };
+        updateProducerBeat(beat, { plays: beat.plays + 1 });
+        playSong(beatSong);
+    }
+    function openProducerProfile(producerId: string) {
+        setActiveProducerId(producerId);
+        setView("Producer Profile");
+    }
+    async function addUploadedVideo(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setVideoUploadError("");
+        const mode = uploadMode;
+        const sourceView = view;
+        const title = videoForm.title.trim();
+        const creator = videoForm.creator.trim() || (mode === "producerVideo" ? currentProducerProfile.name : "");
+        if (!title || !creator) {
+            setVideoUploadError("Add a video title and creator name first.");
+            return;
+        }
+        const fileError = getVideoFileError(videoFile);
+        if (fileError) {
+            setVideoUploadError(fileError);
+            return;
+        }
+        setVideoUploadBusy(true);
+        setVideoUploadProgress(1);
+        setVideoUploadStatus("Starting video upload...");
+        let uploadGuardActive = false;
+        let uploadGuardKey = "";
+        try {
+            if (!videoFile) {
+                setVideoUploadError("Choose an MP4, MOV, or WEBM video file.");
+                return;
+            }
+            uploadGuardKey = getUploadGuardKey(mode, title, [videoFile]);
+            uploadGuardActive = beginUploadGuard(uploadGuardKey, "This video upload is already running.");
+            if (!uploadGuardActive)
+                return;
+            const producerProfile = mode === "producerVideo" ? (currentProducerProfile.id ? currentProducerProfile : await saveProducerProfile()) : null;
+            if (mode === "producerVideo" && !producerProfile?.id) {
+                setVideoUploadError("Save your producer profile before uploading a producer video.");
+                return;
+            }
+            const newVideo = await uploadVideoToSupabase(videoFile, {
+                title,
+                creator: mode === "producerVideo" ? producerProfile?.name || creator : creator,
+                category: videoForm.category,
+                cover: videoForm.cover,
+                producerId: producerProfile?.id || videoForm.producerId,
+            });
+            const databaseVideos = await reloadVideoLibraryFromSupabase();
+            const savedVideo = databaseVideos.find((video) => video.id === newVideo.id) || newVideo;
+            setActiveVideo(savedVideo);
+            setSelectedVideoId(savedVideo.id);
+            setVideoForm({ title: "", creator: "", category: "Music Video", cover: "", producerId: "" });
+            setVideoFile(null);
+            setVideoUploadStatus("");
+            setView(mode === "producerVideo" ? "Producer Dashboard" : sourceView === "Artist Dashboard" ? "Artist Dashboard" : "Videos");
+            showToast(mode === "producerVideo" ? "Producer video uploaded." : "Video uploaded.", "success");
+        }
+        catch (error) {
+            const message = getVideoUploadErrorMessage(error);
+            setVideoUploadError(message);
+            setVideoUploadStatus("");
+            reportPlatformError("upload", mode === "producerVideo" ? "producer-video-upload" : "video-upload", message, { title, creator });
+        }
+        finally {
+            if (uploadGuardActive) {
+                endUploadGuard(uploadGuardKey);
+            }
+            setVideoUploadBusy(false);
+        }
+    }
+    type AlbumSavePayload = {
+        albumId: string;
+        userId: string;
+        title: string;
+        creatorName: string;
+        ownerType: AlbumOwnerType;
+        artistName: string;
+        artistId: string;
+        producerName: string;
+        producerId: string;
+        producerProfileId: string;
+        coverUrl: string;
+        category: string;
+        releaseDate: string;
+    };
+    async function createAlbumRowInSupabase(payload: AlbumSavePayload) {
+        const response = await fetch("/api/albums/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "omit",
+            body: JSON.stringify(payload),
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            album?: Album;
+            recentAlbums?: Album[];
+            error?: string;
+        };
+        if (!response.ok || !data.album) {
+            throw new Error(data.error || "Album row could not be created.");
+        }
+        const album = normalizeAlbumRecord(data.album);
+        if (!album.id || !isUuid(album.id)) {
+            throw new Error("Album row was created without a valid album id.");
+        }
+        return album;
+    }
+    async function verifyAlbumRowExistsInSupabase(payload: AlbumSavePayload, album: Album) {
+        const albumsAfterCreate = await loadAlbums(payload.userId);
+        const verifiedAlbum = albumsAfterCreate.find((item) => item.id === album.id);
+        if (verifiedAlbum) {
+            return verifiedAlbum;
+        }
+        return createAlbumRowInSupabase(payload);
+    }
+    async function saveAlbumItemsToSupabase(albumId: string, userId: string, items: {
+        itemId: string;
+        itemType: "song" | "video";
+    }[]) {
+        if (!albumId || !isUuid(albumId)) {
+            throw new Error("Album id is required before saving album items.");
+        }
+        const response = await fetch("/api/albums/items", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "omit",
+            body: JSON.stringify({ albumId, userId, items }),
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            album?: Album;
+            error?: string;
+        };
+        if (!response.ok || !data.album) {
+            throw new Error(data.error || "Album items could not be saved.");
+        }
+        const album = normalizeAlbumRecord(data.album);
+        return album;
+    }
+    async function addUploadedAlbum(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setAlbumUploadError("");
+        setAlbumUploadStatus("");
+        const ownerType: AlbumOwnerType = uploadMode === "producerAlbum" ? "producer" : "artist";
+        const title = albumForm.title.trim();
+        if (!title) {
+            setAlbumUploadError("Add an album title first.");
+            return;
+        }
+        if (albumSongFiles.length === 0) {
+            setAlbumUploadError("Add at least one song to upload an album.");
+            return;
+        }
+        const songFileError = albumSongFiles.map((file) => getAudioFileError(file)).find(Boolean);
+        if (songFileError) {
+            setAlbumUploadError(songFileError);
+            return;
+        }
+        const videoFileError = albumVideoFiles.map((file) => getVideoFileError(file)).find(Boolean);
+        if (videoFileError) {
+            setAlbumUploadError(videoFileError);
+            return;
+        }
+        let uploadUser: SupabaseUser;
+        try {
+            uploadUser = await getAlbumUploadUser();
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : "Sign in first before uploading an album.";
+            setAlbumUploadError(message);
+            showToast(message, "error");
+            return;
+        }
+        const albumUploadFiles = [...albumSongFiles, ...albumVideoFiles];
+        const albumUploadKey = getUploadGuardKey(ownerType === "producer" ? "producer-album" : "album", title, albumUploadFiles);
+        const albumGuardActive = beginUploadGuard(albumUploadKey, "This album upload is already running.");
+        if (!albumGuardActive) {
+            setAlbumUploadError("This album upload is already running.");
+            return;
+        }
+        setAlbumUploadBusy(true);
+        setAlbumUploadProgress(1);
+        setAlbumUploadStatus("Starting album upload...");
+        try {
+            const producerProfile = ownerType === "producer"
+                ? currentProducerProfile.id
+                    ? currentProducerProfile
+                    : await saveProducerProfile(null, uploadUser)
+                : null;
+            const creatorName = albumForm.creatorName.trim() ||
+                (ownerType === "producer"
+                    ? producerProfile?.name || currentProducerProfile.name
+                    : selectedDashboardArtist?.name ||
+                        uploadUser.user_metadata?.displayName ||
+                        uploadUser.email?.split("@")[0] ||
+                        "Artist");
+            if (ownerType === "producer" && !producerProfile?.id) {
+                setAlbumUploadError("Save your producer profile before uploading a producer album.");
+                return;
+            }
+            const coverUrl = getArtworkUrl(albumForm.cover);
+            const category = albumForm.category.trim() || "Album";
+            const totalSteps = albumSongFiles.length + albumVideoFiles.length + 2;
+            let completedSteps = 0;
+            const uploadedSongs: Song[] = [];
+            const uploadedVideos: VideoItem[] = [];
+            setAlbumUploadStatus("Creating album...");
+            const albumPayload = {
+                albumId: crypto.randomUUID(),
+                userId: uploadUser.id,
+                title,
+                creatorName,
+                ownerType,
+                artistName: ownerType === "artist" ? creatorName : "",
+                artistId: ownerType === "artist" ? uploadUser.id : "",
+                producerName: ownerType === "producer" ? creatorName : "",
+                producerId: producerProfile?.id || "",
+                producerProfileId: producerProfile?.id || "",
+                coverUrl,
+                category,
+                releaseDate: albumForm.releaseDate,
+            };
+            let albumRow = await createAlbumRowInSupabase(albumPayload);
+            setAlbums((previous) => [albumRow, ...previous.filter((album) => album.id !== albumRow.id)]);
+            completedSteps += 1;
+            setAlbumUploadProgress(Math.round((completedSteps / totalSteps) * 100));
+            for (const [index, file] of albumSongFiles.entries()) {
+                setAlbumUploadStatus(`Uploading song ${index + 1} of ${albumSongFiles.length}...`);
+                const song = await uploadAudioToSupabase(file, {
+                    title: getUploadTitleFromFile(file, `${title} Song ${index + 1}`),
+                    artist: creatorName,
+                    type: category,
+                    cover: coverUrl,
+                    producerId: producerProfile?.id || "",
+                }, uploadUser, albumRow.id);
+                uploadedSongs.push(song);
+                completedSteps += 1;
+                setAlbumUploadProgress(Math.round((completedSteps / totalSteps) * 100));
+            }
+            for (const [index, file] of albumVideoFiles.entries()) {
+                setAlbumUploadStatus(`Uploading video ${index + 1} of ${albumVideoFiles.length}...`);
+                const video = await uploadVideoToSupabase(file, {
+                    title: getUploadTitleFromFile(file, `${title} Video ${index + 1}`),
+                    creator: creatorName,
+                    category,
+                    cover: coverUrl,
+                    producerId: producerProfile?.id || "",
+                }, uploadUser, albumRow.id);
+                uploadedVideos.push(video);
+                completedSteps += 1;
+                setAlbumUploadProgress(Math.round((completedSteps / totalSteps) * 100));
+            }
+            setAlbumUploadStatus("Saving album items...");
+            const albumItems = [
+                ...uploadedSongs.map((song) => ({ itemId: song.id, itemType: "song" as const })),
+                ...uploadedVideos.map((video) => ({ itemId: video.id, itemType: "video" as const })),
+            ];
+            albumRow = await verifyAlbumRowExistsInSupabase(albumPayload, albumRow);
+            let createdAlbum: Album;
+            try {
+                createdAlbum = await saveAlbumItemsToSupabase(albumRow.id, uploadUser.id, albumItems);
+            }
+            catch (error) {
+                albumRow = await createAlbumRowInSupabase(albumPayload);
+                createdAlbum = await saveAlbumItemsToSupabase(albumRow.id, uploadUser.id, albumItems);
+            }
+            completedSteps += 1;
+            setAlbumUploadProgress(Math.round((completedSteps / totalSteps) * 100));
+            setAlbums((previous) => [createdAlbum, ...previous.filter((album) => album.id !== createdAlbum.id)]);
+            const [, , refreshedAlbums] = await Promise.all([
+                reloadSongLibraryFromSupabase(),
+                reloadVideoLibraryFromSupabase(),
+                loadAlbums(uploadUser.id),
+                reloadProducerDataFromSupabase(),
+            ]);
+            if (!refreshedAlbums.some((album) => album.id === createdAlbum.id)) {
+                const fallbackAlbum = await createAlbumRowInSupabase(albumPayload);
+                const fallbackAlbumWithItems = await saveAlbumItemsToSupabase(fallbackAlbum.id, uploadUser.id, albumItems);
+                setAlbums((previous) => [
+                    fallbackAlbumWithItems,
+                    ...previous.filter((album) => album.id !== fallbackAlbumWithItems.id),
+                ]);
+                await loadAlbums(uploadUser.id);
+            }
+            setDashboardArtistId((previous) => previous || createArtistId(creatorName));
+            if (ownerType === "producer" && producerProfile?.id) {
+                setActiveProducerId(producerProfile.id);
+            }
+            setAlbumForm({ title: "", creatorName: "", cover: "", category: "Album", releaseDate: "" });
+            setAlbumSongFiles([]);
+            setAlbumVideoFiles([]);
+            setAlbumUploadProgress(100);
+            setAlbumUploadStatus("");
+            setShowUpload(false);
+            setView(ownerType === "producer" ? "Producer Dashboard" : "Artist Dashboard");
+            showToast("Album uploaded successfully.", "success");
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : "Album upload failed.";
+            setAlbumUploadError(message);
+            showToast(message, "error");
+            reportPlatformError("upload", ownerType === "producer" ? "producer-album-upload" : "album-upload", message, { title, songs: albumSongFiles.length, videos: albumVideoFiles.length });
+        }
+        finally {
+            endUploadGuard(albumUploadKey);
+            setAlbumUploadBusy(false);
+            albumUploadUserRef.current = null;
+        }
+    }
+    function playVideo(video: VideoItem | Record<string, unknown>, sourceSection = "Video Card") {
+        const playableVideo = normalizeVideo(video);
+        const videoUrl = getVideoPlaybackUrl(playableVideo);
+        if (!videoUrl) {
+            console.error("[video play] missing playable URL:", sourceSection, playableVideo.id, playableVideo.title);
+            reportPlatformError("media_url", "play-video-missing-url", "Video file URL missing", {
+                sourceSection,
+                videoId: playableVideo.id,
+                title: playableVideo.title,
+            });
+            setVideoPlaying(false);
+            setVideoProgress(0);
+            setVideoDuration(0);
+            setActiveMedia((previous) => (previous?.type === "video" ? null : previous));
+            setActiveVideo((previous) => (previous?.id === playableVideo.id ? null : previous));
+            showToast("Video file URL missing", "error");
+            reloadVideoLibraryFromSupabase().catch((error) => console.error("[video play] refresh after missing URL failed:", error));
+            return;
+        }
+        const nextViews = (playableVideo.views || 0) + 1;
+        const nextActiveVideo = { ...playableVideo, views: nextViews };
+        if (audioRef.current) {
+            audioRef.current.pause();
+        }
+        setIsPlaying(false);
+        setCurrentSong(null);
+        setActiveMediaType("video");
+        setActiveMedia({ type: "video", item: nextActiveVideo });
+        setActiveVideo(nextActiveVideo);
+        setSelectedVideoId(playableVideo.id);
+        setVideoAutoplayRequestId(playableVideo.id);
+        saveVideoPlay(nextActiveVideo);
+        const preserveVideoQueue = sourceSection.includes("Playlist") ||
+            sourceSection.includes("Album") ||
+            sourceSection.includes("Video Player") ||
+            sourceSection.includes("Auto Next");
+        if (!preserveVideoQueue) {
+            setVideoPlaybackQueue([]);
+        }
+        if (!sourceSection.includes("Album") && !isActiveAlbumTrack("video", playableVideo.id)) {
+            setActiveAlbumPlayback(null);
+        }
+        setView("Videos");
+        setVideos((previous) => previous.some((item) => item.id === playableVideo.id)
+            ? previous.map((item) => (item.id === playableVideo.id ? { ...normalizeVideoForPlayback(item), views: nextViews } : item))
+            : uniqueVideos([nextActiveVideo, ...previous]));
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+                videoPreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                if (!mainVideoRef.current) {
+                }
+            });
+        });
+        fetch(`/api/videos/${encodeURIComponent(playableVideo.id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ views: nextViews }),
+        })
+            .then(async (response) => {
+            if (!response.ok) {
+                const data = (await response.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                showToast("Video is playing, but view count did not save.", "error");
+            }
+        })
+            .catch((error) => {
+            showToast("Video is playing, but view count did not save.", "error");
+        });
+    }
+    function playAdjacentVideo(direction: "previous" | "next") {
+        const list = getVideoPlaybackList();
+        if (list.length === 0)
+            return;
+        const currentIndex = Math.max(0, list.findIndex((video) => video.id === activeVideo?.id));
+        const nextIndex = direction === "next"
+            ? (currentIndex + 1) % list.length
+            : (currentIndex - 1 + list.length) % list.length;
+        playVideo(list[nextIndex], "Video Player Controls");
+    }
+    async function toggleVideoLike(video: VideoItem) {
+        if (!user?.id) {
+            showToast("Log in before liking videos.", "error");
+            return;
+        }
+        const previousLikes = video.likes || 0;
+        const shouldLike = !video.likedByUser;
+        const optimisticLikes = shouldLike ? previousLikes + 1 : Math.max(0, previousLikes - 1);
+        setVideos((previous) => previous.map((item) => item.id === video.id ? { ...item, likes: optimisticLikes, likedByUser: shouldLike } : item));
+        setActiveVideo((previous) => previous?.id === video.id ? { ...previous, likes: optimisticLikes, likedByUser: shouldLike } : previous);
+        try {
+            const response = await fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ like: shouldLike, userId: user.id }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+                likes?: number;
+                likedByUser?: boolean;
+            };
+            if (!response.ok) {
+                setVideos((previous) => previous.map((item) => item.id === video.id ? { ...item, likes: previousLikes, likedByUser: video.likedByUser } : item));
+                setActiveVideo((previous) => previous?.id === video.id ? { ...previous, likes: previousLikes, likedByUser: video.likedByUser } : previous);
+                const message = data.error || `Could not ${shouldLike ? "like" : "unlike"} this video.`;
+                showToast(message, "error");
+                reportPlatformError("like", shouldLike ? "video-like" : "video-unlike", message, {
+                    videoId: video.id,
+                    title: video.title,
+                });
+                return;
+            }
+            const nextLikedVideoState = {
+                likes: typeof data.likes === "number" ? data.likes : optimisticLikes,
+                likedByUser: Boolean(data.likedByUser),
+            };
+            setVideos((previous) => previous.map((item) => item.id === video.id
+                ? {
+                    ...item,
+                    ...nextLikedVideoState,
+                }
+                : item));
+            setActiveVideo((previous) => previous?.id === video.id ? { ...previous, ...nextLikedVideoState } : previous);
+            showToast(data.likedByUser ? "Video liked." : "Video unliked.", "success");
+            if (data.likedByUser) {
+                pushNotification("New like", `${video.title} was liked.`, "video", video.id);
+            }
+        }
+        catch (error) {
+            setVideos((previous) => previous.map((item) => item.id === video.id ? { ...item, likes: previousLikes, likedByUser: video.likedByUser } : item));
+            setActiveVideo((previous) => previous?.id === video.id ? { ...previous, likes: previousLikes, likedByUser: video.likedByUser } : previous);
+            const message = error instanceof Error ? error.message : `Could not ${shouldLike ? "like" : "unlike"} this video. Check your connection and try again.`;
+            showToast(message, "error");
+            reportPlatformError("like", shouldLike ? "video-like" : "video-unlike", message, {
+                videoId: video.id,
+                title: video.title,
+            });
+        }
+    }
+    async function removeVideo(videoId: string) {
+        const video = videos.find((item) => item.id === videoId);
+        if (!video)
+            return;
+        if (!window.confirm(`Delete "${video.title}" from Video Library?`))
+            return;
+        const previousState = {
+            videos,
+            libraryIds,
+            savedVideoIds,
+            activeVideo,
+            selectedVideoId,
+            activeMedia,
+            activeMediaType,
+            videoPlaying,
+            videoProgress,
+            videoDuration,
+        };
+        purgeDeletedVideoFromUi(videoId);
+        try {
+            const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}`, { method: "DELETE" });
+            if (!response.ok) {
+                const data = (await response.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                setVideos(previousState.videos);
+                setLibraryIds(previousState.libraryIds);
+                setSavedVideoIds(previousState.savedVideoIds);
+                setActiveVideo(previousState.activeVideo);
+                setSelectedVideoId(previousState.selectedVideoId);
+                setActiveMedia(previousState.activeMedia);
+                setActiveMediaType(previousState.activeMediaType);
+                setVideoPlaying(previousState.videoPlaying);
+                setVideoProgress(previousState.videoProgress);
+                setVideoDuration(previousState.videoDuration);
+                restoreVideoLocalStorageSnapshot(previousState);
+                showToast(data.error || "Video could not be deleted from Supabase.", "error");
+                return;
+            }
+            await reloadVideoLibraryFromSupabase().catch((refreshError) => {
+                showToast("Video deleted, but the refreshed video list could not load yet.", "error");
+            });
+            showToast("Video deleted.", "success");
+        }
+        catch (error) {
+            setVideos(previousState.videos);
+            setLibraryIds(previousState.libraryIds);
+            setSavedVideoIds(previousState.savedVideoIds);
+            setActiveVideo(previousState.activeVideo);
+            setSelectedVideoId(previousState.selectedVideoId);
+            setActiveMedia(previousState.activeMedia);
+            setActiveMediaType(previousState.activeMediaType);
+            setVideoPlaying(previousState.videoPlaying);
+            setVideoProgress(previousState.videoProgress);
+            setVideoDuration(previousState.videoDuration);
+            restoreVideoLocalStorageSnapshot(previousState);
+            showToast("Video could not be deleted. Check your connection and try again.", "error");
+        }
+    }
+    function startEditingVideo(video: VideoItem) {
+        setEditingVideoId(video.id);
+        setEditVideoForm({
+            title: video.title,
+            creator: video.creator,
+            category: video.category,
+            cover: video.cover,
+        });
+    }
+    function cancelEditingVideo() {
+        setEditingVideoId("");
+        setEditVideoForm({
+            title: "",
+            creator: "",
+            category: "Music Video",
+            cover: "",
+        });
+    }
+    async function saveEditedVideo(videoId: string) {
+        const title = editVideoForm.title.trim();
+        const creator = editVideoForm.creator.trim();
+        if (!title || !creator) {
+            showToast("Video title and creator name are required.", "error");
+            return;
+        }
+        const updatedVideo = {
+            title,
+            description: creator,
+            category: editVideoForm.category.trim() || "Music Video",
+            thumbnail_url: getArtworkUrl(editVideoForm.cover),
+        };
+        setVideos((previous) => previous.map((video) => video.id === videoId
+            ? {
+                ...video,
+                title: updatedVideo.title,
+                creator: updatedVideo.description,
+                description: updatedVideo.description,
+                category: updatedVideo.category,
+                cover: updatedVideo.thumbnail_url,
+                thumbnail_url: updatedVideo.thumbnail_url,
+            }
+            : video));
+        setActiveVideo((previous) => previous?.id === videoId
+            ? {
+                ...previous,
+                title: updatedVideo.title,
+                creator: updatedVideo.description,
+                description: updatedVideo.description,
+                category: updatedVideo.category,
+                cover: updatedVideo.thumbnail_url,
+                thumbnail_url: updatedVideo.thumbnail_url,
+            }
+            : previous);
+        cancelEditingVideo();
+        try {
+            const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedVideo),
+            });
+            if (!response.ok) {
+                const data = (await response.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                showToast("Video updated on screen, but Supabase did not save it yet.", "error");
+                return;
+            }
+            showToast("Video updated.", "success");
+        }
+        catch (error) {
+            showToast("Video updated on screen, but Supabase did not save it yet.", "error");
+        }
+    }
+    function startEditingSong(song: Song) {
+        setEditingSongId(song.id);
+        setEditSongForm({
+            title: song.title,
+            artist: song.artist,
+            category: song.category,
+            type: song.type,
+            time: song.time,
+            cover: song.cover,
+        });
+    }
+    function cancelEditingSong() {
+        setEditingSongId("");
+        setEditSongForm({
+            title: "",
+            artist: "",
+            category: "New Releases",
+            type: "Beats",
+            time: "3:00",
+            cover: "",
+        });
+    }
+    function saveEditedSong(songId: string) {
+        const title = editSongForm.title.trim();
+        const artist = editSongForm.artist.trim();
+        if (!title || !artist) {
+            alert("Song title and artist name are required.");
+            return;
+        }
+        setSongs((previous) => previous.map((song) => song.id === songId
+            ? {
+                ...song,
+                title,
+                artist,
+                category: editSongForm.category.trim() || "New Releases",
+                type: editSongForm.type.trim() || "Beats",
+                time: editSongForm.time.trim() || "3:00",
+                cover: getArtworkUrl(editSongForm.cover),
+                avatar: getArtworkUrl(editSongForm.cover || song.avatar),
+            }
+            : song));
+        setCurrentSong((previous) => previous?.id === songId
+            ? {
+                ...previous,
+                title,
+                artist,
+                category: editSongForm.category.trim() || "New Releases",
+                type: editSongForm.type.trim() || "Beats",
+                time: editSongForm.time.trim() || "3:00",
+                cover: getArtworkUrl(editSongForm.cover),
+                avatar: getArtworkUrl(editSongForm.cover || previous.avatar),
+            }
+            : previous);
+        cancelEditingSong();
+    }
+    async function deleteUploadedSong(songId: string) {
+        const song = songs.find((item) => item.id === songId);
+        if (!song)
+            return;
+        if (!canDeleteUploadedSong(song)) {
+            showToast("Only the owner can delete this uploaded track.", "error");
+            return;
+        }
+        if (!window.confirm("Delete this song everywhere? This cannot be undone."))
+            return;
+        const previousState = {
+            songs,
+            libraryIds,
+            likedIds,
+            followedIds,
+            queue,
+            recentlyPlayed,
+            playlists,
+            producerBeats,
+            currentSong,
+            isPlaying,
+            progress,
+            duration,
+            activeMedia,
+            activeMediaType,
+        };
+        try {
+            const response = await fetch(`/api/songs/${encodeURIComponent(songId)}?userId=${encodeURIComponent(accountUserId)}`, {
+                method: "DELETE",
+            });
+            if (!response.ok) {
+                const data = (await response.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                showToast(data.error || "Track could not be deleted from Supabase.", "error");
+                return;
+            }
+            purgeDeletedSongFromUi(songId);
+            await reloadSongLibraryFromSupabase().catch((refreshError) => {
+                showToast("Track deleted, but the refreshed song list could not load yet.", "error");
+            });
+            showToast("Track deleted everywhere.", "success");
+        }
+        catch (error) {
+            setSongs(previousState.songs);
+            setLibraryIds(previousState.libraryIds);
+            setLikedIds(previousState.likedIds);
+            setFollowedIds(previousState.followedIds);
+            setQueue(previousState.queue);
+            setRecentlyPlayed(previousState.recentlyPlayed);
+            setPlaylists(previousState.playlists);
+            setProducerBeats(previousState.producerBeats);
+            setCurrentSong(previousState.currentSong);
+            setIsPlaying(previousState.isPlaying);
+            setProgress(previousState.progress);
+            setDuration(previousState.duration);
+            setActiveMedia(previousState.activeMedia);
+            setActiveMediaType(previousState.activeMediaType);
+            restoreSongLocalStorageSnapshot(previousState);
+            showToast("Track could not be deleted. Check your connection and try again.", "error");
+        }
+    }
+    function getProducerCreditForSong(song: Song) {
+        if (song.producer)
+            return song.producer;
+        const beat = producerBeats.find((item) => item.songId === song.id || item.id === song.beatId);
+        return beat?.producerName || "";
+    }
+    function getProducerCreditForVideo(video: VideoItem) {
+        if (video.producer)
+            return video.producer;
+        const beat = producerBeats.find((item) => item.id === video.beatId);
+        return beat?.producerName || "";
+    }
+    function playMarketplaceBeat(beat: ProducerBeat) {
+        const linkedSong = songs.find((song) => song.id === beat.songId) || audioSongs.find((song) => song.id === beat.songId);
+        if (linkedSong) {
+            playSong(linkedSong);
+            return;
+        }
+        if (!beat.audioUrl) {
+            showToast("Beat audio is not available yet.", "info");
+            return;
+        }
+        playSong({
+            id: beat.songId || beat.id,
+            title: beat.title,
+            artist: beat.producerName,
+            producer: beat.producerName,
+            producerId: beat.producerId,
+            beatId: beat.id,
+            category: "Producer Beats",
+            type: beat.category,
+            mediaKind: "audio",
+            time: "3:00",
+            plays: beat.plays,
+            likes: beat.likes,
+            uploaded: formatAlbumCreatedDate(beat.createdAt),
+            cover: beat.cover,
+            avatar: beat.cover,
+            audio: beat.audioUrl,
+            audioPath: beat.storagePath,
+            ownerId: beat.producerUserId,
+        });
+    }
+    function playMarketplaceRelease(release: MarketplaceRelease) {
+        if (release.releaseType === "song") {
+            playSong(release.item as Song);
+            return;
+        }
+        if (release.releaseType === "video") {
+            playVideo(release.item as VideoItem, "Marketplace");
+            return;
+        }
+        if (release.releaseType === "album") {
+            playAlbum(release.item as ResolvedAlbum, "Marketplace");
+            return;
+        }
+        playMarketplaceBeat(release.item as ProducerBeat);
+    }
+    function openMarketplaceReleaseStore(release: MarketplaceRelease) {
+        if (release.releaseType === "beat" || (release.releaseType === "album" && (release.item as ResolvedAlbum).ownerType === "producer")) {
+            const producer = producerProfiles.find((profile) => profile.name === release.producerName || createArtistId(profile.name) === createArtistId(release.producerName));
+            if (producer) {
+                openProducerProfile(producer.id);
+                return;
+            }
+        }
+        openArtistProfile(release.creatorName);
+    }
+    function openDiscoveryItem(item: DiscoverySuggestion | DiscoveryFeedItem) {
+        if (item.type === "song") {
+            const song = audioSongs.find((entry) => entry.id === item.id) || songs.find((entry) => entry.id === item.id);
+            if (song)
+                playSong(song);
+            return;
+        }
+        if (item.type === "video") {
+            const video = videos.find((entry) => entry.id === item.id);
+            if (video)
+                playVideo(video, "Discovery Video");
+            return;
+        }
+        if (item.type === "album") {
+            const album = resolvedAlbums.find((entry) => entry.id === item.id);
+            if (album)
+                void playAlbum(album, "Discovery Album");
+            return;
+        }
+        if (item.type === "artist") {
+            openArtistProfile(item.title);
+            return;
+        }
+        if (item.type === "producer") {
+            openProducerProfile(item.id);
+            return;
+        }
+        if (item.type === "playlist") {
+            const playlist = playlists.find((entry) => entry.id === item.id);
+            if (playlist) {
+                setActivePlaylistId(playlist.id);
+                setView("Playlists");
+            }
+            return;
+        }
+        if (item.type === "beat") {
+            setActiveBeatDetailId(item.id);
+            setView("Marketplace");
+        }
+    }
+    function selectSearchSuggestion(suggestion: DiscoverySuggestion) {
+        if (suggestion.id.startsWith("popular-")) {
+            setSearchInput(suggestion.title);
+            setSearch(suggestion.title);
+            setSearchFocused(false);
+            return;
+        }
+        if (suggestion.type === "artist" || suggestion.type === "producer" || suggestion.type === "playlist" || suggestion.type === "beat") {
+            setSearchInput("");
+            setSearch("");
+            setSearchFocused(false);
+            openDiscoveryItem(suggestion);
+            return;
+        }
+        setSearchInput(suggestion.title);
+        setSearch(suggestion.title);
+        setSearchFocused(false);
+    }
+    function getDiscoveryActionLabel(type: DiscoveryItemType) {
+        if (type === "song" || type === "video")
+            return "Play";
+        if (type === "album")
+            return "Play Album";
+        if (type === "artist" || type === "producer")
+            return "Profile";
+        if (type === "playlist")
+            return "Open";
+        if (type === "beat")
+            return "Details";
+        return "Open";
+    }
+    function renderDiscoveryItemCard(item: DiscoveryFeedItem) {
+        return (<article className="discovery-card" key={`${item.badge}-${item.type}-${item.id}`}>
+        <button className="discovery-card-main" onClick={() => openDiscoveryItem(item)} type="button">
+          <img src={getArtworkUrl(item.cover)} alt=""/>
+          <span>{item.badge}</span>
+        </button>
+        <div className="discovery-card-copy">
+          <strong>{item.title}</strong>
+          <small>{item.subtitle}</small>
+          <em>{item.metric}</em>
+        </div>
+        <button className="discovery-card-action" onClick={() => openDiscoveryItem(item)} type="button">
+          <Play size={14} fill="currentColor"/>
+          {getDiscoveryActionLabel(item.type)}
+        </button>
+      </article>);
+    }
+    function renderBeatLicenseButtons(beat: ProducerBeat, className = "") {
+        const selectedLicense = getSelectedBeatLicense(beat);
+        return (<div className={`license-button-grid ${className}`.trim()}>
+          {LICENSE_TYPES.map((licenseType) => (<button className={selectedLicense === licenseType ? "active" : ""} key={`${beat.id}-${licenseType}`} onClick={() => selectBeatLicenseForCart(beat, licenseType)} type="button">
+              <span>{licenseType}</span>
+              <small>{formatCurrencyFromCents(getBeatLicensePriceCents(beat, licenseType))}</small>
+            </button>))}
+        </div>);
+    }
+    function renderMarketplaceReleaseCard(release: MarketplaceRelease) {
+        const beat = release.releaseType === "beat" ? release.item as ProducerBeat : null;
+        return (<article className="marketplace-release-card" key={`${release.releaseType}-${release.id}`}>
+        <button className="marketplace-release-cover" onClick={() => playMarketplaceRelease(release)} type="button">
+          <img src={getArtworkUrl(release.cover)} alt=""/>
+          <span>{release.releaseType}</span>
+        </button>
+        <div className="marketplace-release-copy">
+          <strong>{release.title}</strong>
+          <button onClick={() => openMarketplaceReleaseStore(release)} type="button">
+            {release.creatorName}
+          </button>
+          <small>{release.producerName ? `Produced by ${release.producerName}` : release.genre}</small>
+          <small>{release.metricLabel}</small>
+          <small>{formatCurrencyFromCents(release.priceCents)}{release.premium ? " | Premium" : ""}</small>
+        </div>
+        <div className="marketplace-release-actions">
+          <button onClick={() => playMarketplaceRelease(release)} type="button">
+            <Play size={15} fill="currentColor"/>
+            Play
+          </button>
+          {getMarketplaceSalesType(release) ? (<button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
+              <Disc3 size={15}/>
+              {beat ? `Buy ${getSelectedBeatLicense(beat)}` : release.releaseType === "album" ? "Buy Album" : "Buy Song"}
+            </button>) : (<button onClick={() => openMarketplaceReleaseStore(release)} type="button">
+              <UserCircle size={15}/>
+              Store
+            </button>)}
+          {beat ? (<button onClick={() => setActiveBeatDetailId(beat.id)} type="button">
+              <BookOpen size={15}/>
+              Details
+            </button>) : null}
+        </div>
+        {beat ? (<small className="license-selection-note">{getBeatLicenseSummary(beat, getSelectedBeatLicense(beat))}</small>) : null}
+        {beat ? renderBeatLicenseButtons(beat, "marketplace-license-actions") : null}
+      </article>);
+    }
+    function renderMarketplaceChartRow(release: MarketplaceRelease, index: number) {
+        return (<article className="marketplace-chart-row" key={`chart-${release.releaseType}-${release.id}`}>
+        <strong>{index + 1}</strong>
+        <img src={getArtworkUrl(release.cover)} alt=""/>
+        <span>
+          <b>{release.title}</b>
+          <small>{release.creatorName} | {release.genre} | {release.metricLabel}</small>
+        </span>
+        <em>{formatCurrencyFromCents(release.priceCents)}</em>
+        <button onClick={() => playMarketplaceRelease(release)} type="button">
+          <Play size={14} fill="currentColor"/>
+          Play
+        </button>
+        {getMarketplaceSalesType(release) ? (<button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
+            <Disc3 size={14}/>
+            Buy
+          </button>) : null}
+      </article>);
+    }
+    function getAlbumDisplayCover(album: Album | ResolvedAlbum) {
+        const record = album as unknown as Record<string, unknown>;
+        const explicitCover = getArtworkUrl(getStringField(record, ["cover", "coverUrl", "cover_url", "coverImage", "cover_image", "image", "image_url", "thumbnail_url"]));
+        if (explicitCover !== DEFAULT_COVER)
+            return explicitCover;
+        const albumWithTracks = album as Partial<ResolvedAlbum>;
+        const trackCover = [
+            ...(Array.isArray(albumWithTracks.songs) ? albumWithTracks.songs : []),
+            ...(Array.isArray(albumWithTracks.videos) ? albumWithTracks.videos : []),
+        ]
+            .map((item) => getArtworkUrl(item.cover))
+            .find((cover) => cover !== DEFAULT_COVER);
+        return trackCover || DEFAULT_COVER;
+    }
+    function getAlbumTrackPointers(album: ResolvedAlbum): AlbumTrackPointer[] {
+        return [
+            ...album.songs.map((song) => ({ type: "song" as const, id: song.id })),
+            ...album.videos.map((video) => ({ type: "video" as const, id: video.id })),
+        ];
+    }
+    function isActiveAlbumTrack(type: "song" | "video", id: string) {
+        return Boolean(activeAlbumPlayback?.tracks.some((track) => track.type === type && track.id === id));
+    }
+    function getActiveAlbumTrackInfo() {
+        if (!activeAlbumPlayback || !activeMedia)
+            return null;
+        const currentIndex = activeAlbumPlayback.tracks.findIndex((track) => track.type === activeMedia.type && track.id === activeMedia.item.id);
+        if (currentIndex < 0)
+            return null;
+        return {
+            title: activeAlbumPlayback.title,
+            current: currentIndex + 1,
+            total: activeAlbumPlayback.tracks.length,
+        };
+    }
+    async function removeSongProducerCredit(song: Song) {
+        setSongs((previous) => previous.map((item) => (item.id === song.id ? { ...item, producer: "", producerId: "", beatId: "" } : item)));
+        const response = await fetch(`/api/songs/${encodeURIComponent(song.id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ producer: "", producer_id: "", beat_id: "" }),
+        });
+        if (!response.ok) {
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            showToast(data.error || "Producer credit could not be removed.", "error");
+            reloadSongLibraryFromSupabase().catch((error) => console.error("[producer credit] song refresh failed:", error));
+            return;
+        }
+        showToast("Producer credit removed.", "success");
+    }
+    async function removeVideoProducerCredit(video: VideoItem) {
+        setVideos((previous) => previous.map((item) => (item.id === video.id ? { ...item, producer: "", producerId: "", beatId: "" } : item)));
+        const response = await fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ producer: "", producer_id: "", beat_id: "" }),
+        });
+        if (!response.ok) {
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            showToast(data.error || "Producer credit could not be removed.", "error");
+            reloadVideoLibraryFromSupabase().catch((error) => console.error("[producer credit] video refresh failed:", error));
+            return;
+        }
+        showToast("Producer credit removed.", "success");
+    }
+    function resolveAlbumTracksFromPools(album: Album | ResolvedAlbum, songPool: Song[] = audioSongs, videoPool: VideoItem[] = albumVideoPool): ResolvedAlbum {
+        const normalizedAlbum = normalizeAlbumRecord(album);
+        const albumWithTracks = album as Partial<ResolvedAlbum>;
+        const existingSongs = Array.isArray(albumWithTracks.songs) ? albumWithTracks.songs || [] : [];
+        const existingVideos = Array.isArray(albumWithTracks.videos) ? albumWithTracks.videos || [] : [];
+        const albumSongsFromPool = songPool.filter((song) => song.albumId === normalizedAlbum.id);
+        const albumVideosFromPool = videoPool.filter((video) => video.albumId === normalizedAlbum.id);
+        const songIds = uniqueIds([
+            ...normalizedAlbum.songIds,
+            ...existingSongs.map((song) => song.id),
+            ...albumSongsFromPool.map((song) => song.id),
+        ]);
+        const videoIds = uniqueIds([
+            ...normalizedAlbum.videoIds,
+            ...existingVideos.map((video) => video.id),
+            ...albumVideosFromPool.map((video) => video.id),
+        ]);
+        const songMap = new Map(uniqueSongs([...songPool, ...existingSongs, ...albumSongsFromPool]).map((song) => [song.id, song]));
+        const videoMap = new Map(uniqueVideos([...videoPool, ...existingVideos, ...albumVideosFromPool].map((video) => normalizeVideoForPlayback(video))).map((video) => [video.id, video]));
+        const resolvedSongs = songIds.reduce<Song[]>((items, id) => {
+            const song = songMap.get(id);
+            if (song)
+                items.push(song);
+            return items;
+        }, []);
+        const resolvedVideos = videoIds.reduce<VideoItem[]>((items, id) => {
+            const video = videoMap.get(id);
+            if (video)
+                items.push(video);
+            return items;
+        }, []);
+        return {
+            ...normalizedAlbum,
+            songIds,
+            videoIds,
+            songs: uniqueSongs(resolvedSongs),
+            videos: uniqueVideos(resolvedVideos),
+        };
+    }
+    async function resolveAlbumTracksForAction(album: ResolvedAlbum) {
+        const localAlbum = resolvedAlbums.find((item) => item.id === album.id) || album;
+        let resolvedAlbum = resolveAlbumTracksFromPools(localAlbum);
+        const missingLinkedSongs = resolvedAlbum.songIds.length > resolvedAlbum.songs.length;
+        const missingLinkedVideos = resolvedAlbum.videoIds.length > resolvedAlbum.videos.length;
+        if ((resolvedAlbum.songs.length > 0 || resolvedAlbum.videos.length > 0) &&
+            !missingLinkedSongs &&
+            !missingLinkedVideos) {
+            return resolvedAlbum;
+        }
+        try {
+            const [freshSongs, freshVideos, freshAlbums] = await Promise.all([
+                reloadSongLibraryFromSupabase().catch((error) => {
+                    return songs;
+                }),
+                reloadVideoLibraryFromSupabase().catch((error) => {
+                    return videos;
+                }),
+                loadAlbums(accountUserId || user?.id || album.userId).catch((error) => {
+                    return albums;
+                }),
+            ]);
+            const freshAudioSongs = uniqueSongs(freshSongs.filter((song) => !isVideoSong(song)));
+            const freshSongVideos = freshSongs
+                .filter((song) => isVideoSong(song) && Boolean(song.video || song.audio))
+                .map(mapSavedSongVideoToVideoItem);
+            const freshVideoPool = uniqueVideos([...freshVideos, ...freshSongVideos]);
+            const freshAlbum = freshAlbums.find((item) => item.id === album.id) || localAlbum;
+            resolvedAlbum = resolveAlbumTracksFromPools(freshAlbum, freshAudioSongs, freshVideoPool);
+        }
+        catch (error) {
+        }
+        return resolvedAlbum;
+    }
+    async function playAlbum(album: ResolvedAlbum, sourceLabel = "Album") {
+        const resolvedAlbum = await resolveAlbumTracksForAction(album);
+        if (resolvedAlbum.songs.length === 0 && resolvedAlbum.videos.length === 0) {
+            showToast("Album has no tracks yet", "info");
+            return;
+        }
+        saveAlbumPlay(resolvedAlbum);
+        setActiveAlbumPlayback({
+            albumId: resolvedAlbum.id,
+            title: resolvedAlbum.title,
+            cover: getAlbumDisplayCover(resolvedAlbum),
+            tracks: getAlbumTrackPointers(resolvedAlbum),
+        });
+        setVideoPlaybackQueue(resolvedAlbum.videos);
+        if (resolvedAlbum.songs.length > 0) {
+            playSongList(resolvedAlbum.songs, { preserveAlbumPlayback: true });
+            return;
+        }
+        playVideoList(resolvedAlbum.videos, undefined, sourceLabel.includes("Album") ? sourceLabel : `${sourceLabel} Album`);
+    }
+    function resumeRecentPlay(entry: RecentPlay) {
+        if ((entry.itemType || "song") === "song" && entry.song) {
+            playSong(entry.song);
+            if (entry.position && entry.position > 0) {
+                window.setTimeout(() => {
+                    if (audioRef.current) {
+                        audioRef.current.currentTime = Math.min(entry.position || 0, audioRef.current.duration || entry.position || 0);
+                    }
+                }, 120);
+            }
+            return;
+        }
+        if (entry.itemType === "video" && entry.video) {
+            playVideo(entry.video, "Recently Played Videos");
+            if (entry.position && entry.position > 0) {
+                window.setTimeout(() => {
+                    if (mainVideoRef.current) {
+                        mainVideoRef.current.currentTime = Math.min(entry.position || 0, mainVideoRef.current.duration || entry.position || 0);
+                    }
+                }, 220);
+            }
+            return;
+        }
+        if (entry.itemType === "album" && entry.album) {
+            const album = resolvedAlbums.find((item) => item.id === entry.album?.id) || resolveAlbumTracksFromPools(entry.album);
+            void playAlbum(album, "Recently Played Albums");
+        }
+    }
+    async function openAlbumPlaylistPicker(album: ResolvedAlbum) {
+        const resolvedAlbum = await resolveAlbumTracksForAction(album);
+        if (resolvedAlbum.songs.length === 0 && resolvedAlbum.videos.length === 0) {
+            showToast("No album tracks to add", "info");
+            return;
+        }
+        setPlaylistTarget({ type: "album", item: resolvedAlbum });
+    }
+    function startEditingAlbum(album: ResolvedAlbum) {
+        setEditingAlbumId(album.id);
+        setEditAlbumForm({
+            title: album.title,
+            creatorName: album.creatorName,
+            cover: album.cover,
+            category: album.category,
+            releaseDate: album.releaseDate,
+        });
+    }
+    function cancelEditingAlbum() {
+        setEditingAlbumId("");
+        setEditAlbumForm({
+            title: "",
+            creatorName: "",
+            cover: "",
+            category: "Album",
+            releaseDate: "",
+        });
+    }
+    async function saveEditedAlbum(albumId: string) {
+        const title = editAlbumForm.title.trim();
+        const creatorName = editAlbumForm.creatorName.trim();
+        if (!title || !creatorName) {
+            showToast("Album title and artist name are required.", "error");
+            return;
+        }
+        if (!accountUserId) {
+            showToast("Log in before editing albums.", "error");
+            return;
+        }
+        const currentAlbum = albums.find((album) => album.id === albumId);
+        const nextCover = getArtworkUrl(editAlbumForm.cover);
+        const nextCategory = editAlbumForm.category.trim() || "Album";
+        const previousAlbums = albums;
+        setAlbums((previous) => previous.map((album) => album.id === albumId
+            ? {
+                ...album,
+                title,
+                creatorName,
+                artistName: album.ownerType === "artist" ? creatorName : album.artistName,
+                producerName: album.ownerType === "producer" ? creatorName : album.producerName,
+                cover: nextCover,
+                category: nextCategory,
+                releaseDate: editAlbumForm.releaseDate,
+                updatedAt: new Date().toISOString(),
+            }
+            : album));
+        cancelEditingAlbum();
+        try {
+            const response = await fetch("/api/albums", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: albumId,
+                    userId: accountUserId,
+                    title,
+                    creatorName,
+                    coverUrl: nextCover,
+                    category: nextCategory,
+                    releaseDate: editAlbumForm.releaseDate,
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                album?: Album;
+                error?: string;
+            };
+            if (!response.ok) {
+                setAlbums(previousAlbums);
+                showToast(data.error || "Album could not be saved.", "error");
+                return;
+            }
+            if (data.album) {
+                const savedAlbum = normalizeAlbumRecord(data.album);
+                setAlbums((previous) => previous.map((album) => (album.id === savedAlbum.id ? { ...album, ...savedAlbum } : album)));
+            }
+            else if (currentAlbum) {
+                setAlbums((previous) => previous.map((album) => (album.id === albumId ? { ...currentAlbum, ...album } : album)));
+            }
+            showToast("Album updated.", "success");
+        }
+        catch (error) {
+            setAlbums(previousAlbums);
+            showToast("Album could not be saved. Check your connection and try again.", "error");
+        }
+    }
+    async function deleteUploadedAlbum(albumId: string) {
+        const album = resolvedAlbums.find((item) => item.id === albumId);
+        if (!album)
+            return;
+        if (!accountUserId) {
+            showToast("Log in before deleting albums.", "error");
+            return;
+        }
+        if (!window.confirm("Delete this album? Songs and videos will stay uploaded."))
+            return;
+        const previousAlbums = albums;
+        const previousSavedAlbumIds = savedAlbumIds;
+        const previousPlaylistTarget = playlistTarget;
+        setAlbums((previous) => previous.filter((item) => item.id !== albumId));
+        setSavedAlbumIds((previous) => uniqueIds(previous).filter((id) => id !== albumId));
+        setPlaylistTarget((target) => (target?.type === "album" && target.item.id === albumId ? null : target));
+        try {
+            const response = await fetch("/api/albums", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: albumId, userId: accountUserId }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            if (!response.ok) {
+                setAlbums(previousAlbums);
+                setSavedAlbumIds(previousSavedAlbumIds);
+                setPlaylistTarget(previousPlaylistTarget);
+                showToast(data.error || "Album could not be deleted.", "error");
+                return;
+            }
+            await reloadAlbumsFromSupabase().catch((refreshError) => {
+            });
+            showToast("Album deleted.", "success");
+        }
+        catch (error) {
+            setAlbums(previousAlbums);
+            setSavedAlbumIds(previousSavedAlbumIds);
+            setPlaylistTarget(previousPlaylistTarget);
+            showToast("Album could not be deleted. Check your connection and try again.", "error");
+        }
+    }
+    function renderDashboardAlbumRow(album: ResolvedAlbum) {
+        const isEditing = editingAlbumId === album.id;
+        const songCount = getAlbumSongCount(album);
+        const videoCount = getAlbumVideoCount(album);
+        return (<article className="dashboard-song-row" key={album.id}>
+        <img src={getAlbumDisplayCover(album)} alt=""/>
+
+        {isEditing ? (<div className="dashboard-edit">
+            <input name={`editAlbumTitle-${album.id}`} value={editAlbumForm.title} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, title: event.target.value })} placeholder="Album title"/>
+            <input name={`editAlbumCreator-${album.id}`} value={editAlbumForm.creatorName} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, creatorName: event.target.value })} placeholder="Artist name"/>
+            <input name={`editAlbumCategory-${album.id}`} value={editAlbumForm.category} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, category: event.target.value })} placeholder="Category"/>
+            <input name={`editAlbumCover-${album.id}`} value={editAlbumForm.cover} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, cover: event.target.value })} placeholder="Cover image URL"/>
+            <input name={`editAlbumReleaseDate-${album.id}`} type="date" value={editAlbumForm.releaseDate} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, releaseDate: event.target.value })}/>
+            <div className="dashboard-form-actions wide">
+              <button onClick={() => saveEditedAlbum(album.id)} type="button">
+                Save
+              </button>
+              <button onClick={cancelEditingAlbum} type="button">
+                Cancel
+              </button>
+            </div>
+          </div>) : (<>
+            <div className="dashboard-song-copy">
+              <strong>{album.title}{renderVerifiedBadge(album.ownerType === "producer" ? isProducerVerified(album.producerId || album.creatorName) : isArtistVerified(album.creatorName), album.ownerType === "producer" ? "Verified Producer" : "Verified Artist")}</strong>
+              <small>
+                <ArtistNameButton name={album.creatorName} onOpen={openArtistProfile}/>
+              </small>
+              <span>
+                {songCount} songs | {videoCount} videos
+              </span>
+              <span>{formatAlbumCreatedDate(album.createdAt)}</span>
+              <span>{album.category}</span>
+            </div>
+            <div className="dashboard-song-actions">
+              <button onClick={() => playAlbum(album, "Recent Uploaded Albums")} type="button">
+                <Play size={15} fill="currentColor"/>
+                Play Album
+              </button>
+              <button onClick={() => startEditingAlbum(album)} type="button">
+                <Edit3 size={15}/>
+                Edit
+              </button>
+              <button className="danger-btn" onClick={() => deleteUploadedAlbum(album.id)} type="button">
+                <Trash2 size={15}/>
+                Delete
+              </button>
+            </div>
+          </>)}
+      </article>);
+    }
+    function renderDashboardSongRow(song: Song) {
+        const isEditing = editingSongId === song.id;
+        const producerCredit = getProducerCreditForSong(song);
+        const canDeleteTrack = canDeleteUploadedSong(song);
+        return (<article className="dashboard-song-row" key={song.id}>
+        <img src={song.cover} alt=""/>
+
+        {isEditing ? (<div className="dashboard-edit">
+            <input name={`editSongTitle-${song.id}`} value={editSongForm.title} onChange={(event) => setEditSongForm({ ...editSongForm, title: event.target.value })} placeholder="Song title"/>
+            <input name={`editSongArtist-${song.id}`} value={editSongForm.artist} onChange={(event) => setEditSongForm({ ...editSongForm, artist: event.target.value })} placeholder="Artist"/>
+            <input name={`editSongCategory-${song.id}`} value={editSongForm.category} onChange={(event) => setEditSongForm({ ...editSongForm, category: event.target.value })} placeholder="Category"/>
+            <input name={`editSongType-${song.id}`} value={editSongForm.type} onChange={(event) => setEditSongForm({ ...editSongForm, type: event.target.value })} placeholder="Genre/type"/>
+            <input name={`editSongTime-${song.id}`} value={editSongForm.time} onChange={(event) => setEditSongForm({ ...editSongForm, time: event.target.value })} placeholder="Time"/>
+            <input name={`editSongCover-${song.id}`} value={editSongForm.cover} onChange={(event) => setEditSongForm({ ...editSongForm, cover: event.target.value })} placeholder="Cover image URL"/>
+            <div className="dashboard-form-actions wide">
+              <button onClick={() => saveEditedSong(song.id)} type="button">
+                Save
+              </button>
+              <button onClick={cancelEditingSong} type="button">
+                Cancel
+              </button>
+            </div>
+          </div>) : (<>
+            <div className="dashboard-song-copy">
+              <strong>{song.title}{renderVerifiedBadge(isArtistVerified(song.artist), "Verified Artist")}</strong>
+              <small>
+                <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+              </small>
+              <span>{producerCredit ? `Produced by ${producerCredit}` : "No producer assigned."}</span>
+              <span>{song.uploaded || "Upload time unavailable"}</span>
+              <span>
+                {formatCount(song.plays)} plays | {formatCount(song.likes + (likedIds.includes(song.id) ? 1 : 0))} likes
+              </span>
+            </div>
+            <div className="dashboard-song-actions">
+              <button onClick={() => playSong(song)} type="button">
+                <Play size={15} fill="currentColor"/>
+                Play
+              </button>
+              <button onClick={() => recordDownloadFoundation({
+                    id: song.id,
+                    title: song.title,
+                    itemType: "song",
+                    creatorType: "artist",
+                    creatorName: song.artist,
+                })} type="button">
+                <Upload size={15}/>
+                Download
+              </button>
+              <button onClick={() => recordPurchaseFoundation({
+                    id: song.id,
+                    title: song.title,
+                    itemType: "song",
+                    creatorType: "artist",
+                    creatorName: song.artist,
+                    amountCents: 129,
+                })} type="button">
+                <Disc3 size={15}/>
+                Purchase
+              </button>
+              {renderPlaylistButton(song)}
+              <button onClick={() => startEditingSong(song)} type="button">
+                <Edit3 size={15}/>
+                Edit
+              </button>
+              {producerCredit && (<button onClick={() => removeSongProducerCredit(song)} type="button">
+                  <X size={15}/>
+                  Remove Credit
+                </button>)}
+              {canDeleteTrack && (<button className="danger-btn" onClick={() => deleteUploadedSong(song.id)} type="button">
+                  <Trash2 size={15}/>
+                  Delete
+                </button>)}
+            </div>
+          </>)}
+      </article>);
+    }
+    function renderDashboardVideoRow(video: VideoItem, sourceLabel = "Dashboard Videos") {
+        const isEditing = editingVideoId === video.id;
+        const producerCredit = getProducerCreditForVideo(video);
+        const isSaved = savedVideoIds.includes(video.id);
+        return (<article className="dashboard-song-row" key={video.id}>
+        <img src={video.cover} alt=""/>
+
+        {isEditing ? (<div className="dashboard-edit">
+            <input name={`editVideoTitle-${video.id}`} value={editVideoForm.title} onChange={(event) => setEditVideoForm({ ...editVideoForm, title: event.target.value })} placeholder="Video title"/>
+            <input name={`editVideoCreator-${video.id}`} value={editVideoForm.creator} onChange={(event) => setEditVideoForm({ ...editVideoForm, creator: event.target.value })} placeholder="Creator name"/>
+            <input name={`editVideoCategory-${video.id}`} value={editVideoForm.category} onChange={(event) => setEditVideoForm({ ...editVideoForm, category: event.target.value })} placeholder="Category"/>
+            <input name={`editVideoCover-${video.id}`} value={editVideoForm.cover} onChange={(event) => setEditVideoForm({ ...editVideoForm, cover: event.target.value })} placeholder="Cover image URL"/>
+            <div className="dashboard-form-actions wide">
+              <button onClick={() => saveEditedVideo(video.id)} type="button">
+                Save
+              </button>
+              <button onClick={cancelEditingVideo} type="button">
+                Cancel
+              </button>
+            </div>
+          </div>) : (<>
+            <div className="dashboard-song-copy">
+              <strong>{video.title}{renderVerifiedBadge(isArtistVerified(video.creator), "Verified Artist")}</strong>
+              <small>
+                <ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>
+              </small>
+              <span>{producerCredit ? `Produced by ${producerCredit}` : "No producer assigned."}</span>
+              <span>{video.uploaded || "Upload time unavailable"}</span>
+              <span>
+                {formatCount(video.views)} views | {formatCount(video.likes || 0)} likes
+              </span>
+            </div>
+            <div className="dashboard-song-actions">
+              <button onClick={() => playVideo(video, sourceLabel)} type="button">
+                <Play size={15} fill="currentColor"/>
+                Play
+              </button>
+              <button onClick={() => recordDownloadFoundation({
+                    id: video.id,
+                    title: video.title,
+                    itemType: "video",
+                    creatorType: "artist",
+                    creatorName: video.creator,
+                })} type="button">
+                <Upload size={15}/>
+                Download
+              </button>
+              <button onClick={() => recordPurchaseFoundation({
+                    id: video.id,
+                    title: video.title,
+                    itemType: "video",
+                    creatorType: "artist",
+                    creatorName: video.creator,
+                    amountCents: 199,
+                })} type="button">
+                <Disc3 size={15}/>
+                Purchase
+              </button>
+              <button onClick={() => {
+                    if (isSaved) {
+                        removeVideoFromLibrary(video.id);
+                        return;
+                    }
+                    saveVideoToLibrary(video);
+                }} type="button">
+                {isSaved ? "Saved" : "Save"}
+              </button>
+              {renderVideoPlaylistButton(video)}
+              <button onClick={() => startEditingVideo(video)} type="button">
+                <Edit3 size={15}/>
+                Edit
+              </button>
+              {producerCredit && (<button onClick={() => removeVideoProducerCredit(video)} type="button">
+                  <X size={15}/>
+                  Remove Credit
+                </button>)}
+              <button className="danger-btn" onClick={() => removeVideo(video.id)} type="button">
+                <Trash2 size={15}/>
+                Delete
+              </button>
+            </div>
+          </>)}
+      </article>);
+    }
+    function renderAlbumCard(album: ResolvedAlbum, sourceLabel = "Album") {
+        const isSaved = savedAlbumIds.includes(album.id);
+        const isEditing = editingAlbumId === album.id;
+        const songCount = getAlbumSongCount(album);
+        const videoCount = getAlbumVideoCount(album);
+        const runtimeLabel = formatRuntimeLabel(getAlbumRuntimeSeconds(album));
+        const canManageAlbum = Boolean(accountUserId && (album.userId === accountUserId || album.artistId === accountUserId || album.producerId === accountUserId || album.producerProfileId === accountUserId));
+        return (<article className="artist-album-card" key={album.id}>
+        <img src={getAlbumDisplayCover(album)} alt=""/>
+        {isEditing ? (<div className="album-inline-edit">
+            <input name={`cardEditAlbumTitle-${album.id}`} value={editAlbumForm.title} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, title: event.target.value })} placeholder="Album title"/>
+            <input name={`cardEditAlbumCreator-${album.id}`} value={editAlbumForm.creatorName} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, creatorName: event.target.value })} placeholder="Creator"/>
+            <input name={`cardEditAlbumCategory-${album.id}`} value={editAlbumForm.category} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, category: event.target.value })} placeholder="Category"/>
+            <div className="artist-album-actions">
+              <button onClick={() => saveEditedAlbum(album.id)} type="button">Save</button>
+              <button onClick={cancelEditingAlbum} type="button">Cancel</button>
+            </div>
+          </div>) : (<>
+            <div>
+              <Disc3 size={18}/>
+              <strong>{album.title}{renderVerifiedBadge(album.ownerType === "producer" ? isProducerVerified(album.producerId || album.creatorName) : isArtistVerified(album.creatorName), album.ownerType === "producer" ? "Verified Producer" : "Verified Artist")}</strong>
+              <span>{album.creatorName}</span>
+              <span>{songCount} Songs | {videoCount} Videos</span>
+              <span>Total runtime {runtimeLabel}</span>
+              <span>{album.category} | {formatAlbumCreatedDate(album.createdAt)}</span>
+            </div>
+            <div className="artist-album-actions">
+              <button onClick={() => {
+                    playAlbum(album, sourceLabel);
+                }} type="button">
+                <Play size={15} fill="currentColor"/>
+                Play Album
+              </button>
+              <button className={isSaved ? "saved" : ""} onClick={() => {
+                    if (isSaved) {
+                        removeAlbumFromLibrary(album.id);
+                        return;
+                    }
+                    saveAlbumToLibrary(album);
+                }} type="button">
+                {isSaved ? <Check size={15}/> : <Plus size={15}/>}
+                {isSaved ? "Saved" : "Save Album"}
+              </button>
+              <button onClick={() => openAlbumPlaylistPicker(album)} type="button">
+                <ListMusic size={15}/>
+                Playlist
+              </button>
+              <button onClick={() => openComments("album", album)} type="button">
+                <MessageCircle size={15}/>
+                {getCommentsForItem("album", album.id).length}
+              </button>
+              <button onClick={() => copyShareLink("album", album.id, album.title)} type="button">
+                <Share2 size={15}/>
+                Share
+              </button>
+              <button onClick={() => createModerationReport("album", album.id, album.title, "Community album report", album.creatorName, album.artistId || album.producerId)} type="button">
+                <Bell size={15}/>
+                Report
+              </button>
+              <button onClick={() => createCopyrightClaim("album", album.id, album.title, album.creatorName)} type="button">
+                <BookOpen size={15}/>
+                Claim
+              </button>
+              {canManageAlbum && (<button onClick={() => startEditingAlbum(album)} type="button">
+                  <Edit3 size={15}/>
+                  Edit
+                </button>)}
+              {canManageAlbum && (<button className="danger-btn" onClick={() => deleteUploadedAlbum(album.id)} type="button">
+                  <Trash2 size={15}/>
+                  Delete
+                </button>)}
+            </div>
+          </>)}
+      </article>);
+    }
+    function renderVideoCard(video: VideoItem, options: VideoCardOptions = {}) {
+        const artistId = createArtistId(video.creator);
+        const isFollowing = followedArtistIds.includes(artistId);
+        const isLiked = Boolean(video.likedByUser);
+        const isSaved = savedVideoIds.includes(video.id);
+        const sourceLabel = options.sourceLabel || "Video Card";
+        return (<article className={options.isLibraryCard ? "video-card library-card" : "video-card"} key={video.id}>
+        <div className="video-cover-wrap">
+          <button className="video-cover" onClick={() => playVideo(video, sourceLabel)} type="button">
+            <img src={video.cover} alt=""/>
+            <span>{video.category}</span>
+            <Film size={34}/>
+          </button>
+          {(options.showRemove || options.showLibraryRemove) && (<button className="card-icon-btn danger" onClick={() => (options.showLibraryRemove ? removeVideoFromLibrary(video.id) : removeVideo(video.id))} type="button" title={options.showLibraryRemove ? "Remove from library" : "Remove video"}>
+              <Trash2 size={15}/>
+            </button>)}
+        </div>
+
+        <div className="video-card-body">
+          <div className="card-meta">
+            <h3>{video.title}{renderVerifiedBadge(isArtistVerified(video.creator), "Verified Artist")}</h3>
+            <p>
+              <ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>
+            </p>
+          </div>
+
+          <div className="stats">
+            <span>{formatCount(video.views)} views</span>
+            <span>{formatCount(video.likes || 0)} likes</span>
+            <span>{video.uploaded}</span>
+          </div>
+
+          <div className="card-actions">
+            <button className="play-btn" onClick={() => playVideo(video, sourceLabel)} type="button">
+              <span aria-hidden="true">▶</span>
+              <span>Play</span>
+            </button>
+
+            <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleVideoLike(video)} title={isLiked ? "Click to unlike" : "Like video"} type="button">
+              <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
+              <span>{isLiked ? options.unlikeLabel || "Liked" : "Like"}</span>
+            </button>
+
+            <button className={isFollowing ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, video.creator)} type="button">
+              <span aria-hidden="true">{isFollowing ? "✓" : "👤"}</span>
+              <span>{isFollowing ? "Following" : "Follow"}</span>
+            </button>
+            <button className={isSaved ? "library-btn saved" : "library-btn"} onClick={() => {
+                if (isSaved) {
+                    removeVideoFromLibrary(video.id);
+                    return;
+                }
+                saveVideoToLibrary(video);
+            }} title={isSaved ? "Remove video from Library" : "Save video to Library"} type="button">
+              <span aria-hidden="true">{isSaved ? "✓" : "+"}</span>
+              <span>{isSaved ? "Saved" : "Save"}</span>
+            </button>
+            {renderVideoPlaylistButton(video)}
+          </div>
+          <div className="card-secondary-actions">
+            <button onClick={() => openComments("video", video)} type="button">
+              <MessageCircle size={14}/>
+              Comments {getCommentsForItem("video", video.id).length}
+            </button>
+            <button onClick={() => copyShareLink("video", video.id, video.title)} type="button">
+              <Share2 size={14}/>
+              Share Video
+            </button>
+            <button onClick={() => createModerationReport("video", video.id, video.title, "Community video report", video.creator, artistId)} type="button">
+              <Bell size={14}/>
+              Report
+            </button>
+            <button onClick={() => createCopyrightClaim("video", video.id, video.title, video.creator)} type="button">
+              <BookOpen size={14}/>
+              Claim
+            </button>
+          </div>
+        </div>
+      </article>);
+    }
+    function saveArtistProfile(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (!selectedDashboardArtist)
+            return;
+        const nextName = artistProfileValues.name.trim() || selectedDashboardArtist.name;
+        const nextId = createArtistId(nextName);
+        const previousId = selectedDashboardArtist.id;
+        const nextProfile: ArtistProfile = {
+            id: nextId,
+            name: nextName,
+            banner: artistProfileValues.banner.trim() || DEFAULT_ARTIST_BANNER,
+            avatar: getArtworkUrl(artistProfileValues.avatar),
+            bio: artistProfileValues.bio.trim() || `${nextName} is building a catalog on Z Music.`,
+            socialLinks: artistProfileValues.socialLinks.trim(),
+            monthlyListeners: Math.max(0, Number(artistProfileValues.monthlyListeners) || 0),
+            followers: Math.max(0, Number(artistProfileValues.followers) || 0),
+            totalPlays: selectedDashboardArtist.totalPlays,
+        };
+        setSongs((previous) => previous.map((song) => createArtistId(song.artist) === previousId
+            ? { ...song, artist: nextName, avatar: nextProfile.avatar }
+            : song));
+        setArtistProfiles((previous) => {
+            const remaining = previous.filter((artist) => artist.id !== previousId && artist.id !== nextId);
+            return uniqueArtists([nextProfile, ...remaining]);
+        });
+        setFollowedArtistIds((previous) => uniqueIds(previous.map((id) => (id === previousId ? nextId : id))));
+        setDashboardArtistId(nextId);
+        setActiveArtistId((previous) => (previous === previousId ? nextId : previous));
+    }
+    function resetApp() {
+        if (albumUploadBusy) {
+            showToast("Album upload is still finishing.", "info");
+            return;
+        }
+        Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
+        setSongs(DEFAULT_SONGS);
+        setVideos([]);
+        setAlbums([]);
+        setQueue([]);
+        setRecentlyPlayed([]);
+        setLibraryIds([]);
+        setSavedVideoIds([]);
+        setSavedAlbumIds([]);
+        setLikedIds([]);
+        setFollowedIds([]);
+        setFollowedArtistIds([]);
+        setPlaylists([]);
+        setArtistProfiles(buildArtistProfiles(DEFAULT_SONGS));
+        setActiveArtistId("");
+        setActivePlaylistId("");
+        setCurrentSong(DEFAULT_SONGS[2]);
+        setIsPlaying(false);
+        setActiveMedia({ type: "song", item: DEFAULT_SONGS[2] });
+        setProgress(0);
+        setDuration(0);
+        setVideoForm({ title: "", creator: "", category: "Music Video", cover: "", producerId: "" });
+        setVideoFile(null);
+        setVideoUploadProgress(0);
+        setVideoUploadBusy(false);
+        setVideoUploadError("");
+        setVideoUploadStatus("");
+        setAlbumForm({ title: "", creatorName: "", cover: "", category: "Album", releaseDate: "" });
+        setAlbumSongFiles([]);
+        setAlbumVideoFiles([]);
+        setAlbumUploadProgress(0);
+        setAlbumUploadBusy(false);
+        setAlbumUploadError("");
+        setAlbumUploadStatus("");
+        setActiveVideo(null);
+        setSelectedVideoId("");
+        setView("Home");
+        setActiveTab("Trending");
+        setSearch("");
+        setSearchInput("");
+    }
+    function getAuthErrorMessage(error: unknown) {
+        if (error instanceof Error) {
+            if (error.message === "Failed to fetch") {
+                return "Could not reach Supabase. Check your Supabase URL, anon key, internet connection, and allowed site URL settings.";
+            }
+            return error.message;
+        }
+        return "Something went wrong while connecting to Supabase. Please try again.";
+    }
+    async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setAuthMessage("");
+        setAuthBusy(true);
+        const email = authEmail.trim();
+        const password = authPassword;
+        if (!email || !password) {
+            setAuthMessage("Enter your email and password.");
+            setAuthBusy(false);
+            return;
+        }
+        try {
+            const response = authMode === "signup"
+                ? await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            displayName: authName.trim() || email.split("@")[0],
+                        },
+                    },
+                })
+                : await supabase.auth.signInWithPassword({ email, password });
+            if (response.error) {
+                setAuthMessage(response.error.message);
+                return;
+            }
+            if (authMode === "signup" && !response.data.session) {
+                setAuthMessage("Account created. Check your email to confirm your sign up.");
+                return;
+            }
+            setAuthEmail("");
+            setAuthPassword("");
+            setAuthName("");
+            setAuthMessage(authMode === "signup" ? "Account created. Your music is now saved." : "Welcome back.");
+            setView("Home");
+        }
+        catch (error) {
+            setAuthMessage(getAuthErrorMessage(error));
+        }
+        finally {
+            setAuthBusy(false);
+        }
+    }
+    async function logout() {
+        setAuthMessage("");
+        if (albumUploadBusy) {
+            showToast("Album upload is still finishing.", "info");
+            return;
+        }
+        try {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                throw error;
+            }
+            clearAllBrowserSessionStorage();
+            clearLocalSessionState();
+            window.location.assign("/");
+            return;
+        }
+        catch (error) {
+            console.error("Logout failed:", error);
+            clearAllBrowserSessionStorage();
+            clearLocalSessionState();
+            window.location.assign("/");
+            return;
+        }
+    }
+    function handleNav(nextView: View) {
+        if (!user &&
+            [
+                "Library",
+                "License History",
+                "Sales",
+                "Liked",
+                "Following",
+                "Videos",
+                "Playlists",
+                "Recently Played",
+                "Queue",
+                "Profile",
+                "Artist Dashboard",
+                "Producer Dashboard",
+                "Platform Stability",
+            ].includes(nextView)) {
+            setAuthMode("login");
+            setAuthMessage("Log in to open that section and save it to your account.");
+            return;
+        }
+        setView(nextView);
+        if (nextView === "Artist Dashboard")
+            setUploadMode("song");
+        if (nextView === "Producer Dashboard")
+            setUploadMode("beat");
+        if (nextView === "Platform Stability") {
+            window.setTimeout(() => {
+                void loadLaunchStatus();
+                void loadPlatformStabilityReport();
+                void loadLaunchChecklist();
+            }, 0);
+        }
+        if (nextView === "Home") {
+            setActiveTab("Trending");
+        }
+    }
+    function toggleUploadPanel() {
+        if (!showUpload) {
+            if (view === "Producer Dashboard")
+                setUploadMode("beat");
+            else if (view === "Artist Dashboard")
+                setUploadMode("song");
+            else if (view === "Videos")
+                setUploadMode("video");
+            else
+                setUploadMode(accountRole === "Producer" ? "beat" : "song");
+        }
+        setShowUpload((value) => !value);
+    }
+    function pageTitle() {
+        if (search.trim() && view !== "Marketplace" && view !== "License History")
+            return view === "Videos" ? "Video Search" : "Search Results";
+        if (view === "Marketplace")
+            return "Music Marketplace";
+        if (view === "Sales")
+            return "Sales";
+        if (view === "License History")
+            return "License History";
+        if (view === "Artist Profile")
+            return activeArtist?.name || "Artist Profile";
+        if (view === "Producer Profile")
+            return activeProducerProfile?.name || "Producer Profile";
+        if (view === "Profile")
+            return "Profile";
+        if (view === "Artist Dashboard")
+            return "Artist Dashboard";
+        if (view === "Producer Dashboard")
+            return "Producer Dashboard";
+        if (view === "Home")
+            return activeTab;
+        return view;
+    }
+    function pageSubtitle() {
+        if (search.trim() && view !== "Marketplace" && view !== "License History")
+            return "Songs, videos, albums, artists, and producers matching your search.";
+        if (view === "Marketplace")
+            return "Browse artist stores, producer stores, releases, charts, and marketplace filters.";
+        if (view === "Sales")
+            return "Shopping cart, purchase history, and download vault.";
+        if (view === "License History")
+            return "Review generated beat licenses and download license PDFs.";
+        if (view === "Artist Profile")
+            return "Artist songs, albums, playlists, and stats.";
+        if (view === "Producer Profile")
+            return "Producer credits, beat licenses, and productions.";
+        if (view === "Profile")
+            return "Your account and saved music sync status.";
+        if (view === "Artist Dashboard")
+            return "Manage artist profiles, uploaded songs, and creator analytics.";
+        if (view === "Producer Dashboard")
+            return "Manage beats, licenses, credits, leases, downloads, and payouts.";
+        if (view === "Platform Stability")
+            return "Monitor upload failures, media files, cleanup, and backups.";
+        if (view === "Artists")
+            return "Browse artist profiles, songs, videos, and follow creators.";
+        if (view === "Videos")
+            return "Upload, watch, search, and remove videos without mixing them into songs.";
+        if (view === "Library")
+            return "Songs, videos, and albums in your library.";
+        if (view === "Following")
+            return "New songs and videos from artists you follow.";
+        if (view === "Recently Played")
+            return "Every play is saved here, including repeat listens.";
+        if (view === "Queue")
+            return "Songs lined up for the player.";
+        if (view === "Liked")
+            return "Songs, videos, and artists you liked.";
+        if (view === "Playlists")
+            return "Create playlists, add songs, set covers, and play them straight through.";
+        return "Browse music and keep your favorites close.";
+    }
+    const navItems: {
+        label: View;
+        icon: ReactNode;
+    }[] = [
+        { label: "Home", icon: <Home size={17}/> },
+        { label: "Marketplace", icon: <Disc3 size={17}/> },
+        { label: "Sales", icon: <Upload size={17}/> },
+        { label: "License History", icon: <BookOpen size={17}/> },
+        { label: "Trending", icon: <Zap size={17}/> },
+        { label: "Beats", icon: <Music2 size={17}/> },
+        { label: "Artists", icon: <Music2 size={17}/> },
+        { label: "Videos", icon: <Film size={17}/> },
+        { label: "Library", icon: <BookOpen size={17}/> },
+        { label: "Liked", icon: <Heart size={17}/> },
+        { label: "Following", icon: <UserPlus size={17}/> },
+        { label: "Playlists", icon: <ListMusic size={17}/> },
+        { label: "Artist Dashboard", icon: <BarChart3 size={17}/> },
+        { label: "Producer Dashboard", icon: <Disc3 size={17}/> },
+        { label: "Platform Stability", icon: <BarChart3 size={17}/> },
+        { label: "Recently Played", icon: <Clock3 size={17}/> },
+        { label: "Queue", icon: <ListMusic size={17}/> },
+        { label: "Profile", icon: <UserCircle size={17}/> },
+    ];
+    function renderCreatorGrowthPanel(summary: CreatorGrowthSummary) {
+        const trendMax = Math.max(1, ...summary.followerTrend.map((point) => point.followers));
+        return (<section className="dashboard-panel growth-panel">
+          <div className="artist-section-title">
+            <h3>{summary.creatorType === "artist" ? "Artist Growth Tools" : "Producer Growth Tools"}</h3>
+            <span>{summary.creatorName} | engagement {summary.engagementScore}/100</span>
+          </div>
+
+          <div className="growth-summary-grid">
+            <div>
+              <strong>{summary.engagementScore}</strong>
+              <span>Engagement score</span>
+            </div>
+            <div>
+              <strong>{summary.fanConversionRate.toFixed(1)}%</strong>
+              <span>Fan conversion</span>
+            </div>
+            <div>
+              <strong>{summary.followerGrowthRate.toFixed(1)}%</strong>
+              <span>Follower growth signal</span>
+            </div>
+            <div>
+              <strong>{formatCount(summary.totalAudience)}</strong>
+              <span>Total audience</span>
+            </div>
+          </div>
+
+          <div className="growth-columns">
+            <article className="growth-card">
+              <span>Follower Trend</span>
+              <div className="growth-trend-bars">
+                {summary.followerTrend.map((point) => (<div key={point.label}>
+                    <i style={{ height: `${Math.max(12, point.followers / trendMax * 100)}%` }}/>
+                    <strong>{formatCount(point.followers)}</strong>
+                    <small>{point.label}</small>
+                  </div>))}
+              </div>
+            </article>
+
+            <article className="growth-card">
+              <span>Top Content</span>
+              {summary.topContent.length === 0 ? (<p>No content data yet.</p>) : (<div className="growth-list">
+                  {summary.topContent.map((item) => (<div key={`${item.itemType}-${item.id}`}>
+                      <strong>{item.title}</strong>
+                      <small>{item.itemType} | {item.metric}</small>
+                    </div>))}
+                </div>)}
+            </article>
+          </div>
+
+          <div className="growth-actions">
+            {summary.recommendedActions.map((action) => (<article key={action.id} className={`priority-${action.priority.toLowerCase()}`}>
+                <span>{action.priority}</span>
+                <strong>{action.label}</strong>
+                <small>{action.detail}</small>
+              </article>))}
+          </div>
+        </section>);
+    }
+    function renderStorefrontCustomizationPanel(options: {
+        creatorType: "artist" | "producer";
+        name: string;
+        banner: string;
+        avatar: string;
+        bio: string;
+        itemCount: number;
+        bundleCount: number;
+        onOpen: () => void;
+    }) {
+        return (<section className="dashboard-panel storefront-customization-panel">
+          <div className="artist-section-title">
+            <h3>Storefront Customization</h3>
+            <span>{options.creatorType} store preview</span>
+          </div>
+          <div className="storefront-preview-card">
+            <div className="storefront-preview-banner" style={{ backgroundImage: `url("${getArtworkUrl(options.banner)}")` }}/>
+            <div className="storefront-preview-body">
+              <img src={getArtworkUrl(options.avatar)} alt=""/>
+              <div>
+                <span>{options.creatorType} storefront</span>
+                <strong>{options.name}</strong>
+                <small>{options.bio || "Add a bio, banner, and avatar to make this storefront launch-ready."}</small>
+              </div>
+            </div>
+          </div>
+          <div className="storefront-readiness-grid">
+            <div>
+              <strong>{options.banner ? "Ready" : "Needed"}</strong>
+              <span>Banner</span>
+            </div>
+            <div>
+              <strong>{options.avatar ? "Ready" : "Needed"}</strong>
+              <span>Avatar</span>
+            </div>
+            <div>
+              <strong>{formatCount(options.itemCount)}</strong>
+              <span>Store items</span>
+            </div>
+            <div>
+              <strong>{formatCount(options.bundleCount)}</strong>
+              <span>Bundles</span>
+            </div>
+          </div>
+          <div className="storefront-actions">
+            <button onClick={options.onOpen} type="button">
+              <UserCircle size={15}/>
+              Open Store
+            </button>
+            <button onClick={() => {
+                void navigator.clipboard?.writeText(`${window.location.origin}/${options.creatorType}/${createArtistId(options.name)}`).catch(() => undefined);
+                showToast("Store link copied.", "success");
+            }} type="button">
+              <Copy size={15}/>
+              Copy Store Link
+            </button>
+          </div>
+        </section>);
+    }
+    function renderSubscriptionPlanSetup(context: "artist" | "producer" | "listener" | "platform" = "platform") {
+        const plans = context === "platform"
+            ? SUBSCRIPTION_PLANS
+            : SUBSCRIPTION_PLANS.filter((plan) => plan.audience === "creator" || plan.audience === "listener" || plan.audience === context);
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>Subscription Plan Setup</h3>
+            <span>Active: {activeSubscriptionPlan.name}</span>
+          </div>
+          <div className="monetization-plan-grid">
+            {plans.map((plan) => (<article className={activeSubscriptionPlanId === plan.id ? "monetization-plan active" : "monetization-plan"} key={plan.id}>
+                <span>{plan.audience}</span>
+                <strong>{plan.name}</strong>
+                <b>{formatCurrencyFromCents(plan.priceCents, plan.currency)}/{plan.billingInterval === "one_time" ? "once" : plan.billingInterval}</b>
+                <small>{plan.features.join(" | ")}</small>
+                <button onClick={() => setupSubscriptionPlan(plan)} type="button">
+                  <Check size={15}/>
+                  {activeSubscriptionPlanId === plan.id ? "Selected" : "Select Plan"}
+                </button>
+              </article>))}
+          </div>
+        </section>);
+    }
+    function renderSubscriptionManagement() {
+        const premiumPlan = SUBSCRIPTION_PLANS.find((plan) => plan.id === "premium-listener");
+        return (<section className="stability-panel monetization-panel">
+          <div className="panel-title-row">
+            <h3>Subscription Management</h3>
+            <span>{formatCount(adminRevenueSummary.totalSubscribers)} subscribers | MRR {formatCurrencyFromCents(adminRevenueSummary.monthlyRecurringRevenueCents)}</span>
+          </div>
+          <div className="monetization-summary-grid">
+            <div>
+              <strong>{activeSubscriptionPlan.name}</strong>
+              <span>Current selected plan</span>
+            </div>
+            <div>
+              <strong>{premiumPlan ? formatCurrencyFromCents(premiumPlan.priceCents, premiumPlan.currency) : "$0.00"}</strong>
+              <span>Premium listener monthly</span>
+            </div>
+            <div>
+              <strong>{formatCount(artistSubscriberCount + producerSubscriberCount)}</strong>
+              <span>Creator subscriptions</span>
+            </div>
+          </div>
+          <div className="monetization-list">
+            {SUBSCRIPTION_PLANS.map((plan) => (<article key={`manage-${plan.id}`}>
+                <span>{plan.audience} / {plan.billingInterval}</span>
+                <strong>{plan.name} - {formatCurrencyFromCents(plan.priceCents, plan.currency)}</strong>
+                <small>{plan.features.join(" | ")}</small>
+              </article>))}
+          </div>
+        </section>);
+    }
+    function renderPayoutDashboard(creatorType: "artist" | "producer", revenueCents: number, requestedCents: number, transactions: MonetizationTransaction[]) {
+        const availableCents = Math.max(0, revenueCents - requestedCents);
+        const creatorPayouts = payoutRequests.filter((payout) => payout.creatorType === creatorType);
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>{creatorType === "artist" ? "Artist" : "Producer"} Payout Dashboard</h3>
+            <span>{creatorPayouts.length} payout requests</span>
+          </div>
+          <div className="monetization-summary-grid">
+            <div>
+              <strong>{formatCurrencyFromCents(revenueCents)}</strong>
+              <span>Tracked revenue</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(requestedCents)}</strong>
+              <span>Requested payouts</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(availableCents)}</strong>
+              <span>Available foundation balance</span>
+            </div>
+          </div>
+          <div className="monetization-action-row">
+            <button onClick={() => requestCreatorPayout(creatorType)} type="button" disabled={availableCents <= 0}>
+              <Upload size={15}/>
+              Request Payout
+            </button>
+            <span>No payment rail is connected yet. Requests go to admin review.</span>
+          </div>
+          {creatorPayouts.length === 0 ? (<div className="dashboard-empty-card">
+              <h3>No payout requests yet</h3>
+              <p>Purchase, license, and subscription foundation activity will build a payout balance.</p>
+            </div>) : (<div className="monetization-list">
+              {creatorPayouts.slice(0, 6).map((payout) => (<article key={payout.id}>
+                  <span>{payout.status}</span>
+                  <strong>{formatCurrencyFromCents(payout.amountCents, payout.currency)} - {payout.creatorName}</strong>
+                  <small>{formatVideoCreatedAt(payout.requestedAt)}{payout.reviewedAt ? ` | reviewed ${formatVideoCreatedAt(payout.reviewedAt)}` : ""}</small>
+                </article>))}
+            </div>)}
+          {transactions.length > 0 && <small className="monetization-footnote">{transactions.length} monetization events are feeding this dashboard.</small>}
+        </section>);
+    }
+    function renderMonthlyStatements(statements: MonthlyStatementSummary[], title: string) {
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>{title}</h3>
+            <span>{statements.length} statement{statements.length === 1 ? "" : "s"}</span>
+          </div>
+          <div className="monetization-list">
+            {statements.map((statement) => (<article key={statement.id}>
+                <span>{statement.label}</span>
+                <strong>{formatCurrencyFromCents(statement.grossCents)} gross | {formatCurrencyFromCents(statement.pendingCents)} pending</strong>
+                <small>
+                  {formatCount(statement.streamCount)} streams | {formatCount(statement.videoViewCount)} views |{" "}
+                  {formatCount(statement.purchaseCount)} purchases | {formatCount(statement.subscriberCount)} subscribers
+                </small>
+                <small>
+                  Artist {formatCurrencyFromCents(statement.artistCents)} | Producer {formatCurrencyFromCents(statement.producerCents)} | Platform {formatCurrencyFromCents(statement.platformCents)} | Paid {formatCurrencyFromCents(statement.paidCents)}
+                </small>
+              </article>))}
+          </div>
+        </section>);
+    }
+    function renderArtistStorefront(items: StorefrontItemSummary[], title = "Artist Storefront") {
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>{title}</h3>
+            <span>{items.length} sellable items</span>
+          </div>
+          {items.length === 0 ? (<div className="dashboard-empty-card">
+              <h3>No storefront items yet</h3>
+              <p>Uploaded albums, singles, videos, and exclusive content will appear here as sellable digital items.</p>
+            </div>) : (<div className="monetization-list purchase-list">
+              {items.slice(0, 10).map((item) => (<article key={`store-${item.itemType}-${item.id}`}>
+                  <img src={getArtworkUrl(item.cover)} alt=""/>
+                  <span>{item.itemType}{item.subscriberOnly ? " / subscriber-only" : ""}{item.exclusive ? " / exclusive" : ""}</span>
+                  <strong>{item.title}</strong>
+                  <small>{item.creatorName} | {formatCurrencyFromCents(item.priceCents)} | Digital download ready</small>
+                  <div className="monetization-row-actions">
+                    <button onClick={() => recordPurchaseFoundation({
+                    id: item.id,
+                    title: item.title,
+                    itemType: item.itemType,
+                    creatorType: item.creatorType,
+                    creatorName: item.creatorName,
+                    amountCents: item.priceCents,
+                })} type="button">
+                      <Disc3 size={15}/>
+                      Sell
+                    </button>
+                    <button onClick={() => recordDownloadFoundation(item)} type="button">
+                      <Upload size={15}/>
+                      Download
+                    </button>
+                  </div>
+                </article>))}
+            </div>)}
+        </section>);
+    }
+    function renderPremiumContentFoundation(items: StorefrontItemSummary[]) {
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>Premium Content</h3>
+            <span>{items.length} subscriber/exclusive items</span>
+          </div>
+          {items.length === 0 ? (<div className="dashboard-empty-card">
+              <h3>No premium content yet</h3>
+              <p>Subscriber-only albums, videos, playlists, and early releases will appear here.</p>
+            </div>) : (<div className="monetization-list">
+              {items.slice(0, 8).map((item) => (<article key={`premium-${item.itemType}-${item.id}`}>
+                  <span>{item.subscriberOnly ? "Subscriber-only" : "Premium"}{item.exclusive ? " / Exclusive" : ""}</span>
+                  <strong>{item.title}</strong>
+                  <small>{item.creatorName} | {item.itemType} | {formatCurrencyFromCents(item.priceCents)}</small>
+                </article>))}
+            </div>)}
+        </section>);
+    }
+    function renderPayoutCenter(creatorType: "artist" | "producer", revenueCents: number, requestedCents: number) {
+        const creatorPayouts = payoutRequests.filter((payout) => payout.creatorType === creatorType);
+        const pendingCents = Math.max(0, revenueCents - requestedCents);
+        const paidCents = creatorPayouts.filter((payout) => payout.status === "paid").reduce((sum, payout) => sum + payout.amountCents, 0);
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>Payout Center</h3>
+            <span>{creatorType} payouts</span>
+          </div>
+          <div className="monetization-summary-grid">
+            <div>
+              <strong>{formatCurrencyFromCents(pendingCents)}</strong>
+              <span>Pending earnings</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(paidCents)}</strong>
+              <span>Paid earnings</span>
+            </div>
+            <div>
+              <strong>{creatorPayouts.length}</strong>
+              <span>Payout history</span>
+            </div>
+          </div>
+          <div className="monetization-action-row">
+            <button onClick={() => exportPayoutReport(creatorType)} type="button">
+              <Copy size={15}/>
+              Export Report
+            </button>
+            <span>CSV export is ready for payout review and accounting.</span>
+          </div>
+        </section>);
+    }
+    function renderCreatorEarningsDashboard(creatorType: "artist" | "producer", revenueCents: number, requestedCents: number, transactions: MonetizationTransaction[], catalogLabel: string, catalogCount: number) {
+        const availableCents = Math.max(0, revenueCents - requestedCents);
+        const purchaseCents = transactions.filter((transaction) => transaction.transactionType === "purchase").reduce((sum, transaction) => sum + transaction.amountCents, 0);
+        const licenseCents = transactions.filter((transaction) => transaction.transactionType === "license").reduce((sum, transaction) => sum + transaction.amountCents, 0);
+        const subscriptionCents = transactions.filter((transaction) => transaction.transactionType === "subscription").reduce((sum, transaction) => sum + transaction.amountCents, 0);
+        const downloadEvents = transactions.filter((transaction) => transaction.transactionType === "download").length;
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>{creatorType === "artist" ? "Artist Earnings" : "Producer Earnings"}</h3>
+            <span>{catalogCount} {catalogLabel}</span>
+          </div>
+          <div className="monetization-summary-grid">
+            <div>
+              <strong>{formatCurrencyFromCents(revenueCents)}</strong>
+              <span>Total foundation earnings</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(availableCents)}</strong>
+              <span>Available to request</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(purchaseCents + licenseCents)}</strong>
+              <span>Purchases and licenses</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(subscriptionCents)}</strong>
+              <span>Subscription events</span>
+            </div>
+          </div>
+          <div className="monetization-list">
+            <article>
+              <span>Download foundation</span>
+              <strong>{downloadEvents} tracked downloads</strong>
+              <small>Download events are recorded for analytics before real file delivery is connected.</small>
+            </article>
+            <article>
+              <span>Payout foundation</span>
+              <strong>{formatCurrencyFromCents(requestedCents)} requested</strong>
+              <small>Payment rails are not connected yet. Payouts stay in admin review.</small>
+            </article>
+          </div>
+        </section>);
+    }
+    function renderRevenueSplitTracking(rows: RevenueSplitSummary[], title: string) {
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>Revenue Split Tracking</h3>
+            <span>{title} | {rows.length} tracked items</span>
+          </div>
+          {rows.length === 0 ? (<div className="dashboard-empty-card">
+              <h3>No revenue splits yet</h3>
+              <p>Upload music, videos, albums, or beats to prepare split tracking.</p>
+            </div>) : (<div className="split-table">
+              <div className="split-row split-head">
+                <span>Item</span>
+                <span>Artist</span>
+                <span>Producer</span>
+                <span>Platform</span>
+              </div>
+              {rows.map((row) => (<div className="split-row" key={row.id}>
+                  <span>
+                    <strong>{row.title}</strong>
+                    <small>{row.itemType} | {row.producerName}</small>
+                  </span>
+                  <span>{row.artistShare}%</span>
+                  <span>{row.producerShare}%</span>
+                  <span>{row.platformShare}%</span>
+                </div>))}
+            </div>)}
+        </section>);
+    }
+    function renderTransactionHistory(transactions: MonetizationTransaction[], title = "Transaction History") {
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>{title}</h3>
+            <span>{transactions.length} records</span>
+          </div>
+          {transactions.length === 0 ? (<div className="dashboard-empty-card">
+              <h3>No transactions yet</h3>
+              <p>Subscription, download, purchase, and license actions will appear here.</p>
+            </div>) : (<div className="monetization-list">
+              {transactions.slice(0, 8).map((transaction) => (<article key={transaction.id}>
+                  <span>{transaction.transactionType} / {transaction.status}</span>
+                  <strong>{transaction.itemTitle}</strong>
+                  <small>{formatCurrencyFromCents(transaction.amountCents, transaction.currency)} | {transaction.creatorName} | {formatVideoCreatedAt(transaction.createdAt)}</small>
+                </article>))}
+            </div>)}
+        </section>);
+    }
+    function renderPurchaseDownloadFoundation(items: {
+        id: string;
+        title: string;
+        itemType: MonetizationTransaction["itemType"];
+        creatorType: "artist" | "producer" | "platform";
+        creatorName: string;
+        amountCents: number;
+    }[], title = "Download / Purchase Foundation") {
+        return (<section className="dashboard-panel monetization-panel">
+          <div className="artist-section-title">
+            <h3>{title}</h3>
+            <span>{items.length} items ready</span>
+          </div>
+          {items.length === 0 ? (<div className="dashboard-empty-card">
+              <h3>No purchasable items yet</h3>
+              <p>Upload creator content to prepare download and purchase buttons.</p>
+            </div>) : (<div className="monetization-list purchase-list">
+              {items.slice(0, 8).map((item) => (<article key={`${item.itemType}-${item.id}`}>
+                  <span>{item.itemType}</span>
+                  <strong>{item.title}</strong>
+                  <small>{item.creatorName} | {formatCurrencyFromCents(item.amountCents)}</small>
+                  <div className="monetization-row-actions">
+                    <button onClick={() => recordDownloadFoundation(item)} type="button">
+                      <Upload size={15}/>
+                      Download
+                    </button>
+                    <button onClick={() => recordPurchaseFoundation(item)} type="button">
+                      <Disc3 size={15}/>
+                      Purchase
+                    </button>
+                  </div>
+                </article>))}
+            </div>)}
+        </section>);
+    }
+    function renderAdminRevenueDashboard() {
+        return (<section className="stability-panel monetization-panel">
+          <div className="panel-title-row">
+            <h3>Admin Revenue Dashboard</h3>
+            <span>{adminRevenueSummary.transactionCount} transactions | {adminRevenueSummary.payoutRequestCount} payout requests</span>
+          </div>
+          <div className="monetization-summary-grid">
+            <div>
+              <strong>{formatCount(adminRevenueSummary.totalSubscribers)}</strong>
+              <span>Total subscribers</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(adminRevenueSummary.monthlyRecurringRevenueCents)}</strong>
+              <span>Monthly recurring revenue</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(adminRevenueSummary.grossRevenueCents)}</strong>
+              <span>Gross foundation revenue</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(adminRevenueSummary.platformRevenue)}</strong>
+              <span>Estimated platform share</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(adminRevenueSummary.artistRevenue)}</strong>
+              <span>Artist earnings</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(adminRevenueSummary.producerRevenue)}</strong>
+              <span>Producer earnings</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(adminRevenueSummary.pendingPayouts)}</strong>
+              <span>Pending payout review</span>
+            </div>
+            <div>
+              <strong>{formatCurrencyFromCents(adminRevenueSummary.paidPayouts)}</strong>
+              <span>Marked paid</span>
+            </div>
+          </div>
+          <div className="split-table">
+            <div className="split-row split-head">
+              <span>Top Artists</span>
+              <span>Followers</span>
+              <span>Plays</span>
+              <span>Subscribers</span>
+            </div>
+            {adminTopArtists.map((artist) => (<div className="split-row" key={`admin-artist-${artist.id}`}>
+                <span>
+                  <strong>{artist.name}</strong>
+                  <small>Artist revenue ranking</small>
+                </span>
+                <span>{formatCount(artist.followers)}</span>
+                <span>{formatCount(artist.totalPlays)}</span>
+                <span>{formatCount(getCreatorSubscriberCount("artist", artist.id))}</span>
+              </div>))}
+          </div>
+          <div className="split-table">
+            <div className="split-row split-head">
+              <span>Top Producers</span>
+              <span>Followers</span>
+              <span>Beat Revenue</span>
+              <span>Subscribers</span>
+            </div>
+            {adminTopProducers.map((producer) => (<div className="split-row" key={`admin-producer-${producer.id || producer.name}`}>
+                <span>
+                  <strong>{producer.name}</strong>
+                  <small>{producer.tagline || "Producer"}</small>
+                </span>
+                <span>{formatCount(producer.followers)}</span>
+                <span>{formatCurrencyFromCents(producer.revenueCents)}</span>
+                <span>{formatCount(getCreatorSubscriberCount("producer", producer.id || producer.name))}</span>
+              </div>))}
+          </div>
+          <div className="monetization-list">
+            <article>
+              <span>Payments foundation</span>
+              <strong>Stripe gateway not connected</strong>
+              <small>Purchase, license, and subscription actions are staged as foundation transactions until Stripe keys and webhooks are added.</small>
+            </article>
+            <article>
+              <span>Payout foundation</span>
+              <strong>Admin review before payment</strong>
+              <small>Payout requests can be marked processing, paid, or rejected without touching media playback.</small>
+            </article>
+          </div>
+        </section>);
+    }
+    function renderPayoutAdminReview() {
+        return (<section className="stability-panel monetization-panel">
+          <div className="panel-title-row">
+            <h3>Admin Review Area for Payouts</h3>
+            <span>{pendingPayoutReviews.length} pending</span>
+          </div>
+          {payoutRequests.length === 0 ? (<div className="dashboard-empty-card">
+              <h3>No payout requests</h3>
+              <p>Artist and producer payout requests will appear here before any payment rail is connected.</p>
+            </div>) : (<div className="monetization-list">
+              {payoutRequests.slice(0, 10).map((payout) => (<article key={payout.id}>
+                  <span>{payout.creatorType} / {payout.status}</span>
+                  <strong>{payout.creatorName} - {formatCurrencyFromCents(payout.amountCents, payout.currency)}</strong>
+                  <small>{formatVideoCreatedAt(payout.requestedAt)} | {payout.notes || "No notes"}</small>
+                  <div className="monetization-row-actions">
+                    <button onClick={() => updatePayoutReview(payout.id, "processing", "Admin marked payout for processing.")} disabled={payout.status === "paid"} type="button">
+                      Processing
+                    </button>
+                    <button onClick={() => updatePayoutReview(payout.id, "paid", "Admin marked payout paid in foundation workflow.")} disabled={payout.status === "paid"} type="button">
+                      Mark Paid
+                    </button>
+                    <button onClick={() => updatePayoutReview(payout.id, "failed", "Admin rejected payout in foundation workflow.")} disabled={payout.status === "paid"} type="button">
+                      Reject
+                    </button>
+                  </div>
+                </article>))}
+            </div>)}
+        </section>);
+    }
+    function renderTrustModerationPanel() {
+        const openReports = moderationReports.filter((report) => report.status === "open" || report.status === "reviewing");
+        const takedownReports = moderationReports.filter((report) => report.status === "takedown_pending" || report.status === "removed");
+        const openClaims = copyrightClaims.filter((claim) => claim.status === "open" || claim.status === "reviewing");
+        const pendingVerificationReviews = verificationRequests.filter((request) => request.status === "pending");
+        const quickSongs = audioSongs.slice(0, 3);
+        const quickVideos = videos.slice(0, 3);
+        const quickAlbums = resolvedAlbums.slice(0, 3);
+        return (<section className="stability-panel trust-moderation-panel">
+          <div className="panel-title-row">
+            <h3>Trust And Moderation</h3>
+            <span>{openReports.length} open reports | {openClaims.length} claims | {pendingVerificationReviews.length} verification reviews</span>
+          </div>
+
+          <div className="trust-summary-grid">
+            <div>
+              <strong>{moderationReports.length}</strong>
+              <span>Total reports</span>
+            </div>
+            <div>
+              <strong>{takedownReports.length}</strong>
+              <span>Takedown workflow</span>
+            </div>
+            <div>
+              <strong>{copyrightClaims.length}</strong>
+              <span>Copyright claims</span>
+            </div>
+            <div>
+              <strong>{blockedUsers.length}</strong>
+              <span>Blocked users</span>
+            </div>
+          </div>
+
+          <div className="monetization-action-row">
+            <button onClick={() => selectedDashboardArtist && requestVerificationReview("artist", selectedDashboardArtist.id, selectedDashboardArtist.name)} disabled={!selectedDashboardArtist} type="button">
+              <Check size={15}/>
+              Artist Verification Review
+            </button>
+            <button onClick={() => requestVerificationReview("producer", currentProducerProfile.id || createArtistId(currentProducerProfile.name), currentProducerProfile.name)} disabled={!currentProducerProfile.name} type="button">
+              <Check size={15}/>
+              Producer Verification Review
+            </button>
+            <span>Admin-controlled review flow for reports, claims, takedowns, blocks, and verified creator badges.</span>
+          </div>
+
+          <div className="trust-quick-grid">
+            {quickSongs.map((song) => (<article key={`trust-song-${song.id}`}>
+                <img src={getArtworkUrl(song.cover)} alt=""/>
+                <div>
+                  <span>song</span>
+                  <strong>{song.title}</strong>
+                  <small>{song.artist}</small>
+                </div>
+                <button onClick={() => createModerationReport("song", song.id, song.title, "Reported from trust dashboard", song.artist, createArtistId(song.artist))} type="button">Report</button>
+                <button onClick={() => createCopyrightClaim("song", song.id, song.title, song.artist)} type="button">Claim</button>
+              </article>))}
+            {quickVideos.map((video) => (<article key={`trust-video-${video.id}`}>
+                <img src={getArtworkUrl(video.cover)} alt=""/>
+                <div>
+                  <span>video</span>
+                  <strong>{video.title}</strong>
+                  <small>{video.creator}</small>
+                </div>
+                <button onClick={() => createModerationReport("video", video.id, video.title, "Reported from trust dashboard", video.creator, createArtistId(video.creator))} type="button">Report</button>
+                <button onClick={() => createCopyrightClaim("video", video.id, video.title, video.creator)} type="button">Claim</button>
+              </article>))}
+            {quickAlbums.map((album) => (<article key={`trust-album-${album.id}`}>
+                <img src={getAlbumDisplayCover(album)} alt=""/>
+                <div>
+                  <span>album</span>
+                  <strong>{album.title}</strong>
+                  <small>{album.creatorName}</small>
+                </div>
+                <button onClick={() => createModerationReport("album", album.id, album.title, "Reported from trust dashboard", album.creatorName, album.artistId || album.producerId)} type="button">Report</button>
+                <button onClick={() => createCopyrightClaim("album", album.id, album.title, album.creatorName)} type="button">Claim</button>
+              </article>))}
+          </div>
+
+          <div className="trust-panel-grid">
+            <div>
+              <h4>Moderation Queue</h4>
+              {moderationReports.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No moderation reports</h3>
+                  <p>Song, video, album, comment, creator, and playlist reports will appear here.</p>
+                </div>) : (<div className="monetization-list">
+                  {moderationReports.slice(0, 8).map((report) => (<article key={report.id}>
+                      <span>{report.itemType} / {report.status.replace("_", " ")}</span>
+                      <strong>{report.itemTitle}</strong>
+                      <small>{report.reason} | reported by {report.reporterName} | {formatVideoCreatedAt(report.createdAt)}</small>
+                      {report.targetUserName && <small>Target creator: {report.targetUserName}</small>}
+                      <div className="monetization-row-actions">
+                        <button onClick={() => updateModerationReportStatus(report.id, "reviewing")} disabled={report.status === "reviewing"} type="button">Review</button>
+                        <button onClick={() => updateModerationReportStatus(report.id, "takedown_pending")} disabled={report.status === "removed"} type="button">Takedown</button>
+                        <button onClick={() => updateModerationReportStatus(report.id, "removed")} disabled={report.status === "removed"} type="button">Remove</button>
+                        <button onClick={() => updateModerationReportStatus(report.id, "dismissed")} disabled={report.status === "dismissed"} type="button">Dismiss</button>
+                        {report.targetUserName && (<button onClick={() => blockUserFoundation(report.targetUserId || createArtistId(report.targetUserName || ""), report.targetUserName || "Blocked user", `Blocked from report ${report.id}`)} type="button">
+                            Block
+                          </button>)}
+                      </div>
+                    </article>))}
+                </div>)}
+            </div>
+
+            <div>
+              <h4>Copyright Claims</h4>
+              {copyrightClaims.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No copyright claims</h3>
+                  <p>Rights disputes and evidence notes will appear here for admin review.</p>
+                </div>) : (<div className="monetization-list">
+                  {copyrightClaims.slice(0, 8).map((claim) => (<article key={claim.id}>
+                      <span>{claim.itemType} / {claim.status}</span>
+                      <strong>{claim.itemTitle}</strong>
+                      <small>{claim.claimantName} against {claim.creatorName} | {formatVideoCreatedAt(claim.createdAt)}</small>
+                      <small>{claim.evidenceNotes}</small>
+                      <div className="monetization-row-actions">
+                        <button onClick={() => updateCopyrightClaimStatus(claim.id, "reviewing")} disabled={claim.status === "reviewing"} type="button">Review</button>
+                        <button onClick={() => updateCopyrightClaimStatus(claim.id, "resolved")} disabled={claim.status === "resolved"} type="button">Resolve</button>
+                        <button onClick={() => updateCopyrightClaimStatus(claim.id, "rejected")} disabled={claim.status === "rejected"} type="button">Reject</button>
+                      </div>
+                    </article>))}
+                </div>)}
+            </div>
+
+            <div>
+              <h4>Verification Review</h4>
+              {verificationRequests.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No verification requests</h3>
+                  <p>Artist and producer verification requests will appear here before badges are approved.</p>
+                </div>) : (<div className="monetization-list">
+                  {verificationRequests.slice(0, 8).map((request) => (<article key={request.id}>
+                      <span>{request.creatorType} / {request.status}</span>
+                      <strong>{request.creatorName}</strong>
+                      <small>{request.notes} | {formatVideoCreatedAt(request.createdAt)}</small>
+                      <div className="monetization-row-actions">
+                        <button onClick={() => updateVerificationRequestStatus(request.id, "approved")} disabled={request.status === "approved"} type="button">Approve</button>
+                        <button onClick={() => updateVerificationRequestStatus(request.id, "rejected")} disabled={request.status === "rejected"} type="button">Reject</button>
+                      </div>
+                    </article>))}
+                </div>)}
+            </div>
+
+            <div>
+              <h4>Blocked Users</h4>
+              {blockedUsers.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No blocked users</h3>
+                  <p>Blocked users stay isolated from moderation and creator safety workflows.</p>
+                </div>) : (<div className="monetization-list">
+                  {blockedUsers.slice(0, 8).map((entry) => (<article key={entry.id}>
+                      <span>blocked</span>
+                      <strong>{entry.blockedUserName}</strong>
+                      <small>{entry.reason} | {formatVideoCreatedAt(entry.createdAt)}</small>
+                      <div className="monetization-row-actions">
+                        <button onClick={() => unblockUserFoundation(entry.id)} type="button">Unblock</button>
+                      </div>
+                    </article>))}
+                </div>)}
+            </div>
+          </div>
+        </section>);
+    }
+    function renderSupportOperationsPanel() {
+        const openTickets = supportTickets.filter((ticket) => ticket.status === "open" || ticket.status === "in_progress" || ticket.status === "waiting_on_user");
+        const activeIncidents = platformIncidents.filter((incident) => incident.status !== "resolved");
+        const issueFeedback = userFeedback.filter((feedback) => feedback.sentiment === "issue");
+        return (<section className="stability-panel support-operations-panel">
+          <div className="panel-title-row">
+            <h3>Support And Operations</h3>
+            <span>{openTickets.length} open tickets | {activeIncidents.length} active incidents | {issueFeedback.length} issue feedback</span>
+          </div>
+
+          <div className="support-summary-grid">
+            <div>
+              <strong>{supportTickets.length}</strong>
+              <span>Support tickets</span>
+            </div>
+            <div>
+              <strong>{platformIncidents.length}</strong>
+              <span>Status incidents</span>
+            </div>
+            <div>
+              <strong>{releaseNotes.length}</strong>
+              <span>Release notes</span>
+            </div>
+            <div>
+              <strong>{userFeedback.length}</strong>
+              <span>User feedback</span>
+            </div>
+          </div>
+
+          <div className="monetization-action-row">
+            <button onClick={() => createSupportTicket("upload", "Upload needs support", "Creator reported an upload problem for support review.", "high")} type="button">
+              <Upload size={15}/>
+              Upload Ticket
+            </button>
+            <button onClick={() => createSupportTicket("billing", "Billing or payout support", "User requested help with marketplace, subscription, payout, or purchase records.", "medium")} type="button">
+              <Disc3 size={15}/>
+              Billing Ticket
+            </button>
+            <button onClick={() => createPlatformIncident("api", "minor", "API health review", "Support team is monitoring API and dashboard responses.")} type="button">
+              <Bell size={15}/>
+              Add Incident
+            </button>
+            <button onClick={() => publishReleaseNote("Phase 7E Support Operations", "Support tickets, feedback, incident status, and release notes are ready for launch operations.")} type="button">
+              <BookOpen size={15}/>
+              Publish Note
+            </button>
+          </div>
+
+          <div className="support-feedback-row">
+            <button onClick={() => addUserFeedback("positive", "dashboard", "Dashboard support flow is working.")} type="button">
+              <Check size={15}/>
+              Send Positive Feedback
+            </button>
+            <button onClick={() => addUserFeedback("issue", "general", "User reported an issue that needs support follow-up.")} type="button">
+              <X size={15}/>
+              Send Issue Feedback
+            </button>
+          </div>
+
+          <div className="support-panel-grid">
+            <div>
+              <h4>Support Queue</h4>
+              {supportTickets.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No support tickets</h3>
+                  <p>Account, upload, billing, playback, marketplace, trust, and general tickets will appear here.</p>
+                </div>) : (<div className="monetization-list">
+                  {supportTickets.slice(0, 8).map((ticket) => (<article key={ticket.id}>
+                      <span>{ticket.category} / {ticket.priority} / {ticket.status.replace("_", " ")}</span>
+                      <strong>{ticket.title}</strong>
+                      <small>{ticket.body}</small>
+                      <small>{ticket.userName} | {formatVideoCreatedAt(ticket.createdAt)}</small>
+                      <div className="monetization-row-actions">
+                        <button onClick={() => updateSupportTicketStatus(ticket.id, "in_progress")} disabled={ticket.status === "in_progress"} type="button">Work</button>
+                        <button onClick={() => updateSupportTicketStatus(ticket.id, "waiting_on_user")} disabled={ticket.status === "waiting_on_user"} type="button">Wait</button>
+                        <button onClick={() => updateSupportTicketStatus(ticket.id, "resolved")} disabled={ticket.status === "resolved"} type="button">Resolve</button>
+                        <button onClick={() => updateSupportTicketStatus(ticket.id, "closed")} disabled={ticket.status === "closed"} type="button">Close</button>
+                      </div>
+                    </article>))}
+                </div>)}
+            </div>
+
+            <div>
+              <h4>Status Board</h4>
+              {platformIncidents.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No incidents</h3>
+                  <p>API, storage, auth, player, marketplace, and database incidents will appear here.</p>
+                </div>) : (<div className="monetization-list">
+                  {platformIncidents.slice(0, 8).map((incident) => (<article key={incident.id}>
+                      <span>{incident.area} / {incident.severity} / {incident.status}</span>
+                      <strong>{incident.title}</strong>
+                      <small>{incident.message}</small>
+                      <small>{formatVideoCreatedAt(incident.createdAt)}</small>
+                      <div className="monetization-row-actions">
+                        <button onClick={() => updatePlatformIncidentStatus(incident.id, "identified")} disabled={incident.status === "identified"} type="button">Identify</button>
+                        <button onClick={() => updatePlatformIncidentStatus(incident.id, "monitoring")} disabled={incident.status === "monitoring"} type="button">Monitor</button>
+                        <button onClick={() => updatePlatformIncidentStatus(incident.id, "resolved")} disabled={incident.status === "resolved"} type="button">Resolve</button>
+                      </div>
+                    </article>))}
+                </div>)}
+            </div>
+
+            <div>
+              <h4>Release Notes</h4>
+              {releaseNotes.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No release notes</h3>
+                  <p>Launch updates and customer-facing release notes will appear here.</p>
+                </div>) : (<div className="monetization-list">
+                  {releaseNotes.slice(0, 8).map((note) => (<article key={note.id}>
+                      <span>{note.version}</span>
+                      <strong>{note.title}</strong>
+                      <small>{note.body}</small>
+                      <small>{formatVideoCreatedAt(note.publishedAt)}</small>
+                    </article>))}
+                </div>)}
+            </div>
+
+            <div>
+              <h4>User Feedback</h4>
+              {userFeedback.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No feedback yet</h3>
+                  <p>Launch feedback from users and creators will appear here for support review.</p>
+                </div>) : (<div className="monetization-list">
+                  {userFeedback.slice(0, 8).map((feedback) => (<article key={feedback.id}>
+                      <span>{feedback.area} / {feedback.sentiment}</span>
+                      <strong>{feedback.userName}</strong>
+                      <small>{feedback.message}</small>
+                      <small>{formatVideoCreatedAt(feedback.createdAt)}</small>
+                    </article>))}
+                </div>)}
+            </div>
+          </div>
+        </section>);
+    }
+    function renderSharedVideoPlayer() {
+        if (!activeVideo)
+            return null;
+        return (<section className={`video-player-panel global-video-player${view === "Videos" ? "" : " is-hidden"}`} ref={videoPreviewRef} aria-hidden={view === "Videos" ? undefined : true}>
+        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideo.video_url} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} playsInline preload="metadata" poster={activeVideo.cover} onLoadedMetadata={updateVideoDuration} onDurationChange={updateVideoDuration} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={handleVideoPause} onEnded={handleVideoEnded} onError={() => console.error("[main video] load failed:", activeVideoPlaybackUrl)}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
+        <div className="video-player-copy">
+          <span>{activeVideo.category}</span>
+          <h3>{activeVideo.title}</h3>
+          <p>{activeVideo.creator}</p>
+          <div className="video-player-actions">
+            <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={getVideoPlaybackList().length < 2}>
+              <SkipBack size={16} fill="currentColor"/>
+              Previous Video
+            </button>
+            <button onClick={() => playAdjacentVideo("next")} type="button" disabled={getVideoPlaybackList().length < 2}>
+              <SkipForward size={16} fill="currentColor"/>
+              Next Video
+            </button>
+          </div>
+        </div>
+      </section>);
+    }
+    if (!authReady || !hasLoaded) {
+        return (<main className="auth-page">
+        <section className="auth-panel">
+          <div className="auth-mark">
+            <img src={BRAND_LOGO} alt="Music Data Base"/>
+            <span>{BRAND_TAGLINE}</span>
+          </div>
+          <p>Loading your music account...</p>
+        </section>
+
+        <style jsx global>{`
+          * {
+            box-sizing: border-box;
+          }
+
+          html,
+          body {
+            margin: 0;
+            min-height: 100%;
+            background: #020617;
+            color: white;
+            font-family: Arial, Helvetica, sans-serif;
+          }
+
+          .auth-page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: #020617;
+          }
+
+          .auth-panel {
+            width: min(440px, 100%);
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 24px;
+          }
+
+          .auth-mark {
+            display: grid;
+            justify-items: center;
+            gap: 10px;
+            text-align: center;
+          }
+
+          .auth-mark img {
+            width: min(260px, 82vw);
+            max-height: 260px;
+            object-fit: contain;
+            display: block;
+          }
+
+          .auth-mark span {
+            color: #fbbf24;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0;
+          }
+        `}</style>
+      </main>);
+    }
+    if (!user) {
+        return (<main className="auth-page">
+        <section className="auth-panel">
+          <div className="auth-mark">
+            <img src={BRAND_LOGO} alt="Music Data Base"/>
+            <span>{BRAND_TAGLINE}</span>
+          </div>
+
+          <div className="auth-copy">
+            <h1>{authMode === "signup" ? "Create your account" : "Log in to Music Data Base"}</h1>
+            <p>Your library, likes, playlists, and recently played songs stay with your Supabase account.</p>
+          </div>
+
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            {authMode === "signup" && (<label>
+                <span>Name</span>
+                <input name="name" value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder="Your name"/>
+              </label>)}
+
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="you@example.com"/>
+            </label>
+
+            <label>
+              <span>Password</span>
+              <input name="password" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="At least 6 characters"/>
+            </label>
+
+            {authMessage && <p className="auth-message">{authMessage}</p>}
+
+            <button type="submit" disabled={authBusy}>
+              {authMode === "signup" ? <UserPlus size={17}/> : <LogIn size={17}/>}
+              {authBusy ? "Working..." : authMode === "signup" ? "Sign Up" : "Login"}
+            </button>
+          </form>
+
+          <button className="auth-switch" onClick={() => {
+                setAuthMode(authMode === "signup" ? "login" : "signup");
+                setAuthMessage("");
+            }} type="button">
+            {authMode === "signup" ? "Already have an account? Login" : "Need an account? Sign Up"}
+          </button>
+        </section>
+
+        <style jsx global>{`
+          * {
+            box-sizing: border-box;
+          }
+
+          html,
+          body {
+            margin: 0;
+            min-height: 100%;
+            background: #020617;
+            color: white;
+            font-family: Arial, Helvetica, sans-serif;
+          }
+
+          button,
+          input {
+            font-family: inherit;
+          }
+
+          .auth-page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 14px;
+            background:
+              linear-gradient(90deg, rgba(2, 6, 23, 0.9), rgba(2, 6, 23, 0.5)),
+              url("https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1600&q=80");
+            background-size: cover;
+            background-position: center;
+          }
+
+          .auth-panel {
+            width: min(390px, 100%);
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: rgba(11, 23, 54, 0.96);
+            padding: 18px;
+            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+          }
+
+          .auth-mark {
+            display: grid;
+            justify-items: center;
+            gap: 7px;
+            text-align: center;
+          }
+
+          .auth-mark img {
+            width: min(220px, 70vw);
+            max-height: 220px;
+            object-fit: contain;
+            display: block;
+          }
+
+          .auth-mark span {
+            color: #fbbf24;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0;
+          }
+
+          .auth-copy h1 {
+            margin: 12px 0 6px;
+            font-size: 25px;
+            line-height: 1.05;
+            text-align: center;
+          }
+
+          .auth-copy p {
+            margin: 0 0 12px;
+            color: #a9bed6;
+            line-height: 1.35;
+            font-size: 14px;
+            text-align: center;
+          }
+
+          .auth-form,
+          .auth-form label {
+            display: grid;
+            gap: 9px;
+          }
+
+          .auth-form {
+            gap: 10px;
+          }
+
+          .auth-form span {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .auth-form input {
+            height: 40px;
+            border-radius: 8px;
+            border: 1px solid #263c78;
+            background: #020617;
+            color: white;
+            padding: 0 12px;
+            outline: none;
+          }
+
+          .auth-form button,
+          .auth-switch {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            font-weight: 900;
+          }
+
+          .auth-form button {
+            background: #22d3ee;
+            color: #020617;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          }
+
+          .auth-switch {
+            width: 100%;
+            margin-top: 9px;
+            background: #152d66;
+            color: white;
+          }
+
+          .auth-message {
+            margin: 0;
+            color: #fbbf24;
+            font-size: 13px;
+            font-weight: 800;
+          }
+        `}</style>
+      </main>);
+    }
+    const failedUploadErrors = platformErrors.filter((error) => error.category === "upload");
+    const failedActionErrors = platformErrors.filter((error) => ["save", "like", "playlist", "follow"].includes(error.category));
+    const brokenMediaIssues = storageReport?.brokenMedia || [];
+    const missingAlbumItemIssues = storageReport?.missingAlbumItems || [];
+    const orphanStorageFiles = storageReport?.orphanStorageFiles || [];
+    const possibleDuplicateFiles = orphanStorageFiles.filter((file) => file.deletable && file.status !== "Already linked");
+    const alreadyLinkedStorageFiles = orphanStorageFiles.filter((file) => !file.deletable || file.status === "Already linked");
+    const selectedCleanupFileObjects = orphanStorageFiles.filter((file) => selectedCleanupFiles.includes(getCleanupFileKey(file)) && file.deletable && file.status !== "Already linked");
+    const stabilityGeneratedAt = storageReport?.generatedAt ? formatVideoCreatedAt(storageReport.generatedAt) : "Not scanned";
+    const uploadRecoveryStatus = uploadBusy || videoUploadBusy || albumUploadBusy ? "Upload running" : "Ready";
+    const launchChecklistPassed = launchChecklist.filter((item) => item.status === "passed").length;
+    const launchChecklistBlocked = launchChecklist.filter((item) => item.status === "blocked").length;
+    const launchChecklistReady = launchChecklist.length > 0 && launchChecklistPassed === launchChecklist.length;
+    const launchChecklistSummary = launchChecklist.length === 0
+        ? "Not loaded"
+        : launchChecklistReady
+            ? "Ready"
+            : `${launchChecklistPassed}/${launchChecklist.length} passed`;
+    const launchProductionChecks = launchStatus?.productionChecks || [];
+    const launchTableChecks = launchStatus?.tables || [];
+    const launchStorageChecks = launchStatus?.storageBuckets || [];
+    const launchPublicRouteChecks = launchStatus?.publicRoutes || [];
+    const launchStatusChecklistItems = launchStatus?.checklist.items || [];
+    const launchReadyTables = launchTableChecks.filter((item) => item.ok).length;
+    const launchReadyBuckets = launchStorageChecks.filter((item) => item.ok).length;
+    const launchReadyProductionChecks = launchProductionChecks.filter((item) => item.ok).length;
+    const launchReadyPublicRoutes = launchPublicRouteChecks.filter((item) => item.ok).length;
+    const launchStatusChecklistPassed = launchStatusChecklistItems.filter((item) => item.status === "passed").length;
+    const launchStatusTotalChecks = launchProductionChecks.length + launchTableChecks.length + launchStorageChecks.length + launchPublicRouteChecks.length + (launchStatus?.checklist.ok ? 1 : 0);
+    const launchStatusReadyChecks = launchReadyProductionChecks + launchReadyTables + launchReadyBuckets + launchReadyPublicRoutes + (launchStatus?.checklist.ok ? 1 : 0);
+    const launchStatusSummary = launchStatus
+        ? launchStatus.ok
+            ? "Launch-ready"
+            : `${launchStatusReadyChecks}/${Math.max(1, launchStatusTotalChecks)} checks ready`
+        : "Not scanned";
+    const launchStatusLastChecked = launchStatus?.checkedAt ? formatVideoCreatedAt(launchStatus.checkedAt) : "Not scanned";
+    const unreadNotifications = notifications.filter((notification) => !notification.read).length;
+    const queuedVideos = uniqueVideos(videoPlaybackQueue);
+    const upNextVideos = activeVideo ? queuedVideos.filter((video) => video.id !== activeVideo.id) : queuedVideos;
+    const totalUpNextCount = cleanQueue.length + upNextVideos.length;
+    const activeAlbumTrackInfo = getActiveAlbumTrackInfo();
+    return (<main className={`zml-app view-${displayMode}`}>
+      <aside className="sidebar">
+        <button className="logo" onClick={() => handleNav("Home")} title="Home">
+          <img src={BRAND_LOGO} alt="Music Data Base"/>
+          <span>{BRAND_TAGLINE}</span>
+        </button>
+
+        <nav className="nav" aria-label="Main">
+          {navItems.map((item) => (<button key={item.label} className={view === item.label ? "active" : ""} onClick={() => handleNav(item.label)} title={item.label}>
+              {item.icon}
+              <span>{item.label}</span>
+            </button>))}
+        </nav>
+
+        <section className="mini-stats" aria-label="Music stats">
+          <div>
+            <strong>{songs.length}</strong>
+            <span>Tracks</span>
+          </div>
+          <div>
+            <strong>{librarySongs.length}</strong>
+            <span>Library</span>
+          </div>
+          <div>
+            <strong>{videos.length}</strong>
+            <span>Videos</span>
+          </div>
+          <div>
+            <strong>{totalPlays}</strong>
+            <span>Plays</span>
+          </div>
+        </section>
+
+        <section className="queue-panel">
+          <div className="panel-title-row">
+            <h2>Queue</h2>
+            {cleanQueue.length > 0 && (<button className="small-action" onClick={clearQueue} title="Clear queue">
+                Clear
+              </button>)}
+          </div>
+
+          {cleanQueue.length === 0 ? (<p className="empty-small">No songs queued.</p>) : (<div className="queue-list">
+              {cleanQueue.slice(0, 5).map((song) => (<div className="queue-item" key={song.id}>
+                  <div className="queue-main">
+                    <button className="queue-thumb" onClick={() => playSong(song)} title={`Play ${song.title}`} type="button">
+                      <img src={song.cover} alt=""/>
+                    </button>
+                    <span>
+                      <button className="queue-title" onClick={() => playSong(song)} title={`Play ${song.title}`} type="button">
+                        {song.title}
+                      </button>
+                      <small>
+                        <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                      </small>
+                    </span>
+                  </div>
+
+                  <button className="icon-action" onClick={() => removeFromQueue(song.id)} title="Remove">
+                    <X size={14}/>
+                  </button>
+                </div>))}
+            </div>)}
+        </section>
+
+        <button className="reset-btn" onClick={resetApp}>
+          <RotateCcw size={15}/>
+          Reset
+        </button>
+      </aside>
+
+        <section className="content">
+        <header className="topbar">
+          <div className="search-wrap">
+            <label className="search-box">
+              <Search size={18}/>
+              <input name="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)} placeholder="Search songs, videos, albums, artists..."/>
+            </label>
+            {searchFocused && searchSuggestions.length > 0 && (<div className="search-suggestions" role="listbox" aria-label={searchInput.trim() ? "Search suggestions" : "Popular searches"}>
+                <span>{searchInput.trim() ? "Suggestions" : "Popular searches"}</span>
+                {searchSuggestions.map((suggestion) => (<button key={`${suggestion.type}-${suggestion.id}`} onMouseDown={(event) => {
+                    event.preventDefault();
+                    selectSearchSuggestion(suggestion);
+                }} type="button">
+                    <img src={getArtworkUrl(suggestion.cover)} alt=""/>
+                    <strong>{suggestion.title}</strong>
+                    <small>{suggestion.subtitle} | {suggestion.type}</small>
+                  </button>))}
+              </div>)}
+          </div>
+
+          <div className="view-toggle" role="group" aria-label="Card view mode">
+            <button className={displayMode === "grid" ? "active" : ""} onClick={() => setDisplayMode("grid")} type="button">
+              <span aria-hidden="true">□</span>
+              Grid View
+            </button>
+            <button className={displayMode === "list" ? "active" : ""} onClick={() => setDisplayMode("list")} type="button">
+              <span aria-hidden="true">☰</span>
+              List View
+            </button>
+          </div>
+
+          <div className="notification-wrap">
+            <button className="notification-button" onClick={() => {
+            setShowNotificationCenter((value) => !value);
+            markNotificationsRead();
+        }} type="button" title="Notifications">
+              <Bell size={17}/>
+              {unreadNotifications > 0 && <span>{unreadNotifications}</span>}
+            </button>
+            {showNotificationCenter && (<section className="notification-center">
+                <div className="notification-head">
+                  <strong>Notifications</strong>
+                  <button onClick={() => setNotifications([])} type="button">Clear</button>
+                </div>
+                {notifications.length === 0 ? (<p>No notifications yet.</p>) : notifications.slice(0, 8).map((notification) => (<article key={notification.id}>
+                    <strong>{notification.title}</strong>
+                    <span>{notification.body}</span>
+                    <small>{formatVideoCreatedAt(notification.createdAt)}</small>
+                  </article>))}
+              </section>)}
+          </div>
+
+          <button className="upload-btn" onClick={toggleUploadPanel}>
+            <Upload size={17}/>
+            Upload
+          </button>
+
+          <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title="Artist Dashboard">
+            <BarChart3 size={17}/>
+            Dashboard
+          </button>
+
+          <button className="profile-btn" onClick={() => handleNav("Profile")} title="Profile">
+            <User size={17}/>
+            Profile
+          </button>
+
+          <button className="logout-btn" onClick={logout} title="Logout">
+            <LogOut size={17}/>
+            Logout
+          </button>
+        </header>
+
+        {renderSharedVideoPlayer()}
+
+        {showUpload && (<section className="upload-shell">
+            {(view === "Artist Dashboard" || view === "Producer Dashboard") && (<div className="upload-mode-tabs" role="tablist" aria-label="Dashboard upload type">
+                {view === "Producer Dashboard" ? (<>
+                    <button className={uploadMode === "beat" ? "active" : ""} onClick={() => setUploadMode("beat")} type="button">
+                      Upload Beat
+                    </button>
+                    <button className={uploadMode === "producerVideo" ? "active" : ""} onClick={() => setUploadMode("producerVideo")} type="button">
+                      Upload Producer Video
+                    </button>
+                    <button className={uploadMode === "producerAlbum" ? "active" : ""} onClick={() => setUploadMode("producerAlbum")} type="button">
+                      Upload Album
+                    </button>
+                  </>) : (<>
+                    <button className={uploadMode === "song" ? "active" : ""} onClick={() => setUploadMode("song")} type="button">
+                      Upload Song
+                    </button>
+                    <button className={uploadMode === "video" ? "active" : ""} onClick={() => setUploadMode("video")} type="button">
+                      Upload Video
+                    </button>
+                    <button className={uploadMode === "album" ? "active" : ""} onClick={() => setUploadMode("album")} type="button">
+                      Upload Album
+                    </button>
+                  </>)}
+              </div>)}
+
+            {uploadMode === "album" || uploadMode === "producerAlbum" ? (<form className="upload-card album-upload-card" onSubmit={addUploadedAlbum}>
+                <div className="upload-brand">
+                  <img src={BRAND_LOGO} alt="Music Data Base"/>
+                  <div>
+                    <h2>{uploadMode === "producerAlbum" ? "Upload Producer Album" : "Upload Album"}</h2>
+                    <span>{BRAND_TAGLINE}</span>
+                  </div>
+                </div>
+
+                <div className="upload-grid">
+                  <input name="albumTitle" value={albumForm.title} onChange={(event) => setAlbumForm({ ...albumForm, title: event.target.value })} placeholder="Album title"/>
+
+                  <input name="albumCreator" value={albumForm.creatorName} onChange={(event) => setAlbumForm({ ...albumForm, creatorName: event.target.value })} placeholder={uploadMode === "producerAlbum" ? "Producer name" : "Artist name"}/>
+
+                  <select name="albumCategory" value={albumForm.category} onChange={(event) => setAlbumForm({ ...albumForm, category: event.target.value })}>
+                    {["Album", "EP", "Mixtape", "New Releases", ...BEAT_CATEGORIES.filter((category) => category !== "Beats")].map((category) => (<option key={category}>{category}</option>))}
+                  </select>
+
+                  <input name="albumReleaseDate" type="date" value={albumForm.releaseDate} onChange={(event) => setAlbumForm({ ...albumForm, releaseDate: event.target.value })}/>
+
+                  <input name="albumCover" className="wide" value={albumForm.cover} onChange={(event) => setAlbumForm({ ...albumForm, cover: event.target.value })} placeholder="Cover image URL"/>
+
+                  <label className="audio-file-field wide">
+                    <span>Album songs</span>
+                    <input name="albumSongFiles" type="file" multiple accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/x-m4a" onChange={(event) => {
+                    const files = Array.from(event.target.files || []);
+                    setAlbumSongFiles(files);
+                    setAlbumUploadError(files.map((file) => getAudioFileError(file)).find(Boolean) || "");
+                    setAlbumUploadProgress(0);
+                    setAlbumUploadStatus("");
+                }}/>
+                    <small>
+                      {albumSongFiles.length > 0
+                    ? `${albumSongFiles.length} song file${albumSongFiles.length === 1 ? "" : "s"} selected`
+                    : "Choose multiple MP3, WAV, or M4A files"}
+                    </small>
+                  </label>
+
+                  <label className="audio-file-field wide">
+                    <span>Album videos optional</span>
+                    <input name="albumVideoFiles" type="file" multiple accept="video/*" onChange={(event) => {
+                    const files = Array.from(event.target.files || []);
+                    setAlbumVideoFiles(files);
+                    setAlbumUploadError(files.map((file) => getVideoFileError(file)).find(Boolean) || "");
+                    setAlbumUploadProgress(0);
+                    setAlbumUploadStatus("");
+                }}/>
+                    <small>
+                      {albumVideoFiles.length > 0
+                    ? `${albumVideoFiles.length} video file${albumVideoFiles.length === 1 ? "" : "s"} selected`
+                    : "MP4, MOV, WEBM, or M4V"}
+                    </small>
+                  </label>
+
+                  {(albumSongFiles.length > 0 || albumVideoFiles.length > 0) && (<div className="album-file-summary wide">
+                      <strong>
+                        {albumSongFiles.length} songs | {albumVideoFiles.length} videos
+                      </strong>
+                      <span>
+                        Song and video titles are created from file names. You can edit them later in the dashboard.
+                      </span>
+                    </div>)}
+                </div>
+
+                {(albumUploadBusy || albumUploadProgress > 0) && (<div className="upload-progress" aria-live="polite">
+                    <div>
+                      <span>{albumUploadStatus || "Album upload ready"}</span>
+                      <strong>{albumUploadProgress}%</strong>
+                    </div>
+                    <progress max="100" value={albumUploadProgress}/>
+                  </div>)}
+
+                {albumUploadError && (<div className="upload-error">
+                    <p>{albumUploadError}</p>
+                    <div className="upload-fix">
+                      <button type="button" onClick={retryCurrentUpload} disabled={albumUploadBusy}>
+                        Retry upload
+                      </button>
+                    </div>
+                  </div>)}
+
+                <button className="save-upload" type="submit" disabled={albumUploadBusy}>
+                  {albumUploadBusy ? "Uploading..." : "Save Album"}
+                </button>
+              </form>) : uploadMode === "video" || uploadMode === "producerVideo" ? (<form className="video-upload-card" onSubmit={addUploadedVideo}>
+                <div className="upload-brand">
+                  <img src={BRAND_LOGO} alt="Music Data Base"/>
+                  <div>
+                    <h3>{uploadMode === "producerVideo" ? "Upload Producer Video" : "Upload Video"}</h3>
+                    <span>{BRAND_TAGLINE}</span>
+                  </div>
+                </div>
+
+                <div className="video-form-grid">
+                  <input name="dashboardVideoTitle" value={videoForm.title} onChange={(event) => setVideoForm({ ...videoForm, title: event.target.value })} placeholder="Video title"/>
+
+                  <input name="dashboardVideoCreator" value={videoForm.creator} onChange={(event) => setVideoForm({ ...videoForm, creator: event.target.value })} placeholder={uploadMode === "producerVideo" ? "Producer name" : "Creator name"}/>
+
+                  <select name="dashboardVideoCategory" value={videoForm.category} onChange={(event) => setVideoForm({ ...videoForm, category: event.target.value })}>
+                    <option>Music Video</option>
+                    <option>Live Performance</option>
+                    <option>Behind The Scenes</option>
+                    <option>Interview</option>
+                    <option>Visualizer</option>
+                    <option>Other</option>
+                  </select>
+
+                  <input name="dashboardVideoCover" value={videoForm.cover} onChange={(event) => setVideoForm({ ...videoForm, cover: event.target.value })} placeholder="Cover image URL"/>
+
+                  {uploadMode !== "producerVideo" && (<label className="producer-select-field">
+                      <span>Producer credit</span>
+                      <select name="dashboardVideoProducer" value={videoForm.producerId} onChange={(event) => setVideoForm({ ...videoForm, producerId: event.target.value })}>
+                        <option value="">No producer assigned.</option>
+                        {producerProfiles.map((profile) => (<option key={profile.id} value={profile.id}>
+                            {profile.name}
+                          </option>))}
+                      </select>
+                    </label>)}
+
+                  <label className="audio-file-field wide">
+                    <span>Video file</span>
+                    <input name="dashboardVideoFile" type="file" accept="video/*" onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setVideoFile(file);
+                    setVideoUploadError(getVideoFileError(file));
+                    setVideoUploadProgress(0);
+                    setVideoUploadStatus("");
+                }}/>
+                    <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : "MP4, MOV, WEBM, or M4V"}</small>
+                  </label>
+                </div>
+
+                {(videoUploadBusy || videoUploadProgress > 0) && (<div className="upload-progress" aria-live="polite">
+                    <div>
+                      <span>{videoUploadStatus || "Video upload ready"}</span>
+                      <strong>{videoUploadProgress}%</strong>
+                    </div>
+                    <progress max="100" value={videoUploadProgress}/>
+                  </div>)}
+
+                {videoUploadError && (<div className="upload-error">
+                    <p>{videoUploadError}</p>
+                    <div className="upload-fix">
+                      <button type="button" onClick={retryCurrentUpload} disabled={videoUploadBusy}>
+                        Retry upload
+                      </button>
+                    </div>
+                  </div>)}
+
+                <button className="save-upload" type="submit" disabled={videoUploadBusy}>
+                  {videoUploadBusy ? "Uploading..." : uploadMode === "producerVideo" ? "Save Producer Video" : "Save Video"}
+                </button>
+              </form>) : (<form className="upload-card" onSubmit={uploadMode === "beat" ? addUploadedProducerBeat : addUploadedSong}>
+            <div className="upload-brand">
+              <img src={BRAND_LOGO} alt="Music Data Base"/>
+              <div>
+                <h2>{uploadMode === "beat" ? "Upload Beat" : "Upload Song"}</h2>
+                <span>{BRAND_TAGLINE}</span>
+              </div>
+            </div>
+
+            <div className="upload-grid">
+              <input name="songTitle" value={uploadForm.title} onChange={(event) => setUploadForm({ ...uploadForm, title: event.target.value })} placeholder={uploadMode === "beat" ? "Beat title" : "Song title"}/>
+
+              <input name="songArtist" value={uploadForm.artist} onChange={(event) => setUploadForm({ ...uploadForm, artist: event.target.value })} placeholder={uploadMode === "beat" ? "Producer name" : "Artist name"}/>
+
+              <select name="songType" value={uploadForm.type} onChange={(event) => setUploadForm({ ...uploadForm, type: event.target.value })}>
+                {(uploadMode === "beat"
+                    ? BEAT_CATEGORIES
+                    : ["Beats", "Artists", "Producers", ...BEAT_CATEGORIES.filter((category) => category !== "Beats")]).map((category) => (<option key={category}>{category}</option>))}
+              </select>
+
+              <input name="songCover" value={uploadForm.cover} onChange={(event) => setUploadForm({ ...uploadForm, cover: event.target.value })} placeholder="Cover image URL"/>
+
+              {uploadMode !== "beat" && (<label className="producer-select-field">
+                  <span>Producer credit</span>
+                  <select name="songProducer" value={uploadForm.producerId} onChange={(event) => setUploadForm({ ...uploadForm, producerId: event.target.value })}>
+                    <option value="">No producer assigned.</option>
+                    {producerProfiles.map((profile) => (<option key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </option>))}
+                  </select>
+                </label>)}
+
+              <label className="audio-file-field wide">
+                <span>{uploadMode === "beat" ? "Beat file" : "Audio file"}</span>
+                <input name="audioFile" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/x-m4a" onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setUploadFile(file);
+                    setUploadError(getAudioFileError(file));
+                    setUploadProgress(0);
+                    setUploadStatus("");
+                }}/>
+                <small>{uploadFile ? `${uploadFile.name} (${formatFileSize(uploadFile.size)})` : "MP3, WAV, or M4A"}</small>
+              </label>
+
+              {uploadMode === "beat" && (<>
+                  <select name="producerLicense" value={producerLicense} onChange={(event) => setProducerLicense(event.target.value as BeatLicense)}>
+                    <option>Free</option>
+                    <option>Lease</option>
+                    <option>Exclusive</option>
+                    <option>Split percentage</option>
+                  </select>
+                  <input name="producerLeasePrice" type="number" min="0" value={producerLeasePrice} onChange={(event) => setProducerLeasePrice(Number(event.target.value))} placeholder="Lease price"/>
+                  <input name="producerExclusivePrice" type="number" min="0" value={producerExclusivePrice} onChange={(event) => setProducerExclusivePrice(Number(event.target.value))} placeholder="Exclusive price"/>
+                  <input name="producerSplitPercentage" type="number" min="0" max={100 - PLATFORM_REVENUE_SHARE} value={producerSplitPercentage} onChange={(event) => setProducerSplitPercentage(clampProducerSplitShare(event.target.value))} placeholder="Split percentage"/>
+                </>)}
+            </div>
+
+            {(uploadBusy || uploadProgress > 0) && (<div className="upload-progress" aria-live="polite">
+                <div>
+                  <span>{uploadStatus || "Upload ready"}</span>
+                  <strong>{uploadProgress}%</strong>
+                </div>
+                <progress max="100" value={uploadProgress}/>
+              </div>)}
+
+            {uploadError && (<div className="upload-error">
+                <p>{uploadError}</p>
+                <div className="upload-fix">
+                  <button type="button" onClick={retryCurrentUpload} disabled={uploadBusy}>
+                    Retry upload
+                  </button>
+                </div>
+                {isStorageSetupError(uploadError) && (<div className="upload-fix">
+                    <button onClick={copyStorageSetupSql} type="button">
+                      <Copy size={15}/>
+                      {storageSetupCopied ? "Copied" : "Copy setup SQL"}
+                    </button>
+                    <span>Run it in Supabase SQL Editor, then refresh and upload again.</span>
+                  </div>)}
+              </div>)}
+
+            <button className="save-upload" type="submit" disabled={uploadBusy}>
+              {uploadBusy ? "Uploading..." : uploadMode === "beat" ? "Save Beat" : "Save Song"}
+            </button>
+          </form>)}
+          </section>)}
+
+        {view === "Trending" && !search.trim() && (<section className="trending-controls">
+            <div>
+              <span className="playlist-kicker">Trending Algorithm</span>
+              <h2>Most played, liked, and followed</h2>
+            </div>
+            <div className="trend-period-tabs" role="tablist" aria-label="Trending period">
+              {(["Today", "Week", "Month", "All Time"] as TrendingPeriod[]).map((period) => (<button className={trendingPeriod === period ? "active" : ""} key={period} onClick={() => setTrendingPeriod(period)} type="button">
+                  {period}
+                </button>))}
+            </div>
+          </section>)}
+
+        {view === "Trending" && !search.trim() && trendingArtists.length > 0 && (<section className="artist-section">
+            <div className="artist-section-title">
+              <h3>Trending Artists</h3>
+              <span>{trendingArtists.length} artists</span>
+            </div>
+            <HorizontalRail className="artist-grid" label="Trending Artists">
+              {trendingArtists.map((artist) => (<article className="artist-card" key={artist.id}>
+                  <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
+                    <img src={getArtworkUrl(artist.avatar)} alt=""/>
+                    <span>
+                      <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
+                      <small>{formatCount(artist.totalPlays)} plays | {formatCount(artist.followers)} followers</small>
+                    </span>
+                  </button>
+                  <div className="artist-card-actions">
+                    <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
+                      <UserCircle size={16}/>
+                      Profile
+                    </button>
+                  </div>
+                </article>))}
+            </HorizontalRail>
+          </section>)}
+
+        {view === "Trending" && !search.trim() && trendingDiscoveryItems.length > 0 && (<section className="artist-section discovery-section">
+            <div className="artist-section-title">
+              <div>
+                <span className="section-kicker">Trending Discovery</span>
+                <h3>Songs, videos, and albums ranked for {trendingPeriod}</h3>
+              </div>
+              <span>{trendingDiscoveryItems.length} items</span>
+            </div>
+            <HorizontalRail className="discovery-grid" label="Trending Discovery Items">
+              {trendingDiscoveryItems.map(renderDiscoveryItemCard)}
+            </HorizontalRail>
+          </section>)}
+
+        {view === "Trending" && !search.trim() && trendingProducers.length > 0 && (<section className="artist-section discovery-section">
+            <div className="artist-section-title">
+              <div>
+                <span className="section-kicker">Top Producers</span>
+                <h3>Producer momentum</h3>
+              </div>
+              <span>{trendingProducers.length} producers</span>
+            </div>
+            <HorizontalRail className="discovery-grid" label="Trending Producers">
+              {trendingProducers.map((producer) => renderDiscoveryItemCard({
+                    id: producer.id,
+                    type: "producer",
+                    title: producer.name,
+                    subtitle: "Producer",
+                    cover: producer.avatar,
+                    score: producer.followers,
+                    metric: `${formatCount(producer.followers)} followers`,
+                    badge: "Producer",
+                }))}
+            </HorizontalRail>
+          </section>)}
+
+        {view === "Home" && !search.trim() && (<>
+            <section className="hero">
+              <div>
+                <img className="hero-logo" src={BRAND_LOGO} alt="Music Data Base"/>
+                <p>{BRAND_TAGLINE}</p>
+                <h1>Music Data Base Live</h1>
+                <span>Upload music, build your creator channel, and save songs into your Library.</span>
+
+                <div className="hero-buttons">
+                  <button onClick={() => currentSong && playSong(currentSong)} disabled={!currentSong}>
+                    <Play size={18} fill="currentColor"/>
+                    Play Now
+                  </button>
+                  <button className="sub-btn" onClick={() => handleNav("Library")}>
+                    <BookOpen size={18}/>
+                    Library
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {discoveryForYouItems.length > 0 && (<section className="artist-section discovery-section">
+                <div className="artist-section-title">
+                  <div>
+                    <span className="section-kicker">For You</span>
+                    <h3>Recommended from your activity</h3>
+                  </div>
+                  <span>{discoveryForYouItems.length} picks</span>
+                </div>
+                <HorizontalRail className="discovery-grid" label="For You Recommendations">
+                  {discoveryForYouItems.map(renderDiscoveryItemCard)}
+                </HorizontalRail>
+              </section>)}
+
+            {trendingDiscoveryItems.length > 0 && (<section className="artist-section discovery-section">
+                <div className="artist-section-title">
+                  <div>
+                    <span className="section-kicker">Discovery Engine</span>
+                    <h3>Trending across songs, videos, and albums</h3>
+                  </div>
+                  <span>{trendingPeriod}</span>
+                </div>
+                <HorizontalRail className="discovery-grid" label="Trending Discovery">
+                  {trendingDiscoveryItems.map(renderDiscoveryItemCard)}
+                </HorizontalRail>
+              </section>)}
+
+            {newReleaseDiscoveryItems.length > 0 && (<section className="artist-section discovery-section">
+                <div className="artist-section-title">
+                  <div>
+                    <span className="section-kicker">New Releases</span>
+                    <h3>Fresh music, videos, and albums</h3>
+                  </div>
+                  <span>{newReleaseDiscoveryItems.length} new</span>
+                </div>
+                <HorizontalRail className="discovery-grid" label="New Release Discovery">
+                  {newReleaseDiscoveryItems.map(renderDiscoveryItemCard)}
+                </HorizontalRail>
+              </section>)}
+
+            {suggestedCreatorItems.length > 0 && (<section className="artist-section discovery-section">
+                <div className="artist-section-title">
+                  <div>
+                    <span className="section-kicker">Suggested Creators</span>
+                    <h3>Artists and producers to watch</h3>
+                  </div>
+                  <span>{suggestedCreatorItems.length} creators</span>
+                </div>
+                <HorizontalRail className="discovery-grid" label="Suggested Artists and Producers">
+                  {suggestedCreatorItems.map(renderDiscoveryItemCard)}
+                </HorizontalRail>
+              </section>)}
+
+            {creatorGrowthItems.length > 0 && (<section className="artist-section discovery-section">
+                <div className="artist-section-title">
+                  <div>
+                    <span className="section-kicker">Creator Growth</span>
+                    <h3>Rising creators and collaboration signals</h3>
+                  </div>
+                  <span>{creatorGrowthItems.length} signals</span>
+                </div>
+                <HorizontalRail className="discovery-grid" label="Creator Growth Tools">
+                  {creatorGrowthItems.map(renderDiscoveryItemCard)}
+                </HorizontalRail>
+              </section>)}
+
+            <div className="tabs">
+              {TABS.map((tab) => (<button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
+                  {tab}
+                </button>))}
+            </div>
+
+            {activeTab === "Trending" && (<section className="trending-controls compact">
+                <div>
+                  <span className="playlist-kicker">Trending</span>
+                  <h2>{trendingPeriod}</h2>
+                </div>
+                <div className="trend-period-tabs" role="tablist" aria-label="Trending period">
+                  {(["Today", "Week", "Month", "All Time"] as TrendingPeriod[]).map((period) => (<button className={trendingPeriod === period ? "active" : ""} key={period} onClick={() => setTrendingPeriod(period)} type="button">
+                      {period}
+                    </button>))}
+                </div>
+              </section>)}
+
+            <section className="sponsor-section" aria-label="Sponsored music">
+              <div className="sponsor-card">
+                <div className="sponsor-media">
+                  <img src={sponsoredImage} alt=""/>
+                  <span>Sponsored</span>
+                </div>
+
+                <div className="sponsor-copy">
+                  <p className="section-kicker">Sponsor Ad</p>
+                  <h2>{sponsoredTitle}</h2>
+                  <p>
+                    Featured from <strong>{sponsoredCreator}</strong>. Promote a song, artist profile, or video banner to listeners
+                    across Music Data Base.
+                  </p>
+                  <div className="sponsor-meta">
+                    <span>{sponsoredCategory}</span>
+                    <span>{sponsoredVideo ? "Video spotlight" : "Song spotlight"}</span>
+                  </div>
+                  <div className="sponsor-actions">
+                    <button onClick={() => {
+                if (sponsoredVideo) {
+                    playVideo(sponsoredVideo, "Sponsored Video");
+                }
+                else {
+                    if (currentSong) {
+                        playSong(currentSong);
+                    }
+                }
+            }} type="button">
+                      <Play size={16} fill="currentColor"/>
+                      Play Feature
+                    </button>
+                    <button className="subtle-action" onClick={() => showToast("Sponsor placement tools coming soon.", "success")} type="button">
+                      <Zap size={16}/>
+                      Sponsor Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="subscription-section" aria-label="Subscriptions">
+              <div className="subscription-head">
+                <p className="section-kicker">Subscriptions</p>
+                <h2>Choose Your Music Data Base Plan</h2>
+              </div>
+
+              <div className="plan-grid">
+                {SUBSCRIPTION_PLANS.map((plan) => (<article className="plan-card" key={plan.name}>
+                    <span>{plan.name}</span>
+                    <strong>{formatCurrencyFromCents(plan.priceCents, plan.currency)}/{plan.billingInterval === "one_time" ? "once" : plan.billingInterval}</strong>
+                    <p>{plan.features.join(" ")}</p>
+                    <button onClick={() => setupSubscriptionPlan(plan)} type="button">
+                      {activeSubscriptionPlanId === plan.id ? "Selected" : "Subscribe"}
+                    </button>
+                  </article>))}
+              </div>
+            </section>
+          </>)}
+
+        <section className="section-heading">
+          <div>
+            <h2>{pageTitle()}</h2>
+            <p>{pageSubtitle()}</p>
+          </div>
+
+          {view === "Recently Played" && recentlyPlayed.length > 0 && !search.trim() && (<button className="clear-recent" onClick={clearRecentlyPlayed}>
+              Clear Recently Played
+            </button>)}
+        </section>
+
+        {view === "Sales" ? (<section className="sales-page">
+            <section className="sales-hero">
+              <div>
+                <span className="section-kicker">Phase 5C Sales</span>
+                <h2>Shopping cart, purchase history, and download vault.</h2>
+                <p>Buy songs, albums, and producer beats from the marketplace. Checkout is ready for payment gateway connection.</p>
+              </div>
+              <div className="sales-hero-stats">
+                <span><strong>{visibleSalesCart.length}</strong> Cart</span>
+                <span><strong>{formatCurrencyFromCents(salesCartSubtotalCents)}</strong> Subtotal</span>
+                <span><strong>{visiblePurchaseHistory.length}</strong> Purchases</span>
+                <span><strong>{visibleDownloadVault.length}</strong> Vault</span>
+              </div>
+            </section>
+
+            <section className="sales-panel">
+              <div className="artist-section-title">
+                <h3>Shopping Cart</h3>
+                <span>{formatCurrencyFromCents(salesCartSubtotalCents)}</span>
+              </div>
+              {visibleSalesCart.length === 0 ? (<p className="empty-small">No cart items yet. Use Buy Song, Buy Album, or Buy Beat from Marketplace.</p>) : (<div className="sales-row-list">
+                  {visibleSalesCart.map((item) => (<article className="sales-row" key={`${item.userId}-${item.itemType}-${item.itemId}`}>
+                      <img src={getArtworkUrl(item.cover)} alt=""/>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <small>{item.creatorName} | {item.itemType}{item.licenseType ? ` | ${item.licenseType} license` : ""} | {formatCurrencyFromCents(item.priceCents, item.currency)}</small>
+                      </div>
+                      <button className="danger-btn" onClick={() => removeSalesCartItem(item)} type="button">
+                        <Trash2 size={15}/>
+                        Remove
+                      </button>
+                    </article>))}
+                </div>)}
+              <div className="sales-actions">
+                <button onClick={checkoutSalesCart} type="button" disabled={visibleSalesCart.length === 0}>
+                  <Disc3 size={15}/>
+                  Checkout
+                </button>
+                <button onClick={clearSalesCart} type="button" disabled={visibleSalesCart.length === 0}>
+                  <Trash2 size={15}/>
+                  Clear Cart
+                </button>
+              </div>
+            </section>
+
+            <section className="sales-panel">
+              <div className="artist-section-title">
+                <h3>Purchase History</h3>
+                <span>{formatCurrencyFromCents(purchaseHistoryTotalCents)}</span>
+              </div>
+              {visiblePurchaseHistory.length === 0 ? (<p className="empty-small">No purchases yet.</p>) : (<div className="sales-row-list">
+                  {visiblePurchaseHistory.map((item) => (<article className="sales-row" key={item.id}>
+                      <img src={getArtworkUrl(item.cover)} alt=""/>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <small>{item.creatorName} | {item.itemType}{item.licenseType ? ` | ${item.licenseType} license` : ""} | {formatCurrencyFromCents(item.priceCents, item.currency)} | {formatPlayedAt(item.purchasedAt)}</small>
+                      </div>
+                      <span className="sales-status">{item.status}</span>
+                    </article>))}
+                </div>)}
+            </section>
+
+            <section className="sales-panel">
+              <div className="artist-section-title">
+                <h3>Download Vault</h3>
+                <span>{visibleDownloadVault.length} items</span>
+              </div>
+              {visibleDownloadVault.length === 0 ? (<p className="empty-small">Purchased downloads will appear here.</p>) : (<div className="sales-row-list">
+                  {visibleDownloadVault.map((item) => (<article className="sales-row" key={`${item.userId}-${item.itemType}-${item.itemId}`}>
+                      <img src={getArtworkUrl(item.cover)} alt=""/>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <small>{item.creatorName} | {item.itemType}{item.licenseType ? ` | ${item.licenseType} license` : ""} | Added {formatPlayedAt(item.addedAt)}</small>
+                      </div>
+                      <button onClick={() => openDownloadVaultItem(item)} type="button">
+                        <Upload size={15}/>
+                        Download
+                      </button>
+                      {item.itemType === "beat" && item.licenseType ? (<button onClick={() => downloadVaultLicense(item)} type="button">
+                          <BookOpen size={15}/>
+                          License PDF
+                        </button>) : null}
+                    </article>))}
+                </div>)}
+            </section>
+          </section>) : view === "License History" ? (<section className="license-history-page">
+            <section className="license-history-hero">
+              <div>
+                <span className="section-kicker">Phase 5B Licensing</span>
+                <h2>Beat license history and PDF records.</h2>
+                <p>Generated licenses stay here for review, checkout connection, and repeat downloads.</p>
+              </div>
+              <div className="license-history-stats">
+                <span><strong>{visibleLicenseRecords.length}</strong> Licenses</span>
+                <span><strong>{exclusiveLicenseCount}</strong> Exclusive</span>
+                <span><strong>{formatCurrencyFromCents(totalLicenseSpendCents)}</strong> Tracked</span>
+              </div>
+            </section>
+
+            {visibleLicenseRecords.length === 0 ? (<div className="empty-state">
+                <h2>No licenses yet</h2>
+                <p>Open Marketplace, choose a producer beat, and generate a Basic, Premium, Unlimited, or Exclusive license.</p>
+              </div>) : (<section className="license-history-list" aria-label="Generated licenses">
+                {visibleLicenseRecords.map((record) => (<article className="license-history-row" key={record.id}>
+                    <div>
+                      <span>{record.licenseType}</span>
+                      <strong>{record.beatTitle}</strong>
+                      <small>{record.producerName} | {formatPlayedAt(record.issuedAt)} | {formatCurrencyFromCents(record.priceCents, record.currency)}</small>
+                    </div>
+                    <p>{record.terms[0]}</p>
+                    <button onClick={() => downloadLicensePdf(record)} type="button">
+                      <BookOpen size={15}/>
+                      Download PDF
+                    </button>
+                  </article>))}
+              </section>)}
+          </section>) : view === "Marketplace" ? (<section className="marketplace-page">
+            <section className="marketplace-hero">
+              <div>
+                <span className="section-kicker">Music Marketplace</span>
+                <h2>Discover releases, stores, charts, and creator catalogs.</h2>
+                <p>{marketplaceReleases.length} marketplace items across songs, videos, albums, and producer beats.</p>
+              </div>
+              <div className="marketplace-hero-stats">
+                <span><strong>{marketplaceFeaturedReleases.length}</strong> Featured</span>
+                <span><strong>{marketplaceNewReleases.length}</strong> New</span>
+                <span><strong>{marketplaceArtistStores.length}</strong> Artists</span>
+                <span><strong>{marketplaceProducerStores.length}</strong> Producers</span>
+              </div>
+            </section>
+
+            <section className="marketplace-filters" aria-label="Marketplace search filters">
+              <label>
+                <span>Genre</span>
+                <select value={marketplaceFilters.genre} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, genre: event.target.value }))}>
+                  {marketplaceGenreOptions.map((genre) => (<option key={genre} value={genre}>{genre}</option>))}
+                </select>
+              </label>
+              <label>
+                <span>Artist</span>
+                <select value={marketplaceFilters.artist} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, artist: event.target.value }))}>
+                  {marketplaceArtistOptions.map((artist) => (<option key={artist} value={artist}>{artist}</option>))}
+                </select>
+              </label>
+              <label>
+                <span>Producer</span>
+                <select value={marketplaceFilters.producer} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, producer: event.target.value }))}>
+                  {marketplaceProducerOptions.map((producer) => (<option key={producer} value={producer}>{producer}</option>))}
+                </select>
+              </label>
+              <label>
+                <span>Format</span>
+                <select value={marketplaceFilters.content} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, content: event.target.value as MarketplaceContentFilter }))}>
+                  {(["All", "Songs", "Videos", "Albums", "Beats"] as MarketplaceContentFilter[]).map((content) => (<option key={content} value={content}>{content}</option>))}
+                </select>
+              </label>
+              <label>
+                <span>Price</span>
+                <select value={marketplaceFilters.price} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, price: event.target.value as MarketplacePriceFilter }))}>
+                  {(["All Prices", "Free", "Paid", "Premium"] as MarketplacePriceFilter[]).map((price) => (<option key={price} value={price}>{price}</option>))}
+                </select>
+              </label>
+              <button onClick={() => setMarketplaceFilters({
+                genre: "All Genres",
+                artist: "All Artists",
+                producer: "All Producers",
+                content: "All",
+                price: "All Prices",
+            })} type="button">
+                Reset Filters
+              </button>
+            </section>
+
+            <section className="marketplace-advanced-grid">
+              <div className="marketplace-feature-panel">
+                <div className="artist-section-title">
+                  <h3>Featured Store Placement</h3>
+                  <span>{marketplaceFeaturedStorePlacements.length} placements</span>
+                </div>
+                <div className="featured-store-list">
+                  {marketplaceFeaturedStorePlacements.map((placement) => (<article key={placement.id}>
+                      <img src={getArtworkUrl(placement.cover)} alt=""/>
+                      <div>
+                        <span>{placement.headline}</span>
+                        <strong>{placement.creatorName}</strong>
+                        <small>{placement.detail}</small>
+                      </div>
+                      <button onClick={() => placement.creatorType === "producer" ? openProducerProfile(placement.creatorId) : openArtistProfile(placement.creatorName)} type="button">
+                        Store
+                      </button>
+                    </article>))}
+                  {marketplaceFeaturedStorePlacements.length === 0 && <p className="empty-small">Creator stores will appear here when artists or producers have catalog activity.</p>}
+                </div>
+              </div>
+
+              <div className="marketplace-feature-panel">
+                <div className="artist-section-title">
+                  <h3>Discount Codes</h3>
+                  <span>{marketplaceDiscountCodes.length} active foundations</span>
+                </div>
+                <div className="discount-code-grid">
+                  {marketplaceDiscountCodes.map((discount) => (<button key={discount.code} onClick={() => copyMarketplaceDiscountCode(discount.code)} type="button">
+                      <span>{discount.label}</span>
+                      <strong>{discount.code}</strong>
+                      <small>{discount.percentOff}% off {discount.appliesTo} | {discount.detail}</small>
+                    </button>))}
+                </div>
+              </div>
+            </section>
+
+            {activeBeatDetail && (<section className="beat-detail-panel" aria-label="Beat detail">
+                <div className="beat-detail-cover">
+                  <img src={getArtworkUrl(activeBeatDetail.cover)} alt=""/>
+                  <button onClick={() => playMarketplaceBeat(activeBeatDetail)} type="button">
+                    <Play size={15} fill="currentColor"/>
+                    Preview Beat
+                  </button>
+                </div>
+                <div className="beat-detail-copy">
+                  <span className="section-kicker">Beat Detail</span>
+                  <h3>{activeBeatDetail.title}</h3>
+                  <p>{activeBeatDetail.producerName} | {activeBeatDetail.category} | {formatCount(activeBeatDetail.plays)} plays | {formatCount(activeBeatDetail.leases)} licenses</p>
+                  <div className="beat-license-detail-grid">
+                    {LICENSE_TYPES.map((licenseType) => (<button className={getSelectedBeatLicense(activeBeatDetail) === licenseType ? "active" : ""} key={`detail-${activeBeatDetail.id}-${licenseType}`} onClick={() => selectBeatLicenseForCart(activeBeatDetail, licenseType)} type="button">
+                        <strong>{licenseType}</strong>
+                        <span>{formatCurrencyFromCents(getBeatLicensePriceCents(activeBeatDetail, licenseType))}</span>
+                        <small>{getBeatLicenseTerms(licenseType, activeBeatDetail)[0]}</small>
+                      </button>))}
+                  </div>
+                  <div className="beat-detail-actions">
+                    <button onClick={() => addMarketplaceReleaseToCart({
+                id: activeBeatDetail.id,
+                releaseType: "beat",
+                title: activeBeatDetail.title,
+                creatorName: activeBeatDetail.producerName,
+                producerName: activeBeatDetail.producerName,
+                genre: activeBeatDetail.category,
+                cover: activeBeatDetail.cover,
+                priceCents: getBeatLicensePriceCents(activeBeatDetail, getSelectedBeatLicense(activeBeatDetail)),
+                premium: getSelectedBeatLicense(activeBeatDetail) === "Exclusive",
+                metricLabel: `${formatCount(activeBeatDetail.plays)} plays | ${formatCount(activeBeatDetail.leases)} leases`,
+                dateLabel: formatAlbumCreatedDate(activeBeatDetail.createdAt),
+                sortValue: getUploadSortTime(activeBeatDetail.createdAt),
+                score: activeBeatDetail.plays * 3 + activeBeatDetail.likes * 8 + activeBeatDetail.leases * 10 + activeBeatDetail.downloads,
+                item: activeBeatDetail,
+            })} type="button">
+                      <Disc3 size={15}/>
+                      Add {getSelectedBeatLicense(activeBeatDetail)} to Cart
+                    </button>
+                    <button onClick={() => createBeatLicense(activeBeatDetail, getSelectedBeatLicense(activeBeatDetail))} type="button">
+                      <BookOpen size={15}/>
+                      Generate PDF
+                    </button>
+                    <button className="subtle-action" onClick={() => setActiveBeatDetailId("")} type="button">
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </section>)}
+
+            {marketplaceReleases.length === 0 ? (<div className="empty-state">
+                <h2>No marketplace results</h2>
+                <p>Try a different genre, artist, producer, format, or price filter.</p>
+              </div>) : (<>
+                <section className="artist-section">
+                  <div className="artist-section-title">
+                    <h3>Featured Releases</h3>
+                    <span>{marketplaceFeaturedReleases.length} featured</span>
+                  </div>
+                  <HorizontalRail className="marketplace-release-grid" label="Featured Releases">
+                    {marketplaceFeaturedReleases.map(renderMarketplaceReleaseCard)}
+                  </HorizontalRail>
+                </section>
+
+                <section className="artist-section">
+                  <div className="artist-section-title">
+                    <h3>New Releases</h3>
+                    <span>{marketplaceNewReleases.length} releases</span>
+                  </div>
+                  <HorizontalRail className="marketplace-release-grid" label="New Releases">
+                    {marketplaceNewReleases.map(renderMarketplaceReleaseCard)}
+                  </HorizontalRail>
+                </section>
+
+                {marketplaceBundles.length > 0 && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Bundle Sales</h3>
+                      <span>{marketplaceBundles.length} bundles</span>
+                    </div>
+                    <HorizontalRail className="marketplace-bundle-grid" label="Marketplace Bundles">
+                      {marketplaceBundles.map((bundle) => (<article className="marketplace-bundle-card" key={bundle.id}>
+                          <img src={getArtworkUrl(bundle.cover)} alt=""/>
+                          <div>
+                            <span>{bundle.bundleType} bundle</span>
+                            <strong>{bundle.title}</strong>
+                            <small>{bundle.releases.length} items | {formatCurrencyFromCents(bundle.priceCents)} bundle | {formatCurrencyFromCents(bundle.originalPriceCents)} value</small>
+                          </div>
+                          <button onClick={() => addMarketplaceBundleToCart(bundle)} type="button">
+                            <Disc3 size={15}/>
+                            Add Bundle
+                          </button>
+                        </article>))}
+                    </HorizontalRail>
+                  </section>)}
+
+                {marketplaceLimitedReleases.length > 0 && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Limited Releases</h3>
+                      <span>{marketplaceLimitedReleases.length} drops</span>
+                    </div>
+                    <HorizontalRail className="marketplace-limited-grid" label="Limited Releases">
+                      {marketplaceLimitedReleases.map((drop) => (<article className="marketplace-limited-card" key={drop.id}>
+                          <img src={getArtworkUrl(drop.release.cover)} alt=""/>
+                          <div>
+                            <span>{drop.label}</span>
+                            <strong>{drop.release.title}</strong>
+                            <small>{drop.remaining} left | Ends {formatAlbumCreatedDate(drop.endsAt)}</small>
+                          </div>
+                          <button onClick={() => addMarketplaceReleaseToCart(drop.release)} type="button">
+                            <Disc3 size={15}/>
+                            Buy
+                          </button>
+                        </article>))}
+                    </HorizontalRail>
+                  </section>)}
+
+                {marketplacePreorders.length > 0 && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Pre-Order Foundation</h3>
+                      <span>{marketplacePreorders.length} upcoming</span>
+                    </div>
+                    <HorizontalRail className="marketplace-preorder-grid" label="Marketplace Preorders">
+                      {marketplacePreorders.map((preorder) => (<article className="marketplace-preorder-card" key={preorder.id}>
+                          <img src={getArtworkUrl(preorder.cover)} alt=""/>
+                          <div>
+                            <span>{preorder.releaseType}</span>
+                            <strong>{preorder.title}</strong>
+                            <small>{preorder.creatorName} | Releases {formatAlbumCreatedDate(preorder.releaseDate)} | {formatCurrencyFromCents(preorder.priceCents)}</small>
+                          </div>
+                          <button onClick={() => reserveMarketplacePreorder(preorder)} type="button">
+                            <Clock3 size={15}/>
+                            Reserve
+                          </button>
+                        </article>))}
+                    </HorizontalRail>
+                  </section>)}
+
+                <section className="marketplace-chart-section">
+                  <div className="artist-section-title">
+                    <h3>Top Charts</h3>
+                    <span>{marketplaceTopCharts.length} ranked</span>
+                  </div>
+                  <div className="marketplace-chart-list">
+                    {marketplaceTopCharts.map(renderMarketplaceChartRow)}
+                  </div>
+                </section>
+              </>)}
+
+            <section className="artist-section">
+              <div className="artist-section-title">
+                <h3>Artist Store Pages</h3>
+                <span>{marketplaceArtistStores.length} stores</span>
+              </div>
+              <HorizontalRail className="artist-grid" label="Artist Store Pages">
+                {marketplaceArtistStores.map((artist) => (<article className="artist-card" key={`market-artist-${artist.id}`}>
+                    <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
+                      <img src={getArtworkUrl(artist.avatar)} alt=""/>
+                      <span>
+                        <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
+                        <small>{formatCount(artist.totalPlays)} plays | {formatCount(artist.followers)} followers</small>
+                      </span>
+                    </button>
+                    <div className="artist-card-actions">
+                      <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
+                        <UserCircle size={16}/>
+                        Store
+                      </button>
+                      <button className={followedArtistIds.includes(artist.id) ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
+                        <UserPlus size={16}/>
+                        {followedArtistIds.includes(artist.id) ? "Following" : "Follow"}
+                      </button>
+                    </div>
+                  </article>))}
+              </HorizontalRail>
+            </section>
+
+            <section className="artist-section">
+              <div className="artist-section-title">
+                <h3>Producer Store Pages</h3>
+                <span>{marketplaceProducerStores.length} stores</span>
+              </div>
+              <HorizontalRail className="artist-grid" label="Producer Store Pages">
+                {marketplaceProducerStores.map((producer) => (<article className="artist-card" key={`market-producer-${producer.id}`}>
+                    <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
+                      <img src={getArtworkUrl(producer.avatar)} alt=""/>
+                      <span>
+                        <strong>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</strong>
+                        <small>{producer.tagline || producer.bio}</small>
+                      </span>
+                    </button>
+                    <div className="artist-card-actions">
+                      <button className="play-btn" onClick={() => openProducerProfile(producer.id)} type="button">
+                        <UserCircle size={16}/>
+                        Store
+                      </button>
+                    </div>
+                  </article>))}
+              </HorizontalRail>
+            </section>
+
+            <section className="artist-section">
+              <div className="artist-section-title">
+                <h3>Top Producers</h3>
+                <span>{adminTopProducers.length} producers</span>
+              </div>
+              <HorizontalRail className="artist-grid" label="Top Producers">
+                {adminTopProducers.map((producer) => (<article className="artist-card" key={`market-top-producer-${producer.id}`}>
+                    <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
+                      <img src={getArtworkUrl(producer.avatar)} alt=""/>
+                      <span>
+                        <strong>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</strong>
+                        <small>{formatCount(producer.followers)} followers | {formatCurrencyFromCents(producer.revenueCents || 0)} tracked</small>
+                      </span>
+                    </button>
+                    <div className="artist-card-actions">
+                      <button className="play-btn" onClick={() => openProducerProfile(producer.id)} type="button">
+                        <UserCircle size={16}/>
+                        Store
+                      </button>
+                    </div>
+                  </article>))}
+              </HorizontalRail>
+            </section>
+
+            <section className="artist-section">
+              <div className="artist-section-title">
+                <h3>Trending Artists</h3>
+                <span>{trendingArtists.length} artists</span>
+              </div>
+              <HorizontalRail className="artist-grid" label="Marketplace Trending Artists">
+                {trendingArtists.map((artist) => (<article className="artist-card" key={`market-trending-${artist.id}`}>
+                    <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
+                      <img src={getArtworkUrl(artist.avatar)} alt=""/>
+                      <span>
+                        <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
+                        <small>{formatCount(artist.totalPlays)} plays | {formatCount(artist.followers)} followers</small>
+                      </span>
+                    </button>
+                    <div className="artist-card-actions">
+                      <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
+                        <UserCircle size={16}/>
+                        Store
+                      </button>
+                    </div>
+                  </article>))}
+              </HorizontalRail>
+            </section>
+          </section>) : view === "Videos" ? (<section className="video-page">
+            <form className="video-upload-card" onSubmit={addUploadedVideo}>
+              <div className="upload-brand">
+                <img src={BRAND_LOGO} alt="Music Data Base"/>
+                <div>
+                  <h3>Upload Video</h3>
+                  <span>{BRAND_TAGLINE}</span>
+                </div>
+              </div>
+
+              <div className="video-form-grid">
+                <input name="videoTitle" value={videoForm.title} onChange={(event) => setVideoForm({ ...videoForm, title: event.target.value })} placeholder="Video title"/>
+
+                <input name="videoCreator" value={videoForm.creator} onChange={(event) => setVideoForm({ ...videoForm, creator: event.target.value })} placeholder="Creator name"/>
+
+                <select name="videoCategory" value={videoForm.category} onChange={(event) => setVideoForm({ ...videoForm, category: event.target.value })}>
+                  <option>Music Video</option>
+                  <option>Live Performance</option>
+                  <option>Behind The Scenes</option>
+                  <option>Interview</option>
+                  <option>Visualizer</option>
+                  <option>Other</option>
+                </select>
+
+                <input name="videoCover" value={videoForm.cover} onChange={(event) => setVideoForm({ ...videoForm, cover: event.target.value })} placeholder="Cover image URL"/>
+
+                <label className="producer-select-field">
+                  <span>Producer credit</span>
+                  <select name="videoProducer" value={videoForm.producerId} onChange={(event) => setVideoForm({ ...videoForm, producerId: event.target.value })}>
+                    <option value="">No producer assigned.</option>
+                    {producerProfiles.map((profile) => (<option key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </option>))}
+                  </select>
+                </label>
+
+                <label className="audio-file-field wide">
+                  <span>Video file</span>
+                  <input name="videoFile" type="file" accept="video/*" onChange={(event) => {
+                const file = event.target.files?.[0] || null;
+                setVideoFile(file);
+                setVideoUploadError(getVideoFileError(file));
+                setVideoUploadProgress(0);
+                setVideoUploadStatus("");
+            }}/>
+                  <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : "Video file"}</small>
+                </label>
+              </div>
+
+              {(videoUploadBusy || videoUploadProgress > 0) && (<div className="upload-progress" aria-live="polite">
+                  <div>
+                    <span>{videoUploadStatus || "Video upload ready"}</span>
+                    <strong>{videoUploadProgress}%</strong>
+                  </div>
+                  <progress max="100" value={videoUploadProgress}/>
+                </div>)}
+
+              {videoUploadError && (<div className="upload-error">
+                  <p>{videoUploadError}</p>
+                  <div className="upload-fix">
+                    <button type="button" onClick={retryVideoUpload} disabled={videoUploadBusy}>
+                      Retry upload
+                    </button>
+                  </div>
+                </div>)}
+
+              <button className="save-upload" type="submit" disabled={videoUploadBusy}>
+                {videoUploadBusy ? "Uploading..." : "Save Video"}
+              </button>
+            </form>
+
+            <section className="video-library-heading">
+              <div>
+                <h3>Video Library</h3>
+                <p className="video-library-stats" aria-label="Video Library statistics">
+                  <span>{formatCount(videoLibraryStats.totalVideos)} Videos</span>
+                  <span>{formatCount(videoLibraryStats.totalViews)} Views</span>
+                  <span>{formatCount(videoLibraryStats.totalLikes)} Likes</span>
+                </p>
+              </div>
+            </section>
+
+            {videoLibraryError && (<div className="upload-error">
+                <p>{videoLibraryError}</p>
+              </div>)}
+
+            {visibleVideos.length === 0 ? (<div className="empty-state">
+                <h2>No videos found</h2>
+                <p>Upload a video here and it will appear in Video Library.</p>
+              </div>) : (<HorizontalRail className="video-grid" label="Video Library">
+                {visibleVideos.map((video) => renderVideoCard(video, { showRemove: true, sourceLabel: "Video Library" }))}
+              </HorizontalRail>)}
+          </section>) : view === "Artists" && !search.trim() ? (<section className="artist-directory">
+            {mergedArtistProfiles.length === 0 ? (<div className="empty-state">
+                <h2>No artist profiles yet</h2>
+                <p>Upload songs or videos and artist profiles will appear here.</p>
+              </div>) : (<HorizontalRail className="artist-grid" label="Artists">
+                {mergedArtistProfiles.map((artist) => {
+                    const artistSongs = audioSongs.filter((song) => createArtistId(song.artist) === artist.id);
+                    const artistVideos = uniqueVideos(videos).filter((video) => createArtistId(video.creator) === artist.id);
+                    const isFollowing = followedArtistIds.includes(artist.id);
+                    return (<article className="artist-card" key={artist.id}>
+                      <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
+                        <img src={getArtworkUrl(artist.avatar)} alt=""/>
+                        <span>
+                          <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
+                          <small>{artist.bio}</small>
+                        </span>
+                      </button>
+
+                      <div className="artist-card-stats">
+                        <span>{artistSongs.length} songs</span>
+                        <span>{artistVideos.length} videos</span>
+                        <span>{formatCount(artist.followers)} followers</span>
+                      </div>
+
+                      <div className="artist-card-actions">
+                        <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
+                          <UserCircle size={16}/>
+                          Profile
+                        </button>
+                        <button className={isFollowing ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
+                          <UserPlus size={16}/>
+                          {isFollowing ? "Following" : "Follow"}
+                        </button>
+                      </div>
+                    </article>);
+                })}
+              </HorizontalRail>)}
+          </section>) : view === "Profile" && !search.trim() ? (<section className="profile-page">
+            <div className="profile-hero">
+              <div className="profile-avatar">
+                {(user.user_metadata?.displayName || user.email || "Z").slice(0, 1).toUpperCase()}
+              </div>
+
+              <div>
+                <span className="playlist-kicker">User Profile</span>
+                <h2>{user.user_metadata?.displayName || user.email?.split("@")[0] || "Z Music User"}</h2>
+                <p>{user.email}</p>
+
+                <div className="profile-actions">
+                  <button onClick={logout} type="button">
+                    <LogOut size={16}/>
+                    Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="profile-grid">
+              <div>
+                <strong>{librarySongs.length}</strong>
+                <span>Library songs</span>
+              </div>
+              <div>
+                <strong>{likedSongs.length}</strong>
+                <span>Liked songs</span>
+              </div>
+              <div>
+                <strong>{playlists.length}</strong>
+                <span>Playlists</span>
+              </div>
+              <div>
+                <strong>{recentlyPlayed.length}</strong>
+                <span>Recent plays</span>
+              </div>
+            </div>
+
+            <div className="profile-save">
+              <h3>Account Sync</h3>
+              <p>Your music stays saved locally. Account updates only run when you edit your profile or sign in.</p>
+            </div>
+
+            <div className="profile-save">
+              <h3>Account Type</h3>
+              <p>Choose how you want Music Data Base to organize your creator tools.</p>
+              <div className="role-switcher">
+                {(["Listener", "Artist", "Producer"] as AccountRole[]).map((role) => (<button className={accountRole === role ? "active" : ""} key={role} onClick={() => saveAccountRole(role)} type="button">
+                    {role}
+                  </button>))}
+              </div>
+            </div>
+
+            <div className="profile-save">
+              <h3>Verification Admin</h3>
+              <p>Verification badges are controlled separately from follows, likes, uploads, and playlists.</p>
+              <div className="verification-admin-grid">
+                <div>
+                  <strong>Verified Artists</strong>
+                  {mergedArtistProfiles.slice(0, 6).map((artist) => (<button className={isArtistVerified(artist.id) ? "active" : ""} key={artist.id} onClick={() => toggleVerification("artist", artist.id)} type="button">
+                      {renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}
+                      {artist.name}
+                    </button>))}
+                </div>
+                <div>
+                  <strong>Verified Producers</strong>
+                  {producerProfiles.slice(0, 6).map((producer) => (<button className={isProducerVerified(producer.id) ? "active" : ""} key={producer.id} onClick={() => toggleVerification("producer", producer.id)} type="button">
+                      {renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}
+                      {producer.name}
+                    </button>))}
+                  {producerProfiles.length === 0 && <span>No producer profiles yet.</span>}
+                </div>
+              </div>
+            </div>
+          </section>) : view === "Platform Stability" && !search.trim() ? (<section className="dashboard-page stability-page">
+            <div className="dashboard-brand stability-brand">
+              <img src={BRAND_LOGO} alt="Music Data Base"/>
+              <div>
+                <span>{BRAND_TAGLINE}</span>
+                <h2>Platform Stability</h2>
+                <small>Last scan: {stabilityGeneratedAt}</small>
+              </div>
+              <div className="stability-actions">
+                <button onClick={() => void refreshLaunchReadiness()} type="button" disabled={stabilityLoading || launchStatusLoading || launchChecklistLoading}>
+                  <RotateCcw size={15}/>
+                  {stabilityLoading || launchStatusLoading || launchChecklistLoading ? "Scanning..." : "Refresh"}
+                </button>
+                <button onClick={exportDatabaseBackup} type="button" disabled={backupBusy}>
+                  <Copy size={15}/>
+                  {backupBusy ? "Exporting..." : "Export Backup"}
+                </button>
+                <button onClick={previewStorageCleanup} type="button" disabled={stabilityLoading}>
+                  <Search size={15}/>
+                  {stabilityLoading ? "Previewing..." : "Preview Cleanup"}
+                </button>
+                <button onClick={deleteSelectedStorageFiles} type="button" disabled={cleanupBusy || selectedCleanupFileObjects.length === 0}>
+                  <Trash2 size={15}/>
+                  {cleanupBusy ? "Deleting..." : "Confirm Delete Selected"}
+                </button>
+              </div>
+            </div>
+
+            {stabilityError && (<div className="upload-error">
+                <p>{stabilityError}</p>
+              </div>)}
+
+            <section className="stability-panel phase8-launch-panel">
+              <div className="panel-title-row">
+                <h3>Production Launch Readiness</h3>
+                <span>{launchStatusSummary}</span>
+              </div>
+              <div className={launchStatus?.ok ? "launch-readiness-card ready" : "launch-readiness-card"}>
+                <div>
+                  <strong>{launchStatus?.ok ? "Ready for final launch review" : "Phase 8 launch prep active"}</strong>
+                  <span>Last launch scan: {launchStatusLastChecked}</span>
+                </div>
+                <button onClick={loadLaunchStatus} type="button" disabled={launchStatusLoading}>
+                  <RotateCcw size={15}/>
+                  {launchStatusLoading ? "Checking..." : "Check Launch Status"}
+                </button>
+              </div>
+              {launchStatusError && (<div className="upload-error">
+                  <p>{launchStatusError}</p>
+                </div>)}
+              <div className="phase8-readiness-grid">
+                <article className={launchProductionChecks.length > 0 && launchReadyProductionChecks === launchProductionChecks.length ? "phase8-card ready" : "phase8-card"}>
+                  <span>Production Environment</span>
+                  <strong>{launchReadyProductionChecks}/{Math.max(launchProductionChecks.length, 1)} ready</strong>
+                  <small>{launchStatus?.env.siteUrl || "Site URL not scanned"}</small>
+                  {launchProductionChecks.filter((item) => !item.ok).slice(0, 2).map((item) => (<small className="phase8-warning" key={item.name}>{item.message}</small>))}
+                </article>
+                <article className={launchTableChecks.length > 0 && launchReadyTables === launchTableChecks.length ? "phase8-card ready" : "phase8-card"}>
+                  <span>Database Integrity</span>
+                  <strong>{launchReadyTables}/{Math.max(launchTableChecks.length, 1)} tables ready</strong>
+                  <small>Core media, marketplace, trust, support, and revenue tables.</small>
+                  {launchTableChecks.filter((item) => !item.ok).slice(0, 3).map((item) => (<small className="phase8-warning" key={item.name}>{item.name}: {item.message}</small>))}
+                </article>
+                <article className={launchStorageChecks.length > 0 && launchReadyBuckets === launchStorageChecks.length ? "phase8-card ready" : "phase8-card"}>
+                  <span>Storage Buckets</span>
+                  <strong>{launchReadyBuckets}/{Math.max(launchStorageChecks.length, 1)} ready</strong>
+                  <small>Playback, artwork, licenses, downloads, and cleanup buckets.</small>
+                  {launchStorageChecks.filter((item) => !item.ok).slice(0, 3).map((item) => (<small className="phase8-warning" key={item.name}>{item.name}: {item.message}</small>))}
+                </article>
+                <article className={launchPublicRouteChecks.length > 0 && launchReadyPublicRoutes === launchPublicRouteChecks.length ? "phase8-card ready" : "phase8-card"}>
+                  <span>Public Pages + SEO</span>
+                  <strong>{launchReadyPublicRoutes}/{Math.max(launchPublicRouteChecks.length, 1)} ready</strong>
+                  <small>Artist, producer, Open Graph, and Twitter preview metadata.</small>
+                  {launchPublicRouteChecks.slice(0, 3).map((item) => (<small key={item.name}>{item.path}: {item.message}</small>))}
+                </article>
+                <article className={launchTableChecks.some((item) => item.name === "backup_exports" && item.ok) ? "phase8-card ready" : "phase8-card"}>
+                  <span>Backup + Recovery</span>
+                  <strong>{launchTableChecks.some((item) => item.name === "backup_exports" && item.ok) ? "Ready" : "Needs setup"}</strong>
+                  <small>Database export route and backup_exports log table.</small>
+                  <button onClick={exportDatabaseBackup} type="button" disabled={backupBusy}>
+                    <Copy size={14}/>
+                    {backupBusy ? "Exporting..." : "Export Backup"}
+                  </button>
+                </article>
+                <article className={launchStatus?.checklist.ok ? "phase8-card ready" : "phase8-card"}>
+                  <span>Final Checklist</span>
+                  <strong>{launchStatusChecklistPassed}/{Math.max(launchStatusChecklistItems.length, 1)} passed</strong>
+                  <small>{launchStatus?.checklist.message || "Checklist not scanned yet."}</small>
+                </article>
+              </div>
+            </section>
+
+            <section className="stability-panel launch-checklist-panel">
+              <div className="panel-title-row">
+                <h3>Launch Checklist</h3>
+                <span>{launchChecklistSummary}{launchChecklistBlocked > 0 ? ` | ${launchChecklistBlocked} blocked` : ""}</span>
+              </div>
+              <div className={launchChecklistReady ? "launch-readiness-card ready" : "launch-readiness-card"}>
+                <div>
+                  <strong>{launchChecklistReady ? "Ready for launch review" : "Launch review in progress"}</strong>
+                  <span>{launchChecklistSetupRequired ? "Run the Phase 6 SQL to save checklist updates." : "Use the buttons below to mark each launch area."}</span>
+                </div>
+                <button onClick={loadLaunchChecklist} type="button" disabled={launchChecklistLoading}>
+                  <RotateCcw size={15}/>
+                  {launchChecklistLoading ? "Loading..." : "Refresh Checklist"}
+                </button>
+              </div>
+              {launchChecklistError && (<div className="upload-error">
+                  <p>{launchChecklistError}</p>
+                </div>)}
+              {launchChecklist.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No checklist loaded</h3>
+                  <p>Refresh the checklist after running the Phase 6 launch-readiness SQL.</p>
+                </div>) : (<div className="launch-checklist-list">
+                  {launchChecklist.map((item) => {
+                    const updating = launchChecklistUpdatingArea === item.area;
+                    return (<article className={`launch-checklist-row status-${item.status}`} key={item.area}>
+                      <div>
+                        <span>{item.status.replace("_", " ")}</span>
+                        <strong>{item.area}</strong>
+                        <small>{item.details}</small>
+                        {item.checked_at && <small>Checked {formatVideoCreatedAt(item.checked_at)}</small>}
+                      </div>
+                      <div className="launch-checklist-actions">
+                        <button onClick={() => updateLaunchChecklistStatus(item.area, "in_progress")} type="button" disabled={updating || item.status === "in_progress"}>
+                          <Clock3 size={14}/>
+                          In Progress
+                        </button>
+                        <button onClick={() => updateLaunchChecklistStatus(item.area, "passed")} type="button" disabled={updating || item.status === "passed"}>
+                          <Check size={14}/>
+                          Passed
+                        </button>
+                        <button onClick={() => updateLaunchChecklistStatus(item.area, "blocked")} type="button" disabled={updating || item.status === "blocked"}>
+                          <X size={14}/>
+                          Blocked
+                        </button>
+                      </div>
+                    </article>);
+                })}
+                </div>)}
+            </section>
+
+            <div className="stability-grid">
+              <div>
+                <strong>{failedUploadErrors.length}</strong>
+                <span>Failed uploads</span>
+              </div>
+              <div>
+                <strong>{failedActionErrors.length}</strong>
+                <span>Failed actions</span>
+              </div>
+              <div>
+                <strong>{brokenMediaIssues.length}</strong>
+                <span>Broken media URLs</span>
+              </div>
+              <div>
+                <strong>{missingAlbumItemIssues.length}</strong>
+                <span>Missing album items</span>
+              </div>
+              <div>
+                <strong>{possibleDuplicateFiles.length}</strong>
+                <span>Possible duplicate files</span>
+              </div>
+              <div>
+                <strong>{alreadyLinkedStorageFiles.length}</strong>
+                <span>Already linked</span>
+              </div>
+            </div>
+
+            <section className="stability-panel">
+              <div className="panel-title-row">
+                <h3>Error Reporting Dashboard</h3>
+                <span>{platformErrors.length} open reports</span>
+              </div>
+              {platformErrors.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No reported errors</h3>
+                  <p>Failed uploads, saves, likes, playlist actions, follows, media URLs, and backups will appear here.</p>
+                </div>) : (<div className="stability-list">
+                  {platformErrors.slice(0, 10).map((error) => (<article key={error.id}>
+                      <span>{error.category} / {error.action}</span>
+                      <strong>{error.message}</strong>
+                      <small>{formatVideoCreatedAt(error.created_at)}</small>
+                    </article>))}
+                </div>)}
+            </section>
+
+            {renderTrustModerationPanel()}
+            {renderSupportOperationsPanel()}
+
+            <section className="stability-panel">
+              <div className="panel-title-row">
+                <h3>Upload Recovery</h3>
+                <span>{uploadRecoveryStatus}</span>
+              </div>
+              <div className="recovery-grid">
+                <div>
+                  <strong>Duplicate Uploads</strong>
+                  <span>Blocked while the same file is already uploading.</span>
+                </div>
+                <div>
+                  <strong>Upload Progress</strong>
+                  <span>Song, video, beat, and album uploads show progress.</span>
+                </div>
+                <div>
+                  <strong>Retry Failed Uploads</strong>
+                  <span>Upload error panels include a retry action.</span>
+                </div>
+                <div>
+                  <strong>Session During Uploads</strong>
+                  <span>Temporary auth refresh gaps do not sign out active uploads.</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="stability-panel">
+              <div className="panel-title-row">
+                <h3>Broken Media URLs</h3>
+                <span>{brokenMediaIssues.length} found</span>
+              </div>
+              {brokenMediaIssues.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No broken media found</h3>
+                  <p>Songs and videos currently point to storage files the scan can find.</p>
+                </div>) : (<div className="stability-list">
+                  {brokenMediaIssues.slice(0, 10).map((issue) => (<article key={`${issue.itemType}-${issue.id}-${issue.reason}`}>
+                      <span>{issue.itemType} / {issue.bucket}</span>
+                      <strong>{issue.title}</strong>
+                      <small>{issue.reason}{issue.storagePath ? `: ${issue.storagePath}` : ""}</small>
+                    </article>))}
+                </div>)}
+            </section>
+
+            <section className="stability-panel">
+              <div className="panel-title-row">
+                <h3>Album Item Check</h3>
+                <span>{missingAlbumItemIssues.length} found</span>
+              </div>
+              {missingAlbumItemIssues.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No missing album items</h3>
+                  <p>Album links currently match existing songs, videos, and albums.</p>
+                </div>) : (<div className="stability-list">
+                  {missingAlbumItemIssues.slice(0, 10).map((issue) => (<article key={`${issue.albumId}-${issue.itemId}-${issue.itemType}-${issue.reason}`}>
+                      <span>{issue.itemType}</span>
+                      <strong>{issue.albumTitle}</strong>
+                      <small>{issue.reason}{issue.itemId ? `: ${issue.itemId}` : ""}</small>
+                    </article>))}
+                </div>)}
+            </section>
+
+            <section className="stability-panel">
+              <div className="panel-title-row">
+                <h3>Storage Cleanup</h3>
+                <span>{possibleDuplicateFiles.length} possible duplicates | {alreadyLinkedStorageFiles.length} already linked</span>
+              </div>
+              <div className="cleanup-warning">
+                <strong>Deleting storage files is permanent.</strong>
+                <span>Preview first, then choose exactly which possible duplicate files to delete. Already linked files are protected.</span>
+              </div>
+              {!cleanupPreviewReady ? (<div className="dashboard-empty-card">
+                  <h3>Preview cleanup first</h3>
+                  <p>Run Preview Cleanup to compare storage files by file name, storage path, size, and matching song, video, or album URLs.</p>
+                </div>) : orphanStorageFiles.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No cleanup candidates found</h3>
+                  <p>The scan did not find storage files to review.</p>
+                </div>) : (<div className="cleanup-review-list">
+                  {orphanStorageFiles.map((file) => {
+                    const isProtected = !file.deletable || file.status === "Already linked";
+                    const isSelected = isCleanupFileSelected(file);
+                    return (<article className={isProtected ? "cleanup-file-row protected" : "cleanup-file-row"} key={`${file.bucket}-${file.path}`}>
+                      <label>
+                        <input checked={isSelected} disabled={isProtected} onChange={() => toggleCleanupFile(file)} type="checkbox"/>
+                        <span>{file.status}</span>
+                      </label>
+                      <div>
+                        <strong>{file.fileName || file.path}</strong>
+                        <small>{file.bucket} / {file.path}</small>
+                        <small>{formatFileSize(file.size)} | {file.reason}</small>
+                        {file.linkedSources.length > 0 && <small>Linked: {file.linkedSources.join(", ")}</small>}
+                        {file.matchedItems.length > 0 && <small>Matches: {file.matchedItems.slice(0, 3).map((item) => item.title).join(", ")}</small>}
+                      </div>
+                    </article>);
+                })}
+                </div>)}
+              {cleanupPreviewReady && selectedCleanupFileObjects.length > 0 && (<div className="cleanup-confirm-row">
+                  <span>{selectedCleanupFileObjects.length} selected for permanent deletion</span>
+                  <button onClick={deleteSelectedStorageFiles} type="button" disabled={cleanupBusy}>
+                    <Trash2 size={15}/>
+                    {cleanupBusy ? "Deleting..." : "Confirm Delete Selected"}
+                  </button>
+                </div>)}
+              {cleanupDeleteLog.length > 0 && (<div className="cleanup-log">
+                  <strong>Deleted file backup log</strong>
+                  {cleanupDeleteLog.slice(0, 8).map((entry) => (<small key={`${entry.deletedAt}-${entry.bucket}-${entry.path}`}>
+                      {formatVideoCreatedAt(entry.deletedAt)} | {entry.bucket}/{entry.path}
+                    </small>))}
+                </div>)}
+            </section>
+
+            {renderSubscriptionManagement()}
+            {renderAdminRevenueDashboard()}
+            {renderPremiumContentFoundation(premiumContentItems)}
+            {renderPayoutAdminReview()}
+          </section>) : view === "Producer Dashboard" && !search.trim() ? (<section className="dashboard-page producer-dashboard">
+            <div className="dashboard-brand">
+              <img src={BRAND_LOGO} alt="Music Data Base"/>
+              <div>
+                <span>{BRAND_TAGLINE}</span>
+                <h2>Producer Dashboard</h2>
+              </div>
+            </div>
+
+            <div className="dashboard-grid">
+              <div>
+                <strong>{producerStats.beats}</strong>
+                <span>Total Beats</span>
+              </div>
+              <div>
+                <strong>{producerStats.albums}</strong>
+                <span>Albums</span>
+              </div>
+              <div>
+                <strong>{formatCount(producerStats.plays)}</strong>
+                <span>Total Plays</span>
+              </div>
+              <div>
+                <strong>{formatCount(producerStats.views)}</strong>
+                <span>Total Views</span>
+              </div>
+              <div>
+                <strong>{formatCount(producerStats.likes)}</strong>
+                <span>Total Likes</span>
+              </div>
+              <div>
+                <strong>{formatCount(producerStats.downloads)}</strong>
+                <span>Downloads</span>
+              </div>
+              <div>
+                <strong>{formatCount(producerStats.leases)}</strong>
+                <span>Leases</span>
+              </div>
+              <div>
+                <strong>${producerStats.payouts.toFixed(0)}</strong>
+                <span>Payouts</span>
+              </div>
+              <div>
+                <strong>{formatCount(producerStats.followers)}</strong>
+                <span>Followers</span>
+              </div>
+              <div>
+                <strong>{formatCount(currentProducerProfile.following)}</strong>
+                <span>Following</span>
+              </div>
+            </div>
+
+            <section className="analytics-panel">
+              <div className="artist-section-title">
+                <h3>Producer Analytics</h3>
+                <span>Beat plays, revenue, downloads, followers</span>
+              </div>
+              <div className="analytics-bars">
+                {[
+            { label: "Beat plays", value: producerStats.plays },
+            { label: "Revenue", value: producerStats.payouts },
+            { label: "Downloads", value: producerStats.downloads },
+            { label: "Followers", value: producerStats.followers },
+        ].map((metric) => (<div key={metric.label}>
+                    <span>{metric.label}</span>
+                    <strong>{metric.label === "Revenue" ? `$${metric.value.toFixed(0)}` : formatCount(metric.value)}</strong>
+                    <i style={{ width: `${Math.min(100, Math.max(8, metric.value / Math.max(1, producerStats.plays, producerStats.payouts, producerStats.downloads, producerStats.followers) * 100))}%` }}/>
+                  </div>))}
+              </div>
+            </section>
+
+            {renderCreatorGrowthPanel(producerGrowthSummary)}
+            {renderStorefrontCustomizationPanel({
+                creatorType: "producer",
+                name: currentProducerProfile.name,
+                banner: currentProducerProfile.banner,
+                avatar: currentProducerProfile.avatar,
+                bio: currentProducerProfile.bio || currentProducerProfile.tagline,
+                itemCount: producerStorefrontItems.length,
+                bundleCount: marketplaceBundles.filter((bundle) => bundle.bundleType === "producer" && createArtistId(bundle.creatorName) === createArtistId(currentProducerProfile.name)).length,
+                onOpen: () => currentProducerProfile.id && openProducerProfile(currentProducerProfile.id),
+            })}
+            {renderSubscriptionPlanSetup("producer")}
+            {renderCreatorEarningsDashboard("producer", producerRevenueCents, producerPendingPayoutCents, producerTransactions, "producer items", producerDashboardBeats.length + songsUsingProducerBeats.length + videosUsingProducerBeats.length + producerDashboardAlbums.length)}
+            {renderMonthlyStatements(producerMonthlyStatements, "Producer Monthly Statements")}
+            {renderPayoutDashboard("producer", producerRevenueCents, producerPendingPayoutCents, producerTransactions)}
+            {renderPayoutCenter("producer", producerRevenueCents, producerPendingPayoutCents)}
+            {renderRevenueSplitTracking(producerRevenueSplits, "Producer catalog")}
+            {renderArtistStorefront(producerStorefrontItems, "Producer Storefront")}
+            {renderPremiumContentFoundation(premiumContentItems.filter((item) => item.creatorType === "producer" || item.creatorType === "platform"))}
+            {renderPurchaseDownloadFoundation(producerDashboardBeats.map((beat) => ({
+                id: beat.id,
+                title: beat.title,
+                itemType: "beat" as const,
+                creatorType: "producer" as const,
+                creatorName: beat.producerName,
+                amountCents: Math.max(0, Math.round((beat.license === "Exclusive" ? beat.exclusivePrice : beat.leasePrice) * 100)),
+            })), "Beat Download / Purchase Foundation")}
+            {renderTransactionHistory(producerTransactions, "Producer Transaction History")}
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Producer Profile</h3>
+                <span>Public profile and account type</span>
+              </div>
+
+              <form className="dashboard-form" onSubmit={saveProducerProfile}>
+                <input name="producerProfileName" value={producerProfileForm.name || currentProducerProfile.name} onChange={(event) => setProducerProfileForm({ ...producerProfileForm, name: event.target.value })} placeholder="Producer name"/>
+                <input name="producerProfileTagline" value={producerProfileForm.tagline || currentProducerProfile.tagline} onChange={(event) => setProducerProfileForm({ ...producerProfileForm, tagline: event.target.value })} placeholder="Tagline"/>
+                <input name="producerProfileAvatar" value={producerProfileForm.avatar || currentProducerProfile.avatar} onChange={(event) => setProducerProfileForm({ ...producerProfileForm, avatar: event.target.value })} placeholder="Avatar URL"/>
+                <input name="producerProfileBanner" value={producerProfileForm.banner || currentProducerProfile.banner} onChange={(event) => setProducerProfileForm({ ...producerProfileForm, banner: event.target.value })} placeholder="Banner URL"/>
+                <input name="producerProfileWebsite" value={producerProfileForm.website || currentProducerProfile.website} onChange={(event) => setProducerProfileForm({ ...producerProfileForm, website: event.target.value })} placeholder="Website"/>
+                <textarea className="wide" name="producerProfileBio" value={producerProfileForm.bio || currentProducerProfile.bio} onChange={(event) => setProducerProfileForm({ ...producerProfileForm, bio: event.target.value })} placeholder="Producer bio"/>
+                <div className="dashboard-form-actions wide">
+                  <button type="submit">Save Producer</button>
+                  <button onClick={() => saveAccountRole("Producer")} type="button">
+                    Set Producer Role
+                  </button>
+                  <button onClick={() => currentProducerProfile.id && openProducerProfile(currentProducerProfile.id)} disabled={!currentProducerProfile.id} type="button">
+                    View Profile
+                  </button>
+                  <button onClick={() => requestVerificationReview("producer", currentProducerProfile.id || createArtistId(producerProfileForm.name || currentProducerProfile.name), producerProfileForm.name || currentProducerProfile.name)} type="button">
+                    Request Verification
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Beat Licensing</h3>
+                <span>Default settings for new beat uploads</span>
+              </div>
+
+              <div className="license-grid">
+                <label>
+                  <span>License</span>
+                  <select value={producerLicense} onChange={(event) => setProducerLicense(event.target.value as BeatLicense)}>
+                    <option>Free</option>
+                    <option>Lease</option>
+                    <option>Exclusive</option>
+                    <option>Split percentage</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Lease price</span>
+                  <input type="number" min="0" value={producerLeasePrice} onChange={(event) => setProducerLeasePrice(Number(event.target.value))}/>
+                </label>
+                <label>
+                  <span>Exclusive price</span>
+                  <input type="number" min="0" value={producerExclusivePrice} onChange={(event) => setProducerExclusivePrice(Number(event.target.value))}/>
+                </label>
+                <label>
+                  <span>Split percentage</span>
+                  <input type="number" min="0" max={100 - PLATFORM_REVENUE_SHARE} value={producerSplitPercentage} onChange={(event) => setProducerSplitPercentage(clampProducerSplitShare(event.target.value))}/>
+                </label>
+              </div>
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Albums</h3>
+                <span>{producerDashboardAlbums.length} albums</span>
+              </div>
+
+              {producerDashboardAlbums.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No producer albums yet</h3>
+                  <p>Use Upload Album in Producer Dashboard to save a full project with songs and optional videos.</p>
+                </div>) : (<HorizontalRail className="artist-album-grid" label="Producer Dashboard Albums">
+                  {producerDashboardAlbums.map((album) => renderAlbumCard(album, "Producer Dashboard Albums"))}
+                </HorizontalRail>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Manage Beats</h3>
+                <span>{sortedProducerDashboardBeats.length} beats</span>
+              </div>
+
+              <div className="dashboard-filter-row">
+                <input aria-label="Search producer beats" value={producerDashboardSearch} onChange={(event) => setProducerDashboardSearch(event.target.value)} placeholder="Search beats by title or license"/>
+                <select aria-label="Sort producer beats" value={producerDashboardSort} onChange={(event) => setProducerDashboardSort(event.target.value as DashboardSort)}>
+                  {(["Newest", "Oldest", "Most Plays", "Most Likes", "Title"] as DashboardSort[]).map((sortMode) => (<option key={sortMode} value={sortMode}>
+                      {sortMode}
+                    </option>))}
+                </select>
+              </div>
+
+              {sortedProducerDashboardBeats.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No beats uploaded yet</h3>
+                  <p>Open Upload while in Producer Dashboard to save beats with licensing and payout tracking.</p>
+                </div>) : (<div className="dashboard-song-list">
+                  {sortedProducerDashboardBeats.map((beat) => (<article className="dashboard-song-row producer-beat-row" key={beat.id}>
+                      <img src={beat.cover} alt=""/>
+                      <div className="dashboard-song-copy">
+                        <strong>{beat.title}</strong>
+                        <small>
+                          <button className="inline-profile-link" onClick={() => beat.producerId && openProducerProfile(beat.producerId)} type="button">
+                            {beat.producerName}
+                          </button>
+                        </small>
+                        <span>
+                          {beat.category} | {beat.license} | Lease ${beat.leasePrice} | Exclusive ${beat.exclusivePrice} | Split {beat.splitPercentage}%
+                        </span>
+                        <span>
+                          {formatCount(beat.plays)} plays | {formatCount(beat.likes)} likes | {formatCount(beat.downloads)} downloads |{" "}
+                          {formatCount(beat.leases)} leases | ${beat.payouts.toFixed(0)} payouts
+                        </span>
+                      </div>
+                      <div className="dashboard-song-actions">
+                        <button onClick={() => playProducerBeat(beat)} type="button">
+                          <Play size={15} fill="currentColor"/>
+                          Play
+                        </button>
+                        <button onClick={() => updateProducerBeat(beat, { likes: beat.likes + 1 })} type="button">
+                          <Heart size={15}/>
+                          Like
+                        </button>
+                        <button onClick={() => {
+                        updateProducerBeat(beat, { downloads: beat.downloads + 1 });
+                        recordDownloadFoundation({
+                            id: beat.id,
+                            title: beat.title,
+                            itemType: "beat",
+                            creatorType: "producer",
+                            creatorName: beat.producerName,
+                        });
+                    }} type="button">
+                          <Upload size={15}/>
+                          Download
+                        </button>
+                        <button onClick={() => {
+                        createBeatLicense(beat, beat.license === "Exclusive" ? "Exclusive" : "Basic");
+                    }} type="button">
+                          <Disc3 size={15}/>
+                          License
+                        </button>
+                      </div>
+                    </article>))}
+                </div>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Songs Using Producer Beats</h3>
+                <span>{producerStats.songsUsingBeats} songs</span>
+              </div>
+
+              {songsUsingProducerBeats.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No song credits yet</h3>
+                  <p>Songs connected to your producer beats will appear here.</p>
+                </div>) : (<div className="dashboard-song-list">{songsUsingProducerBeats.map((song) => renderDashboardSongRow(song))}</div>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Videos Using Producer Beats</h3>
+                <span>{producerStats.videosUsingBeats} videos</span>
+              </div>
+
+              {videosUsingProducerBeats.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No video credits yet</h3>
+                  <p>Music videos connected to your producer beats will appear here.</p>
+                </div>) : (<div className="dashboard-song-list">{videosUsingProducerBeats.map((video) => renderDashboardVideoRow(video, "Videos Using Producer Beats"))}</div>)}
+            </section>
+          </section>) : view === "Artist Dashboard" && !search.trim() ? (<section className="dashboard-page">
+            <div className="dashboard-brand">
+              <img src={BRAND_LOGO} alt="Music Data Base"/>
+              <div>
+                <span>{BRAND_TAGLINE}</span>
+                <h2>Artist Dashboard</h2>
+              </div>
+            </div>
+
+            <div className="dashboard-grid">
+              <div>
+                <strong>{dashboardAnalytics.songs}</strong>
+                <span>Total Songs</span>
+              </div>
+              <div>
+                <strong>{dashboardAnalytics.videos}</strong>
+                <span>Total Videos</span>
+              </div>
+              <div>
+                <strong>{dashboardAnalytics.albums}</strong>
+                <span>Albums</span>
+              </div>
+              <div>
+                <strong>{formatCount(dashboardAnalytics.musicPlays)}</strong>
+                <span>Total Music Plays</span>
+              </div>
+              <div>
+                <strong>{formatCount(dashboardAnalytics.videoViews)}</strong>
+                <span>Total Video Views</span>
+              </div>
+              <div>
+                <strong>{formatCount(dashboardAnalytics.likes)}</strong>
+                <span>Total Likes</span>
+              </div>
+              <div>
+                <strong>{formatCount(dashboardAnalytics.followers)}</strong>
+                <span>Followers</span>
+              </div>
+              <div>
+                <strong>{formatCount(dashboardAnalytics.following)}</strong>
+                <span>Following</span>
+              </div>
+            </div>
+
+            <section className="analytics-panel">
+              <div className="artist-section-title">
+                <h3>Artist Analytics</h3>
+                <span>Plays, likes, followers, album performance</span>
+              </div>
+              <div className="analytics-bars">
+                {[
+            { label: "Plays", value: dashboardAnalytics.musicPlays + dashboardAnalytics.videoViews },
+            { label: "Likes", value: dashboardAnalytics.likes },
+            { label: "Followers", value: dashboardAnalytics.followers },
+            { label: "Albums", value: dashboardAnalytics.albums },
+        ].map((metric) => (<div key={metric.label}>
+                    <span>{metric.label}</span>
+                    <strong>{formatCount(metric.value)}</strong>
+                    <i style={{ width: `${Math.min(100, Math.max(8, metric.value / Math.max(1, dashboardAnalytics.musicPlays + dashboardAnalytics.videoViews, dashboardAnalytics.likes, dashboardAnalytics.followers, dashboardAnalytics.albums) * 100))}%` }}/>
+                  </div>))}
+              </div>
+              <div className="album-performance-list">
+                {dashboardArtistAlbums.slice(0, 4).map((album) => (<article key={album.id}>
+                    <strong>{album.title}</strong>
+                    <span>{getAlbumSongCount(album)} songs | {getAlbumVideoCount(album)} videos | {formatRuntimeLabel(getAlbumRuntimeSeconds(album))}</span>
+                  </article>))}
+                {dashboardArtistAlbums.length === 0 && <p>No album performance yet.</p>}
+              </div>
+            </section>
+
+            {renderCreatorGrowthPanel(artistGrowthSummary)}
+            {renderStorefrontCustomizationPanel({
+                creatorType: "artist",
+                name: selectedDashboardArtist?.name || artistProfileValues.name || "Artist",
+                banner: artistProfileValues.banner,
+                avatar: artistProfileValues.avatar,
+                bio: artistProfileValues.bio,
+                itemCount: artistStorefrontItems.length,
+                bundleCount: marketplaceBundles.filter((bundle) => bundle.bundleType === "artist" && createArtistId(bundle.creatorName) === createArtistId(selectedDashboardArtist?.name || artistProfileValues.name || "")).length,
+                onOpen: () => openArtistProfile(selectedDashboardArtist?.name || artistProfileValues.name || "Artist"),
+            })}
+            {renderSubscriptionPlanSetup("artist")}
+            {renderCreatorEarningsDashboard("artist", artistRevenueCents, artistPendingPayoutCents, artistTransactions, "artist items", dashboardSongs.length + dashboardVideos.length + dashboardArtistAlbums.length)}
+            {renderMonthlyStatements(artistMonthlyStatements, "Artist Monthly Statements")}
+            {renderPayoutDashboard("artist", artistRevenueCents, artistPendingPayoutCents, artistTransactions)}
+            {renderPayoutCenter("artist", artistRevenueCents, artistPendingPayoutCents)}
+            {renderRevenueSplitTracking(artistRevenueSplits, "Artist catalog")}
+            {renderArtistStorefront(artistStorefrontItems)}
+            {renderPremiumContentFoundation(premiumContentItems.filter((item) => item.creatorType === "artist" || item.creatorType === "platform"))}
+            {renderPurchaseDownloadFoundation([
+                ...dashboardSongs.map((song) => ({
+                    id: song.id,
+                    title: song.title,
+                    itemType: "song" as const,
+                    creatorType: "artist" as const,
+                    creatorName: song.artist,
+                    amountCents: 129,
+                })),
+                ...dashboardVideos.map((video) => ({
+                    id: video.id,
+                    title: video.title,
+                    itemType: "video" as const,
+                    creatorType: "artist" as const,
+                    creatorName: video.creator,
+                    amountCents: 199,
+                })),
+                ...dashboardArtistAlbums.map((album) => ({
+                    id: album.id,
+                    title: album.title,
+                    itemType: "album" as const,
+                    creatorType: "artist" as const,
+                    creatorName: album.creatorName,
+                    amountCents: 499,
+                })),
+            ], "Song / Video / Album Purchase Foundation")}
+            {renderTransactionHistory(artistTransactions, "Artist Transaction History")}
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Artist Profile Data</h3>
+                <span>Saved in your artist dashboard</span>
+              </div>
+
+              {dashboardArtistProfiles.length > 1 && (<div className="source-row">
+                  {dashboardArtistProfiles.map((artist) => (<button className={selectedDashboardArtist?.id === artist.id ? "active" : ""} key={artist.id} onClick={() => {
+                        setDashboardArtistId(artist.id);
+                        setArtistProfileForm({
+                            name: artist.name,
+                            banner: artist.banner,
+                            avatar: artist.avatar,
+                            bio: artist.bio,
+                            socialLinks: artist.socialLinks,
+                            monthlyListeners: artist.monthlyListeners,
+                            followers: artist.followers,
+                        });
+                    }} type="button">
+                      {artist.name}
+                    </button>))}
+                </div>)}
+
+              {selectedDashboardArtist ? (<form className="dashboard-form" onSubmit={saveArtistProfile}>
+                  <input name="artistProfileName" value={artistProfileValues.name} onChange={(event) => setArtistProfileForm({ ...artistProfileValues, name: event.target.value })} placeholder="Artist name"/>
+                  <input name="artistProfileAvatar" value={artistProfileValues.avatar} onChange={(event) => setArtistProfileForm({ ...artistProfileValues, avatar: event.target.value })} placeholder="Profile picture URL"/>
+                  <input name="artistProfileBanner" className="wide" value={artistProfileValues.banner} onChange={(event) => setArtistProfileForm({ ...artistProfileValues, banner: event.target.value })} placeholder="Banner image URL"/>
+                  <textarea name="artistProfileBio" className="wide" value={artistProfileValues.bio} onChange={(event) => setArtistProfileForm({ ...artistProfileValues, bio: event.target.value })} placeholder="Artist bio"/>
+                  <input name="artistSocialLinks" className="wide" value={artistProfileValues.socialLinks} onChange={(event) => setArtistProfileForm({ ...artistProfileValues, socialLinks: event.target.value })} placeholder="Social links"/>
+                  <input name="artistMonthlyListeners" type="number" min="0" value={artistProfileValues.monthlyListeners} onChange={(event) => setArtistProfileForm({
+                    ...artistProfileValues,
+                    monthlyListeners: Number(event.target.value),
+                })} placeholder="Monthly listeners"/>
+                  <input name="artistFollowers" type="number" min="0" value={artistProfileValues.followers} onChange={(event) => setArtistProfileForm({ ...artistProfileValues, followers: Number(event.target.value) })} placeholder="Followers"/>
+                  <div className="dashboard-form-actions wide">
+                    <button type="submit">Save Artist</button>
+                    <button onClick={() => openArtistProfile(artistProfileValues.name)} type="button">
+                      View Profile
+                    </button>
+                    <button onClick={() => requestVerificationReview("artist", selectedDashboardArtist.id, artistProfileValues.name)} type="button">
+                      Request Verification
+                    </button>
+                  </div>
+                </form>) : (<div className="dashboard-empty-card">
+                  <h3>No artist profile yet</h3>
+                  <p>Upload a song or video and your artist profile controls will appear here.</p>
+                </div>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Albums</h3>
+                <span>{dashboardArtistAlbums.length} albums</span>
+              </div>
+
+              {dashboardArtistAlbums.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No albums uploaded yet</h3>
+                  <p>Use Upload Album in Artist Dashboard to save a full project with songs and optional videos.</p>
+                </div>) : (<HorizontalRail className="artist-album-grid" label="Artist Dashboard Albums">
+                  {dashboardArtistAlbums.map((album) => renderAlbumCard(album, "Artist Dashboard Albums"))}
+                </HorizontalRail>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Recent Uploaded Songs</h3>
+                <span>Latest 5 songs</span>
+              </div>
+
+              {recentDashboardSongs.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No recent music uploads</h3>
+                  <p>New songs will appear here with play, edit, and delete controls.</p>
+                </div>) : (<div className="dashboard-song-list">{recentDashboardSongs.map((song) => renderDashboardSongRow(song))}</div>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>All Uploaded Music</h3>
+                <span>
+                  {filteredDashboardSongs.length} of {dashboardSongs.length} songs
+                </span>
+              </div>
+
+              <div className="dashboard-filter-row">
+                <input aria-label="Search uploaded music" value={dashboardMusicSearch} onChange={(event) => setDashboardMusicSearch(event.target.value)} placeholder="Search music by title, artist, or type"/>
+                <select aria-label="Sort uploaded music" value={dashboardMusicSort} onChange={(event) => setDashboardMusicSort(event.target.value as DashboardSort)}>
+                  {(["Newest", "Oldest", "Most Plays", "Most Likes", "Title"] as DashboardSort[]).map((sortMode) => (<option key={sortMode} value={sortMode}>
+                      {sortMode}
+                    </option>))}
+                </select>
+              </div>
+
+              {filteredDashboardSongs.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No uploaded music found</h3>
+                  <p>Try a different search, or upload a song to build this section.</p>
+                </div>) : (<div className="dashboard-song-list">{filteredDashboardSongs.map((song) => renderDashboardSongRow(song))}</div>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Recent Uploaded Videos</h3>
+                <span>Latest 5 videos</span>
+              </div>
+
+              {recentDashboardVideos.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No recent video uploads</h3>
+                  <p>New videos will appear here with play, edit, and delete controls.</p>
+                </div>) : (<div className="dashboard-song-list">{recentDashboardVideos.map((video) => renderDashboardVideoRow(video, "Recently Uploaded Videos"))}</div>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>Recent Uploaded Albums</h3>
+                <span>Latest 5 albums</span>
+              </div>
+
+              {recentDashboardAlbums.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No recent album uploads</h3>
+                  <p>New albums will appear here with play, edit, and delete controls.</p>
+                </div>) : (<div className="dashboard-song-list">
+                  {recentDashboardAlbums.map((album) => renderDashboardAlbumRow(album))}
+                </div>)}
+            </section>
+
+            <section className="dashboard-panel">
+              <div className="artist-section-title">
+                <h3>All Uploaded Videos</h3>
+                <span>
+                  {filteredDashboardVideos.length} of {dashboardVideos.length} videos
+                </span>
+              </div>
+
+              <div className="dashboard-filter-row">
+                <input aria-label="Search uploaded videos" value={dashboardVideoSearch} onChange={(event) => setDashboardVideoSearch(event.target.value)} placeholder="Search videos by title, creator, or category"/>
+                <select aria-label="Sort uploaded videos" value={dashboardVideoSort} onChange={(event) => setDashboardVideoSort(event.target.value as DashboardSort)}>
+                  {(["Newest", "Oldest", "Most Plays", "Most Likes", "Title"] as DashboardSort[]).map((sortMode) => (<option key={sortMode} value={sortMode}>
+                      {sortMode}
+                    </option>))}
+                </select>
+              </div>
+
+              {filteredDashboardVideos.length === 0 ? (<div className="dashboard-empty-card">
+                  <h3>No uploaded videos found</h3>
+                  <p>Try a different search, or upload a video to build this section.</p>
+                </div>) : (<div className="dashboard-song-list">{filteredDashboardVideos.map((video) => renderDashboardVideoRow(video, "All Uploaded Videos"))}</div>)}
+            </section>
+          </section>) : view === "Artist Profile" && !search.trim() ? (!activeArtist ? (<div className="empty-state">
+              <h2>Artist not found</h2>
+              <p>Choose an artist name from any song to open their profile.</p>
+            </div>) : (<section className="artist-profile">
+              <div className="artist-banner" style={{ backgroundImage: `url("${activeArtist.banner}")` }}>
+                <button className="back-btn" onClick={() => handleNav("Home")} type="button">
+                  <ArrowLeft size={16}/>
+                  Back
+                </button>
+              </div>
+
+              <div className="artist-main">
+                <img className="artist-avatar" src={activeArtist.avatar} alt=""/>
+
+                <div className="artist-copy">
+                  <span className="playlist-kicker">Artist Profile</span>
+                  <h2>{activeArtist.name}{renderVerifiedBadge(isArtistVerified(activeArtist.id), "Verified Artist")}</h2>
+                  <p>{activeArtist.bio}</p>
+                  {activeArtist.socialLinks && <small className="profile-link-line">{activeArtist.socialLinks}</small>}
+
+                  <div className="artist-stats">
+                    <span>
+                      <strong>{formatCount(activeArtist.monthlyListeners)}</strong>
+                      Monthly listeners
+                    </span>
+                    <span>
+                      <strong>
+                        {formatCount(activeArtist.followers)}
+                      </strong>
+                      Followers
+                    </span>
+                    <span>
+                      <strong>{formatCount(activeArtist.totalPlays)}</strong>
+                      Total plays
+                    </span>
+                    <span>
+                      <strong>{formatCount(getCreatorSubscriberCount("artist", activeArtist.id))}</strong>
+                      Subscribers
+                    </span>
+                  </div>
+
+                  <div className="artist-actions">
+                    <button onClick={() => toggleArtistFollow(activeArtist.id)} type="button">
+                      <UserPlus size={16}/>
+                      {followedArtistIds.includes(activeArtist.id) ? "Following" : "Follow Artist"}
+                    </button>
+                    <button onClick={() => shareArtist(activeArtist)} type="button">
+                      <Share2 size={16}/>
+                      Share Artist
+                    </button>
+                    <button onClick={() => subscribeToCreator("artist", activeArtist.id, activeArtist.name)} type="button">
+                      <Bell size={16}/>
+                      Subscribe
+                    </button>
+                    <button onClick={() => playSongList(activeArtistSongs)} disabled={activeArtistSongs.length === 0} type="button">
+                      <Play size={16} fill="currentColor"/>
+                      Play Songs
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Songs</h3>
+                  <span>{activeArtistSongs.length} tracks</span>
+                </div>
+
+                {activeArtistSongs.length === 0 ? (<p className="empty-small">No songs uploaded by this artist yet.</p>) : (<div className="artist-song-list">
+                    {activeArtistSongs.map((song, index) => {
+                    const isSaved = libraryIds.includes(song.id);
+                    const isLiked = likedIds.includes(song.id);
+                    const isQueued = cleanQueue.some((item) => item.id === song.id);
+                    const canDeleteTrack = canDeleteUploadedSong(song);
+                    return (<article className="artist-song-row" key={song.id}>
+                          <span className="recent-number">{index + 1}</span>
+                          <img src={song.cover} alt=""/>
+                          <span>
+                            <strong>{song.title}</strong>
+                            <small>{song.type} | {song.time}</small>
+                          </span>
+                          <span className="artist-row-stat">{formatCount(song.plays)} plays</span>
+                          <button onClick={() => playSong(song)} title={`Play ${song.title}`} type="button">
+                            <Play size={16} fill="currentColor"/>
+                          </button>
+                          <button onClick={() => {
+                            if (isSaved) {
+                                removeFromLibrary(song.id);
+                                return;
+                            }
+                            saveSongToLibrary(song);
+                        }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
+                            {isSaved ? <Trash2 size={16}/> : <Plus size={16}/>}
+                          </button>
+                          <button onClick={() => toggleLike(song.id)} title={isLiked ? "Unlike" : "Like"} type="button">
+                            <Heart size={16} fill={isLiked ? "currentColor" : "none"}/>
+                          </button>
+                          <button onClick={() => addToQueue(song)} disabled={isQueued} title="Add to queue" type="button">
+                            {isQueued ? "Queued" : "Queue"}
+                          </button>
+                          {renderPlaylistButton(song)}
+                          {canDeleteTrack && (<button className="danger-btn" onClick={() => deleteUploadedSong(song.id)} title="Delete this song everywhere" type="button">
+                              <Trash2 size={16}/>
+                            </button>)}
+                        </article>);
+                })}
+                  </div>)}
+              </section>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Videos</h3>
+                  <span>{activeArtistVideos.length} videos</span>
+                </div>
+
+                {activeArtistVideos.length === 0 ? (<p className="empty-small">No videos uploaded by this artist yet.</p>) : (<HorizontalRail className="video-grid" label="Artist Profile Videos">
+                    {activeArtistVideos.map((video) => renderVideoCard(video, { sourceLabel: "Artist Profile Videos" }))}
+                  </HorizontalRail>)}
+              </section>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Albums</h3>
+                  <span>{activeArtistAlbums.length} collections</span>
+                </div>
+
+                {activeArtistAlbums.length === 0 ? (<p className="empty-small">Albums uploaded by this artist will appear here.</p>) : (<HorizontalRail className="artist-album-grid" label="Artist Profile Albums">
+                    {activeArtistAlbums.map((album) => renderAlbumCard(album, "Artist Profile Albums"))}
+                  </HorizontalRail>)}
+              </section>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Playlists</h3>
+                  <span>{activeArtistPlaylists.length} playlists</span>
+                </div>
+
+                {activeArtistPlaylists.length === 0 ? (<p className="empty-small">Add this artist&apos;s songs or videos to a playlist and it will show here.</p>) : (<HorizontalRail className="artist-playlist-grid" label="Artist Playlists">
+                    {activeArtistPlaylists.map((playlist) => (<button className="artist-playlist-card" key={playlist.id} onClick={() => {
+                        setActivePlaylistId(playlist.id);
+                        handleNav("Playlists");
+                    }} type="button">
+                        <img src={playlist.cover || DEFAULT_PLAYLIST_COVER} alt=""/>
+                        <span>
+                          <strong>{playlist.name}</strong>
+                          <small>
+                            {getPlaylistSummary(playlist)}
+                          </small>
+                        </span>
+                      </button>))}
+                  </HorizontalRail>)}
+              </section>
+            </section>)) : view === "Producer Profile" && !search.trim() ? (!activeProducerProfile ? (<div className="empty-state">
+              <h2>Producer not found</h2>
+              <p>Open a producer from a beat card or save your Producer Dashboard profile first.</p>
+            </div>) : (<section className="artist-profile producer-profile">
+              <div className="artist-banner" style={{ backgroundImage: `url("${activeProducerProfile.banner}")` }}>
+                <button className="back-btn" onClick={() => handleNav("Home")} type="button">
+                  <ArrowLeft size={16}/>
+                  Back
+                </button>
+              </div>
+
+              <div className="artist-main">
+                <img className="artist-avatar" src={activeProducerProfile.avatar} alt=""/>
+
+                <div className="artist-copy">
+                  <span className="playlist-kicker">Producer Profile</span>
+                  <h2>{activeProducerProfile.name}{renderVerifiedBadge(isProducerVerified(activeProducerProfile.id), "Verified Producer")}</h2>
+                  <p>{activeProducerProfile.bio}</p>
+                  <strong className="producer-tagline">{activeProducerProfile.tagline}</strong>
+                  {activeProducerProfile.website && <small className="profile-link-line">{activeProducerProfile.website}</small>}
+
+                  <div className="artist-stats">
+                    <span>
+                      <strong>{activeProducerBeats.length}</strong>
+                      Beats
+                    </span>
+                    <span>
+                      <strong>{formatCount(activeProducerProfile.followers)}</strong>
+                      Followers
+                    </span>
+                    <span>
+                      <strong>
+                        {formatCount(activeProducerBeats.reduce((sum, beat) => sum + beat.plays, 0))}
+                      </strong>
+                      Beat plays
+                    </span>
+                    <span>
+                      <strong>{formatCount(getCreatorSubscriberCount("producer", activeProducerProfile.id || activeProducerProfile.name))}</strong>
+                      Subscribers
+                    </span>
+                  </div>
+
+                  <div className="artist-actions">
+                    <button onClick={() => showToast("Producer follow support coming soon.", "info")} type="button">
+                      <UserPlus size={16}/>
+                      Follow Producer
+                    </button>
+                    <button onClick={() => navigator.clipboard.writeText(window.location.href)} type="button">
+                      <Share2 size={16}/>
+                      Share Producer
+                    </button>
+                    <button onClick={() => subscribeToCreator("producer", activeProducerProfile.id || activeProducerProfile.name, activeProducerProfile.name)} type="button">
+                      <Bell size={16}/>
+                      Subscribe
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Beats</h3>
+                  <span>{activeProducerBeats.length} beats</span>
+                </div>
+
+                {activeProducerBeats.length === 0 ? (<p className="empty-small">No beats uploaded by this producer yet.</p>) : (<div className="dashboard-song-list">
+                    {activeProducerBeats.map((beat) => (<article className="dashboard-song-row producer-beat-row" key={beat.id}>
+                          <img src={beat.cover} alt=""/>
+                          <div className="dashboard-song-copy">
+                            <strong>{beat.title}</strong>
+                            <small>{beat.category} | {beat.license}</small>
+                            <span>
+                              Lease ${beat.leasePrice} | Exclusive ${beat.exclusivePrice} | Split {beat.splitPercentage}%
+                            </span>
+                            <span>
+                              {formatCount(beat.plays)} plays | {formatCount(beat.likes)} likes | {formatCount(beat.downloads)} downloads
+                            </span>
+                          </div>
+                          <div className="dashboard-song-actions">
+                            <button onClick={() => playProducerBeat(beat)} type="button">
+                              <Play size={15} fill="currentColor"/>
+                              Play
+                            </button>
+                            <button onClick={() => {
+                            updateProducerBeat(beat, { downloads: beat.downloads + 1 });
+                            recordDownloadFoundation({
+                                id: beat.id,
+                                title: beat.title,
+                                itemType: "beat",
+                                creatorType: "producer",
+                                creatorName: beat.producerName,
+                            });
+                        }} type="button">
+                              <Upload size={15}/>
+                              Download
+                            </button>
+                            <button onClick={() => {
+                            createBeatLicense(beat, beat.license === "Exclusive" ? "Exclusive" : "Basic");
+                        }} type="button">
+                              <Disc3 size={15}/>
+                              License
+                            </button>
+                          </div>
+                        </article>))}
+                  </div>)}
+              </section>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Albums</h3>
+                  <span>{activeProducerAlbums.length} albums</span>
+                </div>
+
+                {activeProducerAlbums.length === 0 ? (<p className="empty-small">Albums uploaded by this producer will appear here.</p>) : (<HorizontalRail className="artist-album-grid" label="Producer Profile Albums">
+                    {activeProducerAlbums.map((album) => renderAlbumCard(album, "Producer Profile Albums"))}
+                  </HorizontalRail>)}
+              </section>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Songs Using These Beats</h3>
+                  <span>{activeProducerSongsUsingBeats.length} songs</span>
+                </div>
+
+                {activeProducerSongsUsingBeats.length === 0 ? (<p className="empty-small">No songs have producer beat credits yet.</p>) : (<div className="dashboard-song-list">{activeProducerSongsUsingBeats.map((song) => renderDashboardSongRow(song))}</div>)}
+              </section>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Videos Using These Beats</h3>
+                  <span>{activeProducerVideosUsingBeats.length} videos</span>
+                </div>
+
+                {activeProducerVideosUsingBeats.length === 0 ? (<p className="empty-small">No videos have producer beat credits yet.</p>) : (<div className="dashboard-song-list">{activeProducerVideosUsingBeats.map((video) => renderDashboardVideoRow(video, "Producer Profile Videos"))}</div>)}
+              </section>
+            </section>)) : view === "Playlists" && !search.trim() ? (<section className="playlist-workspace">
+            <form className="playlist-create" onSubmit={createPlaylist}>
+              <input name="playlistName" value={playlistForm.name} onChange={(event) => setPlaylistForm({ ...playlistForm, name: event.target.value })} placeholder="New playlist name"/>
+              <input name="playlistCover" value={playlistForm.cover} onChange={(event) => setPlaylistForm({ ...playlistForm, cover: event.target.value })} placeholder="Cover image URL"/>
+              <select name="playlistType" value={playlistForm.playlistType} onChange={(event) => setPlaylistForm({ ...playlistForm, playlistType: event.target.value as PlaylistType })}>
+                <option value="song">Song Playlist</option>
+                <option value="video">Video Playlist</option>
+                <option value="mixed">Mixed Playlist</option>
+              </select>
+              <button type="submit">
+                <Plus size={16}/>
+                Create
+              </button>
+            </form>
+
+            {playlists.length === 0 ? (<div className="empty-state">
+                <h2>No playlists yet</h2>
+                <p>Create a playlist, then add songs or videos from cards across Music Data Base.</p>
+              </div>) : (<div className="playlist-layout">
+                <HorizontalRail className="playlist-list" label="Playlists">
+                  {playlists.map((playlist) => (<button key={playlist.id} className={activePlaylist?.id === playlist.id ? "playlist-tile active" : "playlist-tile"} onClick={() => {
+                        setActivePlaylistId(playlist.id);
+                        setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                    }}>
+                      <img src={playlist.cover || DEFAULT_PLAYLIST_COVER} alt=""/>
+                      <span>
+                        <strong>{playlist.name}</strong>
+                        <small>
+                          {getPlaylistSummary(playlist)}
+                        </small>
+                      </span>
+                    </button>))}
+                </HorizontalRail>
+
+                {activePlaylist && (<section className="playlist-detail">
+                    <div className="playlist-hero">
+                      <img src={activePlaylist.cover || DEFAULT_PLAYLIST_COVER} alt=""/>
+
+                      <div>
+                        <span className="playlist-kicker">Playlist</span>
+                        <h2>{activePlaylist.name}</h2>
+                        <p>
+                          {getPlaylistSummary(activePlaylist)}
+                        </p>
+
+                        <div className="playlist-actions">
+                          {playlistContentTab === "Videos" ? (<>
+                              <button onClick={() => playVideoList(activePlaylistVideos)} disabled={activePlaylistVideos.length === 0}>
+                                <Play size={16} fill="currentColor"/>
+                                Play Videos
+                              </button>
+                              <button onClick={() => playVideoList([...activePlaylistVideos].reverse())} disabled={activePlaylistVideos.length === 0}>
+                                <Shuffle size={16}/>
+                                Reverse
+                              </button>
+                            </>) : (<>
+                              <button onClick={() => playSongList(activePlaylistSongs)} disabled={activePlaylistSongs.length === 0}>
+                                <Play size={16} fill="currentColor"/>
+                                Play Songs
+                              </button>
+                              <button onClick={() => playSongList(shuffleSongs(activePlaylistSongs))} disabled={activePlaylistSongs.length === 0}>
+                                <Shuffle size={16}/>
+                                Shuffle
+                              </button>
+                            </>)}
+                          <button onClick={() => renamePlaylist(activePlaylist.id)}>
+                            Rename
+                          </button>
+                          <button className="danger-btn" onClick={() => deletePlaylist(activePlaylist.id)}>
+                            <Trash2 size={16}/>
+                            Delete
+                          </button>
+                        </div>
+
+                        <label className="cover-edit">
+                          <span>Cover</span>
+                          <input name="activePlaylistCover" value={activePlaylist.cover} onChange={(event) => updatePlaylist(activePlaylist.id, { cover: event.target.value })} placeholder="Playlist cover URL"/>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="playlist-content-tabs" role="tablist" aria-label="Playlist content">
+                      <button className={playlistContentTab === "Songs" ? "active" : ""} onClick={() => setPlaylistContentTab("Songs")} role="tab" type="button">
+                        Songs
+                        <span>{activePlaylistSongs.length}</span>
+                      </button>
+                      <button className={playlistContentTab === "Videos" ? "active" : ""} onClick={() => setPlaylistContentTab("Videos")} role="tab" type="button">
+                        Videos
+                        <span>{activePlaylistVideos.length}</span>
+                      </button>
+                    </div>
+
+                    <div className="playlist-add-panel">
+                      {playlistContentTab === "Songs" ? (<>
+                          <div className="source-row">
+                            {(["Library", "Liked", "Queue", "Search"] as AddSource[]).map((source) => (<button key={source} className={addSource === source ? "active" : ""} onClick={() => setAddSource(source)} type="button">
+                                {source}
+                              </button>))}
+                          </div>
+
+                          <input name="playlistSearch" value={playlistSearch} onChange={(event) => setPlaylistSearch(event.target.value)} placeholder={addSource === "Search" ? "Search all songs to add..." : `Filter ${addSource} songs...`}/>
+
+                          <div className="add-song-list">
+                            {playlistAddSongs.length === 0 ? (<p className="empty-small">No songs available from this source.</p>) : (playlistAddSongs.map((song) => {
+                            const isInPlaylist = activePlaylist.songIds.includes(song.id);
+                            return (<div className="add-song-row" key={song.id}>
+                                    <img src={song.cover} alt=""/>
+                                    <span>
+                                      <strong>{song.title}</strong>
+                                      <small>
+                                        <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                                      </small>
+                                    </span>
+                                    <button onClick={() => addSongToPlaylist(activePlaylist.id, song.id)} disabled={isInPlaylist} type="button">
+                                      {isInPlaylist ? "Added" : "Add To Playlist"}
+                                    </button>
+                                  </div>);
+                        }))}
+                          </div>
+                        </>) : (<>
+                          <input name="playlistVideoSearch" value={playlistSearch} onChange={(event) => setPlaylistSearch(event.target.value)} placeholder="Search videos to add..."/>
+
+                          <div className="add-song-list">
+                            {playlistAddVideos.length === 0 ? (<p className="empty-small">No videos available to add.</p>) : (playlistAddVideos.map((video) => {
+                            const isInPlaylist = activePlaylist.videoIds.includes(video.id);
+                            return (<div className="add-song-row" key={video.id}>
+                                    <img src={video.cover} alt=""/>
+                                    <span>
+                                      <strong>{video.title}</strong>
+                                      <small>
+                                        <ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>
+                                      </small>
+                                    </span>
+                                    <button onClick={() => addVideoToPlaylist(activePlaylist.id, video.id)} disabled={isInPlaylist} type="button">
+                                      {isInPlaylist ? "Added" : "Add To Playlist"}
+                                    </button>
+                                  </div>);
+                        }))}
+                          </div>
+                        </>)}
+                    </div>
+
+                    {playlistContentTab === "Songs" ? (<div className="playlist-songs">
+                      <h3>{activePlaylistSongs.length} Songs</h3>
+
+                      {activePlaylistSongs.length === 0 ? (<p className="empty-small">No songs in this playlist yet.</p>) : (activePlaylistSongs.map((song, index) => (<div className="playlist-song-row" key={song.id}>
+                            <span className="recent-number">{index + 1}</span>
+                            <img src={song.cover} alt=""/>
+                            <span>
+                              <strong>{song.title}</strong>
+                              <small>
+                                <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                              </small>
+                            </span>
+                            <button onClick={() => playSong(song)} title={`Play ${song.title}`}>
+                              <Play size={16} fill="currentColor"/>
+                            </button>
+                            <button onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
+                              <X size={16}/>
+                            </button>
+                          </div>)))}
+                    </div>) : (<div className="playlist-songs">
+                      <h3>{activePlaylistVideos.length} Videos</h3>
+
+                      {activePlaylistVideos.length === 0 ? (<p className="empty-small">No videos in this playlist yet.</p>) : (activePlaylistVideos.map((video, index) => (<div className="playlist-song-row" key={video.id}>
+                            <span className="recent-number">{index + 1}</span>
+                            <img src={video.cover} alt=""/>
+                            <span>
+                              <strong>{video.title}</strong>
+                              <small>
+                                <ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>
+                              </small>
+                            </span>
+                            <button onClick={() => playVideoList(activePlaylistVideos, video)} title={`Play ${video.title}`} type="button">
+                              <Play size={16} fill="currentColor"/>
+                            </button>
+                            <button onClick={() => removeVideoFromPlaylist(activePlaylist.id, video.id)} title="Remove video from playlist" type="button">
+                              <X size={16}/>
+                            </button>
+                          </div>)))}
+                    </div>)}
+                  </section>)}
+              </div>)}
+          </section>) : view === "Queue" && !search.trim() ? (<section className="queue-page">
+            <div className="queue-toolbar">
+              <button onClick={clearQueue} disabled={cleanQueue.length === 0} type="button">
+                <Trash2 size={15}/>
+                Clear Queue
+              </button>
+              <button onClick={saveQueueAsPlaylist} disabled={cleanQueue.length === 0} type="button">
+                <ListMusic size={15}/>
+                Save Queue as Playlist
+              </button>
+            </div>
+
+            {cleanQueue.length === 0 ? (<div className="empty-state">
+                <h2>No songs queued</h2>
+                <p>Add songs to the queue from any card.</p>
+              </div>) : (<section className="queue-manage-list">
+                {cleanQueue.map((song, index) => (<article className="queue-manage-row" key={song.id}>
+                    <span className="recent-number">{index + 1}</span>
+                    <img src={song.cover} alt=""/>
+                    <div className="recent-copy">
+                      <h3>{song.title}</h3>
+                      <p>{song.artist}</p>
+                      <small>{song.producer ? `Produced by ${song.producer}` : "No producer assigned."} | {song.time} | {formatCount(song.plays)} plays | {formatCount(song.likes)} likes</small>
+                    </div>
+                    <button onClick={() => playSong(song)} type="button" title={`Play ${song.title}`}>
+                      <Play size={16} fill="currentColor"/>
+                      Play
+                    </button>
+                    <button onClick={() => moveQueueItem(song.id, -1)} disabled={index === 0} type="button" title="Move up">
+                      Up
+                    </button>
+                    <button onClick={() => moveQueueItem(song.id, 1)} disabled={index === cleanQueue.length - 1} type="button" title="Move down">
+                      Down
+                    </button>
+                    <button onClick={() => removeFromQueue(song.id)} type="button" title="Remove item">
+                      <X size={16}/>
+                    </button>
+                  </article>))}
+              </section>)}
+          </section>) : view === "Recently Played" && !search.trim() ? (recentlyPlayed.length === 0 ? (<div className="empty-state">
+              <h2>No plays saved yet</h2>
+              <p>Play any song, video, or album and it will appear here right away.</p>
+            </div>) : (<section className="recent-panel">
+              <div className="liked-tabs" role="tablist" aria-label="Recently played filter">
+                {(["Songs", "Videos", "Albums"] as RecentTab[]).map((tab) => {
+                const count = tab === "Songs" ? recentlyPlayedSongs.length : tab === "Videos" ? recentlyPlayedVideos.length : recentlyPlayedAlbums.length;
+                return (<button className={recentTab === tab ? "active" : ""} key={tab} onClick={() => setRecentTab(tab)} type="button">
+                    {tab}
+                    <span>{count}</span>
+                  </button>);
+            })}
+              </div>
+
+              {visibleRecentPlays.length === 0 ? (<div className="empty-state">
+                  <h2>No {recentTab.toLowerCase()} played yet</h2>
+                  <p>Play {recentTab.toLowerCase()} and they will appear in this tab.</p>
+                </div>) : (<section className="recent-list">
+                  {visibleRecentPlays.map((entry, index) => {
+                    const itemType = entry.itemType || "song";
+                    const title = itemType === "video" ? entry.video?.title : itemType === "album" ? entry.album?.title : entry.song?.title;
+                    const creator = itemType === "video" ? entry.video?.creator : itemType === "album" ? entry.album?.creatorName : entry.song?.artist;
+                    const cover = itemType === "video" ? entry.video?.cover : itemType === "album" ? entry.album?.cover : entry.song?.cover;
+                    const resumeLabel = entry.position && entry.position > 0 ? `Resume ${formatRuntimeLabel(entry.position)}` : "Play";
+                    return (<article className="recent-row" key={entry.playId}>
+                      <span className="recent-number">{index + 1}</span>
+                      <img src={cover || BRAND_LOGO} alt=""/>
+                      <div className="recent-copy">
+                        <h3>{title}</h3>
+                        <p>{creator}</p>
+                        <small>{itemType} | {formatPlayedAt(entry.playedAt)} | {formatRuntimeLabel(entry.position || 0)} / {formatRuntimeLabel(entry.duration || 0)}</small>
+                      </div>
+                      <span className="recent-time">{formatPlayedAt(entry.playedAt)}</span>
+                      <button onClick={() => resumeRecentPlay(entry)} title={`${resumeLabel} ${title || ""}`} type="button">
+                        <Play size={17} fill="currentColor"/>
+                        <span>{resumeLabel}</span>
+                      </button>
+                    </article>);
+                })}
+                </section>)}
+            </section>)) : view === "Library" && !search.trim() ? (<section className="liked-page">
+            <div className="liked-tabs" role="tablist" aria-label="Library saved media filter">
+              {(["Songs", "Videos", "Albums"] as LibraryTab[]).map((tab) => (<button className={libraryTab === tab ? "active" : ""} key={tab} onClick={() => setLibraryTab(tab)} type="button">
+                  {tab}
+                </button>))}
+            </div>
+
+            {libraryLoadError && (<div className="empty-state error-state">
+                <h2>Library could not load</h2>
+                <p>{libraryLoadError}</p>
+              </div>)}
+
+            {!libraryLoadError && libraryContentSongs.length === 0 && libraryContentVideos.length === 0 && libraryAlbums.length === 0 ? (<div className="empty-state">
+                <h2>No songs, videos, or albums yet</h2>
+                <p>Save songs, videos, or albums and they will appear in the matching Library tab.</p>
+              </div>) : !libraryLoadError ? (<section className="following-feed">
+                {libraryTab === "Songs" && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Songs</h3>
+                      <span>{libraryContentSongs.length} tracks</span>
+                    </div>
+
+                    {libraryContentSongs.length === 0 ? (<p className="empty-small">No songs available yet.</p>) : (<HorizontalRail className="song-grid" label="Library Songs">
+                        {libraryContentSongs.map((song) => {
+                            const isSaved = libraryIds.includes(song.id);
+                            const isLiked = likedIds.includes(song.id);
+                            const artistId = createArtistId(song.artist);
+                            const isFollowed = followedArtistIds.includes(artistId);
+                            const isQueued = cleanQueue.some((item) => item.id === song.id);
+                            const producerCredit = getProducerCreditForSong(song);
+                            return (<article className="song-card library-card" key={song.id}>
+                              <div className="cover-wrap">
+                                <img className="cover" src={song.cover} alt=""/>
+                                <span className="badge">{song.category}</span>
+                                <span className="duration">{song.time}</span>
+                                <div className="card-header-actions">
+                                  <button className={isSaved ? "card-icon-btn saved" : "card-icon-btn"} onClick={() => {
+                                    if (isSaved) {
+                                        removeFromLibrary(song.id);
+                                        return;
+                                    }
+                                    saveSongToLibrary(song);
+                                }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
+                                    {isSaved ? <Trash2 size={15}/> : <Plus size={15}/>}
+                                  </button>
+                                  <button className={isQueued ? "card-icon-btn queued" : "card-icon-btn"} onClick={() => addToQueue(song)} title={isQueued ? "Queued" : "Add to queue"} type="button">
+                                    <ListMusic size={15}/>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="song-body">
+                                <div className="song-head">
+                                  <img src={song.cover} alt=""/>
+                                  <div>
+                                    <h3>{song.title}</h3>
+                                    <p>
+                                      <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <p className="desc">
+                                  {producerCredit ? `Produced by ${producerCredit}` : "No producer assigned."}
+                                </p>
+
+                                <div className="stats">
+                                  <span>audio</span>
+                                  <span>{song.plays} plays</span>
+                                  <span>{song.likes + (isLiked ? 1 : 0)} likes</span>
+                                  <span>{song.uploaded}</span>
+                                </div>
+
+                                <div className="card-actions">
+                                  <button className="play-btn" onClick={() => playSong(song)} type="button">
+                                    <span aria-hidden="true">▶</span>
+                                    <span>Play</span>
+                                  </button>
+
+                                  <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleLike(song.id)} type="button">
+                                    <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
+                                    <span>{isLiked ? "Liked" : "Like"}</span>
+                                  </button>
+
+                                  <button className={isFollowed ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, song.artist)} type="button">
+                                    <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
+                                    <span>{isFollowed ? "Following" : "Follow"}</span>
+                                  </button>
+                                  <button className={isSaved ? "library-btn saved" : "library-btn"} onClick={() => {
+                                    if (isSaved) {
+                                        removeFromLibrary(song.id);
+                                        return;
+                                    }
+                                    saveSongToLibrary(song);
+                                }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
+                                    <span>{isSaved ? "Saved" : "Save"}</span>
+                                  </button>
+                                  {renderPlaylistButton(song)}
+                                </div>
+                              </div>
+                            </article>);
+                        })}
+                      </HorizontalRail>)}
+                  </section>)}
+
+                {libraryTab === "Videos" && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Videos</h3>
+                      <span>{libraryContentVideos.length} videos</span>
+                    </div>
+
+                    {libraryContentVideos.length === 0 ? (<p className="empty-small">No videos available yet.</p>) : (<HorizontalRail className="video-grid" label="Library Videos">
+                        {libraryContentVideos.map((video) => renderVideoCard(video, { isLibraryCard: true, sourceLabel: "Library Videos" }))}
+                      </HorizontalRail>)}
+                  </section>)}
+
+                {libraryTab === "Albums" && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Albums</h3>
+                      <span>{libraryAlbums.length} albums</span>
+                    </div>
+
+                    {libraryAlbums.length === 0 ? (<p className="empty-small">No saved albums yet.</p>) : (<HorizontalRail className="artist-album-grid" label="Library Albums">
+                        {libraryAlbums.map((album) => renderAlbumCard(album, "Library Albums"))}
+                      </HorizontalRail>)}
+                  </section>)}
+              </section>) : null}
+          </section>) : view === "Liked" && !search.trim() ? (<section className="liked-page">
+            <div className="liked-tabs" role="tablist" aria-label="Liked library filter">
+              {(["All", "Songs", "Videos"] as LikedTab[]).map((tab) => (<button className={likedTab === tab ? "active" : ""} key={tab} onClick={() => setLikedTab(tab)} type="button">
+                  {tab}
+                </button>))}
+            </div>
+
+            {likedSongs.length === 0 && likedVideos.length === 0 && likedArtists.length === 0 ? (<div className="empty-state">
+                <h2>No likes yet</h2>
+                <p>Tap the heart on songs or videos and they will appear here right away.</p>
+              </div>) : (<section className="following-feed">
+                {(likedTab === "All" || likedTab === "Songs") && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Liked Songs</h3>
+                      <span>{likedSongs.length} songs</span>
+                    </div>
+
+                    {likedSongs.length === 0 ? (<p className="empty-small">No liked songs yet.</p>) : (<HorizontalRail className="song-grid" label="Liked Songs">
+                        {likedSongs.map((song) => {
+                            const artistId = createArtistId(song.artist);
+                            const isFollowed = followedArtistIds.includes(artistId);
+                            const isQueued = cleanQueue.some((item) => item.id === song.id);
+                            return (<article className="song-card" key={song.id}>
+                              <div className="cover-wrap">
+                                <img className="cover" src={song.cover} alt=""/>
+                                <span className="badge">{song.category}</span>
+                                <span className="duration">{song.time}</span>
+                                <div className="card-header-actions">
+                                  <button className={isQueued ? "card-icon-btn queued" : "card-icon-btn"} onClick={() => addToQueue(song)} title={isQueued ? "Queued" : "Add to queue"} type="button">
+                                    <ListMusic size={15}/>
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="song-body">
+                                <div className="song-head">
+                                  <img src={song.cover} alt=""/>
+                                  <div>
+                                    <h3>{song.title}</h3>
+                                    <p>
+                                      <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="stats">
+                                  <span>{formatCount(song.plays)} plays</span>
+                                  <span>{formatCount(song.likes)} likes</span>
+                                  <span>{song.uploaded}</span>
+                                </div>
+                                <div className="card-actions">
+                                  <button className="play-btn" onClick={() => playSong(song)} type="button">
+                                    <span aria-hidden="true">▶</span>
+                                    <span>Play</span>
+                                  </button>
+                                  <button className="like-btn liked" onClick={() => toggleLike(song.id)} type="button">
+                                    <span aria-hidden="true">♥</span>
+                                    <span>Liked</span>
+                                  </button>
+                                  <button className={isFollowed ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, song.artist)} type="button">
+                                    <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
+                                    <span>{isFollowed ? "Following" : "Follow"}</span>
+                                  </button>
+                                  {renderPlaylistButton(song)}
+                                </div>
+                              </div>
+                            </article>);
+                        })}
+                      </HorizontalRail>)}
+                  </section>)}
+
+                {(likedTab === "All" || likedTab === "Videos") && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Liked Videos</h3>
+                      <span>{likedVideos.length} videos</span>
+                    </div>
+
+                    {likedVideos.length === 0 ? (<p className="empty-small">No liked videos yet.</p>) : (<HorizontalRail className="video-grid" label="Liked Videos">
+                        {likedVideos.map((video) => renderVideoCard(video, { unlikeLabel: "Liked", sourceLabel: "Liked Videos" }))}
+                      </HorizontalRail>)}
+                  </section>)}
+
+                {likedTab === "All" && likedArtists.length > 0 && (<section className="artist-section">
+                    <div className="artist-section-title">
+                      <h3>Liked Artists</h3>
+                      <span>{likedArtists.length} artists</span>
+                    </div>
+                    <HorizontalRail className="artist-grid" label="Liked Artists">
+                      {likedArtists.map((artist) => (<article className="artist-card" key={artist.id}>
+                          <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
+                            <img src={getArtworkUrl(artist.avatar)} alt=""/>
+                            <span>
+                              <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
+                              <small>{artist.bio}</small>
+                            </span>
+                          </button>
+                          <div className="artist-card-actions">
+                            <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
+                              <UserCircle size={16}/>
+                              Profile
+                            </button>
+                            <button className="follow-btn followed" onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
+                              <UserPlus size={16}/>
+                              Following
+                            </button>
+                          </div>
+                        </article>))}
+                    </HorizontalRail>
+                  </section>)}
+              </section>)}
+          </section>) : view === "Following" && !search.trim() ? (followingSongs.length === 0 && followingVideos.length === 0 ? (<div className="empty-state">
+              <h2>No followed artist uploads yet</h2>
+              <p>Follow artists from song cards, video cards, or artist profiles to build this feed.</p>
+            </div>) : (<section className="following-feed">
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>New Songs</h3>
+                  <span>{followingSongs.length} tracks</span>
+                </div>
+
+                {followingSongs.length === 0 ? (<p className="empty-small">Followed artists have not uploaded songs yet.</p>) : (<HorizontalRail className="song-grid" label="Following Songs">
+                    {followingSongs.map((song) => {
+                    const isLiked = likedIds.includes(song.id);
+                    const artistId = createArtistId(song.artist);
+                    return (<article className="song-card" key={song.id}>
+                          <div className="cover-wrap">
+                            <img className="cover" src={song.cover} alt=""/>
+                            <span className="badge">{song.category}</span>
+                            <span className="duration">{song.time}</span>
+                          </div>
+                          <div className="song-body">
+                            <div className="song-head">
+                              <img src={song.cover} alt=""/>
+                              <div>
+                                <h3>{song.title}</h3>
+                                <p>
+                                  <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                                </p>
+                              </div>
+                            </div>
+                            <div className="card-actions">
+                              <button className="play-btn" onClick={() => playSong(song)} type="button">
+                                <span aria-hidden="true">▶</span>
+                                <span>Play</span>
+                              </button>
+                              <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleLike(song.id)} type="button">
+                                <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
+                                <span>{isLiked ? "Liked" : "Like"}</span>
+                              </button>
+                              <button className="follow-btn followed" onClick={() => toggleArtistFollow(artistId, song.artist)} type="button">
+                                <span aria-hidden="true">✓</span>
+                                <span>Following</span>
+                              </button>
+                              {renderPlaylistButton(song)}
+                            </div>
+                          </div>
+                        </article>);
+                })}
+                  </HorizontalRail>)}
+              </section>
+
+              <section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>New Videos</h3>
+                  <span>{followingVideos.length} videos</span>
+                </div>
+
+                {followingVideos.length === 0 ? (<p className="empty-small">Followed artists have not uploaded videos yet.</p>) : (<HorizontalRail className="video-grid" label="Following Videos">
+                    {followingVideos.map((video) => renderVideoCard(video, { sourceLabel: "Following Videos" }))}
+                  </HorizontalRail>)}
+              </section>
+            </section>)) : visibleSongs.length === 0 &&
+            inlineVideos.length === 0 &&
+            visibleAlbums.length === 0 &&
+            searchArtistResults.length === 0 &&
+            searchProducerResults.length === 0 &&
+            searchPlaylistResults.length === 0 ? (<div className="empty-state">
+            <h2>No results found</h2>
+            <p>Try a song, video, album, artist, producer, or category name.</p>
+          </div>) : (<>
+            {visibleAlbums.length > 0 && (<section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Album Results</h3>
+                  <span>{visibleAlbums.length} albums</span>
+                </div>
+                <HorizontalRail className="artist-album-grid" label="Album Search Results">
+                  {visibleAlbums.map((album) => renderAlbumCard(album, "Search Album Results"))}
+                </HorizontalRail>
+              </section>)}
+
+            {searchArtistResults.length > 0 && (<section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Artist Results</h3>
+                  <span>{searchArtistResults.length} artists</span>
+                </div>
+                <HorizontalRail className="artist-grid" label="Artist Search Results">
+                  {searchArtistResults.map((artist) => (<article className="artist-card" key={artist.id}>
+                      <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
+                        <img src={getArtworkUrl(artist.avatar)} alt=""/>
+                        <span>
+                          <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
+                          <small>{artist.bio}</small>
+                        </span>
+                      </button>
+                      <div className="artist-card-actions">
+                        <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
+                          <UserCircle size={16}/>
+                          Profile
+                        </button>
+                        <button className={followedArtistIds.includes(artist.id) ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
+                          <UserPlus size={16}/>
+                          {followedArtistIds.includes(artist.id) ? "Following" : "Follow"}
+                        </button>
+                      </div>
+                    </article>))}
+                </HorizontalRail>
+              </section>)}
+
+            {searchProducerResults.length > 0 && (<section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Producer Results</h3>
+                  <span>{searchProducerResults.length} producers</span>
+                </div>
+                <HorizontalRail className="artist-grid" label="Producer Search Results">
+                  {searchProducerResults.map((producer) => (<article className="artist-card" key={producer.id}>
+                      <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
+                        <img src={getArtworkUrl(producer.avatar)} alt=""/>
+                        <span>
+                          <strong>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</strong>
+                          <small>{producer.tagline || producer.bio}</small>
+                        </span>
+                      </button>
+                      <div className="artist-card-actions">
+                        <button className="play-btn" onClick={() => openProducerProfile(producer.id)} type="button">
+                          <UserCircle size={16}/>
+                          Profile
+                        </button>
+                      </div>
+                    </article>))}
+                </HorizontalRail>
+              </section>)}
+
+            {searchPlaylistResults.length > 0 && (<section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>Playlist Results</h3>
+                  <span>{searchPlaylistResults.length} playlists</span>
+                </div>
+                <HorizontalRail className="artist-playlist-grid" label="Playlist Search Results">
+                  {searchPlaylistResults.map((playlist) => (<button className="artist-playlist-card" key={playlist.id} onClick={() => {
+                        setActivePlaylistId(playlist.id);
+                        setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                        handleNav("Playlists");
+                    }} type="button">
+                      <img src={playlist.cover || DEFAULT_PLAYLIST_COVER} alt=""/>
+                      <span>
+                        <strong>{playlist.name}</strong>
+                        <small>{getPlaylistSummary(playlist)}</small>
+                      </span>
+                    </button>))}
+                </HorizontalRail>
+              </section>)}
+
+            {inlineVideos.length > 0 && (<section className="artist-section">
+                <div className="artist-section-title">
+                  <h3>{search.trim() ? "Video Results" : view === "Library" ? "Videos" : "Trending Videos"}</h3>
+                  <span>{inlineVideos.length} videos</span>
+                </div>
+                <HorizontalRail className="video-grid" label="Video Search Results">
+                  {inlineVideos.map((video) => renderVideoCard(video, view === "Library" && !search.trim()
+                    ? { sourceLabel: "Library Videos" }
+                    : { sourceLabel: search.trim() ? "Search Video Results" : "Trending Videos" }))}
+                </HorizontalRail>
+              </section>)}
+
+            {visibleSongs.length > 0 && (<section className="artist-section">
+                {search.trim() && (<div className="artist-section-title">
+                    <h3>Song Results</h3>
+                    <span>{visibleSongs.length} songs</span>
+                  </div>)}
+                <HorizontalRail className="song-grid" label={search.trim() ? "Song Search Results" : "Songs"}>
+                  {visibleSongs.map((song) => {
+                    const isSaved = libraryIds.includes(song.id);
+                    const isLiked = likedIds.includes(song.id);
+                    const artistId = createArtistId(song.artist);
+                    const isFollowed = followedArtistIds.includes(artistId);
+                    const isQueued = cleanQueue.some((item) => item.id === song.id);
+                    const producerCredit = getProducerCreditForSong(song);
+                    return (<article className="song-card" key={song.id}>
+                  <div className="cover-wrap">
+                    <img className="cover" src={song.cover} alt=""/>
+                    <span className="badge">{song.category}</span>
+                    <span className="duration">{song.time}</span>
+                    <div className="card-header-actions">
+                      <button className={isSaved ? "card-icon-btn saved" : "card-icon-btn"} onClick={() => {
+                            if (isSaved) {
+                                removeFromLibrary(song.id);
+                                return;
+                            }
+                            saveSongToLibrary(song);
+                        }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
+                        {isSaved ? <Trash2 size={15}/> : <Plus size={15}/>}
+                      </button>
+                      <button className={isQueued ? "card-icon-btn queued" : "card-icon-btn"} onClick={() => addToQueue(song)} title={isQueued ? "Queued" : "Add to queue"} type="button">
+                        <ListMusic size={15}/>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="song-body">
+                    <div className="song-head">
+                      <img src={song.cover} alt=""/>
+
+                      <div>
+                        <h3>{song.title}{renderVerifiedBadge(isArtistVerified(song.artist), "Verified Artist")}</h3>
+                        <p>
+                          <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="desc">
+                      {producerCredit ? `Produced by ${producerCredit}` : "No producer assigned."}
+                    </p>
+
+                    <div className="stats">
+                      <span>{song.mediaKind === "video" ? "video" : "audio"}</span>
+                      <span>{song.plays} plays</span>
+                      <span>{song.likes + (isLiked ? 1 : 0)} likes</span>
+                      <span>{song.uploaded}</span>
+                    </div>
+
+                    <div className="card-actions">
+                      <button className="play-btn" onClick={() => playSong(song)}>
+                        <span aria-hidden="true">▶</span>
+                        <span>{song.mediaKind === "video" ? "Open" : "Play"}</span>
+                      </button>
+
+                      <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleLike(song.id)}>
+                        <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
+                        <span>{isLiked ? "Liked" : "Like"}</span>
+                      </button>
+
+                      <button className={isFollowed ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, song.artist)}>
+                        <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
+                        <span>{isFollowed ? "Following" : "Follow"}</span>
+                      </button>
+                      {renderPlaylistButton(song)}
+                    </div>
+                    <div className="card-secondary-actions">
+                      <button onClick={() => openComments("song", song)} type="button">
+                        <MessageCircle size={14}/>
+                        Comments {getCommentsForItem("song", song.id).length}
+                      </button>
+                      <button onClick={() => copyShareLink("song", song.id, song.title)} type="button">
+                        <Share2 size={14}/>
+                        Share Song
+                      </button>
+                      <button onClick={() => createModerationReport("song", song.id, song.title, "Community song report", song.artist, artistId)} type="button">
+                        <Bell size={14}/>
+                        Report
+                      </button>
+                      <button onClick={() => createCopyrightClaim("song", song.id, song.title, song.artist)} type="button">
+                        <BookOpen size={14}/>
+                        Claim
+                      </button>
+                    </div>
+                  </div>
+                </article>);
+                })}
+                </HorizontalRail>
+              </section>)}
+          </>)}
+      </section>
+
+      {toast && (<div className={`toast toast-${toast.tone}`} role="status" aria-live="polite">
+          {toast.message}
+        </div>)}
+
+      {commentTarget && (<div className="modal-backdrop" role="presentation" onClick={() => setCommentTarget(null)}>
+          <section className="comments-modal" aria-label={`${commentTarget.item.title} comments`} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="playlist-modal-head">
+              <div>
+                <span className="playlist-kicker">{commentTarget.type} comments</span>
+                <h3>{commentTarget.item.title}</h3>
+              </div>
+              <button className="icon-action" onClick={() => setCommentTarget(null)} title="Close" type="button">
+                <X size={17}/>
+              </button>
+            </div>
+
+            <div className="comment-compose">
+              <textarea value={commentDraft} onChange={(event) => setCommentDraft(event.target.value)} placeholder="Write a comment"/>
+              <button onClick={postComment} type="button">
+                <MessageCircle size={15}/>
+                Post
+              </button>
+            </div>
+
+            <div className="comments-list">
+              {getCommentsForItem(commentTarget.type, commentTarget.item.id).length === 0 ? (<p>No comments yet.</p>) : getCommentsForItem(commentTarget.type, commentTarget.item.id).map((comment) => (<article key={comment.id}>
+                  <div>
+                    <strong>{comment.authorName}</strong>
+                    <small>{formatVideoCreatedAt(comment.createdAt)}</small>
+                  </div>
+                  <p>{comment.body}</p>
+                  <div className="comment-actions">
+                    <button onClick={() => likeComment(comment)} type="button">
+                      <Heart size={14} fill={user?.id && comment.likedBy.includes(user.id) ? "currentColor" : "none"}/>
+                      {comment.likes}
+                    </button>
+                    <button onClick={() => createModerationReport("comment", comment.id, comment.body.slice(0, 60) || "Comment", "Community comment report", comment.authorName, comment.userId)} type="button">
+                      <Bell size={14}/>
+                      Report
+                    </button>
+                    {user?.id === comment.userId && (<button className="danger-btn" onClick={() => deleteComment(comment)} type="button">
+                        <Trash2 size={14}/>
+                        Delete
+                      </button>)}
+                  </div>
+                </article>))}
+            </div>
+          </section>
+        </div>)}
+
+      {playlistTarget && (<div className="modal-backdrop" role="presentation" onClick={() => setPlaylistTarget(null)}>
+          <section className="playlist-modal" aria-label={`Add ${playlistTarget.item.title} to playlist`} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="playlist-modal-head">
+              <div>
+                <span className="playlist-kicker">Add to playlist</span>
+                <h3>{playlistTarget.item.title}</h3>
+              </div>
+              <button className="icon-action" onClick={() => setPlaylistTarget(null)} title="Close" type="button">
+                <X size={17}/>
+              </button>
+            </div>
+
+            {playlists.length === 0 ? (<div className="playlist-modal-empty">
+                <p>Create a playlist first, then add songs or videos.</p>
+                <button onClick={() => {
+                    setPlaylistTarget(null);
+                    setView("Playlists");
+                    setPlaylistForm((current) => ({
+                        ...current,
+                        playlistType: "mixed",
+                    }));
+                }} type="button">
+                  Create Playlist
+                </button>
+              </div>) : (<div className="playlist-modal-list">
+                {playlists
+                    .map((playlist) => {
+                    const compatibleAlbumSongIds = playlistTarget.type === "album" && playlist.playlistType !== "video"
+                        ? uniqueIds([
+                            ...playlistTarget.item.songIds,
+                            ...playlistTarget.item.songs.map((song) => song.id),
+                        ])
+                        : [];
+                    const compatibleAlbumVideoIds = playlistTarget.type === "album" && playlist.playlistType !== "song"
+                        ? uniqueIds([
+                            ...playlistTarget.item.videoIds,
+                            ...playlistTarget.item.videos.map((video) => video.id),
+                        ])
+                        : [];
+                    const hasCompatibleAlbumItems = compatibleAlbumSongIds.length > 0 || compatibleAlbumVideoIds.length > 0;
+                    const alreadyAdded = playlistTarget.type === "album"
+                        ? hasCompatibleAlbumItems &&
+                            compatibleAlbumSongIds.every((songId) => playlist.songIds.includes(songId)) &&
+                            compatibleAlbumVideoIds.every((videoId) => playlist.videoIds.includes(videoId))
+                        : playlistTarget.type === "video"
+                            ? playlist.videoIds.includes(playlistTarget.item.id)
+                            : playlist.songIds.includes(playlistTarget.item.id);
+                    const songCount = playlist.songIds.length;
+                    const videoCount = playlist.videoIds.length;
+                    const countLabel = `${songCount} song${songCount === 1 ? "" : "s"} • ${videoCount} video${videoCount === 1 ? "" : "s"}`;
+                    return (<button className={alreadyAdded ? "already-added" : ""} disabled={playlistTarget.type === "album" && !hasCompatibleAlbumItems} key={playlist.id} onClick={() => addPlaylistTargetToPlaylist(playlist.id, playlistTarget)} type="button">
+                      <img src={playlist.cover || DEFAULT_PLAYLIST_COVER} alt=""/>
+                      <span>
+                        <strong>{playlist.name}</strong>
+                        <small>{alreadyAdded ? "Already in this playlist" : countLabel}</small>
+                      </span>
+                      {alreadyAdded ? <Check size={17}/> : <Plus size={17}/>}
+                    </button>);
+                })}
+              </div>)}
+          </section>
+        </div>)}
+
+      {showQueueDrawer && (<aside className="queue-drawer" aria-label="Queue drawer">
+          <div className="queue-drawer-head">
+            <div>
+              <span className="playlist-kicker">Up Next</span>
+              <h3>Queue</h3>
+            </div>
+            <button className="icon-action" onClick={() => setShowQueueDrawer(false)} title="Close queue" type="button">
+              <X size={17}/>
+            </button>
+          </div>
+
+          <section className="queue-drawer-section">
+            <div className="queue-drawer-title">
+              <strong>Now Playing</strong>
+              {activeAlbumTrackInfo && <span>Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</span>}
+            </div>
+            {activeMedia?.type === "song" && currentSong ? (<article className="drawer-media-row now-playing">
+                <img src={currentSong.cover} alt=""/>
+                <span>
+                  <strong>{currentSong.title}</strong>
+                  <small>{activeAlbumTrackInfo ? activeAlbumTrackInfo.title : currentSong.artist}</small>
+                </span>
+              </article>) : activeMedia?.type === "video" && activeVideo ? (<article className="drawer-media-row now-playing">
+                <img src={activeVideo.cover} alt=""/>
+                <span>
+                  <strong>{activeVideo.title}</strong>
+                  <small>{activeAlbumTrackInfo ? activeAlbumTrackInfo.title : activeVideo.creator}</small>
+                </span>
+              </article>) : (<p className="empty-small">Nothing is playing.</p>)}
+          </section>
+
+          <section className="queue-drawer-section">
+            <div className="queue-drawer-title">
+              <strong>Up Next</strong>
+              <button onClick={clearQueue} disabled={totalUpNextCount === 0} type="button">Clear Queue</button>
+            </div>
+            <small className="queue-drag-hint">Drag items to reorder.</small>
+
+            {totalUpNextCount === 0 ? (<p className="empty-small">No upcoming tracks yet.</p>) : (<div className="queue-drawer-list">
+                {cleanQueue.map((song, index) => (<article className="drawer-media-row" draggable key={`drawer-song-${song.id}`} onDragStart={() => setDraggedQueueItem({ type: "song", id: song.id })} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
+                        event.preventDefault();
+                        if (draggedQueueItem?.type === "song") {
+                            moveQueueItemTo(draggedQueueItem.id, song.id);
+                        }
+                        setDraggedQueueItem(null);
+                    }}>
+                    <img src={song.cover} alt=""/>
+                    <span>
+                      <strong>{song.title}</strong>
+                      <small>{song.artist} | Song</small>
+                    </span>
+                    <div className="drawer-row-actions">
+                      <button onClick={() => moveQueueItem(song.id, -1)} disabled={index === 0} title="Move up" type="button">↑</button>
+                      <button onClick={() => moveQueueItem(song.id, 1)} disabled={index === cleanQueue.length - 1} title="Move down" type="button">↓</button>
+                      <button onClick={() => removeFromQueue(song.id)} title="Remove" type="button">
+                        <Trash2 size={14}/>
+                      </button>
+                    </div>
+                  </article>))}
+
+                {upNextVideos.map((video) => {
+                    const queueIndex = queuedVideos.findIndex((item) => item.id === video.id);
+                    const firstMovableVideoIndex = activeVideo && queuedVideos.some((item) => item.id === activeVideo.id) ? 1 : 0;
+                    return (<article className="drawer-media-row" draggable key={`drawer-video-${video.id}`} onDragStart={() => setDraggedQueueItem({ type: "video", id: video.id })} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
+                            event.preventDefault();
+                            if (draggedQueueItem?.type === "video") {
+                                moveVideoQueueItemTo(draggedQueueItem.id, video.id);
+                            }
+                            setDraggedQueueItem(null);
+                        }}>
+                        <img src={video.cover} alt=""/>
+                        <span>
+                          <strong>{video.title}</strong>
+                          <small>{video.creator} | Video</small>
+                        </span>
+                        <div className="drawer-row-actions">
+                          <button onClick={() => moveVideoQueueItem(video.id, -1)} disabled={queueIndex <= firstMovableVideoIndex} title="Move up" type="button">↑</button>
+                          <button onClick={() => moveVideoQueueItem(video.id, 1)} disabled={queueIndex === queuedVideos.length - 1} title="Move down" type="button">↓</button>
+                          <button onClick={() => removeVideoFromQueue(video.id)} title="Remove" type="button">
+                            <Trash2 size={14}/>
+                          </button>
+                        </div>
+                      </article>);
+                })}
+              </div>)}
+          </section>
+        </aside>)}
+
+      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar">
+          <div className="video-player-now">
+            <img src={activeVideo.cover} alt=""/>
+            <div>
+              <strong>{activeVideo.title}</strong>
+              <small>{activeVideo.creator}</small>
+              {activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
+            </div>
+          </div>
+
+          <div className="video-player-center">
+            <div className="video-player-controls">
+              <button onClick={() => playAdjacentVideo("previous")} title="Previous video" type="button" disabled={getVideoPlaybackList().length < 2}>
+                <SkipBack size={17} fill="currentColor"/>
+              </button>
+
+              <button className="main-play" onClick={toggleVideoPlayback} title={videoPlaying ? "Pause video" : "Play video"} type="button">
+                {videoPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
+              </button>
+
+              <button onClick={() => playAdjacentVideo("next")} title="Next video" type="button" disabled={getVideoPlaybackList().length < 2}>
+                <SkipForward size={17} fill="currentColor"/>
+              </button>
+
+              <button className={`video-like-control ${activeVideo.likedByUser ? "mode-on" : ""}`} onClick={() => toggleVideoLike(activeVideo)} title={activeVideo.likedByUser ? "Click to unlike" : "Like video"} type="button">
+                <Heart size={16} fill={activeVideo.likedByUser ? "currentColor" : "none"}/>
+                <span>{activeVideo.likes || 0}</span>
+              </button>
+
+              <button className={videoRepeat ? "mode-on" : ""} onClick={() => setVideoRepeat((value) => !value)} title={videoRepeat ? "Repeat video on" : "Repeat video off"} type="button">
+                <RotateCcw size={16}/>
+              </button>
+            </div>
+
+            <div className="progress-row video-progress-row">
+              <span>{formatTime(videoProgress)}</span>
+              <input name="videoPlaybackProgress" type="range" min="0" max={videoDuration || 0} step="0.1" value={Math.min(videoProgress, videoDuration || videoProgress)} onChange={seekVideo} aria-label="Video progress"/>
+              <span>{videoDuration ? formatTime(videoDuration) : "0:00"}</span>
+            </div>
+          </div>
+
+          <div className="video-player-side">
+            <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
+              Queue {totalUpNextCount}
+            </button>
+            <label className="volume video-volume">
+              <Volume2 size={18}/>
+              <input name="videoVolume" type="range" min="0" max="100" value={Math.round(videoVolume * 100)} onChange={changeVideoVolume} aria-label="Video volume"/>
+            </label>
+          </div>
+        </footer>)}
+
+      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player">
+          <div className="player-song">
+            <img src={currentSong.cover} alt=""/>
+
+            <div>
+              <strong title={currentSong.title}>
+                {currentSong.title.length > 25 ? `${currentSong.title.slice(0, 25)}...` : currentSong.title}
+              </strong>
+              <small>
+                <ArtistNameButton name={currentSong.artist} onOpen={openArtistProfile}/>
+              </small>
+              {activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
+            </div>
+          </div>
+
+          <div className="player-center">
+            <div className="player-controls">
+              <button className={shuffleOn ? "mode-on" : ""} onClick={() => setShuffleOn((value) => !value)} title={shuffleOn ? "Shuffle on" : "Shuffle off"}>
+                <Shuffle size={16}/>
+              </button>
+
+              <button onClick={previousSong} title="Previous">
+                <SkipBack size={17} fill="currentColor"/>
+              </button>
+
+              <button className="main-play" onClick={togglePlay} title={isPlaying ? "Pause" : "Play"}>
+                {isPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
+              </button>
+
+              <button onClick={nextSong} title="Next">
+                <SkipForward size={17} fill="currentColor"/>
+              </button>
+
+              <button className={repeatMode !== "off" ? "mode-on" : ""} onClick={toggleRepeatMode} title={`Repeat ${repeatMode}`}>
+                <RotateCcw size={16}/>
+                {repeatMode === "one" && <span className="repeat-one">1</span>}
+              </button>
+            </div>
+
+            <div className="progress-row">
+              <span className="progress-time">
+                {formatTime(progress)} / {duration ? formatTime(duration) : currentSong.time}
+              </span>
+              <input name="playbackProgress" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(progress, duration || progress)} onChange={seekSong} aria-label="Playback progress"/>
+            </div>
+          </div>
+
+          <div className="player-side">
+            <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
+              Queue {totalUpNextCount}
+            </button>
+            <label className="volume">
+              <Volume2 size={18}/>
+              <input name="volume" type="range" min="0" max="100" value={Math.round(volume * 100)} onChange={changeVolume} aria-label="Volume"/>
+            </label>
+          </div>
+        </footer>)}
+
+        <audio ref={audioRef} preload="metadata" onLoadedMetadata={updateDuration} onDurationChange={updateDuration} onTimeUpdate={updateProgress} onPlay={() => {
+            if (activeMedia?.type !== "song") {
+                audioRef.current?.pause();
+                setIsPlaying(false);
+                return;
+            }
+            setActiveMediaType("song");
+            setIsPlaying(true);
+        }} onPause={() => setIsPlaying(false)} onEnded={handleTrackEnded}/>
+
+        <style jsx global>{`
+          * {
+            box-sizing: border-box;
+          }
+
+          html,
+          body {
+            margin: 0;
+            min-height: 100%;
+            background: #020617;
+            color: white;
+            font-family: Arial, Helvetica, sans-serif;
+          }
+
+          button,
+          input,
+          select {
+            font-family: inherit;
+          }
+
+          button {
+            cursor: pointer;
+          }
+
+          button:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+          }
+
+          .zml-app {
+            min-height: 100vh;
+            display: flex;
+            background: #020617;
+            padding-bottom: 132px;
+          }
+
+          .sidebar {
+            width: 188px;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: #071631;
+            border-right: 1px solid rgba(0, 212, 255, 0.25);
+            padding: 14px 12px 95px;
+            overflow-y: auto;
+            z-index: 10;
+          }
+
+          .logo {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: #fbbf24;
+            text-align: center;
+            margin-bottom: 16px;
+            padding: 0;
+            display: grid;
+            justify-items: center;
+            gap: 7px;
+          }
+
+          .logo img {
+            width: min(128px, 100%);
+            max-height: 128px;
+            object-fit: contain;
+            display: block;
+          }
+
+          .logo span {
+            display: block;
+            font-size: 9px;
+            line-height: 1.25;
+            font-weight: 900;
+            letter-spacing: 0;
+          }
+
+          .nav {
+            display: grid;
+            gap: 8px;
+          }
+
+          .nav button,
+          .reset-btn {
+            border: 0;
+            color: white;
+            background: #101d43;
+            border-radius: 8px;
+            padding: 11px 9px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .nav button.active,
+          .nav button:hover {
+            background: #152d66;
+            color: #20e7ff;
+          }
+
+          .mini-stats {
+            display: grid;
+            gap: 8px;
+            margin-top: 16px;
+          }
+
+          .mini-stats div {
+            background: #10204a;
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            border-radius: 8px;
+            padding: 10px;
+          }
+
+          .mini-stats strong,
+          .mini-stats span {
+            display: block;
+          }
+
+          .mini-stats strong {
+            font-size: 20px;
+          }
+
+          .mini-stats span {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .queue-panel {
+            margin-top: 18px;
+          }
+
+          .panel-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+          }
+
+          .queue-panel h2 {
+            font-size: 20px;
+            margin: 0 0 8px;
+            line-height: 1;
+          }
+
+          .small-action,
+          .clear-recent {
+            border: 0;
+            background: #ef4444;
+            color: white;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 900;
+            padding: 7px 8px;
+          }
+
+          .empty-small {
+            color: #9ca3af;
+            font-size: 12px;
+            margin: 0;
+          }
+
+          .queue-list {
+            display: grid;
+            gap: 8px;
+          }
+
+          .queue-item {
+            display: grid;
+            grid-template-columns: 1fr 24px;
+            align-items: center;
+            gap: 4px;
+            background: #10204a;
+            border-radius: 8px;
+            padding: 6px;
+          }
+
+          .queue-main {
+            background: transparent;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 0;
+            padding: 0;
+            text-align: left;
+          }
+
+          .queue-thumb,
+          .queue-title {
+            border: 0;
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            text-align: left;
+          }
+
+          .queue-main img {
+            width: 34px;
+            height: 34px;
+            border-radius: 7px;
+            object-fit: cover;
+            flex-shrink: 0;
+          }
+
+          .queue-main span {
+            min-width: 0;
+          }
+
+          .queue-title,
+          .queue-main small {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .queue-title {
+            width: 100%;
+            font-size: 11px;
+            font-weight: 900;
+          }
+
+          .queue-main small {
+            color: #16d9ff;
+            font-size: 10px;
+          }
+
+          .queue-drawer-button {
+            width: 100%;
+            min-height: 31px;
+            border: 1px solid rgba(34, 211, 238, 0.32);
+            border-radius: 8px;
+            background: #14265c;
+            color: #d7f7ff;
+            font-size: 11px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 9px;
+            white-space: nowrap;
+          }
+
+          .queue-drawer-button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .queue-drawer {
+            position: fixed;
+            top: 72px;
+            right: 0;
+            bottom: 82px;
+            z-index: 38;
+            width: min(370px, calc(100vw - 112px));
+            border-left: 1px solid rgba(34, 211, 238, 0.45);
+            background: rgba(4, 12, 30, 0.98);
+            box-shadow: -18px 0 48px rgba(0, 0, 0, 0.34);
+            padding: 14px;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr);
+            gap: 12px;
+            overflow: hidden;
+          }
+
+          .queue-drawer-head,
+          .queue-drawer-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+          }
+
+          .queue-drawer-head h3 {
+            margin: 2px 0 0;
+            font-size: 24px;
+            line-height: 1;
+          }
+
+          .queue-drawer-section {
+            min-width: 0;
+            border: 1px solid rgba(34, 211, 238, 0.24);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 10px;
+            display: grid;
+            gap: 9px;
+            overflow: hidden;
+          }
+
+          .queue-drawer-section:last-child {
+            min-height: 0;
+          }
+
+          .queue-drawer-title strong,
+          .queue-drawer-title span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .queue-drawer-title span,
+          .queue-drag-hint {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 900;
+          }
+
+          .queue-drawer-title button {
+            min-height: 30px;
+            border: 0;
+            border-radius: 8px;
+            background: #ef4444;
+            color: white;
+            font-size: 11px;
+            font-weight: 900;
+            padding: 0 10px;
+            white-space: nowrap;
+          }
+
+          .queue-drawer-title button:disabled {
+            opacity: 0.45;
+          }
+
+          .queue-drawer-list {
+            min-height: 0;
+            overflow: auto;
+            display: grid;
+            gap: 8px;
+            padding-right: 2px;
+          }
+
+          .drawer-media-row {
+            min-width: 0;
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(34, 211, 238, 0.16);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 7px;
+            cursor: grab;
+          }
+
+          .drawer-media-row.now-playing {
+            grid-template-columns: 42px minmax(0, 1fr);
+            cursor: default;
+            border-color: rgba(163, 230, 53, 0.45);
+          }
+
+          .drawer-media-row:active {
+            cursor: grabbing;
+          }
+
+          .drawer-media-row img {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .drawer-media-row span {
+            min-width: 0;
+          }
+
+          .drawer-media-row strong,
+          .drawer-media-row small {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .drawer-media-row strong {
+            color: white;
+            font-size: 12px;
+          }
+
+          .drawer-media-row small {
+            color: #22d3ee;
+            font-size: 10.5px;
+            font-weight: 800;
+          }
+
+          .drawer-row-actions {
+            display: grid;
+            grid-auto-flow: column;
+            gap: 4px;
+          }
+
+          .drawer-row-actions button {
+            width: 26px;
+            height: 26px;
+            min-width: 26px;
+            border: 0;
+            border-radius: 8px;
+            background: #1f2b55;
+            color: white;
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+            font-weight: 900;
+            padding: 0;
+          }
+
+          .drawer-row-actions button:disabled {
+            opacity: 0.35;
+          }
+
+          .icon-action {
+            width: 24px;
+            height: 24px;
+            border: 0;
+            border-radius: 7px;
+            background: #1f2b55;
+            color: white;
+            display: grid;
+            place-items: center;
+          }
+
+          .reset-btn {
+            width: 100%;
+            margin-top: 14px;
+            color: #fbbf24;
+          }
+
+          .content {
+            margin-left: 188px;
+            width: calc(100% - 188px);
+            padding: 14px 14px 154px;
+          }
+
+          .topbar {
+            display: grid;
+            grid-template-columns: minmax(190px, 0.72fr) minmax(180px, 0.58fr) 44px repeat(4, minmax(108px, 1fr));
+            gap: 10px;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: rgba(2, 6, 23, 0.92);
+            backdrop-filter: blur(8px);
+            padding-bottom: 10px;
+          }
+
+          .search-wrap {
+            position: relative;
+            min-width: 0;
+            width: 100%;
+          }
+
+          .search-box {
+            min-width: 0;
+            width: 100%;
+            height: 41px;
+            border-radius: 8px;
+            border: 1px solid #16d9ff;
+            background: #0c1733;
+            color: white;
+            padding: 0 13px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+          }
+
+          .search-box input {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: transparent;
+            color: white;
+            outline: none;
+            font-size: 14px;
+          }
+
+          .search-suggestions {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(100% + 8px);
+            z-index: 30;
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            border-radius: 8px;
+            background: #0b1736;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+            padding: 9px;
+            display: grid;
+            gap: 7px;
+          }
+
+          .search-suggestions > span {
+            color: #fbbf24;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            padding: 0 4px;
+          }
+
+          .search-suggestions button {
+            min-width: 0;
+            border: 1px solid rgba(34, 211, 238, 0.16);
+            border-radius: 8px;
+            background: #10204a;
+            color: white;
+            display: grid;
+            grid-template-columns: 38px minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            align-items: center;
+            gap: 2px 8px;
+            padding: 7px;
+            text-align: left;
+          }
+
+          .search-suggestions button:hover {
+            border-color: #22d3ee;
+            background: #17336e;
+          }
+
+          .search-suggestions img {
+            grid-row: 1 / span 2;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .search-suggestions strong,
+          .search-suggestions small {
+            min-width: 0;
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .search-suggestions strong {
+            font-size: 13px;
+          }
+
+          .search-suggestions small {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .view-toggle {
+            min-width: 0;
+            height: 41px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+          }
+
+          .view-toggle button {
+            min-width: 0;
+            border: 1px solid rgba(34, 211, 238, 0.28);
+            border-radius: 8px;
+            background: #14265c;
+            color: white;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 8px;
+          }
+
+          .view-toggle button.active,
+          .view-toggle button:hover {
+            background: #22d3ee;
+            border-color: #22d3ee;
+            color: #020617;
+          }
+
+          .notification-wrap {
+            position: relative;
+            min-width: 0;
+            height: 41px;
+          }
+
+          .notification-button {
+            width: 41px;
+            height: 41px;
+            border: 1px solid rgba(34, 211, 238, 0.38);
+            border-radius: 8px;
+            background: #14265c;
+            color: white;
+            display: grid;
+            place-items: center;
+            position: relative;
+          }
+
+          .notification-button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .notification-button span {
+            position: absolute;
+            right: -5px;
+            top: -6px;
+            min-width: 19px;
+            height: 19px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            font-weight: 900;
+            display: grid;
+            place-items: center;
+            padding: 0 5px;
+          }
+
+          .notification-center {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            width: min(330px, calc(100vw - 28px));
+            max-height: 410px;
+            overflow: auto;
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            border-radius: 8px;
+            background: #0b1736;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+            padding: 12px;
+            display: grid;
+            gap: 9px;
+            z-index: 20;
+          }
+
+          .notification-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+          }
+
+          .notification-head button {
+            border: 0;
+            border-radius: 8px;
+            background: #33446f;
+            color: white;
+            font-size: 12px;
+            font-weight: 900;
+            padding: 7px 10px;
+          }
+
+          .notification-center article {
+            border-radius: 8px;
+            background: #10204a;
+            padding: 9px;
+            display: grid;
+            gap: 3px;
+          }
+
+          .notification-center strong,
+          .notification-center span,
+          .notification-center small,
+          .notification-center p {
+            margin: 0;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .notification-center span {
+            color: #dbeafe;
+            font-size: 12px;
+            line-height: 1.3;
+          }
+
+          .notification-center small,
+          .notification-center p {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .upload-btn {
+            min-width: 0;
+            height: 41px;
+            border: 0;
+            border-radius: 8px;
+            background: #a3e635;
+            color: #020617;
+            font-weight: 900;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 0 12px;
+            white-space: nowrap;
+          }
+
+          .profile-btn,
+          .dashboard-btn,
+          .logout-btn {
+            min-width: 0;
+            height: 41px;
+            border: 0;
+            border-radius: 8px;
+            color: white;
+            font-weight: 900;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 0 12px;
+            white-space: nowrap;
+          }
+
+          .upload-btn svg,
+          .profile-btn svg,
+          .dashboard-btn svg,
+          .logout-btn svg {
+            flex-shrink: 0;
+          }
+
+          .profile-btn {
+            background: #152d66;
+          }
+
+          .dashboard-btn {
+            background: #8b5cf6;
+          }
+
+          .logout-btn {
+            background: #ef4444;
+          }
+
+          .upload-card,
+          .playlist-create,
+          .playlist-add-panel,
+          .playlist-songs {
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+
+          .upload-shell {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 16px;
+          }
+
+          .upload-shell .upload-card,
+          .upload-shell .video-upload-card {
+            margin-bottom: 0;
+          }
+
+          .upload-mode-tabs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #071631;
+            padding: 10px;
+          }
+
+          .upload-mode-tabs button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            background: #152d66;
+            color: white;
+            font-size: 13px;
+            font-weight: 900;
+            padding: 0 16px;
+            white-space: nowrap;
+          }
+
+          .upload-mode-tabs button.active,
+          .upload-mode-tabs button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .upload-card h2,
+          .video-upload-card h3 {
+            margin: 0;
+          }
+
+          .upload-brand,
+          .dashboard-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+          }
+
+          .upload-brand img,
+          .dashboard-brand img {
+            width: 66px;
+            height: 66px;
+            border-radius: 8px;
+            object-fit: contain;
+            background: #020617;
+            border: 1px solid rgba(251, 191, 36, 0.28);
+          }
+
+          .upload-brand span,
+          .dashboard-brand span {
+            color: #fbbf24;
+            font-size: 11px;
+            font-weight: 900;
+          }
+
+          .dashboard-brand h2 {
+            margin: 2px 0 0;
+            font-size: 28px;
+            line-height: 1;
+          }
+
+          .upload-grid,
+          .playlist-create {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) 120px;
+            gap: 10px;
+          }
+
+          .upload-grid input,
+          .upload-grid select,
+          .playlist-create input,
+          .playlist-create select,
+          .cover-edit input,
+          .playlist-add-panel input,
+          .playlist-picker select {
+            height: 42px;
+            border-radius: 8px;
+            border: 1px solid #263c78;
+            background: #020617;
+            color: white;
+            padding: 0 12px;
+            outline: none;
+          }
+
+          .producer-select-field {
+            display: grid;
+            gap: 6px;
+          }
+
+          .producer-select-field span {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .audio-file-field {
+            min-height: 74px;
+            border: 1px dashed #22d3ee;
+            border-radius: 8px;
+            background: #020617;
+            padding: 11px 12px;
+            display: grid;
+            gap: 7px;
+          }
+
+          .audio-file-field span {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .audio-file-field input {
+            height: auto;
+            border: 0;
+            padding: 0;
+            background: transparent;
+          }
+
+          .audio-file-field small {
+            color: #a9bed6;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .upload-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .upload-grid .wide {
+            grid-column: 1 / -1;
+          }
+
+          .save-upload,
+          .playlist-create button {
+            height: 42px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            padding: 0 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          }
+
+          .save-upload {
+            margin-top: 12px;
+          }
+
+          .upload-progress {
+            margin-top: 12px;
+            display: grid;
+            gap: 7px;
+          }
+
+          .upload-progress div {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: #b6d6e6;
+            font-size: 13px;
+          }
+
+          .upload-progress strong {
+            color: #22d3ee;
+          }
+
+          .upload-progress progress {
+            width: 100%;
+            height: 10px;
+            accent-color: #22d3ee;
+          }
+
+          .upload-error {
+            margin: 10px 0 0;
+            border: 1px solid rgba(248, 113, 113, 0.45);
+            border-radius: 8px;
+            background: rgba(127, 29, 29, 0.36);
+            color: #fecaca;
+            padding: 10px 12px;
+            line-height: 1.35;
+          }
+
+          .upload-error p {
+            margin: 0;
+          }
+
+          .upload-fix {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+          }
+
+          .upload-fix button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            padding: 0 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+          }
+
+          .upload-fix span {
+            color: #ffd0d0;
+            font-size: 13px;
+          }
+
+          .video-page {
+            display: grid;
+            gap: 16px;
+          }
+
+          .horizontal-rail {
+            width: 100%;
+            min-width: 0;
+            display: grid;
+            grid-template-columns: 34px minmax(0, 1fr) 34px;
+            align-items: stretch;
+            gap: 8px;
+          }
+
+          .horizontal-rail-track {
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-behavior: smooth;
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            padding-bottom: 4px;
+          }
+
+          .horizontal-rail-track > * {
+            scroll-snap-align: start;
+          }
+
+          .rail-arrow {
+            min-width: 0;
+            min-height: 100%;
+            border: 1px solid rgba(34, 211, 238, 0.28);
+            border-radius: 8px;
+            background: #14265c;
+            color: white;
+            font-size: 18px;
+            font-weight: 900;
+            display: grid;
+            place-items: center;
+          }
+
+          .rail-arrow:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .video-upload-card,
+          .video-player-panel {
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 16px;
+          }
+
+          .video-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .video-form-grid input,
+          .video-form-grid select {
+            height: 42px;
+            border-radius: 8px;
+            border: 1px solid #263c78;
+            background: #020617;
+            color: white;
+            padding: 0 12px;
+            outline: none;
+          }
+
+          .video-form-grid .wide {
+            grid-column: 1 / -1;
+          }
+
+          .video-player-panel {
+            display: grid;
+            grid-template-columns: minmax(280px, 1.6fr) minmax(220px, 0.8fr);
+            gap: 14px;
+            align-items: stretch;
+          }
+
+          .global-video-player {
+            margin-bottom: 16px;
+          }
+
+          .global-video-player.is-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            pointer-events: none;
+          }
+
+          .video-player-panel video {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 8px;
+            background: #020617;
+            object-fit: contain;
+          }
+
+          .video-missing-source {
+            display: grid;
+            place-items: center;
+            min-height: 240px;
+            border-radius: 8px;
+            background: #020617;
+            color: #fda4af;
+            font-weight: 900;
+            text-align: center;
+            padding: 18px;
+          }
+
+          .video-player-copy {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            min-width: 0;
+          }
+
+          .video-player-copy span {
+            color: #22d3ee;
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .video-player-copy h3,
+          .video-player-copy p {
+            margin: 0;
+          }
+
+          .video-player-copy h3 {
+            font-size: 28px;
+            line-height: 1.08;
+          }
+
+          .video-player-copy p {
+            color: #9bdcf0;
+            font-weight: 800;
+          }
+
+          .video-player-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+          }
+
+          .video-player-actions button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            cursor: pointer;
+            font-weight: 900;
+            padding: 0 12px;
+          }
+
+          .video-player-actions button:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+          }
+
+          .video-library-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 12px;
+          }
+
+          .video-library-heading h3,
+          .video-library-heading p {
+            margin: 0;
+          }
+
+          .video-library-heading h3 {
+            font-size: 22px;
+          }
+
+          .video-library-heading p {
+            color: #9bdcf0;
+            font-size: 13px;
+            font-weight: 800;
+          }
+
+          .video-library-stats {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 7px;
+          }
+
+          .video-library-stats span {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+          }
+
+          .video-library-stats span + span::before {
+            content: "•";
+            color: #fbbf24;
+            font-weight: 900;
+          }
+
+          .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
+            gap: 9px;
+          }
+
+          .horizontal-rail-track.video-grid,
+          .horizontal-rail-track.song-grid,
+          .horizontal-rail-track.artist-grid,
+          .horizontal-rail-track.artist-album-grid,
+          .horizontal-rail-track.artist-playlist-grid,
+          .horizontal-rail-track.playlist-list,
+          .horizontal-rail-track.discovery-grid {
+            grid-auto-flow: column;
+            grid-template-columns: none;
+            align-items: stretch;
+          }
+
+          .horizontal-rail-track.video-grid,
+          .horizontal-rail-track.song-grid {
+            grid-auto-columns: minmax(174px, 188px);
+          }
+
+          .horizontal-rail-track.artist-grid {
+            grid-auto-columns: minmax(230px, 260px);
+          }
+
+          .horizontal-rail-track.artist-album-grid,
+          .horizontal-rail-track.artist-playlist-grid {
+            grid-auto-columns: minmax(210px, 245px);
+          }
+
+          .horizontal-rail-track.playlist-list {
+            grid-auto-columns: minmax(220px, 250px);
+          }
+
+          .horizontal-rail-track.discovery-grid {
+            grid-auto-columns: minmax(188px, 218px);
+          }
+
+          .video-card {
+            height: 350px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #10204a;
+            overflow: hidden;
+            container-type: inline-size;
+            display: grid;
+            grid-template-rows: 100px minmax(0, 1fr);
+          }
+
+          .video-cover-wrap {
+            position: relative;
+            height: 100px;
+            min-height: 100px;
+          }
+
+          .video-cover {
+            width: 100%;
+            height: 100px;
+            border: 0;
+            background: #020617;
+            color: white;
+            padding: 0;
+            position: relative;
+            display: block;
+            overflow: hidden;
+          }
+
+          .video-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            opacity: 0.78;
+          }
+
+          .video-cover span,
+          .video-cover svg {
+            position: absolute;
+            z-index: 1;
+          }
+
+          .video-cover span {
+            left: 7px;
+            top: 7px;
+            border-radius: 8px;
+            background: rgba(2, 6, 23, 0.86);
+            color: #22d3ee;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 4px 6px;
+          }
+
+          .video-cover svg {
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            color: #22d3ee;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.65));
+          }
+
+          .video-card-body {
+            padding: 8px;
+            display: grid;
+            grid-template-rows: 58px 24px minmax(104px, 1fr) 30px;
+            gap: 6px;
+            min-height: 0;
+            overflow: hidden;
+          }
+
+          .card-meta {
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+          }
+
+          .video-card-body h3,
+          .video-card-body p {
+            margin: 0;
+          }
+
+          .video-card-body h3 {
+            font-size: 14.5px;
+            line-height: 1.18;
+            min-height: 34px;
+            max-height: 34px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            overflow-wrap: anywhere;
+          }
+
+          .video-card-body p {
+            color: #c8f5ff;
+            font-size: 12.5px;
+            line-height: 1.2;
+            font-weight: 900;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .video-card-body > h3 + p {
+            min-width: 0;
+          }
+
+          .hero {
+            min-height: 210px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            background: linear-gradient(90deg, rgba(2, 6, 23, 0.88), rgba(2, 6, 23, 0.25)),
+              url("https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1600&q=80");
+            background-size: cover;
+            background-position: center;
+            padding: 24px 22px;
+            display: flex;
+            align-items: center;
+          }
+
+          .hero p {
+            margin: 0 0 8px;
+            color: #fbbf24;
+            font-weight: 900;
+          }
+
+          .hero-logo {
+            width: min(220px, 44vw);
+            max-height: 170px;
+            object-fit: contain;
+            display: block;
+            margin-bottom: 8px;
+          }
+
+          .hero h1 {
+            font-size: clamp(44px, 6vw, 72px);
+            margin: 0 0 4px;
+            line-height: 0.95;
+          }
+
+          .hero span {
+            max-width: 560px;
+            display: block;
+            font-size: 16px;
+          }
+
+          .hero-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+          }
+
+          .hero-buttons button {
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            padding: 12px 18px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .hero-buttons .sub-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+          }
+
+          .tabs,
+          .source-row {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+            margin: 12px 0 14px;
+          }
+
+          .tabs button,
+          .source-row button {
+            border: 0;
+            border-radius: 8px;
+            color: white;
+            background: #14265c;
+            padding: 10px 15px;
+            font-weight: 800;
+          }
+
+          .tabs button.active,
+          .tabs button:hover,
+          .source-row button.active,
+          .source-row button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .liked-page {
+            display: grid;
+            gap: 14px;
+          }
+
+          .liked-tabs {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+            margin-bottom: 2px;
+          }
+
+          .liked-tabs button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            background: #14265c;
+            color: white;
+            font-weight: 900;
+            padding: 0 16px;
+          }
+
+          .liked-tabs button.active,
+          .liked-tabs button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .sponsor-section,
+          .subscription-section {
+            margin: 0 0 16px;
+          }
+
+          .sponsor-card,
+          .subscription-section {
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            overflow: hidden;
+          }
+
+          .sponsor-card {
+            display: grid;
+            grid-template-columns: minmax(260px, 0.9fr) minmax(280px, 1.1fr);
+            min-height: 230px;
+          }
+
+          .sponsor-media {
+            position: relative;
+            min-height: 230px;
+            background: #020617;
+          }
+
+          .sponsor-media img {
+            width: 100%;
+            height: 100%;
+            min-height: 230px;
+            object-fit: cover;
+            display: block;
+          }
+
+          .sponsor-media::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0), rgba(2, 6, 23, 0.52));
+            pointer-events: none;
+          }
+
+          .sponsor-media span {
+            position: absolute;
+            left: 12px;
+            top: 12px;
+            z-index: 1;
+            border-radius: 8px;
+            background: rgba(251, 191, 36, 0.95);
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            padding: 7px 10px;
+          }
+
+          .sponsor-copy {
+            min-width: 0;
+            padding: 20px;
+            display: grid;
+            align-content: center;
+            gap: 10px;
+          }
+
+          .section-kicker {
+            margin: 0;
+            color: #fbbf24;
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .sponsor-copy h2,
+          .subscription-head h2 {
+            margin: 0;
+            color: white;
+            line-height: 1.05;
+          }
+
+          .sponsor-copy h2 {
+            font-size: clamp(28px, 4vw, 46px);
+          }
+
+          .sponsor-copy p:not(.section-kicker),
+          .plan-card p {
+            margin: 0;
+            color: #c7d8ec;
+            line-height: 1.45;
+          }
+
+          .sponsor-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .sponsor-meta span {
+            border: 1px solid rgba(34, 211, 238, 0.28);
+            border-radius: 8px;
+            background: #071631;
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+            padding: 7px 9px;
+          }
+
+          .sponsor-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 9px;
+            margin-top: 4px;
+          }
+
+          .sponsor-actions button,
+          .plan-card button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 0 13px;
+          }
+
+          .sponsor-actions .subtle-action {
+            background: #33446f;
+            color: white;
+          }
+
+          .discovery-section {
+            background: linear-gradient(180deg, #0b1736, #08132c);
+          }
+
+          .discovery-card {
+            min-width: 0;
+            height: 244px;
+            border: 1px solid rgba(34, 211, 238, 0.22);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 8px;
+            display: grid;
+            grid-template-rows: 96px minmax(0, 1fr) 34px;
+            gap: 8px;
+            overflow: hidden;
+            transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+          }
+
+          @media (hover: hover) {
+            .discovery-card:hover {
+              transform: scale(1.02);
+              border-color: rgba(34, 211, 238, 0.72);
+              box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.22), 0 16px 34px rgba(34, 211, 238, 0.16);
+              z-index: 2;
+            }
+          }
+
+          .discovery-card-main {
+            min-width: 0;
+            position: relative;
+            border: 0;
+            border-radius: 8px;
+            padding: 0;
+            overflow: hidden;
+            background: #020617;
+            color: white;
+          }
+
+          .discovery-card-main img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+          }
+
+          .discovery-card-main span {
+            position: absolute;
+            left: 8px;
+            top: 8px;
+            max-width: calc(100% - 16px);
+            border-radius: 999px;
+            background: rgba(2, 6, 23, 0.82);
+            color: #22d3ee;
+            font-size: 10.5px;
+            font-weight: 900;
+            padding: 5px 7px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .discovery-card-copy {
+            min-width: 0;
+            display: grid;
+            align-content: start;
+            gap: 3px;
+          }
+
+          .discovery-card-copy strong,
+          .discovery-card-copy small,
+          .discovery-card-copy em {
+            min-width: 0;
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .discovery-card-copy strong {
+            color: white;
+            font-size: 14px;
+            line-height: 1.22;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
+
+          .discovery-card-copy small,
+          .discovery-card-copy em {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-style: normal;
+            font-weight: 800;
+            white-space: nowrap;
+          }
+
+          .discovery-card-action {
+            min-width: 0;
+            width: 100%;
+            height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 9px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .subscription-section {
+            padding: 16px;
+          }
+
+          .subscription-head {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+          }
+
+          .subscription-head h2 {
+            font-size: 24px;
+          }
+
+          .plan-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+          }
+
+          .plan-card {
+            min-width: 0;
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 14px;
+            display: grid;
+            gap: 10px;
+          }
+
+          .plan-card span {
+            color: #9bdcf0;
+            font-size: 13px;
+            font-weight: 900;
+          }
+
+          .plan-card strong {
+            color: white;
+            font-size: 28px;
+            line-height: 1;
+          }
+
+          .plan-card button {
+            width: 100%;
+            margin-top: 4px;
+          }
+
+          .section-heading {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+          }
+
+          .section-heading h2 {
+            margin: 0;
+            font-size: 23px;
+          }
+
+          .section-heading p {
+            margin: 4px 0 0;
+            color: #a9bed6;
+            font-size: 13px;
+          }
+
+          .song-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
+            gap: 9px;
+            max-width: 1240px;
+          }
+
+          .song-card {
+            height: 340px;
+            background: #122244;
+            border: 1px solid rgba(0, 212, 255, 0.22);
+            border-radius: 8px;
+            overflow: hidden;
+            container-type: inline-size;
+            display: grid;
+            grid-template-rows: 100px minmax(0, 1fr);
+          }
+
+          .cover-wrap {
+            height: 100px;
+            position: relative;
+            overflow: hidden;
+          }
+
+          .cover {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+          }
+
+          .badge,
+          .duration {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.72);
+            border-radius: 8px;
+            padding: 4px 6px;
+            font-size: 10px;
+            font-weight: 900;
+          }
+
+          .badge {
+            left: 7px;
+            top: 7px;
+          }
+
+          .duration {
+            right: 7px;
+            bottom: 7px;
+          }
+
+          .card-header-actions {
+            position: absolute;
+            right: 7px;
+            top: 7px;
+            display: flex;
+            gap: 4px;
+            z-index: 2;
+          }
+
+          .card-icon-btn {
+            width: 26px;
+            height: 26px;
+            min-width: 26px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            background: rgba(2, 6, 23, 0.86);
+            color: white;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+          }
+
+          .video-cover-wrap > .card-icon-btn {
+            position: absolute;
+            right: 7px;
+            top: 7px;
+            z-index: 2;
+          }
+
+          .card-icon-btn:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .card-icon-btn.danger {
+            background: rgba(127, 29, 29, 0.92);
+            color: white;
+          }
+
+          .card-icon-btn.saved,
+          .card-icon-btn.queued {
+            background: #facc15;
+            color: #020617;
+          }
+
+          .song-body {
+            padding: 8px;
+            display: grid;
+            grid-template-rows: 60px 18px 24px 68px 30px;
+            gap: 5px;
+            min-height: 0;
+            overflow: hidden;
+          }
+
+          .song-head {
+            grid-row: 1;
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            min-width: 0;
+            overflow: hidden;
+          }
+
+          .song-head > div {
+            min-width: 0;
+          }
+
+          .song-head img {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+          }
+
+          .song-head h3 {
+            margin: 0;
+            font-size: 14.5px;
+            line-height: 1.18;
+            min-height: 34px;
+            max-height: 34px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            overflow-wrap: anywhere;
+          }
+
+          .song-head p {
+            margin: 3px 0 0;
+            color: #c8f5ff;
+            font-size: 12.5px;
+            line-height: 1.2;
+            font-weight: 900;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .artist-link {
+            border: 0;
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            font: inherit;
+            font-weight: inherit;
+            text-align: left;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .artist-link:hover {
+            color: #a3e635;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+          }
+
+          .desc {
+            grid-row: 2;
+            font-size: 10.5px;
+            line-height: 1.2;
+            margin: 0;
+            color: #e6edf5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+
+          .stats {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            flex-wrap: nowrap;
+            font-size: 10px;
+            font-weight: 900;
+            margin: 0;
+            color: #e4f7ff;
+            min-height: 0;
+            overflow: hidden;
+          }
+
+          .stats span {
+            min-width: 0;
+            border-radius: 999px;
+            background: rgba(2, 6, 23, 0.38);
+            border: 1px solid rgba(155, 220, 240, 0.18);
+            padding: 4px 5px;
+            line-height: 1.1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .card-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 5px;
+            align-items: stretch;
+            grid-auto-rows: minmax(31px, 1fr);
+            height: 68px;
+            min-height: 68px;
+            overflow: hidden;
+          }
+
+          .card-actions button,
+          .recent-row button,
+          .playlist-actions button,
+          .add-song-row button,
+          .playlist-song-row button {
+            min-width: 0;
+            min-height: 31px;
+            border: 0;
+            border-radius: 8px;
+            font-weight: 900;
+            font-size: 12.5px;
+            line-height: 1.1;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            overflow: hidden;
+            white-space: nowrap;
+            padding: 0 6px;
+          }
+
+          .card-actions button span {
+            min-width: 0;
+            flex: 0 1 auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .card-actions .library-btn,
+          .card-actions .queue-btn,
+          .card-actions .playlist-btn {
+            min-width: 0;
+          }
+
+          .song-card .playlist-picker {
+            display: none;
+          }
+
+          .song-body .stats {
+            grid-row: 3;
+          }
+
+          .song-body .card-actions {
+            grid-row: 4;
+          }
+
+          .song-body .card-secondary-actions {
+            grid-row: 5;
+          }
+
+          .video-card-body .card-secondary-actions {
+            grid-row: 4;
+          }
+
+          .video-card-body .card-meta {
+            grid-row: 1;
+          }
+
+          .video-card-body .stats {
+            grid-row: 2;
+          }
+
+          .video-card-body .card-actions {
+            grid-row: 3;
+          }
+
+          .video-card-body {
+            grid-template-rows: 58px 24px minmax(104px, 1fr) 30px;
+          }
+
+          .video-card-body .card-actions {
+            height: auto;
+            min-height: 104px;
+            overflow: hidden;
+          }
+
+          .card-actions .play-btn {
+            order: 1;
+          }
+
+          .card-actions .like-btn {
+            order: 2;
+          }
+
+          .card-actions .follow-btn {
+            order: 3;
+          }
+
+          .card-actions .playlist-btn,
+          .card-actions .library-btn {
+            order: 4;
+          }
+
+          .play-btn,
+          .recent-row button,
+          .playlist-actions button:first-child,
+          .playlist-song-row button {
+            background: #25c7df;
+            color: #020617 !important;
+          }
+
+          .library-btn {
+            background: #8b5cf6;
+          }
+
+          .library-btn.saved {
+            background: #475569;
+          }
+
+          .like-btn {
+            background: #ec4899;
+          }
+
+          .like-btn.liked {
+            background: #ef4444;
+          }
+
+          .queue-btn {
+            background: #facc15;
+            color: #020617 !important;
+          }
+
+          .queue-btn.queued {
+            background: #65a30d;
+            color: white !important;
+          }
+
+          .follow-btn {
+            background: #33446f;
+          }
+
+          .follow-btn.followed {
+            background: #06b6d4;
+          }
+
+          .playlist-btn {
+            background: #33446f;
+          }
+
+          .card-secondary-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 5px;
+            min-height: 30px;
+            overflow: hidden;
+          }
+
+          .card-secondary-actions button {
+            min-width: 0;
+            min-height: 30px;
+            border: 0;
+            border-radius: 8px;
+            background: #14265c;
+            color: #dbeafe;
+            font-size: 11px;
+            line-height: 1;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 0 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .card-secondary-actions button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          @container (max-width: 200px) {
+            .card-actions {
+              grid-template-columns: 1fr;
+            }
+
+            .card-actions .library-btn,
+            .card-actions .queue-btn,
+            .card-actions .playlist-btn {
+              min-width: 0;
+            }
+          }
+
+          .library-card.song-card,
+          .library-card.video-card {
+            height: 360px;
+          }
+
+          .library-card .song-body {
+            grid-template-rows: 60px 18px 24px 78px 30px;
+          }
+
+          .library-card .song-head {
+            align-items: flex-start;
+          }
+
+          .library-card .song-head p {
+            line-height: 1.1;
+            margin-top: 1px;
+          }
+
+          .library-card.video-card .video-card-body {
+            grid-template-rows: 58px 24px minmax(91px, 1fr) 30px;
+          }
+
+          .library-card .card-actions,
+          .library-card .video-card-body .card-actions {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-rows: minmax(24px, 1fr);
+            height: 78px;
+            min-height: 78px;
+            overflow: visible;
+          }
+
+          .library-card .card-actions button {
+            min-height: 24px;
+            font-size: 11.5px;
+            padding: 0 5px;
+          }
+
+          .library-card .card-actions .library-btn {
+            order: 4;
+          }
+
+          .library-card .card-actions .playlist-btn {
+            grid-column: 1 / -1;
+            order: 5;
+          }
+
+          .view-list .horizontal-rail {
+            grid-template-columns: 1fr;
+          }
+
+          .view-list .rail-arrow {
+            display: none;
+          }
+
+          .view-list .horizontal-rail-track.video-grid,
+          .view-list .horizontal-rail-track.song-grid,
+          .view-list .horizontal-rail-track.artist-grid,
+          .view-list .horizontal-rail-track.artist-album-grid,
+          .view-list .horizontal-rail-track.artist-playlist-grid,
+          .view-list .horizontal-rail-track.playlist-list,
+          .view-list .horizontal-rail-track.discovery-grid {
+            grid-auto-flow: row;
+            grid-auto-columns: unset;
+            grid-template-columns: 1fr;
+            overflow: visible;
+          }
+
+          .view-list .song-card,
+          .view-list .video-card {
+            height: auto;
+            min-height: 92px;
+            grid-template-columns: 116px minmax(0, 1fr);
+            grid-template-rows: 1fr;
+          }
+
+          .view-list .cover-wrap,
+          .view-list .video-cover-wrap,
+          .view-list .video-cover,
+          .view-list .song-card .cover {
+            height: 92px;
+            min-height: 92px;
+          }
+
+          .view-list .song-body,
+          .view-list .video-card-body {
+            grid-template-rows: auto auto auto auto;
+            min-height: 92px;
+            padding: 8px 10px;
+          }
+
+          .view-list .song-head {
+            grid-template-columns: 0 minmax(0, 1fr);
+            gap: 0;
+          }
+
+          .view-list .song-head img {
+            display: none;
+          }
+
+          .view-list .song-head h3,
+          .view-list .video-card-body h3 {
+            min-height: 0;
+            max-height: none;
+            font-size: 15px;
+            -webkit-line-clamp: 1;
+          }
+
+          .view-list .stats {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow: hidden;
+          }
+
+          .view-list .stats span {
+            min-width: max-content;
+          }
+
+          .view-list .card-actions {
+            grid-template-columns: repeat(5, minmax(74px, 1fr));
+            grid-auto-rows: minmax(31px, 1fr);
+          }
+
+          .view-list .card-actions .playlist-btn {
+            grid-column: auto;
+          }
+
+          .view-list .card-secondary-actions {
+            grid-template-columns: repeat(2, minmax(92px, 140px));
+            justify-content: start;
+          }
+
+          .view-list .card-secondary-actions button {
+            justify-content: center;
+          }
+
+          .view-list .artist-album-card,
+          .view-list .artist-card,
+          .view-list .discovery-card,
+          .view-list .artist-playlist-card,
+          .view-list .playlist-tile {
+            min-height: 92px;
+          }
+
+          .view-list .discovery-card {
+            height: auto;
+            grid-template-columns: 116px minmax(0, 1fr) minmax(100px, 150px);
+            grid-template-rows: 92px;
+            align-items: stretch;
+          }
+
+          .view-list .discovery-card-copy {
+            align-content: center;
+          }
+
+          .view-list .discovery-card-action {
+            align-self: center;
+          }
+
+          .view-list .artist-album-card,
+          .view-list .artist-playlist-card {
+            display: grid;
+            grid-template-columns: 116px minmax(0, 1fr);
+            align-items: start;
+            gap: 10px;
+          }
+
+          .view-list .artist-album-card {
+            grid-template-rows: auto;
+          }
+
+          .view-list .artist-album-card > img,
+          .view-list .artist-playlist-card > img {
+            grid-row: 1 / span 2;
+            aspect-ratio: 1;
+            max-height: 116px;
+            margin-bottom: 0;
+          }
+
+          .view-list .artist-album-card .artist-album-actions {
+            grid-column: 2;
+          }
+
+          .playlist-picker {
+            display: grid;
+            gap: 7px;
+            margin-top: 10px;
+          }
+
+          .playlist-picker span,
+          .cover-edit span {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .recent-list {
+            max-width: 1000px;
+            display: grid;
+            gap: 10px;
+          }
+
+          .recent-panel,
+          .queue-page {
+            display: grid;
+            gap: 12px;
+            max-width: 1100px;
+          }
+
+          .queue-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .queue-toolbar button,
+          .queue-manage-row button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+            white-space: nowrap;
+          }
+
+          .queue-toolbar button:nth-child(2) {
+            background: #a3e635;
+          }
+
+          .queue-toolbar button:disabled,
+          .queue-manage-row button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+          }
+
+          .queue-manage-list {
+            display: grid;
+            gap: 9px;
+          }
+
+          .queue-manage-row {
+            display: grid;
+            grid-template-columns: 36px 54px minmax(0, 1fr) minmax(72px, auto) repeat(3, minmax(54px, auto));
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 8px;
+          }
+
+          .queue-manage-row img {
+            width: 54px;
+            height: 54px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .recent-row {
+            display: grid;
+            grid-template-columns: 44px 58px 1fr 150px minmax(96px, auto);
+            align-items: center;
+            gap: 12px;
+            background: #10204a;
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            border-radius: 8px;
+            padding: 10px;
+          }
+
+          .recent-number {
+            color: #9bdcf0;
+            font-size: 13px;
+            font-weight: 900;
+            text-align: center;
+          }
+
+          .recent-row img {
+            width: 58px;
+            height: 58px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .recent-copy {
+            min-width: 0;
+          }
+
+          .recent-copy h3,
+          .recent-copy p,
+          .recent-copy small,
+          .playlist-song-row strong,
+          .playlist-song-row small,
+          .add-song-row strong,
+          .add-song-row small {
+            margin: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .recent-copy h3 {
+            font-size: 18px;
+          }
+
+          .recent-copy p,
+          .recent-copy small,
+          .recent-time {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .recent-row button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+            white-space: nowrap;
+          }
+
+          .empty-state {
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            padding: 24px;
+            background: #0b1736;
+            color: #d1d5db;
+            max-width: 1000px;
+          }
+
+          .empty-state h2 {
+            margin: 0 0 6px;
+            color: white;
+          }
+
+          .empty-state p {
+            margin: 0;
+          }
+
+          .playlist-workspace {
+            max-width: 1160px;
+          }
+
+          .playlist-layout {
+            display: grid;
+            grid-template-columns: 250px minmax(0, 1fr);
+            gap: 14px;
+            align-items: start;
+          }
+
+          .playlist-list {
+            display: grid;
+            gap: 10px;
+          }
+
+          .playlist-tile {
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            border-radius: 8px;
+            background: #10204a;
+            color: white;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-align: left;
+          }
+
+          .playlist-tile.active,
+          .playlist-tile:hover {
+            border-color: #22d3ee;
+            background: #17336e;
+          }
+
+          .playlist-tile img {
+            width: 54px;
+            height: 54px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+          }
+
+          .playlist-tile strong,
+          .playlist-tile small {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .playlist-tile small {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .playlist-detail {
+            min-width: 0;
+          }
+
+          .playlist-hero {
+            display: grid;
+            grid-template-columns: 190px minmax(0, 1fr);
+            gap: 18px;
+            align-items: start;
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+
+          .playlist-hero > img {
+            width: 190px;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .playlist-kicker {
+            color: #16e7ff;
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .playlist-hero h2 {
+            font-size: clamp(32px, 5vw, 58px);
+            line-height: 0.98;
+            margin: 6px 0;
+          }
+
+          .playlist-hero p {
+            color: #a9bed6;
+            margin: 0 0 14px;
+            font-weight: 800;
+          }
+
+          .playlist-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+          }
+
+          .playlist-actions button {
+            padding: 0 12px;
+            background: #33446f;
+          }
+
+          .playlist-actions button:nth-child(2) {
+            background: #a3e635;
+            color: #020617;
+          }
+
+          .playlist-actions .danger-btn {
+            background: #ef4444;
+          }
+
+          .playlist-content-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin: 0 0 14px;
+          }
+
+          .playlist-content-tabs button {
+            min-height: 42px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #10204a;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 900;
+            cursor: pointer;
+          }
+
+          .playlist-content-tabs button.active,
+          .playlist-content-tabs button:hover {
+            background: #22d3ee;
+            color: #020617;
+            border-color: #22d3ee;
+          }
+
+          .playlist-content-tabs button:disabled {
+            opacity: 0.42;
+            cursor: not-allowed;
+          }
+
+          .playlist-content-tabs span {
+            min-width: 26px;
+            border-radius: 999px;
+            background: rgba(2, 6, 23, 0.18);
+            padding: 2px 8px;
+          }
+
+          .cover-edit {
+            display: grid;
+            gap: 7px;
+          }
+
+          .playlist-add-panel input {
+            width: 100%;
+            margin-bottom: 12px;
+          }
+
+          .add-song-list {
+            max-height: 310px;
+            overflow: auto;
+            display: grid;
+            gap: 8px;
+          }
+
+          .add-song-row,
+          .playlist-song-row {
+            display: grid;
+            grid-template-columns: 44px 1fr 74px;
+            gap: 10px;
+            align-items: center;
+            background: #10204a;
+            border-radius: 8px;
+            padding: 8px;
+          }
+
+          .add-song-row img,
+          .playlist-song-row img {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .add-song-row span,
+          .playlist-song-row span {
+            min-width: 0;
+          }
+
+          .add-song-row strong,
+          .playlist-song-row strong {
+            display: block;
+            font-size: 14px;
+          }
+
+          .add-song-row small,
+          .playlist-song-row small {
+            display: block;
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .add-song-row button {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .playlist-songs h3 {
+            margin: 0 0 12px;
+          }
+
+          .playlist-song-row {
+            grid-template-columns: 32px 48px minmax(0, 1fr) 38px 38px;
+            margin-bottom: 8px;
+          }
+
+          .playlist-song-row button:last-child {
+            background: #ef4444;
+            color: white !important;
+          }
+
+          .marketplace-page {
+            display: grid;
+            gap: 18px;
+            padding-bottom: 130px;
+          }
+
+          .marketplace-hero,
+          .marketplace-filters,
+          .marketplace-chart-section {
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 16px;
+          }
+
+          .marketplace-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 16px;
+            align-items: end;
+          }
+
+          .marketplace-hero h2 {
+            margin: 4px 0 8px;
+            font-size: clamp(28px, 4vw, 52px);
+            line-height: 1;
+          }
+
+          .marketplace-hero p {
+            margin: 0;
+            color: #c8f5ff;
+            font-weight: 800;
+          }
+
+          .marketplace-hero-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(110px, 1fr));
+            gap: 8px;
+          }
+
+          .marketplace-hero-stats span {
+            display: grid;
+            gap: 2px;
+            border: 1px solid rgba(0, 212, 255, 0.25);
+            border-radius: 8px;
+            background: #13275b;
+            padding: 10px;
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .marketplace-hero-stats strong {
+            color: white;
+            font-size: 20px;
+          }
+
+          .marketplace-filters {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+            gap: 10px;
+            align-items: end;
+          }
+
+          .marketplace-filters label {
+            display: grid;
+            gap: 5px;
+            min-width: 0;
+          }
+
+          .marketplace-filters span {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .marketplace-filters select,
+          .marketplace-filters button {
+            width: 100%;
+            min-height: 38px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            background: #020617;
+            color: white;
+            font-weight: 900;
+            padding: 0 10px;
+          }
+
+          .marketplace-filters button {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .marketplace-advanced-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+            gap: 12px;
+            align-items: stretch;
+          }
+
+          .marketplace-feature-panel {
+            min-width: 0;
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 14px;
+            display: grid;
+            gap: 10px;
+          }
+
+          .featured-store-list,
+          .discount-code-grid {
+            display: grid;
+            gap: 8px;
+          }
+
+          .featured-store-list article {
+            min-width: 0;
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) 58px;
+            gap: 8px;
+            align-items: center;
+            border-radius: 8px;
+            background: #10204a;
+            padding: 6px 8px;
+            overflow: hidden;
+          }
+
+          .featured-store-list img,
+          .marketplace-bundle-card img,
+          .marketplace-limited-card img,
+          .marketplace-preorder-card img {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #020617;
+          }
+
+          .featured-store-list span,
+          .discount-code-grid span,
+          .marketplace-bundle-card span,
+          .marketplace-limited-card span,
+          .marketplace-preorder-card span {
+            color: #22d3ee;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .featured-store-list strong,
+          .featured-store-list small,
+          .marketplace-bundle-card strong,
+          .marketplace-bundle-card small,
+          .marketplace-limited-card strong,
+          .marketplace-limited-card small,
+          .marketplace-preorder-card strong,
+          .marketplace-preorder-card small {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .featured-store-list article > div {
+            min-width: 0;
+          }
+
+          .featured-store-list strong,
+          .marketplace-bundle-card strong,
+          .marketplace-limited-card strong,
+          .marketplace-preorder-card strong {
+            color: white;
+            font-size: 14px;
+            font-weight: 900;
+          }
+
+          .featured-store-list small,
+          .marketplace-bundle-card small,
+          .marketplace-limited-card small,
+          .marketplace-preorder-card small {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .featured-store-list button,
+          .discount-code-grid button,
+          .marketplace-bundle-card button,
+          .marketplace-limited-card button,
+          .marketplace-preorder-card button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+            white-space: nowrap;
+          }
+
+          .featured-store-list button {
+            width: 58px;
+            min-height: 34px;
+            justify-self: end;
+            padding: 0;
+          }
+
+          .discount-code-grid {
+            grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+            align-items: stretch;
+          }
+
+          .discount-code-grid button {
+            min-width: 0;
+            min-height: 148px;
+            display: grid;
+            justify-items: start;
+            align-content: start;
+            gap: 6px;
+            text-align: left;
+            background: #10204a;
+            color: white;
+            border: 1px solid rgba(34, 211, 238, 0.18);
+            padding: 14px;
+            overflow: visible;
+            white-space: normal;
+          }
+
+          .discount-code-grid strong {
+            color: #a3e635;
+            font-size: 18px;
+          }
+
+          .discount-code-grid small {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.35;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            word-break: break-word;
+          }
+
+          .marketplace-release-grid {
+            grid-auto-columns: minmax(220px, 240px);
+          }
+
+          .marketplace-bundle-grid,
+          .marketplace-limited-grid,
+          .marketplace-preorder-grid {
+            grid-auto-columns: minmax(230px, 260px);
+          }
+
+          .marketplace-bundle-card,
+          .marketplace-limited-card,
+          .marketplace-preorder-card {
+            min-height: 250px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+            display: grid;
+            grid-template-rows: 120px minmax(0, 1fr) auto;
+            gap: 8px;
+            transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+          }
+
+          .marketplace-bundle-card:hover,
+          .marketplace-limited-card:hover,
+          .marketplace-preorder-card:hover {
+            transform: scale(1.02);
+            border-color: #22d3ee;
+            box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), 0 16px 34px rgba(0, 0, 0, 0.28);
+          }
+
+          .marketplace-release-card {
+            min-height: 320px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #10204a;
+            overflow: hidden;
+            display: grid;
+            grid-template-rows: 130px minmax(0, 1fr) auto;
+            transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+          }
+
+          .marketplace-release-card:hover {
+            transform: scale(1.02);
+            border-color: #22d3ee;
+            box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), 0 16px 34px rgba(0, 0, 0, 0.28);
+          }
+
+          .marketplace-release-cover {
+            position: relative;
+            width: 100%;
+            border: 0;
+            padding: 0;
+            background: #020617;
+            overflow: hidden;
+          }
+
+          .marketplace-release-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+          }
+
+          .marketplace-release-cover span {
+            position: absolute;
+            left: 8px;
+            top: 8px;
+            border-radius: 999px;
+            background: rgba(2, 6, 23, 0.82);
+            color: #22d3ee;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 5px 7px;
+            text-transform: uppercase;
+          }
+
+          .marketplace-release-copy {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+            padding: 10px;
+          }
+
+          .marketplace-release-copy strong {
+            font-size: 15px;
+            line-height: 1.18;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+
+          .marketplace-release-copy button {
+            justify-self: start;
+            max-width: 100%;
+            border: 0;
+            background: transparent;
+            color: #9bdcf0;
+            font-weight: 900;
+            padding: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .marketplace-release-copy small {
+            color: #c8f5ff;
+            font-size: 11px;
+            font-weight: 800;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .marketplace-release-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 0 10px 10px;
+          }
+
+          .marketplace-release-actions button,
+          .marketplace-chart-row button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+          }
+
+          .marketplace-release-actions button:last-child {
+            background: #a3e635;
+          }
+
+          .license-selection-note {
+            display: block;
+            margin: 0 10px 8px;
+            color: #9bdcf0;
+            font-size: 10px;
+            font-weight: 900;
+            line-height: 1.25;
+          }
+
+          .license-button-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+          }
+
+          .marketplace-license-actions {
+            padding: 0 10px 10px;
+          }
+
+          .license-button-grid button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            background: #233b77;
+            color: white;
+            font-weight: 900;
+            display: grid;
+            place-items: center;
+            padding: 5px 6px;
+            line-height: 1.05;
+            cursor: pointer;
+          }
+
+          .license-button-grid button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .license-button-grid button.active,
+          .beat-license-detail-grid button.active {
+            background: #a3e635;
+            color: #020617;
+            box-shadow: 0 0 0 1px rgba(163, 230, 53, 0.55);
+          }
+
+          .license-button-grid small {
+            color: inherit;
+            font-size: 10px;
+            font-weight: 900;
+          }
+
+          .beat-detail-panel {
+            display: grid;
+            grid-template-columns: 180px minmax(0, 1fr);
+            gap: 14px;
+            align-items: stretch;
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 14px;
+          }
+
+          .beat-detail-cover {
+            display: grid;
+            gap: 8px;
+          }
+
+          .beat-detail-cover img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 8px;
+          }
+
+          .beat-detail-cover button,
+          .beat-detail-actions button {
+            min-height: 36px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          }
+
+          .beat-detail-copy {
+            display: grid;
+            gap: 10px;
+            min-width: 0;
+          }
+
+          .beat-detail-copy h3,
+          .beat-detail-copy p {
+            margin: 0;
+          }
+
+          .beat-detail-copy p {
+            color: #c8f5ff;
+            font-weight: 800;
+          }
+
+          .beat-license-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .beat-license-detail-grid button {
+            min-height: 112px;
+            border: 0;
+            border-radius: 8px;
+            background: #13275b;
+            color: white;
+            display: grid;
+            gap: 5px;
+            align-content: start;
+            padding: 10px;
+            text-align: left;
+          }
+
+          .beat-license-detail-grid small {
+            color: inherit;
+            font-size: 11px;
+            line-height: 1.25;
+          }
+
+          .beat-detail-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .beat-detail-actions .subtle-action {
+            background: #233b77;
+            color: white;
+          }
+
+          .license-history-page {
+            display: grid;
+            gap: 16px;
+            padding-bottom: 130px;
+          }
+
+          .sales-page {
+            display: grid;
+            gap: 16px;
+            padding-bottom: 130px;
+          }
+
+          .sales-hero,
+          .sales-panel,
+          .license-history-hero,
+          .license-history-list {
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 16px;
+          }
+
+          .sales-hero,
+          .license-history-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 16px;
+            align-items: end;
+          }
+
+          .sales-hero h2,
+          .license-history-hero h2 {
+            margin: 4px 0 8px;
+            font-size: clamp(26px, 4vw, 46px);
+            line-height: 1;
+          }
+
+          .sales-hero p,
+          .license-history-hero p {
+            margin: 0;
+            color: #c8f5ff;
+            font-weight: 800;
+          }
+
+          .sales-hero-stats,
+          .license-history-stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(92px, 1fr));
+            gap: 8px;
+          }
+
+          .sales-hero-stats span,
+          .license-history-stats span {
+            display: grid;
+            gap: 2px;
+            border: 1px solid rgba(0, 212, 255, 0.25);
+            border-radius: 8px;
+            background: #13275b;
+            padding: 10px;
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .sales-hero-stats strong,
+          .license-history-stats strong {
+            color: white;
+            font-size: 18px;
+          }
+
+          .sales-row-list {
+            display: grid;
+            gap: 8px;
+          }
+
+          .sales-row {
+            display: grid;
+            grid-template-columns: 48px minmax(0, 1fr) 128px;
+            gap: 10px;
+            align-items: center;
+            border-radius: 8px;
+            background: #13275b;
+            padding: 8px;
+          }
+
+          .sales-row img {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .sales-row div {
+            min-width: 0;
+            display: grid;
+            gap: 3px;
+          }
+
+          .sales-row strong,
+          .sales-row small {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .sales-row small {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .sales-row button,
+          .sales-actions button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          }
+
+          .sales-row .danger-btn,
+          .sales-actions button:last-child {
+            background: #ef4444;
+            color: white;
+          }
+
+          .sales-row button:disabled,
+          .sales-actions button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+          }
+
+          .sales-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(120px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+          }
+
+          .sales-status {
+            border-radius: 999px;
+            background: #a3e635;
+            color: #020617;
+            font-size: 11px;
+            font-weight: 900;
+            padding: 7px 10px;
+            text-align: center;
+            text-transform: uppercase;
+          }
+
+          .license-history-list {
+            display: grid;
+            gap: 10px;
+          }
+
+          .license-history-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 150px;
+            gap: 12px;
+            align-items: center;
+            border-radius: 8px;
+            background: #13275b;
+            padding: 12px;
+          }
+
+          .license-history-row div {
+            min-width: 0;
+            display: grid;
+            gap: 4px;
+          }
+
+          .license-history-row span {
+            width: max-content;
+            border-radius: 999px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 4px 8px;
+            text-transform: uppercase;
+          }
+
+          .license-history-row strong,
+          .license-history-row small,
+          .license-history-row p {
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .license-history-row strong,
+          .license-history-row small {
+            white-space: nowrap;
+          }
+
+          .license-history-row small,
+          .license-history-row p {
+            color: #c8f5ff;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .license-history-row p {
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
+
+          .license-history-row button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+          }
+
+          .marketplace-chart-list {
+            display: grid;
+            gap: 8px;
+          }
+
+          .marketplace-chart-row {
+            display: grid;
+            grid-template-columns: 34px 48px minmax(0, 1fr) auto 84px 84px;
+            gap: 10px;
+            align-items: center;
+            border-radius: 8px;
+            background: #13275b;
+            padding: 8px;
+          }
+
+          .marketplace-chart-row > strong {
+            color: #22d3ee;
+            font-size: 18px;
+            text-align: center;
+          }
+
+          .marketplace-chart-row img {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .marketplace-chart-row span {
+            min-width: 0;
+            display: grid;
+            gap: 2px;
+          }
+
+          .marketplace-chart-row b,
+          .marketplace-chart-row small {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .marketplace-chart-row small {
+            color: #9bdcf0;
+            font-weight: 800;
+          }
+
+          .marketplace-chart-row em {
+            color: #a3e635;
+            font-style: normal;
+            font-weight: 900;
+            white-space: nowrap;
+          }
+
+          .profile-page {
+            max-width: 1000px;
+            display: grid;
+            gap: 14px;
+          }
+
+          .profile-hero,
+          .profile-save {
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 18px;
+          }
+
+          .profile-hero {
+            display: grid;
+            grid-template-columns: 110px minmax(0, 1fr);
+            gap: 16px;
+            align-items: center;
+          }
+
+          .profile-avatar {
+            width: 110px;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            display: grid;
+            place-items: center;
+            font-size: 54px;
+            font-weight: 900;
+          }
+
+          .profile-hero h2 {
+            margin: 5px 0;
+            font-size: clamp(34px, 5vw, 58px);
+            line-height: 0.98;
+          }
+
+          .profile-hero p,
+          .profile-save p {
+            margin: 0;
+            color: #a9bed6;
+            font-weight: 800;
+          }
+
+          .profile-actions {
+            margin-top: 14px;
+          }
+
+          .profile-actions button {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            background: #ef4444;
+            color: white;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 0 14px;
+          }
+
+          .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .profile-grid div {
+            background: #10204a;
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            border-radius: 8px;
+            padding: 14px;
+          }
+
+          .profile-grid strong,
+          .profile-grid span {
+            display: block;
+          }
+
+          .profile-grid strong {
+            font-size: 28px;
+          }
+
+          .profile-grid span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .profile-save h3 {
+            margin: 0 0 6px;
+          }
+
+          .profile-link-line {
+            display: block;
+            margin-top: 8px;
+            color: #22d3ee;
+            font-size: 12px;
+            font-weight: 900;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .verification-admin-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+          }
+
+          .verification-admin-grid > div {
+            min-width: 0;
+            border: 1px solid rgba(34, 211, 238, 0.22);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+            display: grid;
+            gap: 7px;
+          }
+
+          .verification-admin-grid strong,
+          .verification-admin-grid span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .verification-admin-grid strong {
+            color: white;
+          }
+
+          .verification-admin-grid span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .verification-admin-grid button {
+            min-width: 0;
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #14265c;
+            color: white;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 7px;
+            padding: 0 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .verification-admin-grid button.active,
+          .verification-admin-grid button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .verified-badge {
+            display: inline-grid;
+            place-items: center;
+            width: 16px;
+            height: 16px;
+            margin-left: 5px;
+            border-radius: 999px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 11px;
+            font-weight: 1000;
+            line-height: 1;
+            vertical-align: text-bottom;
+            flex-shrink: 0;
+          }
+
+          .dashboard-page {
+            max-width: 1160px;
+            display: grid;
+            gap: 14px;
+          }
+
+          .dashboard-brand {
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 14px;
+          }
+
+          .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+          }
+
+          .dashboard-grid div,
+          .dashboard-panel {
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 16px;
+          }
+
+          .dashboard-grid strong,
+          .dashboard-grid span {
+            display: block;
+          }
+
+          .dashboard-grid strong {
+            font-size: 28px;
+          }
+
+          .dashboard-grid span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .analytics-panel {
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+          }
+
+          .analytics-bars {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+          }
+
+          .analytics-bars div {
+            min-width: 0;
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+            display: grid;
+            gap: 6px;
+          }
+
+          .analytics-bars span,
+          .analytics-bars strong {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .analytics-bars span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .analytics-bars strong {
+            color: white;
+            font-size: 20px;
+          }
+
+          .analytics-bars i {
+            display: block;
+            height: 7px;
+            border-radius: 999px;
+            background: #22d3ee;
+            min-width: 8px;
+          }
+
+          .album-performance-list {
+            display: grid;
+            gap: 8px;
+          }
+
+          .album-performance-list article {
+            min-width: 0;
+            border-radius: 8px;
+            background: #10204a;
+            padding: 9px;
+          }
+
+          .album-performance-list strong,
+          .album-performance-list span,
+          .album-performance-list p {
+            display: block;
+            min-width: 0;
+            margin: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .album-performance-list span,
+          .album-performance-list p {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .growth-panel {
+            display: grid;
+            gap: 12px;
+          }
+
+          .growth-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+          }
+
+          .growth-summary-grid div,
+          .growth-card,
+          .growth-actions article {
+            min-width: 0;
+            border: 1px solid rgba(34, 211, 238, 0.18);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+          }
+
+          .growth-summary-grid strong,
+          .growth-summary-grid span,
+          .growth-card span,
+          .growth-card strong,
+          .growth-card small,
+          .growth-card p,
+          .growth-actions span,
+          .growth-actions strong,
+          .growth-actions small {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .growth-summary-grid strong {
+            color: white;
+            font-size: 24px;
+            line-height: 1;
+          }
+
+          .growth-summary-grid span,
+          .growth-card span,
+          .growth-actions span {
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .growth-columns {
+            display: grid;
+            grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.1fr);
+            gap: 10px;
+          }
+
+          .growth-card {
+            display: grid;
+            gap: 10px;
+          }
+
+          .growth-trend-bars {
+            height: 150px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            align-items: end;
+          }
+
+          .growth-trend-bars div {
+            min-width: 0;
+            height: 100%;
+            display: grid;
+            grid-template-rows: 1fr auto auto;
+            align-items: end;
+            gap: 5px;
+            text-align: center;
+          }
+
+          .growth-trend-bars i {
+            width: 100%;
+            min-height: 12px;
+            border-radius: 8px 8px 2px 2px;
+            background: linear-gradient(180deg, #a3e635, #22d3ee);
+          }
+
+          .growth-trend-bars strong,
+          .growth-list strong,
+          .growth-actions strong {
+            color: white;
+            font-size: 13px;
+            font-weight: 900;
+            white-space: nowrap;
+          }
+
+          .growth-trend-bars small,
+          .growth-list small,
+          .growth-actions small,
+          .growth-card p {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .growth-list,
+          .growth-actions {
+            display: grid;
+            gap: 8px;
+          }
+
+          .growth-list div {
+            min-width: 0;
+            border-radius: 8px;
+            background: rgba(2, 6, 23, 0.35);
+            padding: 8px;
+          }
+
+          .growth-actions {
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          }
+
+          .growth-actions article.priority-high {
+            border-color: rgba(248, 113, 113, 0.52);
+          }
+
+          .growth-actions article.priority-medium {
+            border-color: rgba(250, 204, 21, 0.48);
+          }
+
+          .growth-actions article.priority-low {
+            border-color: rgba(163, 230, 53, 0.45);
+          }
+
+          .storefront-customization-panel {
+            display: grid;
+            gap: 12px;
+          }
+
+          .storefront-preview-card {
+            min-width: 0;
+            overflow: hidden;
+            border: 1px solid rgba(34, 211, 238, 0.18);
+            border-radius: 8px;
+            background: #10204a;
+          }
+
+          .storefront-preview-banner {
+            min-height: 120px;
+            background-color: #020617;
+            background-position: center;
+            background-size: cover;
+          }
+
+          .storefront-preview-body {
+            display: grid;
+            grid-template-columns: 64px minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+          }
+
+          .storefront-preview-body img {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #020617;
+          }
+
+          .storefront-preview-body span,
+          .storefront-preview-body strong,
+          .storefront-preview-body small,
+          .storefront-readiness-grid strong,
+          .storefront-readiness-grid span {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .storefront-preview-body span {
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .storefront-preview-body strong {
+            color: white;
+            font-size: 18px;
+            font-weight: 900;
+            white-space: nowrap;
+          }
+
+          .storefront-preview-body small,
+          .storefront-readiness-grid span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .storefront-readiness-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+          }
+
+          .storefront-readiness-grid div {
+            min-width: 0;
+            border-radius: 8px;
+            background: #10204a;
+            padding: 9px;
+          }
+
+          .storefront-readiness-grid strong {
+            color: white;
+            font-size: 16px;
+            font-weight: 900;
+          }
+
+          .storefront-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .storefront-actions button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: 900;
+            white-space: nowrap;
+          }
+
+          .monetization-panel {
+            display: grid;
+            gap: 12px;
+          }
+
+          .monetization-plan-grid,
+          .monetization-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+          }
+
+          .monetization-plan,
+          .monetization-summary-grid div,
+          .monetization-list article,
+          .split-row {
+            min-width: 0;
+            border: 1px solid rgba(34, 211, 238, 0.18);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+          }
+
+          .monetization-plan.active {
+            border-color: rgba(163, 230, 53, 0.65);
+            box-shadow: 0 0 0 1px rgba(163, 230, 53, 0.18);
+          }
+
+          .monetization-plan span,
+          .monetization-plan strong,
+          .monetization-plan b,
+          .monetization-plan small,
+          .monetization-summary-grid strong,
+          .monetization-summary-grid span,
+          .monetization-list span,
+          .monetization-list strong,
+          .monetization-list small,
+          .split-row span,
+          .split-row strong,
+          .split-row small,
+          .monetization-footnote {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .monetization-plan {
+            display: grid;
+            gap: 6px;
+          }
+
+          .monetization-plan span,
+          .monetization-list span {
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .monetization-plan strong,
+          .monetization-summary-grid strong,
+          .monetization-list strong {
+            color: white;
+            font-size: 16px;
+            font-weight: 900;
+          }
+
+          .monetization-plan b {
+            color: #a3e635;
+            font-size: 14px;
+          }
+
+          .monetization-plan small,
+          .monetization-summary-grid span,
+          .monetization-list small,
+          .split-row small,
+          .monetization-action-row span,
+          .monetization-footnote {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .monetization-plan button,
+          .monetization-action-row button,
+          .monetization-row-actions button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: 900;
+            white-space: nowrap;
+          }
+
+          .monetization-action-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+          }
+
+          .monetization-action-row button:disabled,
+          .monetization-row-actions button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+          }
+
+          .monetization-list {
+            display: grid;
+            gap: 8px;
+          }
+
+          .monetization-list article {
+            display: grid;
+            gap: 5px;
+          }
+
+          .purchase-list article {
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+          }
+
+          .purchase-list article > span,
+          .purchase-list article > strong,
+          .purchase-list article > small {
+            grid-column: 1;
+          }
+
+          .monetization-row-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+          }
+
+          .split-table {
+            display: grid;
+            gap: 7px;
+          }
+
+          .split-row {
+            display: grid;
+            grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(74px, 0.28fr));
+            align-items: center;
+            gap: 8px;
+          }
+
+          .split-head {
+            background: rgba(34, 211, 238, 0.12);
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .trending-controls {
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 14px;
+            margin: 0 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+          }
+
+          .trending-controls.compact {
+            margin-top: 0;
+          }
+
+          .trending-controls h2 {
+            margin: 2px 0 0;
+            font-size: 22px;
+            line-height: 1.1;
+          }
+
+          .trend-period-tabs {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(72px, auto));
+            gap: 7px;
+          }
+
+          .trend-period-tabs button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #14265c;
+            color: white;
+            font-size: 12px;
+            font-weight: 900;
+            padding: 0 11px;
+            white-space: nowrap;
+          }
+
+          .trend-period-tabs button.active,
+          .trend-period-tabs button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .stability-page {
+            width: min(1160px, 100%);
+          }
+
+          .stability-brand {
+            display: grid;
+            grid-template-columns: 74px minmax(0, 1fr) minmax(320px, auto);
+            align-items: center;
+            gap: 12px;
+          }
+
+          .stability-brand img {
+            width: 74px;
+            height: 74px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .stability-brand h2 {
+            margin: 3px 0;
+          }
+
+          .stability-brand small {
+            color: #9bdcf0;
+            font-weight: 900;
+          }
+
+          .stability-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          .stability-actions button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+          }
+
+          .stability-actions button:nth-child(2) {
+            background: #8de924;
+          }
+
+          .stability-actions button:nth-child(4) {
+            background: #ef4444;
+            color: white;
+          }
+
+          .stability-actions button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+          }
+
+          .stability-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+          }
+
+          .stability-grid div,
+          .stability-panel,
+          .recovery-grid div {
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 14px;
+          }
+
+          .stability-grid strong,
+          .stability-grid span,
+          .recovery-grid strong,
+          .recovery-grid span {
+            display: block;
+          }
+
+          .stability-grid strong {
+            font-size: 26px;
+          }
+
+          .stability-grid span,
+          .recovery-grid span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .stability-panel {
+            display: grid;
+            gap: 10px;
+          }
+
+          .stability-panel .panel-title-row span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .phase8-launch-panel {
+            gap: 12px;
+          }
+
+          .phase8-readiness-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 10px;
+          }
+
+          .phase8-card {
+            min-height: 148px;
+            border: 1px solid rgba(34, 211, 238, 0.24);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+
+          .phase8-card.ready {
+            border-color: rgba(141, 233, 36, 0.5);
+            box-shadow: inset 0 0 0 1px rgba(141, 233, 36, 0.12);
+          }
+
+          .phase8-card span,
+          .phase8-card strong,
+          .phase8-card small {
+            min-width: 0;
+            overflow-wrap: anywhere;
+          }
+
+          .phase8-card span {
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 950;
+            text-transform: uppercase;
+          }
+
+          .phase8-card strong {
+            color: #ffffff;
+            font-size: 18px;
+            line-height: 1.15;
+          }
+
+          .phase8-card small {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 850;
+            line-height: 1.35;
+          }
+
+          .phase8-card .phase8-warning {
+            color: #fbbf24;
+          }
+
+          .phase8-card button {
+            min-height: 32px;
+            margin-top: auto;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 950;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+            cursor: pointer;
+          }
+
+          .phase8-card button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+          }
+
+          .trust-moderation-panel {
+            gap: 14px;
+          }
+
+          .trust-summary-grid,
+          .trust-panel-grid,
+          .trust-quick-grid {
+            display: grid;
+            gap: 10px;
+          }
+
+          .trust-summary-grid {
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          }
+
+          .trust-summary-grid div,
+          .trust-panel-grid > div,
+          .trust-quick-grid article {
+            border: 1px solid rgba(34, 211, 238, 0.24);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+          }
+
+          .trust-summary-grid strong,
+          .trust-summary-grid span,
+          .trust-panel-grid h4 {
+            display: block;
+          }
+
+          .trust-summary-grid strong {
+            font-size: 22px;
+          }
+
+          .trust-summary-grid span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .trust-quick-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          }
+
+          .trust-quick-grid article {
+            display: grid;
+            grid-template-columns: 46px minmax(0, 1fr) auto auto;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .trust-quick-grid img {
+            width: 46px;
+            height: 46px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid rgba(34, 211, 238, 0.22);
+          }
+
+          .trust-quick-grid strong,
+          .trust-quick-grid small,
+          .trust-quick-grid span {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .trust-quick-grid span,
+          .trust-quick-grid small,
+          .trust-panel-grid small {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 900;
+          }
+
+          .trust-quick-grid button {
+            min-height: 32px;
+            border: 0;
+            border-radius: 8px;
+            background: #26c6da;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 950;
+            padding: 0 10px;
+            cursor: pointer;
+          }
+
+          .trust-panel-grid {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            align-items: start;
+          }
+
+          .trust-panel-grid h4 {
+            margin: 0 0 8px;
+            font-size: 15px;
+          }
+
+          .support-operations-panel {
+            gap: 14px;
+          }
+
+          .support-summary-grid,
+          .support-panel-grid,
+          .support-feedback-row {
+            display: grid;
+            gap: 10px;
+          }
+
+          .support-summary-grid {
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          }
+
+          .support-summary-grid div,
+          .support-panel-grid > div {
+            border: 1px solid rgba(34, 211, 238, 0.24);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+          }
+
+          .support-summary-grid strong,
+          .support-summary-grid span,
+          .support-panel-grid h4 {
+            display: block;
+          }
+
+          .support-summary-grid strong {
+            font-size: 22px;
+          }
+
+          .support-summary-grid span,
+          .support-panel-grid small {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .support-feedback-row {
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+          }
+
+          .support-feedback-row button {
+            min-height: 36px;
+            border: 0;
+            border-radius: 8px;
+            background: #253968;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 950;
+            cursor: pointer;
+          }
+
+          .support-panel-grid {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            align-items: start;
+          }
+
+          .support-panel-grid h4 {
+            margin: 0 0 8px;
+            font-size: 15px;
+          }
+
+          .launch-readiness-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid rgba(34, 211, 238, 0.28);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 12px;
+          }
+
+          .launch-readiness-card.ready {
+            border-color: rgba(163, 230, 53, 0.45);
+            background: rgba(20, 83, 45, 0.34);
+          }
+
+          .launch-readiness-card strong,
+          .launch-readiness-card span {
+            display: block;
+            min-width: 0;
+          }
+
+          .launch-readiness-card span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+            margin-top: 3px;
+          }
+
+          .launch-readiness-card button,
+          .launch-checklist-actions button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 12px;
+            font-size: 12px;
+            font-weight: 900;
+            white-space: nowrap;
+          }
+
+          .launch-checklist-list {
+            display: grid;
+            gap: 8px;
+          }
+
+          .launch-checklist-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid rgba(34, 211, 238, 0.24);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+          }
+
+          .launch-checklist-row.status-passed {
+            border-color: rgba(163, 230, 53, 0.42);
+          }
+
+          .launch-checklist-row.status-blocked {
+            border-color: rgba(248, 113, 113, 0.45);
+          }
+
+          .launch-checklist-row > div:first-child {
+            min-width: 0;
+          }
+
+          .launch-checklist-row span,
+          .launch-checklist-row strong,
+          .launch-checklist-row small {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .launch-checklist-row span {
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .launch-checklist-row.status-passed span {
+            color: #a3e635;
+          }
+
+          .launch-checklist-row.status-blocked span {
+            color: #fca5a5;
+          }
+
+          .launch-checklist-row small {
+            color: #9bdcf0;
+            font-size: 12px;
+            margin-top: 3px;
+          }
+
+          .launch-checklist-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(94px, 1fr));
+            gap: 8px;
+          }
+
+          .launch-checklist-actions button:nth-child(2) {
+            background: #a3e635;
+          }
+
+          .launch-checklist-actions button:nth-child(3) {
+            background: #ef4444;
+            color: white;
+          }
+
+          .launch-checklist-actions button:disabled,
+          .launch-readiness-card button:disabled {
+            cursor: not-allowed;
+            opacity: 0.62;
+          }
+
+          .stability-list {
+            display: grid;
+            gap: 8px;
+          }
+
+          .stability-list article {
+            min-width: 0;
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+          }
+
+          .stability-list span,
+          .stability-list strong,
+          .stability-list small {
+            display: block;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .stability-list span {
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .stability-list small {
+            color: #9bdcf0;
+            margin-top: 3px;
+          }
+
+          .cleanup-warning,
+          .cleanup-confirm-row,
+          .cleanup-log {
+            border: 1px solid rgba(250, 204, 21, 0.34);
+            border-radius: 8px;
+            background: rgba(113, 63, 18, 0.28);
+            color: #fde68a;
+            display: grid;
+            gap: 4px;
+            padding: 10px;
+          }
+
+          .cleanup-warning strong,
+          .cleanup-warning span,
+          .cleanup-log strong,
+          .cleanup-log small {
+            display: block;
+            min-width: 0;
+            overflow-wrap: anywhere;
+          }
+
+          .cleanup-warning span,
+          .cleanup-log small {
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .cleanup-review-list {
+            display: grid;
+            gap: 8px;
+            max-height: 460px;
+            overflow: auto;
+            padding-right: 4px;
+          }
+
+          .cleanup-file-row {
+            display: grid;
+            grid-template-columns: minmax(118px, 160px) minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
+            border: 1px solid rgba(34, 211, 238, 0.24);
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+          }
+
+          .cleanup-file-row.protected {
+            border-color: rgba(148, 163, 184, 0.28);
+            background: rgba(15, 23, 42, 0.72);
+          }
+
+          .cleanup-file-row label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .cleanup-file-row.protected label {
+            color: #a3e635;
+          }
+
+          .cleanup-file-row input {
+            width: 16px;
+            height: 16px;
+            accent-color: #22d3ee;
+          }
+
+          .cleanup-file-row strong,
+          .cleanup-file-row small {
+            display: block;
+            min-width: 0;
+            overflow-wrap: anywhere;
+          }
+
+          .cleanup-file-row strong {
+            color: white;
+            font-size: 13px;
+            line-height: 1.2;
+          }
+
+          .cleanup-file-row small {
+            color: #9bdcf0;
+            font-size: 12px;
+            line-height: 1.35;
+            margin-top: 3px;
+          }
+
+          .cleanup-confirm-row {
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            background: rgba(127, 29, 29, 0.36);
+            border-color: rgba(248, 113, 113, 0.42);
+            color: white;
+          }
+
+          .cleanup-confirm-row span {
+            color: #fecaca;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .cleanup-confirm-row button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #ef4444;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 12px;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .recovery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 10px;
+          }
+
+          .dashboard-form,
+          .dashboard-edit {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .dashboard-form input,
+          .dashboard-form textarea,
+          .dashboard-edit input {
+            min-height: 42px;
+            border-radius: 8px;
+            border: 1px solid #263c78;
+            background: #020617;
+            color: white;
+            padding: 0 12px;
+            outline: none;
+          }
+
+          .dashboard-form textarea {
+            min-height: 92px;
+            padding: 12px;
+            resize: vertical;
+          }
+
+          .dashboard-form .wide,
+          .dashboard-edit .wide {
+            grid-column: 1 / -1;
+          }
+
+          .dashboard-form-actions {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+          }
+
+          .dashboard-form-actions button,
+          .dashboard-song-actions button {
+            min-height: 32px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            font-size: 12px;
+            line-height: 1.1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 0 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .dashboard-form-actions button:nth-child(2),
+          .dashboard-song-actions button:nth-child(2) {
+            background: #33446f;
+            color: white;
+          }
+
+          .dashboard-filter-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 180px;
+            gap: 10px;
+            margin: 0 0 12px;
+          }
+
+          .dashboard-filter-row input,
+          .dashboard-filter-row select {
+            min-width: 0;
+            min-height: 40px;
+            border-radius: 8px;
+            border: 1px solid #263c78;
+            background: #020617;
+            color: white;
+            padding: 0 12px;
+            outline: none;
+          }
+
+          .dashboard-empty-card {
+            border: 1px dashed rgba(34, 211, 238, 0.38);
+            border-radius: 8px;
+            background: #081637;
+            padding: 16px;
+          }
+
+          .dashboard-empty-card h3 {
+            margin: 0 0 6px;
+            color: white;
+          }
+
+          .dashboard-empty-card p {
+            margin: 0;
+            color: #9bdcf0;
+            line-height: 1.45;
+          }
+
+          .role-switcher {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 9px;
+            margin-top: 10px;
+          }
+
+          .role-switcher button {
+            min-height: 36px;
+            border: 0;
+            border-radius: 8px;
+            background: #14265c;
+            color: white;
+            font-weight: 900;
+            padding: 0 14px;
+          }
+
+          .role-switcher button.active,
+          .role-switcher button:hover {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .license-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .license-grid label {
+            min-width: 0;
+            display: grid;
+            gap: 6px;
+          }
+
+          .license-grid span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .license-grid input,
+          .license-grid select {
+            min-width: 0;
+            min-height: 40px;
+            border-radius: 8px;
+            border: 1px solid #263c78;
+            background: #020617;
+            color: white;
+            padding: 0 12px;
+            outline: none;
+          }
+
+          .inline-profile-link {
+            border: 0;
+            background: transparent;
+            color: #22d3ee;
+            padding: 0;
+            font: inherit;
+            font-weight: 900;
+            text-align: left;
+          }
+
+          .producer-tagline {
+            color: #fbbf24;
+            display: block;
+            margin: 6px 0 0;
+          }
+
+          .dashboard-song-list {
+            display: grid;
+            gap: 8px;
+          }
+
+          .dashboard-song-row {
+            display: grid;
+            grid-template-columns: 48px minmax(0, 1fr) minmax(220px, auto);
+            align-items: center;
+            gap: 9px;
+            background: #10204a;
+            border-radius: 8px;
+            padding: 8px;
+          }
+
+          .dashboard-song-row img {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .dashboard-edit {
+            grid-column: 2 / 4;
+          }
+
+          .dashboard-song-copy {
+            min-width: 0;
+          }
+
+          .dashboard-song-copy strong,
+          .dashboard-song-copy small,
+          .dashboard-song-copy span {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .dashboard-song-copy small,
+          .dashboard-song-copy span {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .dashboard-song-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(86px, 1fr));
+            gap: 6px;
+            justify-content: end;
+          }
+
+          .dashboard-song-actions .danger-btn {
+            background: #ef4444;
+            color: white;
+          }
+
+          .artist-directory {
+            display: grid;
+            gap: 16px;
+          }
+
+          .artist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+          }
+
+          .artist-card {
+            min-width: 0;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            overflow: hidden;
+            display: grid;
+            gap: 12px;
+            padding: 12px;
+          }
+
+          .artist-card-main {
+            min-width: 0;
+            border: 0;
+            border-radius: 8px;
+            background: #10204a;
+            color: white;
+            display: grid;
+            grid-template-columns: 74px minmax(0, 1fr);
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            text-align: left;
+          }
+
+          .artist-card-main:hover {
+            background: #17336e;
+          }
+
+          .artist-card-main img {
+            width: 74px;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .artist-card-main span,
+          .artist-card-main strong,
+          .artist-card-main small {
+            min-width: 0;
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .artist-card-main strong {
+            color: white;
+            font-size: 18px;
+            white-space: nowrap;
+          }
+
+          .artist-card-main small {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
+
+          .artist-card-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .artist-card-stats span {
+            min-width: 0;
+            border-radius: 8px;
+            background: #071631;
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+            padding: 9px 7px;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .artist-card-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .artist-card-actions button {
+            min-width: 0;
+            min-height: 36px;
+            border: 0;
+            border-radius: 8px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 10px;
+          }
+
+          .artist-profile {
+            max-width: 1160px;
+          }
+
+          .artist-banner {
+            min-height: 230px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px 8px 0 0;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            overflow: hidden;
+          }
+
+          .artist-banner::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.15), #071631);
+          }
+
+          .back-btn {
+            position: relative;
+            z-index: 1;
+            margin: 14px;
+            border: 0;
+            border-radius: 8px;
+            background: rgba(2, 6, 23, 0.78);
+            color: white;
+            min-height: 36px;
+            padding: 0 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-weight: 900;
+          }
+
+          .artist-main {
+            display: grid;
+            grid-template-columns: 180px minmax(0, 1fr);
+            gap: 18px;
+            align-items: end;
+            background: #071631;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-top: 0;
+            border-radius: 0 0 8px 8px;
+            padding: 0 18px 18px;
+            margin-bottom: 16px;
+          }
+
+          .artist-avatar {
+            width: 180px;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 4px solid #071631;
+            margin-top: -58px;
+            position: relative;
+            z-index: 2;
+          }
+
+          .artist-copy {
+            min-width: 0;
+            padding-top: 16px;
+          }
+
+          .artist-copy h2 {
+            font-size: clamp(42px, 7vw, 78px);
+            line-height: 0.95;
+            margin: 6px 0 10px;
+          }
+
+          .artist-copy p {
+            margin: 0;
+            color: #dbeafe;
+            max-width: 780px;
+            line-height: 1.5;
+          }
+
+          .artist-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin: 16px 0;
+          }
+
+          .artist-stats span {
+            background: #10204a;
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            border-radius: 8px;
+            padding: 11px;
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .artist-stats strong {
+            display: block;
+            color: white;
+            font-size: 22px;
+            line-height: 1;
+            margin-bottom: 5px;
+          }
+
+          .artist-actions {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+          }
+
+          .artist-actions button,
+          .artist-song-row button,
+          .artist-album-card button {
+            min-height: 32px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            font-size: 12px;
+            line-height: 1.1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 0 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .artist-actions button:nth-child(2) {
+            background: #33446f;
+            color: white;
+          }
+
+          .artist-actions button:nth-child(3) {
+            background: #a3e635;
+          }
+
+          .artist-section {
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+
+          .artist-section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+          }
+
+          .artist-section-title h3 {
+            margin: 0;
+            font-size: 20px;
+          }
+
+          .artist-section-title span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          .artist-song-list {
+            display: grid;
+            gap: 7px;
+          }
+
+          .artist-song-row {
+            display: grid;
+            grid-template-columns: 28px 44px minmax(0, 1fr) 82px repeat(6, minmax(32px, max-content));
+            align-items: center;
+            gap: 7px;
+            background: #10204a;
+            border-radius: 8px;
+            padding: 7px;
+            overflow: hidden;
+          }
+
+          .artist-song-row img {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .artist-song-row span {
+            min-width: 0;
+          }
+
+          .artist-song-row strong,
+          .artist-song-row small {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .artist-song-row small,
+          .artist-row-stat {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .artist-song-row button:nth-of-type(3) {
+            background: #ec4899;
+            color: white;
+          }
+
+          .artist-song-row button:nth-of-type(4) {
+            background: #facc15;
+          }
+
+          .artist-song-row .danger-btn {
+            background: #ef4444;
+            color: white;
+          }
+
+          .artist-album-grid,
+          .artist-playlist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+          }
+
+          .artist-album-card,
+          .artist-playlist-card {
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            border-radius: 8px;
+            background: #10204a;
+            color: white;
+            padding: 8px;
+            text-align: left;
+          }
+
+          .artist-album-card img,
+          .artist-playlist-card img {
+            width: 100%;
+            aspect-ratio: 16 / 7;
+            border-radius: 8px;
+            object-fit: cover;
+            margin-bottom: 8px;
+          }
+
+          .artist-album-card div {
+            display: grid;
+            gap: 3px;
+            margin-bottom: 8px;
+          }
+
+          .artist-album-card .artist-album-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+            gap: 6px;
+            margin-bottom: 0;
+          }
+
+          .artist-album-actions button {
+            width: 100%;
+            min-width: 0;
+            min-height: 34px;
+            padding: 0 8px;
+            font-size: 12.5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .artist-album-actions button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+          }
+
+          .artist-album-actions .danger-btn {
+            background: #ef4444;
+            color: white;
+          }
+
+          .album-inline-edit {
+            display: grid;
+            gap: 6px;
+          }
+
+          .album-inline-edit input {
+            min-width: 0;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid #263c78;
+            background: #020617;
+            color: white;
+            padding: 0 9px;
+            outline: none;
+          }
+
+          .artist-album-card strong,
+          .artist-playlist-card strong,
+          .artist-playlist-card small,
+          .artist-album-card span {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .artist-album-card strong {
+            font-size: 15px;
+            line-height: 1.2;
+          }
+
+          .artist-album-card span,
+          .artist-playlist-card small {
+            color: #9bdcf0;
+            font-size: 11.5px;
+            line-height: 1.2;
+            font-weight: 800;
+          }
+
+          .artist-playlist-card:hover {
+            border-color: #22d3ee;
+            background: #17336e;
+          }
+
+          .song-card,
+          .video-card,
+          .artist-card,
+          .artist-album-card,
+          .artist-playlist-card,
+          .playlist-tile {
+            transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+            transform-origin: center;
+          }
+
+          @media (hover: hover) {
+            .song-card:hover,
+            .video-card:hover,
+            .artist-card:hover,
+            .artist-album-card:hover,
+            .artist-playlist-card:hover,
+            .playlist-tile:hover {
+              transform: scale(1.02);
+              border-color: rgba(34, 211, 238, 0.72);
+              box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.22), 0 16px 34px rgba(34, 211, 238, 0.16);
+              z-index: 2;
+            }
+          }
+
+          .song-card .card-actions button,
+          .video-card .card-actions button,
+          .song-card .card-secondary-actions button,
+          .video-card .card-secondary-actions button,
+          .artist-album-card .artist-album-actions button,
+          .artist-card .artist-card-actions button,
+          .artist-playlist-card button {
+            width: 100%;
+            min-width: 0;
+            height: 34px;
+            min-height: 34px;
+            border-radius: 8px;
+            padding: 0 9px;
+            font-size: 12px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .song-card {
+            height: 360px;
+            grid-template-rows: 96px minmax(0, 1fr);
+          }
+
+          .song-card .cover-wrap {
+            height: 96px;
+          }
+
+          .song-card .song-body {
+            grid-template-rows: 56px 16px 22px minmax(112px, auto) 0;
+            gap: 4px;
+          }
+
+          .song-card .card-actions,
+          .video-card .card-actions {
+            grid-auto-rows: 34px;
+            align-content: start;
+            overflow: visible;
+          }
+
+          .song-card .card-actions {
+            height: auto;
+            min-height: 112px;
+          }
+
+          .video-card .card-actions {
+            min-height: 112px;
+          }
+
+          .song-head h3,
+          .video-card-body h3,
+          .artist-card-main strong,
+          .artist-album-card strong,
+          .artist-playlist-card strong,
+          .playlist-tile strong,
+          .dashboard-song-copy strong {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            overflow-wrap: anywhere;
+            line-height: 1.18;
+            max-height: 2.36em;
+          }
+
+          .album-file-summary {
+            border: 1px solid rgba(34, 211, 238, 0.22);
+            border-radius: 8px;
+            background: rgba(2, 6, 23, 0.35);
+            color: #dbeafe;
+            display: grid;
+            gap: 4px;
+            padding: 10px;
+          }
+
+          .album-file-summary strong,
+          .album-file-summary span {
+            display: block;
+            overflow-wrap: anywhere;
+          }
+
+          .album-file-summary strong {
+            color: white;
+            font-size: 13px;
+          }
+
+          .album-file-summary span {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .player {
+            position: fixed;
+            left: 188px;
+            right: 0;
+            bottom: 0;
+            min-height: 62px;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.94);
+            border-top: 1px solid rgba(0, 212, 255, 0.25);
+            display: grid;
+            grid-template-columns: minmax(180px, 250px) minmax(300px, 1fr) minmax(128px, 170px);
+            align-items: center;
+            gap: 10px;
+            padding: 7px 14px;
+            overflow: hidden;
+          }
+
+          .video-player-bar {
+            position: fixed;
+            left: 188px;
+            right: 0;
+            bottom: 0;
+            min-height: 68px;
+            z-index: 30;
+            background: rgba(4, 12, 30, 0.96);
+            border-top: 1px solid rgba(34, 211, 238, 0.45);
+            box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.24);
+            display: grid;
+            grid-template-columns: 280px 1fr 180px;
+            align-items: center;
+            gap: 12px;
+            padding: 9px 16px;
+          }
+
+          .video-player-now {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+          }
+
+          .video-player-now img {
+            width: 48px;
+            height: 40px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #020617;
+          }
+
+          .video-player-now strong,
+          .video-player-now small {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .video-player-now strong {
+            color: white;
+            font-size: 13px;
+            font-weight: 900;
+          }
+
+          .video-player-now small {
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .video-player-center {
+            display: grid;
+            gap: 5px;
+            justify-items: center;
+            min-width: 0;
+          }
+
+          .video-player-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .video-player-controls button {
+            width: 31px;
+            height: 31px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            display: grid;
+            place-items: center;
+            font-weight: 900;
+          }
+
+          .video-player-controls .video-like-control {
+            width: auto;
+            min-width: 46px;
+            grid-auto-flow: column;
+            gap: 5px;
+            padding: 0 8px;
+          }
+
+          .video-player-controls .main-play {
+            background: #a3e635;
+          }
+
+          .video-player-controls .mode-on {
+            background: #facc15;
+          }
+
+          .video-progress-row {
+            width: min(520px, 100%);
+          }
+
+          .video-player-side {
+            min-width: 0;
+            display: grid;
+            gap: 6px;
+            align-items: center;
+          }
+
+          .video-volume {
+            min-width: 0;
+          }
+
+          .toast {
+            position: fixed;
+            right: 18px;
+            bottom: 82px;
+            z-index: 40;
+            max-width: min(360px, calc(100vw - 36px));
+            border-radius: 8px;
+            padding: 12px 14px;
+            color: white;
+            font-size: 13px;
+            font-weight: 900;
+            box-shadow: 0 14px 38px rgba(0, 0, 0, 0.35);
+          }
+
+          .toast-success {
+            background: #047857;
+            border: 1px solid rgba(52, 211, 153, 0.55);
+          }
+
+          .toast-error {
+            background: #7f1d1d;
+            border: 1px solid rgba(248, 113, 113, 0.55);
+          }
+
+          .toast-info {
+            background: #10204a;
+            border: 1px solid rgba(34, 211, 238, 0.45);
+          }
+
+          .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 45;
+            display: grid;
+            place-items: center;
+            padding: 18px;
+            background: rgba(2, 6, 23, 0.72);
+          }
+
+          .playlist-modal {
+            width: min(420px, 100%);
+            max-height: min(520px, calc(100vh - 120px));
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            border-radius: 8px;
+            background: #0b1736;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+            padding: 14px;
+            display: grid;
+            gap: 12px;
+            overflow: hidden;
+          }
+
+          .comments-modal {
+            width: min(540px, 100%);
+            max-height: min(620px, calc(100vh - 110px));
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            border-radius: 8px;
+            background: #0b1736;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+            padding: 14px;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr);
+            gap: 12px;
+            overflow: hidden;
+          }
+
+          .playlist-modal-head {
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+            gap: 12px;
+          }
+
+          .playlist-modal-head h3 {
+            margin: 4px 0 0;
+            font-size: 20px;
+            line-height: 1.1;
+            overflow-wrap: anywhere;
+          }
+
+          .comment-compose {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 92px;
+            gap: 8px;
+          }
+
+          .comment-compose textarea {
+            min-width: 0;
+            min-height: 78px;
+            resize: vertical;
+            border: 1px solid #263c78;
+            border-radius: 8px;
+            background: #020617;
+            color: white;
+            padding: 10px 12px;
+            outline: none;
+            font: inherit;
+          }
+
+          .comment-compose button,
+          .comment-actions button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+          }
+
+          .comments-list {
+            min-height: 0;
+            overflow: auto;
+            display: grid;
+            gap: 9px;
+            padding-right: 2px;
+          }
+
+          .comments-list article {
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+            display: grid;
+            gap: 8px;
+          }
+
+          .comments-list article > div:first-child {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+          }
+
+          .comments-list p {
+            margin: 0;
+            color: #dbeafe;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+          }
+
+          .comments-list small,
+          .comments-list > p {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .comment-actions {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+          }
+
+          .comment-actions .danger-btn {
+            background: #ef4444;
+            color: white;
+          }
+
+          .playlist-modal-list {
+            display: grid;
+            gap: 8px;
+            overflow: auto;
+            padding-right: 2px;
+          }
+
+          .playlist-modal-list button,
+          .playlist-modal-empty button {
+            min-height: 50px;
+            border: 0;
+            border-radius: 8px;
+            background: #10204a;
+            color: white;
+            font-weight: 900;
+          }
+
+          .playlist-modal-list button {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) 22px;
+            gap: 10px;
+            align-items: center;
+            text-align: left;
+            padding: 8px 10px;
+          }
+
+          .playlist-modal-list button:hover,
+          .playlist-modal-list button.already-added {
+            background: #152d66;
+          }
+
+          .playlist-modal-list img {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .playlist-modal-list span {
+            min-width: 0;
+          }
+
+          .playlist-modal-list strong,
+          .playlist-modal-list small {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .playlist-modal-list small {
+            margin-top: 3px;
+            color: #9bdcf0;
+            font-size: 12px;
+          }
+
+          .playlist-modal-empty {
+            display: grid;
+            gap: 10px;
+          }
+
+          .playlist-modal-empty p {
+            margin: 0;
+            color: #c8f5ff;
+          }
+
+          .playlist-modal-empty button {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .player-song {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+          }
+
+          .player-song img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+          }
+
+          .player-song strong,
+          .player-song small {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .player-song strong {
+            max-width: 25ch;
+            color: white;
+            font-size: 13px;
+            font-weight: 900;
+            line-height: 1.15;
+          }
+
+          .player-song small {
+            color: #16d9ff;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.15;
+          }
+
+          .player-album-meta {
+            color: #a3e635 !important;
+          }
+
+          .player-song small button,
+          .player-song small .inline-profile-link {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .player-center {
+            display: grid;
+            gap: 4px;
+            justify-items: center;
+            min-width: 0;
+            width: 100%;
+          }
+
+          .player-controls {
+            display: flex;
+            gap: 7px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: nowrap;
+            min-width: 0;
+            width: 100%;
+          }
+
+          .player-controls button {
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            border-radius: 8px;
+            border: 0;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            display: grid;
+            place-items: center;
+            position: relative;
+            padding: 0;
+            flex: 0 0 auto;
+          }
+
+          .player-controls button:first-child,
+          .player-controls button:last-child {
+            width: 29px;
+            min-width: 29px;
+            height: 31px;
+          }
+
+          .player-controls button:nth-child(2),
+          .player-controls .main-play,
+          .player-controls button:nth-child(4) {
+            width: 34px;
+            min-width: 34px;
+            height: 34px;
+          }
+
+          .player-controls .main-play {
+            background: #a3e635;
+          }
+
+          .player-controls .mode-on {
+            background: #facc15;
+          }
+
+          .liked-video {
+            background: #facc15;
+            color: #020617;
+          }
+
+          .repeat-one {
+            position: absolute;
+            right: 4px;
+            bottom: 2px;
+            font-size: 9px;
+            line-height: 1;
+          }
+
+          .progress-row {
+            width: min(330px, 100%);
+            display: grid;
+            grid-template-columns: 35px 1fr 35px;
+            gap: 6px;
+            align-items: center;
+            font-size: 10px;
+            font-weight: 800;
+          }
+
+          .player .progress-row {
+            width: 100%;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 3px;
+          }
+
+          .player .progress-time {
+            color: #d7f7ff;
+            font-size: 10px;
+            font-weight: 900;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+          }
+
+          .progress-row input,
+          .volume input {
+            width: 100%;
+            accent-color: #19d8ff;
+          }
+
+          .player-side {
+            min-width: 0;
+            display: grid;
+            justify-items: end;
+            gap: 4px;
+          }
+
+          .queue-count {
+            max-width: 100%;
+            color: #9bdcf0;
+            font-size: 10px;
+            font-weight: 900;
+            line-height: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .volume {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            min-width: 0;
+          }
+
+          @media (max-width: 980px) {
+            .topbar {
+              grid-template-columns: minmax(180px, 1fr) minmax(170px, 0.85fr) 41px repeat(4, minmax(92px, 1fr));
+              gap: 8px;
+            }
+
+            .upload-btn,
+            .profile-btn,
+            .dashboard-btn,
+            .logout-btn {
+              font-size: 13px;
+              padding: 0 9px;
+            }
+
+            .trend-period-tabs {
+              grid-template-columns: repeat(2, minmax(72px, 1fr));
+            }
+
+            .player {
+              grid-template-columns: minmax(150px, 210px) minmax(260px, 1fr) minmax(110px, 145px);
+              gap: 8px;
+              padding-inline: 10px;
+            }
+
+            .queue-drawer {
+              width: min(340px, calc(100vw - 108px));
+            }
+
+            .player-song strong {
+              font-size: 12px;
+            }
+
+            .player-controls {
+              gap: 6px;
+            }
+
+            .volume svg {
+              width: 16px;
+              height: 16px;
+            }
+
+            .playlist-layout {
+              grid-template-columns: 1fr;
+            }
+
+            .sponsor-card,
+            .plan-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .video-player-panel {
+              grid-template-columns: 1fr;
+            }
+
+            .playlist-list {
+              grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            }
+
+            .marketplace-hero,
+            .marketplace-filters,
+            .marketplace-advanced-grid,
+            .sales-hero,
+            .license-history-hero {
+              grid-template-columns: 1fr 1fr;
+            }
+
+            .marketplace-filters button {
+              grid-column: 1 / -1;
+            }
+
+            .beat-detail-panel {
+              grid-template-columns: 140px minmax(0, 1fr);
+            }
+
+            .beat-license-detail-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .artist-song-row {
+              grid-template-columns: 32px 50px minmax(0, 1fr) 38px 38px;
+            }
+
+            .artist-row-stat,
+            .artist-song-row button:nth-of-type(2),
+            .artist-song-row button:nth-of-type(3),
+            .artist-song-row button:nth-of-type(4) {
+              display: none;
+            }
+
+            .stability-brand {
+              grid-template-columns: 64px minmax(0, 1fr);
+            }
+
+            .stability-actions {
+              grid-column: 1 / -1;
+              justify-content: flex-start;
+            }
+
+            .launch-readiness-card,
+            .launch-checklist-row {
+              grid-template-columns: 1fr;
+            }
+
+            .launch-checklist-actions {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .growth-columns {
+              grid-template-columns: 1fr;
+            }
+          }
+
+          @media (max-width: 900px) and (min-width: 821px) {
+            .topbar {
+              grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+
+            .search-wrap,
+            .search-box,
+            .view-toggle {
+              grid-column: 1 / -1;
+            }
+
+            .notification-wrap {
+              justify-self: start;
+            }
+          }
+
+          @media (max-width: 820px) {
+            .sidebar {
+              width: 96px;
+            }
+
+            .nav button {
+              justify-content: center;
+            }
+
+            .nav span,
+            .mini-stats,
+            .queue-panel {
+              display: none;
+            }
+
+            .logo img {
+              width: 60px;
+              max-height: 60px;
+            }
+
+            .logo span {
+              font-size: 8px;
+            }
+
+            .content {
+              margin-left: 96px;
+              width: calc(100% - 96px);
+              padding-bottom: 178px;
+            }
+
+            .video-library-stats {
+              gap: 6px;
+              font-size: 12px;
+              line-height: 1.35;
+            }
+
+            .video-player-bar {
+              left: 96px;
+              bottom: 0;
+              grid-template-columns: 1fr;
+              min-height: 128px;
+              align-items: stretch;
+            }
+
+            .queue-drawer {
+              left: 96px;
+              right: 0;
+              top: 64px;
+              bottom: 150px;
+              width: auto;
+            }
+
+            .video-player-now {
+              justify-content: center;
+            }
+
+            .video-player-now img {
+              width: 56px;
+            }
+
+            .player {
+              left: 96px;
+              grid-template-columns: 1fr;
+              height: auto;
+              min-height: 142px;
+              align-items: stretch;
+              gap: 7px;
+              padding: 8px 10px 10px;
+            }
+
+            .player-song {
+              justify-content: center;
+              width: min(100%, 360px);
+              justify-self: center;
+            }
+
+            .stability-brand {
+              grid-template-columns: 1fr;
+              text-align: left;
+            }
+
+            .stability-brand img {
+              width: 62px;
+              height: 62px;
+            }
+
+            .stability-actions {
+              justify-content: stretch;
+            }
+
+            .stability-actions button {
+              flex: 1 1 145px;
+            }
+
+            .beat-detail-panel {
+              grid-template-columns: 1fr;
+            }
+
+            .beat-detail-cover {
+              grid-template-columns: 80px minmax(0, 1fr);
+              align-items: center;
+            }
+
+            .beat-license-detail-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .player-center {
+              justify-self: stretch;
+            }
+
+            .player-controls {
+              width: auto;
+              justify-self: center;
+            }
+
+            .player .progress-row {
+              width: min(100%, 520px);
+              justify-self: center;
+            }
+
+            .player-side {
+              width: min(100%, 360px);
+              justify-self: center;
+              grid-template-columns: auto minmax(110px, 1fr);
+              align-items: center;
+              justify-items: stretch;
+              gap: 8px;
+            }
+
+            .queue-count {
+              text-align: right;
+            }
+
+            .volume {
+              display: flex;
+            }
+
+            .song-grid,
+            .video-grid {
+              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+
+            .horizontal-rail {
+              grid-template-columns: 30px minmax(0, 1fr) 30px;
+              gap: 6px;
+            }
+
+            .rail-arrow {
+              font-size: 15px;
+            }
+
+            .upload-grid,
+            .video-form-grid,
+            .topbar,
+            .playlist-create,
+            .playlist-hero {
+              grid-template-columns: 1fr;
+            }
+
+            .notification-wrap,
+            .notification-button {
+              width: 100%;
+            }
+
+            .notification-center {
+              left: 0;
+              right: auto;
+            }
+
+            .verification-admin-grid,
+            .trending-controls,
+            .marketplace-hero,
+            .marketplace-filters,
+            .marketplace-advanced-grid,
+            .sales-hero,
+            .license-history-hero,
+            .comment-compose {
+              grid-template-columns: 1fr;
+            }
+
+            .featured-store-list article {
+              grid-template-columns: 42px minmax(0, 1fr) 58px;
+            }
+
+            .discount-code-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .discount-code-grid button {
+              min-height: 128px;
+            }
+
+            .marketplace-hero-stats {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .sales-hero-stats,
+            .license-history-stats {
+              grid-template-columns: 1fr;
+            }
+
+            .sales-row {
+              grid-template-columns: 42px minmax(0, 1fr);
+            }
+
+            .sales-row button,
+            .sales-status {
+              grid-column: 1 / -1;
+            }
+
+            .license-history-row {
+              grid-template-columns: 1fr;
+            }
+
+            .marketplace-release-grid {
+              grid-auto-columns: minmax(190px, 220px);
+            }
+
+            .marketplace-bundle-grid,
+            .marketplace-limited-grid,
+            .marketplace-preorder-grid {
+              grid-auto-columns: minmax(200px, 230px);
+            }
+
+            .marketplace-chart-row {
+              grid-template-columns: 28px 42px minmax(0, 1fr) 64px 64px;
+            }
+
+            .marketplace-chart-row em {
+              display: none;
+            }
+
+            .trending-controls {
+              display: grid;
+            }
+
+            .trend-period-tabs {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .upload-grid .wide,
+            .video-form-grid .wide {
+              grid-column: auto;
+            }
+
+            .playlist-hero > img {
+              width: min(100%, 240px);
+            }
+
+            .section-heading {
+              align-items: start;
+              flex-direction: column;
+            }
+
+            .subscription-head {
+              align-items: start;
+              flex-direction: column;
+            }
+
+            .sponsor-actions {
+              display: grid;
+              grid-template-columns: 1fr;
+            }
+
+            .recent-row {
+              grid-template-columns: 32px 50px 1fr 38px;
+            }
+
+            .recent-time {
+              grid-column: 3 / 5;
+            }
+
+            .playlist-song-row {
+              grid-template-columns: 28px 42px minmax(0, 1fr) 36px 36px;
+            }
+
+            .artist-main,
+            .artist-stats,
+            .profile-hero,
+            .profile-grid,
+            .dashboard-grid,
+            .dashboard-form,
+            .dashboard-filter-row,
+            .license-grid,
+            .dashboard-edit {
+              grid-template-columns: 1fr;
+            }
+
+            .dashboard-form .wide,
+            .dashboard-edit .wide,
+            .dashboard-edit {
+              grid-column: auto;
+            }
+
+            .upload-brand,
+            .dashboard-brand {
+              align-items: flex-start;
+            }
+
+            .upload-brand img,
+            .dashboard-brand img {
+              width: 54px;
+              height: 54px;
+            }
+
+            .hero-logo {
+              width: min(180px, 62vw);
+              max-height: 140px;
+            }
+
+            .artist-avatar {
+              width: min(180px, 70vw);
+            }
+
+            .artist-song-row {
+              grid-template-columns: 28px 44px minmax(0, 1fr) 36px 36px;
+            }
+
+            .dashboard-song-row {
+              grid-template-columns: 48px minmax(0, 1fr);
+            }
+
+            .dashboard-song-actions {
+              grid-column: 1 / -1;
+              justify-content: start;
+            }
+
+            .dashboard-edit {
+              grid-column: 1 / -1;
+            }
+
+            .artist-song-row button:nth-of-type(2),
+            .artist-song-row button:nth-of-type(3),
+            .artist-song-row button:nth-of-type(4) {
+              display: none;
+            }
+          }
+        `}</style>
+    </main>);
+}

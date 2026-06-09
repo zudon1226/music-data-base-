@@ -1,0 +1,102 @@
+▲ Next.js 16.2.6
+- Local:         http://localhost:3025
+- Network:       http://192.168.1.219:3025
+✓ Ready in 218ms
+ALBUM CREATE REQUEST {
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  artistId: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  ownerType: 'artist',
+  title: 'Codex Album End To End Test',
+  creatorName: 'Codex Test Artist',
+  cover_url: '/music-data-base-logo.png',
+  category: 'Album'
+}
+ALBUM CREATE BODY {
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  artistId: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  ownerType: 'artist',
+  title: 'Codex Album End To End Test',
+  creatorName: 'Codex Test Artist',
+  cover_url: '/music-data-base-logo.png',
+  category: 'Album'
+}
+ALBUM OWNER ID 33564e29-6f65-4efd-8a27-6b58bc45a455
+ALBUM INSERT DATA {
+  id: '8345ff33-e63f-4fd7-9036-66267da4cba3',
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  title: 'Codex Album End To End Test',
+  creator_name: 'Codex Test Artist',
+  owner_type: 'artist',
+  artist_name: 'Codex Test Artist',
+  artist_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  producer_name: null,
+  producer_id: null,
+  producer_profile_id: null,
+  cover_url: '/music-data-base-logo.png',
+  category: 'Album',
+  release_date: null,
+  created_at: '2026-06-07T07:02:39.641Z',
+  updated_at: '2026-06-07T07:02:39.641Z'
+}
+ALBUM CREATE ROW PAYLOAD {
+  id: '8345ff33-e63f-4fd7-9036-66267da4cba3',
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  title: 'Codex Album End To End Test',
+  creator_name: 'Codex Test Artist',
+  owner_type: 'artist',
+  artist_name: 'Codex Test Artist',
+  artist_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  producer_name: null,
+  producer_id: null,
+  producer_profile_id: null,
+  cover_url: '/music-data-base-logo.png',
+  category: 'Album',
+  release_date: null,
+  created_at: '2026-06-07T07:02:39.641Z',
+  updated_at: '2026-06-07T07:02:39.641Z'
+}
+ALBUMS TABLE CHECK { exists: true, count: 0, error: null }
+ALBUM INSERT RESULT {
+  id: '8345ff33-e63f-4fd7-9036-66267da4cba3',
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  title: 'Codex Album End To End Test',
+  error: null
+}
+ALBUM CREATE ROW RESULT { id: '8345ff33-e63f-4fd7-9036-66267da4cba3', error: null }
+ALBUM INSERT SUCCESS {
+  id: '8345ff33-e63f-4fd7-9036-66267da4cba3',
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  title: 'Codex Album End To End Test'
+}
+ALBUMS QUERY RESULT {
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  count: 1,
+  error: null
+}
+LOAD RECENT ALBUMS USER 33564e29-6f65-4efd-8a27-6b58bc45a455
+ALBUMS QUERY RESULT {
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  albums: 1,
+  recentAlbums: 1,
+  error: null
+}
+LOAD RECENT ALBUMS RESULT [
+  {
+    id: '8345ff33-e63f-4fd7-9036-66267da4cba3',
+    user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+    artist_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+    title: 'Codex Album End To End Test',
+    songs: 0,
+    videos: 0
+  }
+]
+RECENT ALBUMS RESULT [
+  {
+    id: '8345ff33-e63f-4fd7-9036-66267da4cba3',
+    user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+    artist_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+    title: 'Codex Album End To End Test',
+    songs: 0,
+    videos: 0
+  }
+]

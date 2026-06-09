@@ -1,0 +1,12 @@
+▲ Next.js 16.2.6
+- Local:         http://localhost:3022
+- Network:       http://192.168.1.219:3022
+✓ Ready in 217ms
+ALBUM UPLOAD PAYLOAD {
+  user_id: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  title: 'Codex Album API Smoke Test',
+  creatorName: 'Codex Test Artist',
+  ownerType: 'artist',
+  artistId: '33564e29-6f65-4efd-8a27-6b58bc45a455',
+  producerId: ''
+}

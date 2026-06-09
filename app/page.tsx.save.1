@@ -1,0 +1,91 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+
+export default function Home() {
+  const [artist, setArtist] = useState("");
+
+const [artists, setArtists] = useState([]);
+useEffect(() => {
+  fetchArtists();
+}, []);
+
+async function fetchArtists() {
+  const { data, error } = await supabase
+    .from("artist_submissions")
+    .select("*");
+
+  if (data) {
+    setArtists(data);
+  }
+
+  if (error) {
+    console.error(error);
+  }
+ } async function saveArtist() {
+    const { error } = await supabase
+      .from("artist_submissions")
+      .insert([{ name: artist }]);
+
+    if (error) {
+      alert(error.message);
+      console.error(error);
+    } else {
+      alert("Artist Saved!");
+    }
+  }
+
+  return (
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h1>Music Data Base</h1>
+      {artists.map((item) => (
+  <div key={item.id}>
+  <p>{item.name}</p>
+
+  <button
+    onClick={async () => {
+      await supabase
+        .from("artist_submissions")
+        .delete()
+        .eq("id", item.id);
+
+      fetchArtists();
+    }}
+  >
+    Delete
+  </button>
+</div>
+
+    onClick={async () => {
+      await supabase
+        .from("artist_submissions")
+        .delete()
+        .eq("id", item.id);
+
+      fetchArtists();
+    }}
+  >
+    Delete
+  </button>
+</div>
+)}
+      <input
+        type="text"
+        placeholder="Artist Name"
+        value={artist}
+        onChange={(e) => setArtist(e.target.value)}
+        style={{ padding: "10px", width: "300px" }}
+      />
+
+      <br /><br />
+
+      <button
+        onClick={saveArtist}
+        style={{ padding: "10px" }}
+      >
+        Save Artist
+      </button>
+    </div>
+  );
+}

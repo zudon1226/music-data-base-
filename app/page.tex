@@ -1,0 +1,900 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+
+export default function Home() {
+  const [user, setUser] = useState<any>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [artist, setArtist] = useState("");
+  const [song, setSong] = useState("");
+  const [cover, setCover] = useState("");
+  const [preview, setPreview] = useState("");
+  const [genre, setGenre] = useState("");
+  const [mood, setMood] = useState("");
+
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [artists, setArtists] = useState<any[]>([]);
+  const [publicFeed, setPublicFeed] = useState<any[]>([]);
+  const [itunesSearch, setItunesSearch] = useState("");
+  const [itunesResults, setItunesResults] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [currentSong, setCurrentSong] = useState<any>(null);
+
+  const [playlistName, setPlaylistName] = useState("");
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
+  const [playlistSongs, setPlaylistSongs] = useState<any[]>([]);
+
+  useEffect(() => {
+    checkUser();
+    fetchPublicFeed();
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        fetchArtists(session.user.id);
+        fetchPlaylists(session.user.id);
+      }
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  async function checkUser() {
+    const { data } = await supabase.auth.getSession();
+    const currentUser = data.session?.user || null;
+    setUser(currentUser);
+
+    if (currentUser) {
+      fetchArtists(currentUser.id);
+      fetchPlaylists(currentUser.id);
+    }
+  }
+
+  async function signUp() {
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) alert(error.message);
+    else alert("Account created. Check email if confirmation is required.");
+  }
+
+  async function login() {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) alert(error.message);
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setArtists([]);
+    setPlaylists([]);
+    setPlaylistSongs([]);
+  }
+
+  async function fetchArtists(userId = user?.id) {
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from("artist_submissions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("id", { ascending: false });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    if (data) setArtists(data);
+  }
+
+  async function fetchPublicFeed() {
+    const { data } = await supabase
+      .from("artist_submissions")
+      .select("*")
+      .order("id", { ascending: false })
+      .limit(20);
+
+    if (data) setPublicFeed(data);
+  }
+
+  async function fetchPlaylists(userId = user?.id) {
+    if (!userId) return;
+
+    const { data } = await supabase
+      .from("playlists")
+      .select("*")
+      .eq("user_id", userId)
+      .order("id", { ascending: false });
+
+    if (data) setPlaylists(data);
+  }
+
+  async function createPlaylist() {
+    if (!user) return alert("Please login first.");
+    if (!playlistName.trim()) return alert("Playlist name required.");
+
+    const { error } = await supabase.from("playlists").insert([
+      {
+        name: playlistName,
+        user_id: user.id,
+      },
+    ]);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setPlaylistName("");
+    fetchPlaylists();
+  }
+
+  async function addToPlaylist(songId: number, playlistId: number) {
+    if (!user) return alert("Please login first.");
+
+    const { error } = await supabase.from("playlist_songs").insert([
+      {
+        playlist_id: playlistId,
+        song_id: songId,
+        user_id: user.id,
+      },
+    ]);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    alert("Added to playlist!");
+  }
+
+  async function openPlaylist(playlistId: number) {
+    setSelectedPlaylistId(playlistId);
+
+    const { data } = await supabase
+      .from("playlist_songs")
+      .select("id, song_id, artist_submissions(*)")
+      .eq("playlist_id", playlistId);
+
+    if (data) setPlaylistSongs(data);
+  }
+
+  async function removeFromPlaylist(rowId: number) {
+    await supabase.from("playlist_songs").delete().eq("id", rowId);
+    if (selectedPlaylistId) openPlaylist(selectedPlaylistId);
+  }
+
+  async function uploadFile(file: File, bucket: string) {
+    if (!user) return "";
+
+    const fileName = `${user.id}-${Date.now()}-${file.name}`;
+
+    const { error } = await supabase.storage.from(bucket).upload(fileName, file);
+
+    if (error) {
+      alert(error.message);
+      return "";
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    return data.publicUrl;
+  }
+
+  async function saveArtist() {
+    if (!user) return alert("Please login first.");
+    if (!artist.trim()) return alert("Artist name required");
+
+    let finalCover = cover;
+    let finalPreview = preview;
+
+    if (coverFile) finalCover = await uploadFile(coverFile, "covers");
+    if (audioFile) finalPreview = await uploadFile(audioFile, "audio");
+
+    const musicData = {
+      name: artist,
+      song_name: song,
+      cover_url: finalCover,
+      preview_url: finalPreview,
+      genre,
+      mood,
+      user_id: user.id,
+    };
+
+    let error;
+
+    if (editingId) {
+      const result = await supabase
+        .from("artist_submissions")
+        .update(musicData)
+        .eq("id", editingId)
+        .eq("user_id", user.id);
+
+      error = result.error;
+    } else {
+      const result = await supabase.from("artist_submissions").insert([
+        {
+          ...musicData,
+          favorite: false,
+          play_count: 0,
+        },
+      ]);
+
+      error = result.error;
+    }
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    clearForm();
+    fetchArtists();
+    fetchPublicFeed();
+  }
+
+  async function deleteArtist(id: number) {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("artist_submissions")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
+
+    if (error) alert(error.message);
+
+    fetchArtists();
+    fetchPublicFeed();
+  }
+
+  async function toggleFavorite(item: any) {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("artist_submissions")
+      .update({ favorite: !item.favorite })
+      .eq("id", item.id)
+      .eq("user_id", user.id);
+
+    if (error) alert(error.message);
+    fetchArtists();
+  }
+
+  async function playSong(item: any) {
+    setCurrentSong(item);
+
+    await supabase
+      .from("artist_submissions")
+      .update({ play_count: (item.play_count || 0) + 1 })
+      .eq("id", item.id);
+
+    fetchArtists();
+    fetchPublicFeed();
+  }
+
+  async function searchiTunes() {
+    if (!itunesSearch.trim()) return;
+
+    const response = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(
+        itunesSearch
+      )}&entity=song&limit=10`
+    );
+
+    const data = await response.json();
+    setItunesResults(data.results || []);
+  }
+
+  async function addiTunesSong(item: any) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentUser = sessionData.session?.user;
+
+    if (!currentUser) {
+      alert("Please login first.");
+      return;
+    }
+
+    const { error } = await supabase.from("artist_submissions").insert([
+      {
+        name: item.artistName || "",
+        song_name: item.trackName || "",
+        cover_url: item.artworkUrl100
+          ? item.artworkUrl100.replace("100x100", "600x600")
+          : "",
+        preview_url: item.previewUrl || "",
+        genre: item.primaryGenreName || "",
+        mood: "",
+        favorite: false,
+        play_count: 0,
+        user_id: currentUser.id,
+      },
+    ]);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    fetchArtists(currentUser.id);
+    fetchPublicFeed();
+    alert("Song added!");
+  }
+
+  function editArtist(item: any) {
+    setEditingId(item.id);
+    setArtist(item.name || "");
+    setSong(item.song_name || "");
+    setCover(item.cover_url || "");
+    setPreview(item.preview_url || "");
+    setGenre(item.genre || "");
+    setMood(item.mood || "");
+  }
+
+  function clearForm() {
+    setArtist("");
+    setSong("");
+    setCover("");
+    setPreview("");
+    setGenre("");
+    setMood("");
+    setCoverFile(null);
+    setAudioFile(null);
+    setEditingId(null);
+  }
+
+  const searchText = search.toLowerCase().trim();
+
+  const savedMusic = artists
+    .filter((item) => {
+      if (!searchText) return true;
+
+      return (
+        (item.name || "").toLowerCase().includes(searchText) ||
+        (item.song_name || "").toLowerCase().includes(searchText) ||
+        (item.genre || "").toLowerCase().includes(searchText) ||
+        (item.mood || "").toLowerCase().includes(searchText)
+      );
+    })
+    .filter((item) => (showFavoritesOnly ? item.favorite : true));
+
+  const recommendations = artists
+    .filter((item) => item.favorite || (item.play_count || 0) > 0)
+    .slice(0, 3);
+
+  if (!user) {
+    return (
+      <div style={pageStyle}>
+        <div style={appStyle}>
+          <h1>🎵 Music Login</h1>
+
+          <input
+            style={inputStyle}
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <input
+            style={inputStyle}
+            placeholder="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <button style={buttonStyle} onClick={login}>
+            Login
+          </button>
+
+          <button
+            style={{ ...buttonStyle, background: "#22c55e" }}
+            onClick={signUp}
+          >
+            Create Account
+          </button>
+
+          <h2>Public Music Feed</h2>
+
+          {publicFeed.map((item) => (
+            <BigMusicCard
+              key={item.id}
+              item={item}
+              onPlay={() => playSong(item)}
+              publicOnly
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={pageStyle}>
+      <div style={appStyle}>
+        <h1>🎵 Music Data Base</h1>
+
+        <p style={{ opacity: 0.7 }}>Logged in: {user.email}</p>
+
+        <button style={{ ...buttonStyle, background: "#ef4444" }} onClick={logout}>
+          Logout
+        </button>
+
+        <h2>Public Music Feed</h2>
+
+        {publicFeed.map((item) => (
+          <BigMusicCard
+            key={item.id}
+            item={item}
+            onPlay={() => playSong(item)}
+            publicOnly
+          />
+        ))}
+
+        <h2>My Playlists</h2>
+
+        <input
+          style={inputStyle}
+          placeholder="New Playlist Name"
+          value={playlistName}
+          onChange={(e) => setPlaylistName(e.target.value)}
+        />
+
+        <button style={buttonStyle} onClick={createPlaylist}>
+          Create Playlist
+        </button>
+
+        {playlists.map((playlist) => (
+          <button
+            key={playlist.id}
+            style={{
+              ...buttonStyle,
+              background:
+                selectedPlaylistId === playlist.id ? "#22c55e" : "#334155",
+            }}
+            onClick={() => openPlaylist(playlist.id)}
+          >
+            Open {playlist.name}
+          </button>
+        ))}
+
+        {selectedPlaylistId && (
+          <>
+            <h2>Playlist Songs</h2>
+
+            {playlistSongs.length === 0 ? (
+              <p style={{ opacity: 0.7 }}>No songs in this playlist yet.</p>
+            ) : (
+              playlistSongs.map((row) => (
+                <div key={row.id} style={musicCardStyle}>
+                  {row.artist_submissions?.cover_url && (
+                    <img
+                      src={row.artist_submissions.cover_url}
+                      alt=""
+                      style={imageStyle}
+                    />
+                  )}
+
+                  <h3>
+                    {row.artist_submissions?.name} -{" "}
+                    {row.artist_submissions?.song_name}
+                  </h3>
+
+                  {row.artist_submissions?.preview_url && (
+                    <audio controls style={{ width: "100%" }}>
+                      <source src={row.artist_submissions.preview_url} />
+                    </audio>
+                  )}
+
+                  <button
+                    style={{ ...smallButtonStyle, background: "#fb7185" }}
+                    onClick={() => removeFromPlaylist(row.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </>
+        )}
+
+        <input
+          style={inputStyle}
+          placeholder="Search by artist, song, genre, or mood"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
+        <button
+          style={{
+            ...buttonStyle,
+            background: showFavoritesOnly ? "#f43f5e" : "#475569",
+          }}
+          onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+        >
+          {showFavoritesOnly ? "Show All Music" : "Show Favorites ❤️"}
+        </button>
+
+        <input
+          style={inputStyle}
+          placeholder="Search iTunes Music"
+          value={itunesSearch}
+          onChange={(e) => setItunesSearch(e.target.value)}
+        />
+
+        <button style={buttonStyle} onClick={searchiTunes}>
+          Search iTunes
+        </button>
+
+        <h2>iTunes Results</h2>
+
+        {itunesResults.map((item, index) => (
+          <div key={index} style={musicCardStyle}>
+            {item.artworkUrl100 && (
+              <img
+                src={item.artworkUrl100.replace("100x100", "600x600")}
+                alt=""
+                style={imageStyle}
+              />
+            )}
+
+            <h3>
+              {item.artistName} - {item.trackName}
+            </h3>
+
+            {item.previewUrl && (
+              <audio controls style={{ width: "100%" }}>
+                <source src={item.previewUrl} />
+              </audio>
+            )}
+
+            <button
+              style={{ ...buttonStyle, background: "#22c55e", marginTop: "10px" }}
+              onClick={() => addiTunesSong(item)}
+            >
+              Add Song
+            </button>
+          </div>
+        ))}
+
+        <h2>Saved Music</h2>
+
+        {savedMusic.length === 0 ? (
+          <p style={{ opacity: 0.7 }}>No saved songs match this search.</p>
+        ) : (
+          savedMusic.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                ...musicCardStyle,
+                border: item.favorite ? "1px solid #f43f5e" : "none",
+                boxShadow: item.favorite
+                  ? "0 0 20px rgba(244,63,94,0.5)"
+                  : "none",
+              }}
+            >
+              {item.cover_url && (
+                <img src={item.cover_url} alt="" style={imageStyle} />
+              )}
+
+              <h3>
+                {item.favorite ? "❤️ " : ""}
+                {item.name} - {item.song_name}
+              </h3>
+
+              <p style={{ opacity: 0.8 }}>
+                {item.genre || "No Genre"} | {item.mood || "No Mood"} | Plays:{" "}
+                {item.play_count || 0}
+              </p>
+
+              {item.preview_url && (
+                <audio controls style={{ width: "100%" }}>
+                  <source src={item.preview_url} />
+                </audio>
+              )}
+
+              <button style={smallButtonStyle} onClick={() => playSong(item)}>
+                Play ▶
+              </button>
+
+              <button
+                style={{
+                  ...smallButtonStyle,
+                  background: item.favorite ? "#f43f5e" : "#64748b",
+                }}
+                onClick={() => toggleFavorite(item)}
+              >
+                {item.favorite ? "Unfavorite" : "Favorite ❤️"}
+              </button>
+
+              <button
+                style={{ ...smallButtonStyle, background: "#38bdf8" }}
+                onClick={() => editArtist(item)}
+              >
+                Edit
+              </button>
+
+              <button
+                style={{ ...smallButtonStyle, background: "#fb7185" }}
+                onClick={() => deleteArtist(item.id)}
+              >
+                Delete
+              </button>
+
+              {playlists.length > 0 && (
+                <select
+                  style={selectStyle}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      addToPlaylist(item.id, Number(e.target.value));
+                      e.target.value = "";
+                    }
+                  }}
+                >
+                  <option value="">Add to Playlist</option>
+                  {playlists.map((playlist) => (
+                    <option key={playlist.id} value={playlist.id}>
+                      {playlist.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          ))
+        )}
+
+        <h2>Recommended For You</h2>
+
+        {recommendations.length === 0 ? (
+          <p style={{ opacity: 0.7 }}>
+            Favorite or play songs to get recommendations.
+          </p>
+        ) : (
+          recommendations.map((item) => (
+            <div key={item.id} style={miniCardStyle}>
+              {item.name} - {item.song_name}
+            </div>
+          ))
+        )}
+
+        <h2>{editingId ? "Update Music" : "Manual Add / Upload"}</h2>
+
+        <input
+          style={inputStyle}
+          placeholder="Artist Name"
+          value={artist}
+          onChange={(e) => setArtist(e.target.value)}
+        />
+
+        <input
+          style={inputStyle}
+          placeholder="Song Name"
+          value={song}
+          onChange={(e) => setSong(e.target.value)}
+        />
+
+        <input
+          style={inputStyle}
+          placeholder="Album Cover Image URL"
+          value={cover}
+          onChange={(e) => setCover(e.target.value)}
+        />
+
+        <input
+          style={inputStyle}
+          placeholder="Audio Preview URL"
+          value={preview}
+          onChange={(e) => setPreview(e.target.value)}
+        />
+
+        <p>Upload Album Cover</p>
+        <input
+          style={fileInputStyle}
+          type="file"
+          accept="image/*"
+          onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
+        />
+
+        <p>Upload Audio File</p>
+        <input
+          style={fileInputStyle}
+          type="file"
+          accept="audio/*"
+          onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+        />
+
+        <input
+          style={inputStyle}
+          placeholder="Genre"
+          value={genre}
+          onChange={(e) => setGenre(e.target.value)}
+        />
+
+        <input
+          style={inputStyle}
+          placeholder="Mood"
+          value={mood}
+          onChange={(e) => setMood(e.target.value)}
+        />
+
+        <button
+          style={{ ...buttonStyle, background: "#22c55e" }}
+          onClick={saveArtist}
+        >
+          {editingId ? "Update Artist" : "Save Artist"}
+        </button>
+
+        {editingId && (
+          <button
+            style={{ ...buttonStyle, background: "#64748b" }}
+            onClick={clearForm}
+          >
+            Cancel Edit
+          </button>
+        )}
+      </div>
+
+      {currentSong && (
+        <div style={playerStyle}>
+          <b>
+            Now Playing: {currentSong.name} - {currentSong.song_name}
+          </b>
+
+          {currentSong.preview_url && (
+            <audio controls autoPlay style={{ width: "100%", marginTop: "10px" }}>
+              <source src={currentSong.preview_url} />
+            </audio>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BigMusicCard({ item, onPlay, publicOnly }: any) {
+  return (
+    <div style={bigCardStyle}>
+      {item.cover_url && <img src={item.cover_url} alt="" style={bigImageStyle} />}
+
+      <h2>{item.name}</h2>
+      <h3>{item.song_name}</h3>
+
+      <p style={{ opacity: 0.75 }}>
+        {item.genre || "No Genre"} | Plays: {item.play_count || 0}
+      </p>
+
+      {item.preview_url && (
+        <audio controls style={{ width: "100%" }}>
+          <source src={item.preview_url} />
+        </audio>
+      )}
+
+      <button style={{ ...buttonStyle, marginTop: "12px" }} onClick={onPlay}>
+        Play ▶
+      </button>
+
+      {publicOnly && <p style={{ opacity: 0.55 }}>Public feed</p>}
+    </div>
+  );
+}
+
+const pageStyle = {
+  minHeight: "100vh",
+  background: "linear-gradient(to bottom right, #020617, #0f172a, #1e293b)",
+  padding: "30px",
+  color: "white",
+  fontFamily: "Arial",
+  display: "flex",
+  justifyContent: "center",
+};
+
+const appStyle = {
+  width: "430px",
+  background: "rgba(255,255,255,0.08)",
+  padding: "25px",
+  borderRadius: "24px",
+  backdropFilter: "blur(12px)",
+  marginBottom: "120px",
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "14px",
+  marginBottom: "15px",
+  borderRadius: "14px",
+  border: "none",
+  fontSize: "16px",
+  background: "rgba(255,255,255,0.1)",
+  color: "white",
+};
+
+const selectStyle = {
+  width: "100%",
+  padding: "12px",
+  marginTop: "12px",
+  borderRadius: "12px",
+  border: "none",
+};
+
+const fileInputStyle = {
+  width: "100%",
+  padding: "12px",
+  marginBottom: "15px",
+  borderRadius: "14px",
+  background: "rgba(255,255,255,0.1)",
+  color: "white",
+};
+
+const buttonStyle = {
+  width: "100%",
+  padding: "14px",
+  borderRadius: "14px",
+  border: "none",
+  background: "#6366f1",
+  color: "white",
+  fontWeight: "bold",
+  cursor: "pointer",
+  marginBottom: "20px",
+};
+
+const musicCardStyle = {
+  background: "rgba(255,255,255,0.08)",
+  padding: "15px",
+  borderRadius: "18px",
+  marginBottom: "20px",
+};
+
+const bigCardStyle = {
+  background: "rgba(255,255,255,0.11)",
+  padding: "18px",
+  borderRadius: "24px",
+  marginBottom: "25px",
+  boxShadow: "0 0 18px rgba(0,0,0,0.35)",
+};
+
+const imageStyle = {
+  width: "100%",
+  borderRadius: "14px",
+  marginBottom: "10px",
+};
+
+const bigImageStyle = {
+  width: "100%",
+  borderRadius: "20px",
+  marginBottom: "12px",
+};
+
+const smallButtonStyle = {
+  padding: "10px",
+  border: "none",
+  borderRadius: "10px",
+  background: "#334155",
+  color: "white",
+  marginRight: "8px",
+  marginTop: "10px",
+  cursor: "pointer",
+};
+
+const miniCardStyle = {
+  background: "rgba(255,255,255,0.08)",
+  padding: "12px",
+  borderRadius: "12px",
+  marginBottom: "10px",
+};
+
+const playerStyle = {
+  position: "fixed" as const,
+  bottom: 0,
+  left: 0,
+  right: 0,
+  background: "#020617",
+  color: "white",
+  padding: "15px",
+  boxShadow: "0 -5px 20px rgba(0,0,0,0.5)",
+};

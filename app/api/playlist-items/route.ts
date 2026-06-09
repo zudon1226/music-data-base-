@@ -1,0 +1,185 @@
+import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, { status });
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    return String(record.message || record.error || JSON.stringify(record));
+  }
+  return "Unknown server error";
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function normalizeItemType(value: unknown) {
+  return value === "video" ? "video" : "song";
+}
+
+function normalizePlaylistType(value: unknown) {
+  return value === "song" || value === "video" || value === "mixed" ? value : "mixed";
+}
+
+function getPlaylistTypeFromName(value: unknown) {
+  const name = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (name === "videos" || name === "video" || name.includes("video playlist")) return "video";
+  if (name === "songs" || name === "song" || name.includes("song playlist")) return "song";
+  return "mixed";
+}
+
+function isMissingColumn(error: unknown, columnName: string) {
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes(columnName.toLowerCase()) || message.includes("schema cache") || message.includes("column");
+}
+
+function getSupabaseServerClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (!supabaseUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
+  if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const userId = typeof body.userId === "string" ? body.userId.trim() : "";
+    const playlistId = typeof body.playlistId === "string" ? body.playlistId.trim() : "";
+    const itemId = typeof body.itemId === "string" ? body.itemId.trim() : "";
+    const itemType = normalizeItemType(body.itemType);
+
+    if (!userId || !isUuid(userId)) {
+      return jsonResponse({ error: "Log in before adding items to playlists." }, 401);
+    }
+
+    if (!playlistId || !isUuid(playlistId) || !itemId) {
+      return jsonResponse({ error: "Choose a playlist and item first." }, 400);
+    }
+
+    const supabase = getSupabaseServerClient();
+    let owner = await supabase
+      .from("playlists")
+      .select("id,name,playlist_type")
+      .eq("id", playlistId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (owner.error && isMissingColumn(owner.error, "playlist_type")) {
+      owner = await supabase
+        .from("playlists")
+        .select("id,name")
+        .eq("id", playlistId)
+        .eq("user_id", userId)
+        .maybeSingle();
+    }
+
+    if (owner.error) {
+      console.error("[api/playlist-items] playlist owner check failed:", owner.error);
+      return jsonResponse({ error: getErrorMessage(owner.error) }, 500);
+    }
+
+    if (!owner.data) {
+      return jsonResponse({ error: "Playlist not found for this user." }, 404);
+    }
+
+    const existing = await supabase
+      .from("playlist_items")
+      .select("id")
+      .eq("playlist_id", playlistId)
+      .eq("item_id", itemId)
+      .eq("item_type", itemType)
+      .maybeSingle();
+
+    if (existing.error) {
+      console.error("[api/playlist-items] duplicate check failed:", existing.error);
+      return jsonResponse({ error: getErrorMessage(existing.error) }, 500);
+    }
+
+    if (existing.data) {
+      return jsonResponse({ ok: true, alreadyAdded: true });
+    }
+
+    const insert = await supabase.from("playlist_items").insert({
+      id: crypto.randomUUID(),
+      playlist_id: playlistId,
+      item_id: itemId,
+      item_type: itemType,
+      created_at: new Date().toISOString(),
+    });
+
+    if (insert.error) {
+      console.error("[api/playlist-items] insert failed:", insert.error);
+      return jsonResponse({ error: getErrorMessage(insert.error) }, 500);
+    }
+
+    return jsonResponse({ ok: true, alreadyAdded: false });
+  } catch (error) {
+    console.error("[api/playlist-items] server error:", error);
+    return jsonResponse({ error: getErrorMessage(error) }, 500);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const userId = typeof body.userId === "string" ? body.userId.trim() : "";
+    const playlistId = typeof body.playlistId === "string" ? body.playlistId.trim() : "";
+    const itemType = normalizeItemType(body.itemType);
+
+    if (!userId || !isUuid(userId)) {
+      return jsonResponse({ error: "Log in before removing playlist items." }, 401);
+    }
+
+    if (!playlistId || !isUuid(playlistId)) {
+      return jsonResponse({ error: "Choose a playlist first." }, 400);
+    }
+
+    const supabase = getSupabaseServerClient();
+    const owner = await supabase
+      .from("playlists")
+      .select("id")
+      .eq("id", playlistId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (owner.error) {
+      console.error("[api/playlist-items] delete owner check failed:", owner.error);
+      return jsonResponse({ error: getErrorMessage(owner.error) }, 500);
+    }
+
+    if (!owner.data) {
+      return jsonResponse({ error: "Playlist not found for this user." }, 404);
+    }
+
+    let query = supabase.from("playlist_items").delete().eq("playlist_id", playlistId).eq("item_type", itemType);
+    const itemId = typeof body.itemId === "string" ? body.itemId.trim() : "";
+    if (itemId) query = query.eq("item_id", itemId);
+
+    const result = await query;
+    if (result.error) {
+      console.error("[api/playlist-items] delete failed:", result.error);
+      return jsonResponse({ error: getErrorMessage(result.error) }, 500);
+    }
+
+    return jsonResponse({ ok: true });
+  } catch (error) {
+    console.error("[api/playlist-items] delete server error:", error);
+    return jsonResponse({ error: getErrorMessage(error) }, 500);
+  }
+}
