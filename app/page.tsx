@@ -3,7 +3,6 @@
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, Home, ListMusic, LogIn, LogOut, MessageCircle, Music2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
-import * as tus from "tus-js-client";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -2239,22 +2238,6 @@ function assertDirectSupabaseVideoUploadTarget() {
     }
     return supabaseUrl.origin;
 }
-function getSupabaseAnonKeyForBrowserUpload() {
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || "";
-    if (!anonKey) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing. Video upload cannot start.");
-    }
-    return anonKey;
-}
-function getTusUploadErrorMessage(error: unknown) {
-    if (error instanceof tus.DetailedError) {
-        const responseBody = error.originalResponse?.getBody();
-        const responseStatus = error.originalResponse?.getStatus();
-        const responseText = [responseStatus ? `Status ${responseStatus}` : "", responseBody].filter(Boolean).join(": ");
-        return responseText || error.message || "Supabase resumable upload failed.";
-    }
-    return getUploadErrorMessage(error);
-}
 function getFetchRequestUrl(input: RequestInfo | URL) {
     if (typeof input === "string")
         return input;
@@ -2307,7 +2290,7 @@ function getUploadRequestTargetFlags(url: string) {
     const currentHost = typeof window !== "undefined" ? window.location.hostname.replace(/^www\./i, "") : "";
     const requestHost = requestUrl?.hostname.replace(/^www\./i, "") || "";
     const isSupabaseStoragePath = Boolean(requestUrl &&
-        (requestUrl.pathname.includes("/storage/v1/object") || requestUrl.pathname.includes("/storage/v1/upload/resumable")));
+        requestUrl.pathname.includes("/storage/v1/object"));
     return {
         isSupabaseStorageUrl: Boolean(requestUrl && requestHost.includes("supabase") && isSupabaseStoragePath),
         isDigitalMusicDatabase: requestHost === "digitalmusicdatabase.com",
@@ -2353,14 +2336,14 @@ function installVideoUploadNetworkTrace(sourceLocation: string, onTrace?: (trace
         const bodyType = getFetchBodyType(requestBody);
         const bodySize = getFetchBodySize(requestBody);
         const targetFlags = getUploadRequestTargetFlags(requestUrl);
-        const isStorageUploadRequest = requestUrl.includes("/storage/v1/object") || requestUrl.includes("/storage/v1/upload/resumable");
+        const isStorageUploadRequest = requestUrl.includes("/storage/v1/object");
         const hasLargeUploadBody = ["File", "Blob", "FormData", "ArrayBuffer"].includes(bodyType) && bodySize > 1024 * 1024;
         const shouldTraceVideoUploadRequest = isStorageUploadRequest || hasLargeUploadBody;
         if (!shouldTraceVideoUploadRequest) {
             return originalFetch(input, init);
         }
         const requestSourceLocation = isStorageUploadRequest
-            ? 'app/page.tsx uploadVideoToSupabase -> Supabase Storage resumable upload'
+            ? 'app/page.tsx uploadVideoToSupabase -> supabase.storage.from("videos").upload(filePath, file)'
             : sourceLocation;
         const requestTrace = {
             url: requestUrl,
@@ -8609,79 +8592,44 @@ export default function Page() {
         setUploadProgress(100);
         return mapSongRowToSong(uploadResult.song);
     }
-    async function uploadVideoFileWithTus(file: File, storagePath: string, contentType: string, accessToken: string, supabaseStorageOrigin: string) {
-        const endpoint = `${supabaseStorageOrigin}/storage/v1/upload/resumable`;
-        const anonKey = getSupabaseAnonKeyForBrowserUpload();
+    async function uploadVideoFileDirectlyToSupabase(file: File, storagePath: string, contentType: string, uploadTargetUrl: string) {
         updateVideoUploadDebug({
-            uploadMethod: "Direct browser resumable upload to Supabase Storage",
-            uploadTargetUrl: endpoint,
-            requestMethod: "TUS",
-            requestBodyType: "File chunks",
+            uploadMethod: 'Direct browser upload with supabase.storage.from("videos").upload(filePath, file)',
+            uploadTargetUrl,
+            requestMethod: "POST",
+            requestBodyType: "File",
             requestBodySize: String(file.size),
-            sourceLocation: 'app/page.tsx uploadVideoFileWithTus -> tus.Upload(endpoint: "/storage/v1/upload/resumable")',
+            sourceLocation: 'app/page.tsx uploadVideoFileDirectlyToSupabase -> supabase.storage.from("videos").upload(storagePath, file)',
         });
-        setVideoUploadStep("Uploading video with Supabase resumable upload...", 12);
-        console.log("DIRECT SUPABASE RESUMABLE VIDEO UPLOAD STARTED", {
+        setVideoUploadStep("Uploading video to Supabase Storage...", 12);
+        console.log("DIRECT SUPABASE VIDEO UPLOAD STARTED", {
             fileName: file.name,
             fileSize: file.size,
             storagePath,
-            endpoint,
+            uploadTargetUrl,
         });
-        await new Promise<void>((resolve, reject) => {
-            const upload = new tus.Upload(file, {
-                endpoint,
-                chunkSize: 6 * 1024 * 1024,
-                retryDelays: [0, 1000, 3000, 5000, 10000],
-                uploadDataDuringCreation: true,
-                removeFingerprintOnSuccess: true,
-                headers: {
-                    authorization: `Bearer ${accessToken}`,
-                    apikey: anonKey,
-                    "x-upsert": "false",
-                },
-                metadata: {
-                    bucketName: VIDEOS_STORAGE_BUCKET,
-                    objectName: storagePath,
-                    contentType,
-                    cacheControl: "3600",
-                },
-                onProgress: (bytesUploaded, bytesTotal) => {
-                    const ratio = bytesTotal > 0 ? bytesUploaded / bytesTotal : 0;
-                    const progressValue = Math.min(82, Math.max(12, Math.round(12 + ratio * 70)));
-                    setVideoUploadStep(`Uploading video... ${formatFileSize(bytesUploaded)} / ${formatFileSize(bytesTotal)}`, progressValue);
-                    updateVideoUploadDebug({
-                        currentStep: `Resumable upload ${Math.round(ratio * 100)}%`,
-                        requestBodySize: `${bytesUploaded}/${bytesTotal}`,
-                        lastError: "",
-                    });
-                },
-                onError: (error) => {
-                    const message = getTusUploadErrorMessage(error);
-                    updateVideoUploadDebug({
-                        currentStep: "Supabase resumable upload failed",
-                        lastError: message,
-                        fullErrorJson: stringifyUploadDebugError(error),
-                    });
-                    reject(new Error(`Supabase resumable video upload failed: ${message}`));
-                },
-                onSuccess: () => {
-                    updateVideoUploadDebug({
-                        currentStep: "Supabase resumable upload complete",
-                        lastError: "",
-                    });
-                    resolve();
-                },
+        const { data, error } = await supabase.storage.from("videos").upload(storagePath, file, {
+            upsert: true,
+            cacheControl: "3600",
+            contentType,
+        });
+        if (error) {
+            const message = getUploadErrorMessage(error);
+            updateVideoUploadDebug({
+                currentStep: "Supabase Storage upload failed",
+                lastError: message,
+                fullErrorJson: stringifyUploadDebugError(error),
             });
-            upload.findPreviousUploads()
-                .then((previousUploads) => {
-                if (previousUploads.length > 0) {
-                    upload.resumeFromPreviousUpload(previousUploads[0]);
-                }
-                upload.start();
-            })
-                .catch(() => upload.start());
+            throw new Error(`Supabase video storage upload failed: ${message}`);
+        }
+        const savedPath = data?.path || storagePath;
+        updateVideoUploadDebug({
+            currentStep: "Supabase Storage upload complete",
+            requestBodySize: String(file.size),
+            lastError: "",
         });
-        return storagePath;
+        console.log("DIRECT SUPABASE VIDEO UPLOAD STORAGE PATH", savedPath);
+        return savedPath;
     }
     async function uploadVideoToSupabase(file: File, videoDetails: Pick<VideoUploadForm, "title" | "creator" | "category" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
         const fileError = getVideoFileError(file);
@@ -8695,51 +8643,51 @@ export default function Page() {
             currentStep: "Checking Supabase auth session for Storage upload",
             lastError: "",
         });
-        const { user: sessionUser, accessToken } = await getFreshVideoStorageUploadUser();
+        const { user: sessionUser } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
         setVideoUploadStep("Preparing video...", 4);
         const supabaseStorageOrigin = assertDirectSupabaseVideoUploadTarget();
         const storagePath = buildVideoStoragePath(sessionUser.id, file);
         const contentType = file.type || "video/mp4";
-        const expectedUploadTargetUrl = `${supabaseStorageOrigin}/storage/v1/upload/resumable`;
+        const expectedUploadTargetUrl = `${supabaseStorageOrigin}/storage/v1/object/${VIDEOS_STORAGE_BUCKET}/${storagePath}`;
         updateVideoUploadDebug({
-            uploadMethod: "Direct browser resumable upload to Supabase Storage",
+            uploadMethod: 'Direct browser upload with supabase.storage.from("videos").upload(filePath, file)',
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             uploadTargetUrl: expectedUploadTargetUrl,
             bucket: VIDEOS_STORAGE_BUCKET,
             fileSize: String(file.size),
             fileName: file.name,
-            currentStep: "Prepared direct Supabase resumable upload target",
+            currentStep: "Prepared direct Supabase Storage upload target",
             lastError: "",
             fullErrorJson: "",
             requestContainsDigitalMusicDatabase: expectedUploadTargetUrl.includes("digitalmusicdatabase.com"),
             requestContainsSupabaseCo: expectedUploadTargetUrl.includes("supabase.co"),
             requestLooksLikeVercelFunction: false,
             requestLooksLikeAppServer: false,
-            requestMethod: "TUS",
-            requestBodyType: "File chunks",
+            requestMethod: "POST",
+            requestBodyType: "File",
             requestBodySize: String(file.size),
-            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> uploadVideoFileWithTus(file)',
+            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> supabase.storage.from("videos").upload(filePath, file)',
         });
-        setVideoUploadStep("Uploading video to Supabase Storage with resumable upload...", 12);
+        setVideoUploadStep("Uploading video to Supabase Storage...", 12);
         console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-        console.log("UPLOAD TARGET:", supabaseStorageOrigin);
+        console.log("UPLOAD TARGET:", expectedUploadTargetUrl);
         console.log("SELECTED FILE SIZE:", file.size);
-        console.log("DIRECT SUPABASE RESUMABLE VIDEO UPLOAD PREPARED", {
+        console.log("DIRECT SUPABASE VIDEO UPLOAD PREPARED", {
             fileName: file.name,
             fileSize: file.size,
             storagePath,
-            storageOrigin: supabaseStorageOrigin,
+            uploadTargetUrl: expectedUploadTargetUrl,
         });
-        const savedStoragePath = await uploadVideoFileWithTus(file, storagePath, contentType, accessToken, supabaseStorageOrigin);
+        const savedStoragePath = await uploadVideoFileDirectlyToSupabase(file, storagePath, contentType, expectedUploadTargetUrl);
         updateVideoUploadDebug({
             currentStep: "Supabase Storage upload complete",
         });
-        console.log("DIRECT SUPABASE RESUMABLE VIDEO UPLOAD STORAGE PATH", savedStoragePath);
+        console.log("DIRECT SUPABASE VIDEO UPLOAD STORAGE PATH", savedStoragePath);
         const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
         const publicUrl = publicUrlData.publicUrl;
-        console.log("DIRECT SUPABASE RESUMABLE VIDEO UPLOAD PUBLIC URL", publicUrl);
+        console.log("DIRECT SUPABASE VIDEO UPLOAD PUBLIC URL", publicUrl);
         if (!publicUrl) {
             throw new Error("Supabase did not return a public URL for the uploaded video.");
         }
