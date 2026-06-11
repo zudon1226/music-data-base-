@@ -6,6 +6,9 @@ export const dynamic = "force-dynamic";
 
 const ERROR_SELECT = "id,user_id,category,action,item_id,item_type,message,details,status,created_at,resolved_at";
 const VALID_CATEGORIES = new Set(["upload", "media_url", "save", "like", "playlist", "album", "storage", "backup", "follow", "unknown"]);
+const MAX_DETAILS_STRING_LENGTH = 500;
+const MAX_DETAILS_DEPTH = 4;
+const MAX_DETAILS_KEYS = 24;
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status });
@@ -28,6 +31,49 @@ function isUuid(value: string) {
 function isMissingTable(error: unknown) {
   const message = getErrorMessage(error).toLowerCase();
   return message.includes("platform_errors") || message.includes("schema cache") || message.includes("does not exist");
+}
+
+function sanitizeDetailsValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+  if (value == null || typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    return value.length > MAX_DETAILS_STRING_LENGTH || value.includes("base64,")
+      ? `${value.slice(0, MAX_DETAILS_STRING_LENGTH)}... [truncated]`
+      : value;
+  }
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "function" || typeof value === "symbol") return `[${typeof value} removed]`;
+  if (typeof Blob !== "undefined" && value instanceof Blob) {
+    return { type: "Blob", size: value.size, contentType: value.type };
+  }
+  if (typeof FormData !== "undefined" && value instanceof FormData) return "[FormData removed]";
+  if (value instanceof Error) {
+    return { name: value.name, message: value.message, stack: sanitizeDetailsValue(value.stack || "", depth + 1, seen) };
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return "[Circular array removed]";
+    seen.add(value);
+    const items = value.slice(0, MAX_DETAILS_KEYS).map((item) => sanitizeDetailsValue(item, depth + 1, seen));
+    return value.length > MAX_DETAILS_KEYS ? [...items, `[${value.length - MAX_DETAILS_KEYS} more items removed]`] : items;
+  }
+  if (typeof value === "object") {
+    if (seen.has(value)) return "[Circular object removed]";
+    if (depth >= MAX_DETAILS_DEPTH) return "[Object details truncated]";
+    seen.add(value);
+    const entries = Object.entries(value as Record<string, unknown>);
+    const result: Record<string, unknown> = {};
+    entries.slice(0, MAX_DETAILS_KEYS).forEach(([key, item]) => {
+      result[key] = sanitizeDetailsValue(item, depth + 1, seen);
+    });
+    if (entries.length > MAX_DETAILS_KEYS) result.truncatedKeys = entries.length - MAX_DETAILS_KEYS;
+    return result;
+  }
+  return String(value);
+}
+
+function sanitizeDetails(details: unknown) {
+  const sanitized = sanitizeDetailsValue(details && typeof details === "object" ? details : {});
+  return sanitized && typeof sanitized === "object" && !Array.isArray(sanitized) ? sanitized as Record<string, unknown> : {};
 }
 
 function getSupabaseServerClient() {
@@ -86,7 +132,7 @@ export async function POST(request: Request) {
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const itemId = typeof body.itemId === "string" ? body.itemId.trim() : typeof body.item_id === "string" ? body.item_id.trim() : "";
     const itemType = typeof body.itemType === "string" ? body.itemType.trim() : typeof body.item_type === "string" ? body.item_type.trim() : "";
-    const details = body.details && typeof body.details === "object" ? body.details : {};
+    const details = sanitizeDetails(body.details);
 
     if (userId && !isUuid(userId)) return jsonResponse({ error: "Invalid user id." }, 400);
     if (!message) return jsonResponse({ error: "Error message is required." }, 400);

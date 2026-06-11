@@ -97,7 +97,9 @@ export async function POST(request: Request) {
         }
         const formData = await request.formData();
         const file = getFormFile(formData.get("file"));
-        const userId = String(formData.get("userId") || "").trim() || "uploads";
+        const sessionUserId = String(formData.get("sessionUserId") || "").trim();
+        const legacyUserId = String(formData.get("userId") || "").trim();
+        const authUserId = sessionUserId;
         const title = String(formData.get("title") || "").trim() || "Untitled song";
         const artist = String(formData.get("artist") || "").trim() || "Unknown artist";
         const category = String(formData.get("category") || "").trim() || "New Releases";
@@ -110,12 +112,22 @@ export async function POST(request: Request) {
         if (!file) {
             return jsonResponse({ error: "Choose an MP3, WAV, or M4A audio file." }, 400);
         }
+        if (!authUserId) {
+            return jsonResponse({ error: "You must log in again before saving song metadata." }, 401);
+        }
+        if (legacyUserId && legacyUserId !== authUserId) {
+            console.error("SONG USER ID MISMATCH", {
+                sessionUserId: authUserId,
+                userId: legacyUserId,
+            });
+            return jsonResponse({ error: "Song metadata user id does not match the signed-in session." }, 401);
+        }
         const contentType = getAudioContentType(file);
         if (!contentType.startsWith("audio/")) {
             return jsonResponse({ error: "Only MP3, WAV, and M4A audio files can be uploaded.", details: { contentType } }, 400);
         }
         const cleanFileName = cleanStorageFileName(file.name || "song.mp3");
-        const filePath = `${userId}/${crypto.randomUUID()}-${cleanFileName}`;
+        const filePath = `${authUserId}/${crypto.randomUUID()}-${cleanFileName}`;
         const buffer = Buffer.from(await file.arrayBuffer());
         const supabase = createClient(supabaseUrl, serviceRoleKey, {
             auth: {
@@ -155,23 +167,26 @@ export async function POST(request: Request) {
             plays: 0,
             likes: 0,
             created_at: new Date().toISOString(),
-            user_id: userId,
+            user_id: authUserId,
         };
-        const insertSongRow = async (row: Record<string, unknown>, selectColumns: string) => supabase
-            .from("songs")
-            .insert(row)
-            .select(selectColumns)
-            .single();
+        let lastSongInsertPayload: Record<string, unknown> = songRow;
+        const insertSongRow = async (row: Record<string, unknown>, selectColumns: string) => {
+            lastSongInsertPayload = row;
+            console.error("INSERT USER ID:", row.user_id);
+            console.error("AUTH USER ID:", authUserId);
+            console.error("SESSION USER ID:", sessionUserId);
+            console.error("LEGACY USER ID:", legacyUserId);
+            console.error("SONG USER ID MATCH:", String(row.user_id || "") === authUserId);
+            console.error("FULL INSERT PAYLOAD:", row);
+            return supabase
+                .from("songs")
+                .insert(row)
+                .select(selectColumns)
+                .single();
+        };
         const initialInsert = await insertSongRow(songRow, "id,title,artist,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
         let savedSong = initialInsert.data as Record<string, unknown> | null;
         let tableError = initialInsert.error;
-        if (tableError && getErrorMessage(tableError).toLowerCase().includes("user_id")) {
-            const fallbackSongRow: Record<string, unknown> = { ...songRow };
-            delete fallbackSongRow.user_id;
-            const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,artist,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at");
-            savedSong = fallbackResult.data as Record<string, unknown> | null;
-            tableError = fallbackResult.error;
-        }
         if (tableError && /producer|beat_id/i.test(getErrorMessage(tableError))) {
             const fallbackSongRow: Record<string, unknown> = { ...songRow };
             delete fallbackSongRow.producer;
@@ -191,7 +206,7 @@ export async function POST(request: Request) {
         if (tableError && getErrorMessage(tableError).toLowerCase().includes("artist")) {
             const fallbackSongRow: Record<string, unknown> = { ...songRow };
             delete fallbackSongRow.artist;
-            const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,description,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at");
+            const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,description,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
             savedSong = fallbackResult.data as Record<string, unknown> | null;
             tableError = fallbackResult.error;
         }
@@ -199,17 +214,31 @@ export async function POST(request: Request) {
             const minimalSongRow: Record<string, unknown> = { ...songRow };
             delete minimalSongRow.artist;
             delete minimalSongRow.description;
-            const minimalResult = await insertSongRow(minimalSongRow, "id,title,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at");
+            const minimalResult = await insertSongRow(minimalSongRow, "id,title,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
             savedSong = minimalResult.data as Record<string, unknown> | null;
             tableError = minimalResult.error;
         }
         if (tableError) {
+            console.error("INSERT USER ID:", lastSongInsertPayload.user_id);
+            console.error("AUTH USER ID:", authUserId);
+            console.error("SESSION USER ID:", sessionUserId);
+            console.error("LEGACY USER ID:", legacyUserId);
+            console.error("SONG USER ID MATCH:", String(lastSongInsertPayload.user_id || "") === authUserId);
+            console.error("FULL INSERT PAYLOAD:", lastSongInsertPayload);
             console.error("SONG INSERT FAILED", tableError);
             console.error("[api/upload-audio] INSERT FAILED public.songs:", tableError);
             await supabase.storage.from(SONGS_BUCKET).remove([filePath]);
             return jsonResponse({
                 error: `Audio uploaded to Storage, but the songs table save failed: ${getErrorMessage(tableError)}`,
-                details: getErrorDetails(tableError),
+                details: {
+                    supabaseError: getErrorDetails(tableError),
+                    insertUserId: String(lastSongInsertPayload.user_id || ""),
+                    authUserId,
+                    sessionUserId,
+                    legacyUserId,
+                    userIdMatchesAuth: String(lastSongInsertPayload.user_id || "") === authUserId,
+                    insertPayload: lastSongInsertPayload,
+                },
             }, 500);
         }
         return jsonResponse({

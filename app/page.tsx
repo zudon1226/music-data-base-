@@ -1,7 +1,9 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, Home, ListMusic, LogIn, LogOut, MessageCircle, Music2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import * as tus from "tus-js-client";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -69,6 +71,7 @@ type VideoItem = {
     public_url?: string;
     storagePath: string;
     storage_path?: string;
+    fileName?: string;
     thumbnail_url?: string;
     uploaded: string;
     views: number;
@@ -100,6 +103,8 @@ type VideoTableRow = {
     file_url?: string | null;
     cover_url?: string | null;
     storage_path: string | null;
+    file_name?: string | null;
+    file_size?: number | null;
     thumbnail_url: string | null;
     views: number | null;
     likes: number | null;
@@ -140,6 +145,33 @@ type VideoUploadForm = {
     category: string;
     cover: string;
     producerId: string;
+};
+type VideoUploadDebugInfo = {
+    uploadMethod: string;
+    supabaseUrl: string;
+    uploadTargetUrl: string;
+    bucket: string;
+    fileSize: string;
+    fileName: string;
+    selectedFileName: string;
+    selectedFileSize: string;
+    hasFileObject: boolean;
+    currentStep: string;
+    lastError: string;
+    fullErrorJson: string;
+    requestContainsDigitalMusicDatabase: boolean;
+    requestContainsSupabaseCo: boolean;
+    requestLooksLikeVercelFunction: boolean;
+    requestLooksLikeAppServer: boolean;
+    requestMethod: string;
+    requestBodyType: string;
+    requestBodySize: string;
+    insertUserId: string;
+    authUserId: string;
+    insertUserMatchesAuth: string;
+    fullInsertPayload: string;
+    sourceLocation: string;
+    lastUpdated: string;
 };
 type EditSongForm = Pick<Song, "title" | "artist" | "category" | "type" | "time" | "cover">;
 type EditVideoForm = Pick<VideoUploadForm, "title" | "creator" | "category" | "cover">;
@@ -1073,15 +1105,17 @@ function clampProducerSplitShare(value: unknown) {
 }
 const STORAGE_SETUP_SQL = `-- Run this in the Supabase SQL editor for the Z Music project.
 -- Audio files upload to songs. Video files upload to videos/{auth.uid()}/{uuid}.mp4.
+-- CORS allowed origins are configured in Supabase project settings:
+-- https://digitalmusicdatabase.com, https://www.digitalmusicdatabase.com, your Vercel preview URL, http://localhost:3000.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('songs', 'songs', true, 104857600, null),
-  ('videos', 'videos', true, null, null)
+  ('videos', 'videos', true, 1073741824, null)
 on conflict (id) do update
 set
   public = excluded.public,
-  file_size_limit = excluded.file_size_limit,
+  file_size_limit = greatest(coalesce(storage.buckets.file_size_limit, 0), excluded.file_size_limit),
   allowed_mime_types = excluded.allowed_mime_types;
 
 create extension if not exists pgcrypto;
@@ -1175,6 +1209,8 @@ alter table public.videos add column if not exists producer_id text;
 alter table public.videos add column if not exists producer_profile_id text;
 alter table public.videos add column if not exists beat_id text;
 alter table public.videos add column if not exists cover_url text;
+alter table public.videos add column if not exists file_name text;
+alter table public.videos add column if not exists file_size bigint;
 
 alter table public.videos enable row level security;
 
@@ -1470,6 +1506,8 @@ using (auth.uid() = user_id);
 create index if not exists artist_follows_user_id_idx on public.artist_follows (user_id);
 create index if not exists artist_follows_artist_id_idx on public.artist_follows (artist_id);
 
+alter table storage.objects enable row level security;
+
 drop policy if exists "Anyone can read songs" on storage.objects;
 drop policy if exists "Public read songs" on storage.objects;
 drop policy if exists "Users can upload songs to their folder" on storage.objects;
@@ -1496,6 +1534,13 @@ drop policy if exists "Users can delete their videos" on storage.objects;
 drop policy if exists "Authenticated users can insert own videos" on storage.objects;
 drop policy if exists "Authenticated users can update own videos" on storage.objects;
 drop policy if exists "Authenticated users can delete own videos" on storage.objects;
+drop policy if exists "Music Data Base public read videos" on storage.objects;
+drop policy if exists "Music Data Base authenticated video uploads" on storage.objects;
+drop policy if exists "Music Data Base authenticated video updates" on storage.objects;
+drop policy if exists "Music Data Base authenticated video deletes" on storage.objects;
+drop policy if exists "Music Data Base authenticated videos bucket uploads" on storage.objects;
+drop policy if exists "Music Data Base authenticated own video updates" on storage.objects;
+drop policy if exists "Music Data Base authenticated own video deletes" on storage.objects;
 
 create policy "Public read songs"
 on storage.objects
@@ -1530,21 +1575,18 @@ using (
   and (storage.foldername(name))[1] = auth.uid()::text
 );
 
-create policy "Public read videos"
+create policy "Music Data Base public read videos"
 on storage.objects
 for select
 using (bucket_id = 'videos');
 
-create policy "Authenticated users can insert own videos"
+create policy "Music Data Base authenticated videos bucket uploads"
 on storage.objects
 for insert
 to authenticated
-with check (
-  bucket_id = 'videos'
-  and (storage.foldername(name))[1] = auth.uid()::text
-);
+with check (bucket_id = 'videos');
 
-create policy "Authenticated users can update own videos"
+create policy "Music Data Base authenticated own video updates"
 on storage.objects
 for update
 to authenticated
@@ -1557,7 +1599,7 @@ with check (
   and (storage.foldername(name))[1] = auth.uid()::text
 );
 
-create policy "Authenticated users can delete own videos"
+create policy "Music Data Base authenticated own video deletes"
 on storage.objects
 for delete
 to authenticated
@@ -1980,6 +2022,7 @@ function mapVideoRowToVideoItem(row: VideoTableRow): VideoItem {
         file_url: row.file_url || "",
         storagePath: row.storage_path || "",
         storage_path: row.storage_path || "",
+        fileName: row.file_name || "",
         uploaded: formatVideoCreatedAt(row.created_at),
         views: row.views || 0,
         likes: row.likes || 0,
@@ -2156,6 +2199,353 @@ function getVideoFileError(file: File | null) {
         return VIDEO_UPLOAD_LIMIT_MESSAGE;
     }
     return "";
+}
+function cleanVideoStorageFileName(fileName: string) {
+    const fallbackExtension = "mp4";
+    const extension = getFileExtension(fileName).replace(/[^a-z0-9]/g, "") || fallbackExtension;
+    const baseName = fileName
+        .replace(/\.[^/.]+$/, "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9._-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 80);
+    return `${baseName || "video"}.${extension}`;
+}
+function buildVideoStoragePath(userId: string, file: File) {
+    const cleanFileName = cleanVideoStorageFileName(file.name || "video.mp4");
+    return `${userId}/${Date.now()}-${createRecordId()}-${cleanFileName}`;
+}
+function assertDirectSupabaseVideoUploadTarget() {
+    const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
+    if (!configuredUrl) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing. Video upload cannot start.");
+    }
+    let supabaseUrl: URL;
+    try {
+        supabaseUrl = new URL(configuredUrl);
+    }
+    catch {
+        throw new Error("NEXT_PUBLIC_SUPABASE_URL must be a valid Supabase project URL. Video upload cannot start.");
+    }
+    if (typeof window !== "undefined") {
+        const appHost = window.location.hostname.replace(/^www\./i, "");
+        const supabaseHost = supabaseUrl.hostname.replace(/^www\./i, "");
+        if (appHost && supabaseHost && appHost === supabaseHost) {
+            throw new Error("Video upload is pointing at this app instead of Supabase Storage. Set NEXT_PUBLIC_SUPABASE_URL to your Supabase project URL, then redeploy.");
+        }
+    }
+    return supabaseUrl.origin;
+}
+function getSupabaseAnonKeyForBrowserUpload() {
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || "";
+    if (!anonKey) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing. Video upload cannot start.");
+    }
+    return anonKey;
+}
+function getTusUploadErrorMessage(error: unknown) {
+    if (error instanceof tus.DetailedError) {
+        const responseBody = error.originalResponse?.getBody();
+        const responseStatus = error.originalResponse?.getStatus();
+        const responseText = [responseStatus ? `Status ${responseStatus}` : "", responseBody].filter(Boolean).join(": ");
+        return responseText || error.message || "Supabase resumable upload failed.";
+    }
+    return getUploadErrorMessage(error);
+}
+function getFetchRequestUrl(input: RequestInfo | URL) {
+    if (typeof input === "string")
+        return input;
+    if (input instanceof URL)
+        return input.toString();
+    if (typeof Request !== "undefined" && input instanceof Request)
+        return input.url;
+    return String(input);
+}
+function getFetchBodyType(body: BodyInit | null | undefined) {
+    if (!body)
+        return "none";
+    if (typeof File !== "undefined" && body instanceof File)
+        return "File";
+    if (typeof Blob !== "undefined" && body instanceof Blob)
+        return "Blob";
+    if (typeof FormData !== "undefined" && body instanceof FormData)
+        return "FormData";
+    if (typeof body === "string")
+        return "string";
+    if (body instanceof URLSearchParams)
+        return "URLSearchParams";
+    if (body instanceof ArrayBuffer)
+        return "ArrayBuffer";
+    return Object.prototype.toString.call(body).replace(/^\[object\s|\]$/g, "") || "unknown";
+}
+function getFetchBodySize(body: BodyInit | null | undefined) {
+    if (!body)
+        return 0;
+    if (typeof File !== "undefined" && body instanceof File)
+        return body.size;
+    if (typeof Blob !== "undefined" && body instanceof Blob)
+        return body.size;
+    if (typeof body === "string")
+        return body.length;
+    if (body instanceof URLSearchParams)
+        return body.toString().length;
+    if (body instanceof ArrayBuffer)
+        return body.byteLength;
+    return 0;
+}
+function getUploadRequestTargetFlags(url: string) {
+    let requestUrl: URL | null = null;
+    try {
+        requestUrl = new URL(url, typeof window !== "undefined" ? window.location.href : undefined);
+    }
+    catch {
+        requestUrl = null;
+    }
+    const currentHost = typeof window !== "undefined" ? window.location.hostname.replace(/^www\./i, "") : "";
+    const requestHost = requestUrl?.hostname.replace(/^www\./i, "") || "";
+    const isSupabaseStoragePath = Boolean(requestUrl &&
+        (requestUrl.pathname.includes("/storage/v1/object") || requestUrl.pathname.includes("/storage/v1/upload/resumable")));
+    return {
+        isSupabaseStorageUrl: Boolean(requestUrl && requestHost.includes("supabase") && isSupabaseStoragePath),
+        isDigitalMusicDatabase: requestHost === "digitalmusicdatabase.com",
+        isAppDomain: Boolean(currentHost && requestHost === currentHost),
+        isVercelFunctionUrl: Boolean(requestUrl && (requestHost.endsWith(".vercel.app") || (currentHost && requestHost === currentHost && requestUrl.pathname.startsWith("/api/")))),
+    };
+}
+function stringifyUploadDebugError(error: unknown) {
+    if (!error)
+        return "";
+    if (typeof error === "string")
+        return error;
+    if (error instanceof Error) {
+        return JSON.stringify({
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+        }, null, 2);
+    }
+    try {
+        return JSON.stringify(error, null, 2);
+    }
+    catch {
+        return String(error);
+    }
+}
+function installVideoUploadNetworkTrace(sourceLocation: string, onTrace?: (trace: Partial<VideoUploadDebugInfo>) => void) {
+    if (typeof window === "undefined") {
+        return () => undefined;
+    }
+    const tracedWindow = window as typeof window & {
+        __musicDataBaseVideoUploadTraceActive?: boolean;
+    };
+    if (tracedWindow.__musicDataBaseVideoUploadTraceActive) {
+        return () => undefined;
+    }
+    const originalFetch = window.fetch.bind(window);
+    tracedWindow.__musicDataBaseVideoUploadTraceActive = true;
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const requestUrl = getFetchRequestUrl(input);
+        const requestMethod = (init?.method || (typeof Request !== "undefined" && input instanceof Request ? input.method : "GET")).toUpperCase();
+        const requestBody = init?.body || null;
+        const bodyType = getFetchBodyType(requestBody);
+        const bodySize = getFetchBodySize(requestBody);
+        const targetFlags = getUploadRequestTargetFlags(requestUrl);
+        const isStorageUploadRequest = requestUrl.includes("/storage/v1/object") || requestUrl.includes("/storage/v1/upload/resumable");
+        const hasLargeUploadBody = ["File", "Blob", "FormData", "ArrayBuffer"].includes(bodyType) && bodySize > 1024 * 1024;
+        const shouldTraceVideoUploadRequest = isStorageUploadRequest || hasLargeUploadBody;
+        if (!shouldTraceVideoUploadRequest) {
+            return originalFetch(input, init);
+        }
+        const requestSourceLocation = isStorageUploadRequest
+            ? 'app/page.tsx uploadVideoToSupabase -> Supabase Storage resumable upload'
+            : sourceLocation;
+        const requestTrace = {
+            url: requestUrl,
+            method: requestMethod,
+            bodyType,
+            bodySize,
+            sourceLocation: requestSourceLocation,
+            ...targetFlags,
+        };
+        console.log("VIDEO UPLOAD NETWORK REQUEST:", requestTrace);
+        onTrace?.({
+            uploadMethod: isStorageUploadRequest ? "Direct browser upload to Supabase Storage" : "Upload flow network request",
+            uploadTargetUrl: requestUrl,
+            requestMethod,
+            requestBodyType: bodyType,
+            requestBodySize: String(bodySize),
+            requestContainsDigitalMusicDatabase: requestUrl.includes("digitalmusicdatabase.com"),
+            requestContainsSupabaseCo: requestUrl.includes("supabase.co"),
+            requestLooksLikeVercelFunction: targetFlags.isVercelFunctionUrl,
+            requestLooksLikeAppServer: targetFlags.isAppDomain,
+            sourceLocation: requestSourceLocation,
+            lastUpdated: new Date().toLocaleTimeString(),
+        });
+        let response: Response;
+        try {
+            response = await originalFetch(input, init);
+        }
+        catch (error) {
+            const errorJson = stringifyUploadDebugError(error);
+            console.warn("VIDEO UPLOAD NETWORK FAILED:", {
+                url: requestUrl,
+                error,
+                bodyType,
+                bodySize,
+                sourceLocation: requestSourceLocation,
+                ...targetFlags,
+            });
+            onTrace?.({
+                uploadTargetUrl: requestUrl,
+                requestMethod,
+                requestBodyType: bodyType,
+                requestBodySize: String(bodySize),
+                requestContainsDigitalMusicDatabase: requestUrl.includes("digitalmusicdatabase.com"),
+                requestContainsSupabaseCo: requestUrl.includes("supabase.co"),
+                requestLooksLikeVercelFunction: targetFlags.isVercelFunctionUrl,
+                requestLooksLikeAppServer: targetFlags.isAppDomain,
+                sourceLocation: requestSourceLocation,
+                lastError: error instanceof Error ? error.message : String(error),
+                fullErrorJson: errorJson,
+                lastUpdated: new Date().toLocaleTimeString(),
+            });
+            throw error;
+        }
+        if (!response.ok) {
+            const responseText = await response.clone().text().catch(() => "");
+            const errorJson = responseText || JSON.stringify({
+                status: response.status,
+                statusText: response.statusText,
+            }, null, 2);
+            console.warn("VIDEO UPLOAD NETWORK FAILED:", {
+                url: requestUrl,
+                status: response.status,
+                statusText: response.statusText,
+                bodyType,
+                bodySize,
+                sourceLocation: requestSourceLocation,
+                responseText,
+                ...targetFlags,
+            });
+            onTrace?.({
+                uploadTargetUrl: requestUrl,
+                requestMethod,
+                requestBodyType: bodyType,
+                requestBodySize: String(bodySize),
+                requestContainsDigitalMusicDatabase: requestUrl.includes("digitalmusicdatabase.com"),
+                requestContainsSupabaseCo: requestUrl.includes("supabase.co"),
+                requestLooksLikeVercelFunction: targetFlags.isVercelFunctionUrl,
+                requestLooksLikeAppServer: targetFlags.isAppDomain,
+                sourceLocation: requestSourceLocation,
+                lastError: responseText || `${response.status} ${response.statusText}`,
+                fullErrorJson: errorJson,
+                lastUpdated: new Date().toLocaleTimeString(),
+            });
+        }
+        return response;
+    };
+    return () => {
+        window.fetch = originalFetch;
+        tracedWindow.__musicDataBaseVideoUploadTraceActive = false;
+    };
+}
+function hasUnsafeVideoPayloadValue(value: unknown, seen = new WeakSet<object>()): boolean {
+    if (!value)
+        return false;
+    if (typeof File !== "undefined" && value instanceof File)
+        return true;
+    if (typeof Blob !== "undefined" && value instanceof Blob)
+        return true;
+    if (typeof FormData !== "undefined" && value instanceof FormData)
+        return true;
+    if (typeof value === "string")
+        return value.includes("base64,");
+    if (Array.isArray(value))
+        return value.some((item) => hasUnsafeVideoPayloadValue(item, seen));
+    if (typeof value === "object") {
+        if (seen.has(value))
+            return false;
+        seen.add(value);
+        return Object.values(value as Record<string, unknown>).some((item) => hasUnsafeVideoPayloadValue(item, seen));
+    }
+    return false;
+}
+function assertSafeVideoMetadataPayload(payload: Record<string, unknown>) {
+    if (hasUnsafeVideoPayloadValue(payload)) {
+        throw new Error("Video metadata save cannot include a File, Blob, FormData, or base64 video payload.");
+    }
+}
+const MAX_PLATFORM_ERROR_STRING_LENGTH = 500;
+const MAX_PLATFORM_ERROR_DEPTH = 4;
+const MAX_PLATFORM_ERROR_KEYS = 24;
+function sanitizePlatformErrorValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+    if (value == null || typeof value === "number" || typeof value === "boolean")
+        return value;
+    if (typeof value === "string") {
+        const looksLikeEncodedFile = value.includes("base64,") || value.length > MAX_PLATFORM_ERROR_STRING_LENGTH;
+        return looksLikeEncodedFile ? `${value.slice(0, MAX_PLATFORM_ERROR_STRING_LENGTH)}... [truncated]` : value;
+    }
+    if (typeof value === "bigint")
+        return value.toString();
+    if (typeof value === "function" || typeof value === "symbol")
+        return `[${typeof value} removed]`;
+    if (typeof File !== "undefined" && value instanceof File) {
+        return {
+            type: "File",
+            name: value.name,
+            size: value.size,
+            contentType: value.type,
+            lastModified: value.lastModified,
+        };
+    }
+    if (typeof Blob !== "undefined" && value instanceof Blob) {
+        return {
+            type: "Blob",
+            size: value.size,
+            contentType: value.type,
+        };
+    }
+    if (typeof FormData !== "undefined" && value instanceof FormData)
+        return "[FormData removed]";
+    if (value instanceof Error) {
+        return {
+            name: value.name,
+            message: value.message,
+            stack: value.stack ? sanitizePlatformErrorValue(value.stack, depth + 1, seen) : "",
+        };
+    }
+    if (value instanceof Date)
+        return value.toISOString();
+    if (Array.isArray(value)) {
+        if (seen.has(value))
+            return "[Circular array removed]";
+        seen.add(value);
+        const items = value.slice(0, MAX_PLATFORM_ERROR_KEYS).map((item) => sanitizePlatformErrorValue(item, depth + 1, seen));
+        return value.length > MAX_PLATFORM_ERROR_KEYS ? [...items, `[${value.length - MAX_PLATFORM_ERROR_KEYS} more items removed]`] : items;
+    }
+    if (typeof value === "object") {
+        if (seen.has(value))
+            return "[Circular object removed]";
+        if (depth >= MAX_PLATFORM_ERROR_DEPTH)
+            return "[Object details truncated]";
+        seen.add(value);
+        const entries = Object.entries(value as Record<string, unknown>);
+        const result: Record<string, unknown> = {};
+        entries.slice(0, MAX_PLATFORM_ERROR_KEYS).forEach(([key, item]) => {
+            result[key] = sanitizePlatformErrorValue(item, depth + 1, seen);
+        });
+        if (entries.length > MAX_PLATFORM_ERROR_KEYS)
+            result.truncatedKeys = entries.length - MAX_PLATFORM_ERROR_KEYS;
+        return result;
+    }
+    return String(value);
+}
+function sanitizePlatformErrorDetails(details: Record<string, unknown>) {
+    const sanitized = sanitizePlatformErrorValue(details);
+    return sanitized && typeof sanitized === "object" && !Array.isArray(sanitized) ? sanitized as Record<string, unknown> : { value: sanitized };
 }
 function getStorageErrorMessage(error: unknown, mediaKind: "audio" | "video") {
     const details = getUploadErrorMessage(error);
@@ -2385,6 +2775,7 @@ function HorizontalRail({ children, className, label, }: {
     </div>);
 }
 export default function Page() {
+    const router = useRouter();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
     const videoPreviewRef = useRef<HTMLElement | null>(null);
@@ -2400,6 +2791,7 @@ export default function Page() {
     const licenseLoadInFlightUserRef = useRef("");
     const salesLoadedUserRef = useRef("");
     const salesLoadInFlightUserRef = useRef("");
+    const selectedVideoFileRef = useRef<File | null>(null);
     const remoteMusicStateSaveSnapshotRef = useRef("");
     const initialDataReloadRef = useRef<InitialDataReloadActions>({
         clearRemovedPlaceholderArtwork: () => undefined,
@@ -2508,6 +2900,33 @@ export default function Page() {
     const [videoUploadBusy, setVideoUploadBusy] = useState(false);
     const [videoUploadError, setVideoUploadError] = useState("");
     const [videoUploadStatus, setVideoUploadStatus] = useState("");
+    const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
+        uploadMethod: "",
+        supabaseUrl: "",
+        uploadTargetUrl: "",
+        bucket: VIDEOS_STORAGE_BUCKET,
+        fileSize: "",
+        fileName: "",
+        selectedFileName: "",
+        selectedFileSize: "",
+        hasFileObject: false,
+        currentStep: "",
+        lastError: "",
+        fullErrorJson: "",
+        requestContainsDigitalMusicDatabase: false,
+        requestContainsSupabaseCo: false,
+        requestLooksLikeVercelFunction: false,
+        requestLooksLikeAppServer: false,
+        requestMethod: "",
+        requestBodyType: "",
+        requestBodySize: "",
+        insertUserId: "",
+        authUserId: "",
+        insertUserMatchesAuth: "",
+        fullInsertPayload: "",
+        sourceLocation: "",
+        lastUpdated: "",
+    });
     const [albumForm, setAlbumForm] = useState<AlbumUploadForm>({
         title: "",
         creatorName: "",
@@ -2523,6 +2942,191 @@ export default function Page() {
     const [albumUploadStatus, setAlbumUploadStatus] = useState("");
     const [platformErrors, setPlatformErrors] = useState<PlatformErrorRow[]>([]);
     const [storageReport, setStorageReport] = useState<StorageCleanupReport | null>(null);
+    function updateVideoUploadDebug(next: Partial<VideoUploadDebugInfo>) {
+        setVideoUploadDebug((previous) => ({
+            ...previous,
+            ...next,
+            bucket: next.bucket || previous.bucket || VIDEOS_STORAGE_BUCKET,
+            lastUpdated: next.lastUpdated || new Date().toLocaleTimeString(),
+        }));
+    }
+    function setVideoUploadDebugFile(file: File | null) {
+        updateVideoUploadDebug({
+            uploadMethod: "Waiting for Save Video",
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+            uploadTargetUrl: "",
+            bucket: VIDEOS_STORAGE_BUCKET,
+            fileSize: file ? String(file.size) : "",
+            fileName: file?.name || "",
+            selectedFileName: file?.name || "",
+            selectedFileSize: file ? String(file.size) : "",
+            hasFileObject: Boolean(file),
+            currentStep: file ? "Choose File complete" : "No file selected",
+            lastError: "",
+            fullErrorJson: "",
+            requestContainsDigitalMusicDatabase: false,
+            requestContainsSupabaseCo: false,
+            requestLooksLikeVercelFunction: false,
+            requestLooksLikeAppServer: false,
+            requestMethod: "",
+            requestBodyType: "",
+            requestBodySize: "",
+            sourceLocation: "",
+        });
+    }
+    function rememberSelectedVideoFile(file: File | null, sourceLocation: string) {
+        selectedVideoFileRef.current = file;
+        setVideoFile(file);
+        setVideoUploadDebugFile(file);
+        updateVideoUploadDebug({
+            sourceLocation,
+            currentStep: file ? "Choose File complete" : "No file selected",
+            lastError: file ? "" : "No file selected",
+        });
+    }
+    function getVideoFileFromSubmitForm(form: HTMLFormElement | null) {
+        if (!form)
+            return null;
+        const input = form.querySelector<HTMLInputElement>('input[type="file"][name="dashboardVideoFile"], input[type="file"][name="videoFile"]');
+        return input?.files?.[0] || null;
+    }
+    function getSelectedVideoUploadFile(form: HTMLFormElement | null) {
+        return videoFile || selectedVideoFileRef.current || getVideoFileFromSubmitForm(form);
+    }
+    function setVideoUploadStep(step: string, progress?: number) {
+        setVideoUploadStatus(step);
+        if (typeof progress === "number") {
+            setVideoUploadProgress(progress);
+        }
+        updateVideoUploadDebug({
+            currentStep: step,
+            lastUpdated: new Date().toLocaleTimeString(),
+        });
+    }
+    function renderVideoUploadDebugPanel() {
+        return (<section className="video-upload-debug" aria-label="Video upload debug">
+            <div className="video-upload-debug-head">
+              <strong>Video upload debug</strong>
+              {videoUploadDebug.lastUpdated && <span>{videoUploadDebug.lastUpdated}</span>}
+            </div>
+            <div className="video-upload-debug-summary">
+              <div>
+                <span>UPLOAD METHOD:</span>
+                <strong>{videoUploadDebug.uploadMethod || "Waiting for Save Video"}</strong>
+              </div>
+              <div>
+                <span>UPLOAD URL:</span>
+                <strong>{videoUploadDebug.uploadTargetUrl || "Waiting for upload request"}</strong>
+              </div>
+              <div>
+                <span>SUPABASE URL:</span>
+                <strong>{videoUploadDebug.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || "Not set"}</strong>
+              </div>
+              <div>
+                <span>FILE SIZE:</span>
+                <strong>{videoUploadDebug.fileSize || (videoFile ? String(videoFile.size) : "No file selected")}</strong>
+              </div>
+              <div>
+                <span>SELECTED FILE NAME:</span>
+                <strong>{videoUploadDebug.selectedFileName || videoFile?.name || "No file selected"}</strong>
+              </div>
+              <div>
+                <span>SELECTED FILE SIZE:</span>
+                <strong>{videoUploadDebug.selectedFileSize || (videoFile ? String(videoFile.size) : "No file selected")}</strong>
+              </div>
+              <div>
+                <span>HAS FILE OBJECT:</span>
+                <strong>{videoUploadDebug.hasFileObject || Boolean(videoFile) ? "true" : "false"}</strong>
+              </div>
+              <div>
+                <span>CURRENT STEP:</span>
+                <strong>{videoUploadDebug.currentStep || videoUploadStatus || "Waiting"}</strong>
+              </div>
+              <div>
+                <span>LAST ERROR:</span>
+                <strong>{videoUploadDebug.lastError || videoUploadError || "None"}</strong>
+              </div>
+              <div>
+                <span>INSERT USER ID:</span>
+                <strong>{videoUploadDebug.insertUserId || "Not attempted yet"}</strong>
+              </div>
+              <div>
+                <span>AUTH USER ID:</span>
+                <strong>{videoUploadDebug.authUserId || "Not attempted yet"}</strong>
+              </div>
+              <div>
+                <span>USER ID MATCH:</span>
+                <strong>{videoUploadDebug.insertUserMatchesAuth || "Not attempted yet"}</strong>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Upload target URL</dt>
+                <dd>{videoUploadDebug.uploadTargetUrl || "Waiting for upload request"}</dd>
+              </div>
+              <div>
+                <dt>Supabase URL</dt>
+                <dd>{videoUploadDebug.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || "Not set"}</dd>
+              </div>
+              <div>
+                <dt>Supabase storage bucket</dt>
+                <dd>{videoUploadDebug.bucket || VIDEOS_STORAGE_BUCKET}</dd>
+              </div>
+              <div>
+                <dt>File name</dt>
+                <dd>{videoUploadDebug.fileName || videoFile?.name || "No file selected"}</dd>
+              </div>
+              <div>
+                <dt>File size</dt>
+                <dd>{videoUploadDebug.fileSize || (videoFile ? String(videoFile.size) : "No file selected")}</dd>
+              </div>
+              <div>
+                <dt>Request body</dt>
+                <dd>{[videoUploadDebug.requestMethod, videoUploadDebug.requestBodyType, videoUploadDebug.requestBodySize && `${videoUploadDebug.requestBodySize} bytes`].filter(Boolean).join(" | ") || "Waiting for request"}</dd>
+              </div>
+              <div>
+                <dt>Contains digitalmusicdatabase.com</dt>
+                <dd>{videoUploadDebug.requestContainsDigitalMusicDatabase ? "Yes" : "No"}</dd>
+              </div>
+              <div>
+                <dt>Contains supabase.co</dt>
+                <dd>{videoUploadDebug.requestContainsSupabaseCo ? "Yes" : "No"}</dd>
+              </div>
+              <div>
+                <dt>Looks like app server</dt>
+                <dd>{videoUploadDebug.requestLooksLikeAppServer ? "Yes" : "No"}</dd>
+              </div>
+              <div>
+                <dt>Looks like Vercel function</dt>
+                <dd>{videoUploadDebug.requestLooksLikeVercelFunction ? "Yes" : "No"}</dd>
+              </div>
+              <div>
+                <dt>Source code location</dt>
+                <dd>{videoUploadDebug.sourceLocation || "app/page.tsx uploadVideoToSupabase"}</dd>
+              </div>
+              <div>
+                <dt>Insert user id</dt>
+                <dd>{videoUploadDebug.insertUserId || "Not attempted yet"}</dd>
+              </div>
+              <div>
+                <dt>Auth user id</dt>
+                <dd>{videoUploadDebug.authUserId || "Not attempted yet"}</dd>
+              </div>
+              <div>
+                <dt>User id match</dt>
+                <dd>{videoUploadDebug.insertUserMatchesAuth || "Not attempted yet"}</dd>
+              </div>
+            </dl>
+            <div>
+              <span>Full insert payload</span>
+              <pre>{videoUploadDebug.fullInsertPayload || "No insert payload captured yet."}</pre>
+            </div>
+            <div>
+              <span>Full error JSON</span>
+              <pre>{videoUploadDebug.fullErrorJson || "No upload error captured yet."}</pre>
+            </div>
+          </section>);
+    }
     const [stabilityLoading, setStabilityLoading] = useState(false);
     const [stabilityError, setStabilityError] = useState("");
     const [cleanupBusy, setCleanupBusy] = useState(false);
@@ -3139,6 +3743,7 @@ export default function Page() {
     function reportPlatformError(category: string, action: string, message: string, details: Record<string, unknown> = {}) {
         if (!message.trim())
             return;
+        const safeDetails = sanitizePlatformErrorDetails(details);
         fetch("/api/platform/errors", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -3148,7 +3753,7 @@ export default function Page() {
                 category,
                 action,
                 message,
-                details,
+                details: safeDetails,
             }),
         }).catch(() => undefined);
     }
@@ -7875,6 +8480,29 @@ export default function Page() {
         setUser((previous) => previous || uploadUser);
         return uploadUser;
     }
+    async function getFreshVideoStorageUploadUser() {
+        const { data: { session }, error: sessionError, } = await supabase.auth.getSession();
+        let activeSession = session;
+        if (sessionError) {
+            throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
+        }
+        const expiresAtMs = activeSession?.expires_at ? activeSession.expires_at * 1000 : 0;
+        if (activeSession?.refresh_token && expiresAtMs && expiresAtMs - Date.now() < 60000) {
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            if (refreshError) {
+                throw new Error(`Supabase auth refresh failed before video upload: ${refreshError.message}`);
+            }
+            activeSession = refreshData.session;
+        }
+        if (!activeSession?.access_token || !activeSession.user?.id) {
+            throw new Error("You must log in again before uploading videos to Supabase Storage.");
+        }
+        setUser((previous) => previous || activeSession.user);
+        return {
+            user: activeSession.user,
+            accessToken: activeSession.access_token,
+        };
+    }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
         const fileError = getAudioFileError(file);
         if (fileError) {
@@ -7894,9 +8522,11 @@ export default function Page() {
         setUploadStatus("Preparing upload...");
         setUploadProgress(4);
         setUploadStatus("Uploading audio...");
+        const sessionUserId = sessionUser.id;
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("userId", sessionUser.id);
+        formData.append("sessionUserId", sessionUserId);
+        formData.append("userId", sessionUserId);
         formData.append("title", songDetails.title);
         formData.append("artist", songDetails.artist);
         formData.append("category", "New Releases");
@@ -7908,6 +8538,20 @@ export default function Page() {
         const producer = getProducerById(songDetails.producerId);
         formData.append("producer_id", producer?.id || "");
         formData.append("producer", producer?.name || "");
+        const songInsertPayloadPreview = {
+            user_id: sessionUserId,
+            title: songDetails.title,
+            artist: songDetails.artist,
+            category: "New Releases",
+            type: songDetails.type,
+            cover_url: getArtworkUrl(songDetails.cover),
+            producer_id: producer?.id || "",
+            producer: producer?.name || "",
+            album_id: albumId || "",
+        };
+        console.error("INSERT USER ID:", songInsertPayloadPreview.user_id);
+        console.error("AUTH USER ID:", sessionUserId);
+        console.error("FULL INSERT PAYLOAD:", songInsertPayloadPreview);
         let response: Response;
         try {
             response = await fetch("/api/upload-audio", {
@@ -7941,6 +8585,13 @@ export default function Page() {
                 : uploadResult.details
                     ? JSON.stringify(uploadResult.details)
                     : "";
+            const responseDetails = uploadResult.details && typeof uploadResult.details === "object" ? uploadResult.details as Record<string, unknown> : {};
+            const responseInsertPayload = responseDetails.insertPayload && typeof responseDetails.insertPayload === "object"
+                ? responseDetails.insertPayload as Record<string, unknown>
+                : songInsertPayloadPreview;
+            console.error("INSERT USER ID:", responseDetails.insertUserId || responseInsertPayload.user_id || songInsertPayloadPreview.user_id);
+            console.error("AUTH USER ID:", responseDetails.authUserId || sessionUserId);
+            console.error("FULL INSERT PAYLOAD:", responseInsertPayload);
             console.error("SONG INSERT FAILED", uploadResult.error || response.statusText, detailText);
             console.error("[music upload] INSERT FAILED public.songs:", uploadResult.error || response.statusText, detailText);
             throw new Error([uploadResult.error || `Audio upload failed with HTTP ${response.status}.`, detailText]
@@ -7958,94 +8609,248 @@ export default function Page() {
         setUploadProgress(100);
         return mapSongRowToSong(uploadResult.song);
     }
+    async function uploadVideoFileWithTus(file: File, storagePath: string, contentType: string, accessToken: string, supabaseStorageOrigin: string) {
+        const endpoint = `${supabaseStorageOrigin}/storage/v1/upload/resumable`;
+        const anonKey = getSupabaseAnonKeyForBrowserUpload();
+        updateVideoUploadDebug({
+            uploadMethod: "Direct browser resumable upload to Supabase Storage",
+            uploadTargetUrl: endpoint,
+            requestMethod: "TUS",
+            requestBodyType: "File chunks",
+            requestBodySize: String(file.size),
+            sourceLocation: 'app/page.tsx uploadVideoFileWithTus -> tus.Upload(endpoint: "/storage/v1/upload/resumable")',
+        });
+        setVideoUploadStep("Uploading video with Supabase resumable upload...", 12);
+        console.log("DIRECT SUPABASE RESUMABLE VIDEO UPLOAD STARTED", {
+            fileName: file.name,
+            fileSize: file.size,
+            storagePath,
+            endpoint,
+        });
+        await new Promise<void>((resolve, reject) => {
+            const upload = new tus.Upload(file, {
+                endpoint,
+                chunkSize: 6 * 1024 * 1024,
+                retryDelays: [0, 1000, 3000, 5000, 10000],
+                uploadDataDuringCreation: true,
+                removeFingerprintOnSuccess: true,
+                headers: {
+                    authorization: `Bearer ${accessToken}`,
+                    apikey: anonKey,
+                    "x-upsert": "false",
+                },
+                metadata: {
+                    bucketName: VIDEOS_STORAGE_BUCKET,
+                    objectName: storagePath,
+                    contentType,
+                    cacheControl: "3600",
+                },
+                onProgress: (bytesUploaded, bytesTotal) => {
+                    const ratio = bytesTotal > 0 ? bytesUploaded / bytesTotal : 0;
+                    const progressValue = Math.min(82, Math.max(12, Math.round(12 + ratio * 70)));
+                    setVideoUploadStep(`Uploading video... ${formatFileSize(bytesUploaded)} / ${formatFileSize(bytesTotal)}`, progressValue);
+                    updateVideoUploadDebug({
+                        currentStep: `Resumable upload ${Math.round(ratio * 100)}%`,
+                        requestBodySize: `${bytesUploaded}/${bytesTotal}`,
+                        lastError: "",
+                    });
+                },
+                onError: (error) => {
+                    const message = getTusUploadErrorMessage(error);
+                    updateVideoUploadDebug({
+                        currentStep: "Supabase resumable upload failed",
+                        lastError: message,
+                        fullErrorJson: stringifyUploadDebugError(error),
+                    });
+                    reject(new Error(`Supabase resumable video upload failed: ${message}`));
+                },
+                onSuccess: () => {
+                    updateVideoUploadDebug({
+                        currentStep: "Supabase resumable upload complete",
+                        lastError: "",
+                    });
+                    resolve();
+                },
+            });
+            upload.findPreviousUploads()
+                .then((previousUploads) => {
+                if (previousUploads.length > 0) {
+                    upload.resumeFromPreviousUpload(previousUploads[0]);
+                }
+                upload.start();
+            })
+                .catch(() => upload.start());
+        });
+        return storagePath;
+    }
     async function uploadVideoToSupabase(file: File, videoDetails: Pick<VideoUploadForm, "title" | "creator" | "category" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
         const fileError = getVideoFileError(file);
         if (fileError) {
             throw new Error(fileError);
         }
-        let sessionUser = uploadUser || null;
-        if (!sessionUser) {
-            const { data: { session }, error: sessionError, } = await supabase.auth.getSession();
-            if (sessionError || !session?.access_token || !session.user) {
-                throw new Error("You must log in again before uploading.");
-            }
-            sessionUser = session.user;
+        if (uploadUser?.id) {
+            albumUploadUserRef.current = uploadUser;
         }
-        if (!sessionUser?.id) {
-            throw new Error("You must log in again before uploading.");
-        }
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("userId", sessionUser.id);
-        formData.append("title", videoDetails.title);
-        formData.append("description", videoDetails.creator);
-        formData.append("artist_name", videoDetails.creator);
-        formData.append("artist_id", sessionUser.id);
-        formData.append("category", videoDetails.category);
-        formData.append("thumbnail_url", getArtworkUrl(videoDetails.cover));
-        if (albumId) {
-            formData.append("album_id", albumId);
-        }
+        updateVideoUploadDebug({
+            currentStep: "Checking Supabase auth session for Storage upload",
+            lastError: "",
+        });
+        const { user: sessionUser, accessToken } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
-        const producerName = producer?.name || (producerId === currentProducerProfile.id ? currentProducerProfile.name : "");
-        formData.append("producer_id", producerId);
-        formData.append("producer_profile_id", producerId);
-        formData.append("producer", producerName);
-        formData.append("producer_name", producerName);
-        setVideoUploadStatus("Preparing video...");
-        setVideoUploadProgress(4);
-        setVideoUploadStatus("Uploading video...");
-        setVideoUploadProgress(8);
-        let response: Response;
-        try {
-            response = await fetch("/api/upload-video", {
-                method: "POST",
-                body: formData,
-            });
-        }
-        catch (error) {
-            const details = getErrorDetails(error);
-            throw new Error(`Video upload route could not be reached.${details ? ` ${details}` : ""}`);
-        }
-        const responseText = await response.text();
-        let uploadResult: {
-            publicUrl?: string;
-            storagePath?: string;
-            video?: VideoTableRow;
-            error?: string;
-            details?: unknown;
-        } = {};
-        if (responseText) {
-            try {
-                uploadResult = JSON.parse(responseText) as typeof uploadResult;
-            }
-            catch {
-                uploadResult = { error: responseText };
-            }
-        }
-        if (!response.ok) {
-            const detailText = typeof uploadResult.details === "string"
-                ? uploadResult.details
-                : uploadResult.details
-                    ? JSON.stringify(uploadResult.details)
-                    : "";
-            console.error("VIDEO INSERT FAILED", uploadResult.error || response.statusText, detailText);
-            console.error("[video upload] INSERT FAILED public.videos:", uploadResult.error || response.statusText, detailText);
-            throw new Error([uploadResult.error || `Video upload failed with HTTP ${response.status}.`, detailText]
-                .filter(Boolean)
-                .join(" "));
-        }
-        if (!uploadResult.publicUrl) {
+        setVideoUploadStep("Preparing video...", 4);
+        const supabaseStorageOrigin = assertDirectSupabaseVideoUploadTarget();
+        const storagePath = buildVideoStoragePath(sessionUser.id, file);
+        const contentType = file.type || "video/mp4";
+        const expectedUploadTargetUrl = `${supabaseStorageOrigin}/storage/v1/upload/resumable`;
+        updateVideoUploadDebug({
+            uploadMethod: "Direct browser resumable upload to Supabase Storage",
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+            uploadTargetUrl: expectedUploadTargetUrl,
+            bucket: VIDEOS_STORAGE_BUCKET,
+            fileSize: String(file.size),
+            fileName: file.name,
+            currentStep: "Prepared direct Supabase resumable upload target",
+            lastError: "",
+            fullErrorJson: "",
+            requestContainsDigitalMusicDatabase: expectedUploadTargetUrl.includes("digitalmusicdatabase.com"),
+            requestContainsSupabaseCo: expectedUploadTargetUrl.includes("supabase.co"),
+            requestLooksLikeVercelFunction: false,
+            requestLooksLikeAppServer: false,
+            requestMethod: "TUS",
+            requestBodyType: "File chunks",
+            requestBodySize: String(file.size),
+            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> uploadVideoFileWithTus(file)',
+        });
+        setVideoUploadStep("Uploading video to Supabase Storage with resumable upload...", 12);
+        console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+        console.log("UPLOAD TARGET:", supabaseStorageOrigin);
+        console.log("SELECTED FILE SIZE:", file.size);
+        console.log("DIRECT SUPABASE RESUMABLE VIDEO UPLOAD PREPARED", {
+            fileName: file.name,
+            fileSize: file.size,
+            storagePath,
+            storageOrigin: supabaseStorageOrigin,
+        });
+        const savedStoragePath = await uploadVideoFileWithTus(file, storagePath, contentType, accessToken, supabaseStorageOrigin);
+        updateVideoUploadDebug({
+            currentStep: "Supabase Storage upload complete",
+        });
+        console.log("DIRECT SUPABASE RESUMABLE VIDEO UPLOAD STORAGE PATH", savedStoragePath);
+        const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
+        const publicUrl = publicUrlData.publicUrl;
+        console.log("DIRECT SUPABASE RESUMABLE VIDEO UPLOAD PUBLIC URL", publicUrl);
+        if (!publicUrl) {
             throw new Error("Supabase did not return a public URL for the uploaded video.");
         }
-        setVideoUploadProgress(98);
-        setVideoUploadStatus("Finishing upload...");
-        setVideoUploadProgress(100);
-        if (!uploadResult.video) {
-            throw new Error("Supabase uploaded the video, but the server did not return the saved videos table row.");
+        setVideoUploadStep("Saving video metadata to public.videos...", 84);
+        const createdAt = new Date().toISOString();
+        const fileName = file.name || savedStoragePath.split("/").pop() || "video";
+        const videoRow: Record<string, unknown> = {
+            id: createRecordId(),
+            user_id: sessionUser.id,
+            title: videoDetails.title,
+            artist_name: videoDetails.creator,
+            producer_id: producerId || null,
+            video_url: publicUrl,
+            storage_path: savedStoragePath,
+            file_name: fileName,
+            file_size: file.size,
+            created_at: createdAt,
+        };
+        if (albumId) {
+            videoRow.album_id = albumId;
         }
-        return mapVideoRowToVideoItem(uploadResult.video);
+        assertSafeVideoMetadataPayload(videoRow);
+
+        let lastVideoInsertPayload: Record<string, unknown> = videoRow;
+        const insertVideoRow = async (row: Record<string, unknown>, selectColumns: string) => {
+            lastVideoInsertPayload = row;
+            const rowUserId = String(row.user_id || "");
+            const authUserId = sessionUser?.id || "";
+            updateVideoUploadDebug({
+                currentStep: "Saving video metadata to public.videos",
+                insertUserId: rowUserId,
+                authUserId,
+                insertUserMatchesAuth: String(rowUserId === authUserId),
+                fullInsertPayload: JSON.stringify(row, null, 2),
+                sourceLocation: 'app/page.tsx insertVideoRow -> supabase.from("videos").insert(row)',
+            });
+            console.error("INSERT USER ID:", row.user_id);
+            console.error("AUTH USER ID:", sessionUser?.id);
+            console.error("VIDEO SESSION USER ID ACTUAL:", sessionUser?.id);
+            console.error("VIDEO ROW USER ID ACTUAL:", row.user_id);
+            console.error("VIDEO USER ID MATCH:", String(row.user_id || "") === sessionUser?.id);
+            console.error("FULL INSERT PAYLOAD:", row);
+            return supabase
+                .from("videos")
+                .insert(row)
+                .select(selectColumns)
+                .single();
+        };
+        const initialSelectColumns = [
+            "id",
+            "title",
+            "artist_name",
+            "producer_id",
+            "album_id",
+            "video_url",
+            "storage_path",
+            "file_name",
+            "file_size",
+            "created_at",
+            "user_id",
+        ].join(",");
+        const fallbackSelectColumns = [
+            "id",
+            "title",
+            "artist_name",
+            "producer_id",
+            "video_url",
+            "storage_path",
+            "created_at",
+            "user_id",
+        ].join(",");
+        const initialInsert = await insertVideoRow(videoRow, initialSelectColumns);
+        let savedVideo = initialInsert.data as VideoTableRow | null;
+        let tableError = initialInsert.error;
+
+        if (tableError && /file_name|file_size|album_id/i.test(getUploadErrorMessage(tableError))) {
+            const fallbackVideoRow: Record<string, unknown> = { ...videoRow };
+            delete fallbackVideoRow.file_name;
+            delete fallbackVideoRow.file_size;
+            delete fallbackVideoRow.album_id;
+            const fallbackResult = await insertVideoRow(fallbackVideoRow, fallbackSelectColumns);
+            savedVideo = fallbackResult.data as VideoTableRow | null;
+            tableError = fallbackResult.error;
+        }
+        if (tableError) {
+            const detailText = getUploadErrorMessage(tableError);
+            console.error("INSERT USER ID:", lastVideoInsertPayload.user_id);
+            console.error("AUTH USER ID:", sessionUser?.id);
+            console.error("VIDEO SESSION USER ID ACTUAL:", sessionUser?.id);
+            console.error("VIDEO ROW USER ID ACTUAL:", lastVideoInsertPayload.user_id);
+            console.error("VIDEO USER ID MATCH:", String(lastVideoInsertPayload.user_id || "") === sessionUser?.id);
+            console.error("FULL INSERT PAYLOAD:", lastVideoInsertPayload);
+            console.error("VIDEO INSERT SUPABASE ERROR:", tableError);
+            console.error("[video upload] INSERT FAILED public.videos:", detailText);
+            updateVideoUploadDebug({
+                currentStep: "Video metadata save failed",
+                lastError: detailText,
+                insertUserId: String(lastVideoInsertPayload.user_id || ""),
+                authUserId: sessionUser?.id || "",
+                insertUserMatchesAuth: String(String(lastVideoInsertPayload.user_id || "") === (sessionUser?.id || "")),
+                fullInsertPayload: JSON.stringify(lastVideoInsertPayload, null, 2),
+                fullErrorJson: stringifyUploadDebugError(tableError),
+            });
+            throw new Error(`Video uploaded to Supabase Storage, but the videos table save failed: ${detailText}`);
+        }
+        setVideoUploadStep("Finishing upload...", 98);
+        setVideoUploadStep("Video upload complete.", 100);
+        if (!savedVideo) {
+            throw new Error("Supabase uploaded the video, but the saved videos table row was not returned.");
+        }
+        return mapVideoRowToVideoItem(savedVideo);
     }
     async function copyStorageSetupSql() {
         try {
@@ -8385,53 +9190,98 @@ export default function Page() {
     }
     async function addUploadedVideo(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        const submitForm = event.currentTarget;
+        const stopUploadNetworkTrace = installVideoUploadNetworkTrace("app/page.tsx addUploadedVideo full Save Video flow", updateVideoUploadDebug);
         setVideoUploadError("");
         const mode = uploadMode;
         const sourceView = view;
         const title = videoForm.title.trim();
         const creator = videoForm.creator.trim() || (mode === "producerVideo" ? currentProducerProfile.name : "");
+        const selectedVideoFile = getSelectedVideoUploadFile(submitForm);
+        if (selectedVideoFile && selectedVideoFile !== videoFile) {
+            selectedVideoFileRef.current = selectedVideoFile;
+            setVideoFile(selectedVideoFile);
+        }
+        updateVideoUploadDebug({
+            uploadMethod: "Save Video submit started",
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+            fileSize: selectedVideoFile ? String(selectedVideoFile.size) : "",
+            fileName: selectedVideoFile?.name || "",
+            selectedFileName: selectedVideoFile?.name || "",
+            selectedFileSize: selectedVideoFile ? String(selectedVideoFile.size) : "",
+            hasFileObject: Boolean(selectedVideoFile),
+            currentStep: "Save Video clicked",
+            lastError: "",
+            fullErrorJson: "",
+            sourceLocation: "app/page.tsx addUploadedVideo",
+        });
         if (!title || !creator) {
             setVideoUploadError("Add a video title and creator name first.");
+            updateVideoUploadDebug({
+                currentStep: "Validation failed",
+                lastError: "Add a video title and creator name first.",
+            });
+            stopUploadNetworkTrace();
             return;
         }
-        const fileError = getVideoFileError(videoFile);
+        const fileError = getVideoFileError(selectedVideoFile);
         if (fileError) {
             setVideoUploadError(fileError);
+            updateVideoUploadDebug({
+                currentStep: "File validation failed",
+                lastError: fileError,
+                hasFileObject: Boolean(selectedVideoFile),
+            });
+            stopUploadNetworkTrace();
             return;
         }
         setVideoUploadBusy(true);
-        setVideoUploadProgress(1);
-        setVideoUploadStatus("Starting video upload...");
+        setVideoUploadStep("Starting video upload...", 1);
         let uploadGuardActive = false;
         let uploadGuardKey = "";
         try {
-            if (!videoFile) {
+            if (!selectedVideoFile) {
                 setVideoUploadError("Choose an MP4, MOV, or WEBM video file.");
+                updateVideoUploadDebug({
+                    currentStep: "File validation failed",
+                    lastError: "Choose an MP4, MOV, or WEBM video file.",
+                    hasFileObject: false,
+                });
                 return;
             }
-            uploadGuardKey = getUploadGuardKey(mode, title, [videoFile]);
+            uploadGuardKey = getUploadGuardKey(mode, title, [selectedVideoFile]);
             uploadGuardActive = beginUploadGuard(uploadGuardKey, "This video upload is already running.");
             if (!uploadGuardActive)
                 return;
             const producerProfile = mode === "producerVideo" ? (currentProducerProfile.id ? currentProducerProfile : await saveProducerProfile()) : null;
             if (mode === "producerVideo" && !producerProfile?.id) {
                 setVideoUploadError("Save your producer profile before uploading a producer video.");
+                updateVideoUploadDebug({
+                    currentStep: "Producer profile validation failed",
+                    lastError: "Save your producer profile before uploading a producer video.",
+                });
                 return;
             }
-            const newVideo = await uploadVideoToSupabase(videoFile, {
+            const newVideo = await uploadVideoToSupabase(selectedVideoFile, {
                 title,
                 creator: mode === "producerVideo" ? producerProfile?.name || creator : creator,
                 category: videoForm.category,
                 cover: videoForm.cover,
                 producerId: producerProfile?.id || videoForm.producerId,
             });
+            setVideoUploadStep("Reloading video library...", 99);
             const databaseVideos = await reloadVideoLibraryFromSupabase();
             const savedVideo = databaseVideos.find((video) => video.id === newVideo.id) || newVideo;
             setActiveVideo(savedVideo);
             setSelectedVideoId(savedVideo.id);
             setVideoForm({ title: "", creator: "", category: "Music Video", cover: "", producerId: "" });
+            selectedVideoFileRef.current = null;
             setVideoFile(null);
             setVideoUploadStatus("");
+            updateVideoUploadDebug({
+                currentStep: "Video upload saved and loaded.",
+                lastError: "",
+            });
             setView(mode === "producerVideo" ? "Producer Dashboard" : sourceView === "Artist Dashboard" ? "Artist Dashboard" : "Videos");
             showToast(mode === "producerVideo" ? "Producer video uploaded." : "Video uploaded.", "success");
         }
@@ -8439,6 +9289,12 @@ export default function Page() {
             const message = getVideoUploadErrorMessage(error);
             setVideoUploadError(message);
             setVideoUploadStatus("");
+            updateVideoUploadDebug({
+                currentStep: "Upload failed",
+                lastError: message,
+                fullErrorJson: stringifyUploadDebugError(error),
+            });
+            stopUploadNetworkTrace();
             reportPlatformError("upload", mode === "producerVideo" ? "producer-video-upload" : "video-upload", message, { title, creator });
         }
         finally {
@@ -8446,6 +9302,7 @@ export default function Page() {
                 endUploadGuard(uploadGuardKey);
             }
             setVideoUploadBusy(false);
+            stopUploadNetworkTrace();
         }
     }
     type AlbumSavePayload = {
@@ -10176,6 +11033,12 @@ export default function Page() {
             setActiveTab("Trending");
         }
     }
+    function openProfileFromHeader() {
+        handleNav("Profile");
+        if (typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches) {
+            router.push("/#profile", { scroll: false });
+        }
+    }
     function toggleUploadPanel() {
         if (!showUpload) {
             if (view === "Producer Dashboard")
@@ -11557,22 +12420,22 @@ export default function Page() {
               </section>)}
           </div>
 
-          <button className="upload-btn" onClick={toggleUploadPanel}>
+          <button className="upload-btn" onClick={toggleUploadPanel} type="button">
             <Upload size={17}/>
             Upload
           </button>
 
-          <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title="Artist Dashboard">
+          <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title="Artist Dashboard" type="button">
             <BarChart3 size={17}/>
             Dashboard
           </button>
 
-          <button className="profile-btn" onClick={() => handleNav("Profile")} title="Profile">
+          <button className="profile-btn" onClick={openProfileFromHeader} title="Profile" type="button">
             <User size={17}/>
             Profile
           </button>
 
-          <button className="logout-btn" onClick={logout} title="Logout">
+          <button className="logout-btn" onClick={logout} title="Logout" type="button">
             <LogOut size={17}/>
             Logout
           </button>
@@ -11728,7 +12591,7 @@ export default function Page() {
                     <span>Video file</span>
                     <input name="dashboardVideoFile" type="file" accept="video/*" onChange={(event) => {
                     const file = event.target.files?.[0] || null;
-                    setVideoFile(file);
+                    rememberSelectedVideoFile(file, "dashboardVideoFile onChange");
                     setVideoUploadError(getVideoFileError(file));
                     setVideoUploadProgress(0);
                     setVideoUploadStatus("");
@@ -11744,6 +12607,8 @@ export default function Page() {
                     </div>
                     <progress max="100" value={videoUploadProgress}/>
                   </div>)}
+
+                {renderVideoUploadDebugPanel()}
 
                 {videoUploadError && (<div className="upload-error">
                     <p>{videoUploadError}</p>
@@ -12587,7 +13452,7 @@ export default function Page() {
                   <span>Video file</span>
                   <input name="videoFile" type="file" accept="video/*" onChange={(event) => {
                 const file = event.target.files?.[0] || null;
-                setVideoFile(file);
+                rememberSelectedVideoFile(file, "videoFile onChange");
                 setVideoUploadError(getVideoFileError(file));
                 setVideoUploadProgress(0);
                 setVideoUploadStatus("");
@@ -12603,6 +13468,8 @@ export default function Page() {
                   </div>
                   <progress max="100" value={videoUploadProgress}/>
                 </div>)}
+
+              {renderVideoUploadDebugPanel()}
 
               {videoUploadError && (<div className="upload-error">
                   <p>{videoUploadError}</p>
@@ -14626,6 +15493,7 @@ export default function Page() {
                 </HorizontalRail>
               </section>)}
           </>)}
+          <div className="mobile-player-spacer" aria-hidden="true"/>
       </section>
 
       {toast && (<div className={`toast toast-${toast.tone}`} role="status" aria-live="polite">
@@ -15388,6 +16256,10 @@ export default function Page() {
             padding: 14px 14px 154px;
           }
 
+          .mobile-player-spacer {
+            display: none;
+          }
+
           .topbar {
             display: grid;
             grid-template-columns: minmax(190px, 0.72fr) minmax(180px, 0.58fr) 44px repeat(4, minmax(108px, 1fr));
@@ -15771,6 +16643,117 @@ export default function Page() {
             color: #fbbf24;
             font-size: 11px;
             font-weight: 900;
+          }
+
+          .video-upload-debug {
+            display: grid;
+            gap: 10px;
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            border-radius: 8px;
+            background: rgba(2, 6, 23, 0.75);
+            color: #dbeafe;
+            padding: 12px;
+            margin: 12px 0;
+            overflow: hidden;
+          }
+
+          .video-upload-debug-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+          }
+
+          .video-upload-debug-head strong,
+          .video-upload-debug span {
+            color: #22d3ee;
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .video-upload-debug-head span {
+            color: #93c5fd;
+            font-size: 11px;
+          }
+
+          .video-upload-debug-summary {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .video-upload-debug-summary div {
+            min-width: 0;
+            border: 1px solid rgba(34, 211, 238, 0.32);
+            border-radius: 6px;
+            background: rgba(8, 47, 73, 0.45);
+            padding: 8px;
+          }
+
+          .video-upload-debug-summary span {
+            display: block;
+            margin-bottom: 4px;
+          }
+
+          .video-upload-debug-summary strong {
+            display: block;
+            color: #f8fafc;
+            font-size: 12px;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
+
+          .video-upload-debug dl {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin: 0;
+          }
+
+          .video-upload-debug dl div {
+            min-width: 0;
+            border: 1px solid rgba(37, 99, 235, 0.35);
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.72);
+            padding: 8px;
+          }
+
+          .video-upload-debug dt {
+            color: #67e8f9;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .video-upload-debug dd {
+            margin: 4px 0 0;
+            color: #f8fafc;
+            font-size: 12px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
+
+          .video-upload-debug pre {
+            max-height: 180px;
+            margin: 6px 0 0;
+            overflow: auto;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            border: 1px solid rgba(248, 113, 113, 0.35);
+            border-radius: 6px;
+            background: rgba(69, 10, 10, 0.35);
+            color: #fecaca;
+            padding: 8px;
+            font-size: 11px;
+          }
+
+          @media (max-width: 720px) {
+            .video-upload-debug-summary,
+            .video-upload-debug dl {
+              grid-template-columns: 1fr;
+            }
           }
 
           .dashboard-brand h2 {
@@ -20754,6 +21737,7 @@ export default function Page() {
             align-items: center;
             gap: 12px;
             padding: 9px 16px;
+            overflow: hidden;
           }
 
           .video-player-now {
@@ -21387,12 +22371,39 @@ export default function Page() {
           }
 
           @media (max-width: 820px) {
+            :root {
+              --mobile-sidebar-width: 72px;
+              --mobile-player-reserve: calc(300px + env(safe-area-inset-bottom, 0px));
+            }
+
+            html,
+            body {
+              scroll-padding-bottom: var(--mobile-player-reserve);
+            }
+
+            .zml-app {
+              padding-bottom: var(--mobile-player-reserve);
+            }
+
             .sidebar {
-              width: 96px;
+              width: var(--mobile-sidebar-width);
+              padding: 10px 7px 95px;
+            }
+
+            .nav {
+              gap: 6px;
             }
 
             .nav button {
               justify-content: center;
+              min-height: 48px;
+              padding: 8px 5px;
+            }
+
+            .nav button svg,
+            .reset-btn svg {
+              width: 21px;
+              height: 21px;
             }
 
             .nav span,
@@ -21402,18 +22413,103 @@ export default function Page() {
             }
 
             .logo img {
-              width: 60px;
-              max-height: 60px;
+              width: 50px;
+              max-height: 50px;
             }
 
             .logo span {
-              font-size: 8px;
+              font-size: 7px;
+              line-height: 1.18;
             }
 
             .content {
-              margin-left: 96px;
-              width: calc(100% - 96px);
-              padding-bottom: 178px;
+              margin-left: var(--mobile-sidebar-width);
+              width: calc(100% - var(--mobile-sidebar-width));
+              padding: 8px 8px 18px;
+              scroll-padding-bottom: var(--mobile-player-reserve);
+            }
+
+            .mobile-player-spacer {
+              display: block;
+              width: 100%;
+              height: var(--mobile-player-reserve);
+              min-height: var(--mobile-player-reserve);
+              pointer-events: none;
+            }
+
+            .content article,
+            .content section,
+            .content button {
+              scroll-margin-bottom: var(--mobile-player-reserve);
+            }
+
+            .topbar {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 6px;
+              padding-bottom: 7px;
+              z-index: 80;
+            }
+
+            .search-wrap,
+            .view-toggle,
+            .notification-wrap {
+              grid-column: 1 / -1;
+            }
+
+            .search-box {
+              height: 38px;
+              border-radius: 8px;
+            }
+
+            .search-box input {
+              font-size: 14px;
+            }
+
+            .view-toggle {
+              height: 34px;
+            }
+
+            .view-toggle button {
+              font-size: 12px;
+              gap: 5px;
+              padding: 0 8px;
+            }
+
+            .notification-button,
+            .upload-btn,
+            .dashboard-btn,
+            .profile-btn,
+            .logout-btn {
+              height: 36px;
+              min-height: 36px;
+              border-radius: 8px;
+              font-size: 12.5px;
+              gap: 5px;
+              padding: 0 8px;
+            }
+
+            .notification-button {
+              width: 100%;
+            }
+
+            .notification-button svg,
+            .upload-btn svg,
+            .dashboard-btn svg,
+            .profile-btn svg,
+            .logout-btn svg {
+              width: 16px;
+              height: 16px;
+            }
+
+            .topbar > button,
+            .topbar .notification-wrap,
+            .profile-btn,
+            .logout-btn {
+              position: relative;
+              z-index: 50;
+              pointer-events: auto;
+              cursor: pointer;
+              touch-action: manipulation;
             }
 
             .video-library-stats {
@@ -21423,15 +22519,26 @@ export default function Page() {
             }
 
             .video-player-bar {
-              left: 96px;
+              left: var(--mobile-sidebar-width);
               bottom: 0;
               grid-template-columns: 1fr;
               min-height: 128px;
+              max-height: calc(150px + env(safe-area-inset-bottom, 0px));
               align-items: stretch;
+              overflow: hidden;
+              padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+              pointer-events: none;
+            }
+
+            .video-player-bar button,
+            .video-player-bar input,
+            .video-player-bar label,
+            .video-player-now {
+              pointer-events: auto;
             }
 
             .queue-drawer {
-              left: 96px;
+              left: var(--mobile-sidebar-width);
               right: 0;
               top: 64px;
               bottom: 150px;
@@ -21447,13 +22554,23 @@ export default function Page() {
             }
 
             .player {
-              left: 96px;
+              left: var(--mobile-sidebar-width);
               grid-template-columns: 1fr;
               height: auto;
               min-height: 142px;
+              max-height: calc(166px + env(safe-area-inset-bottom, 0px));
               align-items: stretch;
               gap: 7px;
-              padding: 8px 10px 10px;
+              padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+              overflow: hidden;
+              pointer-events: none;
+            }
+
+            .player button,
+            .player input,
+            .player label,
+            .player-song {
+              pointer-events: auto;
             }
 
             .player-song {
@@ -21526,16 +22643,18 @@ export default function Page() {
 
             .song-grid,
             .video-grid {
-              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+              grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+              gap: 7px;
             }
 
             .horizontal-rail {
-              grid-template-columns: 30px minmax(0, 1fr) 30px;
-              gap: 6px;
+              grid-template-columns: 24px minmax(0, 1fr) 24px;
+              gap: 4px;
             }
 
             .rail-arrow {
-              font-size: 15px;
+              min-height: 32px;
+              font-size: 13px;
             }
 
             .upload-grid,
@@ -21544,11 +22663,6 @@ export default function Page() {
             .playlist-create,
             .playlist-hero {
               grid-template-columns: 1fr;
-            }
-
-            .notification-wrap,
-            .notification-button {
-              width: 100%;
             }
 
             .notification-center {
@@ -21639,6 +22753,8 @@ export default function Page() {
             .section-heading {
               align-items: start;
               flex-direction: column;
+              gap: 4px;
+              margin-bottom: 8px;
             }
 
             .subscription-head {
@@ -21673,6 +22789,298 @@ export default function Page() {
             .license-grid,
             .dashboard-edit {
               grid-template-columns: 1fr;
+            }
+
+            .artist-section,
+            .dashboard-panel,
+            .analytics-panel,
+            .sales-panel,
+            .marketplace-chart-section,
+            .profile-hero,
+            .profile-save,
+            .empty-state {
+              padding: 10px;
+              margin-bottom: 10px;
+            }
+
+            .following-feed,
+            .liked-page,
+            .profile-page,
+            .dashboard-page,
+            .artist-profile,
+            .playlist-workspace,
+            .dashboard-song-list {
+              gap: 10px;
+            }
+
+            .artist-section-title {
+              gap: 6px;
+              margin-bottom: 8px;
+            }
+
+            .artist-section-title h3 {
+              font-size: 17px;
+            }
+
+            .artist-section-title span {
+              font-size: 10.5px;
+            }
+
+            .tabs,
+            .source-row,
+            .liked-tabs {
+              gap: 6px;
+              margin: 8px 0 9px;
+            }
+
+            .tabs button,
+            .source-row button,
+            .liked-tabs button {
+              min-height: 32px;
+              padding: 0 10px;
+              font-size: 12px;
+            }
+
+            .horizontal-rail-track.video-grid,
+            .horizontal-rail-track.song-grid {
+              grid-auto-columns: minmax(148px, 164px);
+              gap: 7px;
+            }
+
+            .horizontal-rail-track.artist-grid {
+              grid-auto-columns: minmax(174px, 204px);
+            }
+
+            .horizontal-rail-track.artist-album-grid,
+            .horizontal-rail-track.artist-playlist-grid,
+            .horizontal-rail-track.playlist-list {
+              grid-auto-columns: minmax(164px, 190px);
+            }
+
+            .song-card,
+            .video-card {
+              height: 300px;
+              grid-template-rows: 82px minmax(0, 1fr);
+            }
+
+            .library-card.song-card,
+            .library-card.video-card {
+              height: 306px;
+            }
+
+            .cover-wrap,
+            .video-cover-wrap,
+            .video-cover {
+              height: 82px;
+              min-height: 82px;
+            }
+
+            .song-body,
+            .video-card-body {
+              padding: 6px;
+              gap: 4px;
+            }
+
+            .song-body {
+              grid-template-rows: 48px 0 20px 92px 26px;
+            }
+
+            .video-card-body,
+            .library-card.video-card .video-card-body {
+              grid-template-rows: 48px 20px 92px 26px;
+            }
+
+            .song-body .desc {
+              display: none;
+            }
+
+            .song-head {
+              gap: 5px;
+            }
+
+            .song-head img {
+              width: 26px;
+              height: 26px;
+            }
+
+            .song-head h3,
+            .video-card-body h3 {
+              font-size: 13px;
+              line-height: 1.16;
+              min-height: 30px;
+              max-height: 30px;
+            }
+
+            .song-head p,
+            .video-card-body p {
+              font-size: 11.5px;
+              line-height: 1.15;
+            }
+
+            .stats {
+              gap: 3px;
+              font-size: 9.5px;
+            }
+
+            .stats span {
+              padding: 3px 4px;
+            }
+
+            .card-actions,
+            .song-card .card-actions,
+            .video-card .card-actions,
+            .video-card-body .card-actions,
+            .library-card .card-actions,
+            .library-card .video-card-body .card-actions {
+              gap: 4px;
+              grid-auto-rows: 28px;
+              height: auto;
+              min-height: 88px;
+            }
+
+            .card-actions button,
+            .library-card .card-actions button {
+              min-height: 28px;
+              border-radius: 7px;
+              font-size: 11.5px;
+              gap: 3px;
+              padding: 0 5px;
+            }
+
+            .card-secondary-actions {
+              gap: 4px;
+              min-height: 26px;
+            }
+
+            .card-secondary-actions button {
+              min-height: 26px;
+              border-radius: 7px;
+              font-size: 10.5px;
+              padding: 0 4px;
+            }
+
+            .artist-card {
+              padding: 8px;
+              gap: 7px;
+            }
+
+            .artist-card-main {
+              grid-template-columns: 52px minmax(0, 1fr);
+              gap: 8px;
+              padding: 7px;
+            }
+
+            .artist-card-main img {
+              width: 52px;
+            }
+
+            .artist-card-main strong {
+              font-size: 15px;
+            }
+
+            .artist-card-main small {
+              font-size: 10.5px;
+              line-height: 1.2;
+            }
+
+            .artist-card-stats {
+              gap: 5px;
+            }
+
+            .artist-card-stats span {
+              padding: 6px 4px;
+              font-size: 10.5px;
+            }
+
+            .artist-card-actions {
+              gap: 5px;
+            }
+
+            .artist-card-actions button {
+              min-height: 30px;
+              font-size: 11.5px;
+              gap: 4px;
+              padding: 0 7px;
+            }
+
+            .artist-album-grid,
+            .artist-playlist-grid {
+              gap: 7px;
+            }
+
+            .artist-album-card,
+            .artist-playlist-card {
+              padding: 6px;
+            }
+
+            .artist-album-card img,
+            .artist-playlist-card img {
+              aspect-ratio: 16 / 6;
+              margin-bottom: 5px;
+            }
+
+            .artist-album-card div {
+              gap: 2px;
+              margin-bottom: 6px;
+            }
+
+            .artist-album-card strong,
+            .artist-playlist-card strong,
+            .playlist-tile strong {
+              font-size: 13px;
+            }
+
+            .artist-album-card span,
+            .artist-playlist-card small,
+            .playlist-tile small {
+              font-size: 10.5px;
+            }
+
+            .artist-album-card .artist-album-actions {
+              gap: 4px;
+              grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+            }
+
+            .artist-album-actions button {
+              min-height: 28px;
+              font-size: 11px;
+              padding: 0 5px;
+            }
+
+            .playlist-tile {
+              padding: 6px;
+              gap: 7px;
+            }
+
+            .playlist-tile img {
+              width: 42px;
+              height: 42px;
+            }
+
+            .profile-hero {
+              gap: 10px;
+            }
+
+            .profile-avatar {
+              width: 72px;
+              font-size: 32px;
+            }
+
+            .profile-hero h2 {
+              font-size: clamp(24px, 7vw, 34px);
+              margin: 3px 0;
+            }
+
+            .topbar {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 6px;
+              padding-bottom: 7px;
+            }
+
+            .search-wrap,
+            .view-toggle,
+            .notification-wrap {
+              grid-column: 1 / -1;
             }
 
             .dashboard-form .wide,

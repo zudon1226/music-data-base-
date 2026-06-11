@@ -1,0 +1,11 @@
+.next/
+out/
+.vercel/
+.npm-cache/
+node_modules/
+*.log
+dev-server-*.log
+dev-server-*.err.log
+app/api/upload-video/
+app/api/upload-video/**
+pages/api/upload-video.*
