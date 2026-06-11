@@ -4,6 +4,7 @@ import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3
 import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
+import { flushSync } from "react-dom";
 import { supabase } from "../lib/supabase";
 type Song = {
     id: string;
@@ -1708,6 +1709,17 @@ function uniqueVideos(list: VideoItem[]) {
         return [{ ...normalizeVideoForPlayback(video), storagePath, storage_path: storagePath }];
     });
 }
+function isLikelyStoragePath(value: string) {
+    const trimmed = value.trim();
+    return Boolean(trimmed && !/^https?:\/\//i.test(trimmed) && !trimmed.startsWith("blob:") && !trimmed.startsWith("data:") && !trimmed.startsWith("/"));
+}
+function getVideoPublicUrlFromStoragePath(storagePath: string) {
+    const cleanPath = storagePath.trim();
+    if (!cleanPath)
+        return "";
+    const { data } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(cleanPath);
+    return data.publicUrl || "";
+}
 function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown> | null) {
     if (!video)
         return "";
@@ -1715,15 +1727,16 @@ function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown>
     const directUrl = ["video_url", "file_url", "url", "public_url", "videoUrl"]
         .map((key) => record[key])
         .find((value): value is string => typeof value === "string" && value.trim().length > 0);
-    if (directUrl)
-        return directUrl.trim();
+    if (directUrl) {
+        const cleanUrl = directUrl.trim();
+        return isLikelyStoragePath(cleanUrl) ? getVideoPublicUrlFromStoragePath(cleanUrl) : cleanUrl;
+    }
     const storagePath = ["storage_path", "storagePath"]
         .map((key) => record[key])
         .find((value): value is string => typeof value === "string" && value.trim().length > 0);
     if (!storagePath)
         return "";
-    const { data } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(storagePath.trim());
-    return data.publicUrl || "";
+    return getVideoPublicUrlFromStoragePath(storagePath);
 }
 function getStringField(record: Record<string, unknown>, keys: string[]) {
     for (const key of keys) {
@@ -1754,9 +1767,12 @@ function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
     const artist = getStringField(record, ["artist", "artist_name", "producer_name", "creator", "description", "producer"]) ||
         "Unknown creator";
     const producerName = getStringField(record, ["producer_name", "producer"]);
-    const videoUrl = getStringField(record, ["video_url", "file_url", "url", "public_url", "videoUrl"]);
+    const rawVideoUrl = getStringField(record, ["video_url", "file_url", "url", "public_url", "videoUrl"]);
     const coverUrl = getArtworkUrl(getStringField(record, ["cover_url", "cover_image_url", "thumbnail_url", "cover", "poster"]));
     const storagePath = getStringField(record, ["storagePath", "storage_path"]);
+    const videoUrl = rawVideoUrl
+        ? (isLikelyStoragePath(rawVideoUrl) ? getVideoPublicUrlFromStoragePath(rawVideoUrl) : rawVideoUrl)
+        : getVideoPublicUrlFromStoragePath(storagePath);
     const id = getStringField(record, ["id"]) || videoUrl || storagePath || createId(title);
     return {
         ...video,
@@ -7476,8 +7492,21 @@ export default function Page() {
             audioRef.current.pause();
             setIsPlaying(false);
         }
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.removeAttribute("src");
+            audioRef.current.load();
+        }
         setActiveMediaType("video");
         setActiveMedia({ type: "video", item: activeVideo });
+        if (video.getAttribute("src") !== activeVideoPlaybackUrl) {
+            video.src = activeVideoPlaybackUrl;
+            video.load();
+        }
+        video.setAttribute("playsinline", "");
+        video.setAttribute("webkit-playsinline", "");
+        video.controls = true;
+        video.preload = "metadata";
         video.muted = false;
         video.volume = videoVolume;
         try {
@@ -9476,14 +9505,45 @@ export default function Page() {
         const nextActiveVideo = { ...playableVideo, views: nextViews };
         if (audioRef.current) {
             audioRef.current.pause();
+            audioRef.current.removeAttribute("src");
+            audioRef.current.load();
         }
-        setIsPlaying(false);
-        setCurrentSong(null);
-        setActiveMediaType("video");
-        setActiveMedia({ type: "video", item: nextActiveVideo });
-        setActiveVideo(nextActiveVideo);
-        setSelectedVideoId(playableVideo.id);
-        setVideoAutoplayRequestId(playableVideo.id);
+        flushSync(() => {
+            setIsPlaying(false);
+            setCurrentSong(null);
+            setActiveMediaType("video");
+            setActiveMedia({ type: "video", item: nextActiveVideo });
+            setActiveVideo(nextActiveVideo);
+            setSelectedVideoId(playableVideo.id);
+            setVideoProgress(0);
+            setVideoDuration(0);
+        });
+        const mainVideo = mainVideoRef.current;
+        if (mainVideo) {
+            mainVideo.setAttribute("playsinline", "");
+            mainVideo.setAttribute("webkit-playsinline", "");
+            mainVideo.controls = true;
+            mainVideo.preload = "metadata";
+            mainVideo.muted = false;
+            mainVideo.volume = videoVolume;
+            if (mainVideo.getAttribute("src") !== videoUrl) {
+                mainVideo.pause();
+                mainVideo.src = videoUrl;
+                mainVideo.load();
+            }
+            mainVideo.play().then(() => {
+                setVideoPlaying(true);
+            }).catch((error) => {
+                setVideoPlaying(false);
+                const message = error instanceof Error ? error.message : String(error);
+                if (!message.toLowerCase().includes("interrupted")) {
+                    showToast("Video is ready. Press Play if your browser blocked playback.", "info");
+                }
+            });
+        }
+        else {
+            setVideoAutoplayRequestId(playableVideo.id);
+        }
         saveVideoPlay(nextActiveVideo);
         const preserveVideoQueue = sourceSection.includes("Playlist") ||
             sourceSection.includes("Album") ||
@@ -11905,8 +11965,8 @@ export default function Page() {
     function renderSharedVideoPlayer() {
         if (!activeVideo)
             return null;
-        return (<section className={`video-player-panel global-video-player${view === "Videos" ? "" : " is-hidden"}`} ref={videoPreviewRef} aria-hidden={view === "Videos" ? undefined : true}>
-        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideo.video_url} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} playsInline preload="metadata" poster={activeVideo.cover} onLoadedMetadata={updateVideoDuration} onDurationChange={updateVideoDuration} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={handleVideoPause} onEnded={handleVideoEnded} onError={() => console.error("[main video] load failed:", activeVideoPlaybackUrl)}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
+        return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
+        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} playsInline preload="metadata" poster={activeVideo.cover} onLoadedMetadata={updateVideoDuration} onDurationChange={updateVideoDuration} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={handleVideoPause} onEnded={handleVideoEnded} onError={() => console.error("[main video] load failed:", activeVideoPlaybackUrl)}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
         <div className="video-player-copy">
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
