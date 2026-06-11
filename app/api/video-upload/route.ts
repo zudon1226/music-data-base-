@@ -46,6 +46,21 @@ function getErrorDetails(error: unknown) {
     return details;
 }
 
+function getJwtRole(token: string) {
+    const [, payload] = token.split(".");
+    if (!payload) {
+        return "";
+    }
+    try {
+        const decoded = Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+        const claims = JSON.parse(decoded) as { role?: unknown };
+        return typeof claims.role === "string" ? claims.role : "";
+    }
+    catch {
+        return "";
+    }
+}
+
 function getSupabaseServerClient() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -54,6 +69,10 @@ function getSupabaseServerClient() {
     }
     if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
         throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
+    }
+    const keyRole = getJwtRole(serviceRoleKey);
+    if (keyRole !== "service_role") {
+        throw new Error(`SUPABASE_SERVICE_ROLE_KEY must be the Supabase service_role key. Current key role: ${keyRole || "unknown"}.`);
     }
     return createClient(supabaseUrl, serviceRoleKey, {
         auth: {
