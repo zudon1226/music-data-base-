@@ -2850,6 +2850,8 @@ export default function Page() {
     const [videoUploadBusy, setVideoUploadBusy] = useState(false);
     const [videoUploadError, setVideoUploadError] = useState("");
     const [videoUploadStatus, setVideoUploadStatus] = useState("");
+    const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
+    const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
         uploadMethod: "",
         supabaseUrl: "",
@@ -2953,12 +2955,48 @@ export default function Page() {
             lastUpdated: new Date().toLocaleTimeString(),
         });
     }
+    function clearStaleVideoUploadState() {
+        setVideoUploadError("");
+        setVideoUploadStatus("");
+        setVideoUploadProgress(0);
+        setVideoUploadBusy(false);
+        setHasAttemptedVideoUpload(false);
+        setShowVideoUploadDebug(false);
+        updateVideoUploadDebug({
+            uploadMethod: "",
+            uploadTargetUrl: "",
+            fileSize: videoFile ? String(videoFile.size) : "",
+            fileName: videoFile?.name || "",
+            selectedFileName: videoFile?.name || "",
+            selectedFileSize: videoFile ? String(videoFile.size) : "",
+            hasFileObject: Boolean(videoFile),
+            currentStep: "",
+            lastError: "",
+            fullErrorJson: "",
+            requestContainsDigitalMusicDatabase: false,
+            requestContainsSupabaseCo: false,
+            requestLooksLikeVercelFunction: false,
+            requestLooksLikeAppServer: false,
+            requestMethod: "",
+            requestBodyType: "",
+            requestBodySize: "",
+            insertUserId: "",
+            authUserId: "",
+            insertUserMatchesAuth: "",
+            fullInsertPayload: "",
+            sourceLocation: "",
+        });
+    }
     function renderVideoUploadDebugPanel() {
-        return (<section className="video-upload-debug" aria-label="Video upload debug">
+        return (<section className={`video-upload-debug${showVideoUploadDebug ? " is-open" : " is-collapsed"}`} aria-label="Video upload debug">
             <div className="video-upload-debug-head">
               <strong>Video upload debug</strong>
+              <button type="button" onClick={() => setShowVideoUploadDebug((value) => !value)}>
+                {showVideoUploadDebug ? "Hide details" : "Show details"}
+              </button>
               {videoUploadDebug.lastUpdated && <span>{videoUploadDebug.lastUpdated}</span>}
             </div>
+            {showVideoUploadDebug && (<>
             <div className="video-upload-debug-summary">
               <div>
                 <span>UPLOAD METHOD:</span>
@@ -3075,6 +3113,7 @@ export default function Page() {
               <span>Full error JSON</span>
               <pre>{videoUploadDebug.fullErrorJson || "No upload error captured yet."}</pre>
             </div>
+            </>)}
           </section>);
     }
     const [stabilityLoading, setStabilityLoading] = useState(false);
@@ -4425,6 +4464,7 @@ export default function Page() {
             }
             setUser(sessionUser);
             setAccountRole(normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
+            clearStaleVideoUploadState();
             setAuthReady(true);
         }
         loadSession();
@@ -4436,6 +4476,7 @@ export default function Page() {
             }
             setUser(sessionUser);
             setAccountRole(normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
+            clearStaleVideoUploadState();
             setAuthReady(true);
         });
         return () => {
@@ -9061,6 +9102,7 @@ export default function Page() {
         event.preventDefault();
         const submitForm = event.currentTarget;
         const stopUploadNetworkTrace = installVideoUploadNetworkTrace("app/page.tsx addUploadedVideo full Save Video flow", updateVideoUploadDebug);
+        setHasAttemptedVideoUpload(true);
         setVideoUploadError("");
         const mode = uploadMode;
         const sourceView = view;
@@ -12479,7 +12521,7 @@ export default function Page() {
 
                 {renderVideoUploadDebugPanel()}
 
-                {videoUploadError && (<div className="upload-error">
+                {hasAttemptedVideoUpload && videoUploadError && (<div className="upload-error">
                     <p>{videoUploadError}</p>
                     <div className="upload-fix">
                       <button type="button" onClick={retryCurrentUpload} disabled={videoUploadBusy}>
@@ -13340,7 +13382,7 @@ export default function Page() {
 
               {renderVideoUploadDebugPanel()}
 
-              {videoUploadError && (<div className="upload-error">
+              {hasAttemptedVideoUpload && videoUploadError && (<div className="upload-error">
                   <p>{videoUploadError}</p>
                   <div className="upload-fix">
                     <button type="button" onClick={retryVideoUpload} disabled={videoUploadBusy}>
@@ -16531,6 +16573,7 @@ export default function Page() {
             align-items: center;
             justify-content: space-between;
             gap: 10px;
+            flex-wrap: wrap;
           }
 
           .video-upload-debug-head strong,
@@ -16544,6 +16587,20 @@ export default function Page() {
           .video-upload-debug-head span {
             color: #93c5fd;
             font-size: 11px;
+          }
+
+          .video-upload-debug-head button {
+            border: 1px solid rgba(34, 211, 238, 0.4);
+            border-radius: 7px;
+            background: rgba(8, 47, 73, 0.75);
+            color: #e0f2fe;
+            font-size: 11px;
+            font-weight: 900;
+            padding: 6px 9px;
+          }
+
+          .video-upload-debug.is-collapsed {
+            padding-bottom: 10px;
           }
 
           .video-upload-debug-summary {
