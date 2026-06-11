@@ -2199,24 +2199,6 @@ function getVideoFileError(file: File | null) {
     }
     return "";
 }
-function cleanVideoStorageFileName(fileName: string) {
-    const fallbackExtension = "mp4";
-    const extension = getFileExtension(fileName).replace(/[^a-z0-9]/g, "") || fallbackExtension;
-    const baseName = fileName
-        .replace(/\.[^/.]+$/, "")
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9._-]+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 80);
-    return `${baseName || "video"}.${extension}`;
-}
-function buildVideoStoragePath(userId: string, file: File) {
-    const cleanFileName = cleanVideoStorageFileName(file.name || "video.mp4");
-    return `${userId}/${Date.now()}-${createRecordId()}-${cleanFileName}`;
-}
 function getFetchRequestUrl(input: RequestInfo | URL) {
     if (typeof input === "string")
         return input;
@@ -2322,7 +2304,7 @@ function installVideoUploadNetworkTrace(sourceLocation: string, onTrace?: (trace
             return originalFetch(input, init);
         }
         const requestSourceLocation = isStorageUploadRequest
-            ? 'Supabase SDK generated request from supabase.storage.from("videos").upload(filePath, file)'
+            ? "Unexpected browser Supabase Storage request captured during video upload"
             : sourceLocation;
         const requestTrace = {
             url: requestUrl,
@@ -2334,7 +2316,7 @@ function installVideoUploadNetworkTrace(sourceLocation: string, onTrace?: (trace
         };
         console.log("VIDEO UPLOAD NETWORK REQUEST:", requestTrace);
         onTrace?.({
-            uploadMethod: isStorageUploadRequest ? "Supabase SDK Storage upload request" : "Upload flow network request",
+            uploadMethod: isStorageUploadRequest ? "Unexpected browser Supabase Storage request" : "Upload flow network request",
             uploadTargetUrl: requestUrl,
             requestMethod,
             requestBodyType: bodyType,
@@ -8560,64 +8542,92 @@ export default function Page() {
         const { user: sessionUser } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
-        const storagePath = buildVideoStoragePath(sessionUser.id, file);
-        const contentType = file.type || "video/mp4";
+        const uploadTargetUrl = typeof window !== "undefined"
+            ? new URL("/api/upload-video", window.location.origin).toString()
+            : "/api/upload-video";
+        const targetFlags = getUploadRequestTargetFlags(uploadTargetUrl);
         setVideoUploadStep("Preparing video...", 4);
         updateVideoUploadDebug({
-            uploadMethod: 'Supabase SDK: supabase.storage.from("videos").upload(filePath, file)',
+            uploadMethod: "Server API route /api/upload-video",
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-            uploadTargetUrl: "Supabase SDK generated request",
+            uploadTargetUrl,
             bucket: VIDEOS_STORAGE_BUCKET,
             fileSize: String(file.size),
             fileName: file.name,
             selectedFileName: file.name,
             selectedFileSize: String(file.size),
             hasFileObject: true,
-            currentStep: "Prepared Supabase SDK Storage upload",
+            currentStep: "Prepared /api/upload-video FormData request",
             lastError: "",
             fullErrorJson: "",
-            requestContainsDigitalMusicDatabase: false,
-            requestContainsSupabaseCo: false,
-            requestLooksLikeVercelFunction: false,
-            requestLooksLikeAppServer: false,
+            requestContainsDigitalMusicDatabase: uploadTargetUrl.includes("digitalmusicdatabase.com"),
+            requestContainsSupabaseCo: uploadTargetUrl.includes("supabase.co"),
+            requestLooksLikeVercelFunction: targetFlags.isVercelFunctionUrl,
+            requestLooksLikeAppServer: targetFlags.isAppDomain,
             requestMethod: "POST",
-            requestBodyType: "File",
+            requestBodyType: "FormData",
             requestBodySize: String(file.size),
             insertUserId: sessionUser.id,
             authUserId: sessionUser.id,
             insertUserMatchesAuth: "true",
-            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> supabase.storage.from("videos").upload(storagePath, file)',
+            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> fetch("/api/upload-video", FormData)',
         });
-        setVideoUploadStep("Uploading video to Supabase Storage...", 12);
+        setVideoUploadStep("Uploading video through /api/upload-video...", 12);
         console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-        console.log("UPLOAD TARGET:", "Supabase SDK generated request");
+        console.log("UPLOAD TARGET:", uploadTargetUrl);
         console.log("SELECTED FILE SIZE:", file.size);
-        console.log("SUPABASE VIDEO UPLOAD PREPARED", {
+        console.log("SERVER VIDEO PREPARED", {
             fileName: file.name,
             fileSize: file.size,
-            storagePath,
+            uploadTargetUrl,
         });
-        const uploadResult = await supabase.storage.from(VIDEOS_STORAGE_BUCKET).upload(storagePath, file, {
-            upsert: true,
-            cacheControl: "3600",
-            contentType,
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("sessionUserId", sessionUser.id);
+        formData.append("userId", sessionUser.id);
+        const response = await fetch("/api/upload-video", {
+            method: "POST",
+            body: formData,
         });
-        if (uploadResult.error) {
-            const message = getUploadErrorMessage(uploadResult.error);
-            console.error("SUPABASE VIDEO STORAGE UPLOAD FAILED", uploadResult.error);
+        const responseText = await response.text();
+        let uploadResult: {
+            error?: string;
+            details?: unknown;
+            publicUrl?: string;
+            storagePath?: string;
+            fileName?: string;
+            fileSize?: number;
+            contentType?: string;
+        } = {};
+        if (responseText) {
+            try {
+                uploadResult = JSON.parse(responseText) as typeof uploadResult;
+            }
+            catch {
+                uploadResult = { error: responseText };
+            }
+        }
+        if (!response.ok) {
+            const detailText = typeof uploadResult.details === "string"
+                ? uploadResult.details
+                : uploadResult.details
+                    ? JSON.stringify(uploadResult.details)
+                    : "";
+            console.error("VIDEO UPLOAD API FAILED", uploadResult.error || response.statusText, detailText);
             updateVideoUploadDebug({
-                currentStep: "Supabase Storage upload failed",
-                lastError: message,
-                fullErrorJson: stringifyUploadDebugError(uploadResult.error),
+                currentStep: "Video upload API failed",
+                lastError: [uploadResult.error || response.statusText, detailText].filter(Boolean).join(" "),
+                fullErrorJson: responseText || stringifyUploadDebugError(uploadResult),
             });
-            throw new Error(`Supabase video storage upload failed: ${message}`);
+            throw new Error([uploadResult.error || `Video upload failed with HTTP ${response.status}.`, detailText]
+                .filter(Boolean)
+                .join(" "));
         }
-        const savedStoragePath = uploadResult.data?.path || storagePath;
-        const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
-        const publicUrl = publicUrlData.publicUrl;
-        if (!publicUrl) {
-            throw new Error("Supabase did not return a public URL for the uploaded video.");
+        if (!uploadResult.publicUrl || !uploadResult.storagePath) {
+            throw new Error("Video uploaded, but the server did not return a public URL and storage path.");
         }
+        const publicUrl = uploadResult.publicUrl;
+        const savedStoragePath = uploadResult.storagePath;
         setVideoUploadStep("Saving video metadata to public.videos...", 84);
         const createdAt = new Date().toISOString();
         const videoRow: Record<string, unknown> = {
@@ -8637,8 +8647,8 @@ export default function Page() {
             cover_url: videoDetails.cover || DEFAULT_COVER,
             thumbnail_url: videoDetails.cover || DEFAULT_COVER,
             storage_path: savedStoragePath,
-            file_name: file.name || savedStoragePath.split("/").pop() || "video",
-            file_size: file.size,
+            file_name: uploadResult.fileName || file.name || savedStoragePath.split("/").pop() || "video",
+            file_size: uploadResult.fileSize || file.size,
             views: 0,
             likes: 0,
             created_at: createdAt,
@@ -8719,7 +8729,6 @@ export default function Page() {
         if (tableError) {
             const detailText = getUploadErrorMessage(tableError);
             console.error("VIDEO INSERT FAILED", tableError);
-            await supabase.storage.from(VIDEOS_STORAGE_BUCKET).remove([savedStoragePath]);
             updateVideoUploadDebug({
                 currentStep: "Video metadata save failed",
                 lastError: detailText,
@@ -8739,9 +8748,9 @@ export default function Page() {
         updateVideoUploadDebug({
             currentStep: "Video upload complete.",
             lastError: "",
-            uploadTargetUrl: "Supabase SDK generated request",
+            uploadTargetUrl,
             requestMethod: "POST",
-            requestBodyType: "File",
+            requestBodyType: "FormData",
             requestBodySize: String(file.size),
             insertUserId: String(savedVideo.user_id || sessionUser.id),
             authUserId: sessionUser.id,
