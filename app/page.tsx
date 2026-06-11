@@ -8603,6 +8603,18 @@ export default function Page() {
         formData.append("file", file);
         formData.append("sessionUserId", sessionUser.id);
         formData.append("userId", sessionUser.id);
+        formData.append("artist_id", sessionUser.id);
+        formData.append("title", videoDetails.title);
+        formData.append("description", videoDetails.creator);
+        formData.append("artist_name", videoDetails.creator);
+        formData.append("category", videoDetails.category);
+        formData.append("cover_url", videoDetails.cover || DEFAULT_COVER);
+        formData.append("thumbnail_url", videoDetails.cover || DEFAULT_COVER);
+        formData.append("producer", producer?.name || "");
+        formData.append("producer_name", producer?.name || "");
+        formData.append("producer_id", producerId || "");
+        formData.append("producer_profile_id", producerId || "");
+        formData.append("album_id", albumId || "");
         const response = await fetch("/api/video-upload", {
             method: "POST",
             body: formData,
@@ -8616,6 +8628,7 @@ export default function Page() {
             fileName?: string;
             fileSize?: number | null;
             contentType?: string;
+            video?: VideoTableRow | null;
         } = {};
         if (responseText) {
             try {
@@ -8644,136 +8657,23 @@ export default function Page() {
         if (!uploadResult.publicUrl || !uploadResult.storagePath) {
             throw new Error("Video uploaded, but the server did not return a public URL and storage path.");
         }
-        const publicUrl = uploadResult.publicUrl;
-        const savedStoragePath = uploadResult.storagePath;
-        setVideoUploadStep("Saving video metadata to public.videos...", 84);
-        const createdAt = new Date().toISOString();
-        const videoRow: Record<string, unknown> = {
-            id: createRecordId(),
-            user_id: sessionUser.id,
-            artist_id: sessionUser.id,
-            title: videoDetails.title,
-            description: videoDetails.creator,
-            artist_name: videoDetails.creator,
-            producer: producer?.name || "",
-            producer_name: producer?.name || "",
-            producer_id: producerId || null,
-            producer_profile_id: producerId || null,
-            album_id: albumId || null,
-            category: videoDetails.category,
-            video_url: publicUrl,
-            cover_url: videoDetails.cover || DEFAULT_COVER,
-            thumbnail_url: videoDetails.cover || DEFAULT_COVER,
-            storage_path: savedStoragePath,
-            file_name: uploadResult.fileName || file.name || savedStoragePath.split("/").pop() || "video",
-            file_size: uploadResult.fileSize || file.size,
-            views: 0,
-            likes: 0,
-            created_at: createdAt,
-        };
-        let lastVideoInsertPayload: Record<string, unknown> = videoRow;
-        const insertVideoRow = async (row: Record<string, unknown>, selectColumns: string) => {
-            lastVideoInsertPayload = row;
-            const rowUserId = String(row.user_id || "");
-            const authUserId = sessionUser?.id || "";
-            updateVideoUploadDebug({
-                currentStep: "Saving video metadata to public.videos",
-                insertUserId: rowUserId,
-                authUserId,
-                insertUserMatchesAuth: String(rowUserId === authUserId),
-                fullInsertPayload: JSON.stringify(row, null, 2),
-                sourceLocation: 'app/page.tsx insertVideoRow -> supabase.from("videos").insert(row)',
-            });
-            console.error("INSERT USER ID:", row.user_id);
-            console.error("AUTH USER ID:", sessionUser?.id);
-            console.error("FULL INSERT PAYLOAD:", row);
-            return supabase
-                .from("videos")
-                .insert(row)
-                .select(selectColumns)
-                .single();
-        };
-        const initialSelectColumns = [
-            "id",
-            "title",
-            "description",
-            "artist_name",
-            "artist_id",
-            "producer",
-            "producer_name",
-            "producer_id",
-            "producer_profile_id",
-            "album_id",
-            "category",
-            "video_url",
-            "cover_url",
-            "storage_path",
-            "file_name",
-            "file_size",
-            "thumbnail_url",
-            "views",
-            "likes",
-            "created_at",
-            "user_id",
-        ].join(",");
-        const fallbackSelectColumns = [
-            "id",
-            "title",
-            "artist_name",
-            "producer_id",
-            "video_url",
-            "storage_path",
-            "created_at",
-            "user_id",
-        ].join(",");
-        const initialInsert = await insertVideoRow(videoRow, initialSelectColumns);
-        let savedVideo = initialInsert.data as VideoTableRow | null;
-        let tableError = initialInsert.error;
-        if (tableError && /file_name|file_size|album_id|artist_id|producer|cover_url|thumbnail_url/i.test(getUploadErrorMessage(tableError))) {
-            const fallbackVideoRow: Record<string, unknown> = {
-                id: videoRow.id,
-                user_id: videoRow.user_id,
-                title: videoRow.title,
-                artist_name: videoRow.artist_name,
-                producer_id: videoRow.producer_id,
-                video_url: videoRow.video_url,
-                storage_path: videoRow.storage_path,
-                created_at: videoRow.created_at,
-            };
-            const fallbackResult = await insertVideoRow(fallbackVideoRow, fallbackSelectColumns);
-            savedVideo = fallbackResult.data as VideoTableRow | null;
-            tableError = fallbackResult.error;
-        }
-        if (tableError) {
-            const detailText = getUploadErrorMessage(tableError);
-            console.error("VIDEO INSERT FAILED", tableError);
-            updateVideoUploadDebug({
-                currentStep: "Video metadata save failed",
-                lastError: detailText,
-                insertUserId: String(lastVideoInsertPayload.user_id || ""),
-                authUserId: sessionUser?.id || "",
-                insertUserMatchesAuth: String(String(lastVideoInsertPayload.user_id || "") === (sessionUser?.id || "")),
-                fullInsertPayload: JSON.stringify(lastVideoInsertPayload, null, 2),
-                fullErrorJson: stringifyUploadDebugError(tableError),
-            });
-            throw new Error(`Video uploaded to Supabase Storage, but the videos table save failed: ${detailText}`);
+        const savedVideo = uploadResult.video;
+        if (!savedVideo) {
+            throw new Error("Supabase uploaded the video, but the server did not return the saved videos table row.");
         }
         setVideoUploadStep("Finishing upload...", 98);
         setVideoUploadStep("Video upload complete.", 100);
-        if (!savedVideo) {
-            throw new Error("Supabase uploaded the video, but the saved videos table row was not returned.");
-        }
         updateVideoUploadDebug({
             currentStep: "Video upload complete.",
             lastError: "",
             uploadTargetUrl,
             requestMethod: "POST",
-            requestBodyType: "File direct to Supabase",
+            requestBodyType: "FormData to server upload route",
             requestBodySize: String(file.size),
             insertUserId: String(savedVideo.user_id || sessionUser.id),
             authUserId: sessionUser.id,
             insertUserMatchesAuth: String(String(savedVideo.user_id || sessionUser.id) === sessionUser.id),
-            fullInsertPayload: JSON.stringify(lastVideoInsertPayload, null, 2),
+            fullInsertPayload: JSON.stringify(savedVideo, null, 2),
         });
         return mapVideoRowToVideoItem(savedVideo);
     }

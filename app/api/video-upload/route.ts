@@ -75,6 +75,24 @@ function getFormFile(value: FormDataEntryValue | null) {
     return null;
 }
 
+function getFormString(formData: FormData, keys: string[], fallback = "") {
+    for (const key of keys) {
+        const value = formData.get(key);
+        if (typeof value === "string" && value.trim()) {
+            return value.trim();
+        }
+    }
+    return fallback;
+}
+
+function getNullableFormString(formData: FormData, keys: string[]) {
+    const value = getFormString(formData, keys);
+    if (!value || value === "null" || value === "undefined") {
+        return null;
+    }
+    return value;
+}
+
 function getFileExtension(fileName: string) {
     return fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
 }
@@ -171,12 +189,104 @@ export async function POST(request: Request) {
             return jsonResponse({ error: "Supabase did not return a public URL for the uploaded video." }, 500);
         }
 
+        const createdAt = new Date().toISOString();
+        const videoTitle = getFormString(formData, ["title"], fileName.replace(/\.[^/.]+$/, "") || "Untitled video");
+        const artistName = getFormString(formData, ["artist_name", "artistName", "creator", "description"], "Unknown creator");
+        const producerName = getFormString(formData, ["producer_name", "producerName", "producer"]);
+        const producerId = getNullableFormString(formData, ["producer_id", "producerId"]);
+        const producerProfileId = getNullableFormString(formData, ["producer_profile_id", "producerProfileId"]) || producerId;
+        const albumId = getNullableFormString(formData, ["album_id", "albumId"]);
+        const coverUrl = getFormString(formData, ["cover_url", "coverUrl", "cover", "thumbnail_url", "thumbnailUrl"], "/music-data-base-logo.png");
+        const videoRow: Record<string, unknown> = {
+            id: crypto.randomUUID(),
+            user_id: authUserId,
+            artist_id: getFormString(formData, ["artist_id", "artistId"], authUserId),
+            title: videoTitle,
+            description: getFormString(formData, ["description"], artistName),
+            artist_name: artistName,
+            producer: producerName,
+            producer_name: producerName,
+            producer_id: producerId,
+            producer_profile_id: producerProfileId,
+            album_id: albumId,
+            category: getFormString(formData, ["category"], "Music Video"),
+            video_url: publicUrlData.publicUrl,
+            cover_url: coverUrl,
+            thumbnail_url: coverUrl,
+            storage_path: savedStoragePath,
+            file_name: fileName,
+            file_size: file.size,
+            views: 0,
+            likes: 0,
+            created_at: createdAt,
+        };
+        const initialSelectColumns = [
+            "id",
+            "title",
+            "description",
+            "artist_name",
+            "artist_id",
+            "producer",
+            "producer_name",
+            "producer_id",
+            "producer_profile_id",
+            "album_id",
+            "category",
+            "video_url",
+            "cover_url",
+            "storage_path",
+            "file_name",
+            "file_size",
+            "thumbnail_url",
+            "views",
+            "likes",
+            "created_at",
+            "user_id",
+        ].join(",");
+        const fallbackVideoRow: Record<string, unknown> = {
+            id: videoRow.id,
+            user_id: videoRow.user_id,
+            title: videoRow.title,
+            artist_name: videoRow.artist_name,
+            producer_id: videoRow.producer_id,
+            video_url: videoRow.video_url,
+            storage_path: videoRow.storage_path,
+            created_at: videoRow.created_at,
+        };
+        const fallbackSelectColumns = [
+            "id",
+            "title",
+            "artist_name",
+            "producer_id",
+            "video_url",
+            "storage_path",
+            "created_at",
+            "user_id",
+        ].join(",");
+        let videoInsert = await supabase.from("videos").insert(videoRow).select(initialSelectColumns).single();
+        if (videoInsert.error && /file_name|file_size|album_id|artist_id|producer|cover_url|thumbnail_url/i.test(getErrorMessage(videoInsert.error))) {
+            videoInsert = await supabase.from("videos").insert(fallbackVideoRow).select(fallbackSelectColumns).single();
+        }
+        if (videoInsert.error) {
+            console.error("[api/video-upload] Supabase videos insert error:", videoInsert.error);
+            return jsonResponse({
+                error: getErrorMessage(videoInsert.error),
+                details: {
+                    ...((getErrorDetails(videoInsert.error) || {}) as Record<string, unknown>),
+                    insertPayload: videoRow,
+                    insertUserId: authUserId,
+                    authUserId,
+                },
+            }, 500);
+        }
+
         return jsonResponse({
             publicUrl: publicUrlData.publicUrl,
             storagePath: savedStoragePath,
             fileName,
             fileSize: file.size,
             contentType,
+            video: videoInsert.data,
         });
     }
     catch (error) {
