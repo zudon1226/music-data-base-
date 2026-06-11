@@ -8543,12 +8543,12 @@ export default function Page() {
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
         const uploadTargetUrl = typeof window !== "undefined"
-            ? new URL("/api/upload-video", window.location.origin).toString()
-            : "/api/upload-video";
+            ? new URL("/api/video-upload", window.location.origin).toString()
+            : "/api/video-upload";
         const targetFlags = getUploadRequestTargetFlags(uploadTargetUrl);
         setVideoUploadStep("Preparing video...", 4);
         updateVideoUploadDebug({
-            uploadMethod: "Server API route /api/upload-video",
+            uploadMethod: "Server API route /api/video-upload",
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             uploadTargetUrl,
             bucket: VIDEOS_STORAGE_BUCKET,
@@ -8557,7 +8557,7 @@ export default function Page() {
             selectedFileName: file.name,
             selectedFileSize: String(file.size),
             hasFileObject: true,
-            currentStep: "Prepared /api/upload-video FormData request",
+            currentStep: "Prepared /api/video-upload FormData request",
             lastError: "",
             fullErrorJson: "",
             requestContainsDigitalMusicDatabase: uploadTargetUrl.includes("digitalmusicdatabase.com"),
@@ -8570,9 +8570,9 @@ export default function Page() {
             insertUserId: sessionUser.id,
             authUserId: sessionUser.id,
             insertUserMatchesAuth: "true",
-            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> fetch("/api/upload-video", FormData)',
+            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> fetch("/api/video-upload", FormData)',
         });
-        setVideoUploadStep("Uploading video through /api/upload-video...", 12);
+        setVideoUploadStep("Uploading video through /api/video-upload...", 12);
         console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
         console.log("UPLOAD TARGET:", uploadTargetUrl);
         console.log("SELECTED FILE SIZE:", file.size);
@@ -8585,7 +8585,7 @@ export default function Page() {
         formData.append("file", file);
         formData.append("sessionUserId", sessionUser.id);
         formData.append("userId", sessionUser.id);
-        const response = await fetch("/api/upload-video", {
+        const response = await fetch("/api/video-upload", {
             method: "POST",
             body: formData,
         });
