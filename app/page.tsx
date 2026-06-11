@@ -8542,13 +8542,20 @@ export default function Page() {
         const { user: sessionUser } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
+        const videoContentType = file.type || "video/mp4";
         const uploadTargetUrl = typeof window !== "undefined"
             ? new URL("/api/video-upload", window.location.origin).toString()
             : "/api/video-upload";
         const targetFlags = getUploadRequestTargetFlags(uploadTargetUrl);
+        const signedUrlPayload = {
+            fileName: file.name || "video.mp4",
+            contentType: videoContentType,
+            userId: sessionUser.id,
+        };
+        const signedUrlRequestBody = JSON.stringify(signedUrlPayload);
         setVideoUploadStep("Preparing video...", 4);
         updateVideoUploadDebug({
-            uploadMethod: "Server API route /api/video-upload",
+            uploadMethod: "Server API route /api/video-upload signs Supabase upload URL",
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             uploadTargetUrl,
             bucket: VIDEOS_STORAGE_BUCKET,
@@ -8557,7 +8564,7 @@ export default function Page() {
             selectedFileName: file.name,
             selectedFileSize: String(file.size),
             hasFileObject: true,
-            currentStep: "Prepared /api/video-upload FormData request",
+            currentStep: "Prepared /api/video-upload JSON signing request",
             lastError: "",
             fullErrorJson: "",
             requestContainsDigitalMusicDatabase: uploadTargetUrl.includes("digitalmusicdatabase.com"),
@@ -8565,34 +8572,33 @@ export default function Page() {
             requestLooksLikeVercelFunction: targetFlags.isVercelFunctionUrl,
             requestLooksLikeAppServer: targetFlags.isAppDomain,
             requestMethod: "POST",
-            requestBodyType: "FormData",
-            requestBodySize: String(file.size),
+            requestBodyType: "JSON metadata only",
+            requestBodySize: String(signedUrlRequestBody.length),
             insertUserId: sessionUser.id,
             authUserId: sessionUser.id,
             insertUserMatchesAuth: "true",
-            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> fetch("/api/video-upload", FormData)',
+            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> fetch("/api/video-upload", JSON metadata)',
         });
-        setVideoUploadStep("Uploading video through /api/video-upload...", 12);
+        setVideoUploadStep("Requesting signed Supabase upload URL...", 12);
         console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
         console.log("UPLOAD TARGET:", uploadTargetUrl);
         console.log("SELECTED FILE SIZE:", file.size);
-        console.log("SERVER VIDEO PREPARED", {
+        console.log("SIGNED VIDEO UPLOAD PREPARED", {
             fileName: file.name,
             fileSize: file.size,
             uploadTargetUrl,
         });
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("sessionUserId", sessionUser.id);
-        formData.append("userId", sessionUser.id);
         const response = await fetch("/api/video-upload", {
             method: "POST",
-            body: formData,
+            headers: { "Content-Type": "application/json" },
+            body: signedUrlRequestBody,
         });
         const responseText = await response.text();
-        let uploadResult: {
+        let signedUploadResult: {
             error?: string;
             details?: unknown;
+            signedUploadUrl?: string;
+            uploadToken?: string;
             publicUrl?: string;
             storagePath?: string;
             fileName?: string;
@@ -8601,33 +8607,65 @@ export default function Page() {
         } = {};
         if (responseText) {
             try {
-                uploadResult = JSON.parse(responseText) as typeof uploadResult;
+                signedUploadResult = JSON.parse(responseText) as typeof signedUploadResult;
             }
             catch {
-                uploadResult = { error: responseText };
+                signedUploadResult = { error: responseText };
             }
         }
         if (!response.ok) {
-            const detailText = typeof uploadResult.details === "string"
-                ? uploadResult.details
-                : uploadResult.details
-                    ? JSON.stringify(uploadResult.details)
+            const detailText = typeof signedUploadResult.details === "string"
+                ? signedUploadResult.details
+                : signedUploadResult.details
+                    ? JSON.stringify(signedUploadResult.details)
                     : "";
-            console.error("VIDEO UPLOAD API FAILED", uploadResult.error || response.statusText, detailText);
+            console.error("VIDEO SIGNED UPLOAD URL API FAILED", signedUploadResult.error || response.statusText, detailText);
             updateVideoUploadDebug({
-                currentStep: "Video upload API failed",
-                lastError: [uploadResult.error || response.statusText, detailText].filter(Boolean).join(" "),
-                fullErrorJson: responseText || stringifyUploadDebugError(uploadResult),
+                currentStep: "Video signed upload URL API failed",
+                lastError: [signedUploadResult.error || response.statusText, detailText].filter(Boolean).join(" "),
+                fullErrorJson: responseText || stringifyUploadDebugError(signedUploadResult),
             });
-            throw new Error([uploadResult.error || `Video upload failed with HTTP ${response.status}.`, detailText]
+            throw new Error([signedUploadResult.error || `Video upload signing failed with HTTP ${response.status}.`, detailText]
                 .filter(Boolean)
                 .join(" "));
         }
-        if (!uploadResult.publicUrl || !uploadResult.storagePath) {
-            throw new Error("Video uploaded, but the server did not return a public URL and storage path.");
+        if (!signedUploadResult.signedUploadUrl || !signedUploadResult.uploadToken || !signedUploadResult.publicUrl || !signedUploadResult.storagePath) {
+            throw new Error("Video upload signing succeeded, but the server did not return a signed upload URL, token, public URL, and storage path.");
         }
-        const publicUrl = uploadResult.publicUrl;
-        const savedStoragePath = uploadResult.storagePath;
+        const signedUploadTargetFlags = getUploadRequestTargetFlags(signedUploadResult.signedUploadUrl);
+        updateVideoUploadDebug({
+            uploadMethod: "Supabase signed upload URL",
+            uploadTargetUrl: signedUploadResult.signedUploadUrl,
+            currentStep: "Uploading file directly to Supabase signed upload URL",
+            requestContainsDigitalMusicDatabase: signedUploadResult.signedUploadUrl.includes("digitalmusicdatabase.com"),
+            requestContainsSupabaseCo: signedUploadResult.signedUploadUrl.includes("supabase.co"),
+            requestLooksLikeVercelFunction: signedUploadTargetFlags.isVercelFunctionUrl,
+            requestLooksLikeAppServer: signedUploadTargetFlags.isAppDomain,
+            requestMethod: "PUT",
+            requestBodyType: "File direct to Supabase",
+            requestBodySize: String(file.size),
+            fullErrorJson: "",
+        });
+        setVideoUploadStep("Uploading video directly to Supabase signed URL...", 24);
+        const directUploadResult = await supabase.storage
+            .from(VIDEOS_STORAGE_BUCKET)
+            .uploadToSignedUrl(signedUploadResult.storagePath, signedUploadResult.uploadToken, file, {
+                cacheControl: "3600",
+                contentType: signedUploadResult.contentType || videoContentType,
+                upsert: true,
+            });
+        if (directUploadResult.error) {
+            const message = getUploadErrorMessage(directUploadResult.error);
+            console.error("SIGNED SUPABASE VIDEO UPLOAD FAILED", directUploadResult.error);
+            updateVideoUploadDebug({
+                currentStep: "Signed Supabase video upload failed",
+                lastError: message,
+                fullErrorJson: stringifyUploadDebugError(directUploadResult.error),
+            });
+            throw new Error(`Supabase signed video upload failed: ${message}`);
+        }
+        const publicUrl = signedUploadResult.publicUrl;
+        const savedStoragePath = signedUploadResult.storagePath;
         setVideoUploadStep("Saving video metadata to public.videos...", 84);
         const createdAt = new Date().toISOString();
         const videoRow: Record<string, unknown> = {
@@ -8647,8 +8685,8 @@ export default function Page() {
             cover_url: videoDetails.cover || DEFAULT_COVER,
             thumbnail_url: videoDetails.cover || DEFAULT_COVER,
             storage_path: savedStoragePath,
-            file_name: uploadResult.fileName || file.name || savedStoragePath.split("/").pop() || "video",
-            file_size: uploadResult.fileSize || file.size,
+            file_name: signedUploadResult.fileName || file.name || savedStoragePath.split("/").pop() || "video",
+            file_size: signedUploadResult.fileSize || file.size,
             views: 0,
             likes: 0,
             created_at: createdAt,
@@ -8748,9 +8786,9 @@ export default function Page() {
         updateVideoUploadDebug({
             currentStep: "Video upload complete.",
             lastError: "",
-            uploadTargetUrl,
-            requestMethod: "POST",
-            requestBodyType: "FormData",
+            uploadTargetUrl: signedUploadResult.signedUploadUrl,
+            requestMethod: "PUT",
+            requestBodyType: "File direct to Supabase signed URL",
             requestBodySize: String(file.size),
             insertUserId: String(savedVideo.user_id || sessionUser.id),
             authUserId: sessionUser.id,

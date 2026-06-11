@@ -1,12 +1,16 @@
-import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
 
 const VIDEOS_BUCKET = "videos";
+
+type VideoUploadSignBody = {
+    fileName?: unknown;
+    contentType?: unknown;
+    userId?: unknown;
+};
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
@@ -62,16 +66,8 @@ function getSupabaseServerClient() {
     });
 }
 
-function getFormFile(value: FormDataEntryValue | null) {
-    if (value &&
-        typeof value === "object" &&
-        "arrayBuffer" in value &&
-        typeof value.arrayBuffer === "function" &&
-        "size" in value &&
-        typeof value.size === "number") {
-        return value as File;
-    }
-    return null;
+function getStringValue(value: unknown) {
+    return typeof value === "string" ? value.trim() : "";
 }
 
 function getFileExtension(fileName: string) {
@@ -92,12 +88,12 @@ function cleanStorageFileName(fileName: string) {
     return `${baseName || "video"}.${extension}`;
 }
 
-function getVideoContentType(file: File) {
-    const browserType = file.type.trim().toLowerCase();
+function normalizeVideoContentType(contentType: string, fileName: string) {
+    const browserType = contentType.trim().toLowerCase();
     if (browserType && browserType.startsWith("video/")) {
         return browserType;
     }
-    const extension = getFileExtension(file.name);
+    const extension = getFileExtension(fileName);
     if (extension === "mov")
         return "video/quicktime";
     if (extension === "webm")
@@ -120,52 +116,43 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
     try {
-        const formData = await request.formData();
-        const file = getFormFile(formData.get("file"));
-        const sessionUserId = String(formData.get("sessionUserId") || "").trim();
-        const userId = String(formData.get("userId") || "").trim();
-        const authUserId = sessionUserId || userId;
+        const body = (await request.json()) as VideoUploadSignBody;
+        const fileName = getStringValue(body.fileName);
+        const userId = getStringValue(body.userId);
+        const contentType = normalizeVideoContentType(getStringValue(body.contentType), fileName || "video.mp4");
 
-        if (!file) {
-            return jsonResponse({ error: "Choose a video file." }, 400);
+        if (!fileName) {
+            return jsonResponse({ error: "Video file name is required." }, 400);
         }
-        if (!authUserId) {
+        if (!userId) {
             return jsonResponse({ error: "You must log in again before uploading a video." }, 401);
         }
-        if (sessionUserId && userId && sessionUserId !== userId) {
-            return jsonResponse({ error: "Video upload user id does not match the signed-in session." }, 401);
-        }
-
-        const contentType = getVideoContentType(file);
         if (!contentType.startsWith("video/")) {
             return jsonResponse({ error: "Only video files can be uploaded.", details: { contentType } }, 400);
         }
 
-        const cleanFileName = cleanStorageFileName(file.name || "video.mp4");
-        const storagePath = `${authUserId}/${Date.now()}-${crypto.randomUUID()}-${cleanFileName}`;
-        const buffer = Buffer.from(await file.arrayBuffer());
+        const cleanFileName = cleanStorageFileName(fileName);
+        const storagePath = `${userId}/${Date.now()}-${crypto.randomUUID()}-${cleanFileName}`;
         const supabase = getSupabaseServerClient();
+        const { data: signedData, error: signedError } = await supabase.storage
+            .from(VIDEOS_BUCKET)
+            .createSignedUploadUrl(storagePath, { upsert: true });
 
-        const { error: uploadError } = await supabase.storage.from(VIDEOS_BUCKET).upload(storagePath, buffer, {
-            cacheControl: "3600",
-            contentType,
-            upsert: true,
-        });
-        if (uploadError) {
-            console.error("[api/video-upload] Supabase Storage upload error:", uploadError);
-            return jsonResponse({ error: getErrorMessage(uploadError), details: getErrorDetails(uploadError) }, 500);
+        if (signedError || !signedData?.signedUrl || !signedData?.token) {
+            console.error("[api/video-upload] Signed upload URL error:", signedError);
+            return jsonResponse({
+                error: getErrorMessage(signedError || "Supabase did not return a signed upload URL."),
+                details: getErrorDetails(signedError),
+            }, 500);
         }
 
-        const { data } = supabase.storage.from(VIDEOS_BUCKET).getPublicUrl(storagePath);
-        if (!data.publicUrl) {
-            return jsonResponse({ error: "Supabase did not return a public URL for the uploaded video." }, 500);
-        }
-
+        const { data: publicUrlData } = supabase.storage.from(VIDEOS_BUCKET).getPublicUrl(storagePath);
         return jsonResponse({
-            publicUrl: data.publicUrl,
+            signedUploadUrl: signedData.signedUrl,
+            uploadToken: signedData.token,
             storagePath,
-            fileName: file.name || cleanFileName,
-            fileSize: file.size,
+            publicUrl: publicUrlData.publicUrl,
+            fileName,
             contentType,
         });
     }
