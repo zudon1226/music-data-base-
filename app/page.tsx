@@ -8560,13 +8560,14 @@ export default function Page() {
         const { user: sessionUser } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
-        const storagePath = buildVideoStoragePath(sessionUser.id, file);
         const contentType = file.type || "video/mp4";
-        const uploadTargetUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ""}/storage/v1/object/${VIDEOS_STORAGE_BUCKET}/${storagePath}`;
+        const uploadTargetUrl = typeof window !== "undefined"
+            ? new URL("/api/video-upload", window.location.origin).toString()
+            : "/api/video-upload";
         const targetFlags = getUploadRequestTargetFlags(uploadTargetUrl);
         setVideoUploadStep("Preparing video...", 4);
         updateVideoUploadDebug({
-            uploadMethod: 'Supabase SDK: supabase.storage.from("videos").upload(storagePath, file)',
+            uploadMethod: "Server API route /api/video-upload uploads file to Supabase Storage",
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             uploadTargetUrl,
             bucket: VIDEOS_STORAGE_BUCKET,
@@ -8575,7 +8576,7 @@ export default function Page() {
             selectedFileName: file.name,
             selectedFileSize: String(file.size),
             hasFileObject: true,
-            currentStep: "Prepared standard Supabase Storage upload",
+            currentStep: "Prepared /api/video-upload raw file request",
             lastError: "",
             fullErrorJson: "",
             requestContainsDigitalMusicDatabase: uploadTargetUrl.includes("digitalmusicdatabase.com"),
@@ -8583,44 +8584,71 @@ export default function Page() {
             requestLooksLikeVercelFunction: targetFlags.isVercelFunctionUrl,
             requestLooksLikeAppServer: targetFlags.isAppDomain,
             requestMethod: "POST",
-            requestBodyType: "File direct to Supabase",
+            requestBodyType: "File to server upload route",
             requestBodySize: String(file.size),
             insertUserId: sessionUser.id,
             authUserId: sessionUser.id,
             insertUserMatchesAuth: "true",
-            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> supabase.storage.from("videos").upload(storagePath, file)',
+            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> fetch("/api/video-upload", file)',
         });
-        setVideoUploadStep("Uploading video directly to Supabase Storage...", 12);
+        setVideoUploadStep("Uploading video through /api/video-upload...", 12);
         console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
         console.log("UPLOAD TARGET:", uploadTargetUrl);
         console.log("SELECTED FILE SIZE:", file.size);
-        console.log("STANDARD SUPABASE VIDEO UPLOAD PREPARED", {
+        console.log("SERVER VIDEO UPLOAD PREPARED", {
             fileName: file.name,
             fileSize: file.size,
-            storagePath,
             uploadTargetUrl,
         });
-        const uploadResult = await supabase.storage.from(VIDEOS_STORAGE_BUCKET).upload(storagePath, file, {
-            cacheControl: "3600",
-            upsert: true,
-            contentType,
+        const response = await fetch("/api/video-upload", {
+            method: "POST",
+            headers: {
+                "Content-Type": contentType,
+                "x-file-name": encodeURIComponent(file.name || "video.mp4"),
+                "x-file-size": String(file.size),
+                "x-user-id": sessionUser.id,
+            },
+            body: file,
         });
-        if (uploadResult.error) {
-            const message = getUploadErrorMessage(uploadResult.error);
-            console.error("SUPABASE VIDEO STORAGE UPLOAD FAILED", uploadResult.error);
+        const responseText = await response.text();
+        let uploadResult: {
+            error?: string;
+            details?: unknown;
+            publicUrl?: string;
+            storagePath?: string;
+            fileName?: string;
+            fileSize?: number | null;
+            contentType?: string;
+        } = {};
+        if (responseText) {
+            try {
+                uploadResult = JSON.parse(responseText) as typeof uploadResult;
+            }
+            catch {
+                uploadResult = { error: responseText };
+            }
+        }
+        if (!response.ok) {
+            const detailText = typeof uploadResult.details === "string"
+                ? uploadResult.details
+                : uploadResult.details
+                    ? JSON.stringify(uploadResult.details)
+                    : "";
+            console.error("VIDEO UPLOAD API FAILED", uploadResult.error || response.statusText, detailText);
             updateVideoUploadDebug({
-                currentStep: "Supabase Storage upload failed",
-                lastError: message,
-                fullErrorJson: stringifyUploadDebugError(uploadResult.error),
+                currentStep: "Video upload API failed",
+                lastError: [uploadResult.error || response.statusText, detailText].filter(Boolean).join(" "),
+                fullErrorJson: responseText || stringifyUploadDebugError(uploadResult),
             });
-            throw new Error(`Supabase video storage upload failed: ${message}`);
+            throw new Error([uploadResult.error || `Video upload failed with HTTP ${response.status}.`, detailText]
+                .filter(Boolean)
+                .join(" "));
         }
-        const savedStoragePath = uploadResult.data?.path || storagePath;
-        const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
-        const publicUrl = publicUrlData.publicUrl;
-        if (!publicUrl) {
-            throw new Error("Supabase did not return a public URL for the uploaded video.");
+        if (!uploadResult.publicUrl || !uploadResult.storagePath) {
+            throw new Error("Video uploaded, but the server did not return a public URL and storage path.");
         }
+        const publicUrl = uploadResult.publicUrl;
+        const savedStoragePath = uploadResult.storagePath;
         setVideoUploadStep("Saving video metadata to public.videos...", 84);
         const createdAt = new Date().toISOString();
         const videoRow: Record<string, unknown> = {
@@ -8640,8 +8668,8 @@ export default function Page() {
             cover_url: videoDetails.cover || DEFAULT_COVER,
             thumbnail_url: videoDetails.cover || DEFAULT_COVER,
             storage_path: savedStoragePath,
-            file_name: file.name || savedStoragePath.split("/").pop() || "video",
-            file_size: file.size,
+            file_name: uploadResult.fileName || file.name || savedStoragePath.split("/").pop() || "video",
+            file_size: uploadResult.fileSize || file.size,
             views: 0,
             likes: 0,
             created_at: createdAt,
