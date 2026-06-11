@@ -8560,7 +8560,6 @@ export default function Page() {
         const { user: sessionUser } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
-        const contentType = file.type || "video/mp4";
         const uploadTargetUrl = typeof window !== "undefined"
             ? new URL("/api/video-upload", window.location.origin).toString()
             : "/api/video-upload";
@@ -8576,7 +8575,7 @@ export default function Page() {
             selectedFileName: file.name,
             selectedFileSize: String(file.size),
             hasFileObject: true,
-            currentStep: "Prepared /api/video-upload raw file request",
+            currentStep: "Prepared /api/video-upload FormData request",
             lastError: "",
             fullErrorJson: "",
             requestContainsDigitalMusicDatabase: uploadTargetUrl.includes("digitalmusicdatabase.com"),
@@ -8584,12 +8583,12 @@ export default function Page() {
             requestLooksLikeVercelFunction: targetFlags.isVercelFunctionUrl,
             requestLooksLikeAppServer: targetFlags.isAppDomain,
             requestMethod: "POST",
-            requestBodyType: "File to server upload route",
+            requestBodyType: "FormData to server upload route",
             requestBodySize: String(file.size),
             insertUserId: sessionUser.id,
             authUserId: sessionUser.id,
             insertUserMatchesAuth: "true",
-            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> fetch("/api/video-upload", file)',
+            sourceLocation: 'app/page.tsx uploadVideoToSupabase -> fetch("/api/video-upload", FormData)',
         });
         setVideoUploadStep("Uploading video through /api/video-upload...", 12);
         console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -8600,15 +8599,13 @@ export default function Page() {
             fileSize: file.size,
             uploadTargetUrl,
         });
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("sessionUserId", sessionUser.id);
+        formData.append("userId", sessionUser.id);
         const response = await fetch("/api/video-upload", {
             method: "POST",
-            headers: {
-                "Content-Type": contentType,
-                "x-file-name": encodeURIComponent(file.name || "video.mp4"),
-                "x-file-size": String(file.size),
-                "x-user-id": sessionUser.id,
-            },
-            body: file,
+            body: formData,
         });
         const responseText = await response.text();
         let uploadResult: {

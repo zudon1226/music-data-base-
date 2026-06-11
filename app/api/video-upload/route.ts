@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
@@ -62,17 +63,16 @@ function getSupabaseServerClient() {
     });
 }
 
-function getHeaderValue(request: Request, key: string) {
-    return request.headers.get(key)?.trim() || "";
-}
-
-function decodeHeaderValue(value: string) {
-    try {
-        return decodeURIComponent(value);
+function getFormFile(value: FormDataEntryValue | null) {
+    if (value &&
+        typeof value === "object" &&
+        "arrayBuffer" in value &&
+        typeof value.arrayBuffer === "function" &&
+        "size" in value &&
+        typeof value.size === "number") {
+        return value as File;
     }
-    catch {
-        return value;
-    }
+    return null;
 }
 
 function getFileExtension(fileName: string) {
@@ -113,7 +113,7 @@ export async function GET() {
         ok: true,
         route: "/api/video-upload",
         method: "POST",
-        message: "Send the video file as the raw POST body with x-file-name and x-user-id headers.",
+        message: "Send multipart FormData with file, userId, and sessionUserId fields.",
     });
 }
 
@@ -123,33 +123,38 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
     try {
-        const rawFileName = decodeHeaderValue(getHeaderValue(request, "x-file-name"));
-        const userId = getHeaderValue(request, "x-user-id");
-        const declaredFileSize = Number(getHeaderValue(request, "x-file-size") || request.headers.get("content-length") || "0");
-        const contentType = normalizeVideoContentType(getHeaderValue(request, "content-type"), rawFileName || "video.mp4");
+        const formData = await request.formData();
+        const file = getFormFile(formData.get("file"));
+        const sessionUserId = String(formData.get("sessionUserId") || "").trim();
+        const userId = String(formData.get("userId") || "").trim();
+        const authUserId = sessionUserId || userId;
 
-        if (!rawFileName) {
-            return jsonResponse({ error: "Video file name is required." }, 400);
+        if (!file) {
+            return jsonResponse({ error: "Choose a video file." }, 400);
         }
-        if (!userId) {
+        if (!authUserId) {
             return jsonResponse({ error: "You must log in again before uploading a video." }, 401);
         }
+        if (sessionUserId && userId && sessionUserId !== userId) {
+            return jsonResponse({ error: "Video upload user id does not match the signed-in session." }, 401);
+        }
+        if (file.size > MAX_VIDEO_UPLOAD_SIZE) {
+            return jsonResponse({ error: "Video is too large. Upload a file up to 500 MB." }, 413);
+        }
+
+        const fileName = file.name || "video.mp4";
+        const contentType = normalizeVideoContentType(file.type || "", fileName);
         if (!contentType.startsWith("video/")) {
             return jsonResponse({ error: "Only video files can be uploaded.", details: { contentType } }, 400);
         }
-        if (Number.isFinite(declaredFileSize) && declaredFileSize > MAX_VIDEO_UPLOAD_SIZE) {
-            return jsonResponse({ error: "Video is too large. Upload a file up to 500 MB." }, 413);
-        }
-        if (!request.body) {
-            return jsonResponse({ error: "Video request body is missing." }, 400);
-        }
 
-        const cleanFileName = cleanStorageFileName(rawFileName);
-        const storagePath = `${userId}/${Date.now()}-${crypto.randomUUID()}-${cleanFileName}`;
+        const cleanFileName = cleanStorageFileName(fileName);
+        const storagePath = `${authUserId}/${Date.now()}-${crypto.randomUUID()}-${cleanFileName}`;
+        const buffer = Buffer.from(await file.arrayBuffer());
         const supabase = getSupabaseServerClient();
         const { data, error: uploadError } = await supabase.storage
             .from(VIDEOS_BUCKET)
-            .upload(storagePath, request.body, {
+            .upload(storagePath, buffer, {
                 cacheControl: "3600",
                 contentType,
                 upsert: true,
@@ -169,8 +174,8 @@ export async function POST(request: Request) {
         return jsonResponse({
             publicUrl: publicUrlData.publicUrl,
             storagePath: savedStoragePath,
-            fileName: rawFileName,
-            fileSize: declaredFileSize || null,
+            fileName,
+            fileSize: file.size,
             contentType,
         });
     }
