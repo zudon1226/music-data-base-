@@ -111,8 +111,6 @@ export async function GET() {
     return jsonResponse({
         ok: true,
         route: "/api/upload-video",
-        methods: ["POST"],
-        message: "Video upload route is available. Send a POST request with FormData.",
     });
 }
 
