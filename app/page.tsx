@@ -1713,6 +1713,35 @@ function isLikelyStoragePath(value: string) {
     const trimmed = value.trim();
     return Boolean(trimmed && !/^https?:\/\//i.test(trimmed) && !trimmed.startsWith("blob:") && !trimmed.startsWith("data:") && !trimmed.startsWith("/"));
 }
+function isBlockedVideoPlaybackUrl(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed)
+        return true;
+    if (trimmed.includes("/api/video-upload") || trimmed.includes("/api/upload-video"))
+        return true;
+    try {
+        const url = new URL(trimmed, typeof window !== "undefined" ? window.location.origin : "https://digitalmusicdatabase.com");
+        const path = url.pathname.toLowerCase();
+        if (path.includes("/storage/v1/object/sign/") || path.includes("/storage/v1/object/upload/") || path.includes("/storage/v1/upload/"))
+            return true;
+        return false;
+    }
+    catch {
+        return false;
+    }
+}
+function isPublicSupabaseVideoUrl(value: string) {
+    try {
+        const url = new URL(value.trim());
+        const path = url.pathname.toLowerCase();
+        return url.protocol === "https:" &&
+            url.hostname.endsWith(".supabase.co") &&
+            path.includes("/storage/v1/object/public/videos/");
+    }
+    catch {
+        return false;
+    }
+}
 function getVideoPublicUrlFromStoragePath(storagePath: string) {
     const cleanPath = storagePath.trim();
     if (!cleanPath)
@@ -1727,13 +1756,20 @@ function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown>
     const directUrl = ["video_url", "file_url", "url", "public_url", "videoUrl"]
         .map((key) => record[key])
         .find((value): value is string => typeof value === "string" && value.trim().length > 0);
-    if (directUrl) {
-        const cleanUrl = directUrl.trim();
-        return isLikelyStoragePath(cleanUrl) ? getVideoPublicUrlFromStoragePath(cleanUrl) : cleanUrl;
-    }
     const storagePath = ["storage_path", "storagePath"]
         .map((key) => record[key])
         .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+    if (directUrl) {
+        const cleanUrl = directUrl.trim();
+        if (isPublicSupabaseVideoUrl(cleanUrl))
+            return cleanUrl;
+        if (isLikelyStoragePath(cleanUrl))
+            return getVideoPublicUrlFromStoragePath(cleanUrl);
+        if (!isBlockedVideoPlaybackUrl(cleanUrl))
+            return cleanUrl;
+        if (storagePath)
+            return getVideoPublicUrlFromStoragePath(storagePath);
+    }
     if (!storagePath)
         return "";
     return getVideoPublicUrlFromStoragePath(storagePath);
@@ -1770,9 +1806,15 @@ function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
     const rawVideoUrl = getStringField(record, ["video_url", "file_url", "url", "public_url", "videoUrl"]);
     const coverUrl = getArtworkUrl(getStringField(record, ["cover_url", "cover_image_url", "thumbnail_url", "cover", "poster"]));
     const storagePath = getStringField(record, ["storagePath", "storage_path"]);
-    const videoUrl = rawVideoUrl
-        ? (isLikelyStoragePath(rawVideoUrl) ? getVideoPublicUrlFromStoragePath(rawVideoUrl) : rawVideoUrl)
-        : getVideoPublicUrlFromStoragePath(storagePath);
+    const videoUrl = getVideoPlaybackUrl({ video_url: rawVideoUrl, storage_path: storagePath });
+    if (!videoUrl) {
+        console.warn("[video normalize] no playable URL", {
+            id: getStringField(record, ["id"]),
+            title,
+            video_url: rawVideoUrl,
+            storage_path: storagePath,
+        });
+    }
     const id = getStringField(record, ["id"]) || videoUrl || storagePath || createId(title);
     return {
         ...video,
@@ -2011,12 +2053,13 @@ function formatDurationLabel(value: number | string | null | undefined) {
     return `${minutes}:${seconds}`;
 }
 function mapVideoRowToVideoItem(row: VideoTableRow): VideoItem {
-    const videoUrl = row.video_url || row.file_url || "";
+    const storagePath = row.storage_path || "";
+    const videoUrl = getVideoPlaybackUrl({ video_url: row.video_url || row.file_url || "", storage_path: storagePath });
     const thumbnailUrl = getArtworkUrl(row.cover_url || row.thumbnail_url);
     const description = row.description || "";
     const creator = row.artist_name || description || row.producer_name || row.producer || "Unknown creator";
     const category = row.category || "Music Video";
-    return {
+    return normalizeVideo({
         id: row.id,
         title: row.title || "Untitled video",
         creator,
@@ -2035,8 +2078,8 @@ function mapVideoRowToVideoItem(row: VideoTableRow): VideoItem {
         videoUrl,
         video_url: videoUrl,
         file_url: row.file_url || "",
-        storagePath: row.storage_path || "",
-        storage_path: row.storage_path || "",
+        storagePath,
+        storage_path: storagePath,
         fileName: row.file_name || "",
         uploaded: formatVideoCreatedAt(row.created_at),
         views: row.views || 0,
@@ -2045,7 +2088,7 @@ function mapVideoRowToVideoItem(row: VideoTableRow): VideoItem {
         created_at: row.created_at || "",
         ownerId: row.user_id || "",
         albumId: row.album_id || "",
-    };
+    });
 }
 function mapSavedSongVideoToVideoItem(song: Song): VideoItem {
     const videoUrl = song.video || song.audio || "";

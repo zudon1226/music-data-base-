@@ -35,6 +35,64 @@ function getSupabaseServerClient() {
 function isUuid(value: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
+function getSupabaseVideoPublicUrl(storagePath: string) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
+    const cleanPath = storagePath.trim().replace(/^\/+/, "");
+    if (!supabaseUrl || !cleanPath)
+        return "";
+    return `${supabaseUrl}/storage/v1/object/public/videos/${cleanPath.split("/").map(encodeURIComponent).join("/")}`;
+}
+function isLikelyStoragePath(value: string) {
+    const trimmed = value.trim();
+    return Boolean(trimmed && !/^https?:\/\//i.test(trimmed) && !trimmed.startsWith("blob:") && !trimmed.startsWith("data:") && !trimmed.startsWith("/"));
+}
+function isPublicSupabaseVideoUrl(value: string) {
+    try {
+        const url = new URL(value.trim());
+        return url.protocol === "https:" &&
+            url.hostname.endsWith(".supabase.co") &&
+            url.pathname.toLowerCase().includes("/storage/v1/object/public/videos/");
+    }
+    catch {
+        return false;
+    }
+}
+function isBlockedVideoPlaybackUrl(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed)
+        return true;
+    if (trimmed.includes("/api/video-upload") || trimmed.includes("/api/upload-video"))
+        return true;
+    try {
+        const url = new URL(trimmed);
+        const path = url.pathname.toLowerCase();
+        return path.includes("/storage/v1/object/sign/") || path.includes("/storage/v1/object/upload/") || path.includes("/storage/v1/upload/");
+    }
+    catch {
+        return false;
+    }
+}
+function normalizeVideoUrl(row: Record<string, unknown>) {
+    const videoUrl = typeof row.video_url === "string" ? row.video_url.trim() : "";
+    const storagePath = typeof row.storage_path === "string" ? row.storage_path.trim() : "";
+    if (videoUrl) {
+        if (isPublicSupabaseVideoUrl(videoUrl))
+            return videoUrl;
+        if (isLikelyStoragePath(videoUrl))
+            return getSupabaseVideoPublicUrl(videoUrl);
+        if (!isBlockedVideoPlaybackUrl(videoUrl))
+            return videoUrl;
+    }
+    if (storagePath)
+        return getSupabaseVideoPublicUrl(storagePath);
+    console.warn("[api/videos] video has no playable URL", {
+        id: row.id,
+        title: row.title,
+        video_url: videoUrl,
+        storage_path: storagePath,
+    });
+    return videoUrl;
+}
 export async function GET(request: Request) {
     try {
         const supabase = getSupabaseServerClient();
@@ -72,7 +130,10 @@ export async function GET(request: Request) {
             console.error("[api/videos] load failed:", error);
             return jsonResponse({ error: getErrorMessage(error) }, 500);
         }
-        const videos = data || [];
+        const videos: Record<string, unknown>[] = (data || []).map((video) => ({
+            ...video,
+            video_url: normalizeVideoUrl(video),
+        }));
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId) || videos.length === 0) {
             return jsonResponse({ videos });
