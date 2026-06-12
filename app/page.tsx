@@ -23183,8 +23183,8 @@ export default function Page() {
 
           @media (max-width: 820px) {
             :root {
-              --mobile-sidebar-width: 72px;
-              --mobile-player-reserve: calc(340px + env(safe-area-inset-bottom, 0px));
+              --mobile-sidebar-width: 64px;
+              --mobile-player-reserve: calc(220px + env(safe-area-inset-bottom, 0px));
             }
 
             html,
@@ -23198,7 +23198,7 @@ export default function Page() {
 
             .sidebar {
               width: var(--mobile-sidebar-width);
-              padding: 10px 7px 95px;
+              padding: 8px 6px 90px;
             }
 
             .nav {
@@ -23207,14 +23207,14 @@ export default function Page() {
 
             .nav button {
               justify-content: center;
-              min-height: 48px;
-              padding: 8px 5px;
+              min-height: 44px;
+              padding: 7px 4px;
             }
 
             .nav button svg,
             .reset-btn svg {
-              width: 21px;
-              height: 21px;
+              width: 20px;
+              height: 20px;
             }
 
             .nav span,
@@ -23224,8 +23224,8 @@ export default function Page() {
             }
 
             .logo img {
-              width: 50px;
-              max-height: 50px;
+              width: 46px;
+              max-height: 46px;
             }
 
             .logo span {
@@ -23236,7 +23236,7 @@ export default function Page() {
             .content {
               margin-left: var(--mobile-sidebar-width);
               width: calc(100% - var(--mobile-sidebar-width));
-              padding: 8px 8px var(--mobile-player-reserve);
+              padding: 8px 10px var(--mobile-player-reserve);
               scroll-padding-bottom: var(--mobile-player-reserve);
             }
 
@@ -23256,34 +23256,33 @@ export default function Page() {
 
             .topbar {
               grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 6px;
-              padding-bottom: 7px;
+              gap: 5px;
+              padding-bottom: 5px;
               z-index: 80;
             }
 
             .search-wrap,
-            .view-toggle,
-            .notification-wrap {
+            .view-toggle {
               grid-column: 1 / -1;
             }
 
             .search-box {
-              height: 38px;
+              height: 34px;
               border-radius: 8px;
             }
 
             .search-box input {
-              font-size: 14px;
+              font-size: 13px;
             }
 
             .view-toggle {
-              height: 34px;
+              height: 31px;
             }
 
             .view-toggle button {
-              font-size: 12px;
-              gap: 5px;
-              padding: 0 8px;
+              font-size: 11.5px;
+              gap: 4px;
+              padding: 0 6px;
             }
 
             .notification-button,
@@ -23291,17 +23290,18 @@ export default function Page() {
             .dashboard-btn,
             .profile-btn,
             .logout-btn {
-              height: 36px;
-              min-height: 36px;
+              height: 32px;
+              min-height: 32px;
               border-radius: 8px;
-              font-size: 12.5px;
-              gap: 5px;
-              padding: 0 8px;
+              font-size: 11.5px;
+              gap: 4px;
+              padding: 0 6px;
               width: 100%;
               min-width: 0;
               justify-content: center;
             }
 
+            .notification-wrap,
             .notification-button {
               width: 100%;
             }
@@ -23311,8 +23311,8 @@ export default function Page() {
             .dashboard-btn svg,
             .profile-btn svg,
             .logout-btn svg {
-              width: 16px;
-              height: 16px;
+              width: 14px;
+              height: 14px;
             }
 
             .topbar > button,
@@ -23358,6 +23358,8 @@ export default function Page() {
 
             .global-video-player {
               gap: 10px;
+              margin-top: 12px;
+              scroll-margin-top: 176px;
               padding: 10px;
               overflow: hidden;
             }
@@ -23365,11 +23367,12 @@ export default function Page() {
             .video-player-panel video,
             .video-mobile-incompatible-panel {
               min-height: 0;
-              max-height: 42vh;
+              max-height: 38vh;
             }
 
             .video-mobile-incompatible-panel {
-              padding: 14px;
+              box-sizing: border-box;
+              padding: 12px;
               gap: 8px;
             }
 
@@ -23398,7 +23401,28 @@ export default function Page() {
               width: 100%;
               white-space: normal;
               line-height: 1.15;
-              padding: 10px 8px;
+              min-height: 34px;
+              padding: 7px 6px;
+              font-size: 12px;
+              gap: 4px;
+            }
+
+            .video-player-actions button svg {
+              width: 14px;
+              height: 14px;
+              flex: 0 0 auto;
+            }
+
+            .toast {
+              top: calc(8px + env(safe-area-inset-top, 0px));
+              right: 8px;
+              bottom: auto;
+              left: calc(var(--mobile-sidebar-width) + 8px);
+              max-width: none;
+              padding: 10px 12px;
+              font-size: 12px;
+              line-height: 1.35;
+              z-index: 120;
             }
 
             .queue-drawer {
@@ -23523,7 +23547,6 @@ export default function Page() {
 
             .upload-grid,
             .video-form-grid,
-            .topbar,
             .playlist-create,
             .playlist-hero {
               grid-template-columns: 1fr;
@@ -23936,14 +23959,13 @@ export default function Page() {
             }
 
             .topbar {
-              grid-template-columns: 1fr;
-              gap: 6px;
-              padding-bottom: 7px;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 5px;
+              padding-bottom: 5px;
             }
 
             .search-wrap,
-            .view-toggle,
-            .notification-wrap {
+            .view-toggle {
               grid-column: 1 / -1;
             }
 
