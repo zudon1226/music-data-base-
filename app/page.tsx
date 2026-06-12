@@ -1742,12 +1742,119 @@ function isPublicSupabaseVideoUrl(value: string) {
         return false;
     }
 }
+function getVideoStoragePathFromPublicUrl(value: string) {
+    try {
+        const url = new URL(value.trim());
+        const marker = "/storage/v1/object/public/videos/";
+        const markerIndex = url.pathname.indexOf(marker);
+        if (markerIndex < 0)
+            return "";
+        return decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+    }
+    catch {
+        return "";
+    }
+}
 function getVideoPublicUrlFromStoragePath(storagePath: string) {
     const cleanPath = storagePath.trim();
     if (!cleanPath)
         return "";
     const { data } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(cleanPath);
     return data.publicUrl || "";
+}
+function getVideoUrlExtension(value: string) {
+    try {
+        const url = new URL(value.trim(), typeof window !== "undefined" ? window.location.origin : "https://digitalmusicdatabase.com");
+        const fileName = url.pathname.split("/").pop() || "";
+        return getFileExtension(fileName);
+    }
+    catch {
+        const fileName = value.split("?")[0]?.split("/").pop() || "";
+        return getFileExtension(fileName);
+    }
+}
+function isPlayableVideoResponse(status: number, contentType: string, url: string) {
+    const normalizedType = contentType.toLowerCase();
+    const extension = getVideoUrlExtension(url);
+    return status >= 200 && status < 300 && (normalizedType.startsWith("video/") || ACCEPTED_VIDEO_EXTENSIONS.has(extension));
+}
+async function probeVideoPlaybackUrl(url: string) {
+    if (!url || typeof fetch === "undefined") {
+        return { ok: false, status: 0, contentType: "", acceptRanges: "", contentRange: "", contentLength: "", finalUrl: url, error: "No URL to probe" };
+    }
+    try {
+        let response = await fetch(url, { method: "HEAD", cache: "no-store" });
+        if (response.status === 405 || response.status === 403) {
+            response = await fetch(url, {
+                method: "GET",
+                cache: "no-store",
+                headers: { Range: "bytes=0-0" },
+            });
+        }
+        const contentType = response.headers.get("content-type") || "";
+        return {
+            ok: isPlayableVideoResponse(response.status, contentType, url),
+            status: response.status,
+            contentType,
+            acceptRanges: response.headers.get("accept-ranges") || "",
+            contentRange: response.headers.get("content-range") || "",
+            contentLength: response.headers.get("content-length") || "",
+            finalUrl: url,
+        };
+    }
+    catch (error) {
+        return {
+            ok: false,
+            status: 0,
+            contentType: "",
+            acceptRanges: "",
+            contentRange: "",
+            contentLength: "",
+            finalUrl: url,
+            error: error instanceof Error ? error.message : String(error),
+        };
+    }
+}
+async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>, finalUrl: string, sourceSection: string) {
+    const record = video as Record<string, unknown>;
+    const selectedVideoId = getStringField(record, ["id"]);
+    const storagePath = getStringField(record, ["storagePath", "storage_path"]);
+    const rawVideoUrl = getStringField(record, ["video_url", "videoUrl", "url", "public_url", "file_url"]);
+    const primaryProbe = await probeVideoPlaybackUrl(finalUrl);
+    console.log("[video playback probe]", {
+        sourceSection,
+        selectedVideoId,
+        title: getStringField(record, ["title", "name"]),
+        rawVideoUrl,
+        storagePath,
+        finalVideoUrl: finalUrl,
+        responseStatus: primaryProbe.status,
+        contentType: primaryProbe.contentType,
+        acceptRanges: primaryProbe.acceptRanges,
+        contentRange: primaryProbe.contentRange,
+        contentLength: primaryProbe.contentLength,
+        ok: primaryProbe.ok,
+        error: "error" in primaryProbe ? primaryProbe.error : "",
+    });
+    if (!primaryProbe.ok && storagePath) {
+        const storageUrl = getVideoPublicUrlFromStoragePath(storagePath);
+        if (storageUrl && storageUrl !== finalUrl) {
+            const storageProbe = await probeVideoPlaybackUrl(storageUrl);
+            console.log("[video playback storage fallback probe]", {
+                sourceSection,
+                selectedVideoId,
+                storagePath,
+                finalVideoUrl: storageUrl,
+                responseStatus: storageProbe.status,
+                contentType: storageProbe.contentType,
+                acceptRanges: storageProbe.acceptRanges,
+                contentRange: storageProbe.contentRange,
+                contentLength: storageProbe.contentLength,
+                ok: storageProbe.ok,
+                error: "error" in storageProbe ? storageProbe.error : "",
+            });
+        }
+    }
 }
 function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown> | null) {
     if (!video)
@@ -1761,8 +1868,14 @@ function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown>
         .find((value): value is string => typeof value === "string" && value.trim().length > 0);
     if (directUrl) {
         const cleanUrl = directUrl.trim();
-        if (isPublicSupabaseVideoUrl(cleanUrl))
+        if (isPublicSupabaseVideoUrl(cleanUrl)) {
+            const publicUrlStoragePath = getVideoStoragePathFromPublicUrl(cleanUrl);
+            const cleanExtension = getVideoUrlExtension(cleanUrl);
+            if ((!ACCEPTED_VIDEO_EXTENSIONS.has(cleanExtension) || isBlockedVideoPlaybackUrl(cleanUrl)) && (storagePath || publicUrlStoragePath)) {
+                return getVideoPublicUrlFromStoragePath(storagePath || publicUrlStoragePath);
+            }
             return cleanUrl;
+        }
         if (isLikelyStoragePath(cleanUrl))
             return getVideoPublicUrlFromStoragePath(cleanUrl);
         if (!isBlockedVideoPlaybackUrl(cleanUrl))
@@ -2625,6 +2738,14 @@ function isAbortError(error: unknown) {
         typeof error === "object" &&
         String((error as Record<string, unknown>).name || "") === "AbortError");
 }
+function isDeferredVideoPlayError(error: unknown) {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
+    return isAbortError(error) ||
+        message.includes("interrupted") ||
+        message.includes("not ready") ||
+        message.includes("no supported source") ||
+        message.includes("not supported");
+}
 function isStorageSetupError(message: string) {
     const normalized = message.toLowerCase();
     return (normalized.includes("row-level security") ||
@@ -2801,6 +2922,7 @@ export default function Page() {
     const salesLoadedUserRef = useRef("");
     const salesLoadInFlightUserRef = useRef("");
     const selectedVideoFileRef = useRef<File | null>(null);
+    const pendingVideoPlayRef = useRef(false);
     const remoteMusicStateSaveSnapshotRef = useRef("");
     const initialDataReloadRef = useRef<InitialDataReloadActions>({
         clearRemovedPlaceholderArtwork: () => undefined,
@@ -7552,12 +7674,36 @@ export default function Page() {
         video.preload = "metadata";
         video.muted = false;
         video.volume = videoVolume;
+        console.log("[video playback tap]", {
+            selectedVideoId: activeVideo.id,
+            title: activeVideo.title,
+            finalVideoUrl: activeVideoPlaybackUrl,
+            actualVideoSrc: video.currentSrc || video.src || video.getAttribute("src") || "",
+            video_url: activeVideo.video_url,
+            storage_path: activeVideo.storagePath || activeVideo.storage_path || "",
+        });
+        void logVideoPlaybackProbe(activeVideo, activeVideoPlaybackUrl, "Video Player Controls");
         try {
             await video.play();
             setVideoPlaying(true);
         }
         catch (error) {
             setVideoPlaying(false);
+            console.warn("[video playback failed]", {
+                selectedVideoId: activeVideo.id,
+                finalVideoUrl: activeVideoPlaybackUrl,
+                actualVideoSrc: video.currentSrc || video.src || video.getAttribute("src") || "",
+                contentReadyState: video.readyState,
+                networkState: video.networkState,
+                mediaErrorCode: video.error?.code || null,
+                mediaErrorMessage: video.error?.message || "",
+                error,
+            });
+            if (isDeferredVideoPlayError(error)) {
+                pendingVideoPlayRef.current = true;
+                showToast("Video is loading. If it does not start, press Play again.", "info");
+                return;
+            }
             showToast("Video playback could not start. Try pressing Play again.", "error");
         }
     }
@@ -7596,6 +7742,7 @@ export default function Page() {
         }
     }
     function handleVideoPlay() {
+        pendingVideoPlayRef.current = false;
         if (audioRef.current && !audioRef.current.paused) {
             audioRef.current.pause();
         }
@@ -7608,6 +7755,34 @@ export default function Page() {
     }
     function handleVideoPause() {
         setVideoPlaying(false);
+    }
+    function handleVideoCanPlay() {
+        const video = mainVideoRef.current;
+        if (!pendingVideoPlayRef.current || !video || !activeVideo || activeMedia?.type !== "video")
+            return;
+        pendingVideoPlayRef.current = false;
+        console.log("[video pending play retry]", {
+            selectedVideoId: activeVideo.id,
+            finalVideoUrl: activeVideoPlaybackUrl,
+            actualVideoSrc: video.currentSrc || video.src || video.getAttribute("src") || "",
+            readyState: video.readyState,
+            networkState: video.networkState,
+        });
+        video.play().then(() => {
+            setVideoPlaying(true);
+        }).catch((error) => {
+            setVideoPlaying(false);
+            console.warn("[video pending play retry failed]", {
+                selectedVideoId: activeVideo.id,
+                finalVideoUrl: activeVideoPlaybackUrl,
+                actualVideoSrc: video.currentSrc || video.src || video.getAttribute("src") || "",
+                readyState: video.readyState,
+                networkState: video.networkState,
+                mediaErrorCode: video.error?.code || null,
+                mediaErrorMessage: video.error?.message || "",
+                error,
+            });
+        });
     }
     function handleVideoEnded() {
         if (videoRepeat && mainVideoRef.current) {
@@ -9546,6 +9721,17 @@ export default function Page() {
         }
         const nextViews = (playableVideo.views || 0) + 1;
         const nextActiveVideo = { ...playableVideo, views: nextViews };
+        console.log("[video selected]", {
+            sourceSection,
+            selectedVideoId: playableVideo.id,
+            title: playableVideo.title,
+            video_url: playableVideo.video_url,
+            storage_path: playableVideo.storagePath || playableVideo.storage_path || "",
+            fileName: playableVideo.fileName || "",
+            finalVideoUrl: videoUrl,
+            extension: getVideoUrlExtension(videoUrl),
+        });
+        void logVideoPlaybackProbe(playableVideo, videoUrl, sourceSection);
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.removeAttribute("src");
@@ -9574,13 +9760,40 @@ export default function Page() {
                 mainVideo.src = videoUrl;
                 mainVideo.load();
             }
+            console.log("[video play attempt]", {
+                sourceSection,
+                selectedVideoId: playableVideo.id,
+                finalVideoUrl: videoUrl,
+                actualVideoSrc: mainVideo.currentSrc || mainVideo.src || mainVideo.getAttribute("src") || "",
+                playsInline: mainVideo.playsInline,
+                controls: mainVideo.controls,
+                preload: mainVideo.preload,
+                readyState: mainVideo.readyState,
+                networkState: mainVideo.networkState,
+            });
             mainVideo.play().then(() => {
                 setVideoPlaying(true);
             }).catch((error) => {
                 setVideoPlaying(false);
+                console.warn("[video play attempt failed]", {
+                    sourceSection,
+                    selectedVideoId: playableVideo.id,
+                    finalVideoUrl: videoUrl,
+                    actualVideoSrc: mainVideo.currentSrc || mainVideo.src || mainVideo.getAttribute("src") || "",
+                    readyState: mainVideo.readyState,
+                    networkState: mainVideo.networkState,
+                    mediaErrorCode: mainVideo.error?.code || null,
+                    mediaErrorMessage: mainVideo.error?.message || "",
+                    error,
+                });
                 const message = error instanceof Error ? error.message : String(error);
+                if (isDeferredVideoPlayError(error)) {
+                    pendingVideoPlayRef.current = true;
+                    showToast("Video is loading. If it does not start, press Play again.", "info");
+                    return;
+                }
                 if (!message.toLowerCase().includes("interrupted")) {
-                    showToast("Video is ready. Press Play if your browser blocked playback.", "info");
+                    showToast("Video playback could not start. Try pressing Play again.", "error");
                 }
             });
         }
@@ -12009,7 +12222,7 @@ export default function Page() {
         if (!activeVideo)
             return null;
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
-        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} playsInline preload="metadata" poster={activeVideo.cover} onLoadedMetadata={updateVideoDuration} onDurationChange={updateVideoDuration} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={handleVideoPause} onEnded={handleVideoEnded} onError={() => console.error("[main video] load failed:", activeVideoPlaybackUrl)}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
+        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} playsInline preload="metadata" poster={activeVideo.cover} onLoadedMetadata={updateVideoDuration} onDurationChange={updateVideoDuration} onCanPlay={handleVideoCanPlay} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={handleVideoPause} onEnded={handleVideoEnded} onError={() => console.error("[main video] load failed:", activeVideoPlaybackUrl)}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
         <div className="video-player-copy">
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
