@@ -2129,6 +2129,16 @@ function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | unde
         videoUrl.includes("girlie-girlie") ||
         (video?.mobileCompatible ?? video?.mobile_compatible ?? null) === false;
 }
+function getStoredMobileCompatibility(video: Partial<VideoItem> | null | undefined) {
+    return video?.mobileCompatible ?? video?.mobile_compatible ?? null;
+}
+function getDetectedMobileCompatibility(videoCodec: string, audioCodec: string) {
+    const normalizedVideo = videoCodec.trim().toLowerCase();
+    const normalizedAudio = audioCodec.trim().toLowerCase();
+    if (!normalizedVideo && !normalizedAudio)
+        return null;
+    return isMobileCompatibleCodec(normalizedVideo, normalizedAudio);
+}
 function getPlaylistTypeFromRecord(record: Record<string, unknown>): PlaylistType {
     const rawType = getStringField(record, ["playlistType", "playlist_type", "type"]).toLowerCase();
     if (rawType === "video" || rawType === "song" || rawType === "mixed")
@@ -3101,6 +3111,7 @@ export default function Page() {
     const salesLoadInFlightUserRef = useRef("");
     const selectedVideoFileRef = useRef<File | null>(null);
     const pendingVideoPlayRef = useRef(false);
+    const videoCompatibilityScanRef = useRef<Set<string>>(new Set());
     const remoteMusicStateSaveSnapshotRef = useRef("");
     const initialDataReloadRef = useRef<InitialDataReloadActions>({
         clearRemovedPlaceholderArtwork: () => undefined,
@@ -5681,6 +5692,69 @@ export default function Page() {
             window.removeEventListener("orientationchange", updateMobilePlaybackEnvironment);
         };
     }, []);
+    useEffect(() => {
+        if (typeof window === "undefined" || videos.length === 0)
+            return;
+        let cancelled = false;
+        const candidates = uniqueVideos(videos).filter((video) => {
+            const playbackUrl = getVideoPlaybackUrl(video);
+            if (!playbackUrl || !video.id)
+                return false;
+            const scanKey = `${video.id}:${playbackUrl}`;
+            if (videoCompatibilityScanRef.current.has(scanKey))
+                return false;
+            const storedCompatibility = getStoredMobileCompatibility(video);
+            return storedCompatibility === null || !(video.videoCodec || video.video_codec);
+        });
+        if (candidates.length === 0)
+            return;
+        async function scanVideoCompatibility() {
+            for (const video of candidates) {
+                if (cancelled)
+                    return;
+                const playbackUrl = getVideoPlaybackUrl(video);
+                const scanKey = `${video.id}:${playbackUrl}`;
+                videoCompatibilityScanRef.current.add(scanKey);
+                const probe = await probeVideoPlaybackUrl(playbackUrl);
+                if (cancelled)
+                    return;
+                const mobileCompatible = getDetectedMobileCompatibility(probe.videoCodec, probe.audioCodec);
+                setVideos((previous) => previous.map((item) => item.id === video.id
+                    ? normalizeVideoForPlayback({
+                        ...item,
+                        videoCodec: probe.videoCodec,
+                        video_codec: probe.videoCodec,
+                        audioCodec: probe.audioCodec,
+                        audio_codec: probe.audioCodec,
+                        mobileCompatible,
+                        mobile_compatible: mobileCompatible,
+                    })
+                    : item));
+                if (mobileCompatible === false) {
+                    console.warn("[video compatibility] mobile incompatible video detected", {
+                        id: video.id,
+                        title: video.title,
+                        videoCodec: probe.videoCodec,
+                        audioCodec: probe.audioCodec,
+                        playbackUrl,
+                    });
+                }
+                void fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        video_codec: probe.videoCodec || null,
+                        audio_codec: probe.audioCodec || null,
+                        mobile_compatible: mobileCompatible,
+                    }),
+                }).catch((error) => console.warn("[video compatibility] save failed", video.id, error));
+            }
+        }
+        void scanVideoCompatibility();
+        return () => {
+            cancelled = true;
+        };
+    }, [videos]);
     useEffect(() => {
         const video = mainVideoRef.current;
         if (!video)
@@ -11212,7 +11286,7 @@ export default function Page() {
               <span>
                 {formatCount(video.views)} views | {formatCount(video.likes || 0)} likes
               </span>
-              {isVideoMarkedMobileIncompatible(video) ? (<span className="video-compat-warning">This video may not play on some mobile devices.</span>) : null}
+              {isVideoMarkedMobileIncompatible(video) ? (<span className="video-compat-warning">This video must be re-uploaded as MP4 H.264/AAC for mobile.</span>) : null}
             </div>
             <div className="dashboard-song-actions">
               <button onClick={() => playVideo(video, sourceLabel)} type="button">
@@ -11373,7 +11447,7 @@ export default function Page() {
             <span>{formatCount(video.likes || 0)} likes</span>
             <span>{video.uploaded}</span>
           </div>
-          {mobileIncompatible ? (<p className="video-compat-warning">This video may not play on some mobile devices.</p>) : null}
+          {mobileIncompatible ? (<p className="video-compat-warning">This video must be re-uploaded as MP4 H.264/AAC for mobile.</p>) : null}
 
           <div className="card-actions">
             <button className="play-btn" onClick={() => playVideo(video, sourceLabel)} type="button">
@@ -12578,7 +12652,7 @@ export default function Page() {
         {showMobileIncompatibleFallback ? (<div className="video-mobile-incompatible-panel">
             <Film size={42}/>
             <strong>Mobile incompatible video</strong>
-            <span>Re-upload as MP4 H.264/AAC</span>
+            <span>This video must be re-uploaded as MP4 H.264/AAC for mobile.</span>
           </div>) : activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
                 updateVideoDuration(event);
                 logVideoElementState("loadedmetadata event", event.currentTarget);
@@ -12619,7 +12693,7 @@ export default function Page() {
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
           <p>{activeVideo.creator}</p>
-          {isVideoMarkedMobileIncompatible(activeVideo) ? (<p className="mobile-video-incompatible">{showMobileIncompatibleFallback ? "Mobile incompatible video. Re-upload as MP4 H.264/AAC." : "This video may not play on some mobile devices."}</p>) : null}
+          {isVideoMarkedMobileIncompatible(activeVideo) ? (<p className="mobile-video-incompatible">{showMobileIncompatibleFallback ? "This video must be re-uploaded as MP4 H.264/AAC for mobile." : "This video may not play on some mobile devices."}</p>) : null}
           <div className="video-player-actions">
             <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={getVideoPlaybackList().length < 2}>
               <SkipBack size={16} fill="currentColor"/>
@@ -13140,7 +13214,7 @@ export default function Page() {
                     <small>
                       {albumVideoFiles.length > 0
                     ? `${albumVideoFiles.length} video file${albumVideoFiles.length === 1 ? "" : "s"} selected`
-                    : "Recommended: MP4 with H.264 video and AAC audio."}
+                    : "Use MP4 H.264 video + AAC audio for iPhone/Android playback."}
                     </small>
                   </label>
 
@@ -13218,7 +13292,7 @@ export default function Page() {
                     setVideoUploadProgress(0);
                     setVideoUploadStatus("");
                 }}/>
-                    <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : "Recommended: MP4 with H.264 video and AAC audio."}</small>
+                    <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : "Use MP4 H.264 video + AAC audio for iPhone/Android playback."}</small>
                   </label>
                 </div>
 
@@ -14465,7 +14539,7 @@ export default function Page() {
               </div>
               <div className="cleanup-warning">
                 <strong>Recommended upload format</strong>
-                <span>Use MP4 with H.264 video and AAC audio. Re-encode incompatible videos, upload the replacement, then update the video row URL/path.</span>
+                <span>Use MP4 H.264 video + AAC audio for iPhone/Android playback. Re-encode incompatible videos, upload the replacement, then update the video row URL/path.</span>
               </div>
               {incompatibleVideos.length === 0 && unknownCompatibilityVideos.length === 0 ? (<div className="dashboard-empty-card">
                   <h3>No compatibility issues found</h3>

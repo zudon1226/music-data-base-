@@ -92,6 +92,12 @@ export async function PATCH(request: Request, { params }: {
             producerProfileId?: unknown;
             beat_id?: unknown;
             beatId?: unknown;
+            video_codec?: unknown;
+            videoCodec?: unknown;
+            audio_codec?: unknown;
+            audioCodec?: unknown;
+            mobile_compatible?: unknown;
+            mobileCompatible?: unknown;
         };
         const updates: {
             views?: number;
@@ -107,6 +113,9 @@ export async function PATCH(request: Request, { params }: {
             producer_id?: string | null;
             producer_profile_id?: string | null;
             beat_id?: string | null;
+            video_codec?: string | null;
+            audio_codec?: string | null;
+            mobile_compatible?: boolean | null;
         } = {};
         if (!id) {
             return jsonResponse({ error: "Missing video id." }, 400);
@@ -200,11 +209,34 @@ export async function PATCH(request: Request, { params }: {
         if (body.beat_id !== undefined || body.beatId !== undefined) {
             updates.beat_id = String(body.beat_id || body.beatId || "").trim() || null;
         }
+        if (body.video_codec !== undefined || body.videoCodec !== undefined) {
+            updates.video_codec = String(body.video_codec || body.videoCodec || "").trim() || null;
+        }
+        if (body.audio_codec !== undefined || body.audioCodec !== undefined) {
+            updates.audio_codec = String(body.audio_codec || body.audioCodec || "").trim() || null;
+        }
+        if (body.mobile_compatible !== undefined || body.mobileCompatible !== undefined) {
+            const rawMobileCompatible = body.mobile_compatible ?? body.mobileCompatible;
+            updates.mobile_compatible = typeof rawMobileCompatible === "boolean" ? rawMobileCompatible : null;
+        }
         if (Object.keys(updates).length === 0) {
             return jsonResponse({ error: "No video updates provided." }, 400);
         }
         const { error } = await supabase.from("videos").update(updates).eq("id", id);
         if (error) {
+            if (/video_codec|audio_codec|mobile_compatible/i.test(getErrorMessage(error))) {
+                const legacyUpdates = { ...updates };
+                delete legacyUpdates.video_codec;
+                delete legacyUpdates.audio_codec;
+                delete legacyUpdates.mobile_compatible;
+                if (Object.keys(legacyUpdates).length === 0) {
+                    return jsonResponse({ ok: true, compatibilitySkipped: true });
+                }
+                const legacyResult = await supabase.from("videos").update(legacyUpdates).eq("id", id);
+                if (!legacyResult.error) {
+                    return jsonResponse({ ok: true, compatibilitySkipped: true });
+                }
+            }
             console.error("[api/videos/:id] update failed:", error);
             return jsonResponse({ error: getErrorMessage(error) }, 500);
         }
