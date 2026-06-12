@@ -1836,6 +1836,14 @@ async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>,
         ok: primaryProbe.ok,
         error: "error" in primaryProbe ? primaryProbe.error : "",
     });
+    if (primaryProbe.ok && primaryProbe.contentType && !primaryProbe.contentType.toLowerCase().startsWith("video/mp4")) {
+        console.warn("[video playback probe] storage URL is not video/mp4", {
+            sourceSection,
+            selectedVideoId,
+            finalVideoUrl: finalUrl,
+            contentType: primaryProbe.contentType,
+        });
+    }
     if (!primaryProbe.ok && storagePath) {
         const storageUrl = getVideoPublicUrlFromStoragePath(storagePath);
         if (storageUrl && storageUrl !== finalUrl) {
@@ -5502,9 +5510,13 @@ export default function Page() {
         if (!video)
             return;
         video.muted = false;
+        video.autoplay = false;
         setVideoProgress(0);
         setVideoDuration(0);
         setVideoPlaying(false);
+        logVideoElementState("source changed", video, {
+            nextSource: activeVideoPlaybackUrl,
+        });
     }, [activeVideoPlaybackUrl]);
     useEffect(() => {
         const video = mainVideoRef.current;
@@ -5524,6 +5536,8 @@ export default function Page() {
             mainVideo.src = activeVideoPlaybackUrl;
             mainVideo.load();
         }
+        mainVideo.autoplay = false;
+        logVideoElementState("active video source sync", mainVideo);
     }, [activeVideo, activeVideoPlaybackUrl, videoAutoplayRequestId]);
     useEffect(() => {
         const video = mainVideoRef.current;
@@ -5540,10 +5554,15 @@ export default function Page() {
             video.load();
         }
         video.muted = false;
+        video.autoplay = false;
         video.volume = videoVolume;
+        logVideoElementState("autoplay request before play", video);
         const playPromise = video.play();
         playPromise.catch((error) => {
             setVideoPlaying(false);
+            logVideoElementState("autoplay request failed", video, {
+                playError: error instanceof Error ? error.message : String(error),
+            });
             const message = error instanceof Error ? error.message : String(error);
             if (message.toLowerCase().includes("interrupted")) {
                 return;
@@ -7678,16 +7697,12 @@ export default function Page() {
         video.setAttribute("playsinline", "");
         video.setAttribute("webkit-playsinline", "");
         video.controls = true;
+        video.autoplay = false;
         video.preload = "metadata";
         video.muted = false;
         video.volume = videoVolume;
-        console.log("[video playback tap]", {
-            selectedVideoId: activeVideo.id,
-            title: activeVideo.title,
-            finalVideoUrl: activeVideoPlaybackUrl,
-            actualVideoSrc: video.currentSrc || video.src || video.getAttribute("src") || "",
-            video_url: activeVideo.video_url,
-            storage_path: activeVideo.storagePath || activeVideo.storage_path || "",
+        logVideoElementState("video playback tap", video, {
+            control: "custom-bar",
         });
         void logVideoPlaybackProbe(activeVideo, activeVideoPlaybackUrl, "Video Player Controls");
         try {
@@ -7754,7 +7769,77 @@ export default function Page() {
             mainVideoRef.current.muted = nextVolume === 0;
         }
     }
+    function logVideoElementState(label: string, video: HTMLVideoElement | null = mainVideoRef.current, extra: Record<string, unknown> = {}) {
+        const selectedVideo = activeVideo;
+        const finalVideoUrl = activeVideoPlaybackUrl || getVideoPlaybackUrl(selectedVideo);
+        const desktopUrl = getVideoPlaybackUrl(selectedVideo);
+        const mobileUrl = finalVideoUrl;
+        console.log(`[mobile video] ${label}`, {
+            selectedVideoId: selectedVideo?.id || "",
+            title: selectedVideo?.title || "",
+            isMobile: isMobilePlaybackEnvironment(),
+            video_url: selectedVideo?.video_url || selectedVideo?.videoUrl || "",
+            storage_path: selectedVideo?.storagePath || selectedVideo?.storage_path || "",
+            finalVideoUrl,
+            desktopUrl,
+            mobileUrl,
+            desktopMobileUrlMatch: desktopUrl === mobileUrl,
+            src: video?.src || "",
+            currentSrc: video?.currentSrc || "",
+            readyState: video?.readyState ?? null,
+            networkState: video?.networkState ?? null,
+            errorCode: video?.error?.code ?? null,
+            errorMessage: video?.error?.message || "",
+            playsInline: video?.playsInline ?? null,
+            controls: video?.controls ?? null,
+            muted: video?.muted ?? null,
+            autoplay: video?.autoplay ?? null,
+            preload: video?.preload || "",
+            ...extra,
+        });
+    }
+    async function handleNativeVideoTap() {
+        const video = mainVideoRef.current;
+        if (!video || !activeVideo || !activeVideoPlaybackUrl)
+            return;
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.removeAttribute("src");
+            audioRef.current.load();
+        }
+        setIsPlaying(false);
+        setActiveMediaType("video");
+        setActiveMedia({ type: "video", item: activeVideo });
+        if (video.getAttribute("src") !== activeVideoPlaybackUrl) {
+            video.pause();
+            video.src = activeVideoPlaybackUrl;
+            video.load();
+        }
+        video.setAttribute("playsinline", "");
+        video.setAttribute("webkit-playsinline", "");
+        video.controls = true;
+        video.autoplay = false;
+        video.preload = "metadata";
+        video.muted = false;
+        video.volume = videoVolume;
+        logVideoElementState("native tap before play", video);
+        void logVideoPlaybackProbe(activeVideo, activeVideoPlaybackUrl, "Native Video Tap");
+        try {
+            await video.play();
+            setVideoPlaying(true);
+            logVideoElementState("native tap play started", video);
+        }
+        catch (error) {
+            setVideoPlaying(false);
+            logVideoElementState("native tap play failed", video, {
+                playError: error instanceof Error ? error.message : String(error),
+            });
+            console.warn("[mobile video] exact play error", error);
+            showToast("Video playback could not start. Check console diagnostics.", "error");
+        }
+    }
     function handleVideoPlay() {
+        logVideoElementState("play event");
         pendingVideoPlayRef.current = false;
         if (audioRef.current && !audioRef.current.paused) {
             audioRef.current.pause();
@@ -7767,10 +7852,12 @@ export default function Page() {
         setVideoPlaying(true);
     }
     function handleVideoPause() {
+        logVideoElementState("pause event");
         setVideoPlaying(false);
     }
     function handleVideoCanPlay() {
         const video = mainVideoRef.current;
+        logVideoElementState("canplay event", video);
         if (!pendingVideoPlayRef.current || !video || !activeVideo || activeMedia?.type !== "video")
             return;
         pendingVideoPlayRef.current = false;
@@ -9766,6 +9853,7 @@ export default function Page() {
             mainVideo.setAttribute("playsinline", "");
             mainVideo.setAttribute("webkit-playsinline", "");
             mainVideo.controls = true;
+            mainVideo.autoplay = false;
             mainVideo.preload = "metadata";
             mainVideo.muted = false;
             mainVideo.volume = videoVolume;
@@ -9778,12 +9866,22 @@ export default function Page() {
                 sourceSection,
                 selectedVideoId: playableVideo.id,
                 finalVideoUrl: videoUrl,
+                desktopUrl: videoUrl,
+                mobileUrl: videoUrl,
+                desktopMobileUrlMatch: true,
                 actualVideoSrc: mainVideo.currentSrc || mainVideo.src || mainVideo.getAttribute("src") || "",
                 playsInline: mainVideo.playsInline,
                 controls: mainVideo.controls,
+                muted: mainVideo.muted,
+                autoplay: mainVideo.autoplay,
                 preload: mainVideo.preload,
                 readyState: mainVideo.readyState,
                 networkState: mainVideo.networkState,
+                mediaErrorCode: mainVideo.error?.code || null,
+                mediaErrorMessage: mainVideo.error?.message || "",
+            });
+            logVideoElementState("playVideo prepared", mainVideo, {
+                sourceSection,
             });
             if (shouldUseNativeMobileControls) {
                 pendingVideoPlayRef.current = false;
@@ -12249,7 +12347,38 @@ export default function Page() {
         if (!activeVideo)
             return null;
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
-        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} playsInline preload="metadata" poster={activeVideo.cover} onLoadedMetadata={updateVideoDuration} onDurationChange={updateVideoDuration} onCanPlay={handleVideoCanPlay} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={handleVideoPause} onEnded={handleVideoEnded} onError={() => console.error("[main video] load failed:", activeVideoPlaybackUrl)}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
+        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
+                updateVideoDuration(event);
+                logVideoElementState("loadedmetadata event", event.currentTarget);
+            }} onDurationChange={(event) => {
+                updateVideoDuration(event);
+                logVideoElementState("durationchange event", event.currentTarget);
+            }} onCanPlay={(event) => {
+                logVideoElementState("canplay event", event.currentTarget);
+                handleVideoCanPlay();
+            }} onCanPlayThrough={(event) => {
+                logVideoElementState("canplaythrough event", event.currentTarget);
+            }} onPlaying={(event) => {
+                logVideoElementState("playing event", event.currentTarget);
+            }} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={(event) => {
+                logVideoElementState("pause listener event", event.currentTarget);
+                handleVideoPause();
+            }} onEnded={handleVideoEnded} onError={(event) => {
+                logVideoElementState("error event", event.currentTarget, {
+                    exactError: event.currentTarget.error?.message || "",
+                });
+                console.error("[mobile video] exact media error", {
+                    selectedVideoId: activeVideo.id,
+                    title: activeVideo.title,
+                    finalVideoUrl: activeVideoPlaybackUrl,
+                    src: event.currentTarget.src,
+                    currentSrc: event.currentTarget.currentSrc,
+                    readyState: event.currentTarget.readyState,
+                    networkState: event.currentTarget.networkState,
+                    errorCode: event.currentTarget.error?.code || null,
+                    errorMessage: event.currentTarget.error?.message || "",
+                });
+            }}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
         <div className="video-player-copy">
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
