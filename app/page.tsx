@@ -999,6 +999,7 @@ const DEFAULT_ARTIST_BANNER = "https://images.unsplash.com/photo-1501386761578-e
 const BRAND_TAGLINE = "STREAM • DISCOVER • CREATE";
 const VIDEOS_STORAGE_BUCKET = "videos";
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
+const SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES = Math.floor(4.5 * 1024 * 1024);
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
@@ -9400,22 +9401,91 @@ export default function Page() {
             audioCodec: codecInfo.audioCodec,
             mobileCompatible: codecInfo.mobileCompatible,
         });
-        const storageUpload = await supabase.storage.from(VIDEOS_STORAGE_BUCKET).upload(storagePath, file, {
-            cacheControl: "3600",
-            contentType,
-            upsert: true,
-        });
-        if (storageUpload.error) {
-            updateVideoUploadDebug({
-                currentStep: "Supabase Storage upload failed",
-                lastError: storageUpload.error.message,
-                fullErrorJson: stringifyUploadDebugError(storageUpload.error),
+        let savedStoragePath = storagePath;
+        let publicUrl = "";
+        try {
+            const storageUpload = await supabase.storage.from(VIDEOS_STORAGE_BUCKET).upload(storagePath, file, {
+                cacheControl: "3600",
+                contentType,
+                upsert: true,
             });
-            throw new Error(storageUpload.error.message || "Supabase Storage video upload failed.");
+            if (storageUpload.error) {
+                throw storageUpload.error;
+            }
+            savedStoragePath = storageUpload.data?.path || storagePath;
+            const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
+            publicUrl = publicUrlData.publicUrl || "";
         }
-        const savedStoragePath = storageUpload.data?.path || storagePath;
-        const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
-        if (!publicUrlData.publicUrl) {
+        catch (storageError) {
+            const storageErrorMessage = storageError instanceof Error ? storageError.message : String(storageError || "");
+            const looksLikeCorsOrNetworkFailure = /failed to fetch|network|cors|access-control-allow-origin/i.test(storageErrorMessage);
+            updateVideoUploadDebug({
+                currentStep: looksLikeCorsOrNetworkFailure ? "Direct Supabase Storage upload failed; trying server fallback" : "Supabase Storage upload failed",
+                lastError: storageErrorMessage || "Supabase Storage video upload failed.",
+                fullErrorJson: stringifyUploadDebugError(storageError),
+                requestLooksLikeVercelFunction: looksLikeCorsOrNetworkFailure,
+                requestBodyType: looksLikeCorsOrNetworkFailure ? "Server fallback FormData video upload" : "File direct to Supabase Storage",
+            });
+            if (!looksLikeCorsOrNetworkFailure) {
+                throw new Error(storageErrorMessage || "Supabase Storage video upload failed.");
+            }
+            if (file.size > SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES) {
+                throw new Error(`Supabase Storage CORS is blocking direct video upload. This file is too large for the server fallback (${Math.ceil(file.size / 1024 / 1024)} MB). Add https://digitalmusicdatabase.com to Supabase Storage CORS/allowed origins, then retry.`);
+            }
+            setVideoUploadStep("Direct storage blocked. Uploading through server fallback...", 30);
+            const fallbackForm = new FormData();
+            fallbackForm.set("file", file);
+            fallbackForm.set("sessionUserId", sessionUser.id);
+            fallbackForm.set("userId", sessionUser.id);
+            const fallbackResponse = await fetch("/api/upload-video", {
+                method: "POST",
+                body: fallbackForm,
+            });
+            const fallbackText = await fallbackResponse.text();
+            let fallbackResult: {
+                error?: string;
+                details?: unknown;
+                publicUrl?: string;
+                storagePath?: string;
+                fileName?: string;
+                fileSize?: number | null;
+                contentType?: string;
+            } = {};
+            if (fallbackText) {
+                try {
+                    fallbackResult = JSON.parse(fallbackText) as typeof fallbackResult;
+                }
+                catch {
+                    fallbackResult = { error: fallbackText };
+                }
+            }
+            if (!fallbackResponse.ok || !fallbackResult.publicUrl || !fallbackResult.storagePath) {
+                const detailText = typeof fallbackResult.details === "string"
+                    ? fallbackResult.details
+                    : fallbackResult.details
+                        ? JSON.stringify(fallbackResult.details)
+                        : "";
+                throw new Error([fallbackResult.error || `Server fallback upload failed with HTTP ${fallbackResponse.status}.`, detailText]
+                    .filter(Boolean)
+                    .join(" "));
+            }
+            savedStoragePath = fallbackResult.storagePath;
+            publicUrl = fallbackResult.publicUrl;
+            updateVideoUploadDebug({
+                uploadMethod: "Server fallback video upload, server metadata insert",
+                uploadTargetUrl: typeof window !== "undefined" ? new URL("/api/upload-video", window.location.origin).toString() : "/api/upload-video",
+                currentStep: "Server fallback uploaded video to Supabase Storage",
+                requestContainsDigitalMusicDatabase: true,
+                requestContainsSupabaseCo: false,
+                requestLooksLikeVercelFunction: true,
+                requestLooksLikeAppServer: true,
+                requestMethod: "POST",
+                requestBodyType: "FormData video to server fallback",
+                requestBodySize: String(file.size),
+                fullErrorJson: "",
+            });
+        }
+        if (!publicUrl) {
             throw new Error("Supabase did not return a public URL for the uploaded video.");
         }
         setVideoUploadStep("Saving video metadata...", 88);
@@ -9434,7 +9504,7 @@ export default function Page() {
             producer_id: producerId || "",
             producer_profile_id: producerId || "",
             album_id: albumId || "",
-            publicUrl: publicUrlData.publicUrl,
+            publicUrl,
             storagePath: savedStoragePath,
             fileName: file.name || "video.mp4",
             fileSize: file.size,
