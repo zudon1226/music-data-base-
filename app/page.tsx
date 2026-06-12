@@ -7982,8 +7982,6 @@ export default function Page() {
                     showToast("Mobile incompatible video. Use Next Video to skip.", "error");
                     return;
                 }
-                video.scrollIntoView({ behavior: "smooth", block: "center" });
-                showToast("Tap the video player to start playback.", "info");
                 return;
             }
             if (isDeferredVideoPlayError(error)) {
@@ -10181,7 +10179,6 @@ export default function Page() {
                 pendingVideoPlayRef.current = false;
                 mainVideo.controls = true;
                 mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
-                showToast("Tap the video player to start playback.", "info");
                 return;
             }
             mainVideo.play().then(() => {
@@ -10206,8 +10203,6 @@ export default function Page() {
                         showToast("Mobile incompatible video. Use Next Video to skip.", "error");
                         return;
                     }
-                    mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
-                    showToast("Tap the video player to start playback.", "info");
                     return;
                 }
                 if (isDeferredVideoPlayError(error)) {
@@ -12677,6 +12672,24 @@ export default function Page() {
                 logVideoElementState("error event", event.currentTarget, {
                     exactError: event.currentTarget.error?.message || "",
                 });
+                if (mobilePlaybackEnvironment && event.currentTarget.error?.code === 4) {
+                    setVideoPlaying(false);
+                    const incompatibleUpdate = {
+                        videoCodec: activeVideo.videoCodec || activeVideo.video_codec || "av01",
+                        video_codec: activeVideo.videoCodec || activeVideo.video_codec || "av01",
+                        mobileCompatible: false,
+                        mobile_compatible: false,
+                    };
+                    setActiveVideo((previous) => previous?.id === activeVideo.id
+                        ? normalizeVideoForPlayback({ ...previous, ...incompatibleUpdate })
+                        : previous);
+                    setVideos((previous) => previous.map((video) => video.id === activeVideo.id
+                        ? normalizeVideoForPlayback({ ...video, ...incompatibleUpdate })
+                        : video));
+                    event.currentTarget.pause();
+                    event.currentTarget.removeAttribute("src");
+                    event.currentTarget.load();
+                }
                 console.error("[mobile video] exact media error", {
                     selectedVideoId: activeVideo.id,
                     title: activeVideo.title,
@@ -23343,8 +23356,49 @@ export default function Page() {
               display: none;
             }
 
+            .global-video-player {
+              gap: 10px;
+              padding: 10px;
+              overflow: hidden;
+            }
+
+            .video-player-panel video,
+            .video-mobile-incompatible-panel {
+              min-height: 0;
+              max-height: 42vh;
+            }
+
+            .video-mobile-incompatible-panel {
+              padding: 14px;
+              gap: 8px;
+            }
+
+            .video-mobile-incompatible-panel strong {
+              font-size: 15px;
+            }
+
+            .video-mobile-incompatible-panel span,
+            .mobile-video-incompatible {
+              font-size: 12px;
+              line-height: 1.35;
+              overflow-wrap: anywhere;
+            }
+
             .mobile-video-incompatible {
               display: block;
+            }
+
+            .video-player-actions {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 8px;
+            }
+
+            .video-player-actions button {
+              min-width: 0;
+              width: 100%;
+              white-space: normal;
+              line-height: 1.15;
+              padding: 10px 8px;
             }
 
             .queue-drawer {
