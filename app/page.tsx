@@ -1827,7 +1827,7 @@ async function fetchVideoRangeBytes(url: string, start: number, end: number) {
 }
 async function inspectVideoCodecInfo(url: string, contentLength: string) {
     const length = Number(contentLength);
-    const sampleSize = 1024 * 1024;
+    const sampleSize = 8 * 1024 * 1024;
     const chunks: Uint8Array[] = [];
     try {
         chunks.push(await fetchVideoRangeBytes(url, 0, sampleSize - 1));
@@ -1862,7 +1862,7 @@ async function inspectVideoCodecInfo(url: string, contentLength: string) {
     };
 }
 async function inspectVideoFileCodecInfo(file: File) {
-    const sampleSize = 1024 * 1024;
+    const sampleSize = 8 * 1024 * 1024;
     const chunks = [
         new Uint8Array(await file.slice(0, sampleSize).arrayBuffer()),
     ];
@@ -2120,13 +2120,7 @@ function normalizeVideoForPlayback(video: VideoItem | Record<string, unknown>) {
 }
 function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | undefined) {
     const videoCodec = String(video?.videoCodec || video?.video_codec || "").trim().toLowerCase();
-    const title = String(video?.title || "").trim().toLowerCase();
-    const storagePath = String(video?.storagePath || video?.storage_path || "").trim().toLowerCase();
-    const videoUrl = String(video?.videoUrl || video?.video_url || video?.url || video?.file_url || video?.public_url || "").trim().toLowerCase();
     return videoCodec === "av01" ||
-        title === "girlie girlie" ||
-        storagePath.includes("girlie-girlie") ||
-        videoUrl.includes("girlie-girlie") ||
         (video?.mobileCompatible ?? video?.mobile_compatible ?? null) === false;
 }
 function getStoredMobileCompatibility(video: Partial<VideoItem> | null | undefined) {
