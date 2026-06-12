@@ -2746,6 +2746,13 @@ function isDeferredVideoPlayError(error: unknown) {
         message.includes("no supported source") ||
         message.includes("not supported");
 }
+function isMobilePlaybackEnvironment() {
+    if (typeof window === "undefined")
+        return false;
+    const userAgent = navigator.userAgent || "";
+    return window.matchMedia("(max-width: 820px), (pointer: coarse)").matches ||
+        /iphone|ipad|ipod|android/i.test(userAgent);
+}
 function isStorageSetupError(message: string) {
     const normalized = message.toLowerCase();
     return (normalized.includes("row-level security") ||
@@ -7699,6 +7706,12 @@ export default function Page() {
                 mediaErrorMessage: video.error?.message || "",
                 error,
             });
+            if (isMobilePlaybackEnvironment()) {
+                pendingVideoPlayRef.current = false;
+                video.scrollIntoView({ behavior: "smooth", block: "center" });
+                showToast("Tap the video player to start playback.", "info");
+                return;
+            }
             if (isDeferredVideoPlayError(error)) {
                 pendingVideoPlayRef.current = true;
                 showToast("Video is loading. If it does not start, press Play again.", "info");
@@ -9732,6 +9745,7 @@ export default function Page() {
             extension: getVideoUrlExtension(videoUrl),
         });
         void logVideoPlaybackProbe(playableVideo, videoUrl, sourceSection);
+        const shouldUseNativeMobileControls = isMobilePlaybackEnvironment();
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.removeAttribute("src");
@@ -9771,6 +9785,13 @@ export default function Page() {
                 readyState: mainVideo.readyState,
                 networkState: mainVideo.networkState,
             });
+            if (shouldUseNativeMobileControls) {
+                pendingVideoPlayRef.current = false;
+                mainVideo.controls = true;
+                mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
+                showToast("Tap the video player to start playback.", "info");
+                return;
+            }
             mainVideo.play().then(() => {
                 setVideoPlaying(true);
             }).catch((error) => {
@@ -9787,6 +9808,12 @@ export default function Page() {
                     error,
                 });
                 const message = error instanceof Error ? error.message : String(error);
+                if (isMobilePlaybackEnvironment()) {
+                    pendingVideoPlayRef.current = false;
+                    mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
+                    showToast("Tap the video player to start playback.", "info");
+                    return;
+                }
                 if (isDeferredVideoPlayError(error)) {
                     pendingVideoPlayRef.current = true;
                     showToast("Video is loading. If it does not start, press Play again.", "info");
@@ -22784,22 +22811,7 @@ export default function Page() {
             }
 
             .video-player-bar {
-              left: var(--mobile-sidebar-width);
-              bottom: 0;
-              grid-template-columns: 1fr;
-              min-height: 128px;
-              max-height: calc(150px + env(safe-area-inset-bottom, 0px));
-              align-items: stretch;
-              overflow: hidden;
-              padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-              pointer-events: none;
-            }
-
-            .video-player-bar button,
-            .video-player-bar input,
-            .video-player-bar label,
-            .video-player-now {
-              pointer-events: auto;
+              display: none;
             }
 
             .queue-drawer {
