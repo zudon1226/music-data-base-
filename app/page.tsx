@@ -13129,7 +13129,7 @@ export default function Page() {
               </section>)}
           </div>
 
-          <button className="upload-btn" onClick={toggleUploadPanel} type="button">
+          <button className="upload-btn" onClick={toggleUploadPanel} title="Upload" type="button">
             <Upload size={17}/>
             Upload
           </button>
@@ -23255,7 +23255,7 @@ export default function Page() {
             }
 
             .topbar {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
+              grid-template-columns: repeat(5, minmax(0, 1fr));
               gap: 5px;
               padding-bottom: 5px;
               z-index: 80;
@@ -23290,12 +23290,12 @@ export default function Page() {
             .dashboard-btn,
             .profile-btn,
             .logout-btn {
-              height: 32px;
-              min-height: 32px;
+              height: 30px;
+              min-height: 30px;
               border-radius: 8px;
-              font-size: 11.5px;
-              gap: 4px;
-              padding: 0 6px;
+              font-size: 0;
+              gap: 0;
+              padding: 0;
               width: 100%;
               min-width: 0;
               justify-content: center;
@@ -23306,13 +23306,21 @@ export default function Page() {
               width: 100%;
             }
 
+            .notification-wrap {
+              height: 30px;
+            }
+
+            .notification-button span {
+              font-size: 9px;
+            }
+
             .notification-button svg,
             .upload-btn svg,
             .dashboard-btn svg,
             .profile-btn svg,
             .logout-btn svg {
-              width: 14px;
-              height: 14px;
+              width: 17px;
+              height: 17px;
             }
 
             .topbar > button,
@@ -23358,10 +23366,26 @@ export default function Page() {
 
             .global-video-player {
               gap: 10px;
-              margin-top: 12px;
-              scroll-margin-top: 176px;
+              margin-top: 14px;
+              scroll-margin-top: 132px;
               padding: 10px;
               overflow: hidden;
+            }
+
+            .global-video-player .video-player-copy {
+              gap: 7px;
+            }
+
+            .global-video-player .video-player-copy h3 {
+              font-size: clamp(24px, 8.2vw, 34px);
+              line-height: 1.04;
+              overflow-wrap: anywhere;
+            }
+
+            .global-video-player .video-player-copy p {
+              font-size: clamp(15px, 4.6vw, 19px);
+              line-height: 1.2;
+              overflow-wrap: anywhere;
             }
 
             .video-player-panel video,
@@ -23393,7 +23417,8 @@ export default function Page() {
 
             .video-player-actions {
               grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 8px;
+              gap: 7px;
+              margin-top: 4px;
             }
 
             .video-player-actions button {
@@ -23401,8 +23426,8 @@ export default function Page() {
               width: 100%;
               white-space: normal;
               line-height: 1.15;
-              min-height: 34px;
-              padding: 7px 6px;
+              min-height: 32px;
+              padding: 6px 5px;
               font-size: 12px;
               gap: 4px;
             }
@@ -23959,7 +23984,7 @@ export default function Page() {
             }
 
             .topbar {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
+              grid-template-columns: repeat(5, minmax(0, 1fr));
               gap: 5px;
               padding-bottom: 5px;
             }
