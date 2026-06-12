@@ -134,6 +134,14 @@ export async function GET(request: Request) {
             data = fallback.data as Record<string, unknown>[] | null;
             error = fallback.error;
         }
+        if (error && getErrorMessage(error).toLowerCase().includes("album_id")) {
+            const fallback = await supabase
+                .from("videos")
+                .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at,user_id")
+                .order("created_at", { ascending: false });
+            data = fallback.data as Record<string, unknown>[] | null;
+            error = fallback.error;
+        }
         if (error) {
             console.error("[api/videos] load failed:", error);
             return jsonResponse({ error: getErrorMessage(error) }, 500);
