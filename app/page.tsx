@@ -307,6 +307,29 @@ type UserFeedback = {
     message: string;
     createdAt: string;
 };
+type MobileVideoDebugState = {
+    selectedVideoId: string;
+    title: string;
+    finalVideoUrl: string;
+    storagePath: string;
+    videoUrl: string;
+    currentSrc: string;
+    readyState: string;
+    networkState: string;
+    errorCode: string;
+    errorMessage: string;
+    canPlayTypeMp4: string;
+    headStatus: string;
+    contentType: string;
+    contentLength: string;
+    detectedVideoCodec: string;
+    detectedAudioCodec: string;
+    mobileCompatible: string;
+    lastMediaEvent: string;
+    loadedMetadataFired: boolean;
+    canPlayFired: boolean;
+    errorFired: boolean;
+};
 type VerificationState = {
     artists: Record<string, boolean>;
     producers: Record<string, boolean>;
@@ -315,6 +338,29 @@ type TrendingPeriod = "Today" | "Week" | "Month" | "All Time";
 type PlaylistType = "song" | "video" | "mixed";
 type PlaylistForm = Pick<Playlist, "name" | "cover" | "playlistType">;
 type PlaylistContentTab = "Songs" | "Videos";
+const EMPTY_MOBILE_VIDEO_DEBUG: MobileVideoDebugState = {
+    selectedVideoId: "",
+    title: "",
+    finalVideoUrl: "",
+    storagePath: "",
+    videoUrl: "",
+    currentSrc: "",
+    readyState: "",
+    networkState: "",
+    errorCode: "",
+    errorMessage: "",
+    canPlayTypeMp4: "",
+    headStatus: "",
+    contentType: "",
+    contentLength: "",
+    detectedVideoCodec: "",
+    detectedAudioCodec: "",
+    mobileCompatible: "",
+    lastMediaEvent: "",
+    loadedMetadataFired: false,
+    canPlayFired: false,
+    errorFired: false,
+};
 type PlaylistTarget = {
     type: "song";
     item: Song;
@@ -3214,6 +3260,7 @@ export default function Page() {
     const [videoUploadBusy, setVideoUploadBusy] = useState(false);
     const [videoUploadError, setVideoUploadError] = useState("");
     const [videoUploadStatus, setVideoUploadStatus] = useState("");
+    const [mobileVideoDebug, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
     const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
     const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
@@ -5675,6 +5722,66 @@ export default function Page() {
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
     const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
     useEffect(() => {
+        if (!mobilePlaybackEnvironment || !activeVideo) {
+            setMobileVideoDebug(EMPTY_MOBILE_VIDEO_DEBUG);
+            return;
+        }
+        let cancelled = false;
+        const selectedVideo = activeVideo;
+        const storagePath = selectedVideo.storagePath || selectedVideo.storage_path || "";
+        const videoUrl = selectedVideo.video_url || selectedVideo.videoUrl || "";
+        const selectedSnapshot: MobileVideoDebugState = {
+            ...EMPTY_MOBILE_VIDEO_DEBUG,
+            selectedVideoId: selectedVideo.id || "",
+            title: selectedVideo.title || "",
+            finalVideoUrl: activeVideoPlaybackUrl || "",
+            storagePath,
+            videoUrl,
+            detectedVideoCodec: selectedVideo.videoCodec || selectedVideo.video_codec || "",
+            detectedAudioCodec: selectedVideo.audioCodec || selectedVideo.audio_codec || "",
+            mobileCompatible: String(selectedVideo.mobileCompatible ?? selectedVideo.mobile_compatible ?? ""),
+            lastMediaEvent: "selected video",
+        };
+        setMobileVideoDebug(selectedSnapshot);
+        if (!activeVideoPlaybackUrl)
+            return;
+        async function probeSelectedVideo() {
+            const probe = await probeVideoPlaybackUrl(activeVideoPlaybackUrl);
+            if (cancelled)
+                return;
+            const detectedMobileCompatible = getDetectedMobileCompatibility(probe.videoCodec, probe.audioCodec);
+            setMobileVideoDebug((previous) => ({
+                ...previous,
+                headStatus: String(probe.status || ""),
+                contentType: probe.contentType || "",
+                contentLength: probe.contentLength || "",
+                detectedVideoCodec: probe.videoCodec || previous.detectedVideoCodec,
+                detectedAudioCodec: probe.audioCodec || previous.detectedAudioCodec,
+                mobileCompatible: String(detectedMobileCompatible ?? selectedVideo.mobileCompatible ?? selectedVideo.mobile_compatible ?? ""),
+                lastMediaEvent: "HEAD/codecs probed",
+            }));
+            console.log("[mobile video debug] selected video probe", {
+                selectedVideoId: selectedVideo.id,
+                title: selectedVideo.title,
+                finalVideoUrl: activeVideoPlaybackUrl,
+                storagePath,
+                videoUrl,
+                headStatus: probe.status,
+                contentType: probe.contentType,
+                contentLength: probe.contentLength,
+                detectedVideoCodec: probe.videoCodec,
+                detectedAudioCodec: probe.audioCodec,
+                mobileCompatible: detectedMobileCompatible,
+                codecTags: probe.codecTags,
+                codecError: probe.codecError,
+            });
+        }
+        void probeSelectedVideo();
+        return () => {
+            cancelled = true;
+        };
+    }, [activeVideo, activeVideoPlaybackUrl, mobilePlaybackEnvironment]);
+    useEffect(() => {
         function updateMobilePlaybackEnvironment() {
             setMobilePlaybackEnvironment(isMobilePlaybackEnvironment());
         }
@@ -8055,6 +8162,29 @@ export default function Page() {
             ...extra,
         };
         console.log(`[mobile video] ${label}`, consolePayload);
+        if (isMobilePlaybackEnvironment() && selectedVideo) {
+            setMobileVideoDebug((previous) => ({
+                ...previous,
+                selectedVideoId: selectedVideo.id || "",
+                title: selectedVideo.title || "",
+                finalVideoUrl,
+                storagePath,
+                videoUrl,
+                currentSrc: video?.currentSrc || video?.src || "",
+                readyState: String(video?.readyState ?? ""),
+                networkState: String(video?.networkState ?? ""),
+                errorCode: String(video?.error?.code ?? ""),
+                errorMessage: video?.error?.message || "",
+                canPlayTypeMp4: video?.canPlayType("video/mp4") || "",
+                detectedVideoCodec: selectedVideo.videoCodec || selectedVideo.video_codec || previous.detectedVideoCodec,
+                detectedAudioCodec: selectedVideo.audioCodec || selectedVideo.audio_codec || previous.detectedAudioCodec,
+                mobileCompatible: String(selectedVideo.mobileCompatible ?? selectedVideo.mobile_compatible ?? previous.mobileCompatible),
+                lastMediaEvent: label,
+                loadedMetadataFired: previous.loadedMetadataFired || label.includes("loadedmetadata"),
+                canPlayFired: previous.canPlayFired || label.includes("canplay"),
+                errorFired: previous.errorFired || label.includes("error"),
+            }));
+        }
     }
     async function handleNativeVideoTap() {
         const video = mainVideoRef.current;
@@ -12637,6 +12767,29 @@ export default function Page() {
         if (!activeVideo)
             return null;
         const showMobileIncompatibleFallback = mobilePlaybackEnvironment && isVideoMarkedMobileIncompatible(activeVideo);
+        const debugRows: Array<[string, string]> = [
+            ["selected video id", mobileVideoDebug.selectedVideoId],
+            ["title", mobileVideoDebug.title],
+            ["final video URL", mobileVideoDebug.finalVideoUrl],
+            ["storage_path", mobileVideoDebug.storagePath],
+            ["video_url", mobileVideoDebug.videoUrl],
+            ["currentSrc", mobileVideoDebug.currentSrc],
+            ["readyState", mobileVideoDebug.readyState],
+            ["networkState", mobileVideoDebug.networkState],
+            ["video.error?.code", mobileVideoDebug.errorCode],
+            ["video.error?.message", mobileVideoDebug.errorMessage],
+            ["canPlayType(\"video/mp4\")", mobileVideoDebug.canPlayTypeMp4],
+            ["HEAD status", mobileVideoDebug.headStatus],
+            ["content-type", mobileVideoDebug.contentType],
+            ["content-length", mobileVideoDebug.contentLength],
+            ["detected video codec", mobileVideoDebug.detectedVideoCodec],
+            ["detected audio codec", mobileVideoDebug.detectedAudioCodec],
+            ["mobile_compatible", mobileVideoDebug.mobileCompatible],
+            ["last media event", mobileVideoDebug.lastMediaEvent],
+            ["loadedmetadata fired", String(mobileVideoDebug.loadedMetadataFired)],
+            ["canplay fired", String(mobileVideoDebug.canPlayFired)],
+            ["error fired", String(mobileVideoDebug.errorFired)],
+        ];
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
         {showMobileIncompatibleFallback ? (<div className="video-mobile-incompatible-panel">
             <Film size={42}/>
@@ -12712,6 +12865,15 @@ export default function Page() {
             </button>
           </div>
         </div>
+        {mobilePlaybackEnvironment ? (<div className="mobile-video-debug-panel">
+            <strong>Mobile Video Debug</strong>
+            <dl>
+              {debugRows.map(([label, value]) => (<div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value || "(empty)"}</dd>
+                </div>))}
+            </dl>
+          </div>) : null}
       </section>);
     }
     if (!authReady || !hasLoaded) {
@@ -17843,6 +18005,10 @@ export default function Page() {
             font-size: 12px;
             font-weight: 800;
             line-height: 1.35;
+          }
+
+          .mobile-video-debug-panel {
+            display: none;
           }
 
           .video-player-copy {
@@ -23407,6 +23573,57 @@ export default function Page() {
 
             .mobile-video-incompatible {
               display: block;
+            }
+
+            .mobile-video-debug-panel {
+              grid-column: 1 / -1;
+              display: grid;
+              gap: 8px;
+              border: 1px solid rgba(34, 211, 238, 0.45);
+              border-radius: 8px;
+              background: rgba(2, 6, 23, 0.82);
+              padding: 10px;
+              color: #dbeafe;
+              font-size: 11px;
+              line-height: 1.35;
+              min-width: 0;
+            }
+
+            .mobile-video-debug-panel > strong {
+              color: #22d3ee;
+              font-size: 12px;
+              text-transform: uppercase;
+            }
+
+            .mobile-video-debug-panel dl {
+              display: grid;
+              gap: 5px;
+              margin: 0;
+            }
+
+            .mobile-video-debug-panel div {
+              display: grid;
+              grid-template-columns: minmax(92px, 0.45fr) minmax(0, 1fr);
+              gap: 8px;
+              align-items: start;
+              min-width: 0;
+            }
+
+            .mobile-video-debug-panel dt,
+            .mobile-video-debug-panel dd {
+              margin: 0;
+              min-width: 0;
+            }
+
+            .mobile-video-debug-panel dt {
+              color: #9bdcf0;
+              font-weight: 900;
+            }
+
+            .mobile-video-debug-panel dd {
+              color: #f8fafc;
+              overflow-wrap: anywhere;
+              word-break: break-word;
             }
 
             .video-player-actions {
