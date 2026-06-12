@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const VIDEOS_BUCKET = "videos";
+const SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES = 3 * 1024 * 1024;
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
@@ -172,6 +173,13 @@ export async function POST(request: Request) {
             }
             if (sessionUserId && userId && sessionUserId !== userId) {
                 return jsonResponse({ error: "Video upload user id does not match the signed-in session." }, 401);
+            }
+            if (file.size > SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES) {
+                return jsonResponse({
+                    error: "Supabase Storage CORS is blocking direct video upload, and this file is too large for the server fallback. Add https://digitalmusicdatabase.com and https://www.digitalmusicdatabase.com to Supabase Storage/API CORS allowed origins, then retry.",
+                    fileSize: file.size,
+                    fallbackLimit: SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES,
+                }, 413);
             }
 
             const contentType = getVideoContentType(file);

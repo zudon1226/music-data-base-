@@ -999,8 +999,9 @@ const DEFAULT_ARTIST_BANNER = "https://images.unsplash.com/photo-1501386761578-e
 const BRAND_TAGLINE = "STREAM • DISCOVER • CREATE";
 const VIDEOS_STORAGE_BUCKET = "videos";
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
-const SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES = Math.floor(4.5 * 1024 * 1024);
+const SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES = 3 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
+const VIDEO_STORAGE_CORS_FIX_MESSAGE = "Supabase Storage CORS is blocking direct video upload. Add https://digitalmusicdatabase.com and https://www.digitalmusicdatabase.com to Supabase Storage/API CORS allowed origins, then retry.";
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
 }
@@ -9419,18 +9420,19 @@ export default function Page() {
         catch (storageError) {
             const storageErrorMessage = storageError instanceof Error ? storageError.message : String(storageError || "");
             const looksLikeCorsOrNetworkFailure = /failed to fetch|network|cors|access-control-allow-origin/i.test(storageErrorMessage);
+            const canUseServerFallback = looksLikeCorsOrNetworkFailure && file.size <= SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES;
             updateVideoUploadDebug({
-                currentStep: looksLikeCorsOrNetworkFailure ? "Direct Supabase Storage upload failed; trying server fallback" : "Supabase Storage upload failed",
-                lastError: storageErrorMessage || "Supabase Storage video upload failed.",
+                currentStep: canUseServerFallback ? "Direct Supabase Storage upload failed; trying server fallback" : "Supabase Storage upload failed",
+                lastError: looksLikeCorsOrNetworkFailure ? VIDEO_STORAGE_CORS_FIX_MESSAGE : storageErrorMessage || "Supabase Storage video upload failed.",
                 fullErrorJson: stringifyUploadDebugError(storageError),
-                requestLooksLikeVercelFunction: looksLikeCorsOrNetworkFailure,
-                requestBodyType: looksLikeCorsOrNetworkFailure ? "Server fallback FormData video upload" : "File direct to Supabase Storage",
+                requestLooksLikeVercelFunction: canUseServerFallback,
+                requestBodyType: canUseServerFallback ? "Server fallback FormData video upload" : "File direct to Supabase Storage",
             });
             if (!looksLikeCorsOrNetworkFailure) {
                 throw new Error(storageErrorMessage || "Supabase Storage video upload failed.");
             }
             if (file.size > SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES) {
-                throw new Error(`Supabase Storage CORS is blocking direct video upload. This file is too large for the server fallback (${Math.ceil(file.size / 1024 / 1024)} MB). Add https://digitalmusicdatabase.com to Supabase Storage CORS/allowed origins, then retry.`);
+                throw new Error(`${VIDEO_STORAGE_CORS_FIX_MESSAGE} Vercel cannot proxy this ${Math.ceil(file.size / 1024 / 1024)} MB video upload.`);
             }
             setVideoUploadStep("Direct storage blocked. Uploading through server fallback...", 30);
             const fallbackForm = new FormData();
