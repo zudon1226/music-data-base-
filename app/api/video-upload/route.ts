@@ -118,6 +118,10 @@ export async function POST(request: Request) {
             const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
             const fileName = getRecordString(body, ["fileName", "file_name"], storagePath.split("/").pop() || "video.mp4");
             const fileSize = getRecordNumber(body, ["fileSize", "file_size"]);
+            const videoCodec = getNullableRecordString(body, ["video_codec", "videoCodec"]);
+            const audioCodec = getNullableRecordString(body, ["audio_codec", "audioCodec"]);
+            const rawMobileCompatible = body.mobile_compatible ?? body.mobileCompatible;
+            const mobileCompatible = typeof rawMobileCompatible === "boolean" ? rawMobileCompatible : null;
 
             if (!authUserId) {
                 return jsonResponse({ error: "You must log in again before uploading a video." }, 401);
@@ -156,6 +160,9 @@ export async function POST(request: Request) {
                 storage_path: storagePath,
                 file_name: fileName,
                 file_size: fileSize,
+                video_codec: videoCodec,
+                audio_codec: audioCodec,
+                mobile_compatible: mobileCompatible,
                 views: 0,
                 likes: 0,
                 created_at: createdAt,
@@ -177,6 +184,9 @@ export async function POST(request: Request) {
                 "storage_path",
                 "file_name",
                 "file_size",
+                "video_codec",
+                "audio_codec",
+                "mobile_compatible",
                 "thumbnail_url",
                 "views",
                 "likes",
@@ -191,6 +201,9 @@ export async function POST(request: Request) {
                 producer_id: videoRow.producer_id,
                 video_url: videoRow.video_url,
                 storage_path: videoRow.storage_path,
+                video_codec: videoRow.video_codec,
+                audio_codec: videoRow.audio_codec,
+                mobile_compatible: videoRow.mobile_compatible,
                 created_at: videoRow.created_at,
             };
             const fallbackSelectColumns = [
@@ -200,13 +213,23 @@ export async function POST(request: Request) {
                 "producer_id",
                 "video_url",
                 "storage_path",
+                "video_codec",
+                "audio_codec",
+                "mobile_compatible",
                 "created_at",
                 "user_id",
             ].join(",");
             const supabase = getSupabaseServerClient();
             let videoInsert = await supabase.from("videos").insert(videoRow).select(initialSelectColumns).single();
-            if (videoInsert.error && /file_name|file_size|album_id|artist_id|producer|cover_url|thumbnail_url/i.test(getErrorMessage(videoInsert.error))) {
+            if (videoInsert.error && /video_codec|audio_codec|mobile_compatible|file_name|file_size|album_id|artist_id|producer|cover_url|thumbnail_url/i.test(getErrorMessage(videoInsert.error))) {
                 videoInsert = await supabase.from("videos").insert(fallbackVideoRow).select(fallbackSelectColumns).single();
+            }
+            if (videoInsert.error && /video_codec|audio_codec|mobile_compatible/i.test(getErrorMessage(videoInsert.error))) {
+                const legacyVideoRow = { ...fallbackVideoRow };
+                delete legacyVideoRow.video_codec;
+                delete legacyVideoRow.audio_codec;
+                delete legacyVideoRow.mobile_compatible;
+                videoInsert = await supabase.from("videos").insert(legacyVideoRow).select("id,title,artist_name,producer_id,video_url,storage_path,created_at,user_id").single();
             }
             if (videoInsert.error) {
                 console.error("[api/video-upload] Supabase videos metadata insert error:", videoInsert.error);

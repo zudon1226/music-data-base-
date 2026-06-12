@@ -98,14 +98,14 @@ export async function GET(request: Request) {
         const supabase = getSupabaseServerClient();
         const initialResult = await supabase
             .from("videos")
-            .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at,user_id")
+            .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id")
             .order("created_at", { ascending: false });
         let data = initialResult.data as Record<string, unknown>[] | null;
         let error = initialResult.error;
         if (error && getErrorMessage(error).toLowerCase().includes("user_id")) {
             const fallback = await supabase
                 .from("videos")
-                .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at")
+                .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at")
                 .order("created_at", { ascending: false });
             data = fallback.data as Record<string, unknown>[] | null;
             error = fallback.error;
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
         if (error && /producer|artist|cover_url|beat_id/i.test(getErrorMessage(error))) {
             const fallback = await supabase
                 .from("videos")
-                .select("id,title,description,album_id,category,video_url,storage_path,thumbnail_url,views,likes,created_at,user_id")
+                .select("id,title,description,album_id,category,video_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id")
                 .order("created_at", { ascending: false });
             data = fallback.data as Record<string, unknown>[] | null;
             error = fallback.error;
@@ -121,7 +121,15 @@ export async function GET(request: Request) {
         if (error && getErrorMessage(error).toLowerCase().includes("album_id")) {
             const fallback = await supabase
                 .from("videos")
-                .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at,user_id")
+                .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id")
+                .order("created_at", { ascending: false });
+            data = fallback.data as Record<string, unknown>[] | null;
+            error = fallback.error;
+        }
+        if (error && /video_codec|audio_codec|mobile_compatible/i.test(getErrorMessage(error))) {
+            const fallback = await supabase
+                .from("videos")
+                .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at,user_id")
                 .order("created_at", { ascending: false });
             data = fallback.data as Record<string, unknown>[] | null;
             error = fallback.error;
