@@ -9437,7 +9437,7 @@ export default function Page() {
             fallbackForm.set("file", file);
             fallbackForm.set("sessionUserId", sessionUser.id);
             fallbackForm.set("userId", sessionUser.id);
-            const fallbackResponse = await fetch("/api/upload-video", {
+            const fallbackResponse = await fetch("/api/video-upload", {
                 method: "POST",
                 body: fallbackForm,
             });
@@ -9473,7 +9473,7 @@ export default function Page() {
             publicUrl = fallbackResult.publicUrl;
             updateVideoUploadDebug({
                 uploadMethod: "Server fallback video upload, server metadata insert",
-                uploadTargetUrl: typeof window !== "undefined" ? new URL("/api/upload-video", window.location.origin).toString() : "/api/upload-video",
+                uploadTargetUrl: typeof window !== "undefined" ? new URL("/api/video-upload", window.location.origin).toString() : "/api/video-upload",
                 currentStep: "Server fallback uploaded video to Supabase Storage",
                 requestContainsDigitalMusicDatabase: true,
                 requestContainsSupabaseCo: false,
