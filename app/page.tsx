@@ -2119,7 +2119,8 @@ function normalizeVideoForPlayback(video: VideoItem | Record<string, unknown>) {
     return normalizeVideo(video);
 }
 function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | undefined) {
-    return (video?.mobileCompatible ?? video?.mobile_compatible ?? null) === false;
+    const videoCodec = String(video?.videoCodec || video?.video_codec || "").trim().toLowerCase();
+    return videoCodec === "av01" || (video?.mobileCompatible ?? video?.mobile_compatible ?? null) === false;
 }
 function getPlaylistTypeFromRecord(record: Record<string, unknown>): PlaylistType {
     const rawType = getStringField(record, ["playlistType", "playlist_type", "type"]).toLowerCase();
@@ -3634,6 +3635,7 @@ export default function Page() {
     const [videoDuration, setVideoDuration] = useState(0);
     const [videoVolume, setVideoVolume] = useState(1);
     const [videoRepeat, setVideoRepeat] = useState(false);
+    const [mobilePlaybackEnvironment, setMobilePlaybackEnvironment] = useState(false);
     const [videoPlaybackQueue, setVideoPlaybackQueue] = useState<VideoItem[]>([]);
     const [showQueueDrawer, setShowQueueDrawer] = useState(false);
     const [draggedQueueItem, setDraggedQueueItem] = useState<AlbumTrackPointer | null>(null);
@@ -5660,6 +5662,18 @@ export default function Page() {
     const sponsoredCreator = sponsoredVideo?.creator || currentSong?.artist || "Music Data Base";
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
     const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
+    useEffect(() => {
+        function updateMobilePlaybackEnvironment() {
+            setMobilePlaybackEnvironment(isMobilePlaybackEnvironment());
+        }
+        updateMobilePlaybackEnvironment();
+        window.addEventListener("resize", updateMobilePlaybackEnvironment);
+        window.addEventListener("orientationchange", updateMobilePlaybackEnvironment);
+        return () => {
+            window.removeEventListener("resize", updateMobilePlaybackEnvironment);
+            window.removeEventListener("orientationchange", updateMobilePlaybackEnvironment);
+        };
+    }, []);
     useEffect(() => {
         const video = mainVideoRef.current;
         if (!video)
@@ -7826,6 +7840,11 @@ export default function Page() {
         const video = mainVideoRef.current;
         if (!video || !activeVideo || !activeVideoPlaybackUrl)
             return;
+        if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(activeVideo)) {
+            setVideoPlaying(false);
+            showToast("Mobile incompatible video. Use Next Video to skip.", "error");
+            return;
+        }
         if (videoPlaying) {
             video.pause();
             setVideoPlaying(false);
@@ -10022,6 +10041,22 @@ export default function Page() {
             setVideoProgress(0);
             setVideoDuration(0);
         });
+        if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(nextActiveVideo)) {
+            pendingVideoPlayRef.current = false;
+            if (mainVideoRef.current) {
+                mainVideoRef.current.pause();
+                mainVideoRef.current.removeAttribute("src");
+                mainVideoRef.current.load();
+            }
+            setVideoPlaying(false);
+            window.requestAnimationFrame(() => {
+                videoPreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+            showToast("Mobile incompatible video. Use Next Video to skip.", "error");
+            saveVideoPlay(nextActiveVideo);
+            setView("Videos");
+            return;
+        }
         const mainVideo = mainVideoRef.current;
         if (mainVideo) {
             mainVideo.setAttribute("playsinline", "");
@@ -12523,8 +12558,13 @@ export default function Page() {
     function renderSharedVideoPlayer() {
         if (!activeVideo)
             return null;
+        const showMobileIncompatibleFallback = mobilePlaybackEnvironment && isVideoMarkedMobileIncompatible(activeVideo);
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
-        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
+        {showMobileIncompatibleFallback ? (<div className="video-mobile-incompatible-panel">
+            <Film size={42}/>
+            <strong>Mobile incompatible video</strong>
+            <span>Re-upload as MP4 H.264/AAC</span>
+          </div>) : activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
                 updateVideoDuration(event);
                 logVideoElementState("loadedmetadata event", event.currentTarget);
             }} onDurationChange={(event) => {
@@ -12564,7 +12604,7 @@ export default function Page() {
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
           <p>{activeVideo.creator}</p>
-          {isVideoMarkedMobileIncompatible(activeVideo) ? (<p className="mobile-video-incompatible">This video may not play on some mobile devices.</p>) : null}
+          {isVideoMarkedMobileIncompatible(activeVideo) ? (<p className="mobile-video-incompatible">{showMobileIncompatibleFallback ? "Mobile incompatible video. Re-upload as MP4 H.264/AAC." : "This video may not play on some mobile devices."}</p>) : null}
           <div className="video-player-actions">
             <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={getVideoPlaybackList().length < 2}>
               <SkipBack size={16} fill="currentColor"/>
@@ -17652,6 +17692,37 @@ export default function Page() {
             font-weight: 900;
             text-align: center;
             padding: 18px;
+          }
+
+          .video-mobile-incompatible-panel {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            min-height: 240px;
+            border: 1px solid rgba(248, 113, 113, 0.58);
+            border-radius: 8px;
+            background: #020617;
+            color: #fee2e2;
+            display: grid;
+            place-items: center;
+            align-content: center;
+            gap: 10px;
+            text-align: center;
+            padding: 18px;
+          }
+
+          .video-mobile-incompatible-panel svg {
+            color: #fca5a5;
+          }
+
+          .video-mobile-incompatible-panel strong {
+            font-size: 18px;
+            font-weight: 900;
+          }
+
+          .video-mobile-incompatible-panel span {
+            color: #fecaca;
+            font-size: 14px;
+            font-weight: 800;
           }
 
           .mobile-video-incompatible {
