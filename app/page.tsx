@@ -2120,7 +2120,14 @@ function normalizeVideoForPlayback(video: VideoItem | Record<string, unknown>) {
 }
 function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | undefined) {
     const videoCodec = String(video?.videoCodec || video?.video_codec || "").trim().toLowerCase();
-    return videoCodec === "av01" || (video?.mobileCompatible ?? video?.mobile_compatible ?? null) === false;
+    const title = String(video?.title || "").trim().toLowerCase();
+    const storagePath = String(video?.storagePath || video?.storage_path || "").trim().toLowerCase();
+    const videoUrl = String(video?.videoUrl || video?.video_url || video?.url || video?.file_url || video?.public_url || "").trim().toLowerCase();
+    return videoCodec === "av01" ||
+        title === "girlie girlie" ||
+        storagePath.includes("girlie-girlie") ||
+        videoUrl.includes("girlie-girlie") ||
+        (video?.mobileCompatible ?? video?.mobile_compatible ?? null) === false;
 }
 function getPlaylistTypeFromRecord(record: Record<string, unknown>): PlaylistType {
     const rawType = getStringField(record, ["playlistType", "playlist_type", "type"]).toLowerCase();
@@ -7897,6 +7904,10 @@ export default function Page() {
             });
             if (isMobilePlaybackEnvironment()) {
                 pendingVideoPlayRef.current = false;
+                if (video.error?.code === 4 || isVideoMarkedMobileIncompatible(activeVideo)) {
+                    showToast("Mobile incompatible video. Use Next Video to skip.", "error");
+                    return;
+                }
                 video.scrollIntoView({ behavior: "smooth", block: "center" });
                 showToast("Tap the video player to start playback.", "info");
                 return;
@@ -10117,6 +10128,10 @@ export default function Page() {
                 const message = error instanceof Error ? error.message : String(error);
                 if (isMobilePlaybackEnvironment()) {
                     pendingVideoPlayRef.current = false;
+                    if (mainVideo.error?.code === 4 || isVideoMarkedMobileIncompatible(nextActiveVideo)) {
+                        showToast("Mobile incompatible video. Use Next Video to skip.", "error");
+                        return;
+                    }
                     mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
                     showToast("Tap the video player to start playback.", "info");
                     return;
