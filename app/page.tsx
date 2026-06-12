@@ -1778,9 +1778,76 @@ function isPlayableVideoResponse(status: number, contentType: string, url: strin
     const extension = getVideoUrlExtension(url);
     return status >= 200 && status < 300 && (normalizedType.startsWith("video/") || ACCEPTED_VIDEO_EXTENSIONS.has(extension));
 }
+const VIDEO_CODEC_TAGS = ["avc1", "avc2", "avc3", "hvc1", "hev1", "av01", "vp09", "mp4v"];
+const AUDIO_CODEC_TAGS = ["mp4a", "ac-3", "ec-3", "Opus", "fLaC"];
+function findAsciiTagsInBytes(bytes: Uint8Array, tags: string[]) {
+    const found = new Set<string>();
+    for (let offset = 0; offset < bytes.length; offset += 1) {
+        for (const tag of tags) {
+            if (offset + tag.length > bytes.length)
+                continue;
+            let matches = true;
+            for (let index = 0; index < tag.length; index += 1) {
+                if (bytes[offset + index] !== tag.charCodeAt(index)) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches)
+                found.add(tag);
+        }
+    }
+    return [...found];
+}
+async function fetchVideoRangeBytes(url: string, start: number, end: number) {
+    const response = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        headers: { Range: `bytes=${start}-${end}` },
+    });
+    if (!response.ok && response.status !== 206)
+        return new Uint8Array();
+    return new Uint8Array(await response.arrayBuffer());
+}
+async function inspectVideoCodecInfo(url: string, contentLength: string) {
+    const length = Number(contentLength);
+    const sampleSize = 1024 * 1024;
+    const chunks: Uint8Array[] = [];
+    try {
+        chunks.push(await fetchVideoRangeBytes(url, 0, sampleSize - 1));
+        if (Number.isFinite(length) && length > sampleSize) {
+            chunks.push(await fetchVideoRangeBytes(url, Math.max(0, length - sampleSize), length - 1));
+        }
+    }
+    catch (error) {
+        return {
+            videoCodec: "",
+            audioCodec: "",
+            codecTags: [] as string[],
+            mobileIncompatible: false,
+            codecError: error instanceof Error ? error.message : String(error),
+        };
+    }
+    const videoTags = new Set<string>();
+    const audioTags = new Set<string>();
+    for (const chunk of chunks) {
+        findAsciiTagsInBytes(chunk, VIDEO_CODEC_TAGS).forEach((tag) => videoTags.add(tag));
+        findAsciiTagsInBytes(chunk, AUDIO_CODEC_TAGS).forEach((tag) => audioTags.add(tag));
+    }
+    const videoCodec = ["avc1", "avc2", "avc3", "hvc1", "hev1", "av01", "vp09", "mp4v"].find((tag) => videoTags.has(tag)) || "";
+    const audioCodec = ["mp4a", "ac-3", "ec-3", "Opus", "fLaC"].find((tag) => audioTags.has(tag)) || "";
+    const codecTags = [...videoTags, ...audioTags];
+    return {
+        videoCodec,
+        audioCodec,
+        codecTags,
+        mobileIncompatible: Boolean(videoCodec && !["avc1", "avc2", "avc3"].includes(videoCodec)) || Boolean(audioCodec && audioCodec !== "mp4a"),
+        codecError: "",
+    };
+}
 async function probeVideoPlaybackUrl(url: string) {
     if (!url || typeof fetch === "undefined") {
-        return { ok: false, status: 0, contentType: "", acceptRanges: "", contentRange: "", contentLength: "", finalUrl: url, error: "No URL to probe" };
+        return { ok: false, status: 0, contentType: "", acceptRanges: "", contentRange: "", contentLength: "", finalUrl: url, videoCodec: "", audioCodec: "", codecTags: [] as string[], mobileIncompatible: false, codecError: "", error: "No URL to probe" };
     }
     try {
         let response = await fetch(url, { method: "HEAD", cache: "no-store" });
@@ -1792,14 +1859,17 @@ async function probeVideoPlaybackUrl(url: string) {
             });
         }
         const contentType = response.headers.get("content-type") || "";
+        const contentLength = response.headers.get("content-length") || "";
+        const codecInfo = await inspectVideoCodecInfo(url, contentLength);
         return {
             ok: isPlayableVideoResponse(response.status, contentType, url),
             status: response.status,
             contentType,
             acceptRanges: response.headers.get("accept-ranges") || "",
             contentRange: response.headers.get("content-range") || "",
-            contentLength: response.headers.get("content-length") || "",
+            contentLength,
             finalUrl: url,
+            ...codecInfo,
         };
     }
     catch (error) {
@@ -1811,6 +1881,11 @@ async function probeVideoPlaybackUrl(url: string) {
             contentRange: "",
             contentLength: "",
             finalUrl: url,
+            videoCodec: "",
+            audioCodec: "",
+            codecTags: [] as string[],
+            mobileIncompatible: false,
+            codecError: "",
             error: error instanceof Error ? error.message : String(error),
         };
     }
@@ -1833,6 +1908,11 @@ async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>,
         acceptRanges: primaryProbe.acceptRanges,
         contentRange: primaryProbe.contentRange,
         contentLength: primaryProbe.contentLength,
+        videoCodec: primaryProbe.videoCodec,
+        audioCodec: primaryProbe.audioCodec,
+        codecTags: primaryProbe.codecTags,
+        mobileIncompatible: primaryProbe.mobileIncompatible,
+        codecError: primaryProbe.codecError,
         ok: primaryProbe.ok,
         error: "error" in primaryProbe ? primaryProbe.error : "",
     });
@@ -1842,6 +1922,17 @@ async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>,
             selectedVideoId,
             finalVideoUrl: finalUrl,
             contentType: primaryProbe.contentType,
+        });
+    }
+    if (primaryProbe.mobileIncompatible) {
+        console.warn("[video playback probe] mobile-incompatible codec detected", {
+            sourceSection,
+            selectedVideoId,
+            finalVideoUrl: finalUrl,
+            videoCodec: primaryProbe.videoCodec,
+            audioCodec: primaryProbe.audioCodec,
+            codecTags: primaryProbe.codecTags,
+            migrationPath: "Re-encode to MP4 with H.264 video and AAC audio, then update videos.video_url/storage_path.",
         });
     }
     if (!primaryProbe.ok && storagePath) {
@@ -1858,11 +1949,17 @@ async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>,
                 acceptRanges: storageProbe.acceptRanges,
                 contentRange: storageProbe.contentRange,
                 contentLength: storageProbe.contentLength,
+                videoCodec: storageProbe.videoCodec,
+                audioCodec: storageProbe.audioCodec,
+                codecTags: storageProbe.codecTags,
+                mobileIncompatible: storageProbe.mobileIncompatible,
+                codecError: storageProbe.codecError,
                 ok: storageProbe.ok,
                 error: "error" in storageProbe ? storageProbe.error : "",
             });
         }
     }
+    return primaryProbe;
 }
 function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown> | null) {
     if (!video)
@@ -2767,6 +2864,13 @@ type MobileVideoDebugState = {
     finalVideoUrl: string;
     storagePath: string;
     videoUrl: string;
+    headStatus: number | null;
+    headContentType: string;
+    headContentLength: string;
+    videoCodec: string;
+    audioCodec: string;
+    codecTags: string;
+    mobileIncompatible: boolean;
     currentSrc: string;
     readyState: number | null;
     networkState: number | null;
@@ -2784,6 +2888,13 @@ const EMPTY_MOBILE_VIDEO_DEBUG: MobileVideoDebugState = {
     finalVideoUrl: "",
     storagePath: "",
     videoUrl: "",
+    headStatus: null,
+    headContentType: "",
+    headContentLength: "",
+    videoCodec: "",
+    audioCodec: "",
+    codecTags: "",
+    mobileIncompatible: false,
     currentSrc: "",
     readyState: null,
     networkState: null,
@@ -5555,6 +5666,45 @@ export default function Page() {
         });
     }, [activeVideo, activeVideoPlaybackUrl]);
     useEffect(() => {
+        if (!activeVideo || !activeVideoPlaybackUrl)
+            return;
+        let cancelled = false;
+        probeVideoPlaybackUrl(activeVideoPlaybackUrl).then((probe) => {
+            if (cancelled)
+                return;
+            console.log("[mobile video] HEAD and codec diagnostics", {
+                selectedVideoId: activeVideo.id,
+                title: activeVideo.title,
+                finalVideoUrl: activeVideoPlaybackUrl,
+                status: probe.status,
+                contentType: probe.contentType,
+                contentLength: probe.contentLength,
+                videoCodec: probe.videoCodec,
+                audioCodec: probe.audioCodec,
+                codecTags: probe.codecTags,
+                mobileIncompatible: probe.mobileIncompatible,
+                codecError: probe.codecError,
+            });
+            setMobileVideoDebug((previous) => previous.selectedVideoId === activeVideo.id ? {
+                ...previous,
+                headStatus: probe.status,
+                headContentType: probe.contentType,
+                headContentLength: probe.contentLength,
+                videoCodec: probe.videoCodec,
+                audioCodec: probe.audioCodec,
+                codecTags: probe.codecTags.join(", "),
+                mobileIncompatible: probe.mobileIncompatible,
+            } : previous);
+        }).catch((error) => {
+            if (cancelled)
+                return;
+            console.warn("[mobile video] HEAD and codec diagnostics failed", error);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeVideo, activeVideoPlaybackUrl]);
+    useEffect(() => {
         const video = mainVideoRef.current;
         if (!video)
             return;
@@ -7874,7 +8024,14 @@ export default function Page() {
             setMobileVideoDebug((previous) => {
                 const sameVideo = previous.selectedVideoId === selectedVideoId;
                 return {
+                    headStatus: sameVideo ? previous.headStatus : null,
+                    headContentType: sameVideo ? previous.headContentType : "",
+                    headContentLength: sameVideo ? previous.headContentLength : "",
+                    videoCodec: sameVideo ? previous.videoCodec : "",
+                    audioCodec: sameVideo ? previous.audioCodec : "",
+                    codecTags: sameVideo ? previous.codecTags : "",
                     ...nextDebugBase,
+                    mobileIncompatible: (sameVideo && previous.mobileIncompatible) || (isErrorEvent && video?.error?.code === 4),
                     loadedmetadataFired: (sameVideo && previous.loadedmetadataFired) || isLoadedMetadataEvent,
                     canplayFired: (sameVideo && previous.canplayFired) || isCanPlayEvent,
                     errorFired: (sameVideo && previous.errorFired) || isErrorEvent,
@@ -7886,6 +8043,11 @@ export default function Page() {
         const video = mainVideoRef.current;
         if (!video || !activeVideo || !activeVideoPlaybackUrl)
             return;
+        if (isMobilePlaybackEnvironment() && mobileVideoDebug.selectedVideoId === activeVideo.id && mobileVideoDebug.mobileIncompatible) {
+            logVideoElementState("native tap blocked incompatible codec", video);
+            showToast("This video needs to be re-encoded for mobile playback.", "error");
+            return;
+        }
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.removeAttribute("src");
@@ -12475,6 +12637,13 @@ export default function Page() {
             <div><dt>final video URL</dt><dd>{mobileVideoDebug.finalVideoUrl || "none"}</dd></div>
             <div><dt>storage_path</dt><dd>{mobileVideoDebug.storagePath || "none"}</dd></div>
             <div><dt>video_url</dt><dd>{mobileVideoDebug.videoUrl || "none"}</dd></div>
+            <div><dt>HEAD status</dt><dd>{mobileVideoDebug.headStatus ?? "null"}</dd></div>
+            <div><dt>content-type</dt><dd>{mobileVideoDebug.headContentType || "none"}</dd></div>
+            <div><dt>content-length</dt><dd>{mobileVideoDebug.headContentLength || "none"}</dd></div>
+            <div><dt>video codec</dt><dd>{mobileVideoDebug.videoCodec || "unknown"}</dd></div>
+            <div><dt>audio codec</dt><dd>{mobileVideoDebug.audioCodec || "unknown"}</dd></div>
+            <div><dt>codec tags</dt><dd>{mobileVideoDebug.codecTags || "none"}</dd></div>
+            <div><dt>mobile incompatible</dt><dd>{String(mobileVideoDebug.mobileIncompatible)}</dd></div>
             <div><dt>currentSrc</dt><dd>{mobileVideoDebug.currentSrc || "none"}</dd></div>
             <div><dt>readyState</dt><dd>{mobileVideoDebug.readyState ?? "null"}</dd></div>
             <div><dt>networkState</dt><dd>{mobileVideoDebug.networkState ?? "null"}</dd></div>
@@ -12491,6 +12660,7 @@ export default function Page() {
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
           <p>{activeVideo.creator}</p>
+          {mobileVideoDebug.mobileIncompatible ? (<p className="mobile-video-incompatible">This video needs a mobile-compatible re-encode: MP4 with H.264 video and AAC audio.</p>) : null}
           <div className="video-player-actions">
             <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={getVideoPlaybackList().length < 2}>
               <SkipBack size={16} fill="currentColor"/>
@@ -17548,6 +17718,18 @@ export default function Page() {
 
           .mobile-video-debug-panel {
             display: none;
+          }
+
+          .mobile-video-incompatible {
+            display: none;
+            border: 1px solid rgba(248, 113, 113, 0.58);
+            border-radius: 8px;
+            background: rgba(127, 29, 29, 0.62);
+            color: #fee2e2;
+            padding: 9px 10px;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.35;
           }
 
           .video-player-copy {
@@ -23100,6 +23282,10 @@ export default function Page() {
               color: #ffffff;
               overflow-wrap: anywhere;
               word-break: break-word;
+            }
+
+            .mobile-video-incompatible {
+              display: block;
             }
 
             .queue-drawer {
