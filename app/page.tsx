@@ -2761,6 +2761,40 @@ function isMobilePlaybackEnvironment() {
     return window.matchMedia("(max-width: 820px), (pointer: coarse)").matches ||
         /iphone|ipad|ipod|android/i.test(userAgent);
 }
+type MobileVideoDebugState = {
+    selectedVideoId: string;
+    title: string;
+    finalVideoUrl: string;
+    storagePath: string;
+    videoUrl: string;
+    currentSrc: string;
+    readyState: number | null;
+    networkState: number | null;
+    errorCode: number | null;
+    errorMessage: string;
+    canPlayTypeMp4: string;
+    loadedmetadataFired: boolean;
+    canplayFired: boolean;
+    errorFired: boolean;
+    lastEvent: string;
+};
+const EMPTY_MOBILE_VIDEO_DEBUG: MobileVideoDebugState = {
+    selectedVideoId: "",
+    title: "",
+    finalVideoUrl: "",
+    storagePath: "",
+    videoUrl: "",
+    currentSrc: "",
+    readyState: null,
+    networkState: null,
+    errorCode: null,
+    errorMessage: "",
+    canPlayTypeMp4: "",
+    loadedmetadataFired: false,
+    canplayFired: false,
+    errorFired: false,
+    lastEvent: "",
+};
 function isStorageSetupError(message: string) {
     const normalized = message.toLowerCase();
     return (normalized.includes("row-level security") ||
@@ -3479,6 +3513,7 @@ export default function Page() {
     const [videoDuration, setVideoDuration] = useState(0);
     const [videoVolume, setVideoVolume] = useState(1);
     const [videoRepeat, setVideoRepeat] = useState(false);
+    const [mobileVideoDebug, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
     const [videoPlaybackQueue, setVideoPlaybackQueue] = useState<VideoItem[]>([]);
     const [showQueueDrawer, setShowQueueDrawer] = useState(false);
     const [draggedQueueItem, setDraggedQueueItem] = useState<AlbumTrackPointer | null>(null);
@@ -5505,6 +5540,20 @@ export default function Page() {
     const sponsoredCreator = sponsoredVideo?.creator || currentSong?.artist || "Music Data Base";
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
     const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
+    useEffect(() => {
+        if (!activeVideo) {
+            setMobileVideoDebug(EMPTY_MOBILE_VIDEO_DEBUG);
+            return;
+        }
+        setMobileVideoDebug({
+            ...EMPTY_MOBILE_VIDEO_DEBUG,
+            selectedVideoId: activeVideo.id,
+            title: activeVideo.title,
+            finalVideoUrl: activeVideoPlaybackUrl,
+            storagePath: activeVideo.storagePath || activeVideo.storage_path || "",
+            videoUrl: activeVideo.video_url || activeVideo.videoUrl || "",
+        });
+    }, [activeVideo, activeVideoPlaybackUrl]);
     useEffect(() => {
         const video = mainVideoRef.current;
         if (!video)
@@ -7774,12 +7823,29 @@ export default function Page() {
         const finalVideoUrl = activeVideoPlaybackUrl || getVideoPlaybackUrl(selectedVideo);
         const desktopUrl = getVideoPlaybackUrl(selectedVideo);
         const mobileUrl = finalVideoUrl;
-        console.log(`[mobile video] ${label}`, {
+        const selectedVideoId = selectedVideo?.id || "";
+        const storagePath = selectedVideo?.storagePath || selectedVideo?.storage_path || "";
+        const videoUrl = selectedVideo?.video_url || selectedVideo?.videoUrl || "";
+        const nextDebugBase = {
+            selectedVideoId,
+            title: selectedVideo?.title || "",
+            finalVideoUrl,
+            storagePath,
+            videoUrl,
+            currentSrc: video?.currentSrc || video?.src || "",
+            readyState: video?.readyState ?? null,
+            networkState: video?.networkState ?? null,
+            errorCode: video?.error?.code ?? null,
+            errorMessage: video?.error?.message || "",
+            canPlayTypeMp4: video?.canPlayType("video/mp4") || "",
+            lastEvent: label,
+        };
+        const consolePayload = {
             selectedVideoId: selectedVideo?.id || "",
             title: selectedVideo?.title || "",
             isMobile: isMobilePlaybackEnvironment(),
-            video_url: selectedVideo?.video_url || selectedVideo?.videoUrl || "",
-            storage_path: selectedVideo?.storagePath || selectedVideo?.storage_path || "",
+            video_url: videoUrl,
+            storage_path: storagePath,
             finalVideoUrl,
             desktopUrl,
             mobileUrl,
@@ -7795,8 +7861,26 @@ export default function Page() {
             muted: video?.muted ?? null,
             autoplay: video?.autoplay ?? null,
             preload: video?.preload || "",
+            canPlayTypeMp4: nextDebugBase.canPlayTypeMp4,
             ...extra,
-        });
+        };
+        console.log(`[mobile video] ${label}`, consolePayload);
+        if (!selectedVideo)
+            return;
+        const isLoadedMetadataEvent = label.includes("loadedmetadata");
+        const isCanPlayEvent = label.includes("canplay");
+        const isErrorEvent = label.includes("error") || Boolean(video?.error);
+        if (isMobilePlaybackEnvironment()) {
+            setMobileVideoDebug((previous) => {
+                const sameVideo = previous.selectedVideoId === selectedVideoId;
+                return {
+                    ...nextDebugBase,
+                    loadedmetadataFired: (sameVideo && previous.loadedmetadataFired) || isLoadedMetadataEvent,
+                    canplayFired: (sameVideo && previous.canplayFired) || isCanPlayEvent,
+                    errorFired: (sameVideo && previous.errorFired) || isErrorEvent,
+                };
+            });
+        }
     }
     async function handleNativeVideoTap() {
         const video = mainVideoRef.current;
@@ -12360,6 +12444,10 @@ export default function Page() {
                 logVideoElementState("canplaythrough event", event.currentTarget);
             }} onPlaying={(event) => {
                 logVideoElementState("playing event", event.currentTarget);
+            }} onStalled={(event) => {
+                logVideoElementState("stalled event", event.currentTarget);
+            }} onWaiting={(event) => {
+                logVideoElementState("waiting event", event.currentTarget);
             }} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={(event) => {
                 logVideoElementState("pause listener event", event.currentTarget);
                 handleVideoPause();
@@ -12379,6 +12467,26 @@ export default function Page() {
                     errorMessage: event.currentTarget.error?.message || "",
                 });
             }}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
+        <div className="mobile-video-debug-panel" aria-label="Mobile Video Debug">
+          <h4>Mobile Video Debug</h4>
+          <dl>
+            <div><dt>selected video id</dt><dd>{mobileVideoDebug.selectedVideoId || "none"}</dd></div>
+            <div><dt>title</dt><dd>{mobileVideoDebug.title || "none"}</dd></div>
+            <div><dt>final video URL</dt><dd>{mobileVideoDebug.finalVideoUrl || "none"}</dd></div>
+            <div><dt>storage_path</dt><dd>{mobileVideoDebug.storagePath || "none"}</dd></div>
+            <div><dt>video_url</dt><dd>{mobileVideoDebug.videoUrl || "none"}</dd></div>
+            <div><dt>currentSrc</dt><dd>{mobileVideoDebug.currentSrc || "none"}</dd></div>
+            <div><dt>readyState</dt><dd>{mobileVideoDebug.readyState ?? "null"}</dd></div>
+            <div><dt>networkState</dt><dd>{mobileVideoDebug.networkState ?? "null"}</dd></div>
+            <div><dt>video.error?.code</dt><dd>{mobileVideoDebug.errorCode ?? "null"}</dd></div>
+            <div><dt>video.error?.message</dt><dd>{mobileVideoDebug.errorMessage || "none"}</dd></div>
+            <div><dt>canPlayType("video/mp4")</dt><dd>{mobileVideoDebug.canPlayTypeMp4 || "empty"}</dd></div>
+            <div><dt>loadedmetadata fired</dt><dd>{String(mobileVideoDebug.loadedmetadataFired)}</dd></div>
+            <div><dt>canplay fired</dt><dd>{String(mobileVideoDebug.canplayFired)}</dd></div>
+            <div><dt>error fired</dt><dd>{String(mobileVideoDebug.errorFired)}</dd></div>
+            <div><dt>last event</dt><dd>{mobileVideoDebug.lastEvent || "none"}</dd></div>
+          </dl>
+        </div>
         <div className="video-player-copy">
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
@@ -17436,6 +17544,10 @@ export default function Page() {
             font-weight: 900;
             text-align: center;
             padding: 18px;
+          }
+
+          .mobile-video-debug-panel {
+            display: none;
           }
 
           .video-player-copy {
@@ -22941,6 +23053,53 @@ export default function Page() {
 
             .video-player-bar {
               display: none;
+            }
+
+            .mobile-video-debug-panel {
+              display: block;
+              border: 1px solid rgba(34, 211, 238, 0.55);
+              border-radius: 8px;
+              background: rgba(2, 6, 23, 0.94);
+              color: #e0f2fe;
+              padding: 10px;
+              max-height: 280px;
+              overflow: auto;
+              overscroll-behavior: contain;
+              font-size: 11px;
+              line-height: 1.35;
+            }
+
+            .mobile-video-debug-panel h4 {
+              margin: 0 0 8px;
+              color: #22d3ee;
+              font-size: 13px;
+              font-weight: 900;
+            }
+
+            .mobile-video-debug-panel dl {
+              display: grid;
+              gap: 6px;
+              margin: 0;
+            }
+
+            .mobile-video-debug-panel div {
+              display: grid;
+              grid-template-columns: minmax(95px, 0.38fr) minmax(0, 0.62fr);
+              gap: 8px;
+              align-items: start;
+            }
+
+            .mobile-video-debug-panel dt {
+              color: #93c5fd;
+              font-weight: 800;
+            }
+
+            .mobile-video-debug-panel dd {
+              min-width: 0;
+              margin: 0;
+              color: #ffffff;
+              overflow-wrap: anywhere;
+              word-break: break-word;
             }
 
             .queue-drawer {
