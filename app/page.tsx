@@ -26012,6 +26012,74 @@ export default function Page() {
               justify-self: end !important;
             }
 
+            .playlist-songs .playlist-song-row {
+              display: grid !important;
+              grid-template-columns: 28px 60px minmax(0, 1fr) 44px 44px !important;
+              gap: 6px !important;
+              align-items: center !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .playlist-songs .playlist-song-row .recent-number {
+              width: 28px !important;
+              min-width: 28px !important;
+              text-align: center !important;
+              white-space: nowrap !important;
+            }
+
+            .playlist-songs .playlist-song-row img {
+              width: 60px !important;
+              height: 60px !important;
+              max-width: 60px !important;
+              object-fit: cover !important;
+            }
+
+            .playlist-songs .playlist-song-row > span:not(.recent-number) {
+              min-width: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              overflow: hidden !important;
+            }
+
+            .playlist-songs .playlist-song-row strong {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              overflow-wrap: normal !important;
+              word-break: normal !important;
+              line-height: 1.16 !important;
+              max-height: 2.32em !important;
+            }
+
+            .playlist-songs .playlist-song-row small,
+            .playlist-songs .playlist-song-row .artist-link {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: nowrap !important;
+              word-break: normal !important;
+            }
+
+            .playlist-songs .playlist-song-row button {
+              width: 44px !important;
+              min-width: 44px !important;
+              max-width: 44px !important;
+              height: 44px !important;
+              min-height: 44px !important;
+              padding: 0 !important;
+              justify-self: end !important;
+            }
+
             .queue-manage-list {
               display: grid !important;
               gap: 8px !important;
