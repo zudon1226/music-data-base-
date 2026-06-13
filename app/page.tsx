@@ -25050,18 +25050,19 @@ export default function Page() {
               position: fixed !important;
               left: calc(var(--mobile-sidebar-width) + 8px) !important;
               right: 8px !important;
-              bottom: 0 !important;
+              bottom: env(safe-area-inset-bottom, 0px) !important;
               width: calc(100% - var(--mobile-sidebar-width) - 16px) !important;
-              height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
+              height: var(--mobile-player-height) !important;
               min-height: 0 !important;
-              max-height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
+              max-height: var(--mobile-player-height) !important;
+              margin-bottom: 0 !important;
               z-index: 9999 !important;
               overflow: hidden !important;
               display: grid !important;
               grid-template-columns: 1fr !important;
               grid-template-rows: auto auto !important;
               gap: 1px !important;
-              padding: 3px 8px calc(3px + env(safe-area-inset-bottom, 0px)) !important;
+              padding: 3px 8px !important;
             }
 
             .bottom-player .volume-row,
