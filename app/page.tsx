@@ -25050,19 +25050,18 @@ export default function Page() {
               position: fixed !important;
               left: calc(var(--mobile-sidebar-width) + 8px) !important;
               right: 8px !important;
-              bottom: env(safe-area-inset-bottom, 0px) !important;
+              bottom: 0 !important;
               width: calc(100% - var(--mobile-sidebar-width) - 16px) !important;
-              height: var(--mobile-player-height) !important;
+              height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
               min-height: 0 !important;
-              max-height: var(--mobile-player-height) !important;
-              margin-bottom: 0 !important;
+              max-height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
               z-index: 9999 !important;
               overflow: hidden !important;
               display: grid !important;
               grid-template-columns: 1fr !important;
               grid-template-rows: auto auto !important;
               gap: 1px !important;
-              padding: 3px 8px !important;
+              padding: 3px 8px calc(3px + env(safe-area-inset-bottom, 0px)) !important;
             }
 
             .bottom-player .volume-row,
@@ -26013,8 +26012,8 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row {
-              display: grid !important;
-              grid-template-columns: 28px 60px minmax(0, 1fr) 44px 44px !important;
+              display: flex !important;
+              flex-wrap: nowrap !important;
               gap: 6px !important;
               align-items: center !important;
               width: 100% !important;
@@ -26027,6 +26026,7 @@ export default function Page() {
             .playlist-songs .playlist-song-row .recent-number {
               width: 28px !important;
               min-width: 28px !important;
+              flex: 0 0 28px !important;
               text-align: center !important;
               white-space: nowrap !important;
             }
@@ -26035,10 +26035,12 @@ export default function Page() {
               width: 60px !important;
               height: 60px !important;
               max-width: 60px !important;
+              flex: 0 0 60px !important;
               object-fit: cover !important;
             }
 
             .playlist-songs .playlist-song-row > span:not(.recent-number) {
+              flex: 1 1 auto !important;
               min-width: 0 !important;
               width: 100% !important;
               max-width: 100% !important;
@@ -26074,6 +26076,7 @@ export default function Page() {
               width: 44px !important;
               min-width: 44px !important;
               max-width: 44px !important;
+              flex: 0 0 44px !important;
               height: 44px !important;
               min-height: 44px !important;
               padding: 0 !important;
