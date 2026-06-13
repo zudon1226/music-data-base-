@@ -25048,10 +25048,12 @@ export default function Page() {
             .player,
             .video-player-bar {
               position: fixed !important;
-              left: calc(var(--mobile-sidebar-width) + 8px) !important;
-              right: 8px !important;
-              bottom: 0 !important;
-              width: calc(100% - var(--mobile-sidebar-width) - 16px) !important;
+              left: var(--mobile-sidebar-width) !important;
+              right: 0 !important;
+              bottom: env(safe-area-inset-bottom, 0px) !important;
+              width: calc(100% - var(--mobile-sidebar-width)) !important;
+              margin-bottom: 0 !important;
+              transform: none !important;
               height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
               min-height: 0 !important;
               max-height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
