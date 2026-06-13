@@ -25492,6 +25492,53 @@ export default function Page() {
               height: 28px !important;
             }
 
+            .playlist-tile.media-card {
+              grid-template-columns: 82px minmax(0, 1fr) !important;
+              grid-template-rows: auto !important;
+              align-items: center !important;
+              gap: 10px !important;
+              min-height: 0 !important;
+              padding: 10px !important;
+            }
+
+            .playlist-tile.media-card img {
+              width: 82px !important;
+              height: 58px !important;
+              max-width: 82px !important;
+              aspect-ratio: auto !important;
+              object-fit: cover !important;
+              margin: 0 !important;
+            }
+
+            .playlist-tile.media-card > span {
+              min-width: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              display: block !important;
+              overflow: visible !important;
+            }
+
+            .playlist-tile.media-card strong {
+              display: block !important;
+              max-width: 100% !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: nowrap !important;
+              font-size: 16px !important;
+              line-height: 1.15 !important;
+            }
+
+            .playlist-tile.media-card small {
+              display: block !important;
+              max-width: 100% !important;
+              overflow: visible !important;
+              text-overflow: clip !important;
+              white-space: normal !important;
+              overflow-wrap: normal !important;
+              font-size: 13px !important;
+              line-height: 1.2 !important;
+            }
+
             .discovery-card {
               width: calc(100% - 24px) !important;
               max-width: 680px !important;
