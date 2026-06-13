@@ -25020,7 +25020,7 @@ export default function Page() {
             :root {
               --mobile-sidebar-width: 112px;
               --mobile-player-height: 88px;
-              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 520px);
+              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 760px);
               --mobile-content-clearance: var(--mobile-player-clearance);
             }
 
