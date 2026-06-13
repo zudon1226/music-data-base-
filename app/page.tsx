@@ -25016,19 +25016,24 @@ export default function Page() {
           }
 
           @media (max-width: 768px) {
+            :root {
+              --mobile-player-height: 124px;
+              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 24px);
+            }
+
             main,
             .main-content,
             .page-content,
             .zml-app,
             .content {
-              padding-bottom: 320px !important;
+              padding-bottom: var(--mobile-player-clearance) !important;
               overflow-x: hidden !important;
-              scroll-padding-bottom: 320px !important;
+              scroll-padding-bottom: var(--mobile-player-clearance) !important;
             }
 
             .mobile-player-spacer {
-              height: 320px !important;
-              min-height: 320px !important;
+              height: var(--mobile-player-clearance) !important;
+              min-height: var(--mobile-player-clearance) !important;
             }
 
             .bottom-player,
@@ -25038,16 +25043,16 @@ export default function Page() {
               left: 112px !important;
               right: 0 !important;
               bottom: 0 !important;
-              height: 150px !important;
+              height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
               min-height: 0 !important;
-              max-height: 150px !important;
+              max-height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
               z-index: 9999 !important;
               overflow: hidden !important;
               display: grid !important;
               grid-template-columns: 1fr !important;
               grid-template-rows: auto auto !important;
-              gap: 6px !important;
-              padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+              gap: 4px !important;
+              padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)) !important;
             }
 
             .bottom-player .volume-row,
@@ -25067,17 +25072,17 @@ export default function Page() {
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
-              gap: 8px !important;
+              gap: 7px !important;
               min-width: 0 !important;
             }
 
             .bottom-player .player-song img,
             .bottom-player .video-player-now img {
-              width: 32px !important;
-              height: 32px !important;
+              width: 28px !important;
+              height: 28px !important;
               object-fit: cover !important;
               border-radius: 8px !important;
-              flex: 0 0 32px !important;
+              flex: 0 0 28px !important;
             }
 
             .bottom-player .player-song > div,
@@ -25101,7 +25106,7 @@ export default function Page() {
               width: 100% !important;
               min-width: 0 !important;
               display: grid !important;
-              gap: 5px !important;
+              gap: 3px !important;
               justify-items: center !important;
             }
 
@@ -25110,16 +25115,16 @@ export default function Page() {
               display: flex !important;
               justify-content: center !important;
               align-items: center !important;
-              gap: 8px !important;
+              gap: 7px !important;
               width: 100% !important;
             }
 
             .bottom-player .player-controls button,
             .bottom-player .video-player-controls button {
-              width: 32px !important;
-              min-width: 32px !important;
-              height: 32px !important;
-              min-height: 32px !important;
+              width: 30px !important;
+              min-width: 30px !important;
+              height: 30px !important;
+              min-height: 30px !important;
               padding: 0 !important;
             }
 
@@ -25136,6 +25141,13 @@ export default function Page() {
               display: grid !important;
               grid-template-columns: minmax(0, 1fr) !important;
               gap: 4px !important;
+            }
+
+            .bottom-player .progress-time,
+            .bottom-player .progress-row span,
+            .bottom-player .video-progress-row span {
+              font-size: 9px !important;
+              line-height: 1 !important;
             }
 
             .bottom-player .progress-row input {
@@ -25343,7 +25355,16 @@ export default function Page() {
             .following-feed,
             .liked-page,
             .profile-page,
-            .artist-profile {
+            .artist-profile,
+            .playlist-workspace,
+            .playlist-songs,
+            .add-song-list,
+            .queue-page,
+            .video-page,
+            .search-results,
+            .artist-section,
+            .dashboard-page,
+            .producer-profile {
               display: flex !important;
               flex-direction: column !important;
               align-items: center !important;
@@ -25351,8 +25372,11 @@ export default function Page() {
               width: 100% !important;
               max-width: 100% !important;
               margin-left: 0 !important;
+              margin-bottom: 0 !important;
+              padding-bottom: var(--mobile-player-clearance) !important;
               padding-left: 0 !important;
               overflow-x: hidden !important;
+              scroll-padding-bottom: var(--mobile-player-clearance) !important;
               transform: none !important;
             }
 
@@ -25365,7 +25389,10 @@ export default function Page() {
               width: 100% !important;
               max-width: 100% !important;
               margin-left: 0 !important;
+              margin-bottom: 0 !important;
+              padding-bottom: var(--mobile-player-clearance) !important;
               padding-left: 0 !important;
+              scroll-padding-bottom: var(--mobile-player-clearance) !important;
               transform: none !important;
             }
 
@@ -25387,6 +25414,18 @@ export default function Page() {
               align-self: center !important;
               transform: none !important;
               left: auto !important;
+              scroll-margin-bottom: var(--mobile-player-clearance) !important;
+            }
+
+            .media-card:last-child,
+            .song-card:last-child,
+            .video-card:last-child,
+            .artist-card:last-child,
+            .artist-album-card:last-child,
+            .artist-playlist-card:last-child,
+            .playlist-tile:last-child,
+            .discovery-card:last-child {
+              margin-bottom: var(--mobile-player-clearance) !important;
             }
 
             .media-card-content,
