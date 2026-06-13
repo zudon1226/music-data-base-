@@ -4568,7 +4568,11 @@ export default function Page() {
     function clearLocalSessionState() {
         audioRef.current?.pause();
         mainVideoRef.current?.pause();
+        albumUploadUserRef.current = null;
+        uploadInProgressRef.current = false;
+        activeUploadKeysRef.current.clear();
         setUser(null);
+        setAccountRole("Listener");
         setAuthMode("login");
         setAuthEmail("");
         setAuthPassword("");
@@ -11822,25 +11826,24 @@ export default function Page() {
     }
     async function logout() {
         setAuthMessage("");
-        if (albumUploadBusy) {
-            showToast("Album upload is still finishing.", "info");
-            return;
-        }
+        clearLocalSessionState();
         try {
             const { error } = await supabase.auth.signOut();
             if (error) {
                 throw error;
             }
             clearAllBrowserSessionStorage();
+            clearSupabaseAuthStorage();
             clearLocalSessionState();
-            window.location.assign("/");
+            window.location.replace("/");
             return;
         }
         catch (error) {
             console.error("Logout failed:", error);
             clearAllBrowserSessionStorage();
+            clearSupabaseAuthStorage();
             clearLocalSessionState();
-            window.location.assign("/");
+            window.location.replace("/");
             return;
         }
     }
@@ -25018,7 +25021,7 @@ export default function Page() {
           @media (max-width: 768px) {
             :root {
               --mobile-player-height: 124px;
-              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 24px);
+              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 128px);
             }
 
             main,
@@ -25467,6 +25470,89 @@ export default function Page() {
               width: 28px !important;
               min-width: 28px !important;
               height: 28px !important;
+            }
+
+            .discovery-card {
+              width: calc(100% - 24px) !important;
+              max-width: 680px !important;
+              height: auto !important;
+              min-height: 0 !important;
+              padding: 12px !important;
+              display: grid !important;
+              grid-template-columns: 96px minmax(0, 1fr) !important;
+              grid-template-rows: auto auto !important;
+              gap: 10px !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .discovery-card-main {
+              grid-column: 1 !important;
+              width: 96px !important;
+              height: 72px !important;
+              min-width: 96px !important;
+              min-height: 0 !important;
+              align-self: start !important;
+            }
+
+            .discovery-card-main img {
+              width: 96px !important;
+              height: 72px !important;
+              max-width: 96px !important;
+              object-fit: cover !important;
+            }
+
+            .discovery-card-main span {
+              left: 5px !important;
+              top: 5px !important;
+              max-width: calc(100% - 10px) !important;
+              font-size: 9px !important;
+              padding: 3px 5px !important;
+            }
+
+            .discovery-card-copy {
+              grid-column: 2 !important;
+              min-width: 0 !important;
+              width: 100% !important;
+              align-content: start !important;
+              gap: 4px !important;
+              overflow: hidden !important;
+            }
+
+            .discovery-card-copy strong,
+            .discovery-card-copy small,
+            .discovery-card-copy em {
+              display: block !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: nowrap !important;
+            }
+
+            .discovery-card-copy strong {
+              font-size: 16px !important;
+              line-height: 1.15 !important;
+              -webkit-line-clamp: unset !important;
+              -webkit-box-orient: unset !important;
+            }
+
+            .discovery-card-copy small,
+            .discovery-card-copy em {
+              font-size: 13px !important;
+              line-height: 1.15 !important;
+            }
+
+            .discovery-card-action {
+              grid-column: 1 / -1 !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              height: auto !important;
+              min-height: 34px !important;
+              max-width: 100% !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
             }
           }
         `}</style>
