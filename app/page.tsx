@@ -25020,6 +25020,7 @@ export default function Page() {
             :root {
               --mobile-player-height: 124px;
               --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 128px);
+              --mobile-content-clearance: var(--mobile-player-clearance);
             }
 
             main,
@@ -25027,14 +25028,14 @@ export default function Page() {
             .page-content,
             .zml-app,
             .content {
-              padding-bottom: var(--mobile-player-clearance) !important;
+              padding-bottom: var(--mobile-content-clearance) !important;
               overflow-x: hidden !important;
-              scroll-padding-bottom: var(--mobile-player-clearance) !important;
+              scroll-padding-bottom: var(--mobile-content-clearance) !important;
             }
 
             .mobile-player-spacer {
-              height: var(--mobile-player-clearance) !important;
-              min-height: var(--mobile-player-clearance) !important;
+              height: var(--mobile-content-clearance) !important;
+              min-height: var(--mobile-content-clearance) !important;
             }
 
             .bottom-player,
@@ -25374,10 +25375,10 @@ export default function Page() {
               max-width: 100% !important;
               margin-left: 0 !important;
               margin-bottom: 0 !important;
-              padding-bottom: var(--mobile-player-clearance) !important;
+              padding-bottom: var(--mobile-content-clearance) !important;
               padding-left: 0 !important;
               overflow-x: hidden !important;
-              scroll-padding-bottom: var(--mobile-player-clearance) !important;
+              scroll-padding-bottom: var(--mobile-content-clearance) !important;
               transform: none !important;
             }
 
@@ -25391,9 +25392,9 @@ export default function Page() {
               max-width: 100% !important;
               margin-left: 0 !important;
               margin-bottom: 0 !important;
-              padding-bottom: var(--mobile-player-clearance) !important;
+              padding-bottom: var(--mobile-content-clearance) !important;
               padding-left: 0 !important;
-              scroll-padding-bottom: var(--mobile-player-clearance) !important;
+              scroll-padding-bottom: var(--mobile-content-clearance) !important;
               transform: none !important;
             }
 
@@ -25415,7 +25416,7 @@ export default function Page() {
               align-self: center !important;
               transform: none !important;
               left: auto !important;
-              scroll-margin-bottom: var(--mobile-player-clearance) !important;
+              scroll-margin-bottom: var(--mobile-content-clearance) !important;
             }
 
             .media-card:last-child,
@@ -25426,7 +25427,7 @@ export default function Page() {
             .artist-playlist-card:last-child,
             .playlist-tile:last-child,
             .discovery-card:last-child {
-              margin-bottom: var(--mobile-player-clearance) !important;
+              margin-bottom: var(--mobile-content-clearance) !important;
             }
 
             .media-card-content,
@@ -25560,7 +25561,7 @@ export default function Page() {
               gap: 12px !important;
               width: 100% !important;
               max-width: 100% !important;
-              padding-bottom: var(--mobile-player-clearance) !important;
+              padding-bottom: var(--mobile-content-clearance) !important;
               overflow-x: hidden !important;
             }
 
@@ -25587,7 +25588,7 @@ export default function Page() {
               flex-direction: column !important;
               align-items: center !important;
               gap: 12px !important;
-              padding: 12px !important;
+              padding: 12px 12px var(--mobile-content-clearance) !important;
               margin: 0 auto !important;
               border-top: 1px solid rgba(0, 212, 255, 0.28) !important;
               border-radius: 8px !important;
@@ -25631,7 +25632,7 @@ export default function Page() {
               display: grid !important;
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
               gap: 8px !important;
-              margin: 12px 0 !important;
+              margin: 12px 0 16px !important;
             }
 
             .artist-profile .artist-actions {
@@ -25639,6 +25640,8 @@ export default function Page() {
               display: flex !important;
               flex-wrap: wrap !important;
               gap: 8px !important;
+              padding-bottom: 8px !important;
+              scroll-margin-bottom: var(--mobile-content-clearance) !important;
             }
 
             .artist-profile .artist-actions button {
@@ -25660,7 +25663,7 @@ export default function Page() {
             }
 
             .artist-profile .artist-section:last-child {
-              margin-bottom: var(--mobile-player-clearance) !important;
+              margin-bottom: var(--mobile-content-clearance) !important;
             }
 
             .artist-profile .horizontal-rail,
