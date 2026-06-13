@@ -1002,6 +1002,7 @@ const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 const SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES = 3 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
 const VIDEO_STORAGE_CORS_FIX_MESSAGE = "Supabase Storage CORS is blocking direct video upload. Add https://digitalmusicdatabase.com and https://www.digitalmusicdatabase.com to Supabase Storage/API CORS allowed origins, then retry.";
+const MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE = "Mobile compatible video required: MP4 H.264 video with AAC audio.";
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
 }
@@ -2168,8 +2169,11 @@ function normalizeVideoForPlayback(video: VideoItem | Record<string, unknown>) {
 }
 function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | undefined) {
     const videoCodec = String(video?.videoCodec || video?.video_codec || "").trim().toLowerCase();
-    return videoCodec === "av01" ||
-        (video?.mobileCompatible ?? video?.mobile_compatible ?? null) === false;
+    const audioCodec = String(video?.audioCodec || video?.audio_codec || "").trim().toLowerCase();
+    if (videoCodec || audioCodec) {
+        return !isMobileCompatibleCodec(videoCodec, audioCodec);
+    }
+    return false;
 }
 function getStoredMobileCompatibility(video: Partial<VideoItem> | null | undefined) {
     return video?.mobileCompatible ?? video?.mobile_compatible ?? null;
@@ -11538,7 +11542,7 @@ export default function Page() {
         const videoCount = getAlbumVideoCount(album);
         const runtimeLabel = formatRuntimeLabel(getAlbumRuntimeSeconds(album));
         const canManageAlbum = Boolean(accountUserId && (album.userId === accountUserId || album.artistId === accountUserId || album.producerId === accountUserId || album.producerProfileId === accountUserId));
-        return (<article className="artist-album-card" key={album.id}>
+        return (<article className="artist-album-card media-card" key={album.id}>
         <img src={getAlbumDisplayCover(album)} alt=""/>
         {isEditing ? (<div className="album-inline-edit">
             <input name={`cardEditAlbumTitle-${album.id}`} value={editAlbumForm.title} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, title: event.target.value })} placeholder="Album title"/>
@@ -11613,7 +11617,7 @@ export default function Page() {
         const isSaved = savedVideoIds.includes(video.id);
         const sourceLabel = options.sourceLabel || "Video Card";
         const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
-        return (<article className={options.isLibraryCard ? "video-card library-card" : "video-card"} key={video.id}>
+        return (<article className={options.isLibraryCard ? "video-card library-card media-card" : "video-card media-card"} key={video.id}>
         <div className="video-cover-wrap">
           <button className="video-cover" onClick={() => playVideo(video, sourceLabel)} type="button">
             <img src={video.cover} alt=""/>
@@ -13455,7 +13459,7 @@ export default function Page() {
                     <small>
                       {albumVideoFiles.length > 0
                     ? `${albumVideoFiles.length} video file${albumVideoFiles.length === 1 ? "" : "s"} selected`
-                    : "Use MP4 H.264 video + AAC audio for iPhone/Android playback."}
+                    : MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}
                     </small>
                   </label>
 
@@ -13533,7 +13537,8 @@ export default function Page() {
                     setVideoUploadProgress(0);
                     setVideoUploadStatus("");
                 }}/>
-                    <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : "Use MP4 H.264 video + AAC audio for iPhone/Android playback."}</small>
+                    <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small>
+                    {videoFile ? <small>{MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small> : null}
                   </label>
                 </div>
 
@@ -14394,7 +14399,8 @@ export default function Page() {
                 setVideoUploadProgress(0);
                 setVideoUploadStatus("");
             }}/>
-                  <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : "Video file"}</small>
+                  <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small>
+                  {videoFile ? <small>{MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small> : null}
                 </label>
               </div>
 
@@ -15723,7 +15729,7 @@ export default function Page() {
                 <p>Create a playlist, then add songs or videos from cards across Music Data Base.</p>
               </div>) : (<div className="playlist-layout">
                 <HorizontalRail className="playlist-list" label="Playlists">
-                  {playlists.map((playlist) => (<button key={playlist.id} className={activePlaylist?.id === playlist.id ? "playlist-tile active" : "playlist-tile"} onClick={() => {
+                  {playlists.map((playlist) => (<button key={playlist.id} className={activePlaylist?.id === playlist.id ? "playlist-tile media-card active" : "playlist-tile media-card"} onClick={() => {
                         setActivePlaylistId(playlist.id);
                         setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
                     }}>
@@ -15995,7 +16001,7 @@ export default function Page() {
                             const isFollowed = followedArtistIds.includes(artistId);
                             const isQueued = cleanQueue.some((item) => item.id === song.id);
                             const producerCredit = getProducerCreditForSong(song);
-                            return (<article className="song-card library-card" key={song.id}>
+                            return (<article className="song-card library-card media-card" key={song.id}>
                               <div className="cover-wrap">
                                 <img className="cover" src={song.cover} alt=""/>
                                 <span className="badge">{song.category}</span>
@@ -16114,7 +16120,7 @@ export default function Page() {
                             const artistId = createArtistId(song.artist);
                             const isFollowed = followedArtistIds.includes(artistId);
                             const isQueued = cleanQueue.some((item) => item.id === song.id);
-                            return (<article className="song-card" key={song.id}>
+                            return (<article className="song-card media-card" key={song.id}>
                               <div className="cover-wrap">
                                 <img className="cover" src={song.cover} alt=""/>
                                 <span className="badge">{song.category}</span>
@@ -16214,7 +16220,7 @@ export default function Page() {
                     {followingSongs.map((song) => {
                     const isLiked = likedIds.includes(song.id);
                     const artistId = createArtistId(song.artist);
-                    return (<article className="song-card" key={song.id}>
+                    return (<article className="song-card media-card" key={song.id}>
                           <div className="cover-wrap">
                             <img className="cover" src={song.cover} alt=""/>
                             <span className="badge">{song.category}</span>
@@ -16377,7 +16383,7 @@ export default function Page() {
                     const isFollowed = followedArtistIds.includes(artistId);
                     const isQueued = cleanQueue.some((item) => item.id === song.id);
                     const producerCredit = getProducerCreditForSong(song);
-                    return (<article className="song-card" key={song.id}>
+                    return (<article className="song-card media-card" key={song.id}>
                   <div className="cover-wrap">
                     <img className="cover" src={song.cover} alt=""/>
                     <span className="badge">{song.category}</span>
@@ -16666,7 +16672,7 @@ export default function Page() {
           </section>
         </aside>)}
 
-      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar">
+      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar bottom-player">
           <div className="video-player-now">
             <img src={activeVideo.cover} alt=""/>
             <div>
@@ -16718,7 +16724,7 @@ export default function Page() {
           </div>
         </footer>)}
 
-      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player">
+      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player bottom-player">
           <div className="player-song">
             <img src={currentSong.cover} alt=""/>
 
@@ -23416,7 +23422,7 @@ export default function Page() {
           @media (max-width: 820px) {
             :root {
               --mobile-sidebar-width: 64px;
-              --mobile-player-reserve: calc(220px + env(safe-area-inset-bottom, 0px));
+              --mobile-player-reserve: calc(320px + env(safe-area-inset-bottom, 0px));
             }
 
             html,
@@ -23737,7 +23743,7 @@ export default function Page() {
               left: var(--mobile-sidebar-width);
               right: 0;
               top: 64px;
-              bottom: 150px;
+              bottom: 190px;
               width: auto;
             }
 
@@ -23753,11 +23759,11 @@ export default function Page() {
               left: var(--mobile-sidebar-width);
               grid-template-columns: 1fr;
               height: auto;
-              min-height: 142px;
-              max-height: calc(166px + env(safe-area-inset-bottom, 0px));
+              min-height: 0;
+              max-height: calc(165px + env(safe-area-inset-bottom, 0px));
               align-items: stretch;
-              gap: 7px;
-              padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+              gap: 4px;
+              padding: 6px 10px calc(7px + env(safe-area-inset-bottom, 0px));
               overflow: hidden;
               pointer-events: none;
             }
@@ -23773,6 +23779,24 @@ export default function Page() {
               justify-content: center;
               width: min(100%, 360px);
               justify-self: center;
+              gap: 6px;
+            }
+
+            .player-song img {
+              width: 28px;
+              height: 28px;
+              border-radius: 7px;
+            }
+
+            .player-song strong {
+              max-width: 24ch;
+              font-size: 11.5px;
+              line-height: 1.05;
+            }
+
+            .player-song small {
+              font-size: 10px;
+              line-height: 1.05;
             }
 
             .stability-brand {
@@ -23813,20 +23837,58 @@ export default function Page() {
             .player-controls {
               width: auto;
               justify-self: center;
+              gap: 5px;
+            }
+
+            .player-controls button,
+            .player-controls button:nth-child(2),
+            .player-controls .main-play,
+            .player-controls button:nth-child(4) {
+              width: 28px;
+              min-width: 28px;
+              height: 28px;
+              border-radius: 7px;
+            }
+
+            .player-controls button:first-child,
+            .player-controls button:last-child {
+              width: 26px;
+              min-width: 26px;
+              height: 27px;
             }
 
             .player .progress-row {
               width: min(100%, 520px);
               justify-self: center;
+              gap: 2px;
+            }
+
+            .player .progress-time {
+              font-size: 9px;
             }
 
             .player-side {
               width: min(100%, 360px);
               justify-self: center;
-              grid-template-columns: auto minmax(110px, 1fr);
+              grid-template-columns: minmax(72px, auto) minmax(96px, 1fr);
               align-items: center;
               justify-items: stretch;
-              gap: 8px;
+              gap: 6px;
+            }
+
+            .queue-drawer-button {
+              min-height: 26px;
+              padding: 0 7px;
+              font-size: 10px;
+            }
+
+            .volume {
+              gap: 4px;
+            }
+
+            .volume svg {
+              width: 15px;
+              height: 15px;
             }
 
             .queue-count {
@@ -23839,18 +23901,204 @@ export default function Page() {
 
             .song-grid,
             .video-grid {
-              grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+              grid-template-columns: repeat(auto-fit, minmax(230px, 260px));
+              justify-content: center;
               gap: 7px;
             }
 
             .horizontal-rail {
-              grid-template-columns: 24px minmax(0, 1fr) 24px;
-              gap: 4px;
+              grid-template-columns: 18px minmax(0, 1fr) 18px;
+              gap: 3px;
+            }
+
+            .horizontal-rail-track.video-grid,
+            .horizontal-rail-track.song-grid {
+              grid-auto-columns: minmax(230px, 260px);
             }
 
             .rail-arrow {
+              min-height: 28px;
+              border-radius: 6px;
+              font-size: 11px;
+            }
+
+            .song-card,
+            .library-card.song-card {
+              width: 100%;
+              min-width: 230px;
+              max-width: 260px;
+              height: 334px;
+              grid-template-rows: 86px minmax(0, 1fr);
+              justify-self: center;
+            }
+
+            .cover-wrap,
+            .song-card .cover-wrap {
+              height: 86px;
+              min-height: 86px;
+            }
+
+            .song-body,
+            .library-card .song-body {
+              grid-template-rows: 50px 0 20px 104px 26px;
+              padding: 7px;
+              gap: 5px;
+            }
+
+            .song-head {
+              align-items: center;
+              gap: 7px;
+              overflow: hidden;
+            }
+
+            .song-head > div {
+              width: 100%;
+              min-width: 0;
+            }
+
+            .song-head img {
+              width: 34px;
+              height: 34px;
+            }
+
+            .song-head h3 {
+              display: block;
+              min-height: 21px;
+              max-height: 21px;
+              font-size: 18px;
+              line-height: 1.15;
+              overflow: hidden;
+              overflow-wrap: normal;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .song-head p,
+            .song-head .artist-link {
+              display: block;
+              width: 100%;
+              min-width: 0;
+              font-size: 15px;
+              line-height: 1.12;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .song-card .card-actions,
+            .library-card .card-actions {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              grid-auto-rows: 32px;
+              min-height: 104px;
+              height: auto;
+              overflow: hidden;
+            }
+
+            .song-card .card-actions button,
+            .library-card .card-actions button {
               min-height: 32px;
-              font-size: 13px;
+              height: 32px;
+              font-size: 11px;
+              padding: 0 5px;
+            }
+
+            .view-list .song-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .view-list .song-card,
+            .view-list .library-card.song-card {
+              min-height: 74px;
+              height: auto;
+              grid-template-columns: 58px minmax(0, 1fr);
+              grid-template-rows: 1fr;
+            }
+
+            .view-list .song-card .cover-wrap,
+            .view-list .song-card .cover {
+              height: 74px;
+              min-height: 74px;
+            }
+
+            .view-list .song-card .badge,
+            .view-list .song-card .duration,
+            .view-list .song-card .card-header-actions,
+            .view-list .song-body .desc,
+            .view-list .song-body .stats,
+            .view-list .song-body .card-secondary-actions,
+            .view-list .song-body .card-actions button:not(.play-btn) {
+              display: none;
+            }
+
+            .view-list .song-body,
+            .view-list .library-card .song-body {
+              min-height: 74px;
+              grid-template-columns: minmax(0, 1fr) 42px;
+              grid-template-rows: 1fr;
+              align-items: center;
+              gap: 8px;
+              padding: 8px;
+            }
+
+            .view-list .song-head {
+              grid-column: 1;
+              min-width: 0;
+              gap: 0;
+            }
+
+            .view-list .song-head > div {
+              width: 100%;
+              min-width: 0;
+            }
+
+            .view-list .song-head img {
+              display: none;
+            }
+
+            .view-list .song-head h3 {
+              display: block;
+              min-height: 0;
+              max-height: none;
+              font-size: 14px;
+              line-height: 1.15;
+              overflow: hidden;
+              overflow-wrap: normal;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .view-list .song-head p,
+            .view-list .song-head .artist-link {
+              display: block;
+              width: 100%;
+              min-width: 0;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .view-list .song-body .card-actions,
+            .view-list .library-card .card-actions {
+              grid-column: 2;
+              display: grid;
+              grid-template-columns: 1fr;
+              min-height: 0;
+              height: auto;
+              align-content: center;
+              overflow: visible;
+            }
+
+            .view-list .song-body .card-actions .play-btn {
+              width: 36px;
+              min-width: 36px;
+              height: 36px;
+              min-height: 36px;
+              padding: 0;
+              border-radius: 8px;
+            }
+
+            .view-list .song-body .card-actions .play-btn span:last-child {
+              display: none;
             }
 
             .upload-grid,
@@ -24154,6 +24402,90 @@ export default function Page() {
               padding: 0 4px;
             }
 
+            .horizontal-rail-track.song-grid {
+              grid-auto-columns: minmax(230px, 260px);
+            }
+
+            .song-card,
+            .library-card.song-card {
+              width: 100%;
+              min-width: 230px;
+              max-width: 260px;
+              height: 334px;
+              grid-template-rows: 86px minmax(0, 1fr);
+              justify-self: center;
+            }
+
+            .song-card .cover-wrap {
+              height: 86px;
+              min-height: 86px;
+            }
+
+            .song-card .song-body,
+            .library-card .song-body {
+              grid-template-rows: 50px 0 20px 104px 26px;
+              padding: 7px;
+              gap: 5px;
+            }
+
+            .song-card .song-head {
+              align-items: center;
+              gap: 7px;
+              min-width: 0;
+              overflow: hidden;
+            }
+
+            .song-card .song-head > div {
+              width: 100%;
+              min-width: 0;
+            }
+
+            .song-card .song-head img {
+              width: 34px;
+              height: 34px;
+            }
+
+            .song-card .song-head h3 {
+              display: block;
+              min-height: 21px;
+              max-height: 21px;
+              font-size: 18px;
+              line-height: 1.15;
+              overflow: hidden;
+              overflow-wrap: normal;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .song-card .song-head p,
+            .song-card .song-head .artist-link {
+              display: block;
+              width: 100%;
+              min-width: 0;
+              font-size: 15px;
+              line-height: 1.12;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .song-card .card-actions,
+            .library-card .card-actions {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              grid-auto-rows: 32px;
+              min-height: 104px;
+              height: auto;
+              overflow: hidden;
+            }
+
+            .song-card .card-actions button,
+            .library-card .card-actions button {
+              min-height: 32px;
+              height: 32px;
+              font-size: 11px;
+              padding: 0 5px;
+            }
+
             .artist-card {
               padding: 8px;
               gap: 7px;
@@ -24324,6 +24656,743 @@ export default function Page() {
             .artist-song-row button:nth-of-type(3),
             .artist-song-row button:nth-of-type(4) {
               display: none;
+            }
+
+            .content {
+              padding-bottom: var(--mobile-player-reserve);
+              scroll-padding-bottom: var(--mobile-player-reserve);
+            }
+
+            .zml-app {
+              padding-bottom: var(--mobile-player-reserve);
+            }
+
+            .mobile-player-spacer {
+              height: var(--mobile-player-reserve);
+              min-height: var(--mobile-player-reserve);
+            }
+
+            .player {
+              max-height: calc(165px + env(safe-area-inset-bottom, 0px));
+              grid-template-columns: 1fr;
+              grid-template-rows: auto auto;
+              gap: 5px;
+              padding: 6px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+            }
+
+            .player-side,
+            .player .queue-drawer-button,
+            .player .volume {
+              display: none;
+            }
+
+            .player-song {
+              justify-content: center;
+              width: min(100%, 300px);
+            }
+
+            .player-song img {
+              width: 32px;
+              height: 32px;
+            }
+
+            .player-song strong {
+              max-width: 22ch;
+              font-size: 12px;
+            }
+
+            .player-song small {
+              font-size: 10px;
+            }
+
+            .player-controls {
+              gap: 7px;
+            }
+
+            .player-controls button,
+            .player-controls button:first-child,
+            .player-controls button:last-child,
+            .player-controls button:nth-child(2),
+            .player-controls .main-play,
+            .player-controls button:nth-child(4) {
+              width: 34px;
+              min-width: 34px;
+              height: 34px;
+            }
+
+            .player .progress-row {
+              width: 100%;
+              max-width: 720px;
+            }
+
+            .queue-drawer {
+              bottom: 165px;
+            }
+
+            .horizontal-rail {
+              grid-template-columns: 14px minmax(0, 1fr) 14px;
+              gap: 3px;
+            }
+
+            .rail-arrow {
+              min-height: 28px;
+              border-radius: 6px;
+              font-size: 10px;
+              padding: 0;
+            }
+
+            .horizontal-rail-track.song-grid {
+              grid-auto-columns: minmax(190px, 230px);
+              gap: 6px;
+            }
+
+            .horizontal-rail-track.video-grid,
+            .horizontal-rail-track.artist-album-grid,
+            .horizontal-rail-track.artist-playlist-grid,
+            .horizontal-rail-track.playlist-list,
+            .horizontal-rail-track.discovery-grid {
+              grid-auto-columns: minmax(190px, 230px);
+              gap: 6px;
+            }
+
+            .song-grid:not(.horizontal-rail-track) {
+              grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 230px));
+              justify-content: center;
+            }
+
+            .video-grid:not(.horizontal-rail-track),
+            .artist-album-grid:not(.horizontal-rail-track),
+            .artist-playlist-grid:not(.horizontal-rail-track),
+            .playlist-list:not(.horizontal-rail-track) {
+              grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 230px));
+              justify-content: center;
+            }
+
+            .song-card,
+            .video-card,
+            .library-card.song-card,
+            .library-card.video-card,
+            .artist-album-card,
+            .artist-playlist-card,
+            .playlist-tile {
+              width: min(100%, 230px);
+              min-width: 0;
+              max-width: 230px;
+              height: auto;
+              min-height: 0;
+              grid-template-columns: 1fr;
+              grid-template-rows: auto;
+              overflow: hidden;
+              justify-self: center;
+            }
+
+            .song-card .cover-wrap,
+            .song-card .cover,
+            .video-card .video-cover-wrap,
+            .video-card .video-cover,
+            .artist-album-card > img,
+            .artist-playlist-card > img,
+            .playlist-tile img {
+              height: auto;
+              min-height: 0;
+              aspect-ratio: 16 / 9;
+              object-fit: cover;
+            }
+
+            .song-card .song-body,
+            .library-card .song-body,
+            .video-card .video-card-body,
+            .library-card.video-card .video-card-body {
+              min-height: 0;
+              grid-template-columns: 1fr;
+              grid-template-rows: auto;
+              gap: 6px;
+              padding: 8px;
+              overflow: visible;
+            }
+
+            .song-card .song-head {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              min-width: 0;
+              min-height: 0;
+              overflow: hidden;
+            }
+
+            .song-card .song-head img {
+              width: 32px;
+              height: 32px;
+              flex: 0 0 32px;
+            }
+
+            .song-card .song-head > div {
+              width: 100%;
+              min-width: 0;
+              overflow: hidden;
+            }
+
+            .song-card .song-head h3 {
+              display: block;
+              min-height: 0;
+              max-height: none;
+              margin: 0;
+              color: #f8fafc;
+              font-size: 17px;
+              line-height: 1.15;
+              overflow: hidden;
+              overflow-wrap: normal;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .song-card .song-head p,
+            .song-card .song-head .artist-link {
+              display: block;
+              width: 100%;
+              min-width: 0;
+              margin-top: 2px;
+              color: #c8f5ff;
+              font-size: 14px;
+              line-height: 1.1;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .song-card .stats {
+              min-height: 0;
+              gap: 3px;
+              font-size: 9.5px;
+              overflow: hidden;
+              flex-wrap: wrap;
+            }
+
+            .song-card .stats span {
+              padding: 3px 5px;
+            }
+
+            .song-card .card-actions,
+            .video-card .card-actions,
+            .video-card-body .card-actions,
+            .library-card .card-actions,
+            .library-card .video-card-body .card-actions,
+            .artist-album-card .artist-album-actions,
+            .artist-card .artist-card-actions {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+              grid-auto-rows: auto;
+              gap: 4px;
+              min-height: 0;
+              height: auto;
+              overflow: visible;
+            }
+
+            .song-card .card-actions button,
+            .video-card .card-actions button,
+            .video-card-body .card-actions button,
+            .library-card .card-actions button,
+            .library-card .video-card-body .card-actions button,
+            .artist-album-card .artist-album-actions button,
+            .artist-card .artist-card-actions button {
+              width: 100%;
+              min-width: 0;
+              height: auto;
+              min-height: 30px;
+              border-radius: 7px;
+              font-size: 11px;
+              gap: 3px;
+              padding: 0 5px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .song-card .card-secondary-actions,
+            .video-card .card-secondary-actions {
+              grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+              min-height: 0;
+              height: auto;
+              overflow: visible;
+            }
+
+            .video-card-body h3,
+            .video-card-body p,
+            .artist-album-card strong,
+            .artist-album-card span,
+            .artist-playlist-card strong,
+            .artist-playlist-card small,
+            .playlist-tile strong,
+            .playlist-tile small {
+              min-width: 0;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            .view-list .horizontal-rail-track.song-grid {
+              grid-auto-flow: row;
+              grid-auto-columns: unset;
+              grid-template-columns: 1fr;
+              overflow: visible;
+            }
+
+            .view-list .song-card,
+            .view-list .video-card,
+            .view-list .library-card.song-card,
+            .view-list .library-card.video-card {
+              width: 100%;
+              max-width: none;
+              height: auto;
+              min-height: 0;
+              grid-template-columns: 82px minmax(0, 1fr);
+              grid-template-rows: 1fr;
+              align-items: stretch;
+            }
+
+            .view-list .song-card .cover-wrap,
+            .view-list .song-card .cover,
+            .view-list .video-card .video-cover-wrap,
+            .view-list .video-card .video-cover {
+              height: 100%;
+              min-height: 112px;
+              aspect-ratio: auto;
+            }
+
+            .view-list .song-card .song-body,
+            .view-list .library-card .song-body,
+            .view-list .video-card .video-card-body {
+              min-height: 0;
+              grid-template-columns: minmax(0, 1fr);
+              grid-template-rows: auto;
+              align-items: stretch;
+              gap: 4px;
+              padding: 7px;
+            }
+
+            .view-list .song-card .song-head img {
+              display: none;
+            }
+
+            .view-list .song-card .song-head h3 {
+              font-size: 16px;
+              min-height: 20px;
+              max-height: 20px;
+            }
+
+            .view-list .song-card .song-head p,
+            .view-list .song-card .song-head .artist-link {
+              font-size: 13px;
+            }
+
+            .view-list .song-body .stats {
+              display: flex;
+            }
+
+            .view-list .song-body .card-actions,
+            .view-list .video-card-body .card-actions,
+            .view-list .library-card .card-actions {
+              grid-column: auto;
+              grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+              grid-auto-rows: auto;
+              min-height: 0;
+              height: auto;
+              overflow: visible;
+            }
+
+            .view-list .song-body .card-actions button:not(.play-btn) {
+              display: inline-flex;
+            }
+
+            .view-list .song-body .card-actions .play-btn {
+              width: 100%;
+              min-width: 0;
+              height: 27px;
+              min-height: 27px;
+            }
+
+            .view-list .song-body .card-actions .play-btn span:last-child {
+              display: inline;
+            }
+          }
+
+          @media (max-width: 768px) {
+            main,
+            .main-content,
+            .page-content,
+            .zml-app,
+            .content {
+              padding-bottom: 320px !important;
+              overflow-x: hidden !important;
+              scroll-padding-bottom: 320px !important;
+            }
+
+            .mobile-player-spacer {
+              height: 320px !important;
+              min-height: 320px !important;
+            }
+
+            .bottom-player,
+            .player,
+            .video-player-bar {
+              position: fixed !important;
+              left: 112px !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              height: 150px !important;
+              min-height: 0 !important;
+              max-height: 150px !important;
+              z-index: 9999 !important;
+              overflow: hidden !important;
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              grid-template-rows: auto auto !important;
+              gap: 6px !important;
+              padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            .bottom-player .volume-row,
+            .bottom-player .queue-button,
+            .bottom-player .player-side,
+            .bottom-player .video-player-side,
+            .bottom-player .volume,
+            .bottom-player .video-volume,
+            .bottom-player .queue-drawer-button {
+              display: none !important;
+            }
+
+            .bottom-player .player-song,
+            .bottom-player .video-player-now {
+              width: min(100%, 290px) !important;
+              justify-self: center !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              gap: 8px !important;
+              min-width: 0 !important;
+            }
+
+            .bottom-player .player-song img,
+            .bottom-player .video-player-now img {
+              width: 32px !important;
+              height: 32px !important;
+              object-fit: cover !important;
+              border-radius: 8px !important;
+              flex: 0 0 32px !important;
+            }
+
+            .bottom-player .player-song > div,
+            .bottom-player .video-player-now > div {
+              min-width: 0 !important;
+            }
+
+            .bottom-player .player-song strong,
+            .bottom-player .player-song small,
+            .bottom-player .video-player-now strong,
+            .bottom-player .video-player-now small {
+              display: block !important;
+              max-width: 220px !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: nowrap !important;
+            }
+
+            .bottom-player .player-center,
+            .bottom-player .video-player-center {
+              width: 100% !important;
+              min-width: 0 !important;
+              display: grid !important;
+              gap: 5px !important;
+              justify-items: center !important;
+            }
+
+            .bottom-player .player-controls,
+            .bottom-player .video-player-controls {
+              display: flex !important;
+              justify-content: center !important;
+              align-items: center !important;
+              gap: 8px !important;
+              width: 100% !important;
+            }
+
+            .bottom-player .player-controls button,
+            .bottom-player .video-player-controls button {
+              width: 32px !important;
+              min-width: 32px !important;
+              height: 32px !important;
+              min-height: 32px !important;
+              padding: 0 !important;
+            }
+
+            .bottom-player .player-controls button:first-child,
+            .bottom-player .player-controls button:last-child,
+            .bottom-player .video-player-controls button:nth-child(n + 4) {
+              display: none !important;
+            }
+
+            .bottom-player .progress-row,
+            .bottom-player .video-progress-row {
+              width: 100% !important;
+              max-width: none !important;
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 4px !important;
+            }
+
+            .bottom-player .progress-row input {
+              width: 100% !important;
+            }
+
+            .media-card,
+            .song-card,
+            .video-card,
+            .artist-album-card,
+            .artist-playlist-card,
+            .playlist-tile {
+              width: 100% !important;
+              max-width: 100% !important;
+              height: auto !important;
+              min-height: 0 !important;
+              padding: 12px !important;
+              display: grid !important;
+              grid-template-columns: 145px minmax(0, 1fr) !important;
+              grid-template-rows: auto auto !important;
+              gap: 12px !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .horizontal-rail {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 0 !important;
+              min-width: 0 !important;
+              overflow-x: hidden !important;
+            }
+
+            .rail-arrow {
+              display: none !important;
+            }
+
+            .horizontal-rail-track {
+              min-width: 0 !important;
+              overflow-x: hidden !important;
+            }
+
+            .horizontal-rail-track.song-grid,
+            .horizontal-rail-track.video-grid,
+            .horizontal-rail-track.artist-album-grid,
+            .horizontal-rail-track.artist-playlist-grid,
+            .horizontal-rail-track.playlist-list,
+            .horizontal-rail-track.discovery-grid {
+              display: grid !important;
+              grid-auto-flow: row !important;
+              grid-auto-columns: unset !important;
+              grid-template-columns: 1fr !important;
+              gap: 10px !important;
+              overflow: visible !important;
+            }
+
+            .media-card,
+            .song-card,
+            .video-card,
+            .artist-album-card,
+            .artist-playlist-card,
+            .playlist-tile {
+              grid-template-columns: 96px minmax(0, 1fr) !important;
+              gap: 10px !important;
+            }
+
+            .media-card img,
+            .media-card .cover,
+            .media-card .video-cover,
+            .media-card > img,
+            .media-card .cover-wrap img,
+            .media-card .video-cover-wrap img {
+              width: 96px !important;
+              height: 72px !important;
+              object-fit: cover !important;
+              max-width: 96px !important;
+              min-height: 0 !important;
+            }
+
+            .media-card .cover-wrap,
+            .media-card .video-cover-wrap {
+              width: 96px !important;
+              height: 72px !important;
+              min-height: 0 !important;
+              grid-column: 1 !important;
+              overflow: hidden !important;
+            }
+
+            .media-card .song-body,
+            .media-card .video-card-body,
+            .media-card > div:not(.cover-wrap):not(.video-cover-wrap):not(.card-header-actions) {
+              display: contents !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              padding: 0 !important;
+              overflow: visible !important;
+            }
+
+            .media-card .song-head {
+              grid-column: 2 !important;
+              min-width: 0 !important;
+              display: block !important;
+              overflow: hidden !important;
+            }
+
+            .media-card .video-card-body h3,
+            .media-card .video-card-body p,
+            .media-card > div:not(.cover-wrap):not(.video-cover-wrap):not(.card-header-actions) > strong,
+            .media-card > div:not(.cover-wrap):not(.video-cover-wrap):not(.card-header-actions) > small {
+              grid-column: 2 !important;
+            }
+
+            .media-card .song-head img {
+              display: none !important;
+            }
+
+            .media-card-title,
+            .media-card-artist,
+            .media-card .song-head h3,
+            .media-card .song-head p,
+            .media-card .song-head .artist-link,
+            .media-card .video-card-body h3,
+            .media-card .video-card-body p,
+            .media-card strong,
+            .media-card small {
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+            }
+
+            .media-card .song-head h3,
+            .media-card .video-card-body h3,
+            .media-card strong {
+              font-size: 16px !important;
+              line-height: 1.15 !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              margin: 0 !important;
+            }
+
+            .media-card .song-head p,
+            .media-card .song-head .artist-link,
+            .media-card .video-card-body p,
+            .media-card small {
+              font-size: 13px !important;
+              line-height: 1.15 !important;
+            }
+
+            .media-card .stats {
+              grid-column: 1 / -1 !important;
+              display: flex !important;
+              flex-wrap: wrap !important;
+              gap: 4px !important;
+              overflow: hidden !important;
+            }
+
+            .media-card-actions,
+            .media-card .card-actions,
+            .media-card .card-secondary-actions,
+            .media-card .artist-album-actions,
+            .media-card .artist-card-actions {
+              grid-column: 1 / -1 !important;
+              display: flex !important;
+              flex-wrap: wrap !important;
+              gap: 8px !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              overflow: visible !important;
+            }
+
+            .media-card-actions button,
+            .media-card .card-actions button,
+            .media-card .card-secondary-actions button,
+            .media-card .artist-album-actions button,
+            .media-card .artist-card-actions button {
+              flex: 1 1 calc(50% - 8px) !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+              height: auto !important;
+              min-height: 34px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .song-list,
+            .video-list,
+            .album-list,
+            .library-list,
+            .media-list,
+            .song-grid,
+            .video-grid,
+            .artist-grid,
+            .artist-album-grid,
+            .artist-playlist-grid,
+            .playlist-list,
+            .discovery-grid,
+            .horizontal-rail-track,
+            .dashboard-song-list,
+            .artist-song-list,
+            .following-feed,
+            .liked-page,
+            .profile-page,
+            .artist-profile {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              justify-content: flex-start !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin-left: 0 !important;
+              padding-left: 0 !important;
+              overflow-x: hidden !important;
+              transform: none !important;
+            }
+
+            .horizontal-rail,
+            .artist-section,
+            .profile-grid,
+            .profile-save,
+            .profile-hero,
+            .empty-state {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin-left: 0 !important;
+              padding-left: 0 !important;
+              transform: none !important;
+            }
+
+            .media-card,
+            .song-card,
+            .video-card,
+            .artist-card,
+            .artist-album-card,
+            .artist-playlist-card,
+            .playlist-tile,
+            .discovery-card,
+            .profile-save,
+            .profile-hero {
+              width: calc(100% - 24px) !important;
+              max-width: 680px !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+              justify-self: center !important;
+              align-self: center !important;
+              transform: none !important;
+              left: auto !important;
+            }
+
+            .media-card-content,
+            .song-body,
+            .video-card-body {
+              width: 100% !important;
             }
           }
         `}</style>
