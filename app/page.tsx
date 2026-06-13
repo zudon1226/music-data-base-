@@ -11553,15 +11553,15 @@ export default function Page() {
               <button onClick={cancelEditingAlbum} type="button">Cancel</button>
             </div>
           </div>) : (<>
-            <div>
+            <div className="media-card-content">
               <Disc3 size={18}/>
-              <strong>{album.title}{renderVerifiedBadge(album.ownerType === "producer" ? isProducerVerified(album.producerId || album.creatorName) : isArtistVerified(album.creatorName), album.ownerType === "producer" ? "Verified Producer" : "Verified Artist")}</strong>
-              <span>{album.creatorName}</span>
+              <strong className="media-card-title">{album.title}{renderVerifiedBadge(album.ownerType === "producer" ? isProducerVerified(album.producerId || album.creatorName) : isArtistVerified(album.creatorName), album.ownerType === "producer" ? "Verified Producer" : "Verified Artist")}</strong>
+              <span className="media-card-artist">{album.creatorName}</span>
               <span>{songCount} Songs | {videoCount} Videos</span>
               <span>Total runtime {runtimeLabel}</span>
               <span>{album.category} | {formatAlbumCreatedDate(album.createdAt)}</span>
             </div>
-            <div className="artist-album-actions">
+            <div className="artist-album-actions media-card-actions">
               <button onClick={() => {
                     playAlbum(album, sourceLabel);
                 }} type="button">
@@ -11629,10 +11629,10 @@ export default function Page() {
             </button>)}
         </div>
 
-        <div className="video-card-body">
+        <div className="video-card-body media-card-content">
           <div className="card-meta">
-            <h3>{video.title}{renderVerifiedBadge(isArtistVerified(video.creator), "Verified Artist")}</h3>
-            <p>
+            <h3 className="media-card-title">{video.title}{renderVerifiedBadge(isArtistVerified(video.creator), "Verified Artist")}</h3>
+            <p className="media-card-artist">
               <ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>
             </p>
           </div>
@@ -11644,7 +11644,7 @@ export default function Page() {
           </div>
           {mobileIncompatible ? (<p className="video-compat-warning">This video must be re-uploaded as MP4 H.264/AAC for mobile.</p>) : null}
 
-          <div className="card-actions">
+          <div className="card-actions media-card-actions">
             <button className="play-btn" onClick={() => playVideo(video, sourceLabel)} type="button">
               <span aria-hidden="true">▶</span>
               <span>Play</span>
@@ -16022,12 +16022,12 @@ export default function Page() {
                                 </div>
                               </div>
 
-                              <div className="song-body">
+                              <div className="song-body media-card-content">
                                 <div className="song-head">
                                   <img src={song.cover} alt=""/>
                                   <div>
-                                    <h3>{song.title}</h3>
-                                    <p>
+                                    <h3 className="media-card-title">{song.title}</h3>
+                                    <p className="media-card-artist">
                                       <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
                                     </p>
                                   </div>
@@ -16044,7 +16044,7 @@ export default function Page() {
                                   <span>{song.uploaded}</span>
                                 </div>
 
-                                <div className="card-actions">
+                                <div className="card-actions media-card-actions">
                                   <button className="play-btn" onClick={() => playSong(song)} type="button">
                                     <span aria-hidden="true">▶</span>
                                     <span>Play</span>
@@ -16131,12 +16131,12 @@ export default function Page() {
                                   </button>
                                 </div>
                               </div>
-                              <div className="song-body">
+                              <div className="song-body media-card-content">
                                 <div className="song-head">
                                   <img src={song.cover} alt=""/>
                                   <div>
-                                    <h3>{song.title}</h3>
-                                    <p>
+                                    <h3 className="media-card-title">{song.title}</h3>
+                                    <p className="media-card-artist">
                                       <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
                                     </p>
                                   </div>
@@ -16146,7 +16146,7 @@ export default function Page() {
                                   <span>{formatCount(song.likes)} likes</span>
                                   <span>{song.uploaded}</span>
                                 </div>
-                                <div className="card-actions">
+                                <div className="card-actions media-card-actions">
                                   <button className="play-btn" onClick={() => playSong(song)} type="button">
                                     <span aria-hidden="true">▶</span>
                                     <span>Play</span>
@@ -16226,17 +16226,17 @@ export default function Page() {
                             <span className="badge">{song.category}</span>
                             <span className="duration">{song.time}</span>
                           </div>
-                          <div className="song-body">
+                            <div className="song-body media-card-content">
                             <div className="song-head">
                               <img src={song.cover} alt=""/>
                               <div>
-                                <h3>{song.title}</h3>
-                                <p>
+                                <h3 className="media-card-title">{song.title}</h3>
+                                <p className="media-card-artist">
                                   <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
                                 </p>
                               </div>
                             </div>
-                            <div className="card-actions">
+                            <div className="card-actions media-card-actions">
                               <button className="play-btn" onClick={() => playSong(song)} type="button">
                                 <span aria-hidden="true">▶</span>
                                 <span>Play</span>
@@ -16404,13 +16404,13 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className="song-body">
+                  <div className="song-body media-card-content">
                     <div className="song-head">
                       <img src={song.cover} alt=""/>
 
                       <div>
-                        <h3>{song.title}{renderVerifiedBadge(isArtistVerified(song.artist), "Verified Artist")}</h3>
-                        <p>
+                        <h3 className="media-card-title">{song.title}{renderVerifiedBadge(isArtistVerified(song.artist), "Verified Artist")}</h3>
+                        <p className="media-card-artist">
                           <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
                         </p>
                       </div>
@@ -16427,7 +16427,7 @@ export default function Page() {
                       <span>{song.uploaded}</span>
                     </div>
 
-                    <div className="card-actions">
+                    <div className="card-actions media-card-actions">
                       <button className="play-btn" onClick={() => playSong(song)}>
                         <span aria-hidden="true">▶</span>
                         <span>{song.mediaKind === "video" ? "Open" : "Play"}</span>
@@ -25393,6 +25393,41 @@ export default function Page() {
             .song-body,
             .video-card-body {
               width: 100% !important;
+            }
+
+            .media-card > .media-card-content,
+            .media-card > .song-body,
+            .media-card > .video-card-body {
+              display: contents !important;
+            }
+
+            .media-card .card-meta,
+            .media-card .song-head,
+            .media-card-title,
+            .media-card-artist {
+              grid-column: 2 !important;
+              min-width: 0 !important;
+            }
+
+            .media-card .media-card-content > svg {
+              display: none !important;
+            }
+
+            .media-card .desc,
+            .media-card .video-compat-warning {
+              grid-column: 1 / -1 !important;
+              display: none !important;
+            }
+
+            .media-card .card-header-actions {
+              right: 4px !important;
+              top: 4px !important;
+            }
+
+            .media-card .card-icon-btn {
+              width: 28px !important;
+              min-width: 28px !important;
+              height: 28px !important;
             }
           }
         `}</style>
