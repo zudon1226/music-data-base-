@@ -25018,9 +25018,14 @@ export default function Page() {
 
           @media (max-width: 768px) {
             :root {
-              --mobile-player-height: 124px;
-              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 128px);
+              --mobile-player-height: 104px;
+              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 216px);
               --mobile-content-clearance: var(--mobile-player-clearance);
+            }
+
+            html,
+            body {
+              scroll-padding-bottom: var(--mobile-content-clearance) !important;
             }
 
             main,
@@ -25053,8 +25058,8 @@ export default function Page() {
               display: grid !important;
               grid-template-columns: 1fr !important;
               grid-template-rows: auto auto !important;
-              gap: 4px !important;
-              padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+              gap: 2px !important;
+              padding: 4px 10px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
             }
 
             .bottom-player .volume-row,
@@ -25074,17 +25079,17 @@ export default function Page() {
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
-              gap: 7px !important;
+              gap: 6px !important;
               min-width: 0 !important;
             }
 
             .bottom-player .player-song img,
             .bottom-player .video-player-now img {
-              width: 28px !important;
-              height: 28px !important;
+              width: 24px !important;
+              height: 24px !important;
               object-fit: cover !important;
               border-radius: 8px !important;
-              flex: 0 0 28px !important;
+              flex: 0 0 24px !important;
             }
 
             .bottom-player .player-song > div,
@@ -25108,7 +25113,7 @@ export default function Page() {
               width: 100% !important;
               min-width: 0 !important;
               display: grid !important;
-              gap: 3px !important;
+              gap: 2px !important;
               justify-items: center !important;
             }
 
@@ -25117,16 +25122,16 @@ export default function Page() {
               display: flex !important;
               justify-content: center !important;
               align-items: center !important;
-              gap: 7px !important;
+              gap: 6px !important;
               width: 100% !important;
             }
 
             .bottom-player .player-controls button,
             .bottom-player .video-player-controls button {
-              width: 30px !important;
-              min-width: 30px !important;
-              height: 30px !important;
-              min-height: 30px !important;
+              width: 28px !important;
+              min-width: 28px !important;
+              height: 28px !important;
+              min-height: 28px !important;
               padding: 0 !important;
             }
 
