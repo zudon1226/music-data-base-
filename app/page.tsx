@@ -15429,12 +15429,11 @@ export default function Page() {
               <h2>Artist not found</h2>
               <p>Choose an artist name from any song to open their profile.</p>
             </div>) : (<section className="artist-profile">
-              <div className="artist-banner" style={{ backgroundImage: `url("${activeArtist.banner}")` }}>
-                <button className="back-btn" onClick={() => handleNav("Home")} type="button">
+              <button className="back-btn" onClick={() => handleNav("Home")} type="button">
                   <ArrowLeft size={16}/>
                   Back
                 </button>
-              </div>
+              <div className="artist-banner" style={{ backgroundImage: `url("${activeArtist.banner}")` }}/>
 
               <div className="artist-main">
                 <img className="artist-avatar" src={activeArtist.avatar} alt=""/>
@@ -15581,12 +15580,11 @@ export default function Page() {
               <h2>Producer not found</h2>
               <p>Open a producer from a beat card or save your Producer Dashboard profile first.</p>
             </div>) : (<section className="artist-profile producer-profile">
-              <div className="artist-banner" style={{ backgroundImage: `url("${activeProducerProfile.banner}")` }}>
-                <button className="back-btn" onClick={() => handleNav("Home")} type="button">
+              <button className="back-btn" onClick={() => handleNav("Home")} type="button">
                   <ArrowLeft size={16}/>
                   Back
                 </button>
-              </div>
+              <div className="artist-banner" style={{ backgroundImage: `url("${activeProducerProfile.banner}")` }}/>
 
               <div className="artist-main">
                 <img className="artist-avatar" src={activeProducerProfile.avatar} alt=""/>
@@ -25553,6 +25551,210 @@ export default function Page() {
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
+            }
+
+            .artist-profile {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              gap: 12px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              padding-bottom: var(--mobile-player-clearance) !important;
+              overflow-x: hidden !important;
+            }
+
+            .artist-profile .back-btn {
+              align-self: flex-start !important;
+              position: relative !important;
+              z-index: 1 !important;
+              margin: 0 12px !important;
+            }
+
+            .artist-profile .artist-banner {
+              width: calc(100% - 24px) !important;
+              max-width: 680px !important;
+              min-height: 0 !important;
+              height: 112px !important;
+              border-radius: 8px !important;
+              overflow: hidden !important;
+            }
+
+            .artist-profile .artist-main {
+              width: calc(100% - 24px) !important;
+              max-width: 680px !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              gap: 12px !important;
+              padding: 12px !important;
+              margin: 0 auto !important;
+              border-top: 1px solid rgba(0, 212, 255, 0.28) !important;
+              border-radius: 8px !important;
+              box-sizing: border-box !important;
+              overflow: hidden !important;
+            }
+
+            .artist-profile .artist-avatar {
+              width: 112px !important;
+              height: 112px !important;
+              max-width: 112px !important;
+              max-height: 112px !important;
+              margin: 0 auto !important;
+              border-width: 3px !important;
+              object-fit: cover !important;
+              flex: 0 0 auto !important;
+            }
+
+            .artist-profile .artist-copy {
+              width: 100% !important;
+              min-width: 0 !important;
+              padding-top: 0 !important;
+              text-align: center !important;
+            }
+
+            .artist-profile .artist-copy h2 {
+              font-size: 30px !important;
+              line-height: 1.05 !important;
+              margin: 4px 0 8px !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            .artist-profile .artist-copy p,
+            .artist-profile .profile-link-line {
+              max-width: 100% !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            .artist-profile .artist-stats {
+              width: 100% !important;
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+              margin: 12px 0 !important;
+            }
+
+            .artist-profile .artist-actions {
+              width: 100% !important;
+              display: flex !important;
+              flex-wrap: wrap !important;
+              gap: 8px !important;
+            }
+
+            .artist-profile .artist-actions button {
+              flex: 1 1 calc(50% - 8px) !important;
+              min-width: 0 !important;
+            }
+
+            .artist-profile .artist-section {
+              width: calc(100% - 24px) !important;
+              max-width: 680px !important;
+              display: block !important;
+              height: auto !important;
+              min-height: 0 !important;
+              padding: 12px !important;
+              padding-bottom: 12px !important;
+              margin: 0 auto 12px !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .artist-profile .artist-section:last-child {
+              margin-bottom: var(--mobile-player-clearance) !important;
+            }
+
+            .artist-profile .horizontal-rail,
+            .artist-profile .horizontal-rail-track,
+            .artist-profile .video-grid,
+            .artist-profile .artist-album-grid,
+            .artist-profile .artist-playlist-grid {
+              height: auto !important;
+              min-height: 0 !important;
+              padding-bottom: 0 !important;
+              margin-bottom: 0 !important;
+              scroll-padding-bottom: 0 !important;
+            }
+
+            .artist-profile .artist-song-list {
+              width: 100% !important;
+              max-width: 100% !important;
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              height: auto !important;
+              min-height: 0 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              overflow: visible !important;
+            }
+
+            .artist-profile .artist-song-row {
+              width: 100% !important;
+              display: grid !important;
+              grid-template-columns: 24px 48px minmax(0, 1fr) !important;
+              grid-template-rows: auto auto auto !important;
+              align-items: center !important;
+              gap: 8px !important;
+              height: auto !important;
+              min-height: 0 !important;
+              padding: 8px !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .artist-profile .artist-song-row img {
+              width: 48px !important;
+              height: 48px !important;
+            }
+
+            .artist-profile .artist-song-row > span:nth-of-type(2) {
+              min-width: 0 !important;
+            }
+
+            .artist-profile .artist-song-row > .artist-row-stat {
+              grid-column: 3 !important;
+              font-size: 11px !important;
+            }
+
+            .artist-profile .artist-song-row button {
+              min-width: 0 !important;
+              width: auto !important;
+              min-height: 34px !important;
+              padding: 0 8px !important;
+            }
+
+            .artist-profile .artist-song-row button:nth-of-type(1),
+            .artist-profile .artist-song-row button:nth-of-type(2),
+            .artist-profile .artist-song-row button:nth-of-type(3) {
+              grid-row: 3 !important;
+            }
+
+            .artist-profile .artist-song-row button:nth-of-type(n + 4) {
+              grid-row: auto !important;
+            }
+
+            .artist-profile .artist-song-row {
+              grid-auto-flow: row !important;
+            }
+
+            .artist-profile .artist-song-row button {
+              grid-column: auto !important;
+            }
+
+            .artist-profile .artist-song-row button:nth-of-type(1) {
+              grid-column: 1 / 2 !important;
+            }
+
+            .artist-profile .artist-song-row button:nth-of-type(2) {
+              grid-column: 2 / 3 !important;
+            }
+
+            .artist-profile .artist-song-row button:nth-of-type(3) {
+              grid-column: 3 / 4 !important;
+            }
+
+            .artist-profile .artist-song-row button:nth-of-type(n + 4) {
+              grid-column: 1 / -1 !important;
             }
           }
         `}</style>
