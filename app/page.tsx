@@ -25019,7 +25019,7 @@ export default function Page() {
           @media (max-width: 768px) {
             :root {
               --mobile-sidebar-width: 112px;
-              --mobile-player-height: 88px;
+              --mobile-player-height: 78px;
               --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 760px);
               --mobile-content-clearance: var(--mobile-player-clearance);
             }
@@ -25061,9 +25061,9 @@ export default function Page() {
               overflow: hidden !important;
               display: grid !important;
               grid-template-columns: 1fr !important;
-              grid-template-rows: auto auto !important;
-              gap: 1px !important;
-              padding: 3px 8px calc(3px + env(safe-area-inset-bottom, 0px)) !important;
+              grid-template-rows: 21px minmax(0, 1fr) !important;
+              gap: 0 !important;
+              padding: 2px 8px calc(2px + env(safe-area-inset-bottom, 0px)) !important;
             }
 
             .bottom-player .volume-row,
@@ -25083,17 +25083,17 @@ export default function Page() {
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
-              gap: 5px !important;
+              gap: 4px !important;
               min-width: 0 !important;
             }
 
             .bottom-player .player-song img,
             .bottom-player .video-player-now img {
-              width: 20px !important;
-              height: 20px !important;
+              width: 18px !important;
+              height: 18px !important;
               object-fit: cover !important;
               border-radius: 8px !important;
-              flex: 0 0 20px !important;
+              flex: 0 0 18px !important;
             }
 
             .bottom-player .player-song > div,
@@ -25107,6 +25107,7 @@ export default function Page() {
             .bottom-player .video-player-now small {
               display: block !important;
               max-width: 210px !important;
+              text-align: center !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
               white-space: nowrap !important;
@@ -25129,8 +25130,10 @@ export default function Page() {
               width: 100% !important;
               min-width: 0 !important;
               display: grid !important;
-              gap: 1px !important;
+              grid-template-rows: 30px minmax(0, 1fr) !important;
+              gap: 0 !important;
               justify-items: center !important;
+              align-content: end !important;
             }
 
             .bottom-player .player-controls,
@@ -25138,17 +25141,17 @@ export default function Page() {
               display: flex !important;
               justify-content: center !important;
               align-items: center !important;
-              gap: 5px !important;
+              gap: 6px !important;
               width: 100% !important;
               flex-wrap: nowrap !important;
             }
 
             .bottom-player .player-controls button,
             .bottom-player .video-player-controls button {
-              width: 26px !important;
-              min-width: 26px !important;
-              height: 26px !important;
-              min-height: 26px !important;
+              width: 28px !important;
+              min-width: 28px !important;
+              height: 28px !important;
+              min-height: 28px !important;
               padding: 0 !important;
             }
 
@@ -25162,7 +25165,8 @@ export default function Page() {
               max-width: none !important;
               display: grid !important;
               grid-template-columns: minmax(0, 1fr) !important;
-              gap: 2px !important;
+              gap: 1px !important;
+              align-self: end !important;
             }
 
             .bottom-player .progress-time,
