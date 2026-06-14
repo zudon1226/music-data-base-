@@ -26107,7 +26107,7 @@ export default function Page() {
             .playlist-songs .playlist-song-row {
               display: flex !important;
               flex-wrap: nowrap !important;
-              gap: 8px !important;
+              gap: 6px !important;
               align-items: center !important;
               width: 100% !important;
               max-width: 100% !important;
@@ -26117,27 +26117,27 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row .recent-number {
-              width: 30px !important;
-              min-width: 30px !important;
-              flex: 0 0 30px !important;
+              width: 28px !important;
+              min-width: 28px !important;
+              flex: 0 0 28px !important;
               text-align: center !important;
               white-space: nowrap !important;
             }
 
             .playlist-songs .playlist-song-row img {
-              width: 56px !important;
-              height: 56px !important;
-              max-width: 56px !important;
-              flex: 0 0 56px !important;
+              width: 52px !important;
+              height: 52px !important;
+              max-width: 52px !important;
+              flex: 0 0 52px !important;
               object-fit: cover !important;
             }
 
             .playlist-songs .playlist-song-row > span:not(.recent-number) {
               display: block !important;
-              flex: 1 1 auto !important;
+              flex: 1 1 0 !important;
               gap: 2px !important;
               min-width: 0 !important;
-              width: 100% !important;
+              width: auto !important;
               max-width: 100% !important;
               overflow: hidden !important;
             }
@@ -26179,12 +26179,12 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row > button {
-              width: 48px !important;
-              min-width: 48px !important;
-              max-width: 48px !important;
-              flex: 0 0 48px !important;
-              height: 48px !important;
-              min-height: 48px !important;
+              width: 44px !important;
+              min-width: 44px !important;
+              max-width: 44px !important;
+              flex: 0 0 44px !important;
+              height: 44px !important;
+              min-height: 44px !important;
               padding: 0 !important;
               justify-self: end !important;
             }
