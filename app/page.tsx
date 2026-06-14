@@ -25152,8 +25152,6 @@ export default function Page() {
               padding: 0 !important;
             }
 
-            .bottom-player .player-controls button:first-child,
-            .bottom-player .player-controls button:last-child,
             .bottom-player .video-player-controls button:nth-child(n + 4) {
               display: none !important;
             }
