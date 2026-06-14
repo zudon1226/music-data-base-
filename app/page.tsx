@@ -10987,7 +10987,7 @@ export default function Page() {
         <img src={getArtworkUrl(release.cover)} alt=""/>
         <span>
           <b>{release.title}</b>
-          <small>{release.creatorName} | {release.genre} | {release.metricLabel}</small>
+          <small>{release.creatorName}</small>
         </span>
         <em>{formatCurrencyFromCents(release.priceCents)}</em>
         <div className="marketplace-chart-actions">
@@ -16733,7 +16733,7 @@ export default function Page() {
 
             <div>
               <strong title={currentSong.title}>
-                {currentSong.title.length > 25 ? `${currentSong.title.slice(0, 25)}...` : currentSong.title}
+                {currentSong.title}
               </strong>
               <small>
                 <ArtistNameButton name={currentSong.artist} onOpen={openArtistProfile}/>
@@ -24185,8 +24185,8 @@ export default function Page() {
 
             .marketplace-chart-row {
               width: 100%;
-              grid-template-columns: 36px 64px minmax(0, 1fr) 150px;
-              gap: 8px;
+              grid-template-columns: 36px 64px minmax(0, 1fr) 60px;
+              gap: 7px;
               padding: 8px;
             }
 
@@ -24205,8 +24205,24 @@ export default function Page() {
             }
 
             .marketplace-chart-row span {
+              display: grid;
+              grid-template-rows: auto auto;
+              gap: 2px;
               min-width: 0;
               width: 100%;
+              overflow: hidden;
+            }
+
+            .marketplace-chart-row b {
+              display: block;
+              font-size: 15px;
+              line-height: 1.12;
+            }
+
+            .marketplace-chart-row small {
+              display: block;
+              font-size: 12px;
+              line-height: 1.15;
             }
 
             .marketplace-chart-row b,
@@ -24215,20 +24231,29 @@ export default function Page() {
             }
 
             .marketplace-chart-actions {
-              width: 150px;
+              width: 100%;
               display: flex;
+              flex-direction: column;
               justify-content: flex-end;
-              gap: 6px;
+              align-items: stretch;
+              gap: 5px;
+              min-width: 0;
             }
 
             .marketplace-chart-actions button {
-              width: 72px;
+              width: 100%;
               min-width: 0;
-              height: 38px;
-              min-height: 38px;
-              padding: 0 8px;
-              font-size: 13px;
+              height: 28px;
+              min-height: 28px;
+              padding: 0 6px;
+              font-size: 11px;
               line-height: 1;
+              gap: 3px;
+            }
+
+            .marketplace-chart-actions button svg {
+              width: 12px;
+              height: 12px;
             }
 
             .trending-controls {
@@ -25115,7 +25140,7 @@ export default function Page() {
               overflow: hidden !important;
               display: grid !important;
               grid-template-columns: 1fr !important;
-              grid-template-rows: 21px minmax(0, 1fr) !important;
+              grid-template-rows: 30px minmax(0, 1fr) !important;
               gap: 0 !important;
               padding: 2px 8px calc(2px + env(safe-area-inset-bottom, 0px)) !important;
             }
@@ -25132,22 +25157,23 @@ export default function Page() {
 
             .bottom-player .player-song,
             .bottom-player .video-player-now {
-              width: min(100%, 260px) !important;
+              width: min(100%, 320px) !important;
               justify-self: center !important;
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
-              gap: 4px !important;
+              gap: 5px !important;
               min-width: 0 !important;
+              min-height: 0 !important;
             }
 
             .bottom-player .player-song img,
             .bottom-player .video-player-now img {
-              width: 18px !important;
-              height: 18px !important;
+              width: 22px !important;
+              height: 22px !important;
               object-fit: cover !important;
               border-radius: 8px !important;
-              flex: 0 0 18px !important;
+              flex: 0 0 22px !important;
             }
 
             .bottom-player .player-song > div,
@@ -25160,7 +25186,7 @@ export default function Page() {
             .bottom-player .video-player-now strong,
             .bottom-player .video-player-now small {
               display: block !important;
-              max-width: 210px !important;
+              max-width: 260px !important;
               text-align: center !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
@@ -25170,13 +25196,13 @@ export default function Page() {
             .bottom-player .player-song strong,
             .bottom-player .video-player-now strong {
               font-size: 12px !important;
-              line-height: 1.05 !important;
+              line-height: 1.1 !important;
             }
 
             .bottom-player .player-song small,
             .bottom-player .video-player-now small {
               font-size: 10px !important;
-              line-height: 1.05 !important;
+              line-height: 1.1 !important;
             }
 
             .bottom-player .player-center,
@@ -25184,7 +25210,7 @@ export default function Page() {
               width: 100% !important;
               min-width: 0 !important;
               display: grid !important;
-              grid-template-rows: 30px minmax(0, 1fr) !important;
+              grid-template-rows: 28px minmax(0, 1fr) !important;
               gap: 0 !important;
               justify-items: center !important;
               align-content: end !important;
