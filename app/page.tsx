@@ -26023,20 +26023,27 @@ export default function Page() {
 
             .add-song-row {
               display: grid !important;
-              grid-template-columns: 48px minmax(0, 1fr) minmax(92px, 108px) !important;
-              gap: 8px !important;
+              grid-template-columns: 48px minmax(0, 1fr) !important;
+              gap: 8px 10px !important;
               align-items: center !important;
             }
 
             .playlist-song-row {
               display: grid !important;
-              grid-template-columns: 24px 48px minmax(0, 1fr) 38px 38px !important;
-              gap: 7px !important;
+              grid-template-columns: 28px 44px minmax(0, 1fr) 34px 34px !important;
+              gap: 6px !important;
               align-items: center !important;
             }
 
             .add-song-row img,
             .playlist-song-row img {
+              width: 44px !important;
+              height: 44px !important;
+              object-fit: cover !important;
+              flex: 0 0 auto !important;
+            }
+
+            .add-song-row img {
               width: 48px !important;
               height: 48px !important;
               object-fit: cover !important;
@@ -26076,28 +26083,30 @@ export default function Page() {
             }
 
             .add-song-row button {
-              width: 100% !important;
+              grid-column: 2 / 3 !important;
+              width: auto !important;
               min-width: 0 !important;
-              max-width: 108px !important;
-              min-height: 36px !important;
-              padding: 0 8px !important;
-              justify-self: end !important;
-              white-space: normal !important;
-              line-height: 1.05 !important;
+              max-width: 96px !important;
+              min-height: 30px !important;
+              padding: 0 10px !important;
+              justify-self: start !important;
+              white-space: nowrap !important;
+              line-height: 1 !important;
+              font-size: 12px !important;
             }
 
             .playlist-song-row button {
-              width: 38px !important;
-              min-width: 38px !important;
-              height: 38px !important;
-              min-height: 38px !important;
+              width: 34px !important;
+              min-width: 34px !important;
+              height: 34px !important;
+              min-height: 34px !important;
               padding: 0 !important;
               justify-self: end !important;
             }
 
             .playlist-songs .playlist-song-row {
-              display: flex !important;
-              flex-wrap: nowrap !important;
+              display: grid !important;
+              grid-template-columns: 28px 44px minmax(0, 1fr) 34px 34px !important;
               gap: 6px !important;
               align-items: center !important;
               width: 100% !important;
@@ -26110,21 +26119,18 @@ export default function Page() {
             .playlist-songs .playlist-song-row .recent-number {
               width: 28px !important;
               min-width: 28px !important;
-              flex: 0 0 28px !important;
               text-align: center !important;
               white-space: nowrap !important;
             }
 
             .playlist-songs .playlist-song-row img {
-              width: 60px !important;
-              height: 60px !important;
-              max-width: 60px !important;
-              flex: 0 0 60px !important;
+              width: 44px !important;
+              height: 44px !important;
+              max-width: 44px !important;
               object-fit: cover !important;
             }
 
             .playlist-songs .playlist-song-row > span:not(.recent-number) {
-              flex: 1 1 auto !important;
               min-width: 0 !important;
               width: 100% !important;
               max-width: 100% !important;
@@ -26157,12 +26163,11 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row button {
-              width: 44px !important;
-              min-width: 44px !important;
-              max-width: 44px !important;
-              flex: 0 0 44px !important;
-              height: 44px !important;
-              min-height: 44px !important;
+              width: 34px !important;
+              min-width: 34px !important;
+              max-width: 34px !important;
+              height: 34px !important;
+              min-height: 34px !important;
               padding: 0 !important;
               justify-self: end !important;
             }
@@ -26176,17 +26181,17 @@ export default function Page() {
             .queue-manage-row {
               width: 100% !important;
               display: grid !important;
-              grid-template-columns: 24px 48px minmax(0, 1fr) 42px 42px !important;
+              grid-template-columns: 28px 44px minmax(0, 1fr) 36px 36px !important;
               grid-template-rows: auto auto !important;
-              gap: 8px !important;
+              gap: 6px !important;
               align-items: center !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
             }
 
             .queue-manage-row img {
-              width: 48px !important;
-              height: 48px !important;
+              width: 44px !important;
+              height: 44px !important;
             }
 
             .queue-manage-row .recent-copy {
@@ -26212,10 +26217,11 @@ export default function Page() {
 
             .queue-manage-row button {
               min-width: 0 !important;
-              width: 42px !important;
-              height: 36px !important;
-              min-height: 36px !important;
+              width: 36px !important;
+              height: 34px !important;
+              min-height: 34px !important;
               padding: 0 !important;
+              font-size: 11px !important;
             }
 
             .queue-manage-row button:nth-of-type(1),
