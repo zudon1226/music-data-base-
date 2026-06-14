@@ -26464,6 +26464,23 @@ export default function Page() {
               z-index: 9999 !important;
               overflow: hidden !important;
             }
+
+            .mobile-bottom-player,
+            .bottom-player {
+              position: fixed !important;
+              left: var(--sidebar-width, 96px) !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              transform: none !important;
+              margin-bottom: 0 !important;
+              z-index: 99999 !important;
+            }
+
+            .main-content,
+            .app-content,
+            .page-content {
+              padding-bottom: 240px !important;
+            }
           }
         `}</style>
     </main>);
