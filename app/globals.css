@@ -235,7 +235,7 @@ body {
 }
 
 @media (max-width: 768px) {
-  .fixed-mobile-player {
+  .fixed-mobile-player.fixed-mobile-player {
     position: fixed !important;
     left: 96px !important;
     right: 0 !important;
@@ -256,7 +256,7 @@ body {
     margin: 0 !important;
   }
 
-  .fixed-mobile-player .player-main {
+  .fixed-mobile-player.fixed-mobile-player .player-main {
     grid-column: 1 !important;
     grid-row: 1 !important;
     min-width: 0 !important;
@@ -264,42 +264,46 @@ body {
     justify-self: start !important;
   }
 
-  .fixed-mobile-player .player-center,
-  .fixed-mobile-player .video-player-center {
+  .fixed-mobile-player.fixed-mobile-player .player-center,
+  .fixed-mobile-player.fixed-mobile-player .video-player-center {
     display: contents !important;
   }
 
-  .fixed-mobile-player .player-main,
-  .fixed-mobile-player .player-controls,
-  .fixed-mobile-player .video-player-controls {
+  .fixed-mobile-player.fixed-mobile-player .player-main,
+  .fixed-mobile-player.fixed-mobile-player .player-controls,
+  .fixed-mobile-player.fixed-mobile-player .video-player-controls {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 6px !important;
   }
 
-  .fixed-mobile-player img {
+  .fixed-mobile-player.fixed-mobile-player img {
     width: 28px !important;
     height: 28px !important;
     flex: 0 0 28px !important;
   }
 
-  .fixed-mobile-player button {
+  .fixed-mobile-player.fixed-mobile-player button,
+  .fixed-mobile-player.fixed-mobile-player .player-controls button,
+  .fixed-mobile-player.fixed-mobile-player .video-player-controls button,
+  .fixed-mobile-player.fixed-mobile-player .player-controls .main-play,
+  .fixed-mobile-player.fixed-mobile-player .video-player-controls .main-play {
     width: 34px !important;
     height: 34px !important;
     min-width: 34px !important;
     padding: 0 !important;
   }
 
-  .fixed-mobile-player .player-controls,
-  .fixed-mobile-player .video-player-controls {
+  .fixed-mobile-player.fixed-mobile-player .player-controls,
+  .fixed-mobile-player.fixed-mobile-player .video-player-controls {
     grid-column: 2 !important;
     grid-row: 1 !important;
     flex-wrap: nowrap !important;
   }
 
-  .fixed-mobile-player .track-title,
-  .fixed-mobile-player .song-title {
+  .fixed-mobile-player.fixed-mobile-player .track-title,
+  .fixed-mobile-player.fixed-mobile-player .song-title {
     font-size: 14px !important;
     line-height: 16px !important;
     white-space: nowrap !important;
@@ -307,7 +311,7 @@ body {
     text-overflow: ellipsis !important;
   }
 
-  .fixed-mobile-player .artist-name {
+  .fixed-mobile-player.fixed-mobile-player .artist-name {
     font-size: 12px !important;
     line-height: 14px !important;
     white-space: nowrap !important;
@@ -315,7 +319,7 @@ body {
     text-overflow: ellipsis !important;
   }
 
-  .fixed-mobile-player .artist-name.artist-link {
+  .fixed-mobile-player.fixed-mobile-player .artist-name.artist-link {
     width: auto !important;
     height: auto !important;
     min-width: 0 !important;
@@ -324,8 +328,8 @@ body {
     text-align: left !important;
   }
 
-  .fixed-mobile-player .progress-row,
-  .fixed-mobile-player .video-progress-row {
+  .fixed-mobile-player.fixed-mobile-player .progress-row,
+  .fixed-mobile-player.fixed-mobile-player .video-progress-row {
     grid-column: 1 / -1 !important;
     grid-row: 2 !important;
     width: 100% !important;
@@ -334,13 +338,13 @@ body {
     align-self: end !important;
   }
 
-  .fixed-mobile-player .progress-time,
-  .fixed-mobile-player .progress-row span,
-  .fixed-mobile-player .video-progress-row span {
+  .fixed-mobile-player.fixed-mobile-player .progress-time,
+  .fixed-mobile-player.fixed-mobile-player .progress-row span,
+  .fixed-mobile-player.fixed-mobile-player .video-progress-row span {
     display: none !important;
   }
 
-  .fixed-mobile-player input[type="range"] {
+  .fixed-mobile-player.fixed-mobile-player input[type="range"] {
     width: 100% !important;
     height: 4px !important;
   }
