@@ -25020,7 +25020,7 @@ export default function Page() {
             :root {
               --mobile-sidebar-width: 112px;
               --mobile-player-height: 78px;
-              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 760px);
+              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 140px);
               --mobile-content-clearance: var(--mobile-player-clearance);
             }
 
@@ -25399,10 +25399,10 @@ export default function Page() {
               max-width: 100% !important;
               margin-left: 0 !important;
               margin-bottom: 0 !important;
-              padding-bottom: var(--mobile-content-clearance) !important;
+              padding-bottom: 0 !important;
               padding-left: 0 !important;
               overflow-x: hidden !important;
-              scroll-padding-bottom: var(--mobile-content-clearance) !important;
+              scroll-padding-bottom: 0 !important;
               transform: none !important;
             }
 
@@ -25416,9 +25416,9 @@ export default function Page() {
               max-width: 100% !important;
               margin-left: 0 !important;
               margin-bottom: 0 !important;
-              padding-bottom: var(--mobile-content-clearance) !important;
+              padding-bottom: 0 !important;
               padding-left: 0 !important;
-              scroll-padding-bottom: var(--mobile-content-clearance) !important;
+              scroll-padding-bottom: 0 !important;
               transform: none !important;
             }
 
@@ -25440,7 +25440,7 @@ export default function Page() {
               align-self: center !important;
               transform: none !important;
               left: auto !important;
-              scroll-margin-bottom: var(--mobile-content-clearance) !important;
+              scroll-margin-bottom: 0 !important;
             }
 
             .media-card:last-child,
@@ -25451,7 +25451,7 @@ export default function Page() {
             .artist-playlist-card:last-child,
             .playlist-tile:last-child,
             .discovery-card:last-child {
-              margin-bottom: var(--mobile-content-clearance) !important;
+              margin-bottom: 12px !important;
             }
 
             .media-card-content,
@@ -25632,7 +25632,7 @@ export default function Page() {
               gap: 12px !important;
               width: 100% !important;
               max-width: 100% !important;
-              padding-bottom: var(--mobile-content-clearance) !important;
+              padding-bottom: 0 !important;
               overflow-x: hidden !important;
             }
 
@@ -25659,7 +25659,7 @@ export default function Page() {
               flex-direction: column !important;
               align-items: center !important;
               gap: 12px !important;
-              padding: 12px 12px var(--mobile-content-clearance) !important;
+              padding: 12px !important;
               margin: 0 auto !important;
               border-top: 1px solid rgba(0, 212, 255, 0.28) !important;
               border-radius: 8px !important;
@@ -25712,7 +25712,7 @@ export default function Page() {
               flex-wrap: wrap !important;
               gap: 8px !important;
               padding-bottom: 8px !important;
-              scroll-margin-bottom: var(--mobile-content-clearance) !important;
+              scroll-margin-bottom: 0 !important;
             }
 
             .artist-profile .artist-actions button {
@@ -25734,7 +25734,7 @@ export default function Page() {
             }
 
             .artist-profile .artist-section:last-child {
-              margin-bottom: var(--mobile-content-clearance) !important;
+              margin-bottom: 12px !important;
             }
 
             .artist-profile .horizontal-rail,
@@ -25835,8 +25835,8 @@ export default function Page() {
             .queue-page {
               width: 100% !important;
               max-width: 100% !important;
-              padding-bottom: var(--mobile-content-clearance) !important;
-              scroll-padding-bottom: var(--mobile-content-clearance) !important;
+              padding-bottom: 0 !important;
+              scroll-padding-bottom: 0 !important;
               overflow-x: hidden !important;
             }
 
@@ -25876,7 +25876,7 @@ export default function Page() {
 
             .playlist-detail > .playlist-songs:last-child,
             .queue-manage-list:last-child {
-              margin-bottom: var(--mobile-content-clearance) !important;
+              margin-bottom: 12px !important;
             }
 
             .playlist-hero {
