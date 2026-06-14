@@ -25951,8 +25951,16 @@ export default function Page() {
               display: flex !important;
               flex-direction: column !important;
               gap: 12px !important;
+            }
+
+            .playlist-layout {
               padding-bottom: 0 !important;
               scroll-padding-bottom: 0 !important;
+            }
+
+            .playlist-detail {
+              padding-bottom: 180px !important;
+              scroll-padding-bottom: 180px !important;
             }
 
             .playlist-create,
@@ -25963,6 +25971,11 @@ export default function Page() {
               margin-bottom: 12px !important;
               height: auto !important;
               min-height: 0 !important;
+            }
+
+            .playlist-detail > .playlist-songs {
+              padding-bottom: 180px !important;
+              scroll-padding-bottom: 180px !important;
             }
 
             .playlist-detail > .playlist-songs:last-child,
