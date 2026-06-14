@@ -16685,7 +16685,7 @@ export default function Page() {
           </section>
         </aside>)}
 
-      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar bottom-player">
+      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar bottom-player mobile-bottom-player">
           <div className="video-player-now">
             <img src={activeVideo.cover} alt=""/>
             <div>
@@ -16737,7 +16737,7 @@ export default function Page() {
           </div>
         </footer>)}
 
-      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player bottom-player">
+      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player bottom-player mobile-bottom-player">
           <div className="player-song">
             <img src={currentSong.cover} alt=""/>
 
@@ -25108,8 +25108,8 @@ export default function Page() {
           @media (max-width: 768px) {
             :root {
               --mobile-sidebar-width: 112px;
-              --mobile-player-height: 78px;
-              --mobile-player-clearance: 260px;
+              --mobile-player-height: 120px;
+              --mobile-player-clearance: 150px;
               --mobile-content-clearance: var(--mobile-player-clearance);
             }
 
@@ -25121,11 +25121,12 @@ export default function Page() {
             main,
             .main-content,
             .page-content,
+            .app-content,
             .zml-app,
             .content {
-              padding-bottom: 260px !important;
+              padding-bottom: 150px !important;
               overflow-x: hidden !important;
-              scroll-padding-bottom: 260px !important;
+              scroll-padding-bottom: 150px !important;
             }
 
             .mobile-player-spacer {
@@ -25134,26 +25135,22 @@ export default function Page() {
               min-height: 0 !important;
             }
 
-            .bottom-player,
-            .player,
-            .video-player-bar {
+            .mobile-bottom-player,
+            .bottom-player {
               position: fixed !important;
               left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
-              bottom: 8px !important;
-              width: auto !important;
-              margin-bottom: 0 !important;
-              transform: none !important;
-              height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
+              bottom: 0 !important;
+              height: 120px !important;
               min-height: 0 !important;
-              max-height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
+              max-height: 120px !important;
               z-index: 9999 !important;
               overflow: hidden !important;
               display: grid !important;
-              grid-template-columns: 1fr !important;
-              grid-template-rows: 30px minmax(0, 1fr) !important;
+              grid-template-columns: minmax(0, 1fr) !important;
+              grid-template-rows: 36px 48px 14px !important;
               gap: 0 !important;
-              padding: 2px 8px calc(2px + env(safe-area-inset-bottom, 0px)) !important;
+              padding: 8px 12px 10px !important;
             }
 
             .bottom-player .volume-row,
@@ -25176,15 +25173,17 @@ export default function Page() {
               gap: 5px !important;
               min-width: 0 !important;
               min-height: 0 !important;
+              max-height: 36px !important;
+              overflow: hidden !important;
             }
 
             .bottom-player .player-song img,
             .bottom-player .video-player-now img {
-              width: 22px !important;
-              height: 22px !important;
+              width: 34px !important;
+              height: 34px !important;
               object-fit: cover !important;
               border-radius: 8px !important;
-              flex: 0 0 22px !important;
+              flex: 0 0 34px !important;
             }
 
             .bottom-player .player-song > div,
@@ -25221,7 +25220,7 @@ export default function Page() {
               width: 100% !important;
               min-width: 0 !important;
               display: grid !important;
-              grid-template-rows: 28px minmax(0, 1fr) !important;
+              grid-template-rows: 48px 14px !important;
               gap: 0 !important;
               justify-items: center !important;
               align-content: end !important;
@@ -25239,10 +25238,10 @@ export default function Page() {
 
             .bottom-player .player-controls button,
             .bottom-player .video-player-controls button {
-              width: 28px !important;
-              min-width: 28px !important;
-              height: 28px !important;
-              min-height: 28px !important;
+              width: 42px !important;
+              min-width: 42px !important;
+              height: 42px !important;
+              min-height: 42px !important;
               padding: 0 !important;
             }
 
@@ -25269,6 +25268,7 @@ export default function Page() {
 
             .bottom-player .progress-row input {
               width: 100% !important;
+              height: 10px !important;
             }
 
             .media-card,
@@ -26452,19 +26452,17 @@ export default function Page() {
               grid-column: 5 !important;
             }
 
-            footer.bottom-player,
-            footer.player.bottom-player,
-            footer.video-player-bar.bottom-player {
+            .mobile-bottom-player,
+            .bottom-player {
               position: fixed !important;
-              top: auto !important;
               left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
-              bottom: 8px !important;
-              width: auto !important;
-              margin: 0 !important;
-              margin-bottom: 0 !important;
-              transform: none !important;
-              translate: none !important;
+              bottom: 0 !important;
+              height: 120px !important;
+              max-height: 120px !important;
+              padding: 8px 12px 10px !important;
+              z-index: 9999 !important;
+              overflow: hidden !important;
             }
           }
         `}</style>
