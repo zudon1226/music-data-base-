@@ -237,7 +237,7 @@ body {
 @media (max-width: 768px) {
   .fixed-mobile-player.fixed-mobile-player {
     position: fixed !important;
-    left: 96px !important;
+    left: var(--sidebar-width, 96px) !important;
     right: 0 !important;
     bottom: 0 !important;
     height: 76px !important;
@@ -252,7 +252,7 @@ body {
     align-items: center !important;
     overflow: hidden !important;
     z-index: 999999 !important;
-    transform: translateY(0) !important;
+    transform: none !important;
     margin: 0 !important;
   }
 
