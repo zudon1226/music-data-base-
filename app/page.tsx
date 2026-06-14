@@ -25109,7 +25109,7 @@ export default function Page() {
             :root {
               --mobile-sidebar-width: 112px;
               --mobile-player-height: 78px;
-              --mobile-player-clearance: 220px;
+              --mobile-player-clearance: 260px;
               --mobile-content-clearance: var(--mobile-player-clearance);
             }
 
@@ -25123,9 +25123,9 @@ export default function Page() {
             .page-content,
             .zml-app,
             .content {
-              padding-bottom: 220px !important;
+              padding-bottom: 260px !important;
               overflow-x: hidden !important;
-              scroll-padding-bottom: 220px !important;
+              scroll-padding-bottom: 260px !important;
             }
 
             .mobile-player-spacer {
@@ -25140,7 +25140,7 @@ export default function Page() {
               position: fixed !important;
               left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
-              bottom: 64px !important;
+              bottom: 32px !important;
               width: auto !important;
               margin-bottom: 0 !important;
               transform: none !important;
@@ -26459,7 +26459,7 @@ export default function Page() {
               top: auto !important;
               left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
-              bottom: 64px !important;
+              bottom: 32px !important;
               width: auto !important;
               margin: 0 !important;
               margin-bottom: 0 !important;
