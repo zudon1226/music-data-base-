@@ -18992,7 +18992,7 @@ export default function Page() {
           .recent-row button,
           .playlist-actions button,
           .add-song-row button,
-          .playlist-song-row button {
+          .playlist-song-row > button {
             min-width: 0;
             min-height: 31px;
             border: 0;
@@ -19086,7 +19086,7 @@ export default function Page() {
           .play-btn,
           .recent-row button,
           .playlist-actions button:first-child,
-          .playlist-song-row button {
+          .playlist-song-row > button {
             background: #25c7df;
             color: #020617 !important;
           }
@@ -19755,7 +19755,7 @@ export default function Page() {
             margin-bottom: 8px;
           }
 
-          .playlist-song-row button:last-child {
+          .playlist-song-row > button:last-child {
             background: #ef4444;
             color: white !important;
           }
@@ -26095,7 +26095,7 @@ export default function Page() {
               font-size: 12px !important;
             }
 
-            .playlist-song-row button {
+            .playlist-song-row > button {
               width: 34px !important;
               min-width: 34px !important;
               height: 34px !important;
@@ -26131,6 +26131,9 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row > span:not(.recent-number) {
+              display: grid !important;
+              grid-template-rows: auto auto !important;
+              gap: 2px !important;
               min-width: 0 !important;
               width: 100% !important;
               max-width: 100% !important;
@@ -26156,13 +26159,26 @@ export default function Page() {
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
+              height: auto !important;
+              min-height: 0 !important;
+              padding: 0 !important;
+              border: 0 !important;
+              border-radius: 0 !important;
+              background: transparent !important;
+              color: #9bdcf0 !important;
+              font: inherit !important;
+              font-size: 12px !important;
+              font-weight: 800 !important;
+              line-height: 1.15 !important;
+              text-align: left !important;
+              justify-content: flex-start !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
               white-space: nowrap !important;
               word-break: normal !important;
             }
 
-            .playlist-songs .playlist-song-row button {
+            .playlist-songs .playlist-song-row > button {
               width: 34px !important;
               min-width: 34px !important;
               max-width: 34px !important;
