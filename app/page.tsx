@@ -26105,9 +26105,9 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row {
-              display: grid !important;
-              grid-template-columns: 28px 44px minmax(0, 1fr) 34px 34px !important;
-              gap: 6px !important;
+              display: flex !important;
+              flex-wrap: nowrap !important;
+              gap: 8px !important;
               align-items: center !important;
               width: 100% !important;
               max-width: 100% !important;
@@ -26117,22 +26117,24 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row .recent-number {
-              width: 28px !important;
-              min-width: 28px !important;
+              width: 30px !important;
+              min-width: 30px !important;
+              flex: 0 0 30px !important;
               text-align: center !important;
               white-space: nowrap !important;
             }
 
             .playlist-songs .playlist-song-row img {
-              width: 44px !important;
-              height: 44px !important;
-              max-width: 44px !important;
+              width: 56px !important;
+              height: 56px !important;
+              max-width: 56px !important;
+              flex: 0 0 56px !important;
               object-fit: cover !important;
             }
 
             .playlist-songs .playlist-song-row > span:not(.recent-number) {
-              display: grid !important;
-              grid-template-rows: auto auto !important;
+              display: block !important;
+              flex: 1 1 auto !important;
               gap: 2px !important;
               min-width: 0 !important;
               width: 100% !important;
@@ -26141,16 +26143,14 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row strong {
-              display: -webkit-box !important;
-              -webkit-line-clamp: 2 !important;
-              -webkit-box-orient: vertical !important;
-              white-space: normal !important;
+              display: block !important;
+              white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
               overflow-wrap: normal !important;
               word-break: normal !important;
-              line-height: 1.16 !important;
-              max-height: 2.32em !important;
+              line-height: 1.18 !important;
+              max-height: none !important;
             }
 
             .playlist-songs .playlist-song-row small,
@@ -26179,11 +26179,12 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row > button {
-              width: 34px !important;
-              min-width: 34px !important;
-              max-width: 34px !important;
-              height: 34px !important;
-              min-height: 34px !important;
+              width: 48px !important;
+              min-width: 48px !important;
+              max-width: 48px !important;
+              flex: 0 0 48px !important;
+              height: 48px !important;
+              min-height: 48px !important;
               padding: 0 !important;
               justify-self: end !important;
             }
