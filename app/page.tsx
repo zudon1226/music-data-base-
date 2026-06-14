@@ -25140,7 +25140,7 @@ export default function Page() {
               position: fixed !important;
               left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
-              bottom: 32px !important;
+              bottom: 8px !important;
               width: auto !important;
               margin-bottom: 0 !important;
               transform: none !important;
@@ -26459,7 +26459,7 @@ export default function Page() {
               top: auto !important;
               left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
-              bottom: 32px !important;
+              bottom: 8px !important;
               width: auto !important;
               margin: 0 !important;
               margin-bottom: 0 !important;
