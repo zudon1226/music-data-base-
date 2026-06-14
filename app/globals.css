@@ -237,9 +237,9 @@ body {
 @media (max-width: 768px) {
   .fixed-mobile-player.fixed-mobile-player {
     position: fixed !important;
-    left: var(--sidebar-width, 96px) !important;
+    left: 96px !important;
     right: 0 !important;
-    bottom: 0 !important;
+    bottom: -34px !important;
     height: 76px !important;
     min-height: 76px !important;
     max-height: 76px !important;
