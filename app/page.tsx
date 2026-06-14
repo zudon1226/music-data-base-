@@ -10990,14 +10990,16 @@ export default function Page() {
           <small>{release.creatorName} | {release.genre} | {release.metricLabel}</small>
         </span>
         <em>{formatCurrencyFromCents(release.priceCents)}</em>
-        <button onClick={() => playMarketplaceRelease(release)} type="button">
-          <Play size={14} fill="currentColor"/>
-          Play
-        </button>
-        {getMarketplaceSalesType(release) ? (<button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
-            <Disc3 size={14}/>
-            Buy
-          </button>) : null}
+        <div className="marketplace-chart-actions">
+          <button onClick={() => playMarketplaceRelease(release)} type="button">
+            <Play size={14} fill="currentColor"/>
+            Play
+          </button>
+          {getMarketplaceSalesType(release) ? (<button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
+              <Disc3 size={14}/>
+              Buy
+            </button>) : null}
+        </div>
       </article>);
     }
     function getAlbumDisplayCover(album: Album | ResolvedAlbum) {
@@ -20524,7 +20526,7 @@ export default function Page() {
 
           .marketplace-chart-row {
             display: grid;
-            grid-template-columns: 34px 48px minmax(0, 1fr) auto 84px 84px;
+            grid-template-columns: 34px 48px minmax(0, 1fr) auto 178px;
             gap: 10px;
             align-items: center;
             border-radius: 8px;
@@ -20568,6 +20570,18 @@ export default function Page() {
             font-style: normal;
             font-weight: 900;
             white-space: nowrap;
+          }
+
+          .marketplace-chart-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            min-width: 0;
+          }
+
+          .marketplace-chart-actions button {
+            min-width: 0;
           }
 
           .profile-page {
@@ -24170,11 +24184,51 @@ export default function Page() {
             }
 
             .marketplace-chart-row {
-              grid-template-columns: 28px 42px minmax(0, 1fr) 64px 64px;
+              width: 100%;
+              grid-template-columns: 36px 64px minmax(0, 1fr) 150px;
+              gap: 8px;
+              padding: 8px;
             }
 
             .marketplace-chart-row em {
               display: none;
+            }
+
+            .marketplace-chart-row > strong {
+              width: 36px;
+              font-size: 16px;
+            }
+
+            .marketplace-chart-row img {
+              width: 64px;
+              height: 64px;
+            }
+
+            .marketplace-chart-row span {
+              min-width: 0;
+              width: 100%;
+            }
+
+            .marketplace-chart-row b,
+            .marketplace-chart-row small {
+              max-width: 100%;
+            }
+
+            .marketplace-chart-actions {
+              width: 150px;
+              display: flex;
+              justify-content: flex-end;
+              gap: 6px;
+            }
+
+            .marketplace-chart-actions button {
+              width: 72px;
+              min-width: 0;
+              height: 38px;
+              min-height: 38px;
+              padding: 0 8px;
+              font-size: 13px;
+              line-height: 1;
             }
 
             .trending-controls {
