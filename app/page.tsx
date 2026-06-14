@@ -16685,7 +16685,7 @@ export default function Page() {
           </section>
         </aside>)}
 
-      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar bottom-player mobile-bottom-player" data-bottom-player="true">
+      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar bottom-player mobile-bottom-player fixed-mobile-player">
           <div className="video-player-now">
             <img src={activeVideo.cover} alt=""/>
             <div>
@@ -16737,7 +16737,7 @@ export default function Page() {
           </div>
         </footer>)}
 
-      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player bottom-player mobile-bottom-player" data-bottom-player="true">
+      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player bottom-player mobile-bottom-player fixed-mobile-player">
           <div className="player-song">
             <img src={currentSong.cover} alt=""/>
 
@@ -25111,20 +25111,13 @@ export default function Page() {
               --mobile-player-height: 120px;
             }
 
-            html,
-            body {
-              scroll-padding-bottom: 260px !important;
-            }
-
             main,
             .main-content,
             .page-content,
             .app-content,
             .zml-app,
             .content {
-              padding-bottom: 260px !important;
               overflow-x: hidden !important;
-              scroll-padding-bottom: 260px !important;
             }
 
             .mobile-player-spacer {
@@ -25135,13 +25128,9 @@ export default function Page() {
 
             .mobile-bottom-player,
             .bottom-player {
-              position: fixed !important;
-              left: var(--sidebar-width, 96px) !important;
-              right: 0 !important;
               height: 120px !important;
               min-height: 0 !important;
               max-height: 120px !important;
-              z-index: 9999 !important;
               overflow: hidden !important;
               display: grid !important;
               grid-template-columns: minmax(0, 1fr) !important;
@@ -26449,36 +26438,6 @@ export default function Page() {
               grid-column: 5 !important;
             }
 
-            .mobile-bottom-player,
-            .bottom-player {
-              position: fixed !important;
-              left: var(--sidebar-width, 96px) !important;
-              right: 0 !important;
-              height: 120px !important;
-              max-height: 120px !important;
-              padding: 8px 12px 10px !important;
-              z-index: 9999 !important;
-              overflow: hidden !important;
-            }
-
-            .bottom-player,
-            .mobile-bottom-player,
-            [data-bottom-player="true"] {
-              position: fixed !important;
-              left: 96px !important;
-              right: 0 !important;
-              bottom: 44px !important;
-              transform: none !important;
-              margin: 0 !important;
-              max-height: 120px !important;
-              z-index: 99999 !important;
-            }
-
-            .main-content,
-            .app-content,
-            main {
-              padding-bottom: 260px !important;
-            }
           }
         `}</style>
     </main>);
