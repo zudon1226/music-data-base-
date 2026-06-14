@@ -15857,22 +15857,27 @@ export default function Page() {
                     {playlistContentTab === "Songs" ? (<div className="playlist-songs">
                       <h3>{activePlaylistSongs.length} Songs</h3>
 
-                      {activePlaylistSongs.length === 0 ? (<p className="empty-small">No songs in this playlist yet.</p>) : (activePlaylistSongs.map((song, index) => (<div className="playlist-song-row" key={song.id}>
+                      {activePlaylistSongs.length === 0 ? (<p className="empty-small">No songs in this playlist yet.</p>) : (activePlaylistSongs.map((song, index) => {
+                        const producerCredit = getProducerCreditForSong(song);
+                        const songMetadata = [song.category || song.type, song.time, producerCredit ? `Produced by ${producerCredit}` : ""].filter(Boolean).join(" | ");
+                        return (<div className="playlist-song-row" key={song.id}>
                             <span className="recent-number">{index + 1}</span>
                             <img src={song.cover} alt=""/>
-                            <span>
+                            <div className="playlist-track-info">
                               <strong>{song.title}</strong>
                               <small>
                                 <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
                               </small>
-                            </span>
+                              {songMetadata && <small>{songMetadata}</small>}
+                            </div>
                             <button onClick={() => playSong(song)} title={`Play ${song.title}`}>
                               <Play size={16} fill="currentColor"/>
                             </button>
                             <button onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
                               <X size={16}/>
                             </button>
-                          </div>)))}
+                          </div>);
+                    }))}
                     </div>) : (<div className="playlist-songs">
                       <h3>{activePlaylistVideos.length} Videos</h3>
 
