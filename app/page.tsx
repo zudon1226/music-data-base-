@@ -26117,24 +26117,24 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row .recent-number {
-              width: 28px !important;
-              min-width: 28px !important;
-              flex: 0 0 28px !important;
+              width: 32px !important;
+              min-width: 32px !important;
+              flex: 0 0 32px !important;
               text-align: center !important;
               white-space: nowrap !important;
             }
 
             .playlist-songs .playlist-song-row img {
-              width: 52px !important;
-              height: 52px !important;
-              max-width: 52px !important;
-              flex: 0 0 52px !important;
+              width: 56px !important;
+              height: 56px !important;
+              max-width: 56px !important;
+              flex: 0 0 56px !important;
               object-fit: cover !important;
             }
 
             .playlist-songs .playlist-song-row > span:not(.recent-number) {
               display: block !important;
-              flex: 1 1 0 !important;
+              flex: 1 1 auto !important;
               gap: 2px !important;
               min-width: 0 !important;
               width: auto !important;
