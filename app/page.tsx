@@ -16686,7 +16686,7 @@ export default function Page() {
         </aside>)}
 
       {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar bottom-player mobile-bottom-player fixed-mobile-player">
-          <div className="video-player-now">
+          <div className="video-player-now player-main">
             <img src={activeVideo.cover} alt=""/>
             <div>
               <strong className="track-title">{activeVideo.title}</strong>
@@ -16738,7 +16738,7 @@ export default function Page() {
         </footer>)}
 
       {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player bottom-player mobile-bottom-player fixed-mobile-player">
-          <div className="player-song">
+          <div className="player-song player-main">
             <img src={currentSong.cover} alt=""/>
 
             <div>

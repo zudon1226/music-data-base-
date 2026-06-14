@@ -240,29 +240,62 @@ body {
     left: 96px !important;
     right: 0 !important;
     bottom: 0 !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    max-height: 72px !important;
+    height: 76px !important;
+    min-height: 76px !important;
+    max-height: 76px !important;
     width: calc(100vw - 96px) !important;
     max-width: calc(100vw - 96px) !important;
     padding: 4px 8px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: 44px 10px !important;
+    align-items: center !important;
     overflow: hidden !important;
     z-index: 999999 !important;
     transform: translateY(0) !important;
     margin: 0 !important;
   }
 
+  .fixed-mobile-player .player-main {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    max-height: 44px !important;
+    justify-self: start !important;
+  }
+
+  .fixed-mobile-player .player-center,
+  .fixed-mobile-player .video-player-center {
+    display: contents !important;
+  }
+
+  .fixed-mobile-player .player-main,
+  .fixed-mobile-player .player-controls,
+  .fixed-mobile-player .video-player-controls {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+  }
+
   .fixed-mobile-player img {
-    width: 32px !important;
-    height: 32px !important;
+    width: 28px !important;
+    height: 28px !important;
+    flex: 0 0 28px !important;
   }
 
   .fixed-mobile-player button {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    font-size: 18px !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
     padding: 0 !important;
+  }
+
+  .fixed-mobile-player .player-controls,
+  .fixed-mobile-player .video-player-controls {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    flex-wrap: nowrap !important;
   }
 
   .fixed-mobile-player .track-title,
@@ -282,8 +315,33 @@ body {
     text-overflow: ellipsis !important;
   }
 
-  .fixed-mobile-player input[type="range"],
-  .fixed-mobile-player .progress {
+  .fixed-mobile-player .artist-name.artist-link {
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    font-size: 12px !important;
+    line-height: 14px !important;
+    text-align: left !important;
+  }
+
+  .fixed-mobile-player .progress-row,
+  .fixed-mobile-player .video-progress-row {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    max-width: none !important;
+    display: block !important;
+    align-self: end !important;
+  }
+
+  .fixed-mobile-player .progress-time,
+  .fixed-mobile-player .progress-row span,
+  .fixed-mobile-player .video-progress-row span {
+    display: none !important;
+  }
+
+  .fixed-mobile-player input[type="range"] {
+    width: 100% !important;
     height: 4px !important;
   }
 
