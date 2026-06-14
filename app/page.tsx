@@ -16689,8 +16689,8 @@ export default function Page() {
           <div className="video-player-now">
             <img src={activeVideo.cover} alt=""/>
             <div>
-              <strong>{activeVideo.title}</strong>
-              <small>{activeVideo.creator}</small>
+              <strong className="track-title">{activeVideo.title}</strong>
+              <small className="artist-name">{activeVideo.creator}</small>
               {activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
             </div>
           </div>
@@ -16742,11 +16742,11 @@ export default function Page() {
             <img src={currentSong.cover} alt=""/>
 
             <div>
-              <strong title={currentSong.title}>
+              <strong className="song-title" title={currentSong.title}>
                 {currentSong.title}
               </strong>
-              <small>
-                <ArtistNameButton name={currentSong.artist} onOpen={openArtistProfile}/>
+              <small className="artist-name">
+                <ArtistNameButton name={currentSong.artist} className="artist-name" onOpen={openArtistProfile}/>
               </small>
               {activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
             </div>

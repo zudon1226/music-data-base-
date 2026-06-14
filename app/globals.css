@@ -240,12 +240,12 @@ body {
     left: 96px !important;
     right: 0 !important;
     bottom: 0 !important;
-    height: 86px !important;
-    min-height: 86px !important;
-    max-height: 86px !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
     width: calc(100vw - 96px) !important;
     max-width: calc(100vw - 96px) !important;
-    padding: 6px 10px !important;
+    padding: 4px 8px !important;
     overflow: hidden !important;
     z-index: 999999 !important;
     transform: translateY(0) !important;
@@ -253,20 +253,38 @@ body {
   }
 
   .fixed-mobile-player img {
-    width: 36px !important;
-    height: 36px !important;
+    width: 32px !important;
+    height: 32px !important;
   }
 
   .fixed-mobile-player button {
-    width: 42px !important;
-    height: 42px !important;
-    min-width: 42px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    font-size: 18px !important;
     padding: 0 !important;
+  }
+
+  .fixed-mobile-player .track-title,
+  .fixed-mobile-player .song-title {
+    font-size: 14px !important;
+    line-height: 16px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .fixed-mobile-player .artist-name {
+    font-size: 12px !important;
+    line-height: 14px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   .fixed-mobile-player input[type="range"],
   .fixed-mobile-player .progress {
-    height: 6px !important;
+    height: 4px !important;
   }
 
   body {
