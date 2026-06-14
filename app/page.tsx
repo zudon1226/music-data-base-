@@ -25109,7 +25109,7 @@ export default function Page() {
             :root {
               --mobile-sidebar-width: 112px;
               --mobile-player-height: 78px;
-              --mobile-player-clearance: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px) + 140px);
+              --mobile-player-clearance: 220px;
               --mobile-content-clearance: var(--mobile-player-clearance);
             }
 
@@ -25123,9 +25123,9 @@ export default function Page() {
             .page-content,
             .zml-app,
             .content {
-              padding-bottom: var(--mobile-content-clearance) !important;
+              padding-bottom: 220px !important;
               overflow-x: hidden !important;
-              scroll-padding-bottom: var(--mobile-content-clearance) !important;
+              scroll-padding-bottom: 220px !important;
             }
 
             .mobile-player-spacer {
@@ -25138,10 +25138,10 @@ export default function Page() {
             .player,
             .video-player-bar {
               position: fixed !important;
-              left: 0 !important;
+              left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
-              bottom: env(safe-area-inset-bottom, 0px) !important;
-              width: 100% !important;
+              bottom: 64px !important;
+              width: auto !important;
               margin-bottom: 0 !important;
               transform: none !important;
               height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
@@ -26450,6 +26450,21 @@ export default function Page() {
 
             .queue-manage-row button:nth-of-type(3) {
               grid-column: 5 !important;
+            }
+
+            footer.bottom-player,
+            footer.player.bottom-player,
+            footer.video-player-bar.bottom-player {
+              position: fixed !important;
+              top: auto !important;
+              left: var(--sidebar-width, 96px) !important;
+              right: 0 !important;
+              bottom: 64px !important;
+              width: auto !important;
+              margin: 0 !important;
+              margin-bottom: 0 !important;
+              transform: none !important;
+              translate: none !important;
             }
           }
         `}</style>
