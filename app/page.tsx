@@ -15873,13 +15873,13 @@ export default function Page() {
                               </div>
                             </div>
                             <div className="playlist-track-actions">
-                              <button onClick={() => playSong(song)} title={`Play ${song.title}`}>
+                              <button className="playlist-track-button playlist-track-play" onClick={() => playSong(song)} title={`Play ${song.title}`}>
                                 <Play size={16} fill="currentColor"/>
-                                <span>Play</span>
+                                Play
                               </button>
-                              <button onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
+                              <button className="playlist-track-button playlist-track-remove" onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
                                 <X size={16}/>
-                                <span>Remove</span>
+                                Remove
                               </button>
                             </div>
                           </div>);
@@ -26303,6 +26303,45 @@ export default function Page() {
               justify-content: center !important;
               white-space: nowrap !important;
               overflow: hidden !important;
+            }
+
+            .playlist-songs .playlist-track-actions > .playlist-track-button {
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              width: calc(50% - 4px) !important;
+              flex: 0 0 calc(50% - 4px) !important;
+              max-width: calc(50% - 4px) !important;
+              height: 44px !important;
+              min-height: 44px !important;
+              max-height: 44px !important;
+              padding: 0 10px !important;
+              border-radius: 12px !important;
+              gap: 8px !important;
+              font-size: 13px !important;
+              font-weight: 900 !important;
+              line-height: 1 !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              writing-mode: horizontal-tb !important;
+              text-orientation: mixed !important;
+            }
+
+            .playlist-songs .playlist-track-actions > .playlist-track-button svg {
+              width: 16px !important;
+              height: 16px !important;
+              flex: 0 0 16px !important;
+            }
+
+            .playlist-songs .playlist-track-actions > .playlist-track-play {
+              background: #25c7df !important;
+              color: #020617 !important;
+            }
+
+            .playlist-songs .playlist-track-actions > .playlist-track-remove {
+              background: #ef4444 !important;
+              color: #ffffff !important;
             }
 
             .playlist-songs .playlist-track-actions > button span {
