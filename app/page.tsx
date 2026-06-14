@@ -16482,7 +16482,6 @@ export default function Page() {
                 </HorizontalRail>
               </section>)}
           </>)}
-          <div className="mobile-player-spacer" aria-hidden="true"/>
       </section>
 
       {toast && (<div className={`toast toast-${toast.tone}`} role="status" aria-live="polite">
@@ -25130,18 +25129,19 @@ export default function Page() {
             }
 
             .mobile-player-spacer {
-              height: var(--mobile-content-clearance) !important;
-              min-height: var(--mobile-content-clearance) !important;
+              display: none !important;
+              height: 0 !important;
+              min-height: 0 !important;
             }
 
             .bottom-player,
             .player,
             .video-player-bar {
               position: fixed !important;
-              left: var(--mobile-sidebar-width) !important;
+              left: 0 !important;
               right: 0 !important;
               bottom: env(safe-area-inset-bottom, 0px) !important;
-              width: calc(100% - var(--mobile-sidebar-width)) !important;
+              width: 100% !important;
               margin-bottom: 0 !important;
               transform: none !important;
               height: calc(var(--mobile-player-height) + env(safe-area-inset-bottom, 0px)) !important;
