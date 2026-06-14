@@ -15875,9 +15875,11 @@ export default function Page() {
                             <div className="playlist-track-actions">
                               <button onClick={() => playSong(song)} title={`Play ${song.title}`}>
                                 <Play size={16} fill="currentColor"/>
+                                <span>Play</span>
                               </button>
                               <button onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
                                 <X size={16}/>
+                                <span>Remove</span>
                               </button>
                             </div>
                           </div>);
@@ -26276,8 +26278,7 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-actions {
-              display: grid !important;
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              display: flex !important;
               gap: 8px !important;
               width: 100% !important;
               max-width: 100% !important;
@@ -26287,12 +26288,28 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-actions > button {
-              width: 100% !important;
+              width: calc(50% - 4px) !important;
+              flex: 0 1 calc(50% - 4px) !important;
               min-width: 0 !important;
-              max-width: 100% !important;
-              height: 48px !important;
-              min-height: 48px !important;
-              padding: 0 !important;
+              max-width: calc(50% - 4px) !important;
+              height: 44px !important;
+              min-height: 44px !important;
+              padding: 0 10px !important;
+              border-radius: 12px !important;
+              gap: 8px !important;
+              font-size: 13px !important;
+              font-weight: 900 !important;
+              line-height: 1 !important;
+              justify-content: center !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+            }
+
+            .playlist-songs .playlist-track-actions > button span {
+              display: inline !important;
+              min-width: 0 !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
             }
 
             .playlist-songs .playlist-track-actions > button:first-child {
