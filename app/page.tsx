@@ -15860,22 +15860,26 @@ export default function Page() {
                       {activePlaylistSongs.length === 0 ? (<p className="empty-small">No songs in this playlist yet.</p>) : (activePlaylistSongs.map((song, index) => {
                         const producerCredit = getProducerCreditForSong(song);
                         const songMetadata = [song.category || song.type, song.time, producerCredit ? `Produced by ${producerCredit}` : ""].filter(Boolean).join(" | ");
-                        return (<div className="playlist-song-row" key={song.id}>
-                            <span className="recent-number">{index + 1}</span>
-                            <img src={song.cover} alt=""/>
-                            <div className="playlist-track-info">
-                              <strong>{song.title}</strong>
-                              <small>
-                                <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
-                              </small>
-                              {songMetadata && <small>{songMetadata}</small>}
+                        return (<div className="playlist-song-row playlist-track-row" key={song.id}>
+                            <div className="playlist-track-top">
+                              <span className="recent-number">{index + 1}</span>
+                              <img src={song.cover} alt=""/>
+                              <div className="playlist-track-info">
+                                <strong>{song.title}</strong>
+                                <small className="playlist-track-artist">
+                                  <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                                </small>
+                                {songMetadata && <small className="playlist-track-meta">{songMetadata}</small>}
+                              </div>
                             </div>
-                            <button onClick={() => playSong(song)} title={`Play ${song.title}`}>
-                              <Play size={16} fill="currentColor"/>
-                            </button>
-                            <button onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
-                              <X size={16}/>
-                            </button>
+                            <div className="playlist-track-actions">
+                              <button onClick={() => playSong(song)} title={`Play ${song.title}`}>
+                                <Play size={16} fill="currentColor"/>
+                              </button>
+                              <button onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
+                                <X size={16}/>
+                              </button>
+                            </div>
                           </div>);
                     }))}
                     </div>) : (<div className="playlist-songs">
@@ -26188,6 +26192,117 @@ export default function Page() {
               min-height: 44px !important;
               padding: 0 !important;
               justify-self: end !important;
+            }
+
+            .playlist-songs .playlist-track-row {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              align-items: stretch !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .playlist-songs .playlist-track-top {
+              display: flex !important;
+              align-items: center !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .playlist-songs .playlist-track-top .recent-number {
+              width: 28px !important;
+              min-width: 28px !important;
+              flex: 0 0 28px !important;
+              text-align: center !important;
+            }
+
+            .playlist-songs .playlist-track-top > img {
+              width: 56px !important;
+              height: 56px !important;
+              max-width: 56px !important;
+              flex: 0 0 56px !important;
+              object-fit: cover !important;
+            }
+
+            .playlist-songs .playlist-track-info {
+              display: flex !important;
+              flex: 1 1 auto !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+              flex-direction: column !important;
+              gap: 2px !important;
+              overflow: hidden !important;
+              writing-mode: horizontal-tb !important;
+              text-orientation: mixed !important;
+            }
+
+            .playlist-songs .playlist-track-info strong {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              color: #ffffff !important;
+              font-weight: 700 !important;
+              line-height: 1.15 !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              writing-mode: horizontal-tb !important;
+              text-orientation: mixed !important;
+            }
+
+            .playlist-songs .playlist-track-artist,
+            .playlist-songs .playlist-track-artist .artist-link,
+            .playlist-songs .playlist-track-meta {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 1 !important;
+              -webkit-box-orient: vertical !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              color: #9bdcf0 !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              writing-mode: horizontal-tb !important;
+              text-orientation: mixed !important;
+            }
+
+            .playlist-songs .playlist-track-actions {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .playlist-songs .playlist-track-actions > button {
+              width: 100% !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+              height: 48px !important;
+              min-height: 48px !important;
+              padding: 0 !important;
+            }
+
+            .playlist-songs .playlist-track-actions > button:first-child {
+              background: #25c7df !important;
+              color: #020617 !important;
+            }
+
+            .playlist-songs .playlist-track-actions > button:last-child {
+              background: #ef4444 !important;
+              color: #ffffff !important;
             }
 
             .queue-manage-list {
