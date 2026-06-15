@@ -24195,6 +24195,47 @@ export default function Page() {
               grid-auto-columns: minmax(200px, 230px);
             }
 
+            .marketplace-preorder-grid {
+              display: grid;
+              grid-auto-flow: row;
+              grid-auto-columns: unset;
+              grid-template-columns: 1fr;
+              gap: 10px;
+              overflow: visible;
+            }
+
+            .marketplace-preorder-card {
+              min-height: 0;
+              display: grid;
+              grid-template-rows: 180px auto auto;
+              gap: 8px;
+              overflow: hidden;
+            }
+
+            .marketplace-preorder-card img {
+              width: 100%;
+              height: 180px;
+              aspect-ratio: auto;
+              object-fit: cover;
+            }
+
+            .marketplace-preorder-card > div {
+              min-width: 0;
+              display: grid;
+              gap: 2px;
+            }
+
+            .marketplace-preorder-card strong,
+            .marketplace-preorder-card small {
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            .marketplace-preorder-card button {
+              width: 100%;
+            }
+
             .marketplace-chart-row {
               width: 100%;
               grid-template-columns: 28px 64px minmax(0, 1fr) 58px;
