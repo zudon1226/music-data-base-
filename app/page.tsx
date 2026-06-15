@@ -28371,6 +28371,67 @@ export default function Page() {
               scroll-padding-bottom: var(--mobile-player-reserve) !important;
             }
 
+            .zml-app {
+              min-height: 0 !important;
+              height: auto !important;
+              overflow: visible !important;
+              padding-bottom: 0 !important;
+            }
+
+            .content {
+              position: relative !important;
+              top: auto !important;
+              right: auto !important;
+              bottom: auto !important;
+              left: auto !important;
+              width: calc(100% - var(--mobile-sidebar-width)) !important;
+              height: auto !important;
+              min-height: 0 !important;
+              margin-left: var(--mobile-sidebar-width) !important;
+              padding-bottom: 24px !important;
+              overflow: visible !important;
+              scroll-padding-bottom: 24px !important;
+            }
+
+            .content > section,
+            .content > div:not(.topbar),
+            .content .artist-section,
+            .content .liked-page,
+            .content .profile-page,
+            .content .queue-page,
+            .content .dashboard-page,
+            .content .playlist-workspace,
+            .content .empty-state,
+            .content .horizontal-rail,
+            .content .horizontal-rail-track,
+            .content .artist-grid,
+            .content .producer-grid,
+            .content .artist-album-grid,
+            .content .artist-playlist-grid,
+            .content .discovery-grid,
+            .content .song-grid,
+            .content .video-grid {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              padding-bottom: 0 !important;
+              margin-bottom: 16px !important;
+              overflow: visible !important;
+              scroll-padding-bottom: 0 !important;
+            }
+
+            .content > section:last-child,
+            .content > div:not(.topbar):last-child,
+            .content .artist-section:last-child,
+            .content .liked-page:last-child,
+            .content .profile-page:last-child,
+            .content .queue-page:last-child,
+            .content .dashboard-page:last-child,
+            .content .playlist-workspace:last-child,
+            .content .empty-state:last-child {
+              margin-bottom: 24px !important;
+            }
+
           }
         `}</style>
     </main>);
