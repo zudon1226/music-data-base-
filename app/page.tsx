@@ -8565,12 +8565,41 @@ export default function Page() {
         localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(snapshot.libraryIds)));
     }
     function addToQueue(song: Song) {
+        const alreadyQueued = cleanQueue.some((item) => item.id === song.id);
         setQueue((previous) => {
             const cleanPrevious = uniqueSongs(previous);
             if (cleanPrevious.some((item) => item.id === song.id))
                 return cleanPrevious;
             return [...cleanPrevious, song];
         });
+        showToast(alreadyQueued ? "Already in queue." : "Added to queue.", alreadyQueued ? "info" : "success");
+    }
+    function addVideoToQueue(video: VideoItem) {
+        const cleanVideo = normalizeVideoForPlayback(video);
+        const alreadyQueued = uniqueVideos(videoPlaybackQueue).some((item) => item.id === cleanVideo.id);
+        setVideoPlaybackQueue((previous) => {
+            const cleanPrevious = uniqueVideos(previous);
+            if (cleanPrevious.some((item) => item.id === cleanVideo.id))
+                return cleanPrevious;
+            return [...cleanPrevious, cleanVideo];
+        });
+        showToast(alreadyQueued ? "Already in queue." : "Added to queue.", alreadyQueued ? "info" : "success");
+    }
+    function addAlbumToQueue(album: Album | ResolvedAlbum) {
+        const resolvedAlbum = resolvedAlbums.find((item) => item.id === album.id) || resolveAlbumTracksFromPools(album);
+        const albumSongs = uniqueSongs(resolvedAlbum.songs);
+        const albumVideos = uniqueVideos(resolvedAlbum.videos.map((video) => normalizeVideoForPlayback(video)));
+        if (albumSongs.length === 0 && albumVideos.length === 0) {
+            showToast("This album has no queueable tracks.", "info");
+            return;
+        }
+        if (albumSongs.length > 0) {
+            setQueue((previous) => uniqueSongs([...previous, ...albumSongs]));
+        }
+        if (albumVideos.length > 0) {
+            setVideoPlaybackQueue((previous) => uniqueVideos([...previous, ...albumVideos]));
+        }
+        showToast("Added to queue.", "success");
     }
     function removeFromQueue(songId: string) {
         setQueue((previous) => previous.filter((song) => song.id !== songId));
@@ -8959,6 +8988,26 @@ export default function Page() {
         return (<button className={className} onClick={() => openPlaylistMenu(song)} title="Add to playlist" type="button">
         <Plus size={15}/>
         <span>Playlist</span>
+      </button>);
+    }
+    function renderMobileSongQueueButton(song: Song) {
+        const isQueued = cleanQueue.some((item) => item.id === song.id);
+        return (<button className="mobile-queue-btn" onClick={() => addToQueue(song)} disabled={isQueued} title={isQueued ? "Already in queue" : "Add to queue"} type="button">
+        <ListMusic size={15}/>
+        <span>{isQueued ? "Queued" : "Add to Queue"}</span>
+      </button>);
+    }
+    function renderMobileVideoQueueButton(video: VideoItem) {
+        const isQueued = uniqueVideos(videoPlaybackQueue).some((item) => item.id === video.id);
+        return (<button className="mobile-queue-btn" onClick={() => addVideoToQueue(video)} disabled={isQueued} title={isQueued ? "Already in queue" : "Add to queue"} type="button">
+        <ListMusic size={15}/>
+        <span>{isQueued ? "Queued" : "Add to Queue"}</span>
+      </button>);
+    }
+    function renderMobileAlbumQueueButton(album: Album | ResolvedAlbum) {
+        return (<button className="mobile-queue-btn" onClick={() => addAlbumToQueue(album)} title="Add album to queue" type="button">
+        <ListMusic size={15}/>
+        <span>Add to Queue</span>
       </button>);
     }
     function renderVideoPlaylistButton(video: VideoItem, className = "playlist-btn") {
@@ -11588,6 +11637,7 @@ export default function Page() {
                 <ListMusic size={15}/>
                 Playlist
               </button>
+              {renderMobileAlbumQueueButton(album)}
               <button onClick={() => openComments("album", album)} type="button">
                 <MessageCircle size={15}/>
                 {getCommentsForItem("album", album.id).length}
@@ -11675,6 +11725,7 @@ export default function Page() {
               <span aria-hidden="true">{isSaved ? "✓" : "+"}</span>
               <span>{isSaved ? "Saved" : "Save"}</span>
             </button>
+            {renderMobileVideoQueueButton(video)}
             {renderVideoPlaylistButton(video)}
           </div>
           <div className="card-secondary-actions">
@@ -15896,6 +15947,7 @@ export default function Page() {
                                 <Play size={16} fill="currentColor"/>
                                 Play
                               </button>
+                              {renderMobileSongQueueButton(song)}
                               <button className="playlist-track-button playlist-track-remove" onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
                                 <X size={16}/>
                                 Remove
@@ -15918,6 +15970,7 @@ export default function Page() {
                             <button onClick={() => playVideoList(activePlaylistVideos, video)} title={`Play ${video.title}`} type="button">
                               <Play size={16} fill="currentColor"/>
                             </button>
+                            {renderMobileVideoQueueButton(video)}
                             <button onClick={() => removeVideoFromPlaylist(activePlaylist.id, video.id)} title="Remove video from playlist" type="button">
                               <X size={16}/>
                             </button>
@@ -16001,6 +16054,7 @@ export default function Page() {
                         <Play size={17} fill="currentColor"/>
                         <span>{resumeLabel}</span>
                       </button>
+                      {itemType === "song" && entry.song ? renderMobileSongQueueButton(entry.song) : itemType === "video" && entry.video ? renderMobileVideoQueueButton(entry.video) : itemType === "album" && entry.album ? renderMobileAlbumQueueButton(entry.album) : null}
                     </article>);
                 })}
                 </section>)}
@@ -16101,6 +16155,7 @@ export default function Page() {
                                 }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
                                     <span>{isSaved ? "Saved" : "Save"}</span>
                                   </button>
+                                  {renderMobileSongQueueButton(song)}
                                   {renderPlaylistButton(song)}
                                 </div>
                               </div>
@@ -16192,6 +16247,7 @@ export default function Page() {
                                     <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
                                     <span>{isFollowed ? "Following" : "Follow"}</span>
                                   </button>
+                                  {renderMobileSongQueueButton(song)}
                                   {renderPlaylistButton(song)}
                                 </div>
                               </div>
@@ -16282,6 +16338,7 @@ export default function Page() {
                                 <span aria-hidden="true">✓</span>
                                 <span>Following</span>
                               </button>
+                              {renderMobileSongQueueButton(song)}
                               {renderPlaylistButton(song)}
                             </div>
                           </div>
@@ -16475,6 +16532,7 @@ export default function Page() {
                         <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
                         <span>{isFollowed ? "Following" : "Follow"}</span>
                       </button>
+                      {renderMobileSongQueueButton(song)}
                       {renderPlaylistButton(song)}
                     </div>
                     <div className="card-secondary-actions">
@@ -19536,6 +19594,10 @@ export default function Page() {
             gap: 6px;
             padding: 0 10px;
             white-space: nowrap;
+          }
+
+          .mobile-queue-btn {
+            display: none;
           }
 
           .empty-state {
@@ -27735,6 +27797,83 @@ export default function Page() {
               padding: 12px !important;
               margin: 0 !important;
               overflow: visible !important;
+            }
+
+            .queue-page {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+              height: auto !important;
+              padding-bottom: 150px !important;
+              scroll-padding-bottom: 150px !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
+              box-sizing: border-box !important;
+            }
+
+            .queue-page .empty-state {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+              height: auto !important;
+              padding: 12px !important;
+              margin: 0 !important;
+              overflow: visible !important;
+              box-sizing: border-box !important;
+            }
+
+            .queue-toolbar,
+            .queue-manage-list {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+              height: auto !important;
+              overflow: visible !important;
+            }
+
+            .queue-manage-row {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+              height: auto !important;
+              overflow: visible !important;
+              box-sizing: border-box !important;
+            }
+
+            .mobile-queue-btn {
+              display: inline-flex !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: 44px !important;
+              height: auto !important;
+              align-items: center !important;
+              justify-content: center !important;
+              gap: 6px !important;
+              border: 0 !important;
+              border-radius: 8px !important;
+              background: #22d3ee !important;
+              color: #020617 !important;
+              font-size: 13px !important;
+              font-weight: 900 !important;
+              line-height: 1.1 !important;
+              padding: 8px 10px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .mobile-queue-btn:disabled {
+              opacity: 0.65 !important;
+              cursor: not-allowed !important;
+            }
+
+            .media-card-actions .mobile-queue-btn,
+            .artist-album-actions .mobile-queue-btn,
+            .playlist-song-actions .mobile-queue-btn,
+            .recent-row .mobile-queue-btn {
+              grid-column: 1 / -1 !important;
             }
 
           }
