@@ -11900,6 +11900,14 @@ export default function Page() {
         if (nextView === "Home") {
             setActiveTab("Trending");
         }
+        if (typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches) {
+            window.setTimeout(() => {
+                const content = document.querySelector<HTMLElement>(".content");
+                if (content)
+                    content.scrollTo({ top: 0, left: 0, behavior: "auto" });
+                window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+            }, 0);
+        }
     }
     function openProfileFromHeader() {
         handleNav("Profile");
@@ -23555,7 +23563,7 @@ export default function Page() {
           @media (max-width: 820px) {
             :root {
               --mobile-sidebar-width: 64px;
-              --mobile-player-reserve: calc(320px + env(safe-area-inset-bottom, 0px));
+              --mobile-player-reserve: calc(132px + env(safe-area-inset-bottom, 0px));
             }
 
             html,
@@ -25292,6 +25300,7 @@ export default function Page() {
             :root {
               --mobile-sidebar-width: 112px;
               --mobile-player-height: 120px;
+              --mobile-player-reserve: calc(132px + env(safe-area-inset-bottom, 0px));
             }
 
             main,
@@ -28119,6 +28128,67 @@ export default function Page() {
               width: 100% !important;
               max-width: 100% !important;
               min-height: 40px !important;
+            }
+
+            .zml-app {
+              min-height: 100dvh !important;
+              height: 100dvh !important;
+              padding-bottom: 0 !important;
+              overflow: hidden !important;
+            }
+
+            .sidebar {
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              bottom: 0 !important;
+              width: var(--mobile-sidebar-width) !important;
+              height: 100dvh !important;
+              padding-bottom: var(--mobile-player-reserve) !important;
+              overflow-y: auto !important;
+              overscroll-behavior: contain !important;
+            }
+
+            .content {
+              position: fixed !important;
+              top: 0 !important;
+              left: var(--mobile-sidebar-width) !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              width: auto !important;
+              height: 100dvh !important;
+              margin-left: 0 !important;
+              padding: 8px 10px var(--mobile-player-reserve) !important;
+              overflow-y: auto !important;
+              overflow-x: hidden !important;
+              overscroll-behavior: contain !important;
+              scroll-padding-top: 0 !important;
+              scroll-padding-bottom: var(--mobile-player-reserve) !important;
+            }
+
+            .topbar {
+              margin-top: 0 !important;
+              padding-top: 0 !important;
+              top: 0 !important;
+            }
+
+            .content > section,
+            .content > div,
+            .content .artist-section,
+            .content .liked-page,
+            .content .profile-page,
+            .content .queue-page,
+            .content .dashboard-page,
+            .content .playlist-workspace,
+            .content .empty-state {
+              margin-top: 0 !important;
+              padding-top: 0 !important;
+              scroll-margin-top: 0 !important;
+              transform: none !important;
+            }
+
+            .content > .topbar + * {
+              margin-top: 8px !important;
             }
 
           }
