@@ -3270,7 +3270,7 @@ export default function Page() {
     const [videoUploadBusy, setVideoUploadBusy] = useState(false);
     const [videoUploadError, setVideoUploadError] = useState("");
     const [videoUploadStatus, setVideoUploadStatus] = useState("");
-    const [mobileVideoDebug, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
+    const [, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
     const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
     const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
@@ -5737,11 +5737,24 @@ export default function Page() {
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
     const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
     useEffect(() => {
-        if (!mobilePlaybackEnvironment || !activeVideo) {
-            setMobileVideoDebug(EMPTY_MOBILE_VIDEO_DEBUG);
-            return;
-        }
         let cancelled = false;
+        let snapshotTimeout: ReturnType<typeof setTimeout> | null = null;
+        function queueMobileDebugSnapshot(nextDebug: MobileVideoDebugState) {
+            snapshotTimeout = setTimeout(() => {
+                if (!cancelled) {
+                    setMobileVideoDebug(nextDebug);
+                }
+            }, 0);
+        }
+        if (!mobilePlaybackEnvironment || !activeVideo) {
+            queueMobileDebugSnapshot(EMPTY_MOBILE_VIDEO_DEBUG);
+            return () => {
+                cancelled = true;
+                if (snapshotTimeout) {
+                    clearTimeout(snapshotTimeout);
+                }
+            };
+        }
         const selectedVideo = activeVideo;
         const storagePath = selectedVideo.storagePath || selectedVideo.storage_path || "";
         const videoUrl = selectedVideo.video_url || selectedVideo.videoUrl || "";
@@ -5757,9 +5770,14 @@ export default function Page() {
             mobileCompatible: String(selectedVideo.mobileCompatible ?? selectedVideo.mobile_compatible ?? ""),
             lastMediaEvent: "selected video",
         };
-        setMobileVideoDebug(selectedSnapshot);
+        queueMobileDebugSnapshot(selectedSnapshot);
         if (!activeVideoPlaybackUrl)
-            return;
+            return () => {
+                cancelled = true;
+                if (snapshotTimeout) {
+                    clearTimeout(snapshotTimeout);
+                }
+            };
         async function probeSelectedVideo() {
             const probe = await probeVideoPlaybackUrl(activeVideoPlaybackUrl);
             if (cancelled)
@@ -5794,6 +5812,9 @@ export default function Page() {
         void probeSelectedVideo();
         return () => {
             cancelled = true;
+            if (snapshotTimeout) {
+                clearTimeout(snapshotTimeout);
+            }
         };
     }, [activeVideo, activeVideoPlaybackUrl, mobilePlaybackEnvironment]);
     useEffect(() => {
@@ -12889,29 +12910,6 @@ export default function Page() {
         if (!activeVideo)
             return null;
         const showMobileIncompatibleFallback = mobilePlaybackEnvironment && isVideoMarkedMobileIncompatible(activeVideo);
-        const debugRows: Array<[string, string]> = [
-            ["selected video id", mobileVideoDebug.selectedVideoId],
-            ["title", mobileVideoDebug.title],
-            ["final video URL", mobileVideoDebug.finalVideoUrl],
-            ["storage_path", mobileVideoDebug.storagePath],
-            ["video_url", mobileVideoDebug.videoUrl],
-            ["currentSrc", mobileVideoDebug.currentSrc],
-            ["readyState", mobileVideoDebug.readyState],
-            ["networkState", mobileVideoDebug.networkState],
-            ["video.error?.code", mobileVideoDebug.errorCode],
-            ["video.error?.message", mobileVideoDebug.errorMessage],
-            ["canPlayType(\"video/mp4\")", mobileVideoDebug.canPlayTypeMp4],
-            ["HEAD status", mobileVideoDebug.headStatus],
-            ["content-type", mobileVideoDebug.contentType],
-            ["content-length", mobileVideoDebug.contentLength],
-            ["detected video codec", mobileVideoDebug.detectedVideoCodec],
-            ["detected audio codec", mobileVideoDebug.detectedAudioCodec],
-            ["mobile_compatible", mobileVideoDebug.mobileCompatible],
-            ["last media event", mobileVideoDebug.lastMediaEvent],
-            ["loadedmetadata fired", String(mobileVideoDebug.loadedMetadataFired)],
-            ["canplay fired", String(mobileVideoDebug.canPlayFired)],
-            ["error fired", String(mobileVideoDebug.errorFired)],
-        ];
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
         {showMobileIncompatibleFallback ? (<div className="video-mobile-incompatible-panel">
             <Film size={42}/>
@@ -12987,15 +12985,6 @@ export default function Page() {
             </button>
           </div>
         </div>
-        {mobilePlaybackEnvironment ? (<div className="mobile-video-debug-panel">
-            <strong>Mobile Video Debug</strong>
-            <dl>
-              {debugRows.map(([label, value]) => (<div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{value || "(empty)"}</dd>
-                </div>))}
-            </dl>
-          </div>) : null}
       </section>);
     }
     if (!authReady || !hasLoaded) {
@@ -16783,7 +16772,7 @@ export default function Page() {
           </section>
         </aside>)}
 
-      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar bottom-player mobile-bottom-player fixed-mobile-player">
+      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar video-bottom-player bottom-player mobile-bottom-player fixed-mobile-player">
           <div className="video-player-now player-main">
             <img src={activeVideo.cover} alt=""/>
             <div>
@@ -16835,7 +16824,7 @@ export default function Page() {
           </div>
         </footer>)}
 
-      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player bottom-player mobile-bottom-player fixed-mobile-player">
+      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player music-bottom-player bottom-player mobile-bottom-player fixed-mobile-player">
           <div className="player-song player-main">
             <img src={currentSong.cover} alt=""/>
 
@@ -23563,7 +23552,7 @@ export default function Page() {
           @media (max-width: 820px) {
             :root {
               --mobile-sidebar-width: 64px;
-              --mobile-player-height: 74px;
+              --mobile-player-height: 72px;
               --mobile-player-reserve: 110px;
             }
 
@@ -25300,7 +25289,7 @@ export default function Page() {
           @media (max-width: 768px) {
             :root {
               --mobile-sidebar-width: 112px;
-              --mobile-player-height: 74px;
+              --mobile-player-height: 72px;
               --mobile-player-reserve: 110px;
             }
 
@@ -25317,137 +25306,6 @@ export default function Page() {
               display: none !important;
               height: 0 !important;
               min-height: 0 !important;
-            }
-
-            .mobile-bottom-player,
-            .bottom-player {
-              height: 120px !important;
-              min-height: 0 !important;
-              max-height: 120px !important;
-              overflow: hidden !important;
-              display: grid !important;
-              grid-template-columns: minmax(0, 1fr) !important;
-              grid-template-rows: 36px 48px 14px !important;
-              gap: 0 !important;
-              padding: 8px 12px 10px !important;
-            }
-
-            .bottom-player .volume-row,
-            .bottom-player .queue-button,
-            .bottom-player .player-side,
-            .bottom-player .video-player-side,
-            .bottom-player .volume,
-            .bottom-player .video-volume,
-            .bottom-player .queue-drawer-button {
-              display: none !important;
-            }
-
-            .bottom-player .player-song,
-            .bottom-player .video-player-now {
-              width: min(100%, 320px) !important;
-              justify-self: center !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              gap: 5px !important;
-              min-width: 0 !important;
-              min-height: 0 !important;
-              max-height: 36px !important;
-              overflow: hidden !important;
-            }
-
-            .bottom-player .player-song img,
-            .bottom-player .video-player-now img {
-              width: 34px !important;
-              height: 34px !important;
-              object-fit: cover !important;
-              border-radius: 8px !important;
-              flex: 0 0 34px !important;
-            }
-
-            .bottom-player .player-song > div,
-            .bottom-player .video-player-now > div {
-              min-width: 0 !important;
-            }
-
-            .bottom-player .player-song strong,
-            .bottom-player .player-song small,
-            .bottom-player .video-player-now strong,
-            .bottom-player .video-player-now small {
-              display: block !important;
-              max-width: 260px !important;
-              text-align: center !important;
-              overflow: hidden !important;
-              text-overflow: ellipsis !important;
-              white-space: nowrap !important;
-            }
-
-            .bottom-player .player-song strong,
-            .bottom-player .video-player-now strong {
-              font-size: 12px !important;
-              line-height: 1.1 !important;
-            }
-
-            .bottom-player .player-song small,
-            .bottom-player .video-player-now small {
-              font-size: 10px !important;
-              line-height: 1.1 !important;
-            }
-
-            .bottom-player .player-center,
-            .bottom-player .video-player-center {
-              width: 100% !important;
-              min-width: 0 !important;
-              display: grid !important;
-              grid-template-rows: 48px 14px !important;
-              gap: 0 !important;
-              justify-items: center !important;
-              align-content: end !important;
-            }
-
-            .bottom-player .player-controls,
-            .bottom-player .video-player-controls {
-              display: flex !important;
-              justify-content: center !important;
-              align-items: center !important;
-              gap: 6px !important;
-              width: 100% !important;
-              flex-wrap: nowrap !important;
-            }
-
-            .bottom-player .player-controls button,
-            .bottom-player .video-player-controls button {
-              width: 42px !important;
-              min-width: 42px !important;
-              height: 42px !important;
-              min-height: 42px !important;
-              padding: 0 !important;
-            }
-
-            .bottom-player .video-player-controls button:nth-child(n + 4) {
-              display: none !important;
-            }
-
-            .bottom-player .progress-row,
-            .bottom-player .video-progress-row {
-              width: 100% !important;
-              max-width: none !important;
-              display: grid !important;
-              grid-template-columns: minmax(0, 1fr) !important;
-              gap: 1px !important;
-              align-self: end !important;
-            }
-
-            .bottom-player .progress-time,
-            .bottom-player .progress-row span,
-            .bottom-player .video-progress-row span {
-              font-size: 9px !important;
-              line-height: 1 !important;
-            }
-
-            .bottom-player .progress-row input {
-              width: 100% !important;
-              height: 10px !important;
             }
 
             .media-card,
@@ -28192,18 +28050,16 @@ export default function Page() {
               margin-top: 8px !important;
             }
 
-            .fixed-mobile-player,
-            .mobile-bottom-player,
-            .bottom-player {
+            .music-bottom-player {
               position: fixed !important;
               left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
-              bottom: 0 !important;
+              bottom: env(safe-area-inset-bottom) !important;
               width: auto !important;
               max-width: none !important;
-              height: min(var(--mobile-player-height, 74px), 12dvh) !important;
+              height: min(72px, 12dvh) !important;
               min-height: 0 !important;
-              max-height: min(var(--mobile-player-height, 74px), 12dvh) !important;
+              max-height: 72px !important;
               margin: 0 !important;
               padding: 3px 6px 2px !important;
               transform: none !important;
@@ -28211,21 +28067,19 @@ export default function Page() {
               display: grid !important;
               grid-template-columns: minmax(0, 1fr) auto !important;
               grid-template-rows: minmax(0, 1fr) 4px !important;
-              gap: 3px 8px !important;
+              gap: 2px 6px !important;
               align-items: center !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
             }
 
-            .fixed-mobile-player .player-main,
-            .fixed-mobile-player .player-song,
-            .fixed-mobile-player .video-player-now {
+            .music-bottom-player .player-song {
               grid-column: 1 !important;
               grid-row: 1 !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
-              max-height: 48px !important;
+              max-height: 46px !important;
               display: flex !important;
               align-items: center !important;
               justify-content: flex-start !important;
@@ -28233,9 +28087,7 @@ export default function Page() {
               overflow: hidden !important;
             }
 
-            .fixed-mobile-player .player-main img,
-            .fixed-mobile-player .player-song img,
-            .fixed-mobile-player .video-player-now img {
+            .music-bottom-player .player-song img {
               width: 42px !important;
               height: 42px !important;
               min-width: 42px !important;
@@ -28244,18 +28096,14 @@ export default function Page() {
               border-radius: 8px !important;
             }
 
-            .fixed-mobile-player .player-main > div,
-            .fixed-mobile-player .player-song > div,
-            .fixed-mobile-player .video-player-now > div {
+            .music-bottom-player .player-song > div {
               min-width: 0 !important;
               max-width: 100% !important;
               overflow: hidden !important;
             }
 
-            .fixed-mobile-player .track-title,
-            .fixed-mobile-player .song-title,
-            .fixed-mobile-player .player-song strong,
-            .fixed-mobile-player .video-player-now strong {
+            .music-bottom-player .song-title,
+            .music-bottom-player .player-song strong {
               display: block !important;
               max-width: 100% !important;
               font-size: 14px !important;
@@ -28266,9 +28114,8 @@ export default function Page() {
               text-align: left !important;
             }
 
-            .fixed-mobile-player .artist-name,
-            .fixed-mobile-player .player-song small,
-            .fixed-mobile-player .video-player-now small {
+            .music-bottom-player .artist-name,
+            .music-bottom-player .player-song small {
               display: block !important;
               max-width: 100% !important;
               font-size: 12px !important;
@@ -28279,17 +28126,15 @@ export default function Page() {
               text-align: left !important;
             }
 
-            .fixed-mobile-player .player-album-meta {
+            .music-bottom-player .player-album-meta {
               display: none !important;
             }
 
-            .fixed-mobile-player .player-center,
-            .fixed-mobile-player .video-player-center {
+            .music-bottom-player .player-center {
               display: contents !important;
             }
 
-            .fixed-mobile-player .player-controls,
-            .fixed-mobile-player .video-player-controls {
+            .music-bottom-player .player-controls {
               grid-column: 2 !important;
               grid-row: 1 !important;
               width: auto !important;
@@ -28303,8 +28148,7 @@ export default function Page() {
               overflow: hidden !important;
             }
 
-            .fixed-mobile-player .player-controls button,
-            .fixed-mobile-player .video-player-controls button {
+            .music-bottom-player .player-controls button {
               width: 40px !important;
               height: 40px !important;
               min-width: 40px !important;
@@ -28317,14 +28161,12 @@ export default function Page() {
               font-size: 16px !important;
             }
 
-            .fixed-mobile-player .player-controls button:first-child,
-            .fixed-mobile-player .player-controls button:nth-child(5),
-            .fixed-mobile-player .video-player-controls button:nth-child(n + 4) {
+            .music-bottom-player .player-controls button:first-child,
+            .music-bottom-player .player-controls button:nth-child(5) {
               display: none !important;
             }
 
-            .fixed-mobile-player .progress-row,
-            .fixed-mobile-player .video-progress-row {
+            .music-bottom-player .progress-row {
               grid-column: 1 / -1 !important;
               grid-row: 2 !important;
               width: 100% !important;
@@ -28336,20 +28178,172 @@ export default function Page() {
               overflow: hidden !important;
             }
 
-            .fixed-mobile-player .progress-row span,
-            .fixed-mobile-player .progress-time,
-            .fixed-mobile-player .video-progress-row span {
+            .music-bottom-player .progress-row span,
+            .music-bottom-player .progress-time {
               display: none !important;
             }
 
-            .fixed-mobile-player input[type="range"],
-            .fixed-mobile-player .progress {
+            .music-bottom-player input[type="range"],
+            .music-bottom-player .progress {
               width: 100% !important;
               height: 4px !important;
               min-height: 4px !important;
               padding: 0 !important;
               margin: 0 !important;
               display: block !important;
+            }
+
+            .music-bottom-player .player-side,
+            .music-bottom-player .queue-drawer-button,
+            .music-bottom-player .volume {
+              display: none !important;
+            }
+
+            .video-bottom-player {
+              position: fixed !important;
+              left: var(--sidebar-width, 96px) !important;
+              right: 0 !important;
+              bottom: env(safe-area-inset-bottom) !important;
+              width: auto !important;
+              max-width: none !important;
+              height: min(72px, 12dvh) !important;
+              min-height: 0 !important;
+              max-height: 72px !important;
+              margin: 0 !important;
+              padding: 3px 6px 2px !important;
+              transform: none !important;
+              z-index: 999999 !important;
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) auto !important;
+              grid-template-rows: minmax(0, 1fr) 4px !important;
+              gap: 2px 6px !important;
+              align-items: center !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .video-bottom-player .video-player-now {
+              grid-column: 1 !important;
+              grid-row: 1 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              max-height: 46px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: flex-start !important;
+              gap: 6px !important;
+              overflow: hidden !important;
+            }
+
+            .video-bottom-player .video-player-now img {
+              width: 42px !important;
+              height: 42px !important;
+              min-width: 42px !important;
+              flex: 0 0 42px !important;
+              object-fit: cover !important;
+              border-radius: 8px !important;
+            }
+
+            .video-bottom-player .video-player-now > div {
+              min-width: 0 !important;
+              max-width: 100% !important;
+              overflow: hidden !important;
+            }
+
+            .video-bottom-player .track-title,
+            .video-bottom-player .video-player-now strong {
+              display: block !important;
+              max-width: 100% !important;
+              font-size: 14px !important;
+              line-height: 16px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              text-align: left !important;
+            }
+
+            .video-bottom-player .artist-name,
+            .video-bottom-player .video-player-now small {
+              display: block !important;
+              max-width: 100% !important;
+              font-size: 12px !important;
+              line-height: 14px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              text-align: left !important;
+            }
+
+            .video-bottom-player .player-album-meta {
+              display: none !important;
+            }
+
+            .video-bottom-player .video-player-center {
+              display: contents !important;
+            }
+
+            .video-bottom-player .video-player-controls {
+              grid-column: 2 !important;
+              grid-row: 1 !important;
+              width: auto !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: flex-end !important;
+              gap: 6px !important;
+              flex-wrap: nowrap !important;
+              overflow: hidden !important;
+            }
+
+            .video-bottom-player .video-player-controls button {
+              width: 40px !important;
+              height: 40px !important;
+              min-width: 40px !important;
+              min-height: 40px !important;
+              max-width: 40px !important;
+              max-height: 40px !important;
+              padding: 0 !important;
+              border-radius: 8px !important;
+              flex: 0 0 40px !important;
+              font-size: 16px !important;
+            }
+
+            .video-bottom-player .video-player-controls button:nth-child(n + 4) {
+              display: none !important;
+            }
+
+            .video-bottom-player .video-progress-row {
+              grid-column: 1 / -1 !important;
+              grid-row: 2 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              height: 4px !important;
+              min-height: 4px !important;
+              display: block !important;
+              align-self: end !important;
+              overflow: hidden !important;
+            }
+
+            .video-bottom-player .video-progress-row span {
+              display: none !important;
+            }
+
+            .video-bottom-player input[type="range"],
+            .video-bottom-player .progress {
+              width: 100% !important;
+              height: 4px !important;
+              min-height: 4px !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              display: block !important;
+            }
+
+            .video-bottom-player .video-player-side,
+            .video-bottom-player .queue-drawer-button,
+            .video-bottom-player .video-volume {
+              display: none !important;
             }
 
             .content,
