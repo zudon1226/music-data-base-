@@ -26213,13 +26213,7 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-top {
-              grid-column: 1 / -1 !important;
-              grid-row: 1 !important;
-              display: grid !important;
-              grid-template-columns: 28px minmax(0, 1fr) !important;
-              gap: 10px !important;
-              align-items: center !important;
-              min-width: 0 !important;
+              display: contents !important;
             }
 
             .playlist-songs .playlist-track-top .recent-number {
@@ -26244,8 +26238,10 @@ export default function Page() {
               grid-column: 2 !important;
               grid-row: 1 !important;
               display: flex !important;
+              align-items: center !important;
               gap: 10px !important;
               min-width: 0 !important;
+              width: 100% !important;
             }
 
             .playlist-songs .playlist-song-artwork {
