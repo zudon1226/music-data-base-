@@ -26102,7 +26102,7 @@ export default function Page() {
             .playlist-song-row {
               display: grid !important;
               grid-template-columns: 28px 44px minmax(0, 1fr) 34px 34px !important;
-              gap: 6px !important;
+              gap: 5px !important;
               align-items: center !important;
             }
 
@@ -26178,7 +26178,7 @@ export default function Page() {
             .playlist-songs .playlist-song-row {
               display: grid !important;
               grid-template-columns: 28px 44px minmax(0, 1fr) 44px 44px !important;
-              gap: 6px !important;
+              gap: 5px !important;
               align-items: center !important;
               width: 100% !important;
               max-width: 100% !important;
@@ -28054,22 +28054,22 @@ export default function Page() {
 
             .music-bottom-player {
               position: fixed !important;
-              left: 185px !important;
+              left: 96px !important;
               right: 0 !important;
-              bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
-              width: calc(100vw - 185px) !important;
-              max-width: calc(100vw - 185px) !important;
+              bottom: calc(env(safe-area-inset-bottom) + 56px) !important;
+              width: calc(100vw - 96px) !important;
+              max-width: calc(100vw - 96px) !important;
               height: min(72px, 12dvh) !important;
               min-height: 0 !important;
               max-height: 72px !important;
               margin: 0 !important;
               padding: 3px 6px 2px !important;
               transform: none !important;
-              z-index: 999999 !important;
+              z-index: 9999 !important;
               display: grid !important;
-              grid-template-columns: minmax(0, 1fr) auto auto auto !important;
-              grid-template-rows: minmax(0, 1fr) 4px !important;
-              gap: 2px 6px !important;
+              grid-template-columns: minmax(0, 1fr) repeat(5, 42px) !important;
+              grid-template-rows: 1fr !important;
+              gap: 5px !important;
               align-items: center !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
@@ -28137,14 +28137,14 @@ export default function Page() {
             }
 
             .music-bottom-player .player-controls {
-              grid-column: 2 !important;
+              grid-column: 2 / -1 !important;
               grid-row: 1 !important;
               width: 100% !important;
               min-width: 0 !important;
               max-width: 100% !important;
               display: grid !important;
               grid-auto-flow: column !important;
-              grid-auto-columns: 44px !important;
+              grid-auto-columns: 42px !important;
               align-items: center !important;
               justify-content: flex-end !important;
               gap: 6px !important;
@@ -28153,23 +28153,27 @@ export default function Page() {
             }
 
             .music-bottom-player .player-controls button {
-              width: 44px !important;
-              height: 44px !important;
-              min-width: 44px !important;
-              min-height: 44px !important;
-              max-width: 44px !important;
-              max-height: 44px !important;
+              width: 42px !important;
+              height: 42px !important;
+              min-width: 42px !important;
+              min-height: 42px !important;
+              max-width: 42px !important;
+              max-height: 42px !important;
               padding: 0 !important;
               border-radius: 8px !important;
-              flex: 0 0 44px !important;
+              flex: 0 0 42px !important;
               font-size: 16px !important;
             }
 
             .music-bottom-player .progress-row {
               grid-column: 1 / -1 !important;
-              grid-row: 2 !important;
-              width: 100% !important;
-              max-width: 100% !important;
+              grid-row: 1 !important;
+              position: absolute !important;
+              left: 12px !important;
+              right: 12px !important;
+              bottom: 4px !important;
+              width: auto !important;
+              max-width: none !important;
               height: 4px !important;
               min-height: 4px !important;
               display: block !important;
@@ -28200,22 +28204,22 @@ export default function Page() {
 
             .video-bottom-player {
               position: fixed !important;
-              left: 185px !important;
+              left: 96px !important;
               right: 0 !important;
-              bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
-              width: calc(100vw - 185px) !important;
-              max-width: calc(100vw - 185px) !important;
+              bottom: calc(env(safe-area-inset-bottom) + 56px) !important;
+              width: calc(100vw - 96px) !important;
+              max-width: calc(100vw - 96px) !important;
               height: min(72px, 12dvh) !important;
               min-height: 0 !important;
               max-height: 72px !important;
               margin: 0 !important;
               padding: 3px 6px 2px !important;
               transform: none !important;
-              z-index: 999999 !important;
+              z-index: 9999 !important;
               display: grid !important;
-              grid-template-columns: minmax(0, 1fr) auto auto auto !important;
-              grid-template-rows: minmax(0, 1fr) 4px !important;
-              gap: 2px 6px !important;
+              grid-template-columns: minmax(0, 1fr) repeat(5, 42px) !important;
+              grid-template-rows: 1fr !important;
+              gap: 5px !important;
               align-items: center !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
@@ -28283,14 +28287,14 @@ export default function Page() {
             }
 
             .video-bottom-player .video-player-controls {
-              grid-column: 2 !important;
+              grid-column: 2 / -1 !important;
               grid-row: 1 !important;
               width: 100% !important;
               min-width: 0 !important;
               max-width: 100% !important;
               display: grid !important;
               grid-auto-flow: column !important;
-              grid-auto-columns: 44px !important;
+              grid-auto-columns: 42px !important;
               align-items: center !important;
               justify-content: flex-end !important;
               gap: 6px !important;
@@ -28299,23 +28303,27 @@ export default function Page() {
             }
 
             .video-bottom-player .video-player-controls button {
-              width: 44px !important;
-              height: 44px !important;
-              min-width: 44px !important;
-              min-height: 44px !important;
-              max-width: 44px !important;
-              max-height: 44px !important;
+              width: 42px !important;
+              height: 42px !important;
+              min-width: 42px !important;
+              min-height: 42px !important;
+              max-width: 42px !important;
+              max-height: 42px !important;
               padding: 0 !important;
               border-radius: 8px !important;
-              flex: 0 0 44px !important;
+              flex: 0 0 42px !important;
               font-size: 16px !important;
             }
 
             .video-bottom-player .video-progress-row {
               grid-column: 1 / -1 !important;
-              grid-row: 2 !important;
-              width: 100% !important;
-              max-width: 100% !important;
+              grid-row: 1 !important;
+              position: absolute !important;
+              left: 12px !important;
+              right: 12px !important;
+              bottom: 4px !important;
+              width: auto !important;
+              max-width: none !important;
               height: 4px !important;
               min-height: 4px !important;
               display: block !important;
