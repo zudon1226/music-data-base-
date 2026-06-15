@@ -14619,18 +14619,49 @@ export default function Page() {
               <div className="verification-admin-grid">
                 <div>
                   <strong>Verified Artists</strong>
-                  {mergedArtistProfiles.slice(0, 6).map((artist) => (<button className={isArtistVerified(artist.id) ? "active" : ""} key={artist.id} onClick={() => toggleVerification("artist", artist.id)} type="button">
-                      {renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}
-                      {artist.name}
-                    </button>))}
+                  <details className="mobile-verification-toggle">
+                    <summary>
+                      <span>Verified Artists ({mergedArtistProfiles.slice(0, 6).length})</span>
+                      <span className="verification-toggle-open">Collapse</span>
+                      <span className="verification-toggle-closed">Expand</span>
+                    </summary>
+                    <div className="mobile-verification-list">
+                      {mergedArtistProfiles.slice(0, 6).map((artist) => (<button className={isArtistVerified(artist.id) ? "active" : ""} key={artist.id} onClick={() => toggleVerification("artist", artist.id)} type="button">
+                          {renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}
+                          {artist.name}
+                        </button>))}
+                    </div>
+                  </details>
+                  <div className="desktop-verification-list">
+                    {mergedArtistProfiles.slice(0, 6).map((artist) => (<button className={isArtistVerified(artist.id) ? "active" : ""} key={artist.id} onClick={() => toggleVerification("artist", artist.id)} type="button">
+                        {renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}
+                        {artist.name}
+                      </button>))}
+                  </div>
                 </div>
                 <div>
                   <strong>Verified Producers</strong>
-                  {producerProfiles.slice(0, 6).map((producer) => (<button className={isProducerVerified(producer.id) ? "active" : ""} key={producer.id} onClick={() => toggleVerification("producer", producer.id)} type="button">
-                      {renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}
-                      {producer.name}
-                    </button>))}
-                  {producerProfiles.length === 0 && <span>No producer profiles yet.</span>}
+                  <details className="mobile-verification-toggle">
+                    <summary>
+                      <span>Verified Producers ({producerProfiles.slice(0, 6).length})</span>
+                      <span className="verification-toggle-open">Collapse</span>
+                      <span className="verification-toggle-closed">Expand</span>
+                    </summary>
+                    <div className="mobile-verification-list">
+                      {producerProfiles.slice(0, 6).map((producer) => (<button className={isProducerVerified(producer.id) ? "active" : ""} key={producer.id} onClick={() => toggleVerification("producer", producer.id)} type="button">
+                          {renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}
+                          {producer.name}
+                        </button>))}
+                      {producerProfiles.length === 0 && <span>No producer profiles yet.</span>}
+                    </div>
+                  </details>
+                  <div className="desktop-verification-list">
+                    {producerProfiles.slice(0, 6).map((producer) => (<button className={isProducerVerified(producer.id) ? "active" : ""} key={producer.id} onClick={() => toggleVerification("producer", producer.id)} type="button">
+                        {renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}
+                        {producer.name}
+                      </button>))}
+                    {producerProfiles.length === 0 && <span>No producer profiles yet.</span>}
+                  </div>
                 </div>
               </div>
             </div>
@@ -20840,6 +20871,16 @@ export default function Page() {
           .verification-admin-grid button:hover {
             background: #22d3ee;
             color: #020617;
+          }
+
+          .mobile-verification-toggle {
+            display: none;
+          }
+
+          .desktop-verification-list,
+          .mobile-verification-list {
+            display: grid;
+            gap: 7px;
           }
 
           .verified-badge {
@@ -27874,6 +27915,228 @@ export default function Page() {
             .playlist-song-actions .mobile-queue-btn,
             .recent-row .mobile-queue-btn {
               grid-column: 1 / -1 !important;
+            }
+
+            .profile-page {
+              display: grid !important;
+              gap: 10px !important;
+              align-items: stretch !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+              height: auto !important;
+              padding-bottom: 150px !important;
+              overflow-x: hidden !important;
+            }
+
+            .profile-page,
+            .profile-page * {
+              box-sizing: border-box !important;
+            }
+
+            .profile-hero,
+            .profile-save,
+            .profile-grid {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 12px !important;
+              overflow: hidden !important;
+              text-wrap: balance !important;
+            }
+
+            .profile-hero {
+              display: grid !important;
+              grid-template-columns: 64px minmax(0, 1fr) !important;
+              gap: 10px !important;
+              align-items: center !important;
+            }
+
+            .profile-avatar {
+              width: 64px !important;
+              height: 64px !important;
+              min-width: 64px !important;
+              aspect-ratio: 1 / 1 !important;
+              font-size: 30px !important;
+              border-radius: 8px !important;
+            }
+
+            .profile-hero > div:not(.profile-avatar) {
+              min-width: 0 !important;
+              display: grid !important;
+              gap: 3px !important;
+            }
+
+            .profile-hero h2 {
+              margin: 0 !important;
+              max-width: 100% !important;
+              font-size: 21px !important;
+              line-height: 1.05 !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .profile-hero p {
+              max-width: 100% !important;
+              font-size: 12px !important;
+              line-height: 1.2 !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .profile-actions {
+              grid-column: 1 / -1 !important;
+              margin-top: 8px !important;
+              width: 100% !important;
+            }
+
+            .profile-actions button {
+              width: 100% !important;
+              min-height: 44px !important;
+            }
+
+            .profile-grid {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+              padding: 0 !important;
+            }
+
+            .profile-grid div {
+              min-height: 0 !important;
+              height: auto !important;
+              padding: 10px !important;
+              overflow: hidden !important;
+            }
+
+            .profile-grid strong {
+              font-size: 22px !important;
+              line-height: 1 !important;
+            }
+
+            .profile-grid span {
+              font-size: 11px !important;
+              line-height: 1.15 !important;
+              white-space: normal !important;
+            }
+
+            .profile-save {
+              display: grid !important;
+              gap: 6px !important;
+              min-height: auto !important;
+              height: auto !important;
+            }
+
+            .profile-save h3,
+            .profile-save p {
+              margin: 0 !important;
+            }
+
+            .profile-save p {
+              font-size: 12px !important;
+              line-height: 1.25 !important;
+            }
+
+            .role-switcher {
+              display: grid !important;
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+
+            .role-switcher button {
+              width: 100% !important;
+              min-width: 0 !important;
+              min-height: 44px !important;
+              padding: 0 6px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .verification-admin-grid {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              margin-top: 4px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+
+            .verification-admin-grid > div {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+              height: auto !important;
+              padding: 10px !important;
+              overflow: hidden !important;
+            }
+
+            .verification-admin-grid > div > strong,
+            .desktop-verification-list {
+              display: none !important;
+            }
+
+            .mobile-verification-toggle {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+              overflow: hidden !important;
+            }
+
+            .mobile-verification-toggle summary {
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) auto !important;
+              gap: 8px !important;
+              align-items: center !important;
+              min-height: 44px !important;
+              padding: 0 !important;
+              cursor: pointer !important;
+              list-style: none !important;
+            }
+
+            .mobile-verification-toggle summary::-webkit-details-marker {
+              display: none !important;
+            }
+
+            .mobile-verification-toggle summary span:first-child {
+              color: white !important;
+              font-size: 14px !important;
+              font-weight: 900 !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .verification-toggle-open,
+            .verification-toggle-closed {
+              color: #22d3ee !important;
+              font-size: 12px !important;
+              font-weight: 900 !important;
+              white-space: nowrap !important;
+            }
+
+            .mobile-verification-toggle:not([open]) .verification-toggle-open,
+            .mobile-verification-toggle[open] .verification-toggle-closed {
+              display: none !important;
+            }
+
+            .mobile-verification-list {
+              display: grid !important;
+              gap: 7px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              padding-top: 6px !important;
+            }
+
+            .mobile-verification-list button {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: 40px !important;
             }
 
           }
