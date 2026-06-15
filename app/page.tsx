@@ -26211,9 +26211,9 @@ export default function Page() {
 
             .playlist-songs .playlist-track-top {
               display: grid !important;
-              grid-template-columns: 28px 72px minmax(0, 1fr) !important;
+              grid-template-columns: 20px 72px minmax(0, 1fr) !important;
               align-items: center !important;
-              gap: 8px !important;
+              gap: 4px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
@@ -26222,9 +26222,9 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-top .recent-number {
-              width: 28px !important;
-              min-width: 28px !important;
-              max-width: 28px !important;
+              width: 20px !important;
+              min-width: 20px !important;
+              max-width: 20px !important;
               text-align: center !important;
             }
 
