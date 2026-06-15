@@ -24209,6 +24209,7 @@ export default function Page() {
               display: grid;
               grid-template-rows: 180px auto auto;
               gap: 8px;
+              padding-bottom: 18px;
               overflow: hidden;
             }
 
@@ -24225,11 +24226,20 @@ export default function Page() {
               gap: 2px;
             }
 
-            .marketplace-preorder-card strong,
-            .marketplace-preorder-card small {
-              white-space: nowrap;
+            .marketplace-preorder-card strong {
+              display: -webkit-box;
+              white-space: normal;
               overflow: hidden;
-              text-overflow: ellipsis;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
+            }
+
+            .marketplace-preorder-card small {
+              display: -webkit-box;
+              white-space: normal;
+              overflow: hidden;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
             }
 
             .marketplace-preorder-card button {
