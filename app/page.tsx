@@ -24197,9 +24197,10 @@ export default function Page() {
 
             .marketplace-chart-row {
               width: 100%;
-              grid-template-columns: 36px 64px minmax(0, 1fr) 60px;
-              gap: 7px;
+              grid-template-columns: 28px 64px minmax(0, 1fr) 58px;
+              gap: 8px;
               padding: 8px;
+              min-height: 110px;
             }
 
             .marketplace-chart-row em {
@@ -24207,7 +24208,7 @@ export default function Page() {
             }
 
             .marketplace-chart-row > strong {
-              width: 36px;
+              width: 28px;
               font-size: 16px;
             }
 
@@ -24226,15 +24227,21 @@ export default function Page() {
             }
 
             .marketplace-chart-row b {
-              display: block;
+              display: -webkit-box;
               font-size: 15px;
               line-height: 1.12;
+              white-space: normal;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
             }
 
             .marketplace-chart-row small {
               display: block;
               font-size: 12px;
               line-height: 1.15;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
             }
 
             .marketplace-chart-row b,
