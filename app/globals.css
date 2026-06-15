@@ -255,11 +255,11 @@ body {
     height: 72px !important;
     min-height: 72px !important;
     max-height: 72px !important;
-    width: auto !important;
-    max-width: none !important;
+    width: calc(100vw - 185px) !important;
+    max-width: calc(100vw - 185px) !important;
     padding: 4px 8px !important;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-columns: minmax(0, 1fr) auto auto auto !important;
     grid-template-rows: 44px 10px !important;
     align-items: center !important;
     box-sizing: border-box !important;
@@ -320,16 +320,15 @@ body {
   .fixed-mobile-player.fixed-mobile-player .video-player-controls {
     grid-column: 2 !important;
     grid-row: 1 !important;
+    display: grid !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: 44px !important;
+    align-items: center !important;
+    width: 100% !important;
     flex-wrap: nowrap !important;
     min-width: 0 !important;
     gap: 6px !important;
     overflow: hidden !important;
-  }
-
-  .fixed-mobile-player.fixed-mobile-player .player-controls button:first-child,
-  .fixed-mobile-player.fixed-mobile-player .player-controls button:nth-child(5),
-  .fixed-mobile-player.fixed-mobile-player .video-player-controls button:nth-child(n + 4) {
-    display: none !important;
   }
 
   .fixed-mobile-player.fixed-mobile-player .track-title,
@@ -388,5 +387,13 @@ body {
 
   body {
     padding-bottom: 170px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .fixed-mobile-player.fixed-mobile-player .player-controls button:first-child,
+  .fixed-mobile-player.fixed-mobile-player .player-controls button:nth-child(5),
+  .fixed-mobile-player.fixed-mobile-player .video-player-controls button:nth-child(n + 4) {
+    display: none !important;
   }
 }

@@ -28057,8 +28057,8 @@ export default function Page() {
               left: 185px !important;
               right: 0 !important;
               bottom: calc(env(safe-area-inset-bottom) + 44px) !important;
-              width: auto !important;
-              max-width: none !important;
+              width: calc(100vw - 185px) !important;
+              max-width: calc(100vw - 185px) !important;
               height: min(72px, 12dvh) !important;
               min-height: 0 !important;
               max-height: 72px !important;
@@ -28067,7 +28067,7 @@ export default function Page() {
               transform: none !important;
               z-index: 999999 !important;
               display: grid !important;
-              grid-template-columns: minmax(0, 1fr) auto !important;
+              grid-template-columns: minmax(0, 1fr) auto auto auto !important;
               grid-template-rows: minmax(0, 1fr) 4px !important;
               gap: 2px 6px !important;
               align-items: center !important;
@@ -28139,10 +28139,12 @@ export default function Page() {
             .music-bottom-player .player-controls {
               grid-column: 2 !important;
               grid-row: 1 !important;
-              width: auto !important;
+              width: 100% !important;
               min-width: 0 !important;
               max-width: 100% !important;
-              display: flex !important;
+              display: grid !important;
+              grid-auto-flow: column !important;
+              grid-auto-columns: 44px !important;
               align-items: center !important;
               justify-content: flex-end !important;
               gap: 6px !important;
@@ -28161,11 +28163,6 @@ export default function Page() {
               border-radius: 8px !important;
               flex: 0 0 44px !important;
               font-size: 16px !important;
-            }
-
-            .music-bottom-player .player-controls button:first-child,
-            .music-bottom-player .player-controls button:nth-child(5) {
-              display: none !important;
             }
 
             .music-bottom-player .progress-row {
@@ -28206,8 +28203,8 @@ export default function Page() {
               left: 185px !important;
               right: 0 !important;
               bottom: calc(env(safe-area-inset-bottom) + 44px) !important;
-              width: auto !important;
-              max-width: none !important;
+              width: calc(100vw - 185px) !important;
+              max-width: calc(100vw - 185px) !important;
               height: min(72px, 12dvh) !important;
               min-height: 0 !important;
               max-height: 72px !important;
@@ -28216,7 +28213,7 @@ export default function Page() {
               transform: none !important;
               z-index: 999999 !important;
               display: grid !important;
-              grid-template-columns: minmax(0, 1fr) auto !important;
+              grid-template-columns: minmax(0, 1fr) auto auto auto !important;
               grid-template-rows: minmax(0, 1fr) 4px !important;
               gap: 2px 6px !important;
               align-items: center !important;
@@ -28288,10 +28285,12 @@ export default function Page() {
             .video-bottom-player .video-player-controls {
               grid-column: 2 !important;
               grid-row: 1 !important;
-              width: auto !important;
+              width: 100% !important;
               min-width: 0 !important;
               max-width: 100% !important;
-              display: flex !important;
+              display: grid !important;
+              grid-auto-flow: column !important;
+              grid-auto-columns: 44px !important;
               align-items: center !important;
               justify-content: flex-end !important;
               gap: 6px !important;
@@ -28310,10 +28309,6 @@ export default function Page() {
               border-radius: 8px !important;
               flex: 0 0 44px !important;
               font-size: 16px !important;
-            }
-
-            .video-bottom-player .video-player-controls button:nth-child(n + 4) {
-              display: none !important;
             }
 
             .video-bottom-player .video-progress-row {
