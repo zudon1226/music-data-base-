@@ -239,10 +239,10 @@ body {
     position: fixed !important;
     left: 96px !important;
     right: 0 !important;
-    bottom: -34px !important;
-    height: 76px !important;
-    min-height: 76px !important;
-    max-height: 76px !important;
+    bottom: 28px !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
     width: calc(100vw - 96px) !important;
     max-width: calc(100vw - 96px) !important;
     padding: 4px 8px !important;
