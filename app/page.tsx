@@ -28028,7 +28028,7 @@ export default function Page() {
             }
 
             .topbar {
-              margin-top: 0 !important;
+              margin-top: -4px !important;
               padding-top: 0 !important;
               top: 0 !important;
             }
