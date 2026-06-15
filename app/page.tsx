@@ -28054,11 +28054,11 @@ export default function Page() {
 
             .music-bottom-player {
               position: fixed !important;
-              left: var(--sidebar-width-mobile) !important;
+              left: 185px !important;
               right: 0 !important;
-              bottom: env(safe-area-inset-bottom) !important;
+              bottom: calc(env(safe-area-inset-bottom) + 44px) !important;
               width: auto !important;
-              max-width: calc(100vw - var(--sidebar-width-mobile)) !important;
+              max-width: none !important;
               height: min(72px, 12dvh) !important;
               min-height: 0 !important;
               max-height: 72px !important;
@@ -28151,15 +28151,15 @@ export default function Page() {
             }
 
             .music-bottom-player .player-controls button {
-              width: 48px !important;
-              height: 48px !important;
-              min-width: 48px !important;
-              min-height: 48px !important;
-              max-width: 48px !important;
-              max-height: 48px !important;
+              width: 44px !important;
+              height: 44px !important;
+              min-width: 44px !important;
+              min-height: 44px !important;
+              max-width: 44px !important;
+              max-height: 44px !important;
               padding: 0 !important;
               border-radius: 8px !important;
-              flex: 0 0 48px !important;
+              flex: 0 0 44px !important;
               font-size: 16px !important;
             }
 
@@ -28203,11 +28203,11 @@ export default function Page() {
 
             .video-bottom-player {
               position: fixed !important;
-              left: var(--sidebar-width-mobile) !important;
+              left: 185px !important;
               right: 0 !important;
-              bottom: env(safe-area-inset-bottom) !important;
+              bottom: calc(env(safe-area-inset-bottom) + 44px) !important;
               width: auto !important;
-              max-width: calc(100vw - var(--sidebar-width-mobile)) !important;
+              max-width: none !important;
               height: min(72px, 12dvh) !important;
               min-height: 0 !important;
               max-height: 72px !important;
@@ -28300,15 +28300,15 @@ export default function Page() {
             }
 
             .video-bottom-player .video-player-controls button {
-              width: 48px !important;
-              height: 48px !important;
-              min-width: 48px !important;
-              min-height: 48px !important;
-              max-width: 48px !important;
-              max-height: 48px !important;
+              width: 44px !important;
+              height: 44px !important;
+              min-width: 44px !important;
+              min-height: 44px !important;
+              max-width: 44px !important;
+              max-height: 44px !important;
               padding: 0 !important;
               border-radius: 8px !important;
-              flex: 0 0 48px !important;
+              flex: 0 0 44px !important;
               font-size: 16px !important;
             }
 
