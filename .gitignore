@@ -3,3 +3,5 @@ node_modules/
 .npm-cache/
 .env.local
 .vercel/
+.next-dev.err.log
+.next-dev.out.log
