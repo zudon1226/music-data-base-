@@ -23563,8 +23563,8 @@ export default function Page() {
           @media (max-width: 820px) {
             :root {
               --mobile-sidebar-width: 64px;
-              --mobile-player-height: 80px;
-              --mobile-player-reserve: var(--mobile-player-height);
+              --mobile-player-height: 74px;
+              --mobile-player-reserve: 110px;
             }
 
             html,
@@ -25300,8 +25300,8 @@ export default function Page() {
           @media (max-width: 768px) {
             :root {
               --mobile-sidebar-width: 112px;
-              --mobile-player-height: 80px;
-              --mobile-player-reserve: var(--mobile-player-height);
+              --mobile-player-height: 74px;
+              --mobile-player-reserve: 110px;
             }
 
             main,
@@ -28196,16 +28196,16 @@ export default function Page() {
             .mobile-bottom-player,
             .bottom-player {
               position: fixed !important;
-              left: var(--mobile-sidebar-width, 112px) !important;
+              left: var(--sidebar-width, 96px) !important;
               right: 0 !important;
               bottom: 0 !important;
               width: auto !important;
-              max-width: calc(100vw - var(--mobile-sidebar-width, 112px)) !important;
-              height: min(var(--mobile-player-height, 80px), 12dvh) !important;
+              max-width: none !important;
+              height: min(var(--mobile-player-height, 74px), 12dvh) !important;
               min-height: 0 !important;
-              max-height: min(var(--mobile-player-height, 80px), 12dvh) !important;
+              max-height: min(var(--mobile-player-height, 74px), 12dvh) !important;
               margin: 0 !important;
-              padding: 4px 8px 3px !important;
+              padding: 3px 6px 2px !important;
               transform: none !important;
               z-index: 999999 !important;
               display: grid !important;
@@ -28225,21 +28225,21 @@ export default function Page() {
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
-              max-height: 46px !important;
+              max-height: 48px !important;
               display: flex !important;
               align-items: center !important;
               justify-content: flex-start !important;
-              gap: 8px !important;
+              gap: 6px !important;
               overflow: hidden !important;
             }
 
             .fixed-mobile-player .player-main img,
             .fixed-mobile-player .player-song img,
             .fixed-mobile-player .video-player-now img {
-              width: 40px !important;
-              height: 40px !important;
-              min-width: 40px !important;
-              flex: 0 0 40px !important;
+              width: 42px !important;
+              height: 42px !important;
+              min-width: 42px !important;
+              flex: 0 0 42px !important;
               object-fit: cover !important;
               border-radius: 8px !important;
             }
@@ -28298,7 +28298,7 @@ export default function Page() {
               display: flex !important;
               align-items: center !important;
               justify-content: flex-end !important;
-              gap: 4px !important;
+              gap: 6px !important;
               flex-wrap: nowrap !important;
               overflow: hidden !important;
             }
@@ -28317,8 +28317,10 @@ export default function Page() {
               font-size: 16px !important;
             }
 
+            .fixed-mobile-player .player-controls button:first-child,
+            .fixed-mobile-player .player-controls button:nth-child(5),
             .fixed-mobile-player .video-player-controls button:nth-child(n + 4) {
-              display: inline-flex !important;
+              display: none !important;
             }
 
             .fixed-mobile-player .progress-row,
