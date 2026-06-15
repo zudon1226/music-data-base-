@@ -239,7 +239,7 @@ body {
     position: fixed !important;
     left: 96px !important;
     right: 0 !important;
-    bottom: 4px !important;
+    bottom: -8px !important;
     height: 72px !important;
     min-height: 72px !important;
     max-height: 72px !important;
