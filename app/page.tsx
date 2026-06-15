@@ -28056,7 +28056,7 @@ export default function Page() {
               position: fixed !important;
               left: 185px !important;
               right: 0 !important;
-              bottom: calc(env(safe-area-inset-bottom) + 44px) !important;
+              bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
               width: calc(100vw - 185px) !important;
               max-width: calc(100vw - 185px) !important;
               height: min(72px, 12dvh) !important;
@@ -28202,7 +28202,7 @@ export default function Page() {
               position: fixed !important;
               left: 185px !important;
               right: 0 !important;
-              bottom: calc(env(safe-area-inset-bottom) + 44px) !important;
+              bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
               width: calc(100vw - 185px) !important;
               max-width: calc(100vw - 185px) !important;
               height: min(72px, 12dvh) !important;
