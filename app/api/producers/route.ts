@@ -148,6 +148,7 @@ export async function POST(request: Request) {
             const userId = String(body.userId || "").trim();
             const accountType = normalizeAccountType(body.accountType);
             const displayName = String(body.name || "").trim() || "Producer";
+            const skipProducerProfile = body.skipProducerProfile === true;
             if (!userId) {
                 return jsonResponse({ error: "User id is required before setting account type." }, 400);
             }
@@ -166,7 +167,7 @@ export async function POST(request: Request) {
                 profileWarning = getErrorMessage(profileResult.error);
             }
             let producerProfile: Record<string, unknown> | null = null;
-            if (accountType === "producer") {
+            if (accountType === "producer" && !skipProducerProfile) {
                 const row = {
                     id: String(body.producerProfileId || "").trim() || crypto.randomUUID(),
                     user_id: userId,

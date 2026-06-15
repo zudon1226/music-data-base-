@@ -997,6 +997,7 @@ const DEFAULT_COVER = BRAND_LOGO;
 const DEFAULT_PLAYLIST_COVER = BRAND_LOGO;
 const DEFAULT_ARTIST_BANNER = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1600&q=80";
 const BRAND_TAGLINE = "STREAM • DISCOVER • CREATE";
+const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
 const VIDEOS_STORAGE_BUCKET = "videos";
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 const SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES = 3 * 1024 * 1024;
@@ -2512,6 +2513,9 @@ function normalizeAccountRole(value: unknown): AccountRole {
         return value;
     }
     return "Listener";
+}
+function isPlatformOwnerEmail(email: unknown) {
+    return String(email || "").trim().toLowerCase() === PLATFORM_OWNER_EMAIL;
 }
 function mapProducerBeatRow(row: ProducerBeatTableRow): ProducerBeat {
     const title = row.title || "Untitled beat";
@@ -4472,7 +4476,7 @@ export default function Page() {
         ]);
     }
     async function updateLaunchChecklistStatus(area: string, status: LaunchChecklistStatus) {
-        if (!user?.id) {
+        if (!user?.id || !isPlatformOwner) {
             showToast("Log in as admin before updating launch checklist.", "error");
             return;
         }
@@ -4718,6 +4722,7 @@ export default function Page() {
         return () => window.clearTimeout(timer);
     }, []);
     const accountUserId = user?.id || "";
+    const isPlatformOwner = isPlatformOwnerEmail(user?.email);
     useEffect(() => {
         if (!authReady)
             return;
@@ -9729,6 +9734,7 @@ export default function Page() {
                     action: "save-account-role",
                     userId: user.id,
                     accountType: nextRole.toLowerCase(),
+                    skipProducerProfile: isPlatformOwner,
                     producerProfileId: currentProducerProfile.id,
                     name: producerProfileForm.name.trim() || currentProducerProfile.name,
                     avatar: producerProfileForm.avatar.trim() || currentProducerProfile.avatar,
@@ -11921,6 +11927,10 @@ export default function Page() {
             setAuthMessage("Log in to open that section and save it to your account.");
             return;
         }
+        if (nextView === "Platform Stability" && !isPlatformOwner) {
+            showToast("Owner admin access is required for platform controls.", "error");
+            return;
+        }
         setView(nextView);
         if (nextView === "Artist Dashboard")
             setUploadMode("song");
@@ -12041,6 +12051,7 @@ export default function Page() {
         { label: "Queue", icon: <ListMusic size={17}/> },
         { label: "Profile", icon: <UserCircle size={17}/> },
     ];
+    const visibleNavItems = navItems.filter((item) => item.label !== "Platform Stability" || isPlatformOwner);
     function renderCreatorGrowthPanel(summary: CreatorGrowthSummary) {
         const trendMax = Math.max(1, ...summary.followerTrend.map((point) => point.followers));
         return (<section className="dashboard-panel growth-panel">
@@ -13320,7 +13331,7 @@ export default function Page() {
         </button>
 
         <nav className="nav" aria-label="Main">
-          {navItems.map((item) => (<button key={item.label} className={view === item.label ? "active" : ""} onClick={() => handleNav(item.label)} title={item.label}>
+          {visibleNavItems.map((item) => (<button key={item.label} className={view === item.label ? "active" : ""} onClick={() => handleNav(item.label)} title={item.label}>
               {item.icon}
               <span>{item.label}</span>
             </button>))}
@@ -14600,7 +14611,7 @@ export default function Page() {
 
             <div className="profile-save">
               <h3>Account Sync</h3>
-              <p>Your music stays saved locally. Account updates only run when you edit your profile or sign in.</p>
+              <p>{isPlatformOwner ? "Permanent Owner/Admin account. You control verification, reports, payouts, subscriptions, users, and platform settings." : "Your music stays saved locally. Account updates only run when you edit your profile or sign in."}</p>
             </div>
 
             <div className="profile-save">
@@ -14613,7 +14624,7 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="profile-save">
+            {isPlatformOwner && (<div className="profile-save">
               <h3>Verification Admin</h3>
               <p>Verification badges are controlled separately from follows, likes, uploads, and playlists.</p>
               <div className="verification-admin-grid">
@@ -14664,8 +14675,8 @@ export default function Page() {
                   </div>
                 </div>
               </div>
-            </div>
-          </section>) : view === "Platform Stability" && !search.trim() ? (<section className="dashboard-page stability-page">
+            </div>)}
+          </section>) : view === "Platform Stability" && isPlatformOwner && !search.trim() ? (<section className="dashboard-page stability-page">
             <div className="dashboard-brand stability-brand">
               <img src={BRAND_LOGO} alt="Music Data Base"/>
               <div>

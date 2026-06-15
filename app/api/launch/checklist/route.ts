@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { DEFAULT_LAUNCH_CHECKLIST } from "@/lib/launch-readiness";
-import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseServerClient, isPlatformOwnerUserId, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ function fallbackChecklist(message = "Run the Phase 6 launch-readiness migration
 
 async function isAdminUser(userId: string) {
   if (!userId || !isUuid(userId)) return false;
+  if (await isPlatformOwnerUserId(userId)) return true;
 
   const supabase = getSupabaseServerClient();
   const roleResult = await supabase
