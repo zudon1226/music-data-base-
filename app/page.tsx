@@ -15863,13 +15863,15 @@ export default function Page() {
                         return (<div className="playlist-song-row playlist-track-row" key={song.id}>
                             <div className="playlist-track-top">
                               <span className="recent-number">{index + 1}</span>
-                              <img src={song.cover} alt=""/>
-                              <div className="playlist-track-info">
-                                <strong className="playlist-song-title">{song.title}</strong>
-                                <small className="playlist-track-artist">
-                                  <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
-                                </small>
-                                {songMetadata && <small className="playlist-track-meta">{songMetadata}</small>}
+                              <div className="playlist-song-main">
+                                <img className="playlist-song-artwork" src={song.cover} alt=""/>
+                                <div className="playlist-track-info playlist-song-info">
+                                  <strong className="playlist-song-title">{song.title}</strong>
+                                  <small className="playlist-track-artist">
+                                    <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
+                                  </small>
+                                  {songMetadata && <small className="playlist-track-meta">{songMetadata}</small>}
+                                </div>
                               </div>
                             </div>
                             <div className="playlist-track-actions playlist-song-actions">
@@ -26197,7 +26199,7 @@ export default function Page() {
 
             .playlist-songs .playlist-track-row {
               display: grid !important;
-              grid-template-columns: 32px 72px 1fr !important;
+              grid-template-columns: 28px 1fr !important;
               grid-template-rows: auto 48px !important;
               gap: 10px !important;
               padding: 12px !important;
@@ -26211,30 +26213,48 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-top {
-              display: contents !important;
+              grid-column: 1 / -1 !important;
+              grid-row: 1 !important;
+              display: grid !important;
+              grid-template-columns: 28px minmax(0, 1fr) !important;
+              gap: 10px !important;
+              align-items: center !important;
+              min-width: 0 !important;
             }
 
             .playlist-songs .playlist-track-top .recent-number {
               grid-column: 1 !important;
               grid-row: 1 !important;
-              width: 32px !important;
-              min-width: 32px !important;
-              max-width: 32px !important;
+              width: 28px !important;
+              min-width: 28px !important;
+              max-width: 28px !important;
               text-align: center !important;
             }
 
             .playlist-songs .playlist-track-top > img {
-              grid-column: 2 !important;
-              grid-row: 1 !important;
+              grid-column: auto !important;
+              grid-row: auto !important;
               width: 72px !important;
               height: 72px !important;
               max-width: 72px !important;
               object-fit: cover !important;
             }
 
-            .playlist-songs .playlist-track-info {
-              grid-column: 3 !important;
+            .playlist-songs .playlist-song-main {
+              grid-column: 2 !important;
               grid-row: 1 !important;
+              display: flex !important;
+              gap: 10px !important;
+              min-width: 0 !important;
+            }
+
+            .playlist-songs .playlist-song-artwork {
+              width: 72px !important;
+              height: 72px !important;
+              flex: 0 0 72px !important;
+            }
+
+            .playlist-songs .playlist-track-info {
               display: flex !important;
               min-width: 0 !important;
               max-width: 100% !important;
@@ -26244,6 +26264,11 @@ export default function Page() {
               overflow: hidden !important;
               writing-mode: horizontal-tb !important;
               text-orientation: mixed !important;
+            }
+
+            .playlist-songs .playlist-song-info {
+              flex: 1 !important;
+              min-width: 0 !important;
             }
 
             .playlist-songs .playlist-track-info strong {
