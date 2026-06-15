@@ -15865,14 +15865,14 @@ export default function Page() {
                               <span className="recent-number">{index + 1}</span>
                               <img src={song.cover} alt=""/>
                               <div className="playlist-track-info">
-                                <strong>{song.title}</strong>
+                                <strong className="playlist-song-title">{song.title}</strong>
                                 <small className="playlist-track-artist">
                                   <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
                                 </small>
                                 {songMetadata && <small className="playlist-track-meta">{songMetadata}</small>}
                               </div>
                             </div>
-                            <div className="playlist-track-actions">
+                            <div className="playlist-track-actions playlist-song-actions">
                               <button className="playlist-track-button playlist-track-play" onClick={() => playSong(song)} title={`Play ${song.title}`}>
                                 <Play size={16} fill="currentColor"/>
                                 Play
@@ -26197,38 +26197,35 @@ export default function Page() {
 
             .playlist-songs .playlist-track-row {
               display: grid !important;
-              grid-template-columns: 1fr !important;
-              grid-template-rows: 72px 44px !important;
-              gap: 4px !important;
-              align-items: stretch !important;
+              grid-template-columns: 32px 72px 1fr !important;
+              grid-template-rows: auto 48px !important;
+              gap: 10px !important;
+              padding: 12px !important;
+              min-height: 150px !important;
+              align-items: center !important;
               width: 100% !important;
               max-width: 100% !important;
-              max-height: 120px !important;
               min-width: 0 !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
             }
 
             .playlist-songs .playlist-track-top {
-              display: grid !important;
-              grid-template-columns: 20px 72px minmax(0, 1fr) !important;
-              align-items: center !important;
-              gap: 4px !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              min-width: 0 !important;
-              overflow: hidden !important;
-              box-sizing: border-box !important;
+              display: contents !important;
             }
 
             .playlist-songs .playlist-track-top .recent-number {
-              width: 20px !important;
-              min-width: 20px !important;
-              max-width: 20px !important;
+              grid-column: 1 !important;
+              grid-row: 1 !important;
+              width: 32px !important;
+              min-width: 32px !important;
+              max-width: 32px !important;
               text-align: center !important;
             }
 
             .playlist-songs .playlist-track-top > img {
+              grid-column: 2 !important;
+              grid-row: 1 !important;
               width: 72px !important;
               height: 72px !important;
               max-width: 72px !important;
@@ -26236,6 +26233,8 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-info {
+              grid-column: 3 !important;
+              grid-row: 1 !important;
               display: flex !important;
               min-width: 0 !important;
               max-width: 100% !important;
@@ -26261,10 +26260,27 @@ export default function Page() {
               text-orientation: mixed !important;
             }
 
+            .playlist-songs .playlist-song-title {
+              white-space: normal !important;
+              overflow: hidden !important;
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+            }
+
             .playlist-songs .playlist-track-artist,
             .playlist-songs .playlist-track-artist .artist-link,
             .playlist-songs .playlist-track-meta {
-              display: none !important;
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              color: #9bdcf0 !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              writing-mode: horizontal-tb !important;
+              text-orientation: mixed !important;
             }
 
             .playlist-songs .playlist-track-artist,
@@ -26282,6 +26298,8 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-actions {
+              grid-column: 1 / -1 !important;
+              grid-row: 2 !important;
               display: grid !important;
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
               gap: 8px !important;
@@ -26290,6 +26308,13 @@ export default function Page() {
               min-width: 0 !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
+            }
+
+            .playlist-songs .playlist-song-actions {
+              grid-column: 1 / -1 !important;
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              gap: 10px !important;
             }
 
             .playlist-songs .playlist-track-actions > button {
