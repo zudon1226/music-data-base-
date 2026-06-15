@@ -26573,6 +26573,131 @@ export default function Page() {
               grid-column: 5 !important;
             }
 
+            .video-page {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              align-items: stretch !important;
+              justify-items: stretch !important;
+              gap: 12px !important;
+              overflow-x: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .video-page .video-upload-card {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              padding: 12px !important;
+              margin: 0 !important;
+              overflow-x: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .video-page .upload-brand {
+              width: 100% !important;
+              min-width: 0 !important;
+              align-items: center !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .video-page .upload-brand > div {
+              min-width: 0 !important;
+            }
+
+            .video-page .upload-brand h3,
+            .video-page .upload-brand span {
+              max-width: 100% !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            .video-page .video-form-grid {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 10px !important;
+              overflow-x: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .video-page .video-form-grid input,
+            .video-page .video-form-grid select,
+            .video-page .producer-select-field,
+            .video-page .producer-select-field select,
+            .video-page .audio-file-field,
+            .video-page .audio-file-field input,
+            .video-page .save-upload,
+            .video-page .upload-progress,
+            .video-page .upload-progress progress,
+            .video-page .upload-error,
+            .video-page .video-upload-debug {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              box-sizing: border-box !important;
+            }
+
+            .video-page .video-form-grid input,
+            .video-page .video-form-grid select {
+              overflow: hidden !important;
+            }
+
+            .video-page .audio-file-field {
+              overflow: hidden !important;
+            }
+
+            .video-page .audio-file-field input[type="file"] {
+              width: 100% !important;
+              max-width: 100% !important;
+              overflow: hidden !important;
+              font-size: 14px !important;
+            }
+
+            .video-page .audio-file-field span,
+            .video-page .producer-select-field span,
+            .video-page .audio-file-field small {
+              max-width: 100% !important;
+              white-space: normal !important;
+              overflow-wrap: break-word !important;
+            }
+
+            .video-page .video-upload-debug {
+              overflow-x: hidden !important;
+              overflow-wrap: break-word !important;
+              word-break: break-word !important;
+            }
+
+            .video-page .video-upload-debug *,
+            .video-page .video-upload-debug pre {
+              max-width: 100% !important;
+              min-width: 0 !important;
+              box-sizing: border-box !important;
+              overflow-wrap: break-word !important;
+              word-break: break-word !important;
+            }
+
+            .video-page .video-upload-debug-head {
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) auto auto !important;
+              align-items: center !important;
+              gap: 8px !important;
+            }
+
+            .video-page .video-upload-debug-head strong {
+              min-width: 0 !important;
+              white-space: normal !important;
+            }
+
+            .video-page .video-upload-debug-head button {
+              min-width: 0 !important;
+              white-space: nowrap !important;
+            }
+
           }
         `}</style>
     </main>);
