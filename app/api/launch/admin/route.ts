@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseServerClient, isPlatformOwnerUserId, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,11 +43,14 @@ export async function GET(request: Request) {
       ...roleRows.map((row) => String(row.role || "")).filter(Boolean),
       profileRole,
     ].filter(Boolean)));
-    const isAdmin = roles.includes("admin") || profile?.is_admin === true;
+    const isOwner = await isPlatformOwnerUserId(userId);
+    const nextRoles = isOwner ? Array.from(new Set(["owner", "admin", ...roles])) : roles;
+    const isAdmin = isOwner || nextRoles.includes("admin") || profile?.is_admin === true;
 
     return NextResponse.json({
       isAdmin,
-      roles,
+      isOwner,
+      roles: nextRoles,
       setupRequired: Boolean(rolesResult.error && isMissingRoles(rolesResult.error)),
     });
   } catch (error) {

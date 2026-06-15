@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
@@ -40,11 +41,16 @@ function normalizeLicense(value: unknown) {
 }
 function normalizeAccountType(value: unknown) {
     const cleanValue = String(value || "").trim().toLowerCase();
+    if (cleanValue === "admin")
+        return "admin";
     if (cleanValue === "producer")
         return "producer";
     if (cleanValue === "artist")
         return "artist";
     return "listener";
+}
+function isPlatformOwnerEmail(email: unknown) {
+    return String(email || "").trim().toLowerCase() === PLATFORM_OWNER_EMAIL;
 }
 function isMissingColumnError(error: unknown, columnName: string) {
     const message = getErrorMessage(error).toLowerCase();
@@ -146,25 +152,44 @@ export async function POST(request: Request) {
         }
         if (action === "save-account-role") {
             const userId = String(body.userId || "").trim();
-            const accountType = normalizeAccountType(body.accountType);
+            const ownerLookup = userId ? await supabase.auth.admin.getUserById(userId).catch(() => null) : null;
+            const isPlatformOwner = isPlatformOwnerEmail(ownerLookup?.data?.user?.email);
+            const accountType = isPlatformOwner ? "admin" : normalizeAccountType(body.accountType);
             const displayName = String(body.name || "").trim() || "Producer";
-            const skipProducerProfile = body.skipProducerProfile === true;
+            const skipProducerProfile = isPlatformOwner || body.skipProducerProfile === true;
             if (!userId) {
                 return jsonResponse({ error: "User id is required before setting account type." }, 400);
             }
             let profileWarning = "";
-            const profileResult = await supabase
-                .from("profiles")
-                .upsert({
+            const profilePayload: Record<string, unknown> = {
                 id: userId,
                 user_id: userId,
                 account_type: accountType,
                 updated_at: new Date().toISOString(),
-            }, { onConflict: "id" })
+            };
+            if (isPlatformOwner) {
+                profilePayload.is_admin = true;
+            }
+            const profileResult = await supabase
+                .from("profiles")
+                .upsert(profilePayload, { onConflict: "id" })
                 .select("id,account_type")
                 .maybeSingle();
             if (profileResult.error) {
                 profileWarning = getErrorMessage(profileResult.error);
+            }
+            if (isPlatformOwner) {
+                const roleResult = await supabase
+                    .from("user_roles")
+                    .upsert({
+                    user_id: userId,
+                    role: "admin",
+                    status: "active",
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: "user_id,role" });
+                if (roleResult.error && !profileWarning) {
+                    profileWarning = getErrorMessage(roleResult.error);
+                }
             }
             let producerProfile: Record<string, unknown> | null = null;
             if (accountType === "producer" && !skipProducerProfile) {

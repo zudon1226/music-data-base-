@@ -4890,7 +4890,7 @@ export default function Page() {
                 return;
             }
             setUser(sessionUser);
-            setAccountRole(normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
+            setAccountRole(isPlatformOwnerEmail(sessionUser?.email) ? "Listener" : normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
             clearStaleVideoUploadState();
             setAuthReady(true);
         }
@@ -4902,7 +4902,7 @@ export default function Page() {
                 return;
             }
             setUser(sessionUser);
-            setAccountRole(normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
+            setAccountRole(isPlatformOwnerEmail(sessionUser?.email) ? "Listener" : normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
             clearStaleVideoUploadState();
             setAuthReady(true);
         });
@@ -5014,7 +5014,7 @@ export default function Page() {
         const beats = (data.beats || []).map((row) => mapProducerBeatRow(row));
         setProducerProfiles(profiles);
         setProducerBeats(beats);
-        if (accountUserId && profiles.some((profile) => profile.userId === accountUserId)) {
+        if (!isPlatformOwner && accountUserId && profiles.some((profile) => profile.userId === accountUserId)) {
             setAccountRole("Producer");
         }
         setActiveProducerId((previous) => (profiles.some((profile) => profile.id === previous) ? previous : profiles[0]?.id || ""));
@@ -13387,7 +13387,7 @@ export default function Page() {
             </div>)}
         </section>
 
-        <button className="reset-btn" onClick={resetApp}>
+        <button className="reset-btn" disabled onClick={resetApp} title="Reset is disabled until the audit is complete" type="button">
           <RotateCcw size={15}/>
           Reset
         </button>
@@ -14577,7 +14577,7 @@ export default function Page() {
               </div>
 
               <div>
-                <span className="playlist-kicker">User Profile</span>
+                <span className="playlist-kicker">{isPlatformOwner ? "OWNER / ADMIN" : "User Profile"}</span>
                 <h2>{user.user_metadata?.displayName || user.email?.split("@")[0] || "Z Music User"}</h2>
                 <p>{user.email}</p>
 
@@ -14614,7 +14614,24 @@ export default function Page() {
               <p>{isPlatformOwner ? "Permanent Owner/Admin account. You control verification, reports, payouts, subscriptions, users, and platform settings." : "Your music stays saved locally. Account updates only run when you edit your profile or sign in."}</p>
             </div>
 
-            <div className="profile-save">
+            {isPlatformOwner ? (<div className="profile-save">
+              <h3>Owner Access</h3>
+              <p>Permanent Owner/Admin account. You can open admin tools and test creator dashboards without changing this account into a public artist or producer.</p>
+              <div className="role-switcher">
+                <button className="active" type="button">
+                  OWNER
+                </button>
+                <button onClick={() => handleNav("Artist Dashboard")} type="button">
+                  Artist Dashboard
+                </button>
+                <button onClick={() => handleNav("Producer Dashboard")} type="button">
+                  Producer Dashboard
+                </button>
+                <button onClick={() => handleNav("Platform Stability")} type="button">
+                  Admin Tools
+                </button>
+              </div>
+            </div>) : (<div className="profile-save">
               <h3>Account Type</h3>
               <p>Choose how you want Music Data Base to organize your creator tools.</p>
               <div className="role-switcher">
@@ -14622,7 +14639,7 @@ export default function Page() {
                     {role}
                   </button>))}
               </div>
-            </div>
+            </div>)}
 
             {isPlatformOwner && (<div className="profile-save">
               <h3>Verification Admin</h3>
