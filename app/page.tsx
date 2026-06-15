@@ -27602,6 +27602,141 @@ export default function Page() {
               margin: 0 !important;
             }
 
+            .recent-panel {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: auto !important;
+              height: auto !important;
+              padding-bottom: 150px !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
+              box-sizing: border-box !important;
+            }
+
+            .recent-panel .liked-tabs {
+              display: grid !important;
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              overflow-x: hidden !important;
+            }
+
+            .recent-panel .liked-tabs button {
+              width: 100% !important;
+              min-width: 0 !important;
+              min-height: 40px !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .recent-list {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: auto !important;
+              height: auto !important;
+              overflow: visible !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              box-sizing: border-box !important;
+            }
+
+            .recent-row {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              gap: 10px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: auto !important;
+              height: auto !important;
+              padding: 12px !important;
+              margin-bottom: 10px !important;
+              overflow: visible !important;
+              box-sizing: border-box !important;
+            }
+
+            .recent-number {
+              align-self: flex-start !important;
+              width: auto !important;
+              min-width: 0 !important;
+            }
+
+            .recent-row img {
+              width: 80px !important;
+              height: 80px !important;
+              max-width: 80px !important;
+              flex: 0 0 80px !important;
+              object-fit: cover !important;
+            }
+
+            .recent-copy {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow: visible !important;
+            }
+
+            .recent-copy h3 {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              word-break: break-word !important;
+              overflow-wrap: anywhere !important;
+              line-height: 1.15 !important;
+            }
+
+            .recent-copy p {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .recent-copy small,
+            .recent-time {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              white-space: normal !important;
+              overflow: visible !important;
+              text-overflow: clip !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            .recent-row button {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: 44px !important;
+              height: auto !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              justify-content: center !important;
+            }
+
+            .recent-panel .empty-state {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+              height: auto !important;
+              padding: 12px !important;
+              margin: 0 !important;
+              overflow: visible !important;
+            }
+
           }
         `}</style>
     </main>);
