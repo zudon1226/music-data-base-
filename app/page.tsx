@@ -23552,6 +23552,7 @@ export default function Page() {
           @media (max-width: 820px) {
             :root {
               --mobile-sidebar-width: 64px;
+              --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: 72px;
               --mobile-player-reserve: 110px;
             }
@@ -25289,6 +25290,7 @@ export default function Page() {
           @media (max-width: 768px) {
             :root {
               --mobile-sidebar-width: 112px;
+              --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: 72px;
               --mobile-player-reserve: 110px;
             }
@@ -28052,11 +28054,11 @@ export default function Page() {
 
             .music-bottom-player {
               position: fixed !important;
-              left: var(--sidebar-width, 96px) !important;
+              left: var(--sidebar-width-mobile) !important;
               right: 0 !important;
               bottom: env(safe-area-inset-bottom) !important;
               width: auto !important;
-              max-width: none !important;
+              max-width: calc(100vw - var(--sidebar-width-mobile)) !important;
               height: min(72px, 12dvh) !important;
               min-height: 0 !important;
               max-height: 72px !important;
@@ -28149,15 +28151,15 @@ export default function Page() {
             }
 
             .music-bottom-player .player-controls button {
-              width: 40px !important;
-              height: 40px !important;
-              min-width: 40px !important;
-              min-height: 40px !important;
-              max-width: 40px !important;
-              max-height: 40px !important;
+              width: 48px !important;
+              height: 48px !important;
+              min-width: 48px !important;
+              min-height: 48px !important;
+              max-width: 48px !important;
+              max-height: 48px !important;
               padding: 0 !important;
               border-radius: 8px !important;
-              flex: 0 0 40px !important;
+              flex: 0 0 48px !important;
               font-size: 16px !important;
             }
 
@@ -28201,11 +28203,11 @@ export default function Page() {
 
             .video-bottom-player {
               position: fixed !important;
-              left: var(--sidebar-width, 96px) !important;
+              left: var(--sidebar-width-mobile) !important;
               right: 0 !important;
               bottom: env(safe-area-inset-bottom) !important;
               width: auto !important;
-              max-width: none !important;
+              max-width: calc(100vw - var(--sidebar-width-mobile)) !important;
               height: min(72px, 12dvh) !important;
               min-height: 0 !important;
               max-height: 72px !important;
@@ -28298,15 +28300,15 @@ export default function Page() {
             }
 
             .video-bottom-player .video-player-controls button {
-              width: 40px !important;
-              height: 40px !important;
-              min-width: 40px !important;
-              min-height: 40px !important;
-              max-width: 40px !important;
-              max-height: 40px !important;
+              width: 48px !important;
+              height: 48px !important;
+              min-width: 48px !important;
+              min-height: 48px !important;
+              max-width: 48px !important;
+              max-height: 48px !important;
               padding: 0 !important;
               border-radius: 8px !important;
-              flex: 0 0 40px !important;
+              flex: 0 0 48px !important;
               font-size: 16px !important;
             }
 
