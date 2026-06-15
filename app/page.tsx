@@ -26198,17 +26198,20 @@ export default function Page() {
             .playlist-songs .playlist-track-row {
               display: grid !important;
               grid-template-columns: 1fr !important;
-              gap: 8px !important;
+              grid-template-rows: 72px 44px !important;
+              gap: 4px !important;
               align-items: stretch !important;
               width: 100% !important;
               max-width: 100% !important;
+              max-height: 120px !important;
               min-width: 0 !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
             }
 
             .playlist-songs .playlist-track-top {
-              display: flex !important;
+              display: grid !important;
+              grid-template-columns: 28px 72px minmax(0, 1fr) !important;
               align-items: center !important;
               gap: 8px !important;
               width: 100% !important;
@@ -26221,23 +26224,22 @@ export default function Page() {
             .playlist-songs .playlist-track-top .recent-number {
               width: 28px !important;
               min-width: 28px !important;
-              flex: 0 0 28px !important;
+              max-width: 28px !important;
               text-align: center !important;
             }
 
             .playlist-songs .playlist-track-top > img {
-              width: 56px !important;
-              height: 56px !important;
-              max-width: 56px !important;
-              flex: 0 0 56px !important;
+              width: 72px !important;
+              height: 72px !important;
+              max-width: 72px !important;
               object-fit: cover !important;
             }
 
             .playlist-songs .playlist-track-info {
               display: flex !important;
-              flex: 1 1 auto !important;
               min-width: 0 !important;
               max-width: 100% !important;
+              width: 100% !important;
               flex-direction: column !important;
               gap: 2px !important;
               overflow: hidden !important;
@@ -26251,7 +26253,7 @@ export default function Page() {
               -webkit-box-orient: vertical !important;
               color: #ffffff !important;
               font-weight: 700 !important;
-              line-height: 1.15 !important;
+              line-height: 1.12 !important;
               white-space: normal !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
@@ -26262,14 +26264,17 @@ export default function Page() {
             .playlist-songs .playlist-track-artist,
             .playlist-songs .playlist-track-artist .artist-link,
             .playlist-songs .playlist-track-meta {
-              display: -webkit-box !important;
-              -webkit-line-clamp: 1 !important;
-              -webkit-box-orient: vertical !important;
+              display: none !important;
+            }
+
+            .playlist-songs .playlist-track-artist,
+            .playlist-songs .playlist-track-artist .artist-link {
+              display: block !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               color: #9bdcf0 !important;
-              white-space: normal !important;
+              white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
               writing-mode: horizontal-tb !important;
@@ -26277,7 +26282,8 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-actions {
-              display: flex !important;
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
               gap: 8px !important;
               width: 100% !important;
               max-width: 100% !important;
@@ -26287,10 +26293,10 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-actions > button {
-              width: calc(50% - 4px) !important;
-              flex: 0 1 calc(50% - 4px) !important;
+              width: 100% !important;
+              flex: none !important;
               min-width: 0 !important;
-              max-width: calc(50% - 4px) !important;
+              max-width: none !important;
               height: 44px !important;
               min-height: 44px !important;
               padding: 0 10px !important;
@@ -26308,9 +26314,9 @@ export default function Page() {
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
-              width: calc(50% - 4px) !important;
-              flex: 0 0 calc(50% - 4px) !important;
-              max-width: calc(50% - 4px) !important;
+              width: 100% !important;
+              flex: none !important;
+              max-width: none !important;
               height: 44px !important;
               min-height: 44px !important;
               max-height: 44px !important;
