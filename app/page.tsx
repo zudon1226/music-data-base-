@@ -28056,7 +28056,7 @@ export default function Page() {
               position: fixed !important;
               left: 96px !important;
               right: 0 !important;
-              bottom: calc(env(safe-area-inset-bottom) - 20px) !important;
+              bottom: 18px !important;
               width: calc(100vw - 96px) !important;
               max-width: calc(100vw - 96px) !important;
               height: min(72px, 12dvh) !important;
@@ -28206,7 +28206,7 @@ export default function Page() {
               position: fixed !important;
               left: 96px !important;
               right: 0 !important;
-              bottom: calc(env(safe-area-inset-bottom) - 20px) !important;
+              bottom: 18px !important;
               width: calc(100vw - 96px) !important;
               max-width: calc(100vw - 96px) !important;
               height: min(72px, 12dvh) !important;
