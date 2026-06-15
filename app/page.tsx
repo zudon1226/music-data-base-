@@ -24793,6 +24793,23 @@ export default function Page() {
               grid-template-columns: 48px minmax(0, 1fr);
             }
 
+            .dashboard-song-copy strong {
+              display: -webkit-box !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              line-height: 1.15 !important;
+            }
+
+            .dashboard-song-copy small,
+            .dashboard-song-copy span {
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
             .dashboard-song-actions {
               grid-column: 1 / -1;
               justify-content: start;
@@ -25447,11 +25464,15 @@ export default function Page() {
             .media-card .song-head h3,
             .media-card .video-card-body h3,
             .media-card strong {
+              display: -webkit-box !important;
               font-size: 16px !important;
               line-height: 1.15 !important;
               min-height: 0 !important;
               max-height: none !important;
               margin: 0 !important;
+              white-space: normal !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
             }
 
             .media-card .song-head p,
@@ -25659,11 +25680,13 @@ export default function Page() {
             }
 
             .playlist-tile.media-card strong {
-              display: block !important;
+              display: -webkit-box !important;
               max-width: 100% !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
-              white-space: nowrap !important;
+              white-space: normal !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
               font-size: 16px !important;
               line-height: 1.15 !important;
             }
@@ -25738,10 +25761,12 @@ export default function Page() {
             }
 
             .discovery-card-copy strong {
+              display: -webkit-box !important;
               font-size: 16px !important;
               line-height: 1.15 !important;
-              -webkit-line-clamp: unset !important;
-              -webkit-box-orient: unset !important;
+              white-space: normal !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
             }
 
             .discovery-card-copy small,

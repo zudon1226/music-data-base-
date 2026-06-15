@@ -232,6 +232,18 @@ body {
     width: 112px;
     height: 112px;
   }
+
+  .public-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .public-media-card img {
+    height: 160px;
+  }
+
+  .public-media-card h3 {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 768px) {
