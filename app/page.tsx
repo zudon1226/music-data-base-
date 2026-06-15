@@ -23563,7 +23563,8 @@ export default function Page() {
           @media (max-width: 820px) {
             :root {
               --mobile-sidebar-width: 64px;
-              --mobile-player-reserve: calc(132px + env(safe-area-inset-bottom, 0px));
+              --mobile-player-height: 80px;
+              --mobile-player-reserve: var(--mobile-player-height);
             }
 
             html,
@@ -25299,8 +25300,8 @@ export default function Page() {
           @media (max-width: 768px) {
             :root {
               --mobile-sidebar-width: 112px;
-              --mobile-player-height: 120px;
-              --mobile-player-reserve: calc(132px + env(safe-area-inset-bottom, 0px));
+              --mobile-player-height: 80px;
+              --mobile-player-reserve: var(--mobile-player-height);
             }
 
             main,
@@ -28189,6 +28190,183 @@ export default function Page() {
 
             .content > .topbar + * {
               margin-top: 8px !important;
+            }
+
+            .fixed-mobile-player,
+            .mobile-bottom-player,
+            .bottom-player {
+              position: fixed !important;
+              left: var(--mobile-sidebar-width, 112px) !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              width: auto !important;
+              max-width: calc(100vw - var(--mobile-sidebar-width, 112px)) !important;
+              height: min(var(--mobile-player-height, 80px), 12dvh) !important;
+              min-height: 0 !important;
+              max-height: min(var(--mobile-player-height, 80px), 12dvh) !important;
+              margin: 0 !important;
+              padding: 4px 8px 3px !important;
+              transform: none !important;
+              z-index: 999999 !important;
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) auto !important;
+              grid-template-rows: minmax(0, 1fr) 4px !important;
+              gap: 3px 8px !important;
+              align-items: center !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .fixed-mobile-player .player-main,
+            .fixed-mobile-player .player-song,
+            .fixed-mobile-player .video-player-now {
+              grid-column: 1 !important;
+              grid-row: 1 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              max-height: 46px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: flex-start !important;
+              gap: 8px !important;
+              overflow: hidden !important;
+            }
+
+            .fixed-mobile-player .player-main img,
+            .fixed-mobile-player .player-song img,
+            .fixed-mobile-player .video-player-now img {
+              width: 40px !important;
+              height: 40px !important;
+              min-width: 40px !important;
+              flex: 0 0 40px !important;
+              object-fit: cover !important;
+              border-radius: 8px !important;
+            }
+
+            .fixed-mobile-player .player-main > div,
+            .fixed-mobile-player .player-song > div,
+            .fixed-mobile-player .video-player-now > div {
+              min-width: 0 !important;
+              max-width: 100% !important;
+              overflow: hidden !important;
+            }
+
+            .fixed-mobile-player .track-title,
+            .fixed-mobile-player .song-title,
+            .fixed-mobile-player .player-song strong,
+            .fixed-mobile-player .video-player-now strong {
+              display: block !important;
+              max-width: 100% !important;
+              font-size: 14px !important;
+              line-height: 16px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              text-align: left !important;
+            }
+
+            .fixed-mobile-player .artist-name,
+            .fixed-mobile-player .player-song small,
+            .fixed-mobile-player .video-player-now small {
+              display: block !important;
+              max-width: 100% !important;
+              font-size: 12px !important;
+              line-height: 14px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              text-align: left !important;
+            }
+
+            .fixed-mobile-player .player-album-meta {
+              display: none !important;
+            }
+
+            .fixed-mobile-player .player-center,
+            .fixed-mobile-player .video-player-center {
+              display: contents !important;
+            }
+
+            .fixed-mobile-player .player-controls,
+            .fixed-mobile-player .video-player-controls {
+              grid-column: 2 !important;
+              grid-row: 1 !important;
+              width: auto !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: flex-end !important;
+              gap: 4px !important;
+              flex-wrap: nowrap !important;
+              overflow: hidden !important;
+            }
+
+            .fixed-mobile-player .player-controls button,
+            .fixed-mobile-player .video-player-controls button {
+              width: 40px !important;
+              height: 40px !important;
+              min-width: 40px !important;
+              min-height: 40px !important;
+              max-width: 40px !important;
+              max-height: 40px !important;
+              padding: 0 !important;
+              border-radius: 8px !important;
+              flex: 0 0 40px !important;
+              font-size: 16px !important;
+            }
+
+            .fixed-mobile-player .video-player-controls button:nth-child(n + 4) {
+              display: inline-flex !important;
+            }
+
+            .fixed-mobile-player .progress-row,
+            .fixed-mobile-player .video-progress-row {
+              grid-column: 1 / -1 !important;
+              grid-row: 2 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              height: 4px !important;
+              min-height: 4px !important;
+              display: block !important;
+              align-self: end !important;
+              overflow: hidden !important;
+            }
+
+            .fixed-mobile-player .progress-row span,
+            .fixed-mobile-player .progress-time,
+            .fixed-mobile-player .video-progress-row span {
+              display: none !important;
+            }
+
+            .fixed-mobile-player input[type="range"],
+            .fixed-mobile-player .progress {
+              width: 100% !important;
+              height: 4px !important;
+              min-height: 4px !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              display: block !important;
+            }
+
+            .content,
+            .main-content,
+            .page-content,
+            .app-content,
+            .profile-page,
+            .queue-page,
+            .recent-panel,
+            .dashboard-page,
+            .playlist-workspace,
+            .liked-page,
+            .following-feed,
+            .video-page,
+            .artist-profile,
+            .producer-profile,
+            .search-results {
+              padding-bottom: var(--mobile-player-reserve) !important;
+              scroll-padding-bottom: var(--mobile-player-reserve) !important;
             }
 
           }
