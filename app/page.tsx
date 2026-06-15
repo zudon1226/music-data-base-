@@ -28028,9 +28028,10 @@ export default function Page() {
             }
 
             .topbar {
-              margin-top: -12px !important;
+              margin-top: 0 !important;
               padding-top: 0 !important;
               top: 0 !important;
+              transform: translateY(-8px) !important;
             }
 
             .content > section,
