@@ -27358,6 +27358,250 @@ export default function Page() {
               margin: 0 !important;
             }
 
+            .stability-page {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              display: grid !important;
+              gap: 12px !important;
+              padding-bottom: 150px !important;
+              overflow-x: hidden !important;
+            }
+
+            .stability-page,
+            .stability-page section,
+            .stability-page article,
+            .stability-page div {
+              box-sizing: border-box !important;
+              max-width: 100% !important;
+            }
+
+            .stability-page .stability-brand,
+            .stability-page .stability-panel,
+            .stability-page .stability-grid div,
+            .stability-page .dashboard-empty-card,
+            .stability-page .launch-readiness-card,
+            .stability-page .launch-checklist-row,
+            .stability-page .phase8-card,
+            .stability-page .cleanup-file-row,
+            .stability-page .cleanup-warning,
+            .stability-page .cleanup-confirm-row,
+            .stability-page .cleanup-log,
+            .stability-page .recovery-grid div,
+            .stability-page .trust-summary-grid div,
+            .stability-page .trust-panel-grid > div,
+            .stability-page .trust-quick-grid article,
+            .stability-page .support-summary-grid div,
+            .stability-page .support-panel-grid > div,
+            .stability-page .monetization-list article,
+            .stability-page .monetization-summary-grid div,
+            .stability-page .split-row {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              overflow: hidden !important;
+            }
+
+            .stability-page .stability-brand {
+              display: grid !important;
+              grid-template-columns: 56px minmax(0, 1fr) !important;
+              gap: 10px !important;
+              padding: 10px !important;
+            }
+
+            .stability-page .stability-brand img {
+              width: 56px !important;
+              height: 56px !important;
+            }
+
+            .stability-page .stability-actions {
+              grid-column: 1 / -1 !important;
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              gap: 8px !important;
+              width: 100% !important;
+            }
+
+            .stability-page button,
+            .stability-page .stability-actions button,
+            .stability-page .launch-readiness-card button,
+            .stability-page .launch-checklist-actions button,
+            .stability-page .phase8-card button,
+            .stability-page .cleanup-confirm-row button,
+            .stability-page .support-feedback-row button,
+            .stability-page .trust-quick-grid button,
+            .stability-page .monetization-row-actions button,
+            .stability-page .monetization-action-row button {
+              width: 100% !important;
+              min-width: 0 !important;
+              min-height: 44px !important;
+              height: auto !important;
+              padding: 8px 10px !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              line-height: 1.15 !important;
+            }
+
+            .stability-page .stability-grid,
+            .stability-page .phase8-readiness-grid,
+            .stability-page .recovery-grid,
+            .stability-page .trust-summary-grid,
+            .stability-page .trust-panel-grid,
+            .stability-page .trust-quick-grid,
+            .stability-page .support-summary-grid,
+            .stability-page .support-panel-grid,
+            .stability-page .support-feedback-row,
+            .stability-page .monetization-summary-grid {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              width: 100% !important;
+              overflow-x: hidden !important;
+            }
+
+            .stability-page .stability-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 10px !important;
+            }
+
+            .stability-page .stability-panel {
+              display: grid !important;
+              gap: 8px !important;
+              padding: 10px !important;
+              margin: 0 !important;
+            }
+
+            .stability-page .panel-title-row,
+            .stability-page .launch-readiness-card,
+            .stability-page .launch-checklist-row,
+            .stability-page .cleanup-confirm-row,
+            .stability-page .trust-quick-grid article {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              align-items: start !important;
+            }
+
+            .stability-page .launch-checklist-actions,
+            .stability-page .monetization-row-actions {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              width: 100% !important;
+            }
+
+            .stability-page .stability-list,
+            .stability-page .cleanup-review-list,
+            .stability-page .launch-checklist-list,
+            .stability-page .monetization-list {
+              width: 100% !important;
+              display: grid !important;
+              gap: 8px !important;
+              max-height: none !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
+              padding-right: 0 !important;
+            }
+
+            .stability-page .stability-list article,
+            .stability-page .launch-checklist-row,
+            .stability-page .cleanup-file-row,
+            .stability-page .monetization-list article,
+            .stability-page .split-row {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 6px !important;
+              padding: 10px !important;
+            }
+
+            .stability-page .cleanup-file-row label {
+              width: 100% !important;
+              min-width: 0 !important;
+            }
+
+            .stability-page h2,
+            .stability-page h3,
+            .stability-page h4,
+            .stability-page strong {
+              max-width: 100% !important;
+              overflow: hidden !important;
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              white-space: normal !important;
+              overflow-wrap: anywhere !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .stability-page p,
+            .stability-page small,
+            .stability-page span,
+            .stability-page dd,
+            .stability-page .cleanup-warning span,
+            .stability-page .cleanup-log small {
+              max-width: 100% !important;
+              overflow: hidden !important;
+              display: -webkit-box !important;
+              -webkit-line-clamp: 3 !important;
+              -webkit-box-orient: vertical !important;
+              white-space: normal !important;
+              overflow-wrap: anywhere !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .stability-page .stability-grid strong,
+            .stability-page .support-summary-grid strong,
+            .stability-page .trust-summary-grid strong,
+            .stability-page .monetization-summary-grid strong {
+              display: block !important;
+              -webkit-line-clamp: unset !important;
+              font-size: 20px !important;
+              line-height: 1 !important;
+            }
+
+            .stability-page .split-table {
+              width: 100% !important;
+              display: grid !important;
+              gap: 8px !important;
+              overflow-x: hidden !important;
+            }
+
+            .stability-page .split-head {
+              display: none !important;
+            }
+
+            .stability-page .split-row span:nth-child(2)::before {
+              content: "Artist ";
+              color: #9bdcf0;
+              font-weight: 900;
+            }
+
+            .stability-page .split-row span:nth-child(3)::before {
+              content: "Producer ";
+              color: #9bdcf0;
+              font-weight: 900;
+            }
+
+            .stability-page .split-row span:nth-child(4)::before {
+              content: "Platform ";
+              color: #9bdcf0;
+              font-weight: 900;
+            }
+
+            .stability-page .dashboard-empty-card {
+              display: grid !important;
+              gap: 6px !important;
+              padding: 10px !important;
+            }
+
+            .stability-page .dashboard-empty-card h3,
+            .stability-page .dashboard-empty-card p {
+              margin: 0 !important;
+            }
+
           }
         `}</style>
     </main>);
