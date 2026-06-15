@@ -93,6 +93,62 @@ function normalizeVideoUrl(row: Record<string, unknown>) {
     });
     return videoUrl;
 }
+function makeStorageVideoTitle(path: string) {
+    const fileName = path.split("/").filter(Boolean).pop() || "Recovered video";
+    return fileName
+        .replace(/\.[^.]+$/, "")
+        .replace(/^[0-9a-f-]{8,}-/i, "")
+        .replace(/^\d{10,}-/, "")
+        .replace(/[-_]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim() || "Recovered video";
+}
+async function listStorageVideos(supabase: ReturnType<typeof getSupabaseServerClient>, prefix = ""): Promise<Record<string, unknown>[]> {
+    const { data, error } = await supabase.storage.from("videos").list(prefix, {
+        limit: 1000,
+        sortBy: { column: "updated_at", order: "desc" },
+    });
+    if (error) {
+        console.error("[api/videos] storage fallback failed:", error);
+        return [];
+    }
+    const rows: Record<string, unknown>[] = [];
+    for (const item of data || []) {
+        const path = prefix ? `${prefix}/${item.name}` : item.name;
+        const size = Number(item.metadata?.size || 0);
+        const isFolder = !item.id && !size && !item.metadata?.mimetype;
+        if (isFolder) {
+            rows.push(...await listStorageVideos(supabase, path));
+            continue;
+        }
+        if (item.name === ".emptyFolderPlaceholder")
+            continue;
+        rows.push({
+            id: `storage-${path}`,
+            title: makeStorageVideoTitle(path),
+            description: "Recovered from Supabase video storage.",
+            artist_name: "Recovered Upload",
+            artist_id: "",
+            producer: "",
+            producer_name: "",
+            producer_id: "",
+            producer_profile_id: "",
+            beat_id: "",
+            album_id: "",
+            category: "Recovered Video",
+            video_url: getSupabaseVideoPublicUrl(path),
+            cover_url: "",
+            storage_path: path,
+            thumbnail_url: "",
+            views: 0,
+            likes: 0,
+            created_at: item.updated_at || item.created_at || new Date().toISOString(),
+            user_id: "",
+            recovered_from_storage: true,
+        });
+    }
+    return rows;
+}
 export async function GET(request: Request) {
     try {
         const supabase = getSupabaseServerClient();
@@ -146,10 +202,13 @@ export async function GET(request: Request) {
             console.error("[api/videos] load failed:", error);
             return jsonResponse({ error: getErrorMessage(error) }, 500);
         }
-        const videos: Record<string, unknown>[] = (data || []).map((video) => ({
+        let videos: Record<string, unknown>[] = (data || []).map((video) => ({
             ...video,
             video_url: normalizeVideoUrl(video),
         }));
+        if (videos.length === 0) {
+            videos = await listStorageVideos(supabase);
+        }
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId) || videos.length === 0) {
             return jsonResponse({ videos });

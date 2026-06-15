@@ -461,7 +461,7 @@ export default function Home() {
               <button style={blue} onClick={saveSong}>{editingId ? "Update Upload" : "Save Upload"}</button>
               <button style={white} onClick={clearForm}>Clear Form</button>
               <button style={green} onClick={() => setSongs([...songs].sort(() => Math.random() - 0.5))}>Shuffle</button>
-              <button style={red} onClick={() => setSongs(starterSongs)}>Reset</button>
+              <button style={red} disabled type="button">Reset Disabled</button>
             </div>
           </div>
         )}

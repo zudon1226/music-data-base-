@@ -573,13 +573,8 @@ export default function Home() {
               Visualizer
             </button>
 
-            <button
-              style={red}
-              onClick={() =>
-                setSongs(starterSongs)
-              }
-            >
-              Reset
+            <button style={red} disabled type="button">
+              Reset Disabled
             </button>
           </div>
         </div>

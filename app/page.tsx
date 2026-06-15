@@ -11784,52 +11784,6 @@ export default function Page() {
         setDashboardArtistId(nextId);
         setActiveArtistId((previous) => (previous === previousId ? nextId : previous));
     }
-    function resetApp() {
-        if (albumUploadBusy) {
-            showToast("Album upload is still finishing.", "info");
-            return;
-        }
-        Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
-        setSongs(DEFAULT_SONGS);
-        setVideos([]);
-        setAlbums([]);
-        setQueue([]);
-        setRecentlyPlayed([]);
-        setLibraryIds([]);
-        setSavedVideoIds([]);
-        setSavedAlbumIds([]);
-        setLikedIds([]);
-        setFollowedIds([]);
-        setFollowedArtistIds([]);
-        setPlaylists([]);
-        setArtistProfiles(buildArtistProfiles(DEFAULT_SONGS));
-        setActiveArtistId("");
-        setActivePlaylistId("");
-        setCurrentSong(DEFAULT_SONGS[2]);
-        setIsPlaying(false);
-        setActiveMedia({ type: "song", item: DEFAULT_SONGS[2] });
-        setProgress(0);
-        setDuration(0);
-        setVideoForm({ title: "", creator: "", category: "Music Video", cover: "", producerId: "" });
-        setVideoFile(null);
-        setVideoUploadProgress(0);
-        setVideoUploadBusy(false);
-        setVideoUploadError("");
-        setVideoUploadStatus("");
-        setAlbumForm({ title: "", creatorName: "", cover: "", category: "Album", releaseDate: "" });
-        setAlbumSongFiles([]);
-        setAlbumVideoFiles([]);
-        setAlbumUploadProgress(0);
-        setAlbumUploadBusy(false);
-        setAlbumUploadError("");
-        setAlbumUploadStatus("");
-        setActiveVideo(null);
-        setSelectedVideoId("");
-        setView("Home");
-        setActiveTab("Trending");
-        setSearch("");
-        setSearchInput("");
-    }
     function getAuthErrorMessage(error: unknown) {
         if (error instanceof Error) {
             if (error.message === "Failed to fetch") {
@@ -13387,9 +13341,9 @@ export default function Page() {
             </div>)}
         </section>
 
-        <button className="reset-btn" disabled onClick={resetApp} title="Reset is disabled until the audit is complete" type="button">
+        <button className="reset-btn" disabled title="Reset is disabled until the audit is complete" type="button">
           <RotateCcw size={15}/>
-          Reset
+          Reset Disabled
         </button>
       </aside>
 
