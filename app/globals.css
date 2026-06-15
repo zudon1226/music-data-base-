@@ -326,6 +326,12 @@ body {
     overflow: hidden !important;
   }
 
+  .fixed-mobile-player.fixed-mobile-player .player-controls button:first-child,
+  .fixed-mobile-player.fixed-mobile-player .player-controls button:nth-child(5),
+  .fixed-mobile-player.fixed-mobile-player .video-player-controls button:nth-child(n + 4) {
+    display: none !important;
+  }
+
   .fixed-mobile-player.fixed-mobile-player .track-title,
   .fixed-mobile-player.fixed-mobile-player .song-title {
     font-size: 14px !important;
