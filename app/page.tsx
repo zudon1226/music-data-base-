@@ -12419,6 +12419,8 @@ export default function Page() {
                 const album = resolvedAlbums.find((entry) => entry.id === item.id);
                 return album ? getAlbumDisplayCover(album) : BRAND_LOGO;
             }
+            if (item.itemType === "beat")
+                return producerBeats.find((beat) => beat.id === item.id)?.cover || BRAND_LOGO;
             return BRAND_LOGO;
         };
         return (<section className="dashboard-panel monetization-panel purchase-foundation-panel">
@@ -27013,6 +27015,347 @@ export default function Page() {
               width: 100% !important;
               min-width: 0 !important;
               white-space: normal !important;
+            }
+
+            .producer-dashboard {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow-x: hidden !important;
+              padding-bottom: 150px !important;
+              gap: 12px !important;
+            }
+
+            .producer-dashboard,
+            .producer-dashboard section,
+            .producer-dashboard article,
+            .producer-dashboard div,
+            .producer-dashboard form {
+              box-sizing: border-box !important;
+              max-width: 100% !important;
+            }
+
+            .producer-dashboard .dashboard-brand,
+            .producer-dashboard .dashboard-panel,
+            .producer-dashboard .analytics-panel,
+            .producer-dashboard .monetization-panel,
+            .producer-dashboard .dashboard-empty-card,
+            .producer-dashboard .dashboard-song-row,
+            .producer-dashboard .artist-album-card,
+            .producer-dashboard .monetization-list article {
+              min-height: 0 !important;
+              height: auto !important;
+              padding: 10px !important;
+              margin-bottom: 0 !important;
+              overflow-x: hidden !important;
+            }
+
+            .producer-dashboard .dashboard-grid {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 12px !important;
+              width: 100% !important;
+            }
+
+            .producer-dashboard .dashboard-grid div {
+              min-height: 0 !important;
+              height: auto !important;
+              padding: 10px !important;
+            }
+
+            .producer-dashboard .dashboard-grid strong {
+              font-size: 21px !important;
+              line-height: 1 !important;
+            }
+
+            .producer-dashboard .dashboard-grid span {
+              font-size: 11px !important;
+              line-height: 1.15 !important;
+            }
+
+            .producer-dashboard .monetization-summary-grid,
+            .producer-dashboard .analytics-bars,
+            .producer-dashboard .growth-summary-grid,
+            .producer-dashboard .storefront-readiness-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+            }
+
+            .producer-dashboard .monetization-summary-grid div,
+            .producer-dashboard .analytics-bars div,
+            .producer-dashboard .growth-summary-grid div,
+            .producer-dashboard .storefront-readiness-grid div {
+              min-height: 0 !important;
+              height: auto !important;
+              padding: 8px !important;
+            }
+
+            .producer-dashboard .monetization-list {
+              width: 100% !important;
+              display: grid !important;
+              gap: 8px !important;
+            }
+
+            .producer-dashboard .monetization-list article {
+              display: grid !important;
+              gap: 5px !important;
+            }
+
+            .producer-dashboard .monetization-list span,
+            .producer-dashboard .monetization-list strong,
+            .producer-dashboard .monetization-list small,
+            .producer-dashboard .monetization-footnote {
+              min-width: 0 !important;
+              white-space: normal !important;
+              overflow: visible !important;
+              text-overflow: clip !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            .producer-dashboard .monetization-list article > strong {
+              display: -webkit-box !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              line-height: 1.15 !important;
+            }
+
+            .producer-dashboard .split-table {
+              display: grid !important;
+              gap: 8px !important;
+              overflow-x: hidden !important;
+            }
+
+            .producer-dashboard .split-head {
+              display: none !important;
+            }
+
+            .producer-dashboard .split-row {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 6px !important;
+              padding: 10px !important;
+              min-height: 0 !important;
+              height: auto !important;
+            }
+
+            .producer-dashboard .split-row span,
+            .producer-dashboard .split-row strong,
+            .producer-dashboard .split-row small {
+              white-space: normal !important;
+              overflow: visible !important;
+              text-overflow: clip !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            .producer-dashboard .split-row span:nth-child(2)::before {
+              content: "Artist ";
+              color: #9bdcf0;
+              font-weight: 900;
+            }
+
+            .producer-dashboard .split-row span:nth-child(3)::before {
+              content: "Producer ";
+              color: #9bdcf0;
+              font-weight: 900;
+            }
+
+            .producer-dashboard .split-row span:nth-child(4)::before {
+              content: "Platform ";
+              color: #9bdcf0;
+              font-weight: 900;
+            }
+
+            .producer-dashboard .purchase-list article {
+              display: grid !important;
+              grid-template-columns: 78px minmax(0, 1fr) !important;
+              grid-template-rows: auto auto auto auto !important;
+              gap: 6px 10px !important;
+              align-items: center !important;
+              padding: 10px !important;
+              overflow: hidden !important;
+            }
+
+            .producer-dashboard .purchase-list article > img,
+            .producer-dashboard .purchase-foundation-art {
+              display: block !important;
+              grid-column: 1 !important;
+              grid-row: 1 / 4 !important;
+              width: 78px !important;
+              height: 78px !important;
+              object-fit: cover !important;
+              border-radius: 8px !important;
+              background: #020617 !important;
+            }
+
+            .producer-dashboard .purchase-list article > span,
+            .producer-dashboard .purchase-list article > strong,
+            .producer-dashboard .purchase-list article > small {
+              grid-column: 2 !important;
+              min-width: 0 !important;
+            }
+
+            .producer-dashboard .purchase-list article > strong {
+              display: -webkit-box !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              line-height: 1.15 !important;
+            }
+
+            .producer-dashboard .purchase-list article > small {
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .producer-dashboard .monetization-row-actions {
+              grid-column: 1 / -1 !important;
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              gap: 8px !important;
+              justify-content: stretch !important;
+              width: 100% !important;
+            }
+
+            .producer-dashboard .monetization-row-actions button,
+            .producer-dashboard .dashboard-song-actions button,
+            .producer-dashboard .dashboard-form-actions button,
+            .producer-dashboard .storefront-actions button,
+            .producer-dashboard .monetization-action-row button {
+              width: 100% !important;
+              min-width: 0 !important;
+              min-height: 44px !important;
+              height: auto !important;
+              padding: 8px 10px !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              line-height: 1.15 !important;
+            }
+
+            .producer-dashboard .dashboard-form,
+            .producer-dashboard .license-grid,
+            .producer-dashboard .dashboard-filter-row {
+              width: 100% !important;
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 10px !important;
+              overflow-x: hidden !important;
+            }
+
+            .producer-dashboard .dashboard-form input,
+            .producer-dashboard .dashboard-form textarea,
+            .producer-dashboard .dashboard-form select,
+            .producer-dashboard .license-grid input,
+            .producer-dashboard .license-grid select,
+            .producer-dashboard .dashboard-filter-row input,
+            .producer-dashboard .dashboard-filter-row select {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              box-sizing: border-box !important;
+            }
+
+            .producer-dashboard .dashboard-form-actions {
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              width: 100% !important;
+            }
+
+            .producer-dashboard .artist-album-grid,
+            .producer-dashboard .horizontal-rail-track.artist-album-grid {
+              display: grid !important;
+              grid-auto-flow: row !important;
+              grid-auto-columns: unset !important;
+              grid-template-columns: 1fr !important;
+              gap: 10px !important;
+              overflow: visible !important;
+            }
+
+            .producer-dashboard .artist-album-card {
+              width: 100% !important;
+              max-width: 100% !important;
+              display: grid !important;
+              grid-template-columns: 82px minmax(0, 1fr) !important;
+              grid-template-rows: auto auto !important;
+              gap: 10px !important;
+              padding: 10px !important;
+            }
+
+            .producer-dashboard .artist-album-card > img {
+              width: 82px !important;
+              height: 82px !important;
+              aspect-ratio: auto !important;
+              object-fit: cover !important;
+              margin: 0 !important;
+            }
+
+            .producer-dashboard .artist-album-card .media-card-content {
+              grid-column: 2 !important;
+              display: grid !important;
+              gap: 3px !important;
+              min-width: 0 !important;
+            }
+
+            .producer-dashboard .artist-album-card strong {
+              display: -webkit-box !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+            }
+
+            .producer-dashboard .artist-album-card span {
+              white-space: normal !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            .producer-dashboard .artist-album-card .artist-album-actions {
+              grid-column: 1 / -1 !important;
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+            }
+
+            .producer-dashboard .artist-album-card .artist-album-actions button {
+              min-height: 44px !important;
+            }
+
+            .producer-dashboard .producer-beat-row {
+              display: grid !important;
+              grid-template-columns: 72px minmax(0, 1fr) !important;
+              grid-template-rows: auto auto !important;
+              gap: 10px !important;
+              padding: 10px !important;
+            }
+
+            .producer-dashboard .producer-beat-row > img {
+              width: 72px !important;
+              height: 72px !important;
+              object-fit: cover !important;
+            }
+
+            .producer-dashboard .producer-beat-row .dashboard-song-actions {
+              grid-column: 1 / -1 !important;
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+            }
+
+            .producer-dashboard .dashboard-empty-card {
+              display: grid !important;
+              gap: 6px !important;
+            }
+
+            .producer-dashboard .dashboard-empty-card h3,
+            .producer-dashboard .dashboard-empty-card p {
+              margin: 0 !important;
             }
 
           }
