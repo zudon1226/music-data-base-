@@ -28372,10 +28372,12 @@ export default function Page() {
             }
 
             .zml-app {
-              min-height: 0 !important;
               height: auto !important;
+              min-height: fit-content !important;
+              max-height: none !important;
               overflow: visible !important;
-              padding-bottom: 0 !important;
+              padding-bottom: 16px !important;
+              margin-bottom: 0 !important;
             }
 
             .content {
@@ -28386,13 +28388,18 @@ export default function Page() {
               left: auto !important;
               width: calc(100% - var(--mobile-sidebar-width)) !important;
               height: auto !important;
-              min-height: 0 !important;
+              min-height: fit-content !important;
+              max-height: none !important;
               margin-left: var(--mobile-sidebar-width) !important;
+              margin-bottom: 0 !important;
               padding-bottom: 16px !important;
               overflow: visible !important;
               scroll-padding-bottom: 16px !important;
             }
 
+            .main-content,
+            .page-content,
+            .app-content,
             .content > section,
             .content > div:not(.topbar),
             .content .artist-section,
@@ -28412,12 +28419,12 @@ export default function Page() {
             .content .song-grid,
             .content .video-grid {
               height: auto !important;
-              min-height: 0 !important;
+              min-height: fit-content !important;
               max-height: none !important;
-              padding-bottom: 0 !important;
+              padding-bottom: 16px !important;
               margin-bottom: 16px !important;
               overflow: visible !important;
-              scroll-padding-bottom: 0 !important;
+              scroll-padding-bottom: 16px !important;
             }
 
             .content > section:last-child,
@@ -28429,38 +28436,6 @@ export default function Page() {
             .content .dashboard-page:last-child,
             .content .playlist-workspace:last-child,
             .content .empty-state:last-child {
-              margin-bottom: 16px !important;
-            }
-
-            .content section:not(.topbar),
-            .content article:not(.music-bottom-player):not(.video-bottom-player),
-            .content .panel,
-            .content .card,
-            .content .media-card,
-            .content .song-card,
-            .content .video-card,
-            .content .artist-card,
-            .content .producer-card,
-            .content .artist-album-card,
-            .content .artist-playlist-card,
-            .content .playlist-tile,
-            .content .discovery-card,
-            .content .dashboard-card,
-            .content .stat-card,
-            .content .profile-save,
-            .content .profile-hero,
-            .content .queue-manage-row,
-            .content .recent-card,
-            .content .recent-row,
-            .content .playlist-song-row,
-            .content .preorder-card,
-            .content .top-chart-card,
-            .content .storefront-card,
-            .content .purchase-card {
-              height: auto !important;
-              min-height: 0 !important;
-              max-height: none !important;
-              padding-bottom: 16px !important;
               margin-bottom: 16px !important;
             }
 
