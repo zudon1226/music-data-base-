@@ -28534,28 +28534,46 @@ export default function Page() {
 
             .notification-center {
               position: fixed !important;
-              top: 150px !important;
-              left: 200px !important;
-              right: 20px !important;
-              width: auto !important;
+              top: 142px !important;
+              left: auto !important;
+              right: 16px !important;
+              width: clamp(280px, calc(100vw - 240px), 420px) !important;
+              min-width: 280px !important;
+              min-height: 120px !important;
               max-width: none !important;
+              padding: 16px !important;
+              border-radius: 16px !important;
               z-index: 9999 !important;
               display: flex !important;
               flex-direction: column !important;
               gap: 12px !important;
               box-sizing: border-box !important;
-              overflow: hidden !important;
+              overflow: visible !important;
             }
 
             .notification-head {
               display: flex !important;
               justify-content: space-between !important;
               align-items: center !important;
+              gap: 12px !important;
+              min-width: 0 !important;
             }
 
             .notification-head button {
               position: static !important;
               flex-shrink: 0 !important;
+              white-space: nowrap !important;
+            }
+
+            .notification-center p,
+            .notification-center article,
+            .notification-center strong,
+            .notification-center span,
+            .notification-center small {
+              max-width: 100% !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
             }
 
           }
