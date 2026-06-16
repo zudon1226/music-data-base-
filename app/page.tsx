@@ -28534,7 +28534,7 @@ export default function Page() {
 
             .notification-center {
               position: fixed !important;
-              top: 142px !important;
+              top: 97px !important;
               left: auto !important;
               right: 16px !important;
               width: clamp(280px, calc(100vw - 240px), 420px) !important;
