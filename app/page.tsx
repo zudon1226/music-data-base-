@@ -5448,19 +5448,12 @@ export default function Page() {
     const librarySongs = useMemo(() => audioSongs.filter((song) => libraryIds.includes(song.id)), [audioSongs, libraryIds]);
     const libraryVideos = useMemo(() => {
         const savedIds = new Set(savedVideoIds);
-        const savedDatabaseVideos = uniqueVideos(videos).filter((video) => savedIds.has(video.id));
-        const savedSongVideos = songs
-            .filter((song) => savedIds.has(song.id) && isVideoSong(song) && Boolean(song.video || song.audio))
-            .map(mapSavedSongVideoToVideoItem);
-        return uniqueVideos([...savedDatabaseVideos, ...savedSongVideos]);
-    }, [savedVideoIds, songs, videos]);
+        return uniqueVideos(videos).filter((video) => savedIds.has(video.id) && isDatabaseUuid(video.id));
+    }, [savedVideoIds, videos]);
     const libraryContentSongs = useMemo(() => uniqueSongs(audioSongs), [audioSongs]);
     const libraryContentVideos = useMemo(() => {
-        const songVideos = songs
-            .filter((song) => isVideoSong(song) && Boolean(song.video || song.audio))
-            .map(mapSavedSongVideoToVideoItem);
-        return uniqueVideos([...videos.filter((video) => isDatabaseUuid(video.id)), ...songVideos]);
-    }, [songs, videos]);
+        return uniqueVideos(videos).filter((video) => isDatabaseUuid(video.id));
+    }, [videos]);
     const albumVideoPool = useMemo(() => {
         const songVideos = songs
             .filter((song) => isVideoSong(song) && Boolean(song.video || song.audio))
@@ -8467,6 +8460,14 @@ export default function Page() {
         showToast("Saved to Library", "success");
         pushNotification("Video saved", `${normalized.title} was saved to your library.`, "video", normalized.id);
     }
+    function handleSaveVideo(videoId: string) {
+        const video = videos.find((item) => item.id === videoId);
+        if (!video) {
+            showToast("Video could not be found for saving.", "error");
+            return;
+        }
+        void saveVideoToLibrary(video);
+    }
     async function removeVideoFromLibrary(videoId: string) {
         setSavedVideoIds((previous) => uniqueIds(previous).filter((id) => id !== videoId));
         await removeLibraryItem(videoId, "video");
@@ -9060,6 +9061,14 @@ export default function Page() {
         }
         setPlaylistTarget({ type: "video", item: normalizeVideoForPlayback(video) });
     }
+    function handleVideoPlaylist(videoId: string) {
+        const video = videos.find((item) => item.id === videoId);
+        if (!video) {
+            showToast("Video could not be found for playlist.", "error");
+            return;
+        }
+        openVideoPlaylistMenu(video);
+    }
     function renderPlaylistButton(song: Song, className = "playlist-btn") {
         return (<button className={className} onClick={() => openPlaylistMenu(song)} title="Add to playlist" type="button">
         <Plus size={15}/>
@@ -9087,7 +9096,7 @@ export default function Page() {
       </button>);
     }
     function renderVideoPlaylistButton(video: VideoItem, className = "playlist-btn") {
-        return (<button className={className} onClick={() => openVideoPlaylistMenu(video)} title="Add video to playlist" type="button">
+        return (<button className={className} onClick={() => handleVideoPlaylist(video.id)} title="Add video to playlist" type="button">
         <Plus size={15}/>
         <span>Playlist</span>
       </button>);
@@ -11906,7 +11915,7 @@ export default function Page() {
                     removeVideoFromLibrary(video.id);
                     return;
                 }
-                saveVideoToLibrary(video);
+                handleSaveVideo(video.id);
             }} title={isSaved ? "Remove video from Library" : "Save video to Library"} type="button">
               <span aria-hidden="true">{isSaved ? "✓" : "+"}</span>
               <span>{isSaved ? "Saved" : "Save"}</span>
