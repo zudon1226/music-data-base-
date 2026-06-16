@@ -13383,7 +13383,7 @@ export default function Page() {
               <Bell size={17}/>
               {unreadNotifications > 0 && <span>{unreadNotifications}</span>}
             </button>
-            {showNotificationCenter && (<section className="notification-center">
+            {showNotificationCenter && (<section className={notifications.length === 0 ? "notification-center notification-empty" : "notification-center"}>
                 <div className="notification-head">
                   <strong>Notifications</strong>
                   <button onClick={() => setNotifications([])} type="button">Clear</button>
@@ -28580,6 +28580,10 @@ export default function Page() {
               min-height: 0 !important;
               padding: 0 !important;
               line-height: 1.2 !important;
+            }
+
+            .notification-center.notification-empty {
+              min-height: 0 !important;
             }
 
           }
