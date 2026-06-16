@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const SONGS_BUCKET = "songs";
@@ -108,9 +109,13 @@ export async function DELETE(request: Request, { params }: {
         if (!id) {
             return jsonResponse({ error: "Missing song id." }, 400);
         }
+        if (!isUuid(id)) {
+            return jsonResponse({ error: "Song delete requires a real database row id." }, 400);
+        }
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Log in before deleting uploaded tracks." }, 401);
         }
+        const isOwnerAdmin = await isPlatformOwnerUserId(userId);
         const supabase = getSupabaseServerClient();
         const { data: song, error: readError } = await supabase
             .from("songs")
@@ -124,7 +129,7 @@ export async function DELETE(request: Request, { params }: {
         if (!song) {
             return jsonResponse({ ok: true, alreadyDeleted: true });
         }
-        if (song.user_id && song.user_id !== userId) {
+        if (!isOwnerAdmin && (!song.user_id || song.user_id !== userId)) {
             return jsonResponse({ error: "Only the owner can delete this uploaded track." }, 403);
         }
         const { error: likesError } = await supabase.from("song_likes").delete().eq("song_id", id);

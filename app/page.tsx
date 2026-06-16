@@ -2517,6 +2517,9 @@ function normalizeAccountRole(value: unknown): AccountRole {
 function isPlatformOwnerEmail(email: unknown) {
     return String(email || "").trim().toLowerCase() === PLATFORM_OWNER_EMAIL;
 }
+function isDatabaseUuid(value: unknown) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
 function mapProducerBeatRow(row: ProducerBeatTableRow): ProducerBeat {
     const title = row.title || "Untitled beat";
     return {
@@ -8489,7 +8492,22 @@ export default function Page() {
         await removeLibraryItem(albumId, "album");
     }
     function canDeleteUploadedSong(song: Song) {
-        return Boolean(accountUserId && (!song.ownerId || song.ownerId === accountUserId));
+        return Boolean(isDatabaseUuid(song.id) && (isPlatformOwner || (accountUserId && song.ownerId === accountUserId)));
+    }
+    function canDeleteUploadedVideo(video: VideoItem) {
+        return Boolean(isDatabaseUuid(video.id) && (isPlatformOwner || (accountUserId && video.ownerId === accountUserId)));
+    }
+    function canDeleteUploadedAlbum(album: ResolvedAlbum) {
+        return Boolean(isDatabaseUuid(album.id) &&
+            (isPlatformOwner ||
+                (accountUserId &&
+                    (album.userId === accountUserId ||
+                        album.artistId === accountUserId ||
+                        album.producerId === accountUserId ||
+                        album.producerProfileId === accountUserId))));
+    }
+    function canDeleteProducerBeat(beat: ProducerBeat) {
+        return Boolean(isDatabaseUuid(beat.id) && (isPlatformOwner || (accountUserId && beat.producerUserId === accountUserId)));
     }
     function clearSongPlayerIfDeleted(songId: string) {
         if (activeMedia?.item.id !== songId && currentSong?.id !== songId)
@@ -9991,6 +10009,40 @@ export default function Page() {
             showToast(data.error || "Producer beat update failed.", "error");
         }
     }
+    async function deleteProducerBeat(beat: ProducerBeat) {
+        if (!canDeleteProducerBeat(beat)) {
+            showToast("Only the producer who uploaded this beat or owner admin can delete it.", "error");
+            return;
+        }
+        if (!window.confirm(`Delete "${beat.title}" from Producer Beats?`))
+            return;
+        const previousBeats = producerBeats;
+        setProducerBeats((previous) => previous.filter((item) => item.id !== beat.id));
+        try {
+            const response = await fetch("/api/producers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "delete-beat",
+                    id: beat.id,
+                    userId: accountUserId || "",
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            if (!response.ok) {
+                setProducerBeats(previousBeats);
+                showToast(data.error || "Producer beat could not be deleted.", "error");
+                return;
+            }
+            showToast("Producer beat deleted.", "success");
+        }
+        catch (error) {
+            setProducerBeats(previousBeats);
+            showToast("Producer beat could not be deleted. Check your connection and try again.", "error");
+        }
+    }
     function playProducerBeat(beat: ProducerBeat) {
         const beatSong: Song = {
             id: beat.songId || beat.id,
@@ -10628,6 +10680,10 @@ export default function Page() {
         const video = videos.find((item) => item.id === videoId);
         if (!video)
             return;
+        if (!canDeleteUploadedVideo(video)) {
+            showToast("Only the uploader or owner admin can delete this video.", "error");
+            return;
+        }
         if (!window.confirm(`Delete "${video.title}" from Video Library?`))
             return;
         const previousState = {
@@ -10644,7 +10700,7 @@ export default function Page() {
         };
         purgeDeletedVideoFromUi(videoId);
         try {
-            const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}`, { method: "DELETE" });
+            const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}?userId=${encodeURIComponent(accountUserId || "")}`, { method: "DELETE" });
             if (!response.ok) {
                 const data = (await response.json().catch(() => ({}))) as {
                     error?: string;
@@ -11384,8 +11440,8 @@ export default function Page() {
         const album = resolvedAlbums.find((item) => item.id === albumId);
         if (!album)
             return;
-        if (!accountUserId) {
-            showToast("Log in before deleting albums.", "error");
+        if (!canDeleteUploadedAlbum(album)) {
+            showToast("Only the uploader or owner admin can delete this album.", "error");
             return;
         }
         if (!window.confirm("Delete this album? Songs and videos will stay uploaded."))
@@ -11400,7 +11456,7 @@ export default function Page() {
             const response = await fetch("/api/albums", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: albumId, userId: accountUserId }),
+                body: JSON.stringify({ id: albumId, userId: accountUserId || "" }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -11427,6 +11483,7 @@ export default function Page() {
         const isEditing = editingAlbumId === album.id;
         const songCount = getAlbumSongCount(album);
         const videoCount = getAlbumVideoCount(album);
+        const canDeleteAlbum = canDeleteUploadedAlbum(album);
         return (<article className="dashboard-song-row" key={album.id}>
         <img src={getAlbumDisplayCover(album)} alt=""/>
 
@@ -11465,10 +11522,10 @@ export default function Page() {
                 <Edit3 size={15}/>
                 Edit
               </button>
-              <button className="danger-btn" onClick={() => deleteUploadedAlbum(album.id)} type="button">
-                <Trash2 size={15}/>
-                Delete
-              </button>
+              {canDeleteAlbum && (<button className="danger-btn" onClick={() => deleteUploadedAlbum(album.id)} type="button">
+                  <Trash2 size={15}/>
+                  Delete
+                </button>)}
             </div>
           </>)}
       </article>);
@@ -11538,7 +11595,7 @@ export default function Page() {
                 <Edit3 size={15}/>
                 Edit
               </button>
-              {producerCredit && (<button onClick={() => removeSongProducerCredit(song)} type="button">
+              {canDeleteTrack && producerCredit && (<button onClick={() => removeSongProducerCredit(song)} type="button">
                   <X size={15}/>
                   Remove Credit
                 </button>)}
@@ -11554,6 +11611,7 @@ export default function Page() {
         const isEditing = editingVideoId === video.id;
         const producerCredit = getProducerCreditForVideo(video);
         const isSaved = savedVideoIds.includes(video.id);
+        const canDeleteVideo = canDeleteUploadedVideo(video);
         return (<article className="dashboard-song-row" key={video.id}>
         <img src={video.cover} alt=""/>
 
@@ -11623,14 +11681,14 @@ export default function Page() {
                 <Edit3 size={15}/>
                 Edit
               </button>
-              {producerCredit && (<button onClick={() => removeVideoProducerCredit(video)} type="button">
+              {canDeleteVideo && producerCredit && (<button onClick={() => removeVideoProducerCredit(video)} type="button">
                   <X size={15}/>
                   Remove Credit
                 </button>)}
-              <button className="danger-btn" onClick={() => removeVideo(video.id)} type="button">
-                <Trash2 size={15}/>
-                Delete
-              </button>
+              {canDeleteVideo && (<button className="danger-btn" onClick={() => removeVideo(video.id)} type="button">
+                  <Trash2 size={15}/>
+                  Delete
+                </button>)}
             </div>
           </>)}
       </article>);
@@ -11641,7 +11699,7 @@ export default function Page() {
         const songCount = getAlbumSongCount(album);
         const videoCount = getAlbumVideoCount(album);
         const runtimeLabel = formatRuntimeLabel(getAlbumRuntimeSeconds(album));
-        const canManageAlbum = Boolean(accountUserId && (album.userId === accountUserId || album.artistId === accountUserId || album.producerId === accountUserId || album.producerProfileId === accountUserId));
+        const canManageAlbum = canDeleteUploadedAlbum(album);
         return (<article className="artist-album-card media-card" key={album.id}>
         <img src={getAlbumDisplayCover(album)} alt=""/>
         {isEditing ? (<div className="album-inline-edit">
@@ -11718,6 +11776,7 @@ export default function Page() {
         const isSaved = savedVideoIds.includes(video.id);
         const sourceLabel = options.sourceLabel || "Video Card";
         const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
+        const canDeleteVideo = canDeleteUploadedVideo(video);
         return (<article className={options.isLibraryCard ? "video-card library-card media-card" : "video-card media-card"} key={video.id}>
         <div className="video-cover-wrap">
           <button className="video-cover" onClick={() => playVideo(video, sourceLabel)} type="button">
@@ -11725,7 +11784,7 @@ export default function Page() {
             <span>{video.category}</span>
             <Film size={34}/>
           </button>
-          {(options.showRemove || options.showLibraryRemove) && (<button className="card-icon-btn danger" onClick={() => (options.showLibraryRemove ? removeVideoFromLibrary(video.id) : removeVideo(video.id))} type="button" title={options.showLibraryRemove ? "Remove from library" : "Remove video"}>
+          {((options.showRemove && canDeleteVideo) || options.showLibraryRemove) && (<button className="card-icon-btn danger" onClick={() => (options.showLibraryRemove ? removeVideoFromLibrary(video.id) : removeVideo(video.id))} type="button" title={options.showLibraryRemove ? "Remove from library" : "Remove video"}>
               <Trash2 size={15}/>
             </button>)}
         </div>
@@ -15233,6 +15292,10 @@ export default function Page() {
                           <Disc3 size={15}/>
                           License
                         </button>
+                        {canDeleteProducerBeat(beat) && (<button className="danger-btn" onClick={() => deleteProducerBeat(beat)} type="button">
+                            <Trash2 size={15}/>
+                            Delete
+                          </button>)}
                       </div>
                     </article>))}
                 </div>)}
@@ -15776,6 +15839,10 @@ export default function Page() {
                               <Disc3 size={15}/>
                               License
                             </button>
+                            {canDeleteProducerBeat(beat) && (<button className="danger-btn" onClick={() => deleteProducerBeat(beat)} type="button">
+                                <Trash2 size={15}/>
+                                Delete
+                              </button>)}
                           </div>
                         </article>))}
                   </div>)}

@@ -1,8 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
+const SONGS_BUCKET = "songs";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
@@ -55,6 +57,20 @@ function isPlatformOwnerEmail(email: unknown) {
 function isMissingColumnError(error: unknown, columnName: string) {
     const message = getErrorMessage(error).toLowerCase();
     return message.includes(columnName.toLowerCase());
+}
+function isUuid(value: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value.trim());
+}
+function isMissingOptionalTableError(error: unknown, tableName: string) {
+    const message = getErrorMessage(error).toLowerCase();
+    const code = error && typeof error === "object" ? String((error as Record<string, unknown>).code || "") : "";
+    return code === "42P01" || code === "PGRST205" || message.includes(tableName) || message.includes("does not exist") || message.includes("schema cache");
+}
+async function deleteOptionalSongRows(supabase: ReturnType<typeof getSupabaseServerClient>, tableName: string, songId: string) {
+    const { error } = await supabase.from(tableName).delete().eq("song_id", songId);
+    if (error && !isMissingOptionalTableError(error, tableName)) {
+        throw error;
+    }
 }
 export async function GET() {
     try {
@@ -317,12 +333,51 @@ export async function POST(request: Request) {
         }
         if (action === "delete-beat") {
             const id = String(body.id || "").trim();
-            if (!id)
+            const userId = String(body.userId || body.user_id || "").trim();
+            if (!id || !isUuid(id))
                 return jsonResponse({ error: "Beat id is required." }, 400);
+            if (!userId || !isUuid(userId))
+                return jsonResponse({ error: "Log in before deleting producer beats." }, 401);
+            const isOwnerAdmin = await isPlatformOwnerUserId(userId);
+            const { data: beat, error: readError } = await supabase
+                .from("producer_beats")
+                .select("id,song_id,producer_user_id,storage_path")
+                .eq("id", id)
+                .maybeSingle();
+            if (readError) {
+                console.error("[api/producers] beat delete lookup failed:", readError);
+                return jsonResponse({ error: getErrorMessage(readError) }, 500);
+            }
+            if (!beat)
+                return jsonResponse({ ok: true, alreadyDeleted: true });
+            if (!isOwnerAdmin && String(beat.producer_user_id || "") !== userId) {
+                return jsonResponse({ error: "Only the producer who uploaded this beat can delete it." }, 403);
+            }
+            const songId = String(beat.song_id || "").trim();
+            const storagePath = String(beat.storage_path || "").trim();
             const { error } = await supabase.from("producer_beats").delete().eq("id", id);
             if (error) {
                 console.error("[api/producers] beat delete failed:", error);
                 return jsonResponse({ error: getErrorMessage(error) }, 500);
+            }
+            if (songId && isUuid(songId)) {
+                try {
+                    await Promise.all(["song_likes", "favorites", "likes", "playlist_songs", "recent_plays", "library_saves", "queue", "streams"].map((tableName) => deleteOptionalSongRows(supabase, tableName, songId)));
+                }
+                catch (relatedDeleteError) {
+                    console.error("[api/producers] linked beat song cleanup failed:", relatedDeleteError);
+                    return jsonResponse({ error: getErrorMessage(relatedDeleteError) }, 500);
+                }
+                const { error: songDeleteError } = await supabase.from("songs").delete().eq("id", songId);
+                if (songDeleteError) {
+                    console.error("[api/producers] linked beat song delete failed:", songDeleteError);
+                    return jsonResponse({ error: getErrorMessage(songDeleteError) }, 500);
+                }
+            }
+            if (storagePath) {
+                const { error: storageError } = await supabase.storage.from(SONGS_BUCKET).remove([storagePath]);
+                if (storageError) {
+                }
             }
             return jsonResponse({ ok: true });
         }

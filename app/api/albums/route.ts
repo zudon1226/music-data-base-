@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type AlbumItemInput = {
@@ -603,13 +604,14 @@ export async function DELETE(request: Request) {
             return jsonResponse({ error: "Album id is required." }, 400);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before deleting albums." }, 401);
+        const isOwnerAdmin = await isPlatformOwnerUserId(userId);
         const supabase = getSupabaseServerClient();
         const existingAlbum = await supabase.from("albums").select("id,user_id").eq("id", id).single();
         if (existingAlbum.error || !existingAlbum.data) {
             console.error("[api/albums] delete lookup failed:", existingAlbum.error);
             return jsonResponse({ error: getErrorMessage(existingAlbum.error) || "Album not found." }, isMissingTable(existingAlbum.error) ? 409 : 404);
         }
-        if (String(existingAlbum.data.user_id || "") !== userId) {
+        if (!isOwnerAdmin && String(existingAlbum.data.user_id || "") !== userId) {
             return jsonResponse({ error: "Only the album owner can delete this album." }, 403);
         }
         const libraryDelete = await supabase.from("library_saves").delete().eq("item_id", id).eq("item_type", "album");
