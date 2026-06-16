@@ -28539,7 +28539,7 @@ export default function Page() {
               right: 16px !important;
               width: clamp(280px, calc(100vw - 240px), 420px) !important;
               min-width: 280px !important;
-              min-height: 120px !important;
+              min-height: 80px !important;
               max-width: none !important;
               padding: 16px !important;
               border-radius: 16px !important;
@@ -28574,6 +28574,12 @@ export default function Page() {
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
+            }
+
+            .notification-center p {
+              min-height: 0 !important;
+              padding: 0 !important;
+              line-height: 1.2 !important;
             }
 
           }
