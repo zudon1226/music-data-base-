@@ -4630,7 +4630,8 @@ export default function Page() {
         return () => document.removeEventListener("pointerdown", closeNotificationOnOutsideTap);
     }, [showNotificationCenter]);
     useEffect(() => {
-        setShowNotificationCenter(false);
+        const timer = window.setTimeout(() => setShowNotificationCenter(false), 0);
+        return () => window.clearTimeout(timer);
     }, [view]);
     useEffect(() => {
         const timer = window.setTimeout(() => {

@@ -391,6 +391,6 @@ body {
   }
 
   body {
-    padding-bottom: 170px !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 56px) !important;
   }
 }
