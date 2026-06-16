@@ -28388,9 +28388,9 @@ export default function Page() {
               height: auto !important;
               min-height: 0 !important;
               margin-left: var(--mobile-sidebar-width) !important;
-              padding-bottom: 24px !important;
+              padding-bottom: 16px !important;
               overflow: visible !important;
-              scroll-padding-bottom: 24px !important;
+              scroll-padding-bottom: 16px !important;
             }
 
             .content > section,
@@ -28429,7 +28429,51 @@ export default function Page() {
             .content .dashboard-page:last-child,
             .content .playlist-workspace:last-child,
             .content .empty-state:last-child {
-              margin-bottom: 24px !important;
+              margin-bottom: 16px !important;
+            }
+
+            .content section:not(.topbar),
+            .content article:not(.music-bottom-player):not(.video-bottom-player),
+            .content .panel,
+            .content .card,
+            .content .media-card,
+            .content .song-card,
+            .content .video-card,
+            .content .artist-card,
+            .content .producer-card,
+            .content .artist-album-card,
+            .content .artist-playlist-card,
+            .content .playlist-tile,
+            .content .discovery-card,
+            .content .dashboard-card,
+            .content .stat-card,
+            .content .profile-save,
+            .content .profile-hero,
+            .content .queue-manage-row,
+            .content .recent-card,
+            .content .recent-row,
+            .content .playlist-song-row,
+            .content .preorder-card,
+            .content .top-chart-card,
+            .content .storefront-card,
+            .content .purchase-card {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              padding-bottom: 16px !important;
+              margin-bottom: 16px !important;
+            }
+
+            .content .empty-state:empty,
+            .content .empty-small:empty,
+            .content .mobile-player-spacer,
+            .content .spacer,
+            .content [aria-hidden="true"].spacer {
+              display: none !important;
+              height: 0 !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
             }
 
           }
