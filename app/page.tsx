@@ -28373,10 +28373,10 @@ export default function Page() {
 
             .zml-app {
               height: auto !important;
-              min-height: fit-content !important;
+              min-height: auto !important;
               max-height: none !important;
               overflow: visible !important;
-              padding-bottom: 16px !important;
+              padding-bottom: 0 !important;
               margin-bottom: 0 !important;
             }
 
@@ -28388,13 +28388,13 @@ export default function Page() {
               left: auto !important;
               width: calc(100% - var(--mobile-sidebar-width)) !important;
               height: auto !important;
-              min-height: fit-content !important;
+              min-height: auto !important;
               max-height: none !important;
               margin-left: var(--mobile-sidebar-width) !important;
               margin-bottom: 0 !important;
-              padding-bottom: 16px !important;
+              padding-bottom: 96px !important;
               overflow: visible !important;
-              scroll-padding-bottom: 16px !important;
+              scroll-padding-bottom: 96px !important;
             }
 
             .main-content,
@@ -28419,12 +28419,12 @@ export default function Page() {
             .content .song-grid,
             .content .video-grid {
               height: auto !important;
-              min-height: fit-content !important;
+              min-height: auto !important;
               max-height: none !important;
-              padding-bottom: 16px !important;
-              margin-bottom: 16px !important;
+              padding-bottom: 0 !important;
+              margin-bottom: 0 !important;
               overflow: visible !important;
-              scroll-padding-bottom: 16px !important;
+              scroll-padding-bottom: 0 !important;
             }
 
             .content > section:last-child,
@@ -28436,7 +28436,9 @@ export default function Page() {
             .content .dashboard-page:last-child,
             .content .playlist-workspace:last-child,
             .content .empty-state:last-child {
-              margin-bottom: 16px !important;
+              padding-bottom: 96px !important;
+              margin-bottom: 0 !important;
+              scroll-padding-bottom: 96px !important;
             }
 
             .content .empty-state:empty,
