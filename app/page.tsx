@@ -11860,17 +11860,6 @@ export default function Page() {
         const isSaved = savedVideoIds.includes(video.id);
         const sourceLabel = options.sourceLabel || "Video Card";
         const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
-        const canDeleteVideo = canDeleteUploadedVideo(video);
-        const videoRecord = video as VideoItem & { user_id?: string; artist_id?: string; producer_id?: string };
-        const canDeleteLibraryVideo = Boolean(options.isLibraryCard &&
-            (isPlatformOwner ||
-                (accountUserId &&
-                    (accountUserId === videoRecord.user_id ||
-                        accountUserId === videoRecord.artist_id ||
-                        accountUserId === videoRecord.producer_id ||
-                        accountUserId === video.ownerId ||
-                        accountUserId === video.artistId ||
-                        accountUserId === video.producerId))));
         return (<article className={options.isLibraryCard ? "video-card library-card media-card" : "video-card media-card"} key={video.id}>
         <div className="video-cover-wrap">
           <button className="video-cover" onClick={() => playVideo(video, sourceLabel)} type="button">
@@ -11924,9 +11913,8 @@ export default function Page() {
               <span>{isSaved ? "Saved" : "Save"}</span>
             </button>
             {renderMobileVideoQueueButton(video)}
-            {canDeleteLibraryVideo && (<button className="danger-btn" onClick={() => {
+            {options.isLibraryCard && (<button className="danger-btn" onClick={() => {
                 alert("VIDEO DELETE CLICKED " + video.id);
-                handlePermanentDeleteVideo(video.id);
             }} type="button">
                 <span aria-hidden="true">🗑</span>
                 Delete
