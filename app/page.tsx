@@ -10962,6 +10962,7 @@ export default function Page() {
     }
     function handlePermanentDeleteSong(songId: string) {
         const song = songs.find((item) => item.id === songId);
+        alert("SONG DELETE BUTTON CLICKED");
         console.log("DELETE SONG CLICKED", songId, song?.title || "");
         if (!song) {
             showToast("Song could not be found for deletion.", "error");
@@ -10971,6 +10972,7 @@ export default function Page() {
     }
     function handlePermanentDeleteVideo(videoId: string) {
         const video = videos.find((item) => item.id === videoId);
+        alert("VIDEO DELETE BUTTON CLICKED");
         console.log("DELETE VIDEO CLICKED", videoId, video?.title || "");
         if (!video) {
             showToast("Video could not be found for deletion.", "error");
@@ -16632,7 +16634,7 @@ export default function Page() {
                 </div>
                 <HorizontalRail className="video-grid" label="Video Search Results">
                   {inlineVideos.map((video) => renderVideoCard(video, view === "Library" && !search.trim()
-                    ? { sourceLabel: "Library Videos" }
+                    ? { isLibraryCard: true, sourceLabel: "Library Videos" }
                     : { sourceLabel: search.trim() ? "Search Video Results" : "Trending Videos" }))}
                 </HorizontalRail>
               </section>)}
