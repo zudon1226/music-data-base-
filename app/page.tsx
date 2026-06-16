@@ -28381,6 +28381,22 @@ export default function Page() {
               padding: 0 !important;
             }
 
+            .content > .liked-page,
+            .content > .following-feed,
+            .content > .recent-panel,
+            .content > .queue-page,
+            .content > .playlist-workspace,
+            .content > .profile-page,
+            .content > .dashboard-page,
+            .content > .video-page,
+            .content > .artist-profile,
+            .content > .producer-profile,
+            .content > .marketplace-page,
+            .content > .sales-page,
+            .content > .license-history-page {
+              display: contents !important;
+            }
+
             .song-card:last-child,
             .artist-album-card:last-child,
             .video-card:last-child,
