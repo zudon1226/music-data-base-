@@ -5459,7 +5459,7 @@ export default function Page() {
         const songVideos = songs
             .filter((song) => isVideoSong(song) && Boolean(song.video || song.audio))
             .map(mapSavedSongVideoToVideoItem);
-        return uniqueVideos([...videos, ...songVideos]);
+        return uniqueVideos([...videos.filter((video) => isDatabaseUuid(video.id)), ...songVideos]);
     }, [songs, videos]);
     const albumVideoPool = useMemo(() => {
         const songVideos = songs
@@ -10972,7 +10972,6 @@ export default function Page() {
     }
     function handlePermanentDeleteVideo(videoId: string) {
         const video = videos.find((item) => item.id === videoId);
-        alert("VIDEO DELETE BUTTON CLICKED");
         console.log("DELETE VIDEO CLICKED", videoId, video?.title || "");
         if (!video) {
             showToast("Video could not be found for deletion.", "error");
@@ -11914,7 +11913,9 @@ export default function Page() {
             </button>
             {renderMobileVideoQueueButton(video)}
             {options.isLibraryCard && (<button className="danger-btn" onClick={() => {
-                alert("VIDEO DELETE CLICKED " + video.id);
+                console.log("VIDEO ID", video.id);
+                console.log("STORAGE PATH", video.storage_path);
+                handlePermanentDeleteVideo(video.id);
             }} type="button">
                 <span aria-hidden="true">🗑</span>
                 Delete
