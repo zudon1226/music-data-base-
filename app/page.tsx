@@ -10960,6 +10960,24 @@ export default function Page() {
         }
         void permanentlyDeleteSong(song.id, confirmMessage);
     }
+    function handlePermanentDeleteSong(songId: string) {
+        const song = songs.find((item) => item.id === songId);
+        console.log("DELETE SONG CLICKED", songId, song?.title || "");
+        if (!song) {
+            showToast("Song could not be found for deletion.", "error");
+            return;
+        }
+        permanentDeleteSong(song.id, "Permanently delete this song?");
+    }
+    function handlePermanentDeleteVideo(videoId: string) {
+        const video = videos.find((item) => item.id === videoId);
+        console.log("DELETE VIDEO CLICKED", videoId, video?.title || "");
+        if (!video) {
+            showToast("Video could not be found for deletion.", "error");
+            return;
+        }
+        void permanentlyDeleteVideo(video.id);
+    }
     function getProducerCreditForSong(song: Song) {
         if (song.producer)
             return song.producer;
@@ -11851,7 +11869,7 @@ export default function Page() {
           {options.showLibraryRemove && (<button className="card-icon-btn danger" onClick={() => removeVideoFromLibrary(video.id)} type="button" title="Remove from library">
               <Trash2 size={15}/>
             </button>)}
-          {canDeleteVideo && (<button className="card-icon-btn danger" onClick={() => handlePermanentDelete(video)} type="button" title="Delete video">
+          {options.isLibraryCard && canDeleteVideo && (<button className="card-icon-btn danger" onClick={() => handlePermanentDeleteVideo(video.id)} type="button" title="Delete video">
               <Trash2 size={15}/>
             </button>)}
         </div>
@@ -16312,10 +16330,7 @@ export default function Page() {
                                   </button>
                                   {renderMobileSongQueueButton(song)}
                                   {renderPlaylistButton(song)}
-                                  {canDeleteTrack && (<button className="danger-btn library-song-delete-btn" onClick={() => {
-                                    console.log("LIBRARY DELETE CLICKED", song.id, song.title);
-                                    permanentDeleteSong(song.id, "Permanently delete this song?");
-                                }} type="button">
+                                  {canDeleteTrack && (<button className="danger-btn library-song-delete-btn" onClick={() => handlePermanentDeleteSong(song.id)} type="button">
                                       <Trash2 size={15}/>
                                       Delete
                                     </button>)}
