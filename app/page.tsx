@@ -28392,9 +28392,9 @@ export default function Page() {
               max-height: none !important;
               margin-left: var(--mobile-sidebar-width) !important;
               margin-bottom: 0 !important;
-              padding-bottom: 96px !important;
+              padding-bottom: 0 !important;
               overflow: visible !important;
-              scroll-padding-bottom: 96px !important;
+              scroll-padding-bottom: 0 !important;
             }
 
             .main-content,
@@ -28436,9 +28436,9 @@ export default function Page() {
             .content .dashboard-page:last-child,
             .content .playlist-workspace:last-child,
             .content .empty-state:last-child {
-              padding-bottom: 96px !important;
+              padding-bottom: 0 !important;
               margin-bottom: 0 !important;
-              scroll-padding-bottom: 96px !important;
+              scroll-padding-bottom: 0 !important;
             }
 
             .content .empty-state:empty,
