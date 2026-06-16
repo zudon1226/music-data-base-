@@ -72,6 +72,12 @@ async function deleteOptionalSongRows(supabase: ReturnType<typeof getSupabaseSer
         throw error;
     }
 }
+async function deleteOptionalTypedItemRows(supabase: ReturnType<typeof getSupabaseServerClient>, tableName: string, itemId: string, itemType: string) {
+    const { error } = await supabase.from(tableName).delete().eq("item_id", itemId).eq("item_type", itemType);
+    if (error && !isMissingOptionalTableError(error, tableName)) {
+        throw error;
+    }
+}
 export async function GET() {
     try {
         const supabase = getSupabaseServerClient();
@@ -362,7 +368,13 @@ export async function POST(request: Request) {
             }
             if (songId && isUuid(songId)) {
                 try {
-                    await Promise.all(["song_likes", "favorites", "likes", "playlist_songs", "recent_plays", "library_saves", "queue", "streams"].map((tableName) => deleteOptionalSongRows(supabase, tableName, songId)));
+                    await Promise.all([
+                        ...["song_likes", "favorites", "likes", "playlist_songs", "recent_plays", "library_saves", "queue", "streams"].map((tableName) => deleteOptionalSongRows(supabase, tableName, songId)),
+                        deleteOptionalTypedItemRows(supabase, "library_saves", songId, "song"),
+                        deleteOptionalTypedItemRows(supabase, "playlist_items", songId, "song"),
+                        deleteOptionalTypedItemRows(supabase, "comments", songId, "song"),
+                        deleteOptionalTypedItemRows(supabase, "moderation_reports", songId, "song"),
+                    ]);
                 }
                 catch (relatedDeleteError) {
                     console.error("[api/producers] linked beat song cleanup failed:", relatedDeleteError);

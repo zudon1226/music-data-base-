@@ -8495,10 +8495,10 @@ export default function Page() {
         return Boolean(isDatabaseUuid(song.id) && (isPlatformOwner || (accountUserId && song.ownerId === accountUserId)));
     }
     function canDeleteUploadedVideo(video: VideoItem) {
+        if (isPlatformOwner)
+            return isDatabaseUuid(video.id) || video.id.startsWith("storage-");
         if (!isDatabaseUuid(video.id))
             return false;
-        if (isPlatformOwner)
-            return true;
         if (!accountUserId)
             return false;
         return (video.ownerId === accountUserId ||
@@ -11797,7 +11797,10 @@ export default function Page() {
             <span>{video.category}</span>
             <Film size={34}/>
           </button>
-          {((options.showRemove && canDeleteVideo) || options.showLibraryRemove) && (<button className="card-icon-btn danger" onClick={() => (options.showLibraryRemove ? removeVideoFromLibrary(video.id) : removeVideo(video.id))} type="button" title={options.showLibraryRemove ? "Remove from library" : "Remove video"}>
+          {options.showLibraryRemove && (<button className="card-icon-btn danger" onClick={() => removeVideoFromLibrary(video.id)} type="button" title="Remove from library">
+              <Trash2 size={15}/>
+            </button>)}
+          {canDeleteVideo && (<button className="card-icon-btn danger" onClick={() => removeVideo(video.id)} type="button" title="Delete video">
               <Trash2 size={15}/>
             </button>)}
         </div>
@@ -16197,6 +16200,7 @@ export default function Page() {
                             const isFollowed = followedArtistIds.includes(artistId);
                             const isQueued = cleanQueue.some((item) => item.id === song.id);
                             const producerCredit = getProducerCreditForSong(song);
+                            const canDeleteTrack = canDeleteUploadedSong(song);
                             return (<article className="song-card library-card media-card" key={song.id}>
                               <div className="cover-wrap">
                                 <img className="cover" src={song.cover} alt=""/>
@@ -16266,6 +16270,10 @@ export default function Page() {
                                   </button>
                                   {renderMobileSongQueueButton(song)}
                                   {renderPlaylistButton(song)}
+                                  {canDeleteTrack && (<button className="danger-btn" onClick={() => deleteUploadedSong(song.id)} type="button">
+                                      <Trash2 size={15}/>
+                                      Delete
+                                    </button>)}
                                 </div>
                               </div>
                             </article>);
@@ -16582,6 +16590,7 @@ export default function Page() {
                     const isFollowed = followedArtistIds.includes(artistId);
                     const isQueued = cleanQueue.some((item) => item.id === song.id);
                     const producerCredit = getProducerCreditForSong(song);
+                    const canDeleteTrack = canDeleteUploadedSong(song);
                     return (<article className="song-card media-card" key={song.id}>
                   <div className="cover-wrap">
                     <img className="cover" src={song.cover} alt=""/>
@@ -16643,6 +16652,10 @@ export default function Page() {
                       </button>
                       {renderMobileSongQueueButton(song)}
                       {renderPlaylistButton(song)}
+                      {canDeleteTrack && (<button className="danger-btn" onClick={() => deleteUploadedSong(song.id)} type="button">
+                          <Trash2 size={15}/>
+                          Delete
+                        </button>)}
                     </div>
                     <div className="card-secondary-actions">
                       <button onClick={() => openComments("song", song)} type="button">

@@ -98,6 +98,12 @@ async function deleteOptionalSongRows(supabase: ReturnType<typeof getSupabaseSer
         throw error;
     }
 }
+async function deleteOptionalTypedItemRows(supabase: ReturnType<typeof getSupabaseServerClient>, tableName: string, itemId: string, itemType: string) {
+    const { error } = await supabase.from(tableName).delete().eq("item_id", itemId).eq("item_type", itemType);
+    if (error && !isMissingOptionalTableError(error, tableName)) {
+        throw error;
+    }
+}
 export async function DELETE(request: Request, { params }: {
     params: Promise<{
         id: string;
@@ -139,7 +145,13 @@ export async function DELETE(request: Request, { params }: {
         }
         const relatedTables = ["favorites", "likes", "playlist_songs", "recent_plays", "library_saves", "queue", "streams"];
         try {
-            await Promise.all(relatedTables.map((tableName) => deleteOptionalSongRows(supabase, tableName, id)));
+            await Promise.all([
+                ...relatedTables.map((tableName) => deleteOptionalSongRows(supabase, tableName, id)),
+                deleteOptionalTypedItemRows(supabase, "library_saves", id, "song"),
+                deleteOptionalTypedItemRows(supabase, "playlist_items", id, "song"),
+                deleteOptionalTypedItemRows(supabase, "comments", id, "song"),
+                deleteOptionalTypedItemRows(supabase, "moderation_reports", id, "song"),
+            ]);
         }
         catch (relatedDeleteError) {
             console.error("[api/songs/:id] related records delete failed:", relatedDeleteError);

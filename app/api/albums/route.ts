@@ -41,6 +41,11 @@ function isMissingTable(error: unknown) {
     const code = error && typeof error === "object" ? String((error as Record<string, unknown>).code || "") : "";
     return code === "42P01" || code === "PGRST205" || message.includes("albums") || message.includes("album_items") || message.includes("album_tracks") || message.includes("does not exist") || message.includes("schema cache");
 }
+function isMissingOptionalTableError(error: unknown, tableName: string) {
+    const message = getErrorMessage(error).toLowerCase();
+    const code = error && typeof error === "object" ? String((error as Record<string, unknown>).code || "") : "";
+    return code === "42P01" || code === "PGRST205" || message.includes(tableName) || message.includes("does not exist") || message.includes("schema cache");
+}
 function normalizeOwnerType(value: unknown) {
     return value === "producer" ? "producer" : "artist";
 }
@@ -174,6 +179,18 @@ async function insertAlbumItems(supabase: SupabaseServerClient, albumId: string,
         return tracksResult;
     }
     return result;
+}
+async function deleteOptionalAlbumRows(supabase: SupabaseServerClient, tableName: string, albumId: string) {
+    const { error } = await supabase.from(tableName).delete().eq("album_id", albumId);
+    if (error && !isMissingOptionalTableError(error, tableName)) {
+        throw error;
+    }
+}
+async function deleteOptionalTypedAlbumRows(supabase: SupabaseServerClient, tableName: string, albumId: string) {
+    const { error } = await supabase.from(tableName).delete().eq("item_id", albumId).eq("item_type", "album");
+    if (error && !isMissingOptionalTableError(error, tableName)) {
+        throw error;
+    }
 }
 type AlbumRepairCandidate = {
     id: string;
@@ -614,8 +631,18 @@ export async function DELETE(request: Request) {
         if (!isOwnerAdmin && String(existingAlbum.data.user_id || "") !== userId) {
             return jsonResponse({ error: "Only the album owner can delete this album." }, 403);
         }
-        const libraryDelete = await supabase.from("library_saves").delete().eq("item_id", id).eq("item_type", "album");
-        if (libraryDelete.error && !isMissingTable(libraryDelete.error)) {
+        try {
+            await Promise.all([
+                deleteOptionalTypedAlbumRows(supabase, "library_saves", id),
+                deleteOptionalTypedAlbumRows(supabase, "playlist_items", id),
+                deleteOptionalTypedAlbumRows(supabase, "comments", id),
+                deleteOptionalTypedAlbumRows(supabase, "moderation_reports", id),
+                deleteOptionalAlbumRows(supabase, "album_tracks", id),
+            ]);
+        }
+        catch (relatedDeleteError) {
+            console.error("[api/albums] related record delete failed:", relatedDeleteError);
+            return jsonResponse({ error: getErrorMessage(relatedDeleteError) }, 500);
         }
         const itemsDelete = await supabase.from("album_items").delete().eq("album_id", id);
         if (itemsDelete.error) {

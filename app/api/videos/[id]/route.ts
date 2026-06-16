@@ -292,15 +292,27 @@ export async function DELETE(request: Request, { params }: {
         if (!id) {
             return jsonResponse({ error: "Missing video id." }, 400);
         }
-        if (!isUuid(id)) {
-            return jsonResponse({ error: "Video delete requires a real database row id." }, 400);
-        }
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Log in before deleting uploaded videos." }, 401);
         }
         const isOwnerAdmin = await isPlatformOwnerUserId(userId);
         const supabase = getSupabaseServerClient();
+        if (!isUuid(id)) {
+            if (!isOwnerAdmin || !id.startsWith("storage-")) {
+                return jsonResponse({ error: "Video delete requires a real database row id." }, 400);
+            }
+            const storagePath = id.replace(/^storage-/, "").trim();
+            if (!storagePath) {
+                return jsonResponse({ error: "Recovered video storage path is missing." }, 400);
+            }
+            const { error: storageDeleteError } = await supabase.storage.from(VIDEOS_BUCKET).remove([storagePath]);
+            if (storageDeleteError) {
+                console.error("[api/videos/:id] recovered storage delete failed:", storageDeleteError);
+                return jsonResponse({ error: getErrorMessage(storageDeleteError) }, 500);
+            }
+            return jsonResponse({ ok: true, storageOnly: true });
+        }
         const { data: video, error: readError } = await supabase
             .from("videos")
             .select("storage_path,user_id,artist_id,producer_id,producer_profile_id")
@@ -324,6 +336,8 @@ export async function DELETE(request: Request, { params }: {
                 deleteOptionalVideoRows(supabase, "recent_videos", id),
                 deleteOptionalTypedItemRows(supabase, "library_saves", id, "video"),
                 deleteOptionalTypedItemRows(supabase, "playlist_items", id, "video"),
+                deleteOptionalTypedItemRows(supabase, "comments", id, "video"),
+                deleteOptionalTypedItemRows(supabase, "moderation_reports", id, "video"),
             ]);
         }
         catch (relatedDeleteError) {
