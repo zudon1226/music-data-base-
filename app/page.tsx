@@ -28533,25 +28533,29 @@ export default function Page() {
             }
 
             .notification-center {
-              width: calc(100vw - 220px) !important;
-              max-width: 100% !important;
-              left: auto !important;
-              right: 12px !important;
-              overflow: hidden !important;
+              position: fixed !important;
+              top: 150px !important;
+              left: 200px !important;
+              right: 20px !important;
+              width: auto !important;
+              max-width: none !important;
+              z-index: 9999 !important;
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 12px !important;
               box-sizing: border-box !important;
+              overflow: hidden !important;
             }
 
             .notification-head {
               display: flex !important;
               justify-content: space-between !important;
               align-items: center !important;
-              gap: 12px !important;
-              min-width: 0 !important;
             }
 
             .notification-head button {
+              position: static !important;
               flex-shrink: 0 !important;
-              max-width: 120px !important;
             }
 
           }
