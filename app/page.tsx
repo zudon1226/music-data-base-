@@ -10940,8 +10940,25 @@ export default function Page() {
             setActiveMedia(previousState.activeMedia);
             setActiveMediaType(previousState.activeMediaType);
             restoreSongLocalStorageSnapshot(previousState);
-            showToast("Track could not be deleted. Check your connection and try again.", "error");
+            const message = error instanceof Error ? error.message : "Track could not be deleted. Check your connection and try again.";
+            showToast(message, "error");
         }
+    }
+    function permanentDeleteSong(songId: string) {
+        const song = songs.find((item) => item.id === songId);
+        const isUploader = Boolean(song?.ownerId && accountUserId && song.ownerId === accountUserId);
+        console.log("[delete-song] tapped", {
+            itemType: "song",
+            itemId: songId,
+            currentUserId: accountUserId || "",
+            isAdmin: isPlatformOwner,
+            isUploader,
+        });
+        if (!song) {
+            showToast("Song could not be found for deletion.", "error");
+            return;
+        }
+        void permanentlyDeleteSong(song.id);
     }
     function getProducerCreditForSong(song: Song) {
         if (song.producer)
@@ -11646,7 +11663,7 @@ export default function Page() {
                   <X size={15}/>
                   Remove Credit
                 </button>)}
-              {canDeleteTrack && (<button className="danger-btn" onClick={() => handlePermanentDelete(song)} type="button">
+              {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} type="button">
                   <Trash2 size={15}/>
                   Delete
                 </button>)}
@@ -15737,7 +15754,7 @@ export default function Page() {
                             {isQueued ? "Queued" : "Queue"}
                           </button>
                           {renderPlaylistButton(song)}
-                          {canDeleteTrack && (<button className="danger-btn" onClick={() => handlePermanentDelete(song)} title="Delete this song everywhere" type="button">
+                          {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} title="Delete this song everywhere" type="button">
                               <Trash2 size={16}/>
                             </button>)}
                         </article>);
@@ -16295,7 +16312,7 @@ export default function Page() {
                                   </button>
                                   {renderMobileSongQueueButton(song)}
                                   {renderPlaylistButton(song)}
-                                  {canDeleteTrack && (<button className="danger-btn" onClick={() => handlePermanentDelete(song)} type="button">
+                                  {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} type="button">
                                       <Trash2 size={15}/>
                                       Delete
                                     </button>)}
@@ -16668,7 +16685,7 @@ export default function Page() {
                       </button>
                       {renderMobileSongQueueButton(song)}
                       {renderPlaylistButton(song)}
-                      {canDeleteTrack && (<button className="danger-btn" onClick={() => handlePermanentDelete(song)} type="button">
+                      {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} type="button">
                           <Trash2 size={15}/>
                           Delete
                         </button>)}
