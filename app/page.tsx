@@ -28516,6 +28516,22 @@ export default function Page() {
               margin-bottom: 32px !important;
             }
 
+            .playlist-layout,
+            .playlist-detail,
+            .playlist-songs,
+            .playlist-detail > .playlist-songs {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              padding-bottom: 0 !important;
+              margin-bottom: 0 !important;
+              scroll-padding-bottom: 0 !important;
+            }
+
+            .playlist-detail > .playlist-songs:last-child {
+              margin-bottom: 24px !important;
+            }
+
           }
         `}</style>
     </main>);
