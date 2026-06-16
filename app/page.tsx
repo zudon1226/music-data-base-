@@ -26472,11 +26472,10 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-song-row.playlist-track-row {
-              display: grid !important;
-              grid-template-columns: 36px 96px minmax(0, 1fr) !important;
-              grid-template-rows: auto auto !important;
+              display: flex !important;
+              flex-direction: column !important;
               gap: 12px !important;
-              align-items: start !important;
+              align-items: stretch !important;
               padding: 16px !important;
               height: auto !important;
               min-height: 0 !important;
@@ -26485,47 +26484,53 @@ export default function Page() {
             }
 
             .playlist-songs .playlist-track-top {
-              display: contents !important;
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 10px !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              overflow: visible !important;
             }
 
             .playlist-songs .playlist-track-top .recent-number {
-              grid-column: 1 !important;
-              grid-row: 1 !important;
               width: 36px !important;
               min-width: 36px !important;
               max-width: 36px !important;
               text-align: center !important;
-              align-self: start !important;
+              align-self: flex-start !important;
             }
 
             .playlist-songs .playlist-song-main {
-              display: contents !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              gap: 10px !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              overflow: visible !important;
             }
 
             .playlist-songs .playlist-song-artwork {
-              grid-column: 2 !important;
-              grid-row: 1 !important;
-              width: 96px !important;
-              height: 96px !important;
-              min-width: 96px !important;
-              max-width: 96px !important;
-              flex: 0 0 96px !important;
+              width: 120px !important;
+              height: 120px !important;
+              min-width: 120px !important;
+              max-width: 120px !important;
+              flex: 0 0 120px !important;
               object-fit: cover !important;
               border-radius: 10px !important;
-              margin: 0 !important;
+              margin: 0 auto !important;
               position: static !important;
               z-index: auto !important;
             }
 
             .playlist-songs .playlist-song-info,
             .playlist-songs .playlist-track-info {
-              grid-column: 3 !important;
-              grid-row: 1 !important;
               min-width: 0 !important;
               width: 100% !important;
               max-width: 100% !important;
               overflow: hidden !important;
-              align-self: start !important;
+              align-self: stretch !important;
+              text-align: left !important;
             }
 
             .playlist-songs .playlist-song-title {
@@ -26550,7 +26555,6 @@ export default function Page() {
             .playlist-songs .playlist-song-actions,
             .playlist-songs .playlist-track-actions {
               grid-column: 1 / -1 !important;
-              grid-row: 2 !important;
               display: grid !important;
               grid-template-columns: 1fr !important;
               gap: 10px !important;
