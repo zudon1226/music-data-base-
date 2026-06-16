@@ -28381,6 +28381,18 @@ export default function Page() {
               padding: 0 !important;
             }
 
+            .song-card:last-child,
+            .artist-album-card:last-child,
+            .video-card:last-child,
+            .artist-card:last-child,
+            .producer-card:last-child,
+            .artist-playlist-card:last-child,
+            .playlist-tile:last-child,
+            .storefront-card:last-child,
+            .purchase-card:last-child {
+              margin-bottom: 32px !important;
+            }
+
           }
         `}</style>
     </main>);
