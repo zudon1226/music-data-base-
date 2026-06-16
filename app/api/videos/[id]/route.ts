@@ -334,8 +334,10 @@ export async function DELETE(request: Request, { params }: {
             await Promise.all([
                 deleteOptionalVideoRows(supabase, "video_likes", id),
                 deleteOptionalVideoRows(supabase, "recent_videos", id),
+                deleteOptionalVideoRows(supabase, "recent_plays", id),
                 deleteOptionalTypedItemRows(supabase, "library_saves", id, "video"),
                 deleteOptionalTypedItemRows(supabase, "playlist_items", id, "video"),
+                deleteOptionalTypedItemRows(supabase, "recent_plays", id, "video"),
                 deleteOptionalTypedItemRows(supabase, "comments", id, "video"),
                 deleteOptionalTypedItemRows(supabase, "moderation_reports", id, "video"),
             ]);

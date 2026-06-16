@@ -10023,7 +10023,7 @@ export default function Page() {
             showToast(data.error || "Producer beat update failed.", "error");
         }
     }
-    async function deleteProducerBeat(beat: ProducerBeat) {
+    async function permanentlyDeleteProducerBeat(beat: ProducerBeat) {
         if (!canDeleteProducerBeat(beat)) {
             showToast("Only the producer who uploaded this beat or owner admin can delete it.", "error");
             return;
@@ -10690,7 +10690,7 @@ export default function Page() {
             });
         }
     }
-    async function removeVideo(videoId: string) {
+    async function permanentlyDeleteVideo(videoId: string) {
         const video = videos.find((item) => item.id === videoId);
         if (!video)
             return;
@@ -10881,7 +10881,7 @@ export default function Page() {
             : previous);
         cancelEditingSong();
     }
-    async function deleteUploadedSong(songId: string) {
+    async function permanentlyDeleteSong(songId: string) {
         const song = songs.find((item) => item.id === songId);
         if (!song)
             return;
@@ -11450,7 +11450,7 @@ export default function Page() {
             showToast("Album could not be saved. Check your connection and try again.", "error");
         }
     }
-    async function deleteUploadedAlbum(albumId: string) {
+    async function permanentlyDeleteAlbum(albumId: string) {
         const album = resolvedAlbums.find((item) => item.id === albumId);
         if (!album)
             return;
@@ -11495,18 +11495,36 @@ export default function Page() {
     }
     function handlePermanentDelete(item: Song | VideoItem | ResolvedAlbum | ProducerBeat) {
         if ("audioUrl" in item && "producerUserId" in item) {
-            void deleteProducerBeat(item);
+            if (!canDeleteProducerBeat(item)) {
+                showToast("Only the producer who uploaded this beat or owner admin can delete it.", "error");
+                return;
+            }
+            void permanentlyDeleteProducerBeat(item);
             return;
         }
         if ("songIds" in item && "videoIds" in item) {
-            void deleteUploadedAlbum(item.id);
+            if (!canDeleteUploadedAlbum(item)) {
+                showToast("Only the uploader or owner admin can delete this album.", "error");
+                return;
+            }
+            void permanentlyDeleteAlbum(item.id);
             return;
         }
         if ("videoUrl" in item || "video_url" in item) {
-            void removeVideo(item.id);
+            const video = item as VideoItem;
+            if (!canDeleteUploadedVideo(video)) {
+                showToast("Only the uploader or owner admin can delete this video.", "error");
+                return;
+            }
+            void permanentlyDeleteVideo(video.id);
             return;
         }
-        void deleteUploadedSong(item.id);
+        const song = item as Song;
+        if (!canDeleteUploadedSong(song)) {
+            showToast("Only the owner can delete this uploaded track.", "error");
+            return;
+        }
+        void permanentlyDeleteSong(song.id);
     }
     function renderDashboardAlbumRow(album: ResolvedAlbum) {
         const isEditing = editingAlbumId === album.id;

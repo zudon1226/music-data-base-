@@ -149,6 +149,7 @@ export async function DELETE(request: Request, { params }: {
                 ...relatedTables.map((tableName) => deleteOptionalSongRows(supabase, tableName, id)),
                 deleteOptionalTypedItemRows(supabase, "library_saves", id, "song"),
                 deleteOptionalTypedItemRows(supabase, "playlist_items", id, "song"),
+                deleteOptionalTypedItemRows(supabase, "recent_plays", id, "song"),
                 deleteOptionalTypedItemRows(supabase, "comments", id, "song"),
                 deleteOptionalTypedItemRows(supabase, "moderation_reports", id, "song"),
             ]);

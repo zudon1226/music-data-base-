@@ -635,6 +635,7 @@ export async function DELETE(request: Request) {
             await Promise.all([
                 deleteOptionalTypedAlbumRows(supabase, "library_saves", id),
                 deleteOptionalTypedAlbumRows(supabase, "playlist_items", id),
+                deleteOptionalTypedAlbumRows(supabase, "recent_plays", id),
                 deleteOptionalTypedAlbumRows(supabase, "comments", id),
                 deleteOptionalTypedAlbumRows(supabase, "moderation_reports", id),
                 deleteOptionalAlbumRows(supabase, "album_tracks", id),

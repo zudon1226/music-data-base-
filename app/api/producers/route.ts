@@ -372,6 +372,7 @@ export async function POST(request: Request) {
                         ...["song_likes", "favorites", "likes", "playlist_songs", "recent_plays", "library_saves", "queue", "streams"].map((tableName) => deleteOptionalSongRows(supabase, tableName, songId)),
                         deleteOptionalTypedItemRows(supabase, "library_saves", songId, "song"),
                         deleteOptionalTypedItemRows(supabase, "playlist_items", songId, "song"),
+                        deleteOptionalTypedItemRows(supabase, "recent_plays", songId, "song"),
                         deleteOptionalTypedItemRows(supabase, "comments", songId, "song"),
                         deleteOptionalTypedItemRows(supabase, "moderation_reports", songId, "song"),
                     ]);
