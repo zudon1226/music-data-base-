@@ -28371,81 +28371,9 @@ export default function Page() {
               scroll-padding-bottom: var(--mobile-player-reserve) !important;
             }
 
-            .zml-app {
-              height: auto !important;
-              min-height: auto !important;
-              max-height: none !important;
-              overflow: visible !important;
-              padding-bottom: 0 !important;
-              margin-bottom: 0 !important;
-            }
-
-            .content {
-              position: relative !important;
-              top: auto !important;
-              right: auto !important;
-              bottom: auto !important;
-              left: auto !important;
-              width: calc(100% - var(--mobile-sidebar-width)) !important;
-              height: auto !important;
-              min-height: auto !important;
-              max-height: none !important;
-              margin-left: var(--mobile-sidebar-width) !important;
-              margin-bottom: 0 !important;
-              padding-bottom: 0 !important;
-              overflow: visible !important;
-              scroll-padding-bottom: 0 !important;
-            }
-
-            .main-content,
-            .page-content,
-            .app-content,
-            .content > section,
-            .content > div:not(.topbar),
-            .content .artist-section,
-            .content .liked-page,
-            .content .profile-page,
-            .content .queue-page,
-            .content .dashboard-page,
-            .content .playlist-workspace,
-            .content .empty-state,
-            .content .horizontal-rail,
-            .content .horizontal-rail-track,
-            .content .artist-grid,
-            .content .producer-grid,
-            .content .artist-album-grid,
-            .content .artist-playlist-grid,
-            .content .discovery-grid,
-            .content .song-grid,
-            .content .video-grid {
-              height: auto !important;
-              min-height: auto !important;
-              max-height: none !important;
-              padding-bottom: 0 !important;
-              margin-bottom: 0 !important;
-              overflow: visible !important;
-              scroll-padding-bottom: 0 !important;
-            }
-
-            .content > section:last-child,
-            .content > div:not(.topbar):last-child,
-            .content .artist-section:last-child,
-            .content .liked-page:last-child,
-            .content .profile-page:last-child,
-            .content .queue-page:last-child,
-            .content .dashboard-page:last-child,
-            .content .playlist-workspace:last-child,
-            .content .empty-state:last-child {
-              padding-bottom: 0 !important;
-              margin-bottom: 0 !important;
-              scroll-padding-bottom: 0 !important;
-            }
-
-            .content .empty-state:empty,
-            .content .empty-small:empty,
-            .content .mobile-player-spacer,
-            .content .spacer,
-            .content [aria-hidden="true"].spacer {
+            .content > .mobile-player-spacer:last-child,
+            .content > .spacer:last-child,
+            .content > [data-spacer]:last-child {
               display: none !important;
               height: 0 !important;
               min-height: 0 !important;
