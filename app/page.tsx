@@ -8495,7 +8495,20 @@ export default function Page() {
         return Boolean(isDatabaseUuid(song.id) && (isPlatformOwner || (accountUserId && song.ownerId === accountUserId)));
     }
     function canDeleteUploadedVideo(video: VideoItem) {
-        return Boolean(isDatabaseUuid(video.id) && (isPlatformOwner || (accountUserId && video.ownerId === accountUserId)));
+        if (!isDatabaseUuid(video.id))
+            return false;
+        if (isPlatformOwner)
+            return true;
+        if (!accountUserId)
+            return false;
+        return (video.ownerId === accountUserId ||
+            video.artistId === accountUserId ||
+            video.producerId === accountUserId ||
+            video.producerProfileId === accountUserId ||
+            (Boolean(currentProducerProfile.id) &&
+                (video.producerId === currentProducerProfile.id ||
+                    video.producerProfileId === currentProducerProfile.id)) ||
+            (Boolean(selectedDashboardArtist?.id) && video.artistId === selectedDashboardArtist.id));
     }
     function canDeleteUploadedAlbum(album: ResolvedAlbum) {
         return Boolean(isDatabaseUuid(album.id) &&

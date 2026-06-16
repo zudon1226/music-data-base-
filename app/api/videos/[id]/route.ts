@@ -265,6 +265,23 @@ async function deleteOptionalTypedItemRows(supabase: ReturnType<typeof getSupaba
         throw error;
     }
 }
+async function isProducerProfileOwner(supabase: ReturnType<typeof getSupabaseServerClient>, profileIds: string[], userId: string) {
+    const cleanProfileIds = profileIds.filter((profileId) => profileId.trim());
+    if (cleanProfileIds.length === 0)
+        return false;
+    const { data, error } = await supabase
+        .from("producer_profiles")
+        .select("id,user_id")
+        .in("id", cleanProfileIds)
+        .eq("user_id", userId)
+        .limit(1);
+    if (error) {
+        if (isMissingOptionalTableError(error, "producer_profiles"))
+            return false;
+        throw error;
+    }
+    return Boolean(data?.length);
+}
 export async function DELETE(request: Request, { params }: {
     params: Promise<{
         id: string;
@@ -286,7 +303,7 @@ export async function DELETE(request: Request, { params }: {
         const supabase = getSupabaseServerClient();
         const { data: video, error: readError } = await supabase
             .from("videos")
-            .select("storage_path,user_id")
+            .select("storage_path,user_id,artist_id,producer_id,producer_profile_id")
             .eq("id", id)
             .maybeSingle();
         if (readError) {
@@ -296,7 +313,9 @@ export async function DELETE(request: Request, { params }: {
         if (!video) {
             return jsonResponse({ ok: true, alreadyDeleted: true });
         }
-        if (!isOwnerAdmin && (!video.user_id || video.user_id !== userId)) {
+        const ownedByUser = video.user_id === userId || video.artist_id === userId || video.producer_id === userId || video.producer_profile_id === userId;
+        const ownedProducerProfile = !ownedByUser && await isProducerProfileOwner(supabase, [String(video.producer_id || ""), String(video.producer_profile_id || "")], userId);
+        if (!isOwnerAdmin && !ownedByUser && !ownedProducerProfile) {
             return jsonResponse({ error: "Only the uploader can delete this video." }, 403);
         }
         try {
