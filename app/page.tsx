@@ -10881,7 +10881,7 @@ export default function Page() {
             : previous);
         cancelEditingSong();
     }
-    async function permanentlyDeleteSong(songId: string) {
+    async function permanentlyDeleteSong(songId: string, confirmMessage = "Delete this song everywhere? This cannot be undone.") {
         const song = songs.find((item) => item.id === songId);
         if (!song)
             return;
@@ -10889,7 +10889,7 @@ export default function Page() {
             showToast("Only the owner can delete this uploaded track.", "error");
             return;
         }
-        if (!window.confirm("Delete this song everywhere? This cannot be undone."))
+        if (!window.confirm(confirmMessage))
             return;
         const previousState = {
             songs,
@@ -10944,7 +10944,7 @@ export default function Page() {
             showToast(message, "error");
         }
     }
-    function permanentDeleteSong(songId: string) {
+    function permanentDeleteSong(songId: string, confirmMessage?: string) {
         const song = songs.find((item) => item.id === songId);
         const isUploader = Boolean(song?.ownerId && accountUserId && song.ownerId === accountUserId);
         console.log("[delete-song] tapped", {
@@ -10958,7 +10958,7 @@ export default function Page() {
             showToast("Song could not be found for deletion.", "error");
             return;
         }
-        void permanentlyDeleteSong(song.id);
+        void permanentlyDeleteSong(song.id, confirmMessage);
     }
     function getProducerCreditForSong(song: Song) {
         if (song.producer)
@@ -16312,7 +16312,10 @@ export default function Page() {
                                   </button>
                                   {renderMobileSongQueueButton(song)}
                                   {renderPlaylistButton(song)}
-                                  {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} type="button">
+                                  {canDeleteTrack && (<button className="danger-btn" onClick={() => {
+                                    console.log("LIBRARY DELETE CLICKED", song.id, song.title);
+                                    permanentDeleteSong(song.id, "Permanently delete this song?");
+                                }} type="button">
                                       <Trash2 size={15}/>
                                       Delete
                                     </button>)}
