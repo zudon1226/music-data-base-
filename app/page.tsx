@@ -11921,14 +11921,13 @@ export default function Page() {
               <span>{isSaved ? "Saved" : "Save"}</span>
             </button>
             {renderMobileVideoQueueButton(video)}
-            {options.isLibraryCard && (<button className="danger-btn" onClick={() => {
-                console.log("VIDEO ID", video.id);
-                console.log("STORAGE PATH", video.storage_path);
-                handlePermanentDeleteVideo(video.id);
-            }} type="button">
-                <span aria-hidden="true">🗑</span>
-                Delete
-              </button>)}
+            {options.isLibraryCard && (<button type="button" className="delete-button" onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                alert("VIDEO DELETE CLICKED: " + video.id);
+            }}>
+              🗑 Delete
+            </button>)}
             {renderVideoPlaylistButton(video)}
           </div>
           <div className="card-secondary-actions">
