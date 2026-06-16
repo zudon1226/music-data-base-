@@ -26471,6 +26471,109 @@ export default function Page() {
               color: #ffffff !important;
             }
 
+            .playlist-songs .playlist-song-row.playlist-track-row {
+              display: grid !important;
+              grid-template-columns: 36px 96px minmax(0, 1fr) !important;
+              grid-template-rows: auto auto !important;
+              gap: 12px !important;
+              align-items: start !important;
+              padding: 16px !important;
+              height: auto !important;
+              min-height: 0 !important;
+              overflow: visible !important;
+              box-sizing: border-box !important;
+            }
+
+            .playlist-songs .playlist-track-top {
+              display: contents !important;
+            }
+
+            .playlist-songs .playlist-track-top .recent-number {
+              grid-column: 1 !important;
+              grid-row: 1 !important;
+              width: 36px !important;
+              min-width: 36px !important;
+              max-width: 36px !important;
+              text-align: center !important;
+              align-self: start !important;
+            }
+
+            .playlist-songs .playlist-song-main {
+              display: contents !important;
+            }
+
+            .playlist-songs .playlist-song-artwork {
+              grid-column: 2 !important;
+              grid-row: 1 !important;
+              width: 96px !important;
+              height: 96px !important;
+              min-width: 96px !important;
+              max-width: 96px !important;
+              flex: 0 0 96px !important;
+              object-fit: cover !important;
+              border-radius: 10px !important;
+              margin: 0 !important;
+              position: static !important;
+              z-index: auto !important;
+            }
+
+            .playlist-songs .playlist-song-info,
+            .playlist-songs .playlist-track-info {
+              grid-column: 3 !important;
+              grid-row: 1 !important;
+              min-width: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              overflow: hidden !important;
+              align-self: start !important;
+            }
+
+            .playlist-songs .playlist-song-title {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              white-space: normal !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              max-width: 100% !important;
+            }
+
+            .playlist-songs .playlist-track-artist,
+            .playlist-songs .playlist-track-artist .artist-link {
+              display: block !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              max-width: 100% !important;
+            }
+
+            .playlist-songs .playlist-song-actions,
+            .playlist-songs .playlist-track-actions {
+              grid-column: 1 / -1 !important;
+              grid-row: 2 !important;
+              display: grid !important;
+              grid-template-columns: 1fr !important;
+              gap: 10px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              overflow: visible !important;
+              position: static !important;
+              margin: 0 !important;
+            }
+
+            .playlist-songs .playlist-song-actions > button,
+            .playlist-songs .playlist-track-actions > button,
+            .playlist-songs .playlist-track-actions > .playlist-track-button {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              height: auto !important;
+              min-height: 44px !important;
+              position: static !important;
+              margin: 0 !important;
+              transform: none !important;
+            }
+
             .queue-manage-list {
               display: grid !important;
               gap: 8px !important;
