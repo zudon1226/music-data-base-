@@ -28532,6 +28532,28 @@ export default function Page() {
               margin-bottom: 24px !important;
             }
 
+            .notification-center {
+              width: calc(100vw - 220px) !important;
+              max-width: 100% !important;
+              left: auto !important;
+              right: 12px !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .notification-head {
+              display: flex !important;
+              justify-content: space-between !important;
+              align-items: center !important;
+              gap: 12px !important;
+              min-width: 0 !important;
+            }
+
+            .notification-head button {
+              flex-shrink: 0 !important;
+              max-width: 120px !important;
+            }
+
           }
         `}</style>
     </main>);
