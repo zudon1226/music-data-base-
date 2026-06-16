@@ -3147,6 +3147,7 @@ export default function Page() {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
     const videoPreviewRef = useRef<HTMLElement | null>(null);
+    const notificationWrapRef = useRef<HTMLDivElement | null>(null);
     const albumUploadUserRef = useRef<SupabaseUser | null>(null);
     const activeUploadKeysRef = useRef<Set<string>>(new Set());
     const uploadInProgressRef = useRef(false);
@@ -4611,6 +4612,23 @@ export default function Page() {
         setPayoutRequests([]);
         setActiveSubscriptionPlanId("creator-free");
     }
+    useEffect(() => {
+        if (!showNotificationCenter)
+            return;
+        function closeNotificationOnOutsideTap(event: PointerEvent) {
+            const target = event.target;
+            if (!(target instanceof Node))
+                return;
+            if (notificationWrapRef.current?.contains(target))
+                return;
+            setShowNotificationCenter(false);
+        }
+        document.addEventListener("pointerdown", closeNotificationOnOutsideTap);
+        return () => document.removeEventListener("pointerdown", closeNotificationOnOutsideTap);
+    }, [showNotificationCenter]);
+    useEffect(() => {
+        setShowNotificationCenter(false);
+    }, [view]);
     useEffect(() => {
         const timer = window.setTimeout(() => {
             clearOversizedMediaStorageKeys();
@@ -11882,6 +11900,7 @@ export default function Page() {
         }
     }
     function handleNav(nextView: View) {
+        setShowNotificationCenter(false);
         if (!user &&
             [
                 "Library",
@@ -13375,7 +13394,7 @@ export default function Page() {
             </button>
           </div>
 
-          <div className="notification-wrap">
+          <div className="notification-wrap" ref={notificationWrapRef}>
             <button className="notification-button" onClick={() => {
             setShowNotificationCenter((value) => !value);
             markNotificationsRead();
