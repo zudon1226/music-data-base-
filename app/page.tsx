@@ -3156,6 +3156,7 @@ export default function Page() {
     const uploadInProgressRef = useRef(false);
     const musicPlayRequestRef = useRef(0);
     const recentPositionUpdateRef = useRef(0);
+    const lastDeleteTouchRef = useRef(0);
     const localStorageSnapshotRef = useRef<Record<string, string>>({});
     const initialDataLoadedKeyRef = useRef("");
     const initialDataLoadInFlightKeyRef = useRef("");
@@ -11543,6 +11544,18 @@ export default function Page() {
         }
         void permanentlyDeleteSong(song.id);
     }
+    function handleDeleteButtonPress(event: SyntheticEvent<HTMLButtonElement>, action: () => void, source: "click" | "touch" = "click") {
+        event.preventDefault();
+        event.stopPropagation();
+        const now = Date.now();
+        if (source === "touch") {
+            lastDeleteTouchRef.current = now;
+        }
+        else if (now - lastDeleteTouchRef.current < 700) {
+            return;
+        }
+        action();
+    }
     function renderDashboardAlbumRow(album: ResolvedAlbum) {
         const isEditing = editingAlbumId === album.id;
         const songCount = getAlbumSongCount(album);
@@ -11586,7 +11599,7 @@ export default function Page() {
                 <Edit3 size={15}/>
                 Edit
               </button>
-              {canDeleteAlbum && (<button className="danger-btn" onClick={() => handlePermanentDelete(album)} type="button">
+              {canDeleteAlbum && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(album))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(album), "touch")} type="button">
                   <Trash2 size={15}/>
                   Delete
                 </button>)}
@@ -11663,7 +11676,7 @@ export default function Page() {
                   <X size={15}/>
                   Remove Credit
                 </button>)}
-              {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} type="button">
+              {canDeleteTrack && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => permanentDeleteSong(song.id))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => permanentDeleteSong(song.id), "touch")} type="button">
                   <Trash2 size={15}/>
                   Delete
                 </button>)}
@@ -11749,7 +11762,7 @@ export default function Page() {
                   <X size={15}/>
                   Remove Credit
                 </button>)}
-              {canDeleteVideo && (<button className="danger-btn" onClick={() => handlePermanentDelete(video)} type="button">
+              {canDeleteVideo && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(video))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(video), "touch")} type="button">
                   <Trash2 size={15}/>
                   Delete
                 </button>)}
@@ -11825,7 +11838,7 @@ export default function Page() {
                   <Edit3 size={15}/>
                   Edit
                 </button>)}
-              {canManageAlbum && (<button className="danger-btn" onClick={() => handlePermanentDelete(album)} type="button">
+              {canManageAlbum && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(album))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(album), "touch")} type="button">
                   <Trash2 size={15}/>
                   Delete
                 </button>)}
@@ -11851,7 +11864,7 @@ export default function Page() {
           {options.showLibraryRemove && (<button className="card-icon-btn danger" onClick={() => removeVideoFromLibrary(video.id)} type="button" title="Remove from library">
               <Trash2 size={15}/>
             </button>)}
-          {canDeleteVideo && (<button className="card-icon-btn danger" onClick={() => handlePermanentDelete(video)} type="button" title="Delete video">
+          {canDeleteVideo && (<button className="card-icon-btn danger" onClick={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(video))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(video), "touch")} type="button" title="Delete video">
               <Trash2 size={15}/>
             </button>)}
         </div>
@@ -14104,7 +14117,7 @@ export default function Page() {
                         <strong>{item.title}</strong>
                         <small>{item.creatorName} | {item.itemType}{item.licenseType ? ` | ${item.licenseType} license` : ""} | {formatCurrencyFromCents(item.priceCents, item.currency)}</small>
                       </div>
-                      <button className="danger-btn" onClick={() => removeSalesCartItem(item)} type="button">
+                      <button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => removeSalesCartItem(item))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => removeSalesCartItem(item), "touch")} type="button">
                         <Trash2 size={15}/>
                         Remove
                       </button>
@@ -15359,7 +15372,7 @@ export default function Page() {
                           <Disc3 size={15}/>
                           License
                         </button>
-                        {canDeleteProducerBeat(beat) && (<button className="danger-btn" onClick={() => handlePermanentDelete(beat)} type="button">
+                        {canDeleteProducerBeat(beat) && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(beat))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(beat), "touch")} type="button">
                             <Trash2 size={15}/>
                             Delete
                           </button>)}
@@ -15754,7 +15767,7 @@ export default function Page() {
                             {isQueued ? "Queued" : "Queue"}
                           </button>
                           {renderPlaylistButton(song)}
-                          {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} title="Delete this song everywhere" type="button">
+                          {canDeleteTrack && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => permanentDeleteSong(song.id))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => permanentDeleteSong(song.id), "touch")} title="Delete this song everywhere" type="button">
                               <Trash2 size={16}/>
                             </button>)}
                         </article>);
@@ -15906,7 +15919,7 @@ export default function Page() {
                               <Disc3 size={15}/>
                               License
                             </button>
-                            {canDeleteProducerBeat(beat) && (<button className="danger-btn" onClick={() => handlePermanentDelete(beat)} type="button">
+                            {canDeleteProducerBeat(beat) && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(beat))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => handlePermanentDelete(beat), "touch")} type="button">
                                 <Trash2 size={15}/>
                                 Delete
                               </button>)}
@@ -16011,7 +16024,7 @@ export default function Page() {
                           <button onClick={() => renamePlaylist(activePlaylist.id)}>
                             Rename
                           </button>
-                          <button className="danger-btn" onClick={() => deletePlaylist(activePlaylist.id)}>
+                          <button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => deletePlaylist(activePlaylist.id))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => deletePlaylist(activePlaylist.id), "touch")} type="button">
                             <Trash2 size={16}/>
                             Delete
                           </button>
@@ -16312,10 +16325,13 @@ export default function Page() {
                                   </button>
                                   {renderMobileSongQueueButton(song)}
                                   {renderPlaylistButton(song)}
-                                  {canDeleteTrack && (<button className="danger-btn library-song-delete-btn" onClick={() => {
+                                  {canDeleteTrack && (<button className="danger-btn library-song-delete-btn" onClick={(event) => handleDeleteButtonPress(event, () => {
                                     console.log("LIBRARY DELETE CLICKED", song.id, song.title);
                                     permanentDeleteSong(song.id, "Permanently delete this song?");
-                                }} type="button">
+                                })} onTouchEnd={(event) => handleDeleteButtonPress(event, () => {
+                                    console.log("LIBRARY DELETE CLICKED", song.id, song.title);
+                                    permanentDeleteSong(song.id, "Permanently delete this song?");
+                                }, "touch")} type="button">
                                       <Trash2 size={15}/>
                                       Delete
                                     </button>)}
@@ -16688,7 +16704,7 @@ export default function Page() {
                       </button>
                       {renderMobileSongQueueButton(song)}
                       {renderPlaylistButton(song)}
-                      {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} type="button">
+                      {canDeleteTrack && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => permanentDeleteSong(song.id))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => permanentDeleteSong(song.id), "touch")} type="button">
                           <Trash2 size={15}/>
                           Delete
                         </button>)}
@@ -16759,7 +16775,7 @@ export default function Page() {
                       <Bell size={14}/>
                       Report
                     </button>
-                    {user?.id === comment.userId && (<button className="danger-btn" onClick={() => deleteComment(comment)} type="button">
+                    {user?.id === comment.userId && (<button className="danger-btn" onClick={(event) => handleDeleteButtonPress(event, () => deleteComment(comment))} onTouchEnd={(event) => handleDeleteButtonPress(event, () => deleteComment(comment), "touch")} type="button">
                         <Trash2 size={14}/>
                         Delete
                       </button>)}
@@ -19103,6 +19119,15 @@ export default function Page() {
           .card-icon-btn.danger {
             background: rgba(127, 29, 29, 0.92);
             color: white;
+          }
+
+          .danger-btn,
+          .card-icon-btn.danger {
+            position: relative;
+            z-index: 25;
+            pointer-events: auto;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(239, 68, 68, 0.28);
           }
 
           .card-icon-btn.saved,
