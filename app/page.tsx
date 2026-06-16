@@ -16241,15 +16241,6 @@ export default function Page() {
                                 <span className="badge">{song.category}</span>
                                 <span className="duration">{song.time}</span>
                                 <div className="card-header-actions">
-                                  <button className={isSaved ? "card-icon-btn saved" : "card-icon-btn"} onClick={() => {
-                                    if (isSaved) {
-                                        removeFromLibrary(song.id);
-                                        return;
-                                    }
-                                    saveSongToLibrary(song);
-                                }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
-                                    {isSaved ? <Trash2 size={15}/> : <Plus size={15}/>}
-                                  </button>
                                   <button className={isQueued ? "card-icon-btn queued" : "card-icon-btn"} onClick={() => addToQueue(song)} title={isQueued ? "Queued" : "Add to queue"} type="button">
                                     <ListMusic size={15}/>
                                   </button>
@@ -16631,15 +16622,6 @@ export default function Page() {
                     <span className="badge">{song.category}</span>
                     <span className="duration">{song.time}</span>
                     <div className="card-header-actions">
-                      <button className={isSaved ? "card-icon-btn saved" : "card-icon-btn"} onClick={() => {
-                            if (isSaved) {
-                                removeFromLibrary(song.id);
-                                return;
-                            }
-                            saveSongToLibrary(song);
-                        }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
-                        {isSaved ? <Trash2 size={15}/> : <Plus size={15}/>}
-                      </button>
                       <button className={isQueued ? "card-icon-btn queued" : "card-icon-btn"} onClick={() => addToQueue(song)} title={isQueued ? "Queued" : "Add to queue"} type="button">
                         <ListMusic size={15}/>
                       </button>
