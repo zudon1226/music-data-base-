@@ -11868,6 +11868,7 @@ export default function Page() {
         const isSaved = savedVideoIds.includes(video.id);
         const sourceLabel = options.sourceLabel || "Video Card";
         const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
+        const showVideoLibraryDeleteTest = options.isLibraryCard || options.sourceLabel === "Video Library" || options.showRemove;
         return (<article className={options.isLibraryCard ? "video-card library-card media-card" : "video-card media-card"} key={video.id}>
         <div className="video-cover-wrap">
           <button className="video-cover" onClick={() => playVideo(video, sourceLabel)} type="button">
@@ -11896,6 +11897,14 @@ export default function Page() {
           {mobileIncompatible ? (<p className="video-compat-warning">This video must be re-uploaded as MP4 H.264/AAC for mobile.</p>) : null}
 
           <div className="card-actions media-card-actions">
+            {showVideoLibraryDeleteTest && renderMobileVideoQueueButton(video)}
+            {showVideoLibraryDeleteTest && (<button type="button" className="danger-btn delete-button" onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                alert("VIDEO DELETE CLICKED: " + video.id);
+            }}>
+              ðŸ—‘ Delete
+            </button>)}
             <button className="play-btn" onClick={() => playVideo(video, sourceLabel)} type="button">
               <span aria-hidden="true">▶</span>
               <span>Play</span>
@@ -11920,8 +11929,8 @@ export default function Page() {
               <span aria-hidden="true">{isSaved ? "✓" : "+"}</span>
               <span>{isSaved ? "Saved" : "Save"}</span>
             </button>
-            {renderMobileVideoQueueButton(video)}
-            {options.isLibraryCard && (<button type="button" className="delete-button" onClick={(e) => {
+            {!showVideoLibraryDeleteTest && renderMobileVideoQueueButton(video)}
+            {!showVideoLibraryDeleteTest && options.isLibraryCard && (<button type="button" className="delete-button" onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 alert("VIDEO DELETE CLICKED: " + video.id);
