@@ -10698,7 +10698,7 @@ export default function Page() {
             showToast("Only the uploader or owner admin can delete this video.", "error");
             return;
         }
-        if (!window.confirm(`Delete "${video.title}" from Video Library?`))
+        if (!window.confirm("Permanently delete this video?"))
             return;
         const previousState = {
             videos,
@@ -11871,9 +11871,6 @@ export default function Page() {
           {options.showLibraryRemove && (<button className="card-icon-btn danger" onClick={() => removeVideoFromLibrary(video.id)} type="button" title="Remove from library">
               <Trash2 size={15}/>
             </button>)}
-          {options.isLibraryCard && canDeleteVideo && (<button className="card-icon-btn danger" onClick={() => handlePermanentDeleteVideo(video.id)} type="button" title="Delete video">
-              <Trash2 size={15}/>
-            </button>)}
         </div>
 
         <div className="video-card-body media-card-content">
@@ -11918,6 +11915,10 @@ export default function Page() {
             </button>
             {renderMobileVideoQueueButton(video)}
             {renderVideoPlaylistButton(video)}
+            {options.isLibraryCard && canDeleteVideo && (<button className="danger-btn" onClick={() => handlePermanentDeleteVideo(video.id)} type="button">
+                <Trash2 size={15}/>
+                Delete
+              </button>)}
           </div>
           <div className="card-secondary-actions">
             <button onClick={() => openComments("video", video)} type="button">
