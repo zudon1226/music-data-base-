@@ -16312,7 +16312,7 @@ export default function Page() {
                                   </button>
                                   {renderMobileSongQueueButton(song)}
                                   {renderPlaylistButton(song)}
-                                  {canDeleteTrack && (<button className="danger-btn" onClick={() => {
+                                  {canDeleteTrack && (<button className="danger-btn library-song-delete-btn" onClick={() => {
                                     console.log("LIBRARY DELETE CLICKED", song.id, song.title);
                                     permanentDeleteSong(song.id, "Permanently delete this song?");
                                 }} type="button">
@@ -25643,6 +25643,20 @@ export default function Page() {
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
+            }
+
+            .media-card-actions .library-song-delete-btn {
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              gap: 6px !important;
+              min-height: 44px !important;
+              border: 0 !important;
+              border-radius: 8px !important;
+              background: #ef4444 !important;
+              color: #ffffff !important;
+              font-weight: 900 !important;
+              cursor: pointer !important;
             }
 
             .song-list,
