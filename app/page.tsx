@@ -8447,10 +8447,11 @@ export default function Page() {
         await removeLibraryItem(songId, "song");
     }
     async function saveVideoToLibrary(video: VideoItem) {
-        const saved = await saveLibraryItem(video, "video");
+        const videoForSave = await resolveVideoForLibrarySave(video);
+        const saved = await saveLibraryItem(videoForSave, "video");
         if (!saved)
             return;
-        const normalized = normalizeVideoForPlayback(video);
+        const normalized = normalizeVideoForPlayback(videoForSave);
         setSavedVideoIds((previous) => {
             const clean = uniqueIds(previous);
             return clean.includes(normalized.id) ? clean : [...clean, normalized.id];
@@ -8460,13 +8461,56 @@ export default function Page() {
         showToast("Saved to Library", "success");
         pushNotification("Video saved", `${normalized.title} was saved to your library.`, "video", normalized.id);
     }
+    async function resolveVideoForLibrarySave(video: VideoItem) {
+        if (isUuid(video.id))
+            return video;
+        const storagePath = video.storagePath || video.storage_path || "";
+        if (!storagePath) {
+            return video;
+        }
+        if (!user?.id) {
+            return video;
+        }
+        const response = await fetch("/api/video-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sessionUserId: user.id,
+                userId: user.id,
+                publicUrl: video.video_url || video.videoUrl || video.url || "",
+                storagePath,
+                title: video.title,
+                artistName: video.creator,
+                creator: video.creator,
+                category: video.category,
+                coverUrl: video.cover || video.cover_url || video.thumbnail_url || "",
+                producerName: video.producerName || video.producer || "",
+                producerId: video.producerId || video.producerProfileId || "",
+            }),
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            error?: string;
+            video?: VideoTableRow;
+        };
+        if (!response.ok || data.error || !data.video?.id) {
+            throw new Error(data.error || "Could not create a real video row before saving.");
+        }
+        const resolvedVideo = mapVideoRowToVideoItem(data.video);
+        setVideos((previous) => uniqueVideos([resolvedVideo, ...previous.filter((item) => item.id !== video.id)]));
+        return resolvedVideo;
+    }
     function handleSaveVideo(videoId: string) {
         const video = videos.find((item) => item.id === videoId);
+        console.log("VIDEO SAVE ID", videoId);
+        console.log("VIDEO STORAGE PATH", video?.storage_path || video?.storagePath || "");
         if (!video) {
             showToast("Video could not be found for saving.", "error");
             return;
         }
-        void saveVideoToLibrary(video);
+        void saveVideoToLibrary(video).catch((error) => {
+            const message = error instanceof Error ? error.message : String(error);
+            showToast(message, "error");
+        });
     }
     async function removeVideoFromLibrary(videoId: string) {
         setSavedVideoIds((previous) => uniqueIds(previous).filter((id) => id !== videoId));
@@ -11920,6 +11964,8 @@ export default function Page() {
               <span>{isFollowing ? "Following" : "Follow"}</span>
             </button>
             <button className={isSaved ? "library-btn saved" : "library-btn"} onClick={() => {
+                console.log("VIDEO SAVE ID", video.id);
+                console.log("VIDEO STORAGE PATH", video.storage_path || video.storagePath || "");
                 if (isSaved) {
                     removeVideoFromLibrary(video.id);
                     return;
