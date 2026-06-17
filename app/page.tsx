@@ -26278,33 +26278,50 @@ export default function Page() {
             .playlist-hero {
               width: 100% !important;
               max-width: 100% !important;
-              display: grid !important;
-              grid-template-columns: 88px minmax(0, 1fr) !important;
+              display: flex !important;
+              flex-direction: column !important;
               gap: 12px !important;
-              align-items: start !important;
+              align-items: stretch !important;
               overflow: hidden !important;
             }
 
             .playlist-hero > img {
-              width: 88px !important;
-              height: 88px !important;
+              width: 100% !important;
+              height: auto !important;
+              max-height: 180px !important;
               object-fit: cover !important;
             }
 
             .playlist-hero > div {
               min-width: 0 !important;
+              width: 100% !important;
+            }
+
+            .playlist-hero h2,
+            .playlist-hero p {
+              overflow-wrap: anywhere !important;
+            }
+
+            .playlist-hero .cover-edit {
+              display: none !important;
             }
 
             .playlist-actions {
               display: flex !important;
               flex-wrap: wrap !important;
               gap: 8px !important;
+              width: 100% !important;
             }
 
             .playlist-actions button {
-              flex: 1 1 calc(50% - 8px) !important;
+              width: calc(50% - 4px) !important;
+              flex: 0 0 calc(50% - 4px) !important;
               min-width: 0 !important;
-              max-width: 100% !important;
+              max-width: calc(50% - 4px) !important;
+              display: flex !important;
+              justify-content: center !important;
+              align-items: center !important;
+              box-sizing: border-box !important;
             }
 
             .source-row {
