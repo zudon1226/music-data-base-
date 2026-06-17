@@ -60,6 +60,7 @@ function normalizeVideoStoragePath(value: string) {
     cleanPath = cleanPath.replace(/^videos\/+/i, "");
     cleanPath = cleanPath.replace(/^public\/videos\/+/i, "");
     cleanPath = cleanPath.replace(/^object\/public\/videos\/+/i, "");
+    cleanPath = cleanPath.replace(/^storage-(?=\d{10,}-)/i, "");
     return cleanPath;
 }
 function isLikelyStoragePath(value: string) {

@@ -1819,6 +1819,7 @@ function normalizeVideoStoragePath(value: string) {
     cleanPath = cleanPath.replace(/^videos\/+/i, "");
     cleanPath = cleanPath.replace(/^public\/videos\/+/i, "");
     cleanPath = cleanPath.replace(/^object\/public\/videos\/+/i, "");
+    cleanPath = cleanPath.replace(/^storage-(?=\d{10,}-)/i, "");
     return cleanPath;
 }
 function getVideoPublicUrlFromStoragePath(storagePath: string) {
@@ -1999,19 +2000,28 @@ async function logVideoResponseHeaders(url: string) {
             });
         }
         const headers = Object.fromEntries(response.headers.entries());
+        const contentType = response.headers.get("content-type") || "";
+        const contentLength = response.headers.get("content-length") || "";
+        let bodyText = "";
+        if (!response.ok || contentType.toLowerCase().includes("application/json") || contentType.toLowerCase().includes("text/")) {
+            const bodyResponse = await fetch(url, { method: "GET", cache: "no-store" });
+            bodyText = (await bodyResponse.text()).slice(0, 1000);
+        }
         console.log("VIDEO HEADERS", {
             url,
             status: response.status,
-            contentType: response.headers.get("content-type") || "",
-            contentLength: response.headers.get("content-length") || "",
+            contentType,
+            contentLength,
+            bodyText,
             headers,
         });
         console.log("VIDEO HEADERS raw", response.headers);
         return {
             url,
             status: response.status,
-            contentType: response.headers.get("content-type") || "",
-            contentLength: response.headers.get("content-length") || "",
+            contentType,
+            contentLength,
+            bodyText,
         };
     }
     catch (error) {
@@ -2028,6 +2038,7 @@ async function logVideoResponseHeaders(url: string) {
             status: 0,
             contentType: "",
             contentLength: "",
+            bodyText: "",
         };
     }
 }
@@ -3324,7 +3335,7 @@ export default function Page() {
     const [videoUploadError, setVideoUploadError] = useState("");
     const [videoUploadStatus, setVideoUploadStatus] = useState("");
     const [, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
-    const [videoHeaderDebug, setVideoHeaderDebug] = useState({ url: "", status: 0, contentType: "", contentLength: "" });
+    const [videoHeaderDebug, setVideoHeaderDebug] = useState({ url: "", status: 0, contentType: "", contentLength: "", bodyText: "" });
     const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
     const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
@@ -10565,6 +10576,7 @@ export default function Page() {
             "response.status": videoHeaderDebug.status,
             "response.headers[\"content-type\"]": videoHeaderDebug.contentType,
             "response.headers[\"content-length\"]": videoHeaderDebug.contentLength,
+            "response body text": videoHeaderDebug.bodyText,
             "canPlayType mp4": videoElement?.canPlayType("video/mp4") || (typeof document !== "undefined" ? document.createElement("video").canPlayType("video/mp4") : ""),
             "video error code": videoElement?.error?.code || null,
             "video error message": videoElement?.error?.message || "",
