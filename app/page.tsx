@@ -1000,9 +1000,7 @@ const BRAND_TAGLINE = "STREAM • DISCOVER • CREATE";
 const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
 const VIDEOS_STORAGE_BUCKET = "videos";
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
-const SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES = 3 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
-const VIDEO_STORAGE_CORS_FIX_MESSAGE = "Supabase Storage CORS is blocking direct video upload. Add https://digitalmusicdatabase.com and https://www.digitalmusicdatabase.com to Supabase Storage/API CORS allowed origins, then retry.";
 const MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE = "Mobile compatible video required: MP4 H.264 video with AAC audio.";
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
@@ -2681,7 +2679,7 @@ function cleanVideoStorageFileName(fileName: string) {
 }
 function buildVideoStoragePath(userId: string, file: File) {
     const cleanFileName = cleanVideoStorageFileName(file.name || "video.mp4");
-    return `${userId}/${Date.now()}-${createRecordId()}-${cleanFileName}`;
+    return `${userId}/${Date.now()}-${cleanFileName}`;
 }
 function getVideoUploadContentType(file: File) {
     const browserType = file.type.trim().toLowerCase();
@@ -9612,15 +9610,12 @@ export default function Page() {
         const { user: sessionUser } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
-        const metadataTargetUrl = typeof window !== "undefined"
-            ? new URL("/api/video-upload", window.location.origin).toString()
-            : "/api/video-upload";
         const storagePath = buildVideoStoragePath(sessionUser.id, file);
         const contentType = getVideoUploadContentType(file);
         const codecInfo = await inspectVideoFileCodecInfo(file);
         setVideoUploadStep("Preparing video...", 4);
         updateVideoUploadDebug({
-            uploadMethod: "Browser direct Supabase Storage upload, server metadata insert",
+            uploadMethod: "Browser direct Supabase Storage upload, browser database insert",
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             uploadTargetUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             bucket: VIDEOS_STORAGE_BUCKET,
@@ -9652,183 +9647,107 @@ export default function Page() {
             fileName: file.name,
             fileSize: file.size,
             storagePath,
-            metadataTargetUrl,
+            metadataTargetUrl: "direct supabase.from('videos').insert",
             videoCodec: codecInfo.videoCodec,
             audioCodec: codecInfo.audioCodec,
             mobileCompatible: codecInfo.mobileCompatible,
         });
         let savedStoragePath = storagePath;
         let publicUrl = "";
-        try {
-            const storageUpload = await supabase.storage.from(VIDEOS_STORAGE_BUCKET).upload(storagePath, file, {
-                cacheControl: "3600",
-                contentType,
-                upsert: true,
-            });
-            if (storageUpload.error) {
-                throw storageUpload.error;
-            }
-            savedStoragePath = storageUpload.data?.path || storagePath;
-            const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
-            publicUrl = publicUrlData.publicUrl || "";
+        const storageUpload = await supabase.storage.from(VIDEOS_STORAGE_BUCKET).upload(storagePath, file, {
+            cacheControl: "3600",
+            contentType,
+            upsert: false,
+        });
+        console.log("VIDEO STORAGE UPLOAD RESULT", storageUpload.data);
+        console.log("VIDEO STORAGE UPLOAD ERROR", storageUpload.error);
+        updateVideoUploadDebug({
+            currentStep: storageUpload.error ? "Supabase Storage upload failed" : "Supabase Storage upload complete",
+            lastError: storageUpload.error?.message || "",
+            fullErrorJson: JSON.stringify({
+                storageUploadResult: storageUpload.data,
+                storageError: storageUpload.error,
+            }, null, 2),
+            requestLooksLikeVercelFunction: false,
+            requestLooksLikeAppServer: false,
+            requestBodyType: "File direct to Supabase Storage",
+        });
+        if (storageUpload.error) {
+            throw new Error(storageUpload.error.message || "Supabase Storage video upload failed.");
         }
-        catch (storageError) {
-            const storageErrorMessage = storageError instanceof Error ? storageError.message : String(storageError || "");
-            const looksLikeCorsOrNetworkFailure = /failed to fetch|network|cors|access-control-allow-origin/i.test(storageErrorMessage);
-            const canUseServerFallback = looksLikeCorsOrNetworkFailure && file.size <= SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES;
-            updateVideoUploadDebug({
-                currentStep: canUseServerFallback ? "Direct Supabase Storage upload failed; trying server fallback" : "Supabase Storage upload failed",
-                lastError: looksLikeCorsOrNetworkFailure ? VIDEO_STORAGE_CORS_FIX_MESSAGE : storageErrorMessage || "Supabase Storage video upload failed.",
-                fullErrorJson: stringifyUploadDebugError(storageError),
-                requestLooksLikeVercelFunction: canUseServerFallback,
-                requestBodyType: canUseServerFallback ? "Server fallback FormData video upload" : "File direct to Supabase Storage",
-            });
-            if (!looksLikeCorsOrNetworkFailure) {
-                throw new Error(storageErrorMessage || "Supabase Storage video upload failed.");
-            }
-            if (file.size > SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES) {
-                throw new Error(`${VIDEO_STORAGE_CORS_FIX_MESSAGE} Vercel cannot proxy this ${Math.ceil(file.size / 1024 / 1024)} MB video upload.`);
-            }
-            setVideoUploadStep("Direct storage blocked. Uploading through server fallback...", 30);
-            const fallbackForm = new FormData();
-            fallbackForm.set("file", file);
-            fallbackForm.set("sessionUserId", sessionUser.id);
-            fallbackForm.set("userId", sessionUser.id);
-            const fallbackResponse = await fetch("/api/video-upload", {
-                method: "POST",
-                body: fallbackForm,
-            });
-            const fallbackText = await fallbackResponse.text();
-            let fallbackResult: {
-                error?: string;
-                details?: unknown;
-                publicUrl?: string;
-                storagePath?: string;
-                fileName?: string;
-                fileSize?: number | null;
-                contentType?: string;
-            } = {};
-            if (fallbackText) {
-                try {
-                    fallbackResult = JSON.parse(fallbackText) as typeof fallbackResult;
-                }
-                catch {
-                    fallbackResult = { error: fallbackText };
-                }
-            }
-            if (!fallbackResponse.ok || !fallbackResult.publicUrl || !fallbackResult.storagePath) {
-                const detailText = typeof fallbackResult.details === "string"
-                    ? fallbackResult.details
-                    : fallbackResult.details
-                        ? JSON.stringify(fallbackResult.details)
-                        : "";
-                throw new Error([fallbackResult.error || `Server fallback upload failed with HTTP ${fallbackResponse.status}.`, detailText]
-                    .filter(Boolean)
-                    .join(" "));
-            }
-            savedStoragePath = fallbackResult.storagePath;
-            publicUrl = fallbackResult.publicUrl;
-            updateVideoUploadDebug({
-                uploadMethod: "Server fallback video upload, server metadata insert",
-                uploadTargetUrl: typeof window !== "undefined" ? new URL("/api/video-upload", window.location.origin).toString() : "/api/video-upload",
-                currentStep: "Server fallback uploaded video to Supabase Storage",
-                requestContainsDigitalMusicDatabase: true,
-                requestContainsSupabaseCo: false,
-                requestLooksLikeVercelFunction: true,
-                requestLooksLikeAppServer: true,
-                requestMethod: "POST",
-                requestBodyType: "FormData video to server fallback",
-                requestBodySize: String(file.size),
-                fullErrorJson: "",
-            });
-        }
+        savedStoragePath = normalizeVideoStoragePath(storageUpload.data?.path || storagePath);
+        const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
+        publicUrl = publicUrlData.publicUrl || "";
+        console.log("VIDEO FINAL PUBLIC URL", publicUrl);
         if (!publicUrl) {
             throw new Error("Supabase did not return a public URL for the uploaded video.");
         }
         setVideoUploadStep("Saving video metadata...", 88);
-        const metadataPayload = {
-            sessionUserId: sessionUser.id,
-            userId: sessionUser.id,
+        const createdAt = new Date().toISOString();
+        const videoRow: Record<string, unknown> = {
+            id: crypto.randomUUID(),
+            user_id: sessionUser.id,
             artist_id: sessionUser.id,
             title: videoDetails.title,
             description: videoDetails.creator,
             artist_name: videoDetails.creator,
-            category: videoDetails.category,
-            cover_url: videoDetails.cover || DEFAULT_COVER,
-            thumbnail_url: videoDetails.cover || DEFAULT_COVER,
             producer: producer?.name || "",
             producer_name: producer?.name || "",
-            producer_id: producerId || "",
-            producer_profile_id: producerId || "",
-            album_id: albumId || "",
-            publicUrl,
-            storagePath: savedStoragePath,
-            fileName: file.name || "video.mp4",
-            fileSize: file.size,
-            contentType,
+            producer_id: producerId || null,
+            producer_profile_id: producerId || null,
+            album_id: albumId || null,
+            category: videoDetails.category,
+            video_url: publicUrl,
+            cover_url: videoDetails.cover || DEFAULT_COVER,
+            thumbnail_url: videoDetails.cover || DEFAULT_COVER,
+            storage_path: savedStoragePath,
+            file_name: file.name || "video.mp4",
+            file_size: file.size,
             video_codec: codecInfo.videoCodec || null,
             audio_codec: codecInfo.audioCodec || null,
             mobile_compatible: codecInfo.mobileCompatible,
+            views: 0,
+            likes: 0,
+            created_at: createdAt,
         };
-        const response = await fetch("/api/video-upload", {
-            method: "POST",
-            headers: {
-                "content-type": "application/json",
-            },
-            body: JSON.stringify(metadataPayload),
+        const initialSelectColumns = "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,file_name,file_size,video_codec,audio_codec,mobile_compatible,thumbnail_url,views,likes,created_at,user_id";
+        let videoInsert = await supabase.from("videos").insert(videoRow).select(initialSelectColumns).single();
+        if (videoInsert.error && /video_codec|audio_codec|mobile_compatible|file_name|file_size|album_id|artist_id|producer|cover_url|thumbnail_url/i.test(getVideoUploadErrorMessage(videoInsert.error))) {
+            const fallbackVideoRow = { ...videoRow };
+            delete fallbackVideoRow.file_name;
+            delete fallbackVideoRow.file_size;
+            delete fallbackVideoRow.video_codec;
+            delete fallbackVideoRow.audio_codec;
+            delete fallbackVideoRow.mobile_compatible;
+            videoInsert = await supabase.from("videos").insert(fallbackVideoRow).select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at,user_id").single();
+        }
+        console.log("VIDEO DATABASE INSERT RESULT", videoInsert.data);
+        console.log("VIDEO DATABASE INSERT ERROR", videoInsert.error);
+        updateVideoUploadDebug({
+            currentStep: videoInsert.error ? "Video database insert failed" : "Video database insert complete",
+            lastError: videoInsert.error?.message || "",
+            fullInsertPayload: JSON.stringify(videoRow, null, 2),
+            fullErrorJson: JSON.stringify({
+                storageUploadResult: storageUpload.data,
+                storageError: storageUpload.error,
+                databaseInsertResult: videoInsert.data,
+                databaseInsertError: videoInsert.error,
+                finalPublicUrl: publicUrl,
+            }, null, 2),
         });
-        const responseText = await response.text();
-        let uploadResult: {
-            error?: string;
-            details?: unknown;
-            publicUrl?: string;
-            storagePath?: string;
-            fileName?: string;
-            fileSize?: number | null;
-            contentType?: string;
-            video?: VideoTableRow | null;
-        } = {};
-        if (responseText) {
-            try {
-                uploadResult = JSON.parse(responseText) as typeof uploadResult;
-            }
-            catch {
-                uploadResult = { error: responseText };
-            }
+        if (videoInsert.error || !videoInsert.data) {
+            throw new Error(videoInsert.error?.message || "Supabase inserted no video row.");
         }
-        if (!response.ok) {
-            const detailText = typeof uploadResult.details === "string"
-                ? uploadResult.details
-                : uploadResult.details
-                    ? JSON.stringify(uploadResult.details)
-                    : "";
-            console.error("VIDEO UPLOAD API FAILED", uploadResult.error || response.statusText, detailText);
-            updateVideoUploadDebug({
-                currentStep: "Video metadata insert failed",
-                lastError: [uploadResult.error || response.statusText, detailText].filter(Boolean).join(" "),
-                fullErrorJson: responseText || stringifyUploadDebugError(uploadResult),
-                fullInsertPayload: JSON.stringify(metadataPayload, null, 2),
-            });
-            throw new Error([uploadResult.error || `Video upload failed with HTTP ${response.status}.`, detailText]
-                .filter(Boolean)
-                .join(" "));
-        }
-        if (!uploadResult.publicUrl || !uploadResult.storagePath) {
-            throw new Error("Video uploaded, but the server did not return a public URL and storage path.");
-        }
-        const savedVideo = uploadResult.video;
-        if (!savedVideo) {
-            throw new Error("Supabase uploaded the video, but the server did not return the saved videos table row.");
-        }
+        const savedVideo = videoInsert.data as VideoTableRow;
         setVideoUploadStep("Finishing upload...", 98);
         setVideoUploadStep("Video upload complete.", 100);
         updateVideoUploadDebug({
             currentStep: "Video upload complete.",
             lastError: "",
-            uploadTargetUrl: metadataTargetUrl,
+            uploadTargetUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             requestMethod: "POST",
-            requestBodyType: "JSON metadata to server route",
-            requestBodySize: String(JSON.stringify(metadataPayload).length),
+            requestBodyType: "Direct Supabase Storage file + direct videos table insert",
+            requestBodySize: String(file.size),
             insertUserId: String(savedVideo.user_id || sessionUser.id),
             authUserId: sessionUser.id,
             insertUserMatchesAuth: String(String(savedVideo.user_id || sessionUser.id) === sessionUser.id),
