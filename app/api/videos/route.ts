@@ -37,10 +37,30 @@ function isUuid(value: string) {
 }
 function getSupabaseVideoPublicUrl(storagePath: string) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
-    const cleanPath = storagePath.trim().replace(/^\/+/, "");
+    const cleanPath = normalizeVideoStoragePath(storagePath);
     if (!supabaseUrl || !cleanPath)
         return "";
     return `${supabaseUrl}/storage/v1/object/public/videos/${cleanPath.split("/").map(encodeURIComponent).join("/")}`;
+}
+function getVideoStoragePathFromPublicUrl(value: string) {
+    try {
+        const url = new URL(value.trim());
+        const marker = "/storage/v1/object/public/videos/";
+        const markerIndex = url.pathname.indexOf(marker);
+        if (markerIndex < 0)
+            return "";
+        return decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+    }
+    catch {
+        return "";
+    }
+}
+function normalizeVideoStoragePath(value: string) {
+    let cleanPath = (getVideoStoragePathFromPublicUrl(value) || value).trim().replace(/^\/+/, "");
+    cleanPath = cleanPath.replace(/^videos\/+/i, "");
+    cleanPath = cleanPath.replace(/^public\/videos\/+/i, "");
+    cleanPath = cleanPath.replace(/^object\/public\/videos\/+/i, "");
+    return cleanPath;
 }
 function isLikelyStoragePath(value: string) {
     const trimmed = value.trim();
@@ -77,7 +97,7 @@ function normalizeVideoUrl(row: Record<string, unknown>) {
     const storagePath = typeof row.storage_path === "string" ? row.storage_path.trim() : "";
     if (videoUrl) {
         if (isPublicSupabaseVideoUrl(videoUrl))
-            return videoUrl;
+            return getSupabaseVideoPublicUrl(storagePath || videoUrl);
         if (isLikelyStoragePath(videoUrl))
             return getSupabaseVideoPublicUrl(videoUrl);
         if (!isBlockedVideoPlaybackUrl(videoUrl))

@@ -1814,8 +1814,15 @@ function getVideoStoragePathFromPublicUrl(value: string) {
         return "";
     }
 }
+function normalizeVideoStoragePath(value: string) {
+    let cleanPath = (getVideoStoragePathFromPublicUrl(value) || value).trim().replace(/^\/+/, "");
+    cleanPath = cleanPath.replace(/^videos\/+/i, "");
+    cleanPath = cleanPath.replace(/^public\/videos\/+/i, "");
+    cleanPath = cleanPath.replace(/^object\/public\/videos\/+/i, "");
+    return cleanPath;
+}
 function getVideoPublicUrlFromStoragePath(storagePath: string) {
-    const cleanPath = storagePath.trim();
+    const cleanPath = normalizeVideoStoragePath(storagePath);
     if (!cleanPath)
         return "";
     const { data } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(cleanPath);
@@ -2027,7 +2034,7 @@ async function logVideoResponseHeaders(url: string) {
 async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>, finalUrl: string, sourceSection: string) {
     const record = video as Record<string, unknown>;
     const selectedVideoId = getStringField(record, ["id"]);
-    const storagePath = getStringField(record, ["storagePath", "storage_path"]);
+    const storagePath = normalizeVideoStoragePath(getStringField(record, ["storagePath", "storage_path"]));
     const rawVideoUrl = getStringField(record, ["video_url", "videoUrl", "url", "public_url", "file_url"]);
     const primaryProbe = await probeVideoPlaybackUrl(finalUrl);
     console.log("[video playback probe]", {
@@ -2109,11 +2116,8 @@ function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown>
         const cleanUrl = directUrl.trim();
         if (isPublicSupabaseVideoUrl(cleanUrl)) {
             const publicUrlStoragePath = getVideoStoragePathFromPublicUrl(cleanUrl);
-            const cleanExtension = getVideoUrlExtension(cleanUrl);
-            if ((!ACCEPTED_VIDEO_EXTENSIONS.has(cleanExtension) || isBlockedVideoPlaybackUrl(cleanUrl)) && (storagePath || publicUrlStoragePath)) {
-                return getVideoPublicUrlFromStoragePath(storagePath || publicUrlStoragePath);
-            }
-            return cleanUrl;
+            const cleanStoragePath = normalizeVideoStoragePath(storagePath || publicUrlStoragePath);
+            return cleanStoragePath ? getVideoPublicUrlFromStoragePath(cleanStoragePath) : cleanUrl;
         }
         if (isLikelyStoragePath(cleanUrl))
             return getVideoPublicUrlFromStoragePath(cleanUrl);
