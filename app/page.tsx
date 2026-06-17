@@ -5891,15 +5891,17 @@ export default function Page() {
                         playbackUrl,
                     });
                 }
-                void fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        video_codec: probe.videoCodec || null,
-                        audio_codec: probe.audioCodec || null,
-                        mobile_compatible: mobileCompatible,
-                    }),
-                }).catch((error) => console.warn("[video compatibility] save failed", video.id, error));
+                if (mobileCompatible !== false) {
+                    void fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            video_codec: probe.videoCodec || null,
+                            audio_codec: probe.audioCodec || null,
+                            mobile_compatible: mobileCompatible,
+                        }),
+                    }).catch((error) => console.warn("[video compatibility] save failed", video.id, error));
+                }
             }
         }
         void scanVideoCompatibility();
@@ -8074,9 +8076,7 @@ export default function Page() {
         if (!video || !activeVideo || !activeVideoPlaybackUrl)
             return;
         if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(activeVideo)) {
-            setVideoPlaying(false);
-            showToast("Mobile incompatible video. Use Next Video to skip.", "error");
-            return;
+            showToast("This video may not play on some mobile devices.", "info");
         }
         if (videoPlaying) {
             video.pause();
@@ -8131,7 +8131,7 @@ export default function Page() {
             if (isMobilePlaybackEnvironment()) {
                 pendingVideoPlayRef.current = false;
                 if (video.error?.code === 4 || isVideoMarkedMobileIncompatible(activeVideo)) {
-                    showToast("Mobile incompatible video. Use Next Video to skip.", "error");
+                    showToast("This video may not play on some mobile devices.", "error");
                     return;
                 }
                 return;
@@ -8242,9 +8242,8 @@ export default function Page() {
         if (!video || !activeVideo || !activeVideoPlaybackUrl)
             return;
         if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(activeVideo)) {
-            logVideoElementState("native tap blocked incompatible codec", video);
-            showToast("This video needs to be re-encoded for mobile playback.", "error");
-            return;
+            logVideoElementState("native tap warning incompatible codec", video);
+            showToast("This video may not play on some mobile devices.", "info");
         }
         if (audioRef.current) {
             audioRef.current.pause();
@@ -10542,20 +10541,7 @@ export default function Page() {
             setVideoDuration(0);
         });
         if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(nextActiveVideo)) {
-            pendingVideoPlayRef.current = false;
-            if (mainVideoRef.current) {
-                mainVideoRef.current.pause();
-                mainVideoRef.current.removeAttribute("src");
-                mainVideoRef.current.load();
-            }
-            setVideoPlaying(false);
-            window.requestAnimationFrame(() => {
-                videoPreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-            });
-            showToast("Mobile incompatible video. Use Next Video to skip.", "error");
-            saveVideoPlay(nextActiveVideo);
-            setView("Videos");
-            return;
+            showToast("This video may not play on some mobile devices.", "info");
         }
         const mainVideo = mainVideoRef.current;
         if (mainVideo) {
@@ -10617,7 +10603,7 @@ export default function Page() {
                 if (isMobilePlaybackEnvironment()) {
                     pendingVideoPlayRef.current = false;
                     if (mainVideo.error?.code === 4 || isVideoMarkedMobileIncompatible(nextActiveVideo)) {
-                        showToast("Mobile incompatible video. Use Next Video to skip.", "error");
+                        showToast("This video may not play on some mobile devices.", "error");
                         return;
                     }
                     return;
@@ -13146,7 +13132,8 @@ export default function Page() {
             <Film size={42}/>
             <strong>Mobile incompatible video</strong>
             <span>This video must be re-uploaded as MP4 H.264/AAC for mobile.</span>
-          </div>) : activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
+          </div>) : null}
+        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
                 updateVideoDuration(event);
                 logVideoElementState("loadedmetadata event", event.currentTarget);
             }} onDurationChange={(event) => {
@@ -13172,21 +13159,7 @@ export default function Page() {
                 });
                 if (mobilePlaybackEnvironment && event.currentTarget.error?.code === 4) {
                     setVideoPlaying(false);
-                    const incompatibleUpdate = {
-                        videoCodec: activeVideo.videoCodec || activeVideo.video_codec || "av01",
-                        video_codec: activeVideo.videoCodec || activeVideo.video_codec || "av01",
-                        mobileCompatible: false,
-                        mobile_compatible: false,
-                    };
-                    setActiveVideo((previous) => previous?.id === activeVideo.id
-                        ? normalizeVideoForPlayback({ ...previous, ...incompatibleUpdate })
-                        : previous);
-                    setVideos((previous) => previous.map((video) => video.id === activeVideo.id
-                        ? normalizeVideoForPlayback({ ...video, ...incompatibleUpdate })
-                        : video));
-                    event.currentTarget.pause();
-                    event.currentTarget.removeAttribute("src");
-                    event.currentTarget.load();
+                    showToast("This video may not play on some mobile devices.", "error");
                 }
                 console.error("[mobile video] exact media error", {
                     selectedVideoId: activeVideo.id,
