@@ -10492,9 +10492,46 @@ export default function Page() {
             albumUploadUserRef.current = null;
         }
     }
+    function buildVideoDebugObject(video: Partial<VideoItem> | Record<string, unknown> | null, finalPlayerSrc = "") {
+        const record = (video || {}) as Record<string, unknown>;
+        const videoElement = mainVideoRef.current;
+        return {
+            "video.id": getStringField(record, ["id"]),
+            "video.title": getStringField(record, ["title"]),
+            "video.video_url": getStringField(record, ["video_url"]),
+            "video.url": getStringField(record, ["url"]),
+            "video.public_url": getStringField(record, ["public_url"]),
+            "video.storage_path": getStringField(record, ["storage_path", "storagePath"]),
+            "final player src": finalPlayerSrc || videoElement?.currentSrc || videoElement?.src || videoElement?.getAttribute("src") || "",
+            "canPlayType mp4": videoElement?.canPlayType("video/mp4") || (typeof document !== "undefined" ? document.createElement("video").canPlayType("video/mp4") : ""),
+            "video error code": videoElement?.error?.code || null,
+            "video error message": videoElement?.error?.message || "",
+            "current browser userAgent": typeof navigator !== "undefined" ? navigator.userAgent : "",
+        };
+    }
+    function isBigBusinessDebugVideo(video: Partial<VideoItem> | Record<string, unknown> | null) {
+        const record = (video || {}) as Record<string, unknown>;
+        const haystack = [
+            getStringField(record, ["title"]),
+            getStringField(record, ["video_url", "url", "public_url", "videoUrl"]),
+            getStringField(record, ["storage_path", "storagePath"]),
+        ].join(" ").toLowerCase();
+        return haystack.includes("big business") || haystack.includes("big-business");
+    }
+    function copyVideoDebugInfo(video: VideoItem, finalPlayerSrc: string) {
+        const debugObject = buildVideoDebugObject(video, finalPlayerSrc);
+        void navigator.clipboard.writeText(JSON.stringify(debugObject, null, 2)).then(() => {
+            showToast("Video debug info copied.", "success");
+        }).catch((error) => {
+            console.error("VIDEO DEBUG COPY FAILED", error);
+            showToast("Could not copy debug info.", "error");
+        });
+    }
     function playVideo(video: VideoItem | Record<string, unknown>, sourceSection = "Video Card") {
         const playableVideo = normalizeVideo(video);
         const videoUrl = getVideoPlaybackUrl(playableVideo);
+        const videoDebugObject = buildVideoDebugObject(playableVideo, videoUrl);
+        console.log("VIDEO DEBUG", videoDebugObject);
         if (!videoUrl) {
             console.error("[video play] missing playable URL:", sourceSection, playableVideo.id, playableVideo.title);
             reportPlatformError("media_url", "play-video-missing-url", "Video file URL missing", {
@@ -13127,6 +13164,8 @@ export default function Page() {
         if (!activeVideo)
             return null;
         const showMobileIncompatibleFallback = mobilePlaybackEnvironment && isVideoMarkedMobileIncompatible(activeVideo);
+        const showBigBusinessVideoDebug = isBigBusinessDebugVideo(activeVideo);
+        const activeVideoDebugObject = buildVideoDebugObject(activeVideo, activeVideoPlaybackUrl);
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
         {showMobileIncompatibleFallback ? (<div className="video-mobile-incompatible-panel">
             <Film size={42}/>
@@ -13173,6 +13212,18 @@ export default function Page() {
                     errorMessage: event.currentTarget.error?.message || "",
                 });
             }}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
+        {showBigBusinessVideoDebug ? (<div>
+            <strong>Video Debug</strong>
+            <dl>
+              {Object.entries(activeVideoDebugObject).map(([label, value]) => (<div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{String(value ?? "")}</dd>
+                </div>))}
+            </dl>
+            <button type="button" onClick={() => copyVideoDebugInfo(activeVideo, activeVideoPlaybackUrl)}>
+              Copy Debug Info
+            </button>
+          </div>) : null}
         <div className="video-player-copy">
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
