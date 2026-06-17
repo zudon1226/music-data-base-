@@ -1979,6 +1979,39 @@ async function probeVideoPlaybackUrl(url: string) {
         };
     }
 }
+async function logVideoResponseHeaders(url: string) {
+    if (!url || typeof fetch === "undefined")
+        return;
+    try {
+        let response = await fetch(url, { method: "HEAD", cache: "no-store" });
+        if (response.status === 405 || response.status === 403) {
+            response = await fetch(url, {
+                method: "GET",
+                cache: "no-store",
+                headers: { Range: "bytes=0-0" },
+            });
+        }
+        const headers = Object.fromEntries(response.headers.entries());
+        console.log("VIDEO HEADERS", {
+            url,
+            status: response.status,
+            contentType: response.headers.get("content-type") || "",
+            contentLength: response.headers.get("content-length") || "",
+            headers,
+        });
+        console.log("VIDEO HEADERS raw", response.headers);
+    }
+    catch (error) {
+        console.log("VIDEO HEADERS", {
+            url,
+            status: 0,
+            contentType: "",
+            contentLength: "",
+            headers: {},
+            error,
+        });
+    }
+}
 async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>, finalUrl: string, sourceSection: string) {
     const record = video as Record<string, unknown>;
     const selectedVideoId = getStringField(record, ["id"]);
@@ -5751,6 +5784,11 @@ export default function Page() {
     const sponsoredCreator = sponsoredVideo?.creator || currentSong?.artist || "Music Data Base";
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
     const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
+    useEffect(() => {
+        if (!activeVideo || !activeVideoPlaybackUrl || !isBigBusinessDebugVideo(activeVideo))
+            return;
+        void logVideoResponseHeaders(activeVideoPlaybackUrl);
+    }, [activeVideo?.id, activeVideoPlaybackUrl]);
     useEffect(() => {
         let cancelled = false;
         let snapshotTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -10532,6 +10570,9 @@ export default function Page() {
         const videoUrl = getVideoPlaybackUrl(playableVideo);
         const videoDebugObject = buildVideoDebugObject(playableVideo, videoUrl);
         console.log("VIDEO DEBUG", videoDebugObject);
+        if (isBigBusinessDebugVideo(playableVideo)) {
+            void logVideoResponseHeaders(videoUrl);
+        }
         if (!videoUrl) {
             console.error("[video play] missing playable URL:", sourceSection, playableVideo.id, playableVideo.title);
             reportPlatformError("media_url", "play-video-missing-url", "Video file URL missing", {
