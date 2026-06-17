@@ -2000,6 +2000,12 @@ async function logVideoResponseHeaders(url: string) {
             headers,
         });
         console.log("VIDEO HEADERS raw", response.headers);
+        return {
+            url,
+            status: response.status,
+            contentType: response.headers.get("content-type") || "",
+            contentLength: response.headers.get("content-length") || "",
+        };
     }
     catch (error) {
         console.log("VIDEO HEADERS", {
@@ -2010,6 +2016,12 @@ async function logVideoResponseHeaders(url: string) {
             headers: {},
             error,
         });
+        return {
+            url,
+            status: 0,
+            contentType: "",
+            contentLength: "",
+        };
     }
 }
 async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>, finalUrl: string, sourceSection: string) {
@@ -3308,6 +3320,7 @@ export default function Page() {
     const [videoUploadError, setVideoUploadError] = useState("");
     const [videoUploadStatus, setVideoUploadStatus] = useState("");
     const [, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
+    const [videoHeaderDebug, setVideoHeaderDebug] = useState({ url: "", status: 0, contentType: "", contentLength: "" });
     const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
     const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
@@ -5787,7 +5800,11 @@ export default function Page() {
     useEffect(() => {
         if (!activeVideo || !activeVideoPlaybackUrl || !isBigBusinessDebugVideo(activeVideo))
             return;
-        void logVideoResponseHeaders(activeVideoPlaybackUrl);
+        void logVideoResponseHeaders(activeVideoPlaybackUrl).then((headers) => {
+            if (headers) {
+                setVideoHeaderDebug(headers);
+            }
+        });
     }, [activeVideo?.id, activeVideoPlaybackUrl]);
     useEffect(() => {
         let cancelled = false;
@@ -10541,6 +10558,9 @@ export default function Page() {
             "video.public_url": getStringField(record, ["public_url"]),
             "video.storage_path": getStringField(record, ["storage_path", "storagePath"]),
             "final player src": finalPlayerSrc || videoElement?.currentSrc || videoElement?.src || videoElement?.getAttribute("src") || "",
+            "response.status": videoHeaderDebug.status,
+            "response.headers[\"content-type\"]": videoHeaderDebug.contentType,
+            "response.headers[\"content-length\"]": videoHeaderDebug.contentLength,
             "canPlayType mp4": videoElement?.canPlayType("video/mp4") || (typeof document !== "undefined" ? document.createElement("video").canPlayType("video/mp4") : ""),
             "video error code": videoElement?.error?.code || null,
             "video error message": videoElement?.error?.message || "",
@@ -13237,6 +13257,9 @@ export default function Page() {
                 logVideoElementState("error event", event.currentTarget, {
                     exactError: event.currentTarget.error?.message || "",
                 });
+                console.log("MEDIA ERROR", event.currentTarget.error);
+                console.log("MEDIA CODE", event.currentTarget.error?.code);
+                console.log("MEDIA MESSAGE", event.currentTarget.error?.message);
                 if (mobilePlaybackEnvironment && event.currentTarget.error?.code === 4) {
                     setVideoPlaying(false);
                     showToast("This video may not play on some mobile devices.", "error");
