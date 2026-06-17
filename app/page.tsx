@@ -11901,9 +11901,9 @@ export default function Page() {
             {showVideoLibraryDeleteTest && (<button type="button" className="danger-btn delete-button" onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                alert("VIDEO DELETE CLICKED: " + video.id);
+                handlePermanentDeleteVideo(video.id);
             }}>
-              ðŸ—‘ Delete
+              Delete
             </button>)}
             <button className="play-btn" onClick={() => playVideo(video, sourceLabel)} type="button">
               <span aria-hidden="true">▶</span>
@@ -11933,9 +11933,9 @@ export default function Page() {
             {!showVideoLibraryDeleteTest && options.isLibraryCard && (<button type="button" className="delete-button" onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                alert("VIDEO DELETE CLICKED: " + video.id);
+                handlePermanentDeleteVideo(video.id);
             }}>
-              🗑 Delete
+              Delete
             </button>)}
             {renderVideoPlaylistButton(video)}
           </div>
