@@ -7,7 +7,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const VIDEOS_BUCKET = "videos";
-const SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES = 3 * 1024 * 1024;
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
@@ -93,6 +92,44 @@ function getRecordNumber(record: Record<string, unknown>, keys: string[]) {
         if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
             return Number(value);
         }
+    }
+    return null;
+}
+
+function getFormString(formData: FormData, keys: string[], fallback = "") {
+    for (const key of keys) {
+        const value = formData.get(key);
+        if (typeof value === "string" && value.trim()) {
+            return value.trim();
+        }
+    }
+    return fallback;
+}
+
+function getNullableFormString(formData: FormData, keys: string[]) {
+    const value = getFormString(formData, keys);
+    if (!value || value === "null" || value === "undefined") {
+        return null;
+    }
+    return value;
+}
+
+function getFormNumber(formData: FormData, keys: string[]) {
+    for (const key of keys) {
+        const value = formData.get(key);
+        if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+            return Number(value);
+        }
+    }
+    return null;
+}
+
+function getFormBoolean(formData: FormData, keys: string[]) {
+    for (const key of keys) {
+        const value = formData.get(key);
+        if (typeof value !== "string") continue;
+        if (value === "true") return true;
+        if (value === "false") return false;
     }
     return null;
 }
@@ -254,7 +291,7 @@ export async function GET() {
         ok: true,
         route: "/api/video-upload",
         method: "POST",
-        message: "Upload the video directly to Supabase Storage, then POST JSON metadata with publicUrl, storagePath, userId, and sessionUserId.",
+        message: "POST multipart/form-data with a video file and metadata. The server uploads to Supabase Storage, verifies the public URL, and saves the videos row.",
     });
 }
 
@@ -281,13 +318,6 @@ export async function POST(request: Request) {
             if (sessionUserId && userId && sessionUserId !== userId) {
                 return jsonResponse({ error: "Video upload user id does not match the signed-in session." }, 401);
             }
-            if (file.size > SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES) {
-                return jsonResponse({
-                    error: "Supabase Storage CORS is blocking direct video upload, and this file is too large for the server fallback. Add https://digitalmusicdatabase.com and https://www.digitalmusicdatabase.com to Supabase Storage/API CORS allowed origins, then retry.",
-                    fileSize: file.size,
-                    fallbackLimit: SERVER_VIDEO_UPLOAD_FALLBACK_MAX_BYTES,
-                }, 413);
-            }
 
             const contentType = getVideoContentType(file);
             if (!contentType.startsWith("video/")) {
@@ -296,6 +326,18 @@ export async function POST(request: Request) {
 
             const cleanFileName = cleanStorageFileName(file.name || "video.mp4");
             const storagePath = `${authUserId}/${Date.now()}-${crypto.randomUUID()}-${cleanFileName}`;
+            const fileName = file.name || cleanFileName;
+            const fileSize = getFormNumber(formData, ["fileSize", "file_size"]) || file.size;
+            const videoTitle = getFormString(formData, ["title"], fileName.replace(/\.[^/.]+$/, "") || "Untitled video");
+            const artistName = getFormString(formData, ["artist_name", "artistName", "creator", "description"], "Unknown creator");
+            const producerName = getFormString(formData, ["producer_name", "producerName", "producer"]);
+            const producerId = getNullableFormString(formData, ["producer_id", "producerId"]);
+            const producerProfileId = getNullableFormString(formData, ["producer_profile_id", "producerProfileId"]) || producerId;
+            const albumId = getNullableFormString(formData, ["album_id", "albumId"]);
+            const coverUrl = getFormString(formData, ["cover_url", "coverUrl", "cover", "thumbnail_url", "thumbnailUrl"], "/music-data-base-logo.png");
+            const videoCodec = getNullableFormString(formData, ["video_codec", "videoCodec"]);
+            const audioCodec = getNullableFormString(formData, ["audio_codec", "audioCodec"]);
+            const mobileCompatible = getFormBoolean(formData, ["mobile_compatible", "mobileCompatible"]);
             const buffer = Buffer.from(await file.arrayBuffer());
             const supabase = getSupabaseServerClient();
             const { error: uploadError } = await supabase.storage.from(VIDEOS_BUCKET).upload(storagePath, buffer, {
@@ -313,19 +355,79 @@ export async function POST(request: Request) {
                 return jsonResponse({ error: "Supabase did not return a public URL for the uploaded video." }, 500);
             }
             const publicProbe = await verifyUploadedVideoObject(supabase, storagePath, publicUrl);
+            const createdAt = new Date().toISOString();
+            const videoRow: Record<string, unknown> = {
+                id: crypto.randomUUID(),
+                user_id: authUserId,
+                artist_id: getFormString(formData, ["artist_id", "artistId"], authUserId),
+                title: videoTitle,
+                description: getFormString(formData, ["description"], artistName),
+                artist_name: artistName,
+                producer: producerName,
+                producer_name: producerName,
+                producer_id: producerId,
+                producer_profile_id: producerProfileId,
+                album_id: albumId,
+                category: getFormString(formData, ["category"], "Music Video"),
+                video_url: publicUrl,
+                cover_url: coverUrl,
+                thumbnail_url: coverUrl,
+                storage_path: storagePath,
+                file_name: fileName,
+                file_size: fileSize,
+                video_codec: videoCodec,
+                audio_codec: audioCodec,
+                mobile_compatible: mobileCompatible,
+                views: 0,
+                likes: 0,
+                created_at: createdAt,
+            };
+            const videoInsert = await insertVideoRowWithFallback(supabase, videoRow);
+            if (videoInsert.error || !videoInsert.data) {
+                const cleanupError = await cleanupUploadedVideoObject(supabase, storagePath);
+                return jsonResponse({
+                    error: getErrorMessage(videoInsert.error || "Supabase inserted no video row."),
+                    details: {
+                        ...((getErrorDetails(videoInsert.error) || {}) as Record<string, unknown>),
+                        insertPayload: videoRow,
+                        cleanupOnFailure: true,
+                        cleanupError,
+                    },
+                }, 500);
+            }
+            try {
+                assertSavedVideoRow(videoInsert.data as unknown as Record<string, unknown>, storagePath, publicUrl);
+            }
+            catch (verificationError) {
+                const cleanupError = await cleanupUploadedVideoObject(supabase, storagePath);
+                return jsonResponse({
+                    error: getErrorMessage(verificationError),
+                    details: {
+                        savedVideo: videoInsert.data,
+                        storagePath,
+                        publicUrl,
+                        cleanupOnFailure: true,
+                        cleanupError,
+                    },
+                }, 500);
+            }
 
             return jsonResponse({
                 publicUrl,
                 storagePath,
-                fileName: file.name || cleanFileName,
-                fileSize: file.size,
-                contentType,
+                fileName,
+                fileSize,
+                contentType: publicProbe.contentType || contentType,
                 verification: {
                     storageObjectExists: true,
                     publicUrlStatus: publicProbe.status,
                     contentType: publicProbe.contentType,
                     contentLength: publicProbe.contentLength,
+                    rowHasRealUuid: true,
+                    storagePathMatches: true,
+                    videoUrlMatches: true,
                 },
+                video: videoInsert.data,
             });
         }
 
@@ -468,8 +570,8 @@ export async function POST(request: Request) {
         }
 
         return jsonResponse({
-            error: "Upload videos directly to Supabase Storage from the browser, then send only JSON metadata to this route.",
-        }, 413);
+            error: "Send multipart/form-data with a video file, or JSON metadata for an already uploaded and verified Supabase Storage object.",
+        }, 415);
     }
     catch (error) {
         console.error("[api/video-upload] Server error:", error);
