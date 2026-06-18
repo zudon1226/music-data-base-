@@ -432,7 +432,7 @@ export async function POST(request: Request) {
                 }, 500);
             }
             try {
-                assertSavedVideoRow(videoInsert.data as Record<string, unknown>, storagePath, publicUrl);
+                assertSavedVideoRow(videoInsert.data as unknown as Record<string, unknown>, storagePath, publicUrl);
             }
             catch (verificationError) {
                 const cleanupError = cleanupOnFailure ? await cleanupUploadedVideoObject(supabase, storagePath) : null;
