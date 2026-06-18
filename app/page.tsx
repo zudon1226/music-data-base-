@@ -1990,61 +1990,6 @@ function isMissingSupabaseStorageVideoResponse(finalUrl: string, status: number,
         (status === 400 || status === 404) &&
         contentType.toLowerCase().includes("application/json");
 }
-async function logVideoResponseHeaders(url: string) {
-    if (!url || typeof fetch === "undefined")
-        return;
-    try {
-        let response = await fetch(url, { method: "HEAD", cache: "no-store" });
-        if (response.status === 405 || response.status === 403) {
-            response = await fetch(url, {
-                method: "GET",
-                cache: "no-store",
-                headers: { Range: "bytes=0-0" },
-            });
-        }
-        const headers = Object.fromEntries(response.headers.entries());
-        const contentType = response.headers.get("content-type") || "";
-        const contentLength = response.headers.get("content-length") || "";
-        let bodyText = "";
-        if (!response.ok || contentType.toLowerCase().includes("application/json") || contentType.toLowerCase().includes("text/")) {
-            const bodyResponse = await fetch(url, { method: "GET", cache: "no-store" });
-            bodyText = (await bodyResponse.text()).slice(0, 1000);
-        }
-        console.log("VIDEO HEADERS", {
-            url,
-            status: response.status,
-            contentType,
-            contentLength,
-            bodyText,
-            headers,
-        });
-        console.log("VIDEO HEADERS raw", response.headers);
-        return {
-            url,
-            status: response.status,
-            contentType,
-            contentLength,
-            bodyText,
-        };
-    }
-    catch (error) {
-        console.log("VIDEO HEADERS", {
-            url,
-            status: 0,
-            contentType: "",
-            contentLength: "",
-            headers: {},
-            error,
-        });
-        return {
-            url,
-            status: 0,
-            contentType: "",
-            contentLength: "",
-            bodyText: "",
-        };
-    }
-}
 async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>, finalUrl: string, sourceSection: string) {
     const record = video as Record<string, unknown>;
     const selectedVideoId = getStringField(record, ["id"]);
@@ -3338,7 +3283,6 @@ export default function Page() {
     const [videoUploadError, setVideoUploadError] = useState("");
     const [videoUploadStatus, setVideoUploadStatus] = useState("");
     const [, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
-    const [videoHeaderDebug, setVideoHeaderDebug] = useState({ url: "", status: 0, contentType: "", contentLength: "", bodyText: "" });
     const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
     const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
@@ -5815,15 +5759,6 @@ export default function Page() {
     const sponsoredCreator = sponsoredVideo?.creator || currentSong?.artist || "Music Data Base";
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
     const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
-    useEffect(() => {
-        if (!activeVideo || !activeVideoPlaybackUrl || !isBigBusinessDebugVideo(activeVideo))
-            return;
-        void logVideoResponseHeaders(activeVideoPlaybackUrl).then((headers) => {
-            if (headers) {
-                setVideoHeaderDebug(headers);
-            }
-        });
-    }, [activeVideo?.id, activeVideoPlaybackUrl]);
     useEffect(() => {
         let cancelled = false;
         let snapshotTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -10501,53 +10436,9 @@ export default function Page() {
             albumUploadUserRef.current = null;
         }
     }
-    function buildVideoDebugObject(video: Partial<VideoItem> | Record<string, unknown> | null, finalPlayerSrc = "") {
-        const record = (video || {}) as Record<string, unknown>;
-        const videoElement = mainVideoRef.current;
-        return {
-            "video.id": getStringField(record, ["id"]),
-            "video.title": getStringField(record, ["title"]),
-            "video.video_url": getStringField(record, ["video_url"]),
-            "video.url": getStringField(record, ["url"]),
-            "video.public_url": getStringField(record, ["public_url"]),
-            "video.storage_path": getStringField(record, ["storage_path", "storagePath"]),
-            "final player src": finalPlayerSrc || videoElement?.currentSrc || videoElement?.src || videoElement?.getAttribute("src") || "",
-            "response.status": videoHeaderDebug.status,
-            "response.headers[\"content-type\"]": videoHeaderDebug.contentType,
-            "response.headers[\"content-length\"]": videoHeaderDebug.contentLength,
-            "response body text": videoHeaderDebug.bodyText,
-            "canPlayType mp4": videoElement?.canPlayType("video/mp4") || (typeof document !== "undefined" ? document.createElement("video").canPlayType("video/mp4") : ""),
-            "video error code": videoElement?.error?.code || null,
-            "video error message": videoElement?.error?.message || "",
-            "current browser userAgent": typeof navigator !== "undefined" ? navigator.userAgent : "",
-        };
-    }
-    function isBigBusinessDebugVideo(video: Partial<VideoItem> | Record<string, unknown> | null) {
-        const record = (video || {}) as Record<string, unknown>;
-        const haystack = [
-            getStringField(record, ["title"]),
-            getStringField(record, ["video_url", "url", "public_url", "videoUrl"]),
-            getStringField(record, ["storage_path", "storagePath"]),
-        ].join(" ").toLowerCase();
-        return haystack.includes("big business") || haystack.includes("big-business");
-    }
-    function copyVideoDebugInfo(video: VideoItem, finalPlayerSrc: string) {
-        const debugObject = buildVideoDebugObject(video, finalPlayerSrc);
-        void navigator.clipboard.writeText(JSON.stringify(debugObject, null, 2)).then(() => {
-            showToast("Video debug info copied.", "success");
-        }).catch((error) => {
-            console.error("VIDEO DEBUG COPY FAILED", error);
-            showToast("Could not copy debug info.", "error");
-        });
-    }
     function playVideo(video: VideoItem | Record<string, unknown>, sourceSection = "Video Card") {
         const playableVideo = normalizeVideo(video);
         const videoUrl = getVideoPlaybackUrl(playableVideo);
-        const videoDebugObject = buildVideoDebugObject(playableVideo, videoUrl);
-        console.log("VIDEO DEBUG", videoDebugObject);
-        if (isBigBusinessDebugVideo(playableVideo)) {
-            void logVideoResponseHeaders(videoUrl);
-        }
         if (!videoUrl) {
             console.error("[video play] missing playable URL:", sourceSection, playableVideo.id, playableVideo.title);
             reportPlatformError("media_url", "play-video-missing-url", "Video file URL missing", {
@@ -13180,8 +13071,6 @@ export default function Page() {
         if (!activeVideo)
             return null;
         const showMobileIncompatibleFallback = mobilePlaybackEnvironment && isVideoMarkedMobileIncompatible(activeVideo);
-        const showBigBusinessVideoDebug = isBigBusinessDebugVideo(activeVideo);
-        const activeVideoDebugObject = buildVideoDebugObject(activeVideo, activeVideoPlaybackUrl);
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
         {showMobileIncompatibleFallback ? (<div className="video-mobile-incompatible-panel">
             <Film size={42}/>
@@ -13231,18 +13120,6 @@ export default function Page() {
                     errorMessage: event.currentTarget.error?.message || "",
                 });
             }}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
-        {showBigBusinessVideoDebug ? (<div>
-            <strong>Video Debug</strong>
-            <dl>
-              {Object.entries(activeVideoDebugObject).map(([label, value]) => (<div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{String(value ?? "")}</dd>
-                </div>))}
-            </dl>
-            <button type="button" onClick={() => copyVideoDebugInfo(activeVideo, activeVideoPlaybackUrl)}>
-              Copy Debug Info
-            </button>
-          </div>) : null}
         <div className="video-player-copy">
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
