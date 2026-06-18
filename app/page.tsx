@@ -1985,6 +1985,11 @@ async function probeVideoPlaybackUrl(url: string) {
         };
     }
 }
+function isMissingSupabaseStorageVideoResponse(finalUrl: string, status: number, contentType: string) {
+    return isPublicSupabaseVideoUrl(finalUrl) &&
+        (status === 400 || status === 404) &&
+        contentType.toLowerCase().includes("application/json");
+}
 async function logVideoResponseHeaders(url: string) {
     if (!url || typeof fetch === "undefined")
         return;
@@ -8199,6 +8204,11 @@ export default function Page() {
             if (isMobilePlaybackEnvironment()) {
                 pendingVideoPlayRef.current = false;
                 if (video.error?.code === 4 || isVideoMarkedMobileIncompatible(activeVideo)) {
+                    const probe = await probeVideoPlaybackUrl(activeVideoPlaybackUrl);
+                    if (isMissingSupabaseStorageVideoResponse(activeVideoPlaybackUrl, probe.status, probe.contentType)) {
+                        showToast("Video file missing from storage", "error");
+                        return;
+                    }
                     showToast("This video may not play on some mobile devices.", "error");
                     return;
                 }
@@ -8207,6 +8217,11 @@ export default function Page() {
             if (isDeferredVideoPlayError(error)) {
                 pendingVideoPlayRef.current = true;
                 showToast("Video is loading. If it does not start, press Play again.", "info");
+                return;
+            }
+            const probe = await probeVideoPlaybackUrl(activeVideoPlaybackUrl);
+            if (isMissingSupabaseStorageVideoResponse(activeVideoPlaybackUrl, probe.status, probe.contentType)) {
+                showToast("Video file missing from storage", "error");
                 return;
             }
             showToast("Video playback could not start. Try pressing Play again.", "error");
@@ -8346,6 +8361,11 @@ export default function Page() {
                 playError: error instanceof Error ? error.message : String(error),
             });
             console.warn("[mobile video] exact play error", error);
+            const probe = await probeVideoPlaybackUrl(activeVideoPlaybackUrl);
+            if (isMissingSupabaseStorageVideoResponse(activeVideoPlaybackUrl, probe.status, probe.contentType)) {
+                showToast("Video file missing from storage", "error");
+                return;
+            }
             showToast("Video playback could not start. Check console diagnostics.", "error");
         }
     }
