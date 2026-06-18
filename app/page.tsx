@@ -9570,7 +9570,7 @@ export default function Page() {
         const codecInfo = await inspectVideoFileCodecInfo(file);
         setVideoUploadStep("Preparing video...", 4);
         updateVideoUploadDebug({
-            uploadMethod: "Browser direct Supabase Storage upload, browser database insert",
+            uploadMethod: "Browser direct Supabase Storage upload, verified server metadata insert",
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             uploadTargetUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             bucket: VIDEOS_STORAGE_BUCKET,
@@ -9602,7 +9602,7 @@ export default function Page() {
             fileName: file.name,
             fileSize: file.size,
             storagePath,
-            metadataTargetUrl: "direct supabase.from('videos').insert",
+            metadataTargetUrl: "/api/video-upload verified metadata save",
             videoCodec: codecInfo.videoCodec,
             audioCodec: codecInfo.audioCodec,
             mobileCompatible: codecInfo.mobileCompatible,
@@ -9638,62 +9638,69 @@ export default function Page() {
             throw new Error("Supabase did not return a public URL for the uploaded video.");
         }
         setVideoUploadStep("Saving video metadata...", 88);
-        const createdAt = new Date().toISOString();
-        const videoRow: Record<string, unknown> = {
-            id: crypto.randomUUID(),
-            user_id: sessionUser.id,
-            artist_id: sessionUser.id,
-            title: videoDetails.title,
-            description: videoDetails.creator,
-            artist_name: videoDetails.creator,
-            producer: producer?.name || "",
-            producer_name: producer?.name || "",
-            producer_id: producerId || null,
-            producer_profile_id: producerId || null,
-            album_id: albumId || null,
-            category: videoDetails.category,
-            video_url: publicUrl,
-            cover_url: videoDetails.cover || DEFAULT_COVER,
-            thumbnail_url: videoDetails.cover || DEFAULT_COVER,
-            storage_path: savedStoragePath,
-            file_name: file.name || "video.mp4",
-            file_size: file.size,
-            video_codec: codecInfo.videoCodec || null,
-            audio_codec: codecInfo.audioCodec || null,
-            mobile_compatible: codecInfo.mobileCompatible,
-            views: 0,
-            likes: 0,
-            created_at: createdAt,
+        const metadataResponse = await fetch("/api/video-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "omit",
+            body: JSON.stringify({
+                sessionUserId: sessionUser.id,
+                userId: sessionUser.id,
+                publicUrl,
+                storagePath: savedStoragePath,
+                fileName: file.name || "video.mp4",
+                fileSize: file.size,
+                contentType,
+                title: videoDetails.title,
+                description: videoDetails.creator,
+                artistName: videoDetails.creator,
+                artist_id: sessionUser.id,
+                category: videoDetails.category,
+                coverUrl: videoDetails.cover || DEFAULT_COVER,
+                producerName: producer?.name || "",
+                producerId: producerId || "",
+                producer_profile_id: producerId || "",
+                album_id: albumId || "",
+                videoCodec: codecInfo.videoCodec || "",
+                audioCodec: codecInfo.audioCodec || "",
+                mobileCompatible: codecInfo.mobileCompatible,
+                cleanupOnFailure: true,
+            }),
+        });
+        const metadataResult = (await metadataResponse.json().catch(() => ({}))) as {
+            error?: string;
+            details?: unknown;
+            verification?: Record<string, unknown>;
+            video?: VideoTableRow;
         };
-        const initialSelectColumns = "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,file_name,file_size,video_codec,audio_codec,mobile_compatible,thumbnail_url,views,likes,created_at,user_id";
-        let videoInsert = await supabase.from("videos").insert(videoRow).select(initialSelectColumns).single();
-        if (videoInsert.error && /video_codec|audio_codec|mobile_compatible|file_name|file_size|album_id|artist_id|producer|cover_url|thumbnail_url/i.test(getVideoUploadErrorMessage(videoInsert.error))) {
-            const fallbackVideoRow = { ...videoRow };
-            delete fallbackVideoRow.file_name;
-            delete fallbackVideoRow.file_size;
-            delete fallbackVideoRow.video_codec;
-            delete fallbackVideoRow.audio_codec;
-            delete fallbackVideoRow.mobile_compatible;
-            videoInsert = await supabase.from("videos").insert(fallbackVideoRow).select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at,user_id").single();
-        }
-        console.log("VIDEO DATABASE INSERT RESULT", videoInsert.data);
-        console.log("VIDEO DATABASE INSERT ERROR", videoInsert.error);
+        console.log("VIDEO DATABASE SAVE RESULT", metadataResult.video);
+        console.log("VIDEO DATABASE SAVE ERROR", metadataResult.error || null);
         updateVideoUploadDebug({
-            currentStep: videoInsert.error ? "Video database insert failed" : "Video database insert complete",
-            lastError: videoInsert.error?.message || "",
-            fullInsertPayload: JSON.stringify(videoRow, null, 2),
+            currentStep: metadataResponse.ok && metadataResult.video ? "Video database insert complete" : "Video database insert failed",
+            lastError: metadataResult.error || "",
+            fullInsertPayload: JSON.stringify(metadataResult.video || {}, null, 2),
             fullErrorJson: JSON.stringify({
                 storageUploadResult: storageUpload.data,
                 storageError: storageUpload.error,
-                databaseInsertResult: videoInsert.data,
-                databaseInsertError: videoInsert.error,
+                databaseInsertResult: metadataResult.video || null,
+                databaseInsertError: metadataResult.error || null,
+                verification: metadataResult.verification || null,
+                details: metadataResult.details || null,
                 finalPublicUrl: publicUrl,
             }, null, 2),
         });
-        if (videoInsert.error || !videoInsert.data) {
-            throw new Error(videoInsert.error?.message || "Supabase inserted no video row.");
+        if (!metadataResponse.ok || metadataResult.error || !metadataResult.video) {
+            throw new Error(metadataResult.error || "Supabase inserted no video row.");
         }
-        const savedVideo = videoInsert.data as VideoTableRow;
+        const savedVideo = metadataResult.video;
+        if (!isUuid(savedVideo.id)) {
+            throw new Error("Supabase inserted a video row without a real UUID id.");
+        }
+        if (savedVideo.storage_path !== savedStoragePath) {
+            throw new Error("Saved video row storage_path does not match uploaded storage path.");
+        }
+        if (savedVideo.video_url !== publicUrl) {
+            throw new Error("Saved video row video_url does not match uploaded public URL.");
+        }
         setVideoUploadStep("Finishing upload...", 98);
         setVideoUploadStep("Video upload complete.", 100);
         updateVideoUploadDebug({
@@ -9701,7 +9708,7 @@ export default function Page() {
             lastError: "",
             uploadTargetUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
             requestMethod: "POST",
-            requestBodyType: "Direct Supabase Storage file + direct videos table insert",
+            requestBodyType: "Direct Supabase Storage file + verified server metadata insert",
             requestBodySize: String(file.size),
             insertUserId: String(savedVideo.user_id || sessionUser.id),
             authUserId: sessionUser.id,
