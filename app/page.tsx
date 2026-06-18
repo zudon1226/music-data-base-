@@ -9562,7 +9562,7 @@ export default function Page() {
             currentStep: "Checking Supabase auth session for video upload",
             lastError: "",
         });
-        const { user: sessionUser } = await getFreshVideoStorageUploadUser();
+        const { user: sessionUser, accessToken } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
         const contentType = getVideoUploadContentType(file);
@@ -9628,6 +9628,7 @@ export default function Page() {
         formData.append("mobileCompatible", String(codecInfo.mobileCompatible ?? ""));
         const metadataResponse = await fetch("/api/video-upload", {
             method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}` },
             credentials: "omit",
             body: formData,
         });

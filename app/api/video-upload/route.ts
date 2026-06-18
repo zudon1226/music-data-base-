@@ -62,6 +62,32 @@ function getSupabaseServerClient() {
     });
 }
 
+function getBearerToken(request: Request) {
+    const authorization = request.headers.get("authorization") || "";
+    const [scheme, token] = authorization.split(/\s+/);
+    if (scheme?.toLowerCase() !== "bearer" || !token?.trim()) {
+        return "";
+    }
+    return token.trim();
+}
+
+async function getVerifiedUploadUserId(supabase: ReturnType<typeof getSupabaseServerClient>, request: Request, providedUserIds: string[]) {
+    const token = getBearerToken(request);
+    if (!token) {
+        throw new Error("Missing upload authorization token.");
+    }
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user?.id) {
+        throw new Error(`Invalid upload authorization token${error ? `: ${getErrorMessage(error)}` : "."}`);
+    }
+    const verifiedUserId = data.user.id;
+    const mismatchedUserId = providedUserIds.find((userId) => userId && userId !== verifiedUserId);
+    if (mismatchedUserId) {
+        throw new Error("Video upload user id does not match the signed-in session.");
+    }
+    return verifiedUserId;
+}
+
 function getRecordString(record: Record<string, unknown>, keys: string[], fallback = "") {
     for (const key of keys) {
         const value = record[key];
@@ -307,16 +333,17 @@ export async function POST(request: Request) {
             const file = getFormFile(formData.get("file"));
             const sessionUserId = String(formData.get("sessionUserId") || "").trim();
             const userId = String(formData.get("userId") || "").trim();
-            const authUserId = sessionUserId || userId;
+            const supabase = getSupabaseServerClient();
+            let authUserId = "";
 
             if (!file) {
                 return jsonResponse({ error: "Choose a video file." }, 400);
             }
-            if (!authUserId) {
-                return jsonResponse({ error: "You must log in again before uploading a video." }, 401);
+            try {
+                authUserId = await getVerifiedUploadUserId(supabase, request, [sessionUserId, userId]);
             }
-            if (sessionUserId && userId && sessionUserId !== userId) {
-                return jsonResponse({ error: "Video upload user id does not match the signed-in session." }, 401);
+            catch (authError) {
+                return jsonResponse({ error: getErrorMessage(authError) }, 401);
             }
 
             const contentType = getVideoContentType(file);
@@ -339,7 +366,6 @@ export async function POST(request: Request) {
             const audioCodec = getNullableFormString(formData, ["audio_codec", "audioCodec"]);
             const mobileCompatible = getFormBoolean(formData, ["mobile_compatible", "mobileCompatible"]);
             const buffer = Buffer.from(await file.arrayBuffer());
-            const supabase = getSupabaseServerClient();
             const { error: uploadError } = await supabase.storage.from(VIDEOS_BUCKET).upload(storagePath, buffer, {
                 cacheControl: "3600",
                 contentType,
@@ -435,7 +461,6 @@ export async function POST(request: Request) {
             const body = await request.json() as Record<string, unknown>;
             const sessionUserId = getRecordString(body, ["sessionUserId"]);
             const userId = getRecordString(body, ["userId"]);
-            const authUserId = sessionUserId || userId;
             const providedPublicUrl = getRecordString(body, ["publicUrl", "video_url", "videoUrl"]);
             const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
             const fileName = getRecordString(body, ["fileName", "file_name"], storagePath.split("/").pop() || "video.mp4");
@@ -445,17 +470,18 @@ export async function POST(request: Request) {
             const rawMobileCompatible = body.mobile_compatible ?? body.mobileCompatible;
             const mobileCompatible = typeof rawMobileCompatible === "boolean" ? rawMobileCompatible : null;
             const cleanupOnFailure = body.cleanupOnFailure === true;
+            const supabase = getSupabaseServerClient();
+            let authUserId = "";
 
-            if (!authUserId) {
-                return jsonResponse({ error: "You must log in again before uploading a video." }, 401);
+            try {
+                authUserId = await getVerifiedUploadUserId(supabase, request, [sessionUserId, userId]);
             }
-            if (sessionUserId && userId && sessionUserId !== userId) {
-                return jsonResponse({ error: "Video upload user id does not match the signed-in session." }, 401);
+            catch (authError) {
+                return jsonResponse({ error: getErrorMessage(authError) }, 401);
             }
             if (!providedPublicUrl || !storagePath) {
                 return jsonResponse({ error: "Video metadata is missing the Supabase Storage URL or path." }, 400);
             }
-            const supabase = getSupabaseServerClient();
             const publicUrl = getPublicVideoUrl(supabase, storagePath);
             if (!publicUrl) {
                 return jsonResponse({ error: "Supabase did not return a public URL for the uploaded video." }, 500);
