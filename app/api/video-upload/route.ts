@@ -1,6 +1,8 @@
+import { Buffer } from "node:buffer";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { requireMatchingUserId } from "@/lib/request-auth";
-import { getSupabaseLibraryClient } from "@/lib/server-supabase";
+import { describeRouteAuth, getBearerToken } from "@/lib/request-auth";
+import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
 import { readSupabaseLibraryApiKey, SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
 
 export const runtime = "nodejs";
@@ -8,34 +10,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const VIDEOS_BUCKET = "videos";
-
-function decodeJwtPayload(key: string) {
-    try {
-        const payload = key.split(".")[1];
-        if (!payload) {
-            return null;
-        }
-        const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-        return JSON.parse(Buffer.from(normalized, "base64").toString("utf8")) as { iss?: string; ref?: string; role?: string };
-    }
-    catch {
-        return null;
-    }
-}
-
-function describeServerStorageAuth() {
-    const apiKey = readSupabaseLibraryApiKey();
-    const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
-    const keySource = serviceRoleKey && apiKey === serviceRoleKey
-        ? "SUPABASE_SERVICE_ROLE_KEY"
-        : "NEXT_PUBLIC_SUPABASE_ANON_KEY (library fallback)";
-    return {
-        supabaseUrl: SUPABASE_PROJECT_URL,
-        keySource,
-        serviceRoleKeyUsed: keySource === "SUPABASE_SERVICE_ROLE_KEY",
-        jwtPayload: decodeJwtPayload(apiKey),
-    };
-}
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
@@ -74,13 +48,165 @@ function getErrorDetails(error: unknown) {
     return details;
 }
 
-async function getVerifiedUploadUserId(request: Request, providedUserIds: string[]) {
-    const claimedUserId = providedUserIds.find((userId) => userId?.trim()) || "";
-    const auth = await requireMatchingUserId(request, "/api/video-upload", claimedUserId);
-    if (!auth.ok) {
-        throw new Error(auth.error);
+function decodeJwtPayload(key: string) {
+    try {
+        const payload = key.split(".")[1];
+        if (!payload)
+            return null;
+        const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+        return JSON.parse(Buffer.from(normalized, "base64").toString("utf8")) as { iss?: string; ref?: string; role?: string };
     }
-    return auth.userId;
+    catch {
+        return null;
+    }
+}
+
+function describeServiceRoleEnv() {
+    const raw = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+    const placeholder = !raw || raw === "your_service_role_key_here";
+    const shape = placeholder ? "missing" : raw.startsWith("eyJ") ? "legacy-jwt" : raw.startsWith("sb_secret_") ? "sb_secret" : "other";
+    const jwtPayload = raw.startsWith("eyJ") ? decodeJwtPayload(raw) : null;
+    return {
+        configured: !placeholder,
+        keyShape: shape,
+        keyLength: raw.length,
+        role: jwtPayload?.role || null,
+        projectRef: jwtPayload?.ref || null,
+        libraryKeySource: describeLibraryKeySource(),
+    };
+}
+
+function describeLibraryKeySource() {
+    try {
+        const apiKey = readSupabaseLibraryApiKey();
+        const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+        if (serviceRoleKey && apiKey === serviceRoleKey)
+            return "SUPABASE_SERVICE_ROLE_KEY";
+        return "NEXT_PUBLIC_SUPABASE_ANON_KEY (fallback)";
+    }
+    catch (error) {
+        return `unavailable: ${getErrorMessage(error)}`;
+    }
+}
+
+function getSupabaseAuthClient() {
+    const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "");
+    if (!anonKey) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
+    }
+    return createClient(SUPABASE_PROJECT_URL, anonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+    });
+}
+
+function getStorageSupabaseClient() {
+    const serviceRoleEnv = describeServiceRoleEnv();
+    try {
+        return {
+            client: getSupabaseServerClient(),
+            keySource: "SUPABASE_SERVICE_ROLE_KEY",
+            serviceRoleEnv,
+        };
+    }
+    catch (serviceRoleError) {
+        console.warn("[api/video-upload] Service role client unavailable, using library client:", getErrorMessage(serviceRoleError));
+        return {
+            client: getSupabaseLibraryClient(),
+            keySource: describeLibraryKeySource(),
+            serviceRoleEnv,
+            serviceRoleError: getErrorMessage(serviceRoleError),
+        };
+    }
+}
+
+type AuthSuccess = {
+    ok: true;
+    userId: string;
+    email: string | undefined;
+    session: {
+        hasBearerToken: boolean;
+        bearerTokenLength: number;
+        claimedUserId: string;
+    };
+};
+
+type AuthFailure = {
+    ok: false;
+    status: number;
+    error: string;
+    details: Record<string, unknown>;
+};
+
+async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: string[]): Promise<AuthSuccess | AuthFailure> {
+    const claimedUserId = claimedUserIds.find((id) => id?.trim())?.trim() || "";
+    const routeAuth = describeRouteAuth(request, "/api/video-upload", claimedUserId);
+    const token = getBearerToken(request);
+    const serviceRoleEnv = describeServiceRoleEnv();
+
+    console.log("[api/video-upload] SESSION STATUS", {
+        ...routeAuth,
+        serviceRoleEnv,
+        supabaseUrl: SUPABASE_PROJECT_URL,
+    });
+
+    if (!token) {
+        return {
+            ok: false,
+            status: 401,
+            error: "Missing Authorization header. Send Authorization: Bearer <session.access_token> from the logged-in Supabase session.",
+            details: { ...routeAuth, serviceRoleEnv, step: "bearer-token-missing" },
+        };
+    }
+
+    const authClient = getSupabaseAuthClient();
+    const { data, error } = await authClient.auth.getUser(token);
+
+    console.log("[api/video-upload] AUTHENTICATED USER", {
+        authError: error?.message || null,
+        userId: data.user?.id || null,
+        email: data.user?.email || null,
+        bearerTokenLength: token.length,
+    });
+
+    if (error || !data.user?.id) {
+        return {
+            ok: false,
+            status: 401,
+            error: `Session verification failed: ${error?.message || "Supabase auth.getUser returned no user."}`,
+            details: {
+                ...routeAuth,
+                serviceRoleEnv,
+                supabaseAuthError: getErrorDetails(error),
+                step: "auth-get-user-failed",
+            },
+        };
+    }
+
+    const authUserId = data.user.id;
+    if (claimedUserId && claimedUserId !== authUserId) {
+        return {
+            ok: false,
+            status: 403,
+            error: "Request user id does not match the authenticated session user.",
+            details: {
+                claimedUserId,
+                authUserId,
+                email: data.user.email || null,
+                step: "user-id-mismatch",
+            },
+        };
+    }
+
+    return {
+        ok: true,
+        userId: authUserId,
+        email: data.user.email,
+        session: {
+            hasBearerToken: true,
+            bearerTokenLength: token.length,
+            claimedUserId: claimedUserId || authUserId,
+        },
+    };
 }
 
 function getRecordString(record: Record<string, unknown>, keys: string[], fallback = "") {
@@ -126,6 +252,33 @@ function getNullableUuid(value: string | null) {
     return cleanValue && isUuid(cleanValue) ? cleanValue : null;
 }
 
+function getFormFile(value: FormDataEntryValue | null) {
+    if (value &&
+        typeof value === "object" &&
+        "arrayBuffer" in value &&
+        typeof value.arrayBuffer === "function" &&
+        "size" in value &&
+        typeof value.size === "number") {
+        return value as File;
+    }
+    return null;
+}
+
+function getVideoContentType(file: File, fallback = "video/mp4") {
+    const browserType = file.type.trim().toLowerCase();
+    if (browserType && browserType.startsWith("video/")) {
+        return browserType;
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() || "mp4";
+    if (extension === "mov")
+        return "video/quicktime";
+    if (extension === "webm")
+        return "video/webm";
+    if (extension === "m4v")
+        return "video/x-m4v";
+    return fallback;
+}
+
 function getPublicVideoUrl(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string) {
     return supabase.storage.from(VIDEOS_BUCKET).getPublicUrl(storagePath).data.publicUrl || "";
 }
@@ -163,9 +316,145 @@ async function verifyUploadedVideoObject(supabase: ReturnType<typeof getSupabase
 }
 
 async function cleanupUploadedVideoObject(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string) {
-    if (!storagePath) return null;
+    if (!storagePath)
+        return null;
     const { error } = await supabase.storage.from(VIDEOS_BUCKET).remove([storagePath]);
     return error ? getErrorMessage(error) : null;
+}
+
+async function createSignedUploadUrlForUser(storagePath: string, authUserId: string) {
+    const storageFolder = storagePath.split("/")[0] || "";
+    if (storageFolder !== authUserId) {
+        return {
+            ok: false as const,
+            status: 403,
+            error: "Video storage path must stay inside the signed-in user's folder.",
+            details: { storagePath, authUserId, bucket: VIDEOS_BUCKET },
+        };
+    }
+
+    const { client: storageClient, keySource, serviceRoleEnv, serviceRoleError } = getStorageSupabaseClient();
+
+    console.log("[api/video-upload] SIGNED URL REQUEST", {
+        bucket: VIDEOS_BUCKET,
+        storagePath,
+        authUserId,
+        keySource,
+        serviceRoleEnv,
+        serviceRoleError: serviceRoleError || null,
+    });
+
+    const signedUpload = await storageClient.storage.from(VIDEOS_BUCKET).createSignedUploadUrl(storagePath, {
+        upsert: false,
+    });
+
+    console.log("[api/video-upload] SIGNED URL RESPONSE", {
+        bucket: VIDEOS_BUCKET,
+        storagePath,
+        hasToken: Boolean(signedUpload.data?.token),
+        signedUrl: signedUpload.data?.signedUrl || "",
+        supabaseError: signedUpload.error ? getErrorDetails(signedUpload.error) : null,
+    });
+
+    if (signedUpload.error || !signedUpload.data?.token) {
+        return {
+            ok: false as const,
+            status: 500,
+            error: getErrorMessage(signedUpload.error || "Supabase did not return a signed upload token."),
+            details: {
+                bucket: VIDEOS_BUCKET,
+                storagePath,
+                authUserId,
+                keySource,
+                serviceRoleEnv,
+                supabaseError: getErrorDetails(signedUpload.error),
+                useDirectUpload: true,
+            },
+        };
+    }
+
+    return {
+        ok: true as const,
+        storagePath: signedUpload.data.path || storagePath,
+        token: signedUpload.data.token,
+        signedUrl: signedUpload.data.signedUrl || "",
+        keySource,
+        serviceRoleEnv,
+    };
+}
+
+async function directStorageUpload(request: Request, file: File, storagePath: string, contentType: string, authUserId: string) {
+    const storageFolder = storagePath.split("/")[0] || "";
+    if (storageFolder !== authUserId) {
+        return jsonResponse({
+            error: "Video storage path must stay inside the signed-in user's folder.",
+            details: { storagePath, authUserId, bucket: VIDEOS_BUCKET },
+        }, 403);
+    }
+
+    const { client: storageClient, keySource, serviceRoleEnv, serviceRoleError } = getStorageSupabaseClient();
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    console.log("[api/video-upload] DIRECT STORAGE UPLOAD", {
+        bucket: VIDEOS_BUCKET,
+        storagePath,
+        authUserId,
+        fileSize: file.size,
+        contentType,
+        keySource,
+        serviceRoleEnv,
+        serviceRoleError: serviceRoleError || null,
+    });
+
+    const uploadResult = await storageClient.storage.from(VIDEOS_BUCKET).upload(storagePath, buffer, {
+        cacheControl: "3600",
+        contentType,
+        upsert: false,
+    });
+
+    console.log("[api/video-upload] DIRECT STORAGE UPLOAD RESPONSE", {
+        bucket: VIDEOS_BUCKET,
+        storagePath,
+        uploadData: uploadResult.data,
+        supabaseError: uploadResult.error ? getErrorDetails(uploadResult.error) : null,
+    });
+
+    if (uploadResult.error) {
+        return jsonResponse({
+            error: `Direct storage upload failed: ${getErrorMessage(uploadResult.error)}`,
+            details: {
+                bucket: VIDEOS_BUCKET,
+                storagePath,
+                authUserId,
+                keySource,
+                serviceRoleEnv,
+                supabaseError: getErrorDetails(uploadResult.error),
+            },
+            uploadMethod: "direct",
+        }, 500);
+    }
+
+    const publicUrl = getPublicVideoUrl(storageClient, storagePath);
+    if (!publicUrl) {
+        return jsonResponse({
+            error: "Direct storage upload succeeded but Supabase did not return a public URL.",
+            details: { bucket: VIDEOS_BUCKET, storagePath },
+            uploadMethod: "direct",
+        }, 500);
+    }
+
+    return jsonResponse({
+        ok: true,
+        uploadMethod: "direct",
+        storagePath: uploadResult.data?.path || storagePath,
+        publicUrl,
+        bucket: VIDEOS_BUCKET,
+        fileName: file.name,
+        fileSize: file.size,
+        contentType,
+        keySource,
+        serviceRoleEnv,
+    });
 }
 
 const OPTIONAL_VIDEO_INSERT_COLUMNS = [
@@ -321,12 +610,155 @@ function assertSavedVideoRow(video: Record<string, unknown>, storagePath: string
     }
 }
 
+async function saveVideoMetadata(request: Request, body: Record<string, unknown>, authUserId: string) {
+    const supabase = getSupabaseLibraryClient();
+    const providedPublicUrl = getRecordString(body, ["publicUrl", "video_url", "videoUrl"]);
+    const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
+    const fileName = getRecordString(body, ["fileName", "file_name"], storagePath.split("/").pop() || "video.mp4");
+    const fileSize = getRecordNumber(body, ["fileSize", "file_size"]);
+    const cleanupOnFailure = body.cleanupOnFailure === true;
+
+    if (!providedPublicUrl || !storagePath) {
+        return jsonResponse({
+            error: "Video metadata is missing the Supabase Storage URL or path.",
+            details: { providedPublicUrl, storagePath, authUserId },
+        }, 400);
+    }
+
+    const publicUrl = getPublicVideoUrl(supabase, storagePath);
+    if (!publicUrl) {
+        return jsonResponse({
+            error: "Supabase did not return a public URL for the uploaded video.",
+            details: { bucket: VIDEOS_BUCKET, storagePath, authUserId },
+        }, 500);
+    }
+    if (providedPublicUrl !== publicUrl) {
+        return jsonResponse({
+            error: "Video metadata public URL does not match the uploaded storage path.",
+            details: { providedPublicUrl, generatedPublicUrl: publicUrl, storagePath, authUserId },
+        }, 400);
+    }
+
+    let publicProbe: Awaited<ReturnType<typeof verifyUploadedVideoObject>>;
+    try {
+        publicProbe = await verifyUploadedVideoObject(supabase, storagePath, publicUrl);
+    }
+    catch (verificationError) {
+        const cleanupError = cleanupOnFailure ? await cleanupUploadedVideoObject(supabase, storagePath) : null;
+        return jsonResponse({
+            error: getErrorMessage(verificationError),
+            details: {
+                storagePath,
+                publicUrl,
+                authUserId,
+                bucket: VIDEOS_BUCKET,
+                cleanupOnFailure,
+                cleanupError,
+            },
+        }, 500);
+    }
+
+    const createdAt = new Date().toISOString();
+    const videoTitle = getRecordString(body, ["title"], fileName.replace(/\.[^/.]+$/, "") || "Untitled video");
+    const artistName = getRecordString(body, ["artist_name", "artistName", "creator", "description"], "Unknown creator");
+    const producerName = getRecordString(body, ["producer_name", "producerName", "producer"]);
+    const producerId = getNullableUuid(getNullableRecordString(body, ["producer_id", "producerId"]));
+    const producerProfileId = getNullableUuid(getNullableRecordString(body, ["producer_profile_id", "producerProfileId"])) || producerId;
+    const albumId = getNullableUuid(getNullableRecordString(body, ["album_id", "albumId"]));
+    const coverUrl = getRecordString(body, ["cover_url", "coverUrl", "cover", "thumbnail_url", "thumbnailUrl"], "/music-data-base-logo.png");
+    const videoRow: Record<string, unknown> = {
+        id: crypto.randomUUID(),
+        user_id: authUserId,
+        artist_id: getNullableUuid(getRecordString(body, ["artist_id", "artistId"], authUserId)) || authUserId,
+        title: videoTitle,
+        description: getRecordString(body, ["description"], artistName),
+        artist_name: artistName,
+        producer: producerName,
+        producer_name: producerName,
+        producer_id: producerId,
+        producer_profile_id: producerProfileId,
+        album_id: albumId,
+        category: getRecordString(body, ["category"], "Music Video"),
+        video_url: publicUrl,
+        cover_url: coverUrl,
+        thumbnail_url: coverUrl,
+        storage_path: storagePath,
+        file_name: fileName,
+        file_size: fileSize,
+        views: 0,
+        likes: 0,
+        created_at: createdAt,
+    };
+
+    console.log("[api/video-upload] VIDEO METADATA INSERT", {
+        authUserId,
+        bucket: VIDEOS_BUCKET,
+        storagePath,
+        publicUrl,
+        videoRow,
+    });
+
+    const videoInsert = await insertVideoRowWithFallback(supabase, videoRow);
+    if (videoInsert.error || !videoInsert.data) {
+        const cleanupError = cleanupOnFailure ? await cleanupUploadedVideoObject(supabase, storagePath) : null;
+        return jsonResponse({
+            error: getErrorMessage(videoInsert.error || "Supabase inserted no video row."),
+            details: {
+                ...((getErrorDetails(videoInsert.error) || {}) as Record<string, unknown>),
+                insertPayload: videoRow,
+                authUserId,
+                bucket: VIDEOS_BUCKET,
+                storagePath,
+                cleanupOnFailure,
+                cleanupError,
+            },
+        }, 500);
+    }
+
+    try {
+        assertSavedVideoRow(videoInsert.data as unknown as Record<string, unknown>, storagePath, publicUrl);
+    }
+    catch (verificationError) {
+        const cleanupError = cleanupOnFailure ? await cleanupUploadedVideoObject(supabase, storagePath) : null;
+        return jsonResponse({
+            error: getErrorMessage(verificationError),
+            details: {
+                savedVideo: videoInsert.data,
+                storagePath,
+                publicUrl,
+                authUserId,
+                cleanupOnFailure,
+                cleanupError,
+            },
+        }, 500);
+    }
+
+    return jsonResponse({
+        publicUrl,
+        storagePath,
+        fileName,
+        fileSize,
+        contentType: publicProbe.contentType || getRecordString(body, ["contentType", "content_type"]),
+        verification: {
+            storageObjectExists: true,
+            publicUrlStatus: publicProbe.status,
+            contentType: publicProbe.contentType,
+            contentLength: publicProbe.contentLength,
+            rowHasRealUuid: true,
+            storagePathMatches: true,
+            videoUrlMatches: true,
+        },
+        video: videoInsert.data,
+    });
+}
+
 export async function GET() {
     return jsonResponse({
         ok: true,
         route: "/api/video-upload",
-        method: "POST",
-        message: "POST JSON with mode prepare-storage-upload to get a signed Storage URL, upload the file to the Supabase Storage hostname, then POST metadata. The server verifies auth, storage, public URL, and saves the videos row.",
+        bucket: VIDEOS_BUCKET,
+        serviceRoleEnv: describeServiceRoleEnv(),
+        message: "POST JSON prepare-storage-upload, POST multipart direct-storage-upload fallback, then POST metadata JSON.",
     });
 }
 
@@ -337,189 +769,101 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
     try {
         const contentTypeHeader = request.headers.get("content-type") || "";
+
         if (contentTypeHeader.toLowerCase().includes("multipart/form-data")) {
+            const formData = await request.formData();
+            const mode = String(formData.get("mode") || "direct-storage-upload").trim();
+            const sessionUserId = String(formData.get("sessionUserId") || "").trim();
+            const userId = String(formData.get("userId") || "").trim();
+            const storagePath = String(formData.get("storagePath") || formData.get("storage_path") || "").trim();
+            const file = getFormFile(formData.get("file"));
+            const contentType = String(formData.get("contentType") || formData.get("content_type") || "").trim();
+
+            const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId]);
+            if (!auth.ok) {
+                return jsonResponse({ error: auth.error, details: auth.details, uploadMethod: mode }, auth.status);
+            }
+
+            if (mode !== "direct-storage-upload") {
+                return jsonResponse({
+                    error: `Unsupported multipart mode "${mode}". Use mode=direct-storage-upload.`,
+                    details: { supportedModes: ["direct-storage-upload"] },
+                }, 400);
+            }
+            if (!file) {
+                return jsonResponse({ error: "Choose a video file for direct storage upload.", details: { mode } }, 400);
+            }
+            if (!storagePath) {
+                return jsonResponse({ error: "storagePath is required for direct storage upload.", details: { authUserId: auth.userId } }, 400);
+            }
+
+            return directStorageUpload(
+                request,
+                file,
+                storagePath,
+                contentType || getVideoContentType(file),
+                auth.userId,
+            );
+        }
+
+        if (!contentTypeHeader.toLowerCase().includes("application/json")) {
             return jsonResponse({
-                error: "Do not send video file bytes to this route. Upload to Supabase Storage from the browser, then POST JSON metadata for verification and database save.",
+                error: "Send application/json or multipart/form-data to /api/video-upload.",
+                details: { contentType: contentTypeHeader || "missing" },
             }, 415);
         }
 
-        if (contentTypeHeader.toLowerCase().includes("application/json")) {
-            const body = await request.json() as Record<string, unknown>;
-            const requestMode = getRecordString(body, ["mode"]);
-            const sessionUserId = getRecordString(body, ["sessionUserId"]);
-            const userId = getRecordString(body, ["userId"]);
-            const supabase = getSupabaseLibraryClient();
+        const body = await request.json() as Record<string, unknown>;
+        const requestMode = getRecordString(body, ["mode"]);
+        const sessionUserId = getRecordString(body, ["sessionUserId", "session_user_id"]);
+        const userId = getRecordString(body, ["userId", "user_id"]);
 
-            if (requestMode === "prepare-storage-upload") {
-                let authUserId = "";
-                try {
-                    authUserId = await getVerifiedUploadUserId(request, [sessionUserId, userId]);
-                }
-                catch (authError) {
-                    return jsonResponse({ error: getErrorMessage(authError) }, 401);
-                }
-                const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
-                if (!storagePath) {
-                    return jsonResponse({ error: "Video storage path is required before upload." }, 400);
-                }
-                const storageFolder = storagePath.split("/")[0] || "";
-                if (storageFolder !== authUserId) {
-                    return jsonResponse({ error: "Video storage path must stay inside the signed-in user's folder." }, 403);
-                }
-                console.log("STORAGE SIGNED URL AUTH", describeServerStorageAuth());
-                const signedUpload = await supabase.storage.from(VIDEOS_BUCKET).createSignedUploadUrl(storagePath, {
-                    upsert: false,
-                });
-                if (signedUpload.error || !signedUpload.data?.token) {
-                    return jsonResponse({
-                        error: getErrorMessage(signedUpload.error || "Supabase did not return a signed upload token."),
-                        details: getErrorDetails(signedUpload.error),
-                    }, 500);
-                }
-                return jsonResponse({
-                    storagePath: signedUpload.data.path || storagePath,
-                    token: signedUpload.data.token,
-                    signedUrl: signedUpload.data.signedUrl || "",
-                });
-            }
+        const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId]);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error, details: auth.details }, auth.status);
+        }
 
-            const providedPublicUrl = getRecordString(body, ["publicUrl", "video_url", "videoUrl"]);
+        if (requestMode === "prepare-storage-upload") {
             const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
-            const fileName = getRecordString(body, ["fileName", "file_name"], storagePath.split("/").pop() || "video.mp4");
-            const fileSize = getRecordNumber(body, ["fileSize", "file_size"]);
-            const cleanupOnFailure = body.cleanupOnFailure === true;
-            let authUserId = "";
-
-            try {
-                authUserId = await getVerifiedUploadUserId(request, [sessionUserId, userId]);
-            }
-            catch (authError) {
-                return jsonResponse({ error: getErrorMessage(authError) }, 401);
-            }
-            if (!providedPublicUrl || !storagePath) {
-                return jsonResponse({ error: "Video metadata is missing the Supabase Storage URL or path." }, 400);
-            }
-            const publicUrl = getPublicVideoUrl(supabase, storagePath);
-            if (!publicUrl) {
-                return jsonResponse({ error: "Supabase did not return a public URL for the uploaded video." }, 500);
-            }
-            if (providedPublicUrl !== publicUrl) {
+            if (!storagePath) {
                 return jsonResponse({
-                    error: "Video metadata public URL does not match the uploaded storage path.",
-                    details: { providedPublicUrl, generatedPublicUrl: publicUrl, storagePath },
+                    error: "Video storage path is required before upload.",
+                    details: { authUserId: auth.userId, bucket: VIDEOS_BUCKET },
                 }, 400);
             }
-            let publicProbe: Awaited<ReturnType<typeof verifyUploadedVideoObject>>;
-            try {
-                publicProbe = await verifyUploadedVideoObject(supabase, storagePath, publicUrl);
-            }
-            catch (verificationError) {
-                const cleanupError = cleanupOnFailure ? await cleanupUploadedVideoObject(supabase, storagePath) : null;
-                return jsonResponse({
-                    error: getErrorMessage(verificationError),
-                    details: {
-                        storagePath,
-                        publicUrl,
-                        cleanupOnFailure,
-                        cleanupError,
-                    },
-                }, 500);
-            }
 
-            const createdAt = new Date().toISOString();
-            const videoTitle = getRecordString(body, ["title"], fileName.replace(/\.[^/.]+$/, "") || "Untitled video");
-            const artistName = getRecordString(body, ["artist_name", "artistName", "creator", "description"], "Unknown creator");
-            const producerName = getRecordString(body, ["producer_name", "producerName", "producer"]);
-            const producerId = getNullableUuid(getNullableRecordString(body, ["producer_id", "producerId"]));
-            const producerProfileId = getNullableUuid(getNullableRecordString(body, ["producer_profile_id", "producerProfileId"])) || producerId;
-            const albumId = getNullableUuid(getNullableRecordString(body, ["album_id", "albumId"]));
-            const coverUrl = getRecordString(body, ["cover_url", "coverUrl", "cover", "thumbnail_url", "thumbnailUrl"], "/music-data-base-logo.png");
-            const videoRow: Record<string, unknown> = {
-                id: crypto.randomUUID(),
-                user_id: authUserId,
-                artist_id: getNullableUuid(getRecordString(body, ["artist_id", "artistId"], authUserId)) || authUserId,
-                title: videoTitle,
-                description: getRecordString(body, ["description"], artistName),
-                artist_name: artistName,
-                producer: producerName,
-                producer_name: producerName,
-                producer_id: producerId,
-                producer_profile_id: producerProfileId,
-                album_id: albumId,
-                category: getRecordString(body, ["category"], "Music Video"),
-                video_url: publicUrl,
-                cover_url: coverUrl,
-                thumbnail_url: coverUrl,
-                storage_path: storagePath,
-                file_name: fileName,
-                file_size: fileSize,
-                views: 0,
-                likes: 0,
-                created_at: createdAt,
-            };
-            console.error("[api/video-upload] videos insert payload:", videoRow);
-            let videoInsert = await insertVideoRowWithFallback(supabase, videoRow);
-            if (videoInsert.error || !videoInsert.data) {
-                console.error("[api/video-upload] Supabase videos metadata insert error:", videoInsert.error);
-                const cleanupError = cleanupOnFailure ? await cleanupUploadedVideoObject(supabase, storagePath) : null;
+            const signed = await createSignedUploadUrlForUser(storagePath, auth.userId);
+            if (!signed.ok) {
                 return jsonResponse({
-                    error: getErrorMessage(videoInsert.error || "Supabase inserted no video row."),
-                    details: {
-                        ...((getErrorDetails(videoInsert.error) || {}) as Record<string, unknown>),
-                        insertPayload: videoRow,
-                        insertResponse: {
-                            data: videoInsert.data || null,
-                            error: getErrorDetails(videoInsert.error) || null,
-                        },
-                        insertUserId: authUserId,
-                        authUserId,
-                        cleanupOnFailure,
-                        cleanupError,
-                    },
-                }, 500);
-            }
-            try {
-                assertSavedVideoRow(videoInsert.data as unknown as Record<string, unknown>, storagePath, publicUrl);
-            }
-            catch (verificationError) {
-                const cleanupError = cleanupOnFailure ? await cleanupUploadedVideoObject(supabase, storagePath) : null;
-                return jsonResponse({
-                    error: getErrorMessage(verificationError),
-                    details: {
-                        savedVideo: videoInsert.data,
-                        storagePath,
-                        publicUrl,
-                        cleanupOnFailure,
-                        cleanupError,
-                    },
-                }, 500);
+                    error: signed.error,
+                    details: signed.details,
+                    useDirectUpload: true,
+                    bucket: VIDEOS_BUCKET,
+                    storagePath,
+                    authUserId: auth.userId,
+                }, signed.status);
             }
 
             return jsonResponse({
-                publicUrl,
-                storagePath,
-                fileName,
-                fileSize,
-                contentType: publicProbe.contentType || getRecordString(body, ["contentType", "content_type"]),
-                verification: {
-                    storageObjectExists: true,
-                    publicUrlStatus: publicProbe.status,
-                    contentType: publicProbe.contentType,
-                    contentLength: publicProbe.contentLength,
-                    rowHasRealUuid: true,
-                    storagePathMatches: true,
-                    videoUrlMatches: true,
-                },
-                video: videoInsert.data,
+                storagePath: signed.storagePath,
+                token: signed.token,
+                signedUrl: signed.signedUrl,
+                bucket: VIDEOS_BUCKET,
+                authUserId: auth.userId,
+                uploadMethod: "signed",
+                keySource: signed.keySource,
+                serviceRoleEnv: signed.serviceRoleEnv,
             });
         }
 
-        return jsonResponse({
-            error: "Send JSON metadata for an already uploaded Supabase Storage video object.",
-        }, 415);
+        return saveVideoMetadata(request, body, auth.userId);
     }
     catch (error) {
         console.error("[api/video-upload] Server error:", error);
-        return jsonResponse({ error: getErrorMessage(error), details: getErrorDetails(error) }, 500);
+        return jsonResponse({
+            error: sharedGetErrorMessage(error),
+            details: getErrorDetails(error),
+            serviceRoleEnv: describeServiceRoleEnv(),
+        }, 500);
     }
 }

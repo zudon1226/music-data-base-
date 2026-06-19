@@ -25,8 +25,11 @@ export async function getAuthenticatedSession(supabase: SupabaseClient) {
     };
 }
 
-export async function authFetch(supabase: SupabaseClient, input: RequestInfo | URL, init: RequestInit = {}) {
-    const { accessToken, userId, error } = await getAuthenticatedSession(supabase);
+export async function authFetch(supabase: SupabaseClient, input: RequestInfo | URL, init: RequestInit = {}, accessTokenOverride = "") {
+    const session = accessTokenOverride
+        ? { accessToken: accessTokenOverride, userId: "", error: null as Error | null }
+        : await getAuthenticatedSession(supabase);
+    const { accessToken, userId, error } = session;
     const headers = new Headers(init.headers);
     if (accessToken) {
         headers.set("Authorization", `Bearer ${accessToken}`);
@@ -36,6 +39,7 @@ export async function authFetch(supabase: SupabaseClient, input: RequestInfo | U
         url,
         hasAuthorization: Boolean(accessToken),
         userId,
+        usedOverrideToken: Boolean(accessTokenOverride),
         sessionError: error?.message || null,
     });
     return fetch(input, {
