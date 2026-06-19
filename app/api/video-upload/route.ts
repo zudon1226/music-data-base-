@@ -1,13 +1,41 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
-import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
+import { readSupabaseLibraryApiKey, SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const VIDEOS_BUCKET = "videos";
+
+function decodeJwtPayload(key: string) {
+    try {
+        const payload = key.split(".")[1];
+        if (!payload) {
+            return null;
+        }
+        const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+        return JSON.parse(Buffer.from(normalized, "base64").toString("utf8")) as { iss?: string; ref?: string; role?: string };
+    }
+    catch {
+        return null;
+    }
+}
+
+function describeServerStorageAuth() {
+    const apiKey = readSupabaseLibraryApiKey();
+    const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+    const keySource = serviceRoleKey && apiKey === serviceRoleKey
+        ? "SUPABASE_SERVICE_ROLE_KEY"
+        : "NEXT_PUBLIC_SUPABASE_ANON_KEY (library fallback)";
+    return {
+        supabaseUrl: SUPABASE_PROJECT_URL,
+        keySource,
+        serviceRoleKeyUsed: keySource === "SUPABASE_SERVICE_ROLE_KEY",
+        jwtPayload: decodeJwtPayload(apiKey),
+    };
+}
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
@@ -369,6 +397,7 @@ export async function POST(request: Request) {
                 if (storageFolder !== authUserId) {
                     return jsonResponse({ error: "Video storage path must stay inside the signed-in user's folder." }, 403);
                 }
+                console.log("STORAGE SIGNED URL AUTH", describeServerStorageAuth());
                 const signedUpload = await supabase.storage.from(VIDEOS_BUCKET).createSignedUploadUrl(storagePath, {
                     upsert: false,
                 });

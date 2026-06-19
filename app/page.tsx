@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { createSupabaseStorageUploadClient, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
+import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
     id: string;
@@ -9578,7 +9578,9 @@ export default function Page() {
         const contentType = getVideoUploadContentType(file);
         const codecInfo = await inspectVideoFileCodecInfo(file);
         setVideoUploadStep("Preparing video...", 4);
-        const storageUploadUrl = getSupabaseStorageUploadUrl(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
+        const storageAuthDebug = describeStorageUploadAuth();
+        const storageUploadUrl = storageAuthDebug.storageUploadUrl;
+        console.log("STORAGE UPLOAD AUTH", storageAuthDebug);
         updateVideoUploadDebug({
             uploadMethod: "Browser signed upload to Supabase Storage hostname, verified server metadata insert",
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -9650,7 +9652,8 @@ export default function Page() {
         });
         let savedStoragePath = prepareResult.storagePath;
         let publicUrl = "";
-        const storageUploadClient = createSupabaseStorageUploadClient(uploadAccessToken);
+        const storageUploadClient = createSupabaseStorageUploadClient();
+        console.log("STORAGE UPLOAD CLIENT", describeStorageUploadAuth());
         const storageUpload = await storageUploadClient.storage.from(VIDEOS_STORAGE_BUCKET).uploadToSignedUrl(prepareResult.storagePath, prepareResult.token, file, {
             cacheControl: "3600",
             contentType,
