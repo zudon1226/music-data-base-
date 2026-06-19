@@ -9563,7 +9563,7 @@ export default function Page() {
             currentStep: "Checking Supabase auth session for video upload",
             lastError: "",
         });
-        const { user: sessionUser, accessToken } = await getFreshVideoStorageUploadUser();
+        const { user: sessionUser } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
         const storagePath = buildVideoStoragePath(sessionUser.id, file);
@@ -9597,17 +9597,22 @@ export default function Page() {
             sourceLocation: "app/page.tsx uploadVideoToSupabase -> signed uploadToSignedUrl on storage hostname",
         });
         setVideoUploadStep("Requesting signed Supabase Storage upload URL...", 8);
+        const { data: { session: prepareSession }, error: prepareSessionError } = await supabase.auth.getSession();
+        if (prepareSessionError || !prepareSession?.access_token || !prepareSession.user?.id) {
+            throw new Error("You must log in again before uploading videos.");
+        }
+        const uploadAccessToken = prepareSession.access_token;
         const prepareResponse = await fetch("/api/video-upload", {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${uploadAccessToken}`,
             },
             credentials: "omit",
             body: JSON.stringify({
                 mode: "prepare-storage-upload",
-                sessionUserId: sessionUser.id,
-                userId: sessionUser.id,
+                sessionUserId: prepareSession.user.id,
+                userId: prepareSession.user.id,
                 storagePath,
             }),
         });
@@ -9637,7 +9642,7 @@ export default function Page() {
         });
         let savedStoragePath = prepareResult.storagePath;
         let publicUrl = "";
-        const storageUploadClient = createSupabaseStorageUploadClient(accessToken);
+        const storageUploadClient = createSupabaseStorageUploadClient(uploadAccessToken);
         const storageUpload = await storageUploadClient.storage.from(VIDEOS_STORAGE_BUCKET).uploadToSignedUrl(prepareResult.storagePath, prepareResult.token, file, {
             cacheControl: "3600",
             contentType,
@@ -9668,16 +9673,21 @@ export default function Page() {
             throw new Error("Supabase did not return a public URL for the uploaded video.");
         }
         setVideoUploadStep("Saving video metadata...", 88);
+        const { data: { session: metadataSession }, error: metadataSessionError } = await supabase.auth.getSession();
+        if (metadataSessionError || !metadataSession?.access_token || !metadataSession.user?.id) {
+            throw new Error("You must log in again before uploading videos.");
+        }
+        const metadataAccessToken = metadataSession.access_token;
         const metadataResponse = await fetch("/api/video-upload", {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${metadataAccessToken}`,
             },
             credentials: "omit",
             body: JSON.stringify({
-                sessionUserId: sessionUser.id,
-                userId: sessionUser.id,
+                sessionUserId: metadataSession.user.id,
+                userId: metadataSession.user.id,
                 publicUrl,
                 storagePath: savedStoragePath,
                 fileName: file.name || "video.mp4",

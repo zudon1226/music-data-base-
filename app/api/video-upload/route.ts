@@ -61,6 +61,23 @@ function getSupabaseServerClient() {
     });
 }
 
+function getSupabaseAuthClient() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+    if (!supabaseUrl) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
+    }
+    if (!anonKey) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
+    }
+    return createClient(supabaseUrl, anonKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+        },
+    });
+}
+
 function getBearerToken(request: Request) {
     const authorization = request.headers.get("authorization") || "";
     const [scheme, token] = authorization.split(/\s+/);
@@ -70,12 +87,13 @@ function getBearerToken(request: Request) {
     return token.trim();
 }
 
-async function getVerifiedUploadUserId(supabase: ReturnType<typeof getSupabaseServerClient>, request: Request, providedUserIds: string[]) {
+async function getVerifiedUploadUserId(_supabase: ReturnType<typeof getSupabaseServerClient>, request: Request, providedUserIds: string[]) {
     const token = getBearerToken(request);
     if (!token) {
         throw new Error("Missing upload authorization token.");
     }
-    const { data, error } = await supabase.auth.getUser(token);
+    const authClient = getSupabaseAuthClient();
+    const { data, error } = await authClient.auth.getUser(token);
     if (error || !data.user?.id) {
         throw new Error(`Invalid upload authorization token${error ? `: ${getErrorMessage(error)}` : "."}`);
     }
