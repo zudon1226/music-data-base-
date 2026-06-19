@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -7,7 +7,7 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 }
 export async function GET() {
     try {
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const initialResult = await supabase
             .from("songs")
             .select("id,title,artist,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id")

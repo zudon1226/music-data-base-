@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -97,7 +97,7 @@ function makeStorageVideoTitle(path: string) {
         .replace(/\s+/g, " ")
         .trim() || "Recovered video";
 }
-async function listStorageVideos(supabase: ReturnType<typeof getSupabaseServerClient>, prefix = ""): Promise<Record<string, unknown>[]> {
+async function listStorageVideos(supabase: ReturnType<typeof getSupabaseLibraryClient>, prefix = ""): Promise<Record<string, unknown>[]> {
     const { data, error } = await supabase.storage.from("videos").list(prefix, {
         limit: 1000,
         sortBy: { column: "updated_at", order: "desc" },
@@ -145,7 +145,7 @@ async function listStorageVideos(supabase: ReturnType<typeof getSupabaseServerCl
 }
 export async function GET(request: Request) {
     try {
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const initialResult = await supabase
             .from("videos")
             .select("id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id")

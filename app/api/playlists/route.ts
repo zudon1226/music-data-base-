@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId))
             return jsonResponse({ playlists: [] });
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const loadPlaylists = async (selectColumns: string, orderColumn: string) => supabase.from("playlists").select(selectColumns).eq("user_id", userId).order(orderColumn, { ascending: false });
         const attempts = [
             { select: "id,user_id,name,playlist_type,cover_url,created_at,updated_at", order: "updated_at" },
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
             return jsonResponse({ error: "Log in before creating playlists." }, 401);
         if (!name)
             return jsonResponse({ error: "Playlist name is required." }, 400);
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const now = new Date().toISOString();
         const insertPlaylist = async (row: Record<string, unknown>, selectColumns: string) => supabase.from("playlists").insert(row).select(selectColumns).single();
         const attempts = [
@@ -190,7 +190,7 @@ export async function DELETE(request: Request) {
             return jsonResponse({ error: "Log in before deleting playlists." }, 401);
         if (!playlistId || !isUuid(playlistId))
             return jsonResponse({ error: "Choose a playlist first." }, 400);
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const result = await supabase.from("playlists").delete().eq("id", playlistId).eq("user_id", userId);
         if (result.error) {
             console.error("[api/playlists] delete failed:", result.error);

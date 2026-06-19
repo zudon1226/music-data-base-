@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import { readSupabaseProjectUrl, readSupabaseServiceRoleKey } from "./supabase-config";
+import {
+  readSupabaseLibraryApiKey,
+  readSupabaseProjectUrl,
+  readSupabaseServiceRoleKey,
+  SUPABASE_PROJECT_URL,
+} from "./supabase-config";
 
 export const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
 
@@ -30,6 +35,13 @@ export function getSupabaseServerClient() {
   const serviceRoleKey = readSupabaseServiceRoleKey();
 
   return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+/** Library list routes: fixed project URL + service_role or anon fallback. */
+export function getSupabaseLibraryClient() {
+  return createClient(SUPABASE_PROJECT_URL, readSupabaseLibraryApiKey(), {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

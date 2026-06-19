@@ -1,4 +1,4 @@
-import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ libraryIds: [], recentlyPlayed: [], playlists: [], activePlaylistId: "" });
         }
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const { data, error } = await supabase
             .from("user_music_state")
             .select("library_ids,recently_played,playlists,active_playlist_id")
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Log in before syncing music state." }, 401);
         }
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const { error } = await supabase.from("user_music_state").upsert({
             user_id: userId,
             library_ids: asArray(body.libraryIds),

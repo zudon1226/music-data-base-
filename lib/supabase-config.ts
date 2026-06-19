@@ -140,6 +140,42 @@ export function readSupabaseAnonKey() {
     return anonKey;
 }
 
+function sanitizeApiKey(value: string) {
+    return stripEnvQuotes(value).replace(/\s+/g, "");
+}
+
+/** Server library routes: service_role when valid, else anon (login-proven in production). */
+export function readSupabaseLibraryApiKey() {
+    const serviceRoleKey = sanitizeApiKey(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+    const anonKey = sanitizeApiKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
+
+    if (serviceRoleKey && serviceRoleKey !== "your_service_role_key_here") {
+        const shapeError = describeSupabaseEnvValue("SUPABASE_SERVICE_ROLE_KEY", serviceRoleKey);
+        if (!shapeError) {
+            if (serviceRoleKey.startsWith("sb_secret_")) {
+                return serviceRoleKey;
+            }
+            if (serviceRoleKey.startsWith("eyJ")) {
+                const role = decodeJwtRole(serviceRoleKey);
+                if (role === "service_role") {
+                    const ref = extractSupabaseProjectRefFromKey(serviceRoleKey);
+                    if (!ref || ref === SUPABASE_PROJECT_REF) {
+                        return serviceRoleKey;
+                    }
+                }
+            }
+        }
+    }
+
+    if (anonKey) {
+        return anonKey;
+    }
+
+    throw new Error(
+        "Library routes need SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    );
+}
+
 export function readSupabaseServiceRoleKey() {
     const serviceRoleKey = stripEnvQuotes(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
     if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
