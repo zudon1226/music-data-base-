@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { requireMatchingUserId } from "@/lib/request-auth";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 import { readSupabaseLibraryApiKey, SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
 
@@ -74,44 +74,13 @@ function getErrorDetails(error: unknown) {
     return details;
 }
 
-function getSupabaseAuthClient() {
-    const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "");
-    if (!anonKey) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
+async function getVerifiedUploadUserId(request: Request, providedUserIds: string[]) {
+    const claimedUserId = providedUserIds.find((userId) => userId?.trim()) || "";
+    const auth = await requireMatchingUserId(request, "/api/video-upload", claimedUserId);
+    if (!auth.ok) {
+        throw new Error(auth.error);
     }
-    return createClient(SUPABASE_PROJECT_URL, anonKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
-    });
-}
-
-function getBearerToken(request: Request) {
-    const authorization = request.headers.get("authorization") || "";
-    const [scheme, token] = authorization.split(/\s+/);
-    if (scheme?.toLowerCase() !== "bearer" || !token?.trim()) {
-        return "";
-    }
-    return token.trim();
-}
-
-async function getVerifiedUploadUserId(_supabase: ReturnType<typeof getSupabaseLibraryClient>, request: Request, providedUserIds: string[]) {
-    const token = getBearerToken(request);
-    if (!token) {
-        throw new Error("Missing upload authorization token.");
-    }
-    const authClient = getSupabaseAuthClient();
-    const { data, error } = await authClient.auth.getUser(token);
-    if (error || !data.user?.id) {
-        throw new Error(`Invalid upload authorization token${error ? `: ${getErrorMessage(error)}` : "."}`);
-    }
-    const verifiedUserId = data.user.id;
-    const mismatchedUserId = providedUserIds.find((userId) => userId && userId !== verifiedUserId);
-    if (mismatchedUserId) {
-        throw new Error("Video upload user id does not match the signed-in session.");
-    }
-    return verifiedUserId;
+    return auth.userId;
 }
 
 function getRecordString(record: Record<string, unknown>, keys: string[], fallback = "") {
@@ -384,7 +353,7 @@ export async function POST(request: Request) {
             if (requestMode === "prepare-storage-upload") {
                 let authUserId = "";
                 try {
-                    authUserId = await getVerifiedUploadUserId(supabase, request, [sessionUserId, userId]);
+                    authUserId = await getVerifiedUploadUserId(request, [sessionUserId, userId]);
                 }
                 catch (authError) {
                     return jsonResponse({ error: getErrorMessage(authError) }, 401);
@@ -422,7 +391,7 @@ export async function POST(request: Request) {
             let authUserId = "";
 
             try {
-                authUserId = await getVerifiedUploadUserId(supabase, request, [sessionUserId, userId]);
+                authUserId = await getVerifiedUploadUserId(request, [sessionUserId, userId]);
             }
             catch (authError) {
                 return jsonResponse({ error: getErrorMessage(authError) }, 401);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
+import { authFetch } from "../lib/client-api-auth";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -5054,7 +5055,7 @@ export default function Page() {
     async function reloadAlbumsFromSupabase(userIdOverride = "") {
         const recentUserId = userIdOverride || user?.id || accountUserId;
         const albumsQuery = recentUserId ? `?userId=${encodeURIComponent(recentUserId)}` : "";
-        const response = await fetch(`/api/albums${albumsQuery}`, { cache: "no-store", credentials: "omit" });
+        const response = await authFetch(supabase, `/api/albums${albumsQuery}`, { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             albums?: Album[];
             recentAlbums?: Album[];
@@ -5081,7 +5082,7 @@ export default function Page() {
             userId: user.id,
             artistIds: artistIds.join(","),
         });
-        const response = await fetch(`/api/artist-follows?${query.toString()}`, { cache: "no-store" });
+        const response = await authFetch(supabase, `/api/artist-follows?${query.toString()}`, { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             follows?: {
                 artist_id: string;
@@ -5100,7 +5101,7 @@ export default function Page() {
     async function reloadSongLikesFromSupabase() {
         if (!user?.id)
             return [];
-        const response = await fetch(`/api/song-likes?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+        const response = await authFetch(supabase, `/api/song-likes?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             likedSongIds?: string[];
             error?: string;
@@ -5115,9 +5116,8 @@ export default function Page() {
     async function reloadLibrarySavesFromSupabase() {
         if (!user?.id)
             return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
-        const response = await fetch(`/api/library-saves?userId=${encodeURIComponent(user.id)}`, {
+        const response = await authFetch(supabase, `/api/library-saves?userId=${encodeURIComponent(user.id)}`, {
             cache: "no-store",
-            credentials: "omit",
         });
         const data = (await response.json().catch(() => ({}))) as {
             rows?: unknown[];
@@ -5193,7 +5193,7 @@ export default function Page() {
             setRemoteMusicStateReady(false);
             return null;
         }
-        const response = await fetch(`/api/user-music-state?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+        const response = await authFetch(supabase, `/api/user-music-state?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             hasState?: boolean;
             libraryIds?: string[];
@@ -5400,7 +5400,7 @@ export default function Page() {
             return;
         remoteMusicStateSaveSnapshotRef.current = remoteMusicStateSaveBody;
         const timer = window.setTimeout(() => {
-            fetch("/api/user-music-state", {
+            authFetch(supabase, "/api/user-music-state", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: remoteMusicStateSaveBody,
@@ -8388,10 +8388,9 @@ export default function Page() {
                 item_id: item.id,
                 item_type: itemType,
             };
-            const response = await fetch("/api/library/save", {
+            const response = await authFetch(supabase, "/api/library/save", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                credentials: "omit",
                 body: JSON.stringify(payload),
             });
             const data = (await response.json().catch(() => ({}))) as {
@@ -8430,10 +8429,9 @@ export default function Page() {
             return false;
         }
         try {
-            const response = await fetch("/api/library-saves", {
+            const response = await authFetch(supabase, "/api/library-saves", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                credentials: "omit",
                 body: JSON.stringify({ userId: user.id, itemId, itemType }),
             });
             const data = (await response.json().catch(() => ({}))) as {
@@ -8494,17 +8492,9 @@ export default function Page() {
         if (!user?.id) {
             return video;
         }
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session?.access_token) {
-            throw new Error("You must log in again before saving this video.");
-        }
-        const response = await fetch("/api/video-upload", {
+        const response = await authFetch(supabase, "/api/video-upload", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${session.access_token}`,
-            },
-            credentials: "omit",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 sessionUserId: user.id,
                 userId: user.id,
@@ -8825,7 +8815,7 @@ export default function Page() {
         setLikedIds(nextLikedIds);
         setSongs((previous) => previous.map((item) => (item.id === songId ? { ...item, likes: optimisticLikes } : item)));
         try {
-            const response = await fetch("/api/song-likes", {
+            const response = await authFetch(supabase, "/api/song-likes", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ songId, userId: user.id, like: !wasLiked }),
@@ -8888,7 +8878,7 @@ export default function Page() {
             [artistId]: Math.max(0, (previous[artistId] || 0) + (wasFollowing ? -1 : 1)),
         }));
         try {
-            const response = await fetch("/api/artist-follow", {
+            const response = await authFetch(supabase, "/api/artist-follow", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -9611,14 +9601,9 @@ export default function Page() {
         if (prepareSessionError || !prepareSession?.access_token || !prepareSession.user?.id) {
             throw new Error("You must log in again before uploading videos.");
         }
-        const uploadAccessToken = prepareSession.access_token;
-        const prepareResponse = await fetch("/api/video-upload", {
+        const prepareResponse = await authFetch(supabase, "/api/video-upload", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${uploadAccessToken}`,
-            },
-            credentials: "omit",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 mode: "prepare-storage-upload",
                 sessionUserId: prepareSession.user.id,
@@ -9688,14 +9673,9 @@ export default function Page() {
         if (metadataSessionError || !metadataSession?.access_token || !metadataSession.user?.id) {
             throw new Error("You must log in again before uploading videos.");
         }
-        const metadataAccessToken = metadataSession.access_token;
-        const metadataResponse = await fetch("/api/video-upload", {
+        const metadataResponse = await authFetch(supabase, "/api/video-upload", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${metadataAccessToken}`,
-            },
-            credentials: "omit",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 sessionUserId: metadataSession.user.id,
                 userId: metadataSession.user.id,
@@ -10277,10 +10257,9 @@ export default function Page() {
         releaseDate: string;
     };
     async function createAlbumRowInSupabase(payload: AlbumSavePayload) {
-        const response = await fetch("/api/albums/create", {
+        const response = await authFetch(supabase, "/api/albums/create", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "omit",
             body: JSON.stringify(payload),
         });
         const data = (await response.json().catch(() => ({}))) as {
@@ -10312,10 +10291,9 @@ export default function Page() {
         if (!albumId || !isUuid(albumId)) {
             throw new Error("Album id is required before saving album items.");
         }
-        const response = await fetch("/api/albums/items", {
+        const response = await authFetch(supabase, "/api/albums/items", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "omit",
             body: JSON.stringify({ albumId, userId, items }),
         });
         const data = (await response.json().catch(() => ({}))) as {
@@ -11495,7 +11473,7 @@ export default function Page() {
             : album));
         cancelEditingAlbum();
         try {
-            const response = await fetch("/api/albums", {
+            const response = await authFetch(supabase, "/api/albums", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -11548,7 +11526,7 @@ export default function Page() {
         setSavedAlbumIds((previous) => uniqueIds(previous).filter((id) => id !== albumId));
         setPlaylistTarget((target) => (target?.type === "album" && target.item.id === albumId ? null : target));
         try {
-            const response = await fetch("/api/albums", {
+            const response = await authFetch(supabase, "/api/albums", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: albumId, userId: accountUserId || "" }),

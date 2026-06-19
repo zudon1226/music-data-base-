@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { isPlatformOwnerUserId } from "@/lib/server-supabase";
+import { logRouteAuth, requireMatchingUserId } from "@/lib/request-auth";
+import { getSupabaseLibraryClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type AlbumItemInput = {
@@ -56,19 +56,10 @@ function getBodyUserId(body: Record<string, unknown>) {
     const nestedUser = body.user && typeof body.user === "object" ? (body.user as Record<string, unknown>) : {};
     return getString(body.userId) || getString(body.user_id) || getString(nestedUser.id);
 }
+type SupabaseServerClient = ReturnType<typeof getSupabaseLibraryClient>;
 function getSupabaseServerClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!supabaseUrl)
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-        throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-    });
+    return getSupabaseLibraryClient();
 }
-type SupabaseServerClient = ReturnType<typeof getSupabaseServerClient>;
 async function loadAlbumItemBuckets(supabase: SupabaseServerClient, albumIds: string[]) {
     const itemBuckets: Record<string, {
         songIds: string[];
@@ -412,6 +403,13 @@ export async function GET(request: Request) {
     try {
         const requestUrl = new URL(request.url);
         const recentUserId = getString(requestUrl.searchParams.get("userId"));
+        logRouteAuth(request, "/api/albums", recentUserId);
+        if (recentUserId) {
+            const auth = await requireMatchingUserId(request, "/api/albums", recentUserId);
+            if (!auth.ok) {
+                return jsonResponse({ error: auth.error, albums: [], recentAlbums: [] }, auth.status);
+            }
+        }
         const supabase = getSupabaseServerClient();
         const albumsResult = await supabase
             .from("albums")
@@ -448,6 +446,15 @@ export async function POST(request: Request) {
         const body = await readJsonBody(request);
         const action = getString(body.action);
         const userId = getBodyUserId(body);
+        if (userId) {
+            const auth = await requireMatchingUserId(request, "/api/albums", userId);
+            if (!auth.ok) {
+                return jsonResponse({ error: auth.error }, auth.status);
+            }
+        }
+        else {
+            logRouteAuth(request, "/api/albums");
+        }
         const supabase = getSupabaseServerClient();
         if (action === "add-items") {
             const albumId = getString(body.albumId) || getString(body.album_id) || getString(body.id);
@@ -568,6 +575,10 @@ export async function PATCH(request: Request) {
             return jsonResponse({ error: "Album id is required." }, 400);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before editing albums." }, 401);
+        const auth = await requireMatchingUserId(request, "/api/albums", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
+        }
         if (!title)
             return jsonResponse({ error: "Album title is required." }, 400);
         if (!creatorName)
@@ -621,6 +632,10 @@ export async function DELETE(request: Request) {
             return jsonResponse({ error: "Album id is required." }, 400);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before deleting albums." }, 401);
+        const auth = await requireMatchingUserId(request, "/api/albums", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
+        }
         const isOwnerAdmin = await isPlatformOwnerUserId(userId);
         const supabase = getSupabaseServerClient();
         const existingAlbum = await supabase.from("albums").select("id,user_id").eq("id", id).single();

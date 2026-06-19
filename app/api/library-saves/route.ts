@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import { requireMatchingUserId } from "@/lib/request-auth";
+import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const LIBRARY_SAVE_TABLE = "library_saves";
@@ -33,7 +34,23 @@ export async function GET(request: Request) {
                 saveCount: 0,
             });
         }
-        const supabase = getSupabaseServerClient();
+        const auth = await requireMatchingUserId(request, "/api/library-saves", userId);
+        if (!auth.ok) {
+            return jsonResponse({
+                error: auth.error,
+                songIds: [],
+                videoIds: [],
+                albumIds: [],
+                songs: [],
+                videos: [],
+                albums: [],
+                savedSongs: [],
+                savedVideos: [],
+                savedAlbums: [],
+                saveCount: 0,
+            }, auth.status);
+        }
+        const supabase = getSupabaseLibraryClient();
         const savesResult = await supabase
             .from(LIBRARY_SAVE_TABLE)
             .select("id,user_id,item_id,item_type,created_at")
@@ -166,9 +183,13 @@ export async function POST(request: Request) {
         const itemType = normalizeItemType(body.itemType);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before saving to Library." }, 401);
+        const auth = await requireMatchingUserId(request, "/api/library-saves", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
+        }
         if (!itemId || !isUuid(itemId))
             return jsonResponse({ error: "Saved Library requires a real Supabase item id." }, 400);
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const payload = {
             user_id: userId,
             item_id: itemId,
@@ -218,9 +239,13 @@ export async function DELETE(request: Request) {
         const itemType = normalizeItemType(body.itemType);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before removing from Library." }, 401);
+        const auth = await requireMatchingUserId(request, "/api/library-saves", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
+        }
         if (!itemId)
             return jsonResponse({ error: "Choose an item first." }, 400);
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const { error } = await supabase
             .from(LIBRARY_SAVE_TABLE)
             .delete()

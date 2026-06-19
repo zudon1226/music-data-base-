@@ -1,4 +1,5 @@
 import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
+import { requireMatchingUserId } from "@/lib/request-auth";
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,16 @@ export async function GET(request: Request) {
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ libraryIds: [], recentlyPlayed: [], playlists: [], activePlaylistId: "" });
+        }
+        const auth = await requireMatchingUserId(request, "/api/user-music-state", userId);
+        if (!auth.ok) {
+            return jsonResponse({
+                error: auth.error,
+                libraryIds: [],
+                recentlyPlayed: [],
+                playlists: [],
+                activePlaylistId: "",
+            }, auth.status);
         }
         const supabase = getSupabaseLibraryClient();
         const { data, error } = await supabase
@@ -61,6 +72,10 @@ export async function POST(request: Request) {
         const userId = typeof body.userId === "string" ? body.userId.trim() : "";
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Log in before syncing music state." }, 401);
+        }
+        const auth = await requireMatchingUserId(request, "/api/user-music-state", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
         }
         const supabase = getSupabaseLibraryClient();
         const { error } = await supabase.from("user_music_state").upsert({

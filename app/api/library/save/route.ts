@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,11 @@ export async function POST(request: Request) {
             const error = "Log in before saving to Library.";
             console.error("API SAVE LIBRARY ERROR", error);
             return jsonResponse({ error }, 401);
+        }
+        const auth = await requireMatchingUserId(request, "/api/library/save", userId);
+        if (!auth.ok) {
+            console.error("API SAVE LIBRARY ERROR", auth.error);
+            return jsonResponse({ error: auth.error }, auth.status);
         }
         if (!itemId || !isUuid(itemId)) {
             const error = "Saved Library requires a real Supabase item id.";

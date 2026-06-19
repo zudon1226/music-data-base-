@@ -1,5 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { logRouteAuth, requireMatchingUserId } from "@/lib/request-auth";
+import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const FOLLOW_SETUP_MESSAGE = "Artist follows table is not ready. Run the artist_follows SQL in Supabase, then refresh.";
@@ -31,16 +32,7 @@ function isUuid(value: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 function getSupabaseServerClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!supabaseUrl)
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-        throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-    });
+    return getSupabaseLibraryClient();
 }
 function getTextField(body: Record<string, unknown>, ...keys: string[]) {
     for (const key of keys) {
@@ -75,7 +67,12 @@ export async function GET(request: Request) {
             .map((id) => id.trim())
             .filter(Boolean);
         if (!userId || !isUuid(userId)) {
+            logRouteAuth(request, "/api/artist-follows");
             return jsonResponse({ follows: [], followerCounts: {}, error: "Missing or invalid user_id." }, 200);
+        }
+        const auth = await requireMatchingUserId(request, "/api/artist-follows", userId);
+        if (!auth.ok) {
+            return jsonResponse({ follows: [], followerCounts: {}, error: auth.error }, auth.status);
         }
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase
@@ -111,7 +108,12 @@ export async function POST(request: Request) {
         const artistName = getTextField(body, "artistName", "artist_name") || artistId;
         const shouldFollow = body.follow !== false;
         if (!userId || !isUuid(userId)) {
+            logRouteAuth(request, "/api/artist-follows");
             return jsonResponse({ error: "Missing or invalid user_id. Log in again before following artists." }, 400);
+        }
+        const auth = await requireMatchingUserId(request, "/api/artist-follows", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
         }
         if (!artistId) {
             return jsonResponse({ error: "Missing artist_id. Choose an artist before following." }, 400);

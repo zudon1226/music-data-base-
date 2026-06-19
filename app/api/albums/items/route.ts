@@ -1,5 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { requireMatchingUserId } from "@/lib/request-auth";
+import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type AlbumItemInput = {
@@ -51,16 +52,7 @@ function normalizeOwnerType(value: unknown) {
     return value === "producer" ? "producer" : "artist";
 }
 function getSupabaseServerClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!supabaseUrl)
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-        throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-    });
+    return getSupabaseLibraryClient();
 }
 function getAlbumItemsFromBody(body: Record<string, unknown>) {
     const rawItems = Array.isArray(body.items) ? body.items : [];
@@ -193,6 +185,10 @@ export async function POST(request: Request) {
         const items = getAlbumItemsFromBody(body);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before saving album items." }, 401);
+        const auth = await requireMatchingUserId(request, "/api/albums/items", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
+        }
         if (!albumId || !isUuid(albumId))
             return jsonResponse({ error: "Album id is required before saving album items." }, 400);
         if (items.length === 0)
