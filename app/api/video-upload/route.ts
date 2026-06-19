@@ -322,143 +322,171 @@ async function cleanupUploadedVideoObject(supabase: ReturnType<typeof getSupabas
     return error ? getErrorMessage(error) : null;
 }
 
-function getServiceRoleKeyFormat() {
-    const raw = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
-    return {
-        startsWithEyJ: raw.startsWith("eyJ"),
-        startsWithSbSecret: raw.startsWith("sb_secret_"),
-    };
+function sanitizePrepareHttpStatus(status: number): 200 | 400 | 401 | 403 | 500 {
+    if (status === 200 || status === 400 || status === 401 || status === 403 || status === 500) {
+        return status;
+    }
+    return 500;
 }
 
-function prepareStorageUploadResponse(body: Record<string, unknown>, status: 200 | 401 | 400 | 500) {
-    return NextResponse.json({ mode: "prepare-storage-upload", ...body }, { status });
+function prepareStorageUploadResponse(status: number, body: Record<string, unknown>) {
+    return NextResponse.json(body, { status: sanitizePrepareHttpStatus(status) });
 }
 
-function buildPrepareDebug(request: Request, storagePath: string) {
+function buildPreparePayload(
+    request: Request,
+    storagePath: string,
+    fields: {
+        ok: boolean;
+        step: string;
+        error: string;
+        userId?: string;
+        signedUrlCreated?: boolean;
+        supabaseError?: unknown;
+        token?: string;
+        signedUrl?: string;
+    },
+) {
     const authorization = request.headers.get("authorization") || "";
     return {
+        ok: fields.ok,
+        mode: "prepare-storage-upload",
+        step: fields.step,
+        error: fields.error,
         hasAuthorization: Boolean(authorization),
-        authHeaderPrefix: authorization.slice(0, 24),
-        hasStoragePath: Boolean(storagePath),
-        bucketName: VIDEOS_BUCKET,
-        serviceRoleKeyFormat: getServiceRoleKeyFormat(),
-        signedUploadError: "",
+        userId: fields.userId || "",
+        storagePath,
+        bucket: VIDEOS_BUCKET,
+        signedUrlCreated: Boolean(fields.signedUrlCreated),
+        supabaseError: fields.supabaseError ?? null,
+        ...(fields.token ? { token: fields.token } : {}),
+        ...(fields.signedUrl ? { signedUrl: fields.signedUrl } : {}),
     };
 }
 
 async function handlePrepareStorageUpload(request: Request, body: Record<string, unknown>) {
     const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
-    const debug = buildPrepareDebug(request, storagePath);
 
-    console.log("[api/video-upload] PREPARE STORAGE UPLOAD", debug);
+    try {
+        console.log("[api/video-upload] PREPARE", buildPreparePayload(request, storagePath, {
+            ok: false,
+            step: "start",
+            error: "",
+        }));
 
-    if (!debug.hasStoragePath) {
-        const error = "Video storage path is required before upload.";
-        console.log("[api/video-upload] PREPARE FAILED", { ...debug, error });
-        return prepareStorageUploadResponse({ error, ...debug }, 400);
-    }
+        if (!storagePath) {
+            const payload = buildPreparePayload(request, storagePath, {
+                ok: false,
+                step: "validate-storage-path",
+                error: "storagePath is required.",
+            });
+            console.log("[api/video-upload] PREPARE FAILED", payload);
+            return prepareStorageUploadResponse(400, payload);
+        }
 
-    const token = getBearerToken(request);
-    if (!token) {
-        const error = "Missing Authorization bearer token. Log in again and retry.";
-        console.log("[api/video-upload] PREPARE FAILED", { ...debug, error });
-        return prepareStorageUploadResponse({ error, ...debug }, 401);
-    }
+        const token = getBearerToken(request);
+        if (!token) {
+            const payload = buildPreparePayload(request, storagePath, {
+                ok: false,
+                step: "verify-authorization",
+                error: "Missing Authorization bearer token.",
+            });
+            console.log("[api/video-upload] PREPARE FAILED", payload);
+            return prepareStorageUploadResponse(401, payload);
+        }
 
-    const authClient = getSupabaseAuthClient();
-    const { data: authData, error: authError } = await authClient.auth.getUser(token);
+        const authClient = getSupabaseAuthClient();
+        const { data: authData, error: authError } = await authClient.auth.getUser(token);
 
-    console.log("[api/video-upload] PREPARE AUTH USER", {
-        ...debug,
-        authUserId: authData.user?.id || null,
-        authEmail: authData.user?.email || null,
-        authError: authError?.message || null,
-    });
+        if (authError || !authData.user?.id) {
+            const payload = buildPreparePayload(request, storagePath, {
+                ok: false,
+                step: "verify-session",
+                error: authError?.message || "auth.getUser returned no user.",
+                supabaseError: getErrorDetails(authError),
+            });
+            console.log("[api/video-upload] PREPARE FAILED", payload);
+            return prepareStorageUploadResponse(401, payload);
+        }
 
-    if (authError || !authData.user?.id) {
-        const error = authError?.message || "Session verification failed.";
-        console.log("[api/video-upload] PREPARE FAILED", { ...debug, error });
-        return prepareStorageUploadResponse({
-            error,
-            authError: getErrorDetails(authError),
-            ...debug,
-        }, 401);
-    }
+        const authUserId = authData.user.id;
+        const claimedUserId = getRecordString(body, ["sessionUserId", "session_user_id", "userId", "user_id"]);
+        if (claimedUserId && claimedUserId !== authUserId) {
+            const payload = buildPreparePayload(request, storagePath, {
+                ok: false,
+                step: "verify-user-id",
+                error: `Request userId ${claimedUserId} does not match session userId ${authUserId}.`,
+                userId: authUserId,
+            });
+            console.log("[api/video-upload] PREPARE FAILED", payload);
+            return prepareStorageUploadResponse(403, payload);
+        }
 
-    const authUserId = authData.user.id;
-    const claimedUserId = getRecordString(body, ["sessionUserId", "session_user_id", "userId", "user_id"]);
-    if (claimedUserId && claimedUserId !== authUserId) {
-        const error = "Request user id does not match the authenticated session.";
-        console.log("[api/video-upload] PREPARE FAILED", { ...debug, error, authUserId, claimedUserId });
-        return prepareStorageUploadResponse({
-            error,
-            authUserId,
-            claimedUserId,
-            ...debug,
-        }, 401);
-    }
+        const storageFolder = storagePath.split("/")[0] || "";
+        if (storageFolder !== authUserId) {
+            const payload = buildPreparePayload(request, storagePath, {
+                ok: false,
+                step: "validate-storage-folder",
+                error: `storagePath folder ${storageFolder} must match session userId ${authUserId}.`,
+                userId: authUserId,
+            });
+            console.log("[api/video-upload] PREPARE FAILED", payload);
+            return prepareStorageUploadResponse(403, payload);
+        }
 
-    const storageFolder = storagePath.split("/")[0] || "";
-    if (storageFolder !== authUserId) {
-        const error = "Video storage path must stay inside the signed-in user's folder.";
-        console.log("[api/video-upload] PREPARE FAILED", { ...debug, error, authUserId, storagePath });
-        return prepareStorageUploadResponse({
-            error,
-            authUserId,
+        const { client: storageClient, keySource, serviceRoleError } = getStorageSupabaseClient();
+        console.log("[api/video-upload] PREPARE createSignedUploadUrl", {
+            userId: authUserId,
             storagePath,
-            ...debug,
-        }, 400);
-    }
-
-    const { client: storageClient, keySource } = getStorageSupabaseClient();
-    console.log("[api/video-upload] PREPARE CREATE SIGNED URL", {
-        ...debug,
-        authUserId,
-        storagePath,
-        keySource,
-    });
-
-    const signedUpload = await storageClient.storage.from(VIDEOS_BUCKET).createSignedUploadUrl(storagePath, {
-        upsert: false,
-    });
-
-    const signedUploadError = signedUpload.error
-        ? getErrorMessage(signedUpload.error)
-        : !signedUpload.data?.token
-            ? "Supabase did not return a signed upload token."
-            : "";
-
-    console.log("[api/video-upload] PREPARE SIGNED URL RESPONSE", {
-        ...debug,
-        authUserId,
-        storagePath,
-        signedUrl: signedUpload.data?.signedUrl || "",
-        hasToken: Boolean(signedUpload.data?.token),
-        signedUploadError,
-        supabaseError: signedUpload.error ? getErrorDetails(signedUpload.error) : null,
-    });
-
-    if (signedUploadError) {
-        return prepareStorageUploadResponse({
-            ...debug,
-            error: signedUploadError,
-            signedUploadError,
-            authUserId,
-            storagePath,
-            supabaseError: getErrorDetails(signedUpload.error),
+            bucket: VIDEOS_BUCKET,
             keySource,
-        }, 500);
-    }
+            serviceRoleError: serviceRoleError || null,
+        });
 
-    return prepareStorageUploadResponse({
-        ...debug,
-        storagePath: signedUpload.data!.path || storagePath,
-        token: signedUpload.data!.token,
-        signedUrl: signedUpload.data!.signedUrl || "",
-        authUserId,
-        signedUploadError: "",
-        keySource,
-    }, 200);
+        const signedUpload = await storageClient.storage.from(VIDEOS_BUCKET).createSignedUploadUrl(storagePath, {
+            upsert: false,
+        });
+
+        const signedUrlCreated = Boolean(signedUpload.data?.token && signedUpload.data?.signedUrl);
+        if (signedUpload.error || !signedUpload.data?.token) {
+            const exactError = signedUpload.error
+                ? getErrorMessage(signedUpload.error)
+                : `createSignedUploadUrl returned no token. data=${JSON.stringify(signedUpload.data ?? null)}`;
+            const payload = buildPreparePayload(request, storagePath, {
+                ok: false,
+                step: "createSignedUploadUrl",
+                error: exactError,
+                userId: authUserId,
+                signedUrlCreated,
+                supabaseError: signedUpload.error ? getErrorDetails(signedUpload.error) : signedUpload.data ?? null,
+            });
+            console.log("[api/video-upload] PREPARE FAILED", payload);
+            return prepareStorageUploadResponse(500, payload);
+        }
+
+        const payload = buildPreparePayload(request, storagePath, {
+            ok: true,
+            step: "createSignedUploadUrl",
+            error: "",
+            userId: authUserId,
+            signedUrlCreated: true,
+            supabaseError: null,
+            token: signedUpload.data.token,
+            signedUrl: signedUpload.data.signedUrl || "",
+        });
+        console.log("[api/video-upload] PREPARE OK", payload);
+        return prepareStorageUploadResponse(200, payload);
+    }
+    catch (error) {
+        const payload = buildPreparePayload(request, storagePath, {
+            ok: false,
+            step: "unhandled-exception",
+            error: getErrorMessage(error),
+            supabaseError: getErrorDetails(error),
+        });
+        console.error("[api/video-upload] PREPARE EXCEPTION", payload);
+        return prepareStorageUploadResponse(500, payload);
+    }
 }
 
 async function createSignedUploadUrlForUser(storagePath: string, authUserId: string) {
