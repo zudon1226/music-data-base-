@@ -1,20 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
-}
-function getErrorMessage(error: unknown) {
-    if (error instanceof Error)
-        return error.message;
-    if (typeof error === "string")
-        return error;
-    if (error && typeof error === "object") {
-        const record = error as Record<string, unknown>;
-        return String(record.message || record.error || JSON.stringify(record));
-    }
-    return "Unknown server error";
 }
 function isUuid(value: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -40,18 +29,6 @@ function inferPlaylistType(nameValue: unknown, songIds: string[], videoIds: stri
     if (songIds.length > 0 && videoIds.length === 0)
         return "song";
     return "mixed";
-}
-function getSupabaseServerClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!supabaseUrl)
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-        throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-    });
 }
 export async function GET(request: Request) {
     try {

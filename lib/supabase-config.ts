@@ -116,6 +116,12 @@ export function resolveSupabaseLoginUrl() {
 }
 
 export function readSupabaseProjectUrl() {
+    const serviceRoleKey = stripEnvQuotes(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+    const refFromServiceKey = extractSupabaseProjectRefFromKey(serviceRoleKey);
+    if (refFromServiceKey) {
+        return `https://${refFromServiceKey}.supabase.co`;
+    }
+
     const rawUrl = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
     if (!rawUrl) {
         throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
