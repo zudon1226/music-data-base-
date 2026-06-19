@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { authFetch } from "../lib/client-api-auth";
+import { authFetch, authFetchWithAccessToken } from "../lib/client-api-auth";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -9675,12 +9675,8 @@ export default function Page() {
             directFormData.append("storagePath", storagePath);
             directFormData.append("contentType", contentType);
 
-            const directResponse = await fetch("/api/video-upload", {
+            const directResponse = await authFetchWithAccessToken(accessToken, "/api/video-upload", {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-                credentials: "omit",
                 body: directFormData,
             });
             const directResult = (await directResponse.json().catch(() => ({}))) as {
@@ -9743,10 +9739,8 @@ export default function Page() {
                 directFormData.append("userId", sessionUser.id);
                 directFormData.append("storagePath", storagePath);
                 directFormData.append("contentType", contentType);
-                const directResponse = await fetch("/api/video-upload", {
+                const directResponse = await authFetchWithAccessToken(accessToken, "/api/video-upload", {
                     method: "POST",
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    credentials: "omit",
                     body: directFormData,
                 });
                 const directResult = (await directResponse.json().catch(() => ({}))) as {
