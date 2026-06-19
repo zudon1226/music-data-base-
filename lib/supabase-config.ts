@@ -1,3 +1,6 @@
+export const SUPABASE_PROJECT_REF = "aehuszoadgqtbkxsliyy";
+export const SUPABASE_PROJECT_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
+
 function decodeJwtPayload(key: string) {
     try {
         const payload = key.split(".")[1];
@@ -116,34 +119,7 @@ export function resolveSupabaseLoginUrl() {
 }
 
 export function readSupabaseProjectUrl() {
-    const serviceRoleKey = stripEnvQuotes(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
-    const refFromServiceKey = extractSupabaseProjectRefFromKey(serviceRoleKey);
-    if (refFromServiceKey) {
-        return `https://${refFromServiceKey}.supabase.co`;
-    }
-
-    const rawUrl = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
-    if (!rawUrl) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    }
-    const url = normalizeSupabaseProjectUrl(rawUrl);
-    if (url.includes("digitalmusicdatabase.com")) {
-        throw new Error(
-            `NEXT_PUBLIC_SUPABASE_URL must be your Supabase project URL (*.supabase.co), not the site URL. Current value: ${rawUrl}`,
-        );
-    }
-    if (!url.includes(".supabase.co")) {
-        throw new Error(
-            `NEXT_PUBLIC_SUPABASE_URL must be a Supabase project URL (*.supabase.co). Current value: ${rawUrl}`,
-        );
-    }
-    try {
-        new URL(url);
-    }
-    catch {
-        throw new Error(`NEXT_PUBLIC_SUPABASE_URL must be a valid Supabase project URL. Current value: ${rawUrl}`);
-    }
-    return url;
+    return SUPABASE_PROJECT_URL;
 }
 
 export function readSupabaseAnonKey() {
@@ -165,7 +141,7 @@ export function readSupabaseAnonKey() {
 }
 
 export function readSupabaseServiceRoleKey() {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
+    const serviceRoleKey = stripEnvQuotes(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
     if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
         throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
     }
@@ -181,6 +157,12 @@ export function readSupabaseServiceRoleKey() {
     }
     if (role && role !== "service_role") {
         throw new Error(`SUPABASE_SERVICE_ROLE_KEY must be the service_role JWT. Current JWT role: ${role}.`);
+    }
+    const ref = extractSupabaseProjectRefFromKey(serviceRoleKey);
+    if (ref && ref !== SUPABASE_PROJECT_REF) {
+        throw new Error(
+            `SUPABASE_SERVICE_ROLE_KEY is for project "${ref}", but this app uses "${SUPABASE_PROJECT_REF}".`,
+        );
     }
     return serviceRoleKey;
 }
