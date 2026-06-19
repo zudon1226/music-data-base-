@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { readSupabaseProjectUrl, readSupabaseServiceRoleKey } from "./supabase-config";
 
 export const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
 
@@ -25,13 +26,8 @@ export function getPublicSiteUrl() {
 }
 
 export function getSupabaseServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-
-  if (!supabaseUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-  if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
-  }
+  const supabaseUrl = readSupabaseProjectUrl();
+  const serviceRoleKey = readSupabaseServiceRoleKey();
 
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },

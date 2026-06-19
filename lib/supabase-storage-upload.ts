@@ -1,20 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
-
-function getSupabaseProjectRef(supabaseUrl: string) {
-    return new URL(supabaseUrl).hostname.split(".")[0];
-}
+import { readSupabaseAnonKey, readSupabaseProjectUrl } from "./supabase-config";
 
 export function getSupabaseStorageUploadUrl(supabaseUrl: string) {
     const projectRef = getSupabaseProjectRef(supabaseUrl);
     return `https://${projectRef}.storage.supabase.co`;
 }
 
+function getSupabaseProjectRef(supabaseUrl: string) {
+    return new URL(supabaseUrl).hostname.split(".")[0];
+}
+
 export function createSupabaseStorageUploadClient(accessToken: string) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || "";
-    if (!supabaseUrl || !anonKey) {
-        throw new Error("Supabase storage upload client is not configured.");
-    }
+    const supabaseUrl = readSupabaseProjectUrl();
+    const anonKey = readSupabaseAnonKey();
     const storageUrl = getSupabaseStorageUploadUrl(supabaseUrl);
     return createClient(storageUrl, anonKey, {
         auth: {

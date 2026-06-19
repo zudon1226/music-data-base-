@@ -60,15 +60,22 @@ async function loadChecklist() {
 
 export async function GET() {
   const siteUrl = getPublicSiteUrl();
-  const env = {
-    siteUrl,
-    hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
-    hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
-    hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY !== "your_service_role_key_here",
-    nodeEnv: process.env.NODE_ENV || "development",
-    usesLocalhost: siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1"),
-  };
+    const env = {
+        siteUrl,
+        hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
+        hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
+        hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) &&
+            process.env.SUPABASE_SERVICE_ROLE_KEY !== "your_service_role_key_here",
+        nodeEnv: process.env.NODE_ENV || "development",
+        usesLocalhost: siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1"),
+    };
+    let supabaseConfigError = "";
+    try {
+        getSupabaseServerClient();
+    }
+    catch (error) {
+        supabaseConfigError = getErrorMessage(error);
+    }
 
   const [tables, buckets, checklist] = await Promise.all([
     Promise.all(REQUIRED_LAUNCH_TABLES.map(checkTable)),
@@ -94,8 +101,8 @@ export async function GET() {
     },
     {
       name: "Service role key",
-      ok: env.hasServiceRoleKey,
-      message: env.hasServiceRoleKey ? "Configured for server-side launch tools" : "Missing SUPABASE_SERVICE_ROLE_KEY",
+      ok: env.hasServiceRoleKey && !supabaseConfigError,
+      message: supabaseConfigError || (env.hasServiceRoleKey ? "Configured for server-side launch tools" : "Missing SUPABASE_SERVICE_ROLE_KEY"),
     },
     {
       name: "Public site URL",
@@ -115,7 +122,10 @@ export async function GET() {
   return NextResponse.json({
     ok: checks.every(Boolean),
     checkedAt: new Date().toISOString(),
-    env,
+    env: {
+      ...env,
+      supabaseConfigError,
+    },
     productionChecks,
     tables,
     storageBuckets: buckets,
