@@ -8494,9 +8494,17 @@ export default function Page() {
         if (!user?.id) {
             return video;
         }
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session?.access_token) {
+            throw new Error("You must log in again before saving this video.");
+        }
         const response = await fetch("/api/video-upload", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+            },
+            credentials: "omit",
             body: JSON.stringify({
                 sessionUserId: user.id,
                 userId: user.id,

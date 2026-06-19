@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
-import { readSupabaseAnonKey, readSupabaseProjectUrl } from "./supabase-config";
+import { readSupabaseProjectUrl } from "./supabase-config";
+
+function readStorageAnonKey() {
+    return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "");
+}
 
 export function getSupabaseStorageUploadUrl(supabaseUrl: string) {
     const projectRef = getSupabaseProjectRef(supabaseUrl);
@@ -12,7 +16,10 @@ function getSupabaseProjectRef(supabaseUrl: string) {
 
 export function createSupabaseStorageUploadClient(accessToken: string) {
     const supabaseUrl = readSupabaseProjectUrl();
-    const anonKey = readSupabaseAnonKey();
+    const anonKey = readStorageAnonKey();
+    if (!anonKey) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
+    }
     const storageUrl = getSupabaseStorageUploadUrl(supabaseUrl);
     return createClient(storageUrl, anonKey, {
         auth: {

@@ -1,22 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { isPlatformOwnerUserId } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const VIDEOS_BUCKET = "videos";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
-}
-function getErrorMessage(error: unknown) {
-    if (error instanceof Error)
-        return error.message;
-    if (typeof error === "string")
-        return error;
-    if (error && typeof error === "object") {
-        const record = error as Record<string, unknown>;
-        return String(record.message || record.error || JSON.stringify(record));
-    }
-    return "Unknown server error";
 }
 function isMissingVideoLikesTableError(error: unknown) {
     if (!error || typeof error !== "object")
@@ -37,23 +25,7 @@ function getVideoLikesSetupMessage() {
 function isUuid(value: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
-function getSupabaseServerClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!supabaseUrl) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    }
-    if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-        throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
-    });
-}
-async function syncVideoLikeCount(supabase: ReturnType<typeof getSupabaseServerClient>, videoId: string) {
+async function syncVideoLikeCount(supabase: ReturnType<typeof getSupabaseLibraryClient>, videoId: string) {
     const { count, error: countError } = await supabase
         .from("video_likes")
         .select("id", { count: "exact", head: true })
@@ -126,7 +98,7 @@ export async function PATCH(request: Request, { params }: {
         if (!id) {
             return jsonResponse({ error: "Missing video id." }, 400);
         }
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         if (body.like === true || body.like === false) {
             const userId = typeof body.userId === "string" ? body.userId.trim() : "";
             if (!userId) {
@@ -253,19 +225,19 @@ export async function PATCH(request: Request, { params }: {
         return jsonResponse({ error: getErrorMessage(error) }, 500);
     }
 }
-async function deleteOptionalVideoRows(supabase: ReturnType<typeof getSupabaseServerClient>, tableName: string, videoId: string) {
+async function deleteOptionalVideoRows(supabase: ReturnType<typeof getSupabaseLibraryClient>, tableName: string, videoId: string) {
     const { error } = await supabase.from(tableName).delete().eq("video_id", videoId);
     if (error && !isMissingOptionalTableError(error, tableName)) {
         throw error;
     }
 }
-async function deleteOptionalTypedItemRows(supabase: ReturnType<typeof getSupabaseServerClient>, tableName: string, itemId: string, itemType: string) {
+async function deleteOptionalTypedItemRows(supabase: ReturnType<typeof getSupabaseLibraryClient>, tableName: string, itemId: string, itemType: string) {
     const { error } = await supabase.from(tableName).delete().eq("item_id", itemId).eq("item_type", itemType);
     if (error && !isMissingOptionalTableError(error, tableName)) {
         throw error;
     }
 }
-async function isProducerProfileOwner(supabase: ReturnType<typeof getSupabaseServerClient>, profileIds: string[], userId: string) {
+async function isProducerProfileOwner(supabase: ReturnType<typeof getSupabaseLibraryClient>, profileIds: string[], userId: string) {
     const cleanProfileIds = profileIds.filter((profileId) => profileId.trim());
     if (cleanProfileIds.length === 0)
         return false;
@@ -297,7 +269,7 @@ export async function DELETE(request: Request, { params }: {
             return jsonResponse({ error: "Log in before deleting uploaded videos." }, 401);
         }
         const isOwnerAdmin = await isPlatformOwnerUserId(userId);
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         if (!isUuid(id)) {
             if (!isOwnerAdmin || !id.startsWith("storage-")) {
                 return jsonResponse({ error: "Video delete requires a real database row id." }, 400);

@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { getSupabaseLibraryClient } from "@/lib/server-supabase";
+import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,33 +46,12 @@ function getErrorDetails(error: unknown) {
     return details;
 }
 
-function getSupabaseServerClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!supabaseUrl) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    }
-    if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-        throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
-    });
-}
-
 function getSupabaseAuthClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-    if (!supabaseUrl) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    }
+    const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "");
     if (!anonKey) {
         throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
     }
-    return createClient(supabaseUrl, anonKey, {
+    return createClient(SUPABASE_PROJECT_URL, anonKey, {
         auth: {
             autoRefreshToken: false,
             persistSession: false,
@@ -87,7 +68,7 @@ function getBearerToken(request: Request) {
     return token.trim();
 }
 
-async function getVerifiedUploadUserId(_supabase: ReturnType<typeof getSupabaseServerClient>, request: Request, providedUserIds: string[]) {
+async function getVerifiedUploadUserId(_supabase: ReturnType<typeof getSupabaseLibraryClient>, request: Request, providedUserIds: string[]) {
     const token = getBearerToken(request);
     if (!token) {
         throw new Error("Missing upload authorization token.");
@@ -148,7 +129,7 @@ function getNullableUuid(value: string | null) {
     return cleanValue && isUuid(cleanValue) ? cleanValue : null;
 }
 
-function getPublicVideoUrl(supabase: ReturnType<typeof getSupabaseServerClient>, storagePath: string) {
+function getPublicVideoUrl(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string) {
     return supabase.storage.from(VIDEOS_BUCKET).getPublicUrl(storagePath).data.publicUrl || "";
 }
 
@@ -169,7 +150,7 @@ async function probePublicVideoUrl(publicUrl: string) {
     };
 }
 
-async function verifyUploadedVideoObject(supabase: ReturnType<typeof getSupabaseServerClient>, storagePath: string, publicUrl: string) {
+async function verifyUploadedVideoObject(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string, publicUrl: string) {
     const download = await supabase.storage.from(VIDEOS_BUCKET).download(storagePath);
     if (download.error) {
         throw new Error(`Uploaded video object could not be read from storage: ${getErrorMessage(download.error)}`);
@@ -184,7 +165,7 @@ async function verifyUploadedVideoObject(supabase: ReturnType<typeof getSupabase
     return probe;
 }
 
-async function cleanupUploadedVideoObject(supabase: ReturnType<typeof getSupabaseServerClient>, storagePath: string) {
+async function cleanupUploadedVideoObject(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string) {
     if (!storagePath) return null;
     const { error } = await supabase.storage.from(VIDEOS_BUCKET).remove([storagePath]);
     return error ? getErrorMessage(error) : null;
@@ -249,7 +230,7 @@ function getMissingInsertColumnsFromError(error: unknown, row: Record<string, un
 }
 
 async function resolveOptionalVideoForeignKeys(
-    supabase: ReturnType<typeof getSupabaseServerClient>,
+    supabase: ReturnType<typeof getSupabaseLibraryClient>,
     row: Record<string, unknown>,
 ) {
     const nextRow = { ...row };
@@ -280,7 +261,7 @@ async function resolveOptionalVideoForeignKeys(
     return nextRow;
 }
 
-async function insertVideoRowWithFallback(supabase: ReturnType<typeof getSupabaseServerClient>, videoRow: Record<string, unknown>) {
+async function insertVideoRowWithFallback(supabase: ReturnType<typeof getSupabaseLibraryClient>, videoRow: Record<string, unknown>) {
     let nextRow = await resolveOptionalVideoForeignKeys(supabase, videoRow);
     let lastError: unknown = null;
     const minimalRow = {
@@ -370,7 +351,7 @@ export async function POST(request: Request) {
             const requestMode = getRecordString(body, ["mode"]);
             const sessionUserId = getRecordString(body, ["sessionUserId"]);
             const userId = getRecordString(body, ["userId"]);
-            const supabase = getSupabaseServerClient();
+            const supabase = getSupabaseLibraryClient();
 
             if (requestMode === "prepare-storage-upload") {
                 let authUserId = "";
