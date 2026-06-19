@@ -1,14 +1,25 @@
-function decodeJwtRole(key: string) {
+function decodeJwtPayload(key: string) {
     try {
         const payload = key.split(".")[1];
-        if (!payload) return "";
+        if (!payload) return null;
         const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-        const json = JSON.parse(Buffer.from(normalized, "base64").toString("utf8")) as { role?: string };
-        return String(json.role || "");
+        const jsonStr =
+            typeof Buffer !== "undefined"
+                ? Buffer.from(normalized, "base64").toString("utf8")
+                : atob(normalized);
+        return JSON.parse(jsonStr) as { role?: string; ref?: string };
     }
     catch {
-        return "";
+        return null;
     }
+}
+
+function decodeJwtRole(key: string) {
+    return String(decodeJwtPayload(key)?.role || "");
+}
+
+export function extractSupabaseProjectRefFromKey(key: string) {
+    return String(decodeJwtPayload(key)?.ref || "").trim();
 }
 
 function looksLikeUrl(value: string) {
@@ -32,8 +43,12 @@ export function describeSupabaseEnvValue(name: string, value: string) {
     return "";
 }
 
+function stripEnvQuotes(value: string) {
+    return value.trim().replace(/^["']|["']$/g, "");
+}
+
 function normalizeSupabaseProjectUrl(raw: string) {
-    let url = raw.trim();
+    let url = stripEnvQuotes(raw);
     if (!url) {
         return "";
     }
@@ -62,8 +77,46 @@ function normalizeSupabaseProjectUrl(raw: string) {
     return url;
 }
 
+function hasSupabaseProjectHost(url: string) {
+    try {
+        return new URL(url).hostname.toLowerCase().endsWith(".supabase.co");
+    }
+    catch {
+        return false;
+    }
+}
+
+/** Browser login client URL — normalizes env and falls back to project ref from anon JWT. */
+export function resolveSupabaseLoginUrl() {
+    const rawUrl = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
+    const anonKey = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
+    let url = rawUrl ? normalizeSupabaseProjectUrl(rawUrl) : "";
+
+    if (!hasSupabaseProjectHost(url) && anonKey) {
+        const ref = extractSupabaseProjectRefFromKey(anonKey);
+        if (ref) {
+            url = `https://${ref}.supabase.co`;
+        }
+    }
+
+    if (!url) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
+    }
+    if (url.includes("digitalmusicdatabase.com")) {
+        throw new Error(
+            `NEXT_PUBLIC_SUPABASE_URL must be your Supabase project URL (*.supabase.co), not the site URL. Current value: ${rawUrl}`,
+        );
+    }
+    if (!hasSupabaseProjectHost(url)) {
+        throw new Error(
+            `NEXT_PUBLIC_SUPABASE_URL must be a Supabase project URL (*.supabase.co). Current value: ${rawUrl}`,
+        );
+    }
+    return url;
+}
+
 export function readSupabaseProjectUrl() {
-    const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
+    const rawUrl = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
     if (!rawUrl) {
         throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
     }
