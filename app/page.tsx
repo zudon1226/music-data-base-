@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { authFetch, authFetchWithAccessToken, diagnoseAccessToken, normalizeAccessToken } from "../lib/client-api-auth";
+import { authFetch, authFetchWithAccessToken, diagnoseAccessToken } from "../lib/client-api-auth";
+import {
+    applySanitizedSupabaseSession,
+    cleanupSupabaseAuthStorageOnLoad,
+    clearSupabaseAuthStorage,
+    ensureCleanSupabaseSession,
+} from "../lib/supabase-auth-storage";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -4553,38 +4559,8 @@ export default function Page() {
         const retryEvent = { preventDefault() { } } as FormEvent<HTMLFormElement>;
         void addUploadedVideo(retryEvent);
     }
-    function clearSupabaseAuthStorage() {
-        try {
-            for (let index = localStorage.length - 1; index >= 0; index -= 1) {
-                const key = localStorage.key(index);
-                if (!key)
-                    continue;
-                const normalizedKey = key.toLowerCase();
-                if (normalizedKey.includes("supabase") || normalizedKey.startsWith("sb-")) {
-                    localStorage.removeItem(key);
-                }
-            }
-            for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
-                const key = sessionStorage.key(index);
-                if (!key)
-                    continue;
-                const normalizedKey = key.toLowerCase();
-                if (normalizedKey.includes("supabase") || normalizedKey.startsWith("sb-")) {
-                    sessionStorage.removeItem(key);
-                }
-            }
-        }
-        catch (error) {
-        }
-    }
-    function clearAllBrowserSessionStorage() {
-        try {
-            localStorage.clear();
-            sessionStorage.clear();
-        }
-        catch (error) {
-            clearSupabaseAuthStorage();
-        }
+    function clearSupabaseAuthStorageFromBrowser() {
+        clearSupabaseAuthStorage();
     }
     function clearLocalSessionState() {
         audioRef.current?.pause();
@@ -4916,10 +4892,11 @@ export default function Page() {
     useEffect(() => {
         let isMounted = true;
         async function loadSession() {
-            const { data } = await supabase.auth.getSession();
+            cleanupSupabaseAuthStorageOnLoad();
+            const cleaned = await ensureCleanSupabaseSession(supabase);
             if (!isMounted)
                 return;
-            const sessionUser = data.session?.user || null;
+            const sessionUser = cleaned.session?.user || null;
             if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
                 setAuthReady(true);
                 return;
@@ -4930,7 +4907,13 @@ export default function Page() {
             setAuthReady(true);
         }
         loadSession();
-        const { data: { subscription }, } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription }, } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+                await applySanitizedSupabaseSession(supabase, session);
+            }
+            if (event === "SIGNED_OUT") {
+                clearSupabaseAuthStorageFromBrowser();
+            }
             const sessionUser = session?.user || null;
             if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
                 setAuthReady(true);
@@ -9424,10 +9407,10 @@ export default function Page() {
         return uploadUser;
     }
     async function getFreshVideoStorageUploadUser() {
-        const { data: { session }, error: sessionError, } = await supabase.auth.getSession();
-        let activeSession = session;
-        if (sessionError) {
-            throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
+        const cleaned = await ensureCleanSupabaseSession(supabase);
+        let activeSession = cleaned.session;
+        if (cleaned.error && !activeSession) {
+            throw new Error(`Supabase auth check failed before video upload: ${cleaned.error.message}`);
         }
         const expiresAtMs = activeSession?.expires_at ? activeSession.expires_at * 1000 : 0;
         if (activeSession?.refresh_token && expiresAtMs && expiresAtMs - Date.now() < 60000) {
@@ -9435,21 +9418,15 @@ export default function Page() {
             if (refreshError) {
                 throw new Error(`Supabase auth refresh failed before video upload: ${refreshError.message}`);
             }
-            activeSession = refreshData.session;
+            activeSession = await applySanitizedSupabaseSession(supabase, refreshData.session);
         }
         if (!activeSession?.access_token || !activeSession.user?.id) {
             throw new Error("You must log in again before uploading videos to Supabase Storage.");
         }
-        const accessToken = normalizeAccessToken(activeSession.access_token);
-        if (!accessToken) {
-            const diagnosis = diagnoseAccessToken(activeSession.access_token);
-            console.error("VIDEO UPLOAD SESSION TOKEN INVALID", diagnosis);
-            throw new Error("Your login session token is invalid or too large. Log out and log in again, then retry the upload.");
-        }
         setUser((previous) => previous || activeSession.user);
         return {
             user: activeSession.user,
-            accessToken,
+            accessToken: activeSession.access_token,
         };
     }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
@@ -12155,6 +12132,7 @@ export default function Page() {
             return;
         }
         try {
+            clearSupabaseAuthStorageFromBrowser();
             const response = authMode === "signup"
                 ? await supabase.auth.signUp({
                     email,
@@ -12174,6 +12152,7 @@ export default function Page() {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
             }
+            await applySanitizedSupabaseSession(supabase, response.data.session);
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
@@ -12195,19 +12174,14 @@ export default function Page() {
             if (error) {
                 throw error;
             }
-            clearAllBrowserSessionStorage();
-            clearSupabaseAuthStorage();
-            clearLocalSessionState();
-            window.location.replace("/");
-            return;
         }
         catch (error) {
             console.error("Logout failed:", error);
-            clearAllBrowserSessionStorage();
-            clearSupabaseAuthStorage();
+        }
+        finally {
+            clearSupabaseAuthStorageFromBrowser();
             clearLocalSessionState();
             window.location.replace("/");
-            return;
         }
     }
     function handleNav(nextView: View) {

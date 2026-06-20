@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { applySanitizedSupabaseSession, ensureCleanSupabaseSession } from "./supabase-auth-storage";
 
 const MAX_ACCESS_TOKEN_LENGTH = 8192;
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
@@ -178,19 +179,6 @@ export function normalizeAccessToken(raw: unknown) {
 }
 
 function normalizeAccessTokenResolved(raw: unknown) {
-    const diagnosis = diagnoseAccessToken(raw);
-    if (diagnosis.rejected) {
-        logAccessTokenDiagnosis("API AUTH: access token exceeds max length or is malformed.", diagnosis);
-        return { token: "", diagnosis };
-    }
-    if (
-        diagnosis.extractionMethod !== "single-jwt"
-        && diagnosis.extractionMethod !== "as-is"
-        && diagnosis.extractionMethod !== "none"
-    ) {
-        logAccessTokenDiagnosis("API AUTH: extracted single access token from malformed value.", diagnosis);
-    }
-
     const stripped = stripBearerPrefixes(String(raw).replace(/^["']|["']$/g, ""));
     let token = "";
     if (stripped.startsWith("{") || stripped.startsWith("[")) {
@@ -203,10 +191,33 @@ function normalizeAccessTokenResolved(raw: unknown) {
         token = stripBearerPrefixes(stripped);
     }
     token = extractSingleJwt(token) || token;
-    if (!token || token.startsWith("{") || token.startsWith("[") || token.length > MAX_ACCESS_TOKEN_LENGTH) {
-        return { token: "", diagnosis: { ...diagnosis, rejected: true, rejectionReason: "normalize-failed" } };
+
+    const rawDiagnosis = diagnoseAccessToken(raw);
+    if (token && !token.startsWith("{") && !token.startsWith("[") && token.length <= MAX_ACCESS_TOKEN_LENGTH) {
+        if (rawDiagnosis.rejected || rawDiagnosis.accessTokenLength !== token.length) {
+            logAccessTokenDiagnosis("API AUTH: extracted single access token from malformed value.", {
+                ...rawDiagnosis,
+                normalizedLength: token.length,
+                rejected: false,
+                rejectionReason: "",
+            });
+        }
+        return {
+            token,
+            diagnosis: {
+                ...rawDiagnosis,
+                normalizedLength: token.length,
+                authorizationLength: token.length + 7,
+                rejected: false,
+                rejectionReason: "",
+                tokenFirst20: token.slice(0, 20),
+                tokenLast20: token.slice(-20),
+            },
+        };
     }
-    return { token, diagnosis };
+
+    logAccessTokenDiagnosis("API AUTH: access token exceeds max length or is malformed.", rawDiagnosis);
+    return { token: "", diagnosis: rawDiagnosis };
 }
 
 function copyAllowedHeaders(target: Headers, source: HeadersInit | undefined) {
@@ -317,43 +328,31 @@ async function resolveAccessToken(supabase: SupabaseClient, accessTokenOverride:
 }
 
 export async function getAuthenticatedSession(supabase: SupabaseClient) {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (session?.access_token) {
-        const { token, diagnosis } = normalizeAccessTokenResolved(session.access_token);
-        if (!token && diagnosis.rejected) {
-            return {
-                accessToken: "",
-                userId: session.user?.id || "",
-                error: new Error("Session access token is invalid or too large. Log in again."),
-            };
-        }
+    const cleaned = await ensureCleanSupabaseSession(supabase);
+    if (cleaned.session?.access_token) {
         return {
-            accessToken: token,
-            userId: session.user?.id || "",
+            accessToken: cleaned.accessToken,
+            userId: cleaned.userId,
             error: null as Error | null,
         };
     }
+
     const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
     const refreshed = refreshData.session;
-    if (refreshed?.access_token) {
-        const { token, diagnosis } = normalizeAccessTokenResolved(refreshed.access_token);
-        if (!token && diagnosis.rejected) {
+    if (refreshed) {
+        const sanitized = await applySanitizedSupabaseSession(supabase, refreshed);
+        if (sanitized?.access_token) {
             return {
-                accessToken: "",
-                userId: refreshed.user?.id || "",
-                error: new Error("Refreshed access token is invalid or too large. Log in again."),
+                accessToken: sanitized.access_token,
+                userId: sanitized.user?.id || "",
+                error: null as Error | null,
             };
         }
-        return {
-            accessToken: token,
-            userId: refreshed.user?.id || "",
-            error: null as Error | null,
-        };
     }
     return {
         accessToken: "",
         userId: "",
-        error: (refreshError || sessionError || new Error("No active session.")) as Error | null,
+        error: (refreshError || cleaned.error || new Error("No active session.")) as Error | null,
     };
 }
 
