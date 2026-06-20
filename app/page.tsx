@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { authFetch } from "../lib/client-api-auth";
+import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
@@ -4904,8 +4904,7 @@ export default function Page() {
                 return;
             }
             applyAuthSession(session);
-            console.log("AUTH_SOURCE", "supabase-session");
-            console.log("ACCESS_TOKEN_LENGTH", session?.access_token?.length);
+            readAccessTokenFromSession(session);
             setAuthLoading(false);
         }
 
@@ -9426,11 +9425,16 @@ export default function Page() {
             }
             activeSession = refreshData.session;
         }
-        const accessToken = activeSession?.access_token || "";
-        console.log("AUTH_SOURCE", "supabase-session");
-        console.log("ACCESS_TOKEN_LENGTH", accessToken?.length);
+        const accessToken = readAccessTokenFromSession(
+            activeSession,
+            `${ACCESS_TOKEN_SOURCE} (video-upload getFreshVideoStorageUploadUser)`,
+        );
         if (!accessToken || !activeSession?.user?.id) {
-            throw new Error("You must log in again before uploading videos to Supabase Storage.");
+            throw new Error(
+                activeSession?.user?.id
+                    ? `Invalid session access_token from ${ACCESS_TOKEN_SOURCE}. Expected JWT string starting with "eyJ".`
+                    : "You must log in again before uploading videos to Supabase Storage.",
+            );
         }
         setUser((previous) => previous || activeSession.user);
         return {

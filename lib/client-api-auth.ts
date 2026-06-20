@@ -1,18 +1,62 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
+
+export const ACCESS_TOKEN_SOURCE = "supabase.auth.getSession().session.access_token";
 
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
+
+export function logAccessTokenDiagnostics(accessToken: unknown, sourcePath = ACCESS_TOKEN_SOURCE) {
+    const tokenString = accessToken == null ? "" : String(accessToken);
+    console.log("AUTH_SOURCE", "supabase-session");
+    console.log("TOKEN_SOURCE_PATH", sourcePath);
+    console.log("TOKEN_TYPE", typeof accessToken);
+    console.log("TOKEN_PREFIX", tokenString.slice(0, 50));
+    console.log("TOKEN_LENGTH", tokenString.length);
+}
+
+export function readAccessTokenFromSession(
+    session: Session | null | undefined,
+    sourcePath = ACCESS_TOKEN_SOURCE,
+) {
+    const raw = session?.access_token;
+    logAccessTokenDiagnostics(raw, sourcePath);
+
+    if (typeof raw !== "string" || !raw) {
+        console.error("ACCESS_TOKEN_REJECTED", {
+            sourcePath,
+            reason: "missing-or-not-string",
+            sessionExists: Boolean(session),
+            sessionKeys: session ? Object.keys(session) : [],
+        });
+        return "";
+    }
+
+    if (!raw.startsWith("eyJ")) {
+        console.error("ACCESS_TOKEN_REJECTED", {
+            sourcePath,
+            reason: "not-jwt-prefix",
+            tokenType: typeof raw,
+            tokenPrefix: raw.slice(0, 50),
+            tokenLength: raw.length,
+            looksLikeJson: raw.startsWith("{") || raw.startsWith("["),
+            sessionTokenTypeField: session?.token_type || null,
+            refreshTokenLength: typeof session?.refresh_token === "string" ? session.refresh_token.length : null,
+        });
+        return "";
+    }
+
+    return raw;
+}
 
 async function readSessionAccessToken(supabase: SupabaseClient) {
     const {
         data: { session },
         error,
     } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
-    console.log("AUTH_SOURCE", "supabase-session");
-    console.log("ACCESS_TOKEN_LENGTH", accessToken?.length);
+
+    const accessToken = readAccessTokenFromSession(session);
     return {
         session,
-        accessToken: accessToken || "",
+        accessToken,
         userId: session?.user?.id || "",
         error,
     };
@@ -52,7 +96,10 @@ export async function authFetch(
 ) {
     const { accessToken, error } = await readSessionAccessToken(supabase);
     if (!accessToken) {
-        throw new Error(error?.message || "Missing access token.");
+        throw new Error(
+            error?.message
+                || `Invalid session access_token from ${ACCESS_TOKEN_SOURCE}. Expected JWT string starting with "eyJ". Request stopped.`,
+        );
     }
 
     const headers = buildAuthHeaders(init, accessToken);
