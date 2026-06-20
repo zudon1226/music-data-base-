@@ -6,15 +6,109 @@ function decodeJwtPayload(key: string) {
         const payload = key.split(".")[1];
         if (!payload) return null;
         const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
         const jsonStr =
             typeof Buffer !== "undefined"
-                ? Buffer.from(normalized, "base64").toString("utf8")
-                : atob(normalized);
-        return JSON.parse(jsonStr) as { role?: string; ref?: string };
+                ? Buffer.from(padded, "base64").toString("utf8")
+                : atob(padded);
+        return JSON.parse(jsonStr) as { role?: string; ref?: string; iss?: string };
     }
     catch {
         return null;
     }
+}
+
+function extractRefFromJwtPayload(payload: { ref?: string; iss?: string } | null) {
+    if (!payload) return "";
+    const directRef = String(payload.ref || "").trim();
+    if (directRef) return directRef;
+    const iss = String(payload.iss || "").trim();
+    const hostMatch = iss.match(/https?:\/\/([a-z0-9]+)\.supabase\.co/i);
+    if (hostMatch?.[1]) return hostMatch[1];
+    if (iss === "supabase") return SUPABASE_PROJECT_REF;
+    return "";
+}
+
+export function describeSupabaseApiKey(key: string) {
+    const raw = sanitizeApiKey(key);
+    if (!raw) {
+        return {
+            keyFormat: "missing" as const,
+            role: null as string | null,
+            projectRef: null as string | null,
+        };
+    }
+    if (raw.startsWith("sb_secret_")) {
+        return {
+            keyFormat: "sb_secret" as const,
+            role: "service_role",
+            projectRef: SUPABASE_PROJECT_REF,
+        };
+    }
+    if (raw.startsWith("sb_publishable_")) {
+        return {
+            keyFormat: "sb_publishable" as const,
+            role: "anon",
+            projectRef: SUPABASE_PROJECT_REF,
+        };
+    }
+    if (raw.startsWith("eyJ")) {
+        const payload = decodeJwtPayload(raw);
+        const role = payload?.role ? String(payload.role) : null;
+        const projectRef = extractRefFromJwtPayload(payload) || null;
+        return {
+            keyFormat: "legacy-jwt" as const,
+            role,
+            projectRef,
+        };
+    }
+    return {
+        keyFormat: "other" as const,
+        role: null as string | null,
+        projectRef: null as string | null,
+    };
+}
+
+export function readSupabaseLibraryKeySource() {
+    const serviceRoleKey = sanitizeApiKey(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+    const anonKey = sanitizeApiKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
+    const serviceRoleMeta = serviceRoleKey ? describeSupabaseApiKey(serviceRoleKey) : null;
+
+    if (serviceRoleKey && serviceRoleKey !== "your_service_role_key_here") {
+        if (serviceRoleKey.startsWith("sb_secret_") || serviceRoleMeta?.role === "service_role") {
+            return {
+                keySource: "SUPABASE_SERVICE_ROLE_KEY" as const,
+                role: serviceRoleMeta?.role ?? "service_role",
+                projectRef: serviceRoleMeta?.projectRef ?? SUPABASE_PROJECT_REF,
+                keyFormat: serviceRoleMeta?.keyFormat ?? "sb_secret",
+            };
+        }
+    }
+
+    const libraryKey = readSupabaseLibraryApiKey();
+    const libraryMeta = describeSupabaseApiKey(libraryKey);
+    if (
+        serviceRoleKey &&
+        serviceRoleKey !== "your_service_role_key_here" &&
+        libraryKey === serviceRoleKey
+    ) {
+        return {
+            keySource: "SUPABASE_SERVICE_ROLE_KEY" as const,
+            ...libraryMeta,
+        };
+    }
+    if (libraryMeta.role === "service_role") {
+        return {
+            keySource: "SUPABASE_SERVICE_ROLE_KEY" as const,
+            ...libraryMeta,
+        };
+    }
+    return {
+        keySource: "NEXT_PUBLIC_SUPABASE_ANON_KEY (fallback)" as const,
+        ...libraryMeta,
+        serviceRoleKeyMeta: serviceRoleMeta,
+        anonKeyMeta: anonKey ? describeSupabaseApiKey(anonKey) : null,
+    };
 }
 
 function decodeJwtRole(key: string) {
@@ -22,7 +116,7 @@ function decodeJwtRole(key: string) {
 }
 
 export function extractSupabaseProjectRefFromKey(key: string) {
-    return String(decodeJwtPayload(key)?.ref || "").trim();
+    return extractRefFromJwtPayload(decodeJwtPayload(key));
 }
 
 function looksLikeUrl(value: string) {
@@ -150,18 +244,14 @@ export function readSupabaseLibraryApiKey() {
     const anonKey = sanitizeApiKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
 
     if (serviceRoleKey && serviceRoleKey !== "your_service_role_key_here") {
-        const shapeError = describeSupabaseEnvValue("SUPABASE_SERVICE_ROLE_KEY", serviceRoleKey);
-        if (!shapeError) {
-            if (serviceRoleKey.startsWith("sb_secret_")) {
-                return serviceRoleKey;
-            }
-            if (serviceRoleKey.startsWith("eyJ")) {
-                const role = decodeJwtRole(serviceRoleKey);
-                if (role === "service_role") {
-                    const ref = extractSupabaseProjectRefFromKey(serviceRoleKey);
-                    if (!ref || ref === SUPABASE_PROJECT_REF) {
-                        return serviceRoleKey;
-                    }
+        if (serviceRoleKey.startsWith("sb_secret_")) {
+            return serviceRoleKey;
+        }
+        if (serviceRoleKey.startsWith("eyJ")) {
+            const meta = describeSupabaseApiKey(serviceRoleKey);
+            if (meta.role === "service_role") {
+                if (!meta.projectRef || meta.projectRef === SUPABASE_PROJECT_REF) {
+                    return serviceRoleKey;
                 }
             }
         }
@@ -181,24 +271,26 @@ export function readSupabaseServiceRoleKey() {
     if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
         throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
     }
+    if (serviceRoleKey.startsWith("sb_secret_")) {
+        return sanitizeApiKey(serviceRoleKey);
+    }
     const shapeError = describeSupabaseEnvValue("SUPABASE_SERVICE_ROLE_KEY", serviceRoleKey);
     if (shapeError) {
         throw new Error(shapeError);
     }
-    const role = decodeJwtRole(serviceRoleKey);
-    if (role === "anon") {
+    const meta = describeSupabaseApiKey(serviceRoleKey);
+    if (meta.role === "anon") {
         throw new Error(
             "SUPABASE_SERVICE_ROLE_KEY is set to the anon key. Use the service_role legacy JWT from Supabase Settings > API.",
         );
     }
-    if (role && role !== "service_role") {
-        throw new Error(`SUPABASE_SERVICE_ROLE_KEY must be the service_role JWT. Current JWT role: ${role}.`);
+    if (meta.role && meta.role !== "service_role") {
+        throw new Error(`SUPABASE_SERVICE_ROLE_KEY must be the service_role JWT. Current JWT role: ${meta.role}.`);
     }
-    const ref = extractSupabaseProjectRefFromKey(serviceRoleKey);
-    if (ref && ref !== SUPABASE_PROJECT_REF) {
+    if (meta.projectRef && meta.projectRef !== SUPABASE_PROJECT_REF) {
         throw new Error(
-            `SUPABASE_SERVICE_ROLE_KEY is for project "${ref}", but this app uses "${SUPABASE_PROJECT_REF}".`,
+            `SUPABASE_SERVICE_ROLE_KEY is for project "${meta.projectRef}", but this app uses "${SUPABASE_PROJECT_REF}".`,
         );
     }
-    return serviceRoleKey;
+    return sanitizeApiKey(serviceRoleKey);
 }

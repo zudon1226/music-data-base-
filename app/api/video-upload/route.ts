@@ -3,7 +3,12 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { describeRouteAuth, getBearerToken } from "@/lib/request-auth";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
-import { readSupabaseLibraryApiKey, SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
+import {
+    describeSupabaseApiKey,
+    readSupabaseLibraryApiKey,
+    readSupabaseLibraryKeySource,
+    SUPABASE_PROJECT_URL,
+} from "@/lib/supabase-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,44 +53,75 @@ function getErrorDetails(error: unknown) {
     return details;
 }
 
-function decodeJwtPayload(key: string) {
-    try {
-        const payload = key.split(".")[1];
-        if (!payload)
-            return null;
-        const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-        return JSON.parse(Buffer.from(normalized, "base64").toString("utf8")) as { iss?: string; ref?: string; role?: string };
-    }
-    catch {
-        return null;
-    }
-}
-
 function describeServiceRoleEnv() {
     const raw = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
     const placeholder = !raw || raw === "your_service_role_key_here";
-    const shape = placeholder ? "missing" : raw.startsWith("eyJ") ? "legacy-jwt" : raw.startsWith("sb_secret_") ? "sb_secret" : "other";
-    const jwtPayload = raw.startsWith("eyJ") ? decodeJwtPayload(raw) : null;
+    const serviceRoleMeta = describeSupabaseApiKey(raw);
+    const libraryKeySource = readSupabaseLibraryKeySource();
     return {
         configured: !placeholder,
-        keyShape: shape,
+        keyShape: serviceRoleMeta.keyFormat,
         keyLength: raw.length,
-        role: jwtPayload?.role || null,
-        projectRef: jwtPayload?.ref || null,
-        libraryKeySource: describeLibraryKeySource(),
+        role: serviceRoleMeta.role,
+        projectRef: serviceRoleMeta.projectRef,
+        libraryKeySource: libraryKeySource.keySource,
+        libraryKeyRole: libraryKeySource.role,
+        libraryKeyProjectRef: libraryKeySource.projectRef,
     };
 }
 
-function describeLibraryKeySource() {
+function getStorageSupabaseClient(request?: Request) {
+    const serviceRoleEnv = describeServiceRoleEnv();
+    const authorization = request?.headers.get("authorization") || "";
+    const authorizationLength = authorization.length;
+    const resolvedKeySource = readSupabaseLibraryKeySource();
+    const serviceRoleRaw = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+
     try {
-        const apiKey = readSupabaseLibraryApiKey();
-        const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
-        if (serviceRoleKey && apiKey === serviceRoleKey)
-            return "SUPABASE_SERVICE_ROLE_KEY";
-        return "NEXT_PUBLIC_SUPABASE_ANON_KEY (fallback)";
+        const client = getSupabaseServerClient();
+        const keyMeta = describeSupabaseApiKey(serviceRoleRaw);
+        console.log("[api/video-upload] STORAGE KEY RESOLVED", {
+            keySource: "SUPABASE_SERVICE_ROLE_KEY",
+            decodedRole: keyMeta.role,
+            decodedRef: keyMeta.projectRef,
+            libraryKeySource: resolvedKeySource.keySource,
+            libraryKeyRole: resolvedKeySource.role,
+            libraryKeyProjectRef: resolvedKeySource.projectRef,
+            authorizationLength,
+            serviceRoleEnv,
+        });
+        return {
+            client,
+            keySource: "SUPABASE_SERVICE_ROLE_KEY",
+            keyMeta,
+            libraryKeySource: resolvedKeySource,
+            serviceRoleEnv,
+            authorizationLength,
+        };
     }
-    catch (error) {
-        return `unavailable: ${getErrorMessage(error)}`;
+    catch (serviceRoleError) {
+        const libraryKey = readSupabaseLibraryApiKey();
+        const keyMeta = describeSupabaseApiKey(libraryKey);
+        console.warn("[api/video-upload] Service role client unavailable, using library client:", getErrorMessage(serviceRoleError));
+        console.log("[api/video-upload] STORAGE KEY FALLBACK", {
+            keySource: resolvedKeySource.keySource,
+            decodedRole: keyMeta.role,
+            decodedRef: keyMeta.projectRef,
+            libraryKeyRole: resolvedKeySource.role,
+            libraryKeyProjectRef: resolvedKeySource.projectRef,
+            authorizationLength,
+            serviceRoleError: getErrorMessage(serviceRoleError),
+            serviceRoleEnv,
+        });
+        return {
+            client: getSupabaseLibraryClient(),
+            keySource: resolvedKeySource.keySource,
+            keyMeta,
+            libraryKeySource: resolvedKeySource,
+            serviceRoleEnv,
+            serviceRoleError: getErrorMessage(serviceRoleError),
+            authorizationLength,
+        };
     }
 }
 
@@ -97,26 +133,6 @@ function getSupabaseAuthClient() {
     return createClient(SUPABASE_PROJECT_URL, anonKey, {
         auth: { autoRefreshToken: false, persistSession: false },
     });
-}
-
-function getStorageSupabaseClient() {
-    const serviceRoleEnv = describeServiceRoleEnv();
-    try {
-        return {
-            client: getSupabaseServerClient(),
-            keySource: "SUPABASE_SERVICE_ROLE_KEY",
-            serviceRoleEnv,
-        };
-    }
-    catch (serviceRoleError) {
-        console.warn("[api/video-upload] Service role client unavailable, using library client:", getErrorMessage(serviceRoleError));
-        return {
-            client: getSupabaseLibraryClient(),
-            keySource: describeLibraryKeySource(),
-            serviceRoleEnv,
-            serviceRoleError: getErrorMessage(serviceRoleError),
-        };
-    }
 }
 
 type AuthSuccess = {
@@ -345,6 +361,9 @@ function buildPreparePayload(
         supabaseError?: unknown;
         token?: string;
         signedUrl?: string;
+        keySource?: string;
+        decodedRole?: string | null;
+        decodedRef?: string | null;
     },
 ) {
     const authorization = request.headers.get("authorization") || "";
@@ -354,11 +373,15 @@ function buildPreparePayload(
         step: fields.step,
         error: fields.error,
         hasAuthorization: Boolean(authorization),
+        authorizationLength: authorization.length,
         userId: fields.userId || "",
         storagePath,
         bucket: VIDEOS_BUCKET,
         signedUrlCreated: Boolean(fields.signedUrlCreated),
         supabaseError: fields.supabaseError ?? null,
+        ...(fields.keySource ? { keySource: fields.keySource } : {}),
+        ...(fields.decodedRole !== undefined ? { decodedRole: fields.decodedRole } : {}),
+        ...(fields.decodedRef !== undefined ? { decodedRef: fields.decodedRef } : {}),
         ...(fields.token ? { token: fields.token } : {}),
         ...(fields.signedUrl ? { signedUrl: fields.signedUrl } : {}),
     };
@@ -434,12 +457,21 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
             return prepareStorageUploadResponse(403, payload);
         }
 
-        const { client: storageClient, keySource, serviceRoleError } = getStorageSupabaseClient();
+        const {
+            client: storageClient,
+            keySource,
+            keyMeta,
+            serviceRoleError,
+            authorizationLength,
+        } = getStorageSupabaseClient(request);
         console.log("[api/video-upload] PREPARE createSignedUploadUrl", {
             userId: authUserId,
             storagePath,
             bucket: VIDEOS_BUCKET,
             keySource,
+            decodedRole: keyMeta.role,
+            decodedRef: keyMeta.projectRef,
+            authorizationLength,
             serviceRoleError: serviceRoleError || null,
         });
 
@@ -458,6 +490,9 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
                 error: exactError,
                 userId: authUserId,
                 signedUrlCreated,
+                keySource,
+                decodedRole: keyMeta.role,
+                decodedRef: keyMeta.projectRef,
                 supabaseError: signedUpload.error ? getErrorDetails(signedUpload.error) : signedUpload.data ?? null,
             });
             console.log("[api/video-upload] PREPARE FAILED", payload);
@@ -470,6 +505,9 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
             error: "",
             userId: authUserId,
             signedUrlCreated: true,
+            keySource,
+            decodedRole: keyMeta.role,
+            decodedRef: keyMeta.projectRef,
             supabaseError: null,
             token: signedUpload.data.token,
             signedUrl: signedUpload.data.signedUrl || "",
@@ -920,11 +958,17 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
 }
 
 export async function GET() {
+    const serviceRoleEnv = describeServiceRoleEnv();
+    const libraryKeySource = readSupabaseLibraryKeySource();
     return jsonResponse({
         ok: true,
         route: "/api/video-upload",
         bucket: VIDEOS_BUCKET,
-        serviceRoleEnv: describeServiceRoleEnv(),
+        serviceRoleEnv,
+        libraryKeySource: libraryKeySource.keySource,
+        decodedRole: serviceRoleEnv.role ?? libraryKeySource.role,
+        decodedRef: serviceRoleEnv.projectRef ?? libraryKeySource.projectRef,
+        authorizationLength: null,
         message: "POST JSON prepare-storage-upload, POST multipart direct-storage-upload fallback, then POST metadata JSON.",
     });
 }
