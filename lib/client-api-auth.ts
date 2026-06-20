@@ -1,42 +1,44 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { clearSupabaseAuthStorage, removeLegacyAuthStorageKeys } from "./supabase-auth-storage";
 
 export const AUTH_SOURCE = "supabase.auth.getSession";
 
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
 
-export function logSessionAuthDebug(session: Session | null) {
-    const accessToken = session?.access_token || "";
-    console.log("API AUTH SESSION", {
-        sessionExists: Boolean(session),
-        accessTokenLength: accessToken.length,
-        authSource: AUTH_SOURCE,
-        userId: session?.user?.id || "",
+export function logAuthDebug(session: Session | null) {
+    const accessToken = session?.access_token;
+    console.log("AUTH DEBUG", {
+        AUTH_SOURCE,
+        SESSION_EXISTS: Boolean(session),
+        ACCESS_TOKEN_LENGTH: typeof accessToken === "string" ? accessToken.length : 0,
+        ACCESS_TOKEN_TYPE: typeof accessToken === "string" ? (session?.token_type || "string") : typeof accessToken,
     });
 }
 
 export async function getSessionAccessToken(supabase: SupabaseClient) {
     const { data: { session }, error } = await supabase.auth.getSession();
-    const accessToken = session?.access_token || "";
-    logSessionAuthDebug(session);
+    logAuthDebug(session);
     return {
         session,
-        accessToken,
+        accessToken: session?.access_token || "",
         userId: session?.user?.id || "",
         error,
     };
 }
 
 export async function forceLogoutForMissingToken(supabase: SupabaseClient) {
-    console.error("API AUTH: missing access token — forcing logout.");
+    console.error("AUTH DEBUG", {
+        AUTH_SOURCE,
+        SESSION_EXISTS: false,
+        ACCESS_TOKEN_LENGTH: 0,
+        ACCESS_TOKEN_TYPE: "missing",
+        action: "force-logout",
+    });
     try {
         await supabase.auth.signOut();
     }
     catch {
         // ignore sign-out errors during forced logout
     }
-    removeLegacyAuthStorageKeys();
-    clearSupabaseAuthStorage();
     if (typeof window !== "undefined") {
         window.location.replace("/");
     }
@@ -65,9 +67,7 @@ function buildAuthHeaders(init: RequestInit | undefined, accessToken: string) {
     headers.delete("x-session");
     headers.delete("x-user");
     headers.delete("x-refresh-token");
-    if (accessToken) {
-        headers.set("Authorization", `Bearer ${accessToken}`);
-    }
+    headers.set("Authorization", `Bearer ${accessToken}`);
     return headers;
 }
 
@@ -84,11 +84,12 @@ export async function authFetch(
 
     const headers = buildAuthHeaders(init, accessToken);
     const url = typeof input === "string" ? input : input.toString();
-    console.log("API AUTH FETCH", {
+    console.log("AUTH DEBUG", {
+        AUTH_SOURCE,
+        SESSION_EXISTS: Boolean(session),
+        ACCESS_TOKEN_LENGTH: accessToken.length,
+        ACCESS_TOKEN_TYPE: session?.token_type || "string",
         url,
-        sessionExists: Boolean(session),
-        accessTokenLength: accessToken.length,
-        authSource: AUTH_SOURCE,
         userId,
     });
 

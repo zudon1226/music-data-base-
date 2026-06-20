@@ -5,12 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { authFetch, AUTH_SOURCE, logSessionAuthDebug } from "../lib/client-api-auth";
-import {
-    cleanupAuthStorageOnStartup,
-    clearSupabaseAuthStorage,
-    removeLegacyAuthStorageKeys,
-} from "../lib/supabase-auth-storage";
+import { authFetch, AUTH_SOURCE, logAuthDebug } from "../lib/client-api-auth";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -4558,10 +4553,6 @@ export default function Page() {
         const retryEvent = { preventDefault() { } } as FormEvent<HTMLFormElement>;
         void addUploadedVideo(retryEvent);
     }
-    function clearSupabaseAuthStorageFromBrowser() {
-        removeLegacyAuthStorageKeys();
-        clearSupabaseAuthStorage();
-    }
     function clearLocalSessionState() {
         audioRef.current?.pause();
         mainVideoRef.current?.pause();
@@ -4892,9 +4883,8 @@ export default function Page() {
     useEffect(() => {
         let isMounted = true;
         async function loadSession() {
-            cleanupAuthStorageOnStartup();
             const { data: { session } } = await supabase.auth.getSession();
-            logSessionAuthDebug(session);
+            logAuthDebug(session);
             if (!isMounted)
                 return;
             const sessionUser = session?.user || null;
@@ -4908,11 +4898,8 @@ export default function Page() {
             setAuthReady(true);
         }
         loadSession();
-        const { data: { subscription }, } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === "SIGNED_OUT") {
-                clearSupabaseAuthStorageFromBrowser();
-            }
-            logSessionAuthDebug(session);
+        const { data: { subscription }, } = supabase.auth.onAuthStateChange((_event, session) => {
+            logAuthDebug(session);
             const sessionUser = session?.user || null;
             if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
                 setAuthReady(true);
@@ -9420,7 +9407,7 @@ export default function Page() {
             activeSession = refreshData.session;
         }
         const accessToken = activeSession?.access_token || "";
-        logSessionAuthDebug(activeSession);
+        logAuthDebug(activeSession);
         if (!accessToken || !activeSession?.user?.id) {
             throw new Error("You must log in again before uploading videos to Supabase Storage.");
         }
@@ -9428,6 +9415,7 @@ export default function Page() {
         return {
             user: activeSession.user,
             accessToken,
+            session: activeSession,
         };
     }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
@@ -9548,7 +9536,7 @@ export default function Page() {
             currentStep: "Checking Supabase auth session for video upload",
             lastError: "",
         });
-        const { user: sessionUser, accessToken } = await getFreshVideoStorageUploadUser();
+        const { user: sessionUser, accessToken, session: uploadSession } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
         const storagePath = buildVideoStoragePath(sessionUser.id, file);
@@ -9560,9 +9548,10 @@ export default function Page() {
         console.log("VIDEO UPLOAD SESSION STATUS", {
             userId: sessionUser.id,
             email: sessionUser.email || null,
-            sessionExists: Boolean(accessToken),
-            accessTokenLength: accessToken.length,
-            authSource: AUTH_SOURCE,
+            AUTH_SOURCE,
+            SESSION_EXISTS: Boolean(accessToken),
+            ACCESS_TOKEN_LENGTH: accessToken.length,
+            ACCESS_TOKEN_TYPE: uploadSession?.token_type || "string",
             bucket: VIDEOS_STORAGE_BUCKET,
             storagePath,
             fileSize: file.size,
@@ -12134,7 +12123,6 @@ export default function Page() {
             return;
         }
         try {
-            removeLegacyAuthStorageKeys();
             const response = authMode === "signup"
                 ? await supabase.auth.signUp({
                     email,
@@ -12154,7 +12142,7 @@ export default function Page() {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
             }
-            logSessionAuthDebug(response.data.session);
+            logAuthDebug(response.data.session);
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
@@ -12181,7 +12169,6 @@ export default function Page() {
             console.error("Logout failed:", error);
         }
         finally {
-            clearSupabaseAuthStorageFromBrowser();
             clearLocalSessionState();
             window.location.replace("/");
         }
