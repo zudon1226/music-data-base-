@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { authFetch, authFetchWithAccessToken, diagnoseAccessToken } from "../lib/client-api-auth";
+import { authFetch, AUTH_SOURCE, logSessionAuthDebug } from "../lib/client-api-auth";
 import {
-    applySanitizedSupabaseSession,
-    cleanupSupabaseAuthStorageOnLoad,
+    cleanupAuthStorageOnStartup,
     clearSupabaseAuthStorage,
-    ensureCleanSupabaseSession,
+    removeLegacyAuthStorageKeys,
 } from "../lib/supabase-auth-storage";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
@@ -4560,6 +4559,7 @@ export default function Page() {
         void addUploadedVideo(retryEvent);
     }
     function clearSupabaseAuthStorageFromBrowser() {
+        removeLegacyAuthStorageKeys();
         clearSupabaseAuthStorage();
     }
     function clearLocalSessionState() {
@@ -4892,11 +4892,12 @@ export default function Page() {
     useEffect(() => {
         let isMounted = true;
         async function loadSession() {
-            cleanupSupabaseAuthStorageOnLoad();
-            const cleaned = await ensureCleanSupabaseSession(supabase);
+            cleanupAuthStorageOnStartup();
+            const { data: { session } } = await supabase.auth.getSession();
+            logSessionAuthDebug(session);
             if (!isMounted)
                 return;
-            const sessionUser = cleaned.session?.user || null;
+            const sessionUser = session?.user || null;
             if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
                 setAuthReady(true);
                 return;
@@ -4907,13 +4908,11 @@ export default function Page() {
             setAuthReady(true);
         }
         loadSession();
-        const { data: { subscription }, } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-                await applySanitizedSupabaseSession(supabase, session);
-            }
+        const { data: { subscription }, } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === "SIGNED_OUT") {
                 clearSupabaseAuthStorageFromBrowser();
             }
+            logSessionAuthDebug(session);
             const sessionUser = session?.user || null;
             if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
                 setAuthReady(true);
@@ -9407,10 +9406,10 @@ export default function Page() {
         return uploadUser;
     }
     async function getFreshVideoStorageUploadUser() {
-        const cleaned = await ensureCleanSupabaseSession(supabase);
-        let activeSession = cleaned.session;
-        if (cleaned.error && !activeSession) {
-            throw new Error(`Supabase auth check failed before video upload: ${cleaned.error.message}`);
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        let activeSession = session;
+        if (sessionError) {
+            throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
         }
         const expiresAtMs = activeSession?.expires_at ? activeSession.expires_at * 1000 : 0;
         if (activeSession?.refresh_token && expiresAtMs && expiresAtMs - Date.now() < 60000) {
@@ -9418,15 +9417,17 @@ export default function Page() {
             if (refreshError) {
                 throw new Error(`Supabase auth refresh failed before video upload: ${refreshError.message}`);
             }
-            activeSession = await applySanitizedSupabaseSession(supabase, refreshData.session);
+            activeSession = refreshData.session;
         }
-        if (!activeSession?.access_token || !activeSession.user?.id) {
+        const accessToken = activeSession?.access_token || "";
+        logSessionAuthDebug(activeSession);
+        if (!accessToken || !activeSession?.user?.id) {
             throw new Error("You must log in again before uploading videos to Supabase Storage.");
         }
         setUser((previous) => previous || activeSession.user);
         return {
             user: activeSession.user,
-            accessToken: activeSession.access_token,
+            accessToken,
         };
     }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
@@ -9559,8 +9560,9 @@ export default function Page() {
         console.log("VIDEO UPLOAD SESSION STATUS", {
             userId: sessionUser.id,
             email: sessionUser.email || null,
-            hasAccessToken: Boolean(accessToken),
-            ...diagnoseAccessToken(accessToken),
+            sessionExists: Boolean(accessToken),
+            accessTokenLength: accessToken.length,
+            authSource: AUTH_SOURCE,
             bucket: VIDEOS_STORAGE_BUCKET,
             storagePath,
             fileSize: file.size,
@@ -9598,7 +9600,7 @@ export default function Page() {
                 userId: sessionUser.id,
                 storagePath,
             }),
-        }, accessToken);
+        });
 
         const prepareResult = (await prepareResponse.json().catch(() => ({}))) as {
             storagePath?: string;
@@ -9661,7 +9663,7 @@ export default function Page() {
             directFormData.append("storagePath", storagePath);
             directFormData.append("contentType", contentType);
 
-            const directResponse = await authFetchWithAccessToken(accessToken, "/api/video-upload", {
+            const directResponse = await authFetch(supabase, "/api/video-upload", {
                 method: "POST",
                 body: directFormData,
             });
@@ -9725,7 +9727,7 @@ export default function Page() {
                 directFormData.append("userId", sessionUser.id);
                 directFormData.append("storagePath", storagePath);
                 directFormData.append("contentType", contentType);
-                const directResponse = await authFetchWithAccessToken(accessToken, "/api/video-upload", {
+                const directResponse = await authFetch(supabase, "/api/video-upload", {
                     method: "POST",
                     body: directFormData,
                 });
@@ -9798,7 +9800,7 @@ export default function Page() {
                 mobileCompatible: codecInfo.mobileCompatible,
                 cleanupOnFailure: true,
             }),
-        }, accessToken);
+        });
 
         const metadataResult = (await metadataResponse.json().catch(() => ({}))) as {
             publicUrl?: string;
@@ -12132,7 +12134,7 @@ export default function Page() {
             return;
         }
         try {
-            clearSupabaseAuthStorageFromBrowser();
+            removeLegacyAuthStorageKeys();
             const response = authMode === "signup"
                 ? await supabase.auth.signUp({
                     email,
@@ -12152,7 +12154,7 @@ export default function Page() {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
             }
-            await applySanitizedSupabaseSession(supabase, response.data.session);
+            logSessionAuthDebug(response.data.session);
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
