@@ -5,8 +5,14 @@ import { useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { ACCESS_TOKEN_SOURCE, authFetch, logTokenLifecycleCheckpoint, readAccessTokenFromSession } from "../lib/client-api-auth";
+import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
+import {
+    getValidatedSession,
+    logoutAndClearAuth,
+    runStartupAuthRepair,
+    validateAccessToken,
+} from "../lib/auth-session-guard";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -4899,14 +4905,25 @@ export default function Page() {
         runAuthStorageCleanupOnce();
 
         async function bootAuth() {
-            logTokenLifecycleCheckpoint("bootAuth:before-getSession", null);
-            const { data: { session } } = await supabase.auth.getSession();
-            logTokenLifecycleCheckpoint("bootAuth:after-getSession", session);
+            const repaired = await runStartupAuthRepair(supabase);
             if (!isMounted) {
                 return;
             }
+            if (repaired) {
+                applyAuthSession(null);
+                setAuthLoading(false);
+                return;
+            }
+            const { session, authInvalidated } = await getValidatedSession(supabase);
+            if (!isMounted) {
+                return;
+            }
+            if (authInvalidated) {
+                applyAuthSession(null);
+                setAuthLoading(false);
+                return;
+            }
             applyAuthSession(session);
-            readAccessTokenFromSession(session, "bootAuth:after-getSession");
             setAuthLoading(false);
         }
 
@@ -4925,7 +4942,20 @@ export default function Page() {
                 setAccountRole("Listener");
                 return;
             }
-            logTokenLifecycleCheckpoint(`onAuthStateChange:${event}`, session);
+            if (session?.access_token) {
+                const validation = validateAccessToken(session.access_token);
+                if (!validation.valid) {
+                    void logoutAndClearAuth(supabase).then(() => {
+                        if (!isMounted) {
+                            return;
+                        }
+                        setAuthSession(null);
+                        setUser(null);
+                        setAccountRole("Listener");
+                    });
+                    return;
+                }
+            }
             applyAuthSession(session);
         });
 
@@ -9399,8 +9429,9 @@ export default function Page() {
     async function getAlbumUploadUser() {
         let sessionUser: SupabaseUser | null = null;
         try {
-            const { data: { session }, error: sessionError, } = await supabase.auth.getSession();
-            if (sessionError) {
+            const { session, authInvalidated } = await getValidatedSession(supabase);
+            if (authInvalidated) {
+                throw new Error("You must log in again before uploading.");
             }
             sessionUser = session?.user || null;
         }
@@ -9415,9 +9446,10 @@ export default function Page() {
         return uploadUser;
     }
     async function getFreshVideoStorageUploadUser() {
-        logTokenLifecycleCheckpoint("videoUpload:before-getSession", null);
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        logTokenLifecycleCheckpoint("videoUpload:after-getSession", session);
+        const { session, error: sessionError, authInvalidated } = await getValidatedSession(supabase);
+        if (authInvalidated) {
+            throw new Error("You must log in again before uploading videos to Supabase Storage.");
+        }
         let activeSession = session;
         if (sessionError) {
             throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
@@ -9429,7 +9461,6 @@ export default function Page() {
                 throw new Error(`Supabase auth refresh failed before video upload: ${refreshError.message}`);
             }
             activeSession = refreshData.session;
-            logTokenLifecycleCheckpoint("videoUpload:after-refreshSession", activeSession);
         }
         const accessToken = readAccessTokenFromSession(
             activeSession,
@@ -9455,8 +9486,8 @@ export default function Page() {
         }
         let sessionUser = uploadUser || null;
         if (!sessionUser) {
-            const { data: { session }, error: sessionError, } = await supabase.auth.getSession();
-            if (sessionError || !session?.access_token || !session.user) {
+            const { session, authInvalidated } = await getValidatedSession(supabase);
+            if (authInvalidated || !session?.access_token || !session.user) {
                 throw new Error("You must log in again before uploading.");
             }
             sessionUser = session.user;
@@ -12164,10 +12195,6 @@ export default function Page() {
                 setAuthMessage(response.error.message);
                 return;
             }
-            logTokenLifecycleCheckpoint(
-                authMode === "signup" ? "signUp:after-auth" : "signInWithPassword:after-auth",
-                response.data.session,
-            );
             if (authMode === "signup" && !response.data.session) {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
@@ -12188,10 +12215,7 @@ export default function Page() {
     async function logout() {
         setAuthMessage("");
         try {
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-                throw error;
-            }
+            await logoutAndClearAuth(supabase);
         }
         catch (error) {
             console.error("Logout failed:", error);
