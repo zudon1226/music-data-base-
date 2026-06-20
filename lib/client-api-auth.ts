@@ -1,38 +1,24 @@
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
-
-export const AUTH_SOURCE = "supabase.auth.getSession";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
 
-export function logAuthDebug(session: Session | null) {
+async function readSessionAccessToken(supabase: SupabaseClient) {
+    const {
+        data: { session },
+        error,
+    } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-    console.log("AUTH DEBUG", {
-        AUTH_SOURCE,
-        SESSION_EXISTS: Boolean(session),
-        ACCESS_TOKEN_LENGTH: typeof accessToken === "string" ? accessToken.length : 0,
-        ACCESS_TOKEN_TYPE: typeof accessToken === "string" ? (session?.token_type || "string") : typeof accessToken,
-    });
-}
-
-export async function getSessionAccessToken(supabase: SupabaseClient) {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    logAuthDebug(session);
+    console.log("AUTH_SOURCE", "supabase-session");
+    console.log("ACCESS_TOKEN_LENGTH", accessToken?.length);
     return {
         session,
-        accessToken: session?.access_token || "",
+        accessToken: accessToken || "",
         userId: session?.user?.id || "",
         error,
     };
 }
 
-export async function forceLogoutForMissingToken(supabase: SupabaseClient) {
-    console.error("AUTH DEBUG", {
-        AUTH_SOURCE,
-        SESSION_EXISTS: false,
-        ACCESS_TOKEN_LENGTH: 0,
-        ACCESS_TOKEN_TYPE: "missing",
-        action: "force-logout",
-    });
+async function forceLogoutForMissingToken(supabase: SupabaseClient) {
     try {
         await supabase.auth.signOut();
     }
@@ -76,23 +62,13 @@ export async function authFetch(
     input: RequestInfo | URL,
     init: RequestInit = {},
 ) {
-    const { accessToken, userId, error, session } = await getSessionAccessToken(supabase);
+    const { accessToken, error } = await readSessionAccessToken(supabase);
     if (!accessToken) {
         await forceLogoutForMissingToken(supabase);
         throw new Error(error?.message || "Missing access token. Redirecting to login.");
     }
 
     const headers = buildAuthHeaders(init, accessToken);
-    const url = typeof input === "string" ? input : input.toString();
-    console.log("AUTH DEBUG", {
-        AUTH_SOURCE,
-        SESSION_EXISTS: Boolean(session),
-        ACCESS_TOKEN_LENGTH: accessToken.length,
-        ACCESS_TOKEN_TYPE: session?.token_type || "string",
-        url,
-        userId,
-    });
-
     return fetch(input, {
         method: init.method,
         body: init.body,

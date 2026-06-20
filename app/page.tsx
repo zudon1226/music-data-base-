@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { authFetch, AUTH_SOURCE, logAuthDebug } from "../lib/client-api-auth";
+import { authFetch } from "../lib/client-api-auth";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -4884,7 +4884,6 @@ export default function Page() {
         let isMounted = true;
         async function loadSession() {
             const { data: { session } } = await supabase.auth.getSession();
-            logAuthDebug(session);
             if (!isMounted)
                 return;
             const sessionUser = session?.user || null;
@@ -4899,7 +4898,6 @@ export default function Page() {
         }
         loadSession();
         const { data: { subscription }, } = supabase.auth.onAuthStateChange((_event, session) => {
-            logAuthDebug(session);
             const sessionUser = session?.user || null;
             if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
                 setAuthReady(true);
@@ -9407,7 +9405,8 @@ export default function Page() {
             activeSession = refreshData.session;
         }
         const accessToken = activeSession?.access_token || "";
-        logAuthDebug(activeSession);
+        console.log("AUTH_SOURCE", "supabase-session");
+        console.log("ACCESS_TOKEN_LENGTH", accessToken?.length);
         if (!accessToken || !activeSession?.user?.id) {
             throw new Error("You must log in again before uploading videos to Supabase Storage.");
         }
@@ -9415,7 +9414,6 @@ export default function Page() {
         return {
             user: activeSession.user,
             accessToken,
-            session: activeSession,
         };
     }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
@@ -9536,7 +9534,7 @@ export default function Page() {
             currentStep: "Checking Supabase auth session for video upload",
             lastError: "",
         });
-        const { user: sessionUser, accessToken, session: uploadSession } = await getFreshVideoStorageUploadUser();
+        const { user: sessionUser, accessToken } = await getFreshVideoStorageUploadUser();
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
         const storagePath = buildVideoStoragePath(sessionUser.id, file);
@@ -9548,10 +9546,6 @@ export default function Page() {
         console.log("VIDEO UPLOAD SESSION STATUS", {
             userId: sessionUser.id,
             email: sessionUser.email || null,
-            AUTH_SOURCE,
-            SESSION_EXISTS: Boolean(accessToken),
-            ACCESS_TOKEN_LENGTH: accessToken.length,
-            ACCESS_TOKEN_TYPE: uploadSession?.token_type || "string",
             bucket: VIDEOS_STORAGE_BUCKET,
             storagePath,
             fileSize: file.size,
@@ -12142,7 +12136,6 @@ export default function Page() {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
             }
-            logAuthDebug(response.data.session);
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
