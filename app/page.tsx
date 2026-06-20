@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { authFetch, authFetchWithAccessToken } from "../lib/client-api-auth";
+import { authFetch, authFetchWithAccessToken, diagnoseAccessToken, normalizeAccessToken } from "../lib/client-api-auth";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -2341,6 +2341,9 @@ function clearRemovedPlaceholderArtworkFromLocalStorage() {
             const key = localStorage.key(index);
             if (!key)
                 continue;
+            if (key.includes("-auth-token") || key.startsWith("sb-")) {
+                continue;
+            }
             const value = localStorage.getItem(key);
             if (!value || !REMOVED_PLACEHOLDER_IMAGES.some((image) => value.includes(image)))
                 continue;
@@ -9437,10 +9440,16 @@ export default function Page() {
         if (!activeSession?.access_token || !activeSession.user?.id) {
             throw new Error("You must log in again before uploading videos to Supabase Storage.");
         }
+        const accessToken = normalizeAccessToken(activeSession.access_token);
+        if (!accessToken) {
+            const diagnosis = diagnoseAccessToken(activeSession.access_token);
+            console.error("VIDEO UPLOAD SESSION TOKEN INVALID", diagnosis);
+            throw new Error("Your login session token is invalid or too large. Log out and log in again, then retry the upload.");
+        }
         setUser((previous) => previous || activeSession.user);
         return {
             user: activeSession.user,
-            accessToken: activeSession.access_token,
+            accessToken,
         };
     }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
@@ -9574,7 +9583,7 @@ export default function Page() {
             userId: sessionUser.id,
             email: sessionUser.email || null,
             hasAccessToken: Boolean(accessToken),
-            accessTokenLength: accessToken.length,
+            ...diagnoseAccessToken(accessToken),
             bucket: VIDEOS_STORAGE_BUCKET,
             storagePath,
             fileSize: file.size,
