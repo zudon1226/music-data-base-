@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
-import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
+import { ACCESS_TOKEN_SOURCE, authFetch, logTokenLifecycleCheckpoint, readAccessTokenFromSession } from "../lib/client-api-auth";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
@@ -4899,12 +4899,14 @@ export default function Page() {
         runAuthStorageCleanupOnce();
 
         async function bootAuth() {
+            logTokenLifecycleCheckpoint("bootAuth:before-getSession", null);
             const { data: { session } } = await supabase.auth.getSession();
+            logTokenLifecycleCheckpoint("bootAuth:after-getSession", session);
             if (!isMounted) {
                 return;
             }
             applyAuthSession(session);
-            readAccessTokenFromSession(session);
+            readAccessTokenFromSession(session, "bootAuth:after-getSession");
             setAuthLoading(false);
         }
 
@@ -4923,6 +4925,7 @@ export default function Page() {
                 setAccountRole("Listener");
                 return;
             }
+            logTokenLifecycleCheckpoint(`onAuthStateChange:${event}`, session);
             applyAuthSession(session);
         });
 
@@ -9412,7 +9415,9 @@ export default function Page() {
         return uploadUser;
     }
     async function getFreshVideoStorageUploadUser() {
+        logTokenLifecycleCheckpoint("videoUpload:before-getSession", null);
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        logTokenLifecycleCheckpoint("videoUpload:after-getSession", session);
         let activeSession = session;
         if (sessionError) {
             throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
@@ -9424,6 +9429,7 @@ export default function Page() {
                 throw new Error(`Supabase auth refresh failed before video upload: ${refreshError.message}`);
             }
             activeSession = refreshData.session;
+            logTokenLifecycleCheckpoint("videoUpload:after-refreshSession", activeSession);
         }
         const accessToken = readAccessTokenFromSession(
             activeSession,
@@ -12158,6 +12164,10 @@ export default function Page() {
                 setAuthMessage(response.error.message);
                 return;
             }
+            logTokenLifecycleCheckpoint(
+                authMode === "signup" ? "signUp:after-auth" : "signInWithPassword:after-auth",
+                response.data.session,
+            );
             if (authMode === "signup" && !response.data.session) {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
