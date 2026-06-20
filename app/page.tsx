@@ -2,10 +2,11 @@
 /* eslint-disable @next/next/no-img-element */
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, Home, ListMusic, LogIn, LogOut, MessageCircle, Music2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { authFetch } from "../lib/client-api-auth";
+import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -3253,7 +3254,8 @@ export default function Page() {
     const [showUpload, setShowUpload] = useState(false);
     const [uploadMode, setUploadMode] = useState<UploadMode>("song");
     const [hasLoaded, setHasLoaded] = useState(false);
-    const [authReady, setAuthReady] = useState(false);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [authSession, setAuthSession] = useState<Session | null>(null);
     const [user, setUser] = useState<SupabaseUser | null>(null);
     const [authMode, setAuthMode] = useState<AuthMode>("login");
     const [authEmail, setAuthEmail] = useState("");
@@ -4726,7 +4728,7 @@ export default function Page() {
     const accountUserId = user?.id || "";
     const isPlatformOwner = isPlatformOwnerEmail(user?.email);
     useEffect(() => {
-        if (!authReady)
+        if (authLoading)
             return;
         if (!accountUserId) {
             licenseLoadedUserRef.current = "";
@@ -4750,9 +4752,9 @@ export default function Page() {
             if (licenseLoadInFlightUserRef.current === accountUserId && licenseLoadedUserRef.current !== accountUserId)
                 licenseLoadInFlightUserRef.current = "";
         };
-    }, [accountUserId, authReady, reloadLicenseRecordsFromApi]);
+    }, [accountUserId, authLoading, reloadLicenseRecordsFromApi]);
     useEffect(() => {
-        if (!authReady)
+        if (authLoading)
             return;
         if (!accountUserId) {
             salesLoadedUserRef.current = "";
@@ -4776,7 +4778,7 @@ export default function Page() {
             if (salesLoadInFlightUserRef.current === accountUserId && salesLoadedUserRef.current !== accountUserId)
                 salesLoadInFlightUserRef.current = "";
         };
-    }, [accountUserId, authReady, reloadSalesFromApi]);
+    }, [accountUserId, authLoading, reloadSalesFromApi]);
     const mergedArtistProfiles = useMemo(() => {
         const profiles = buildArtistProfiles(songs, artistProfiles);
         videos.forEach((video) => {
@@ -4882,32 +4884,49 @@ export default function Page() {
         Boolean(activeProducerProfile?.userId && video.ownerId && video.ownerId === activeProducerProfile.userId));
     useEffect(() => {
         let isMounted = true;
-        async function loadSession() {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!isMounted)
-                return;
+
+        function applyAuthSession(session: Session | null) {
             const sessionUser = session?.user || null;
             if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
-                setAuthReady(true);
                 return;
             }
+            setAuthSession(session);
             setUser(sessionUser);
             setAccountRole(isPlatformOwnerEmail(sessionUser?.email) ? "Listener" : normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
-            clearStaleVideoUploadState();
-            setAuthReady(true);
         }
-        loadSession();
-        const { data: { subscription }, } = supabase.auth.onAuthStateChange((_event, session) => {
-            const sessionUser = session?.user || null;
-            if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
-                setAuthReady(true);
+
+        setAuthLoading(true);
+        runAuthStorageCleanupOnce();
+
+        async function bootAuth() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!isMounted) {
                 return;
             }
-            setUser(sessionUser);
-            setAccountRole(isPlatformOwnerEmail(sessionUser?.email) ? "Listener" : normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
-            clearStaleVideoUploadState();
-            setAuthReady(true);
+            applyAuthSession(session);
+            console.log("AUTH_SOURCE", "supabase-session");
+            console.log("ACCESS_TOKEN_LENGTH", session?.access_token?.length);
+            setAuthLoading(false);
+        }
+
+        void bootAuth();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (!isMounted) {
+                return;
+            }
+            if (event === "INITIAL_SESSION") {
+                return;
+            }
+            if (event === "SIGNED_OUT") {
+                setAuthSession(null);
+                setUser(null);
+                setAccountRole("Listener");
+                return;
+            }
+            applyAuthSession(session);
         });
+
         return () => {
             isMounted = false;
             subscription.unsubscribe();
@@ -5024,7 +5043,10 @@ export default function Page() {
     }
     async function reloadAlbumsFromSupabase(userIdOverride = "") {
         const recentUserId = userIdOverride || user?.id || accountUserId;
-        const albumsQuery = recentUserId ? `?userId=${encodeURIComponent(recentUserId)}` : "";
+        if (!recentUserId) {
+            return albums;
+        }
+        const albumsQuery = `?userId=${encodeURIComponent(recentUserId)}`;
         const response = await authFetch(supabase, `/api/albums${albumsQuery}`, { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             albums?: Album[];
@@ -5221,9 +5243,9 @@ export default function Page() {
         };
     });
     useEffect(() => {
-        if (!authReady)
+        if (authLoading || !accountUserId)
             return;
-        const loadKey = accountUserId || "guest";
+        const loadKey = accountUserId;
         if (initialDataLoadedKeyRef.current === loadKey || initialDataLoadInFlightKeyRef.current === loadKey)
             return;
         initialDataLoadInFlightKeyRef.current = loadKey;
@@ -5258,7 +5280,7 @@ export default function Page() {
             if (initialDataLoadInFlightKeyRef.current === loadKey && initialDataLoadedKeyRef.current !== loadKey)
                 initialDataLoadInFlightKeyRef.current = "";
         };
-    }, [accountUserId, authReady]);
+    }, [accountUserId, authLoading]);
     const libraryStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds([...libraryIds, ...savedVideoIds, ...savedAlbumIds])), [libraryIds, savedAlbumIds, savedVideoIds]);
     const likedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(likedIds)), [likedIds]);
     const followedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedIds)), [followedIds]);
@@ -12151,7 +12173,6 @@ export default function Page() {
     }
     async function logout() {
         setAuthMessage("");
-        clearLocalSessionState();
         try {
             const { error } = await supabase.auth.signOut();
             if (error) {
@@ -12162,8 +12183,8 @@ export default function Page() {
             console.error("Logout failed:", error);
         }
         finally {
+            setAuthSession(null);
             clearLocalSessionState();
-            window.location.replace("/");
         }
     }
     function handleNav(nextView: View) {
@@ -13263,14 +13284,14 @@ export default function Page() {
         </div>
       </section>);
     }
-    if (!authReady || !hasLoaded) {
+    if (authLoading) {
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">
             <img src={BRAND_LOGO} alt="Music Data Base"/>
             <span>{BRAND_TAGLINE}</span>
           </div>
-          <p>Loading your music account...</p>
+          <p>Checking your session...</p>
         </section>
 
         <style jsx global>{`
@@ -13503,6 +13524,69 @@ export default function Page() {
             color: #fbbf24;
             font-size: 13px;
             font-weight: 800;
+          }
+        `}</style>
+      </main>);
+    }
+    if (!hasLoaded) {
+        return (<main className="auth-page">
+        <section className="auth-panel">
+          <div className="auth-mark">
+            <img src={BRAND_LOGO} alt="Music Data Base"/>
+            <span>{BRAND_TAGLINE}</span>
+          </div>
+          <p>Loading your music library...</p>
+        </section>
+
+        <style jsx global>{`
+          * {
+            box-sizing: border-box;
+          }
+
+          html,
+          body {
+            margin: 0;
+            min-height: 100%;
+            background: #020617;
+            color: white;
+            font-family: Arial, Helvetica, sans-serif;
+          }
+
+          .auth-page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: #020617;
+          }
+
+          .auth-panel {
+            width: min(440px, 100%);
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 8px;
+            background: #0b1736;
+            padding: 24px;
+          }
+
+          .auth-mark {
+            display: grid;
+            justify-items: center;
+            gap: 10px;
+            text-align: center;
+          }
+
+          .auth-mark img {
+            width: min(260px, 82vw);
+            max-height: 260px;
+            object-fit: contain;
+            display: block;
+          }
+
+          .auth-mark span {
+            color: #fbbf24;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0;
           }
         `}</style>
       </main>);

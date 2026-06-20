@@ -18,18 +18,6 @@ async function readSessionAccessToken(supabase: SupabaseClient) {
     };
 }
 
-async function forceLogoutForMissingToken(supabase: SupabaseClient) {
-    try {
-        await supabase.auth.signOut();
-    }
-    catch {
-        // ignore sign-out errors during forced logout
-    }
-    if (typeof window !== "undefined") {
-        window.location.replace("/");
-    }
-}
-
 function copyAllowedHeaders(target: Headers, source: HeadersInit | undefined) {
     if (!source) {
         return;
@@ -64,8 +52,7 @@ export async function authFetch(
 ) {
     const { accessToken, error } = await readSessionAccessToken(supabase);
     if (!accessToken) {
-        await forceLogoutForMissingToken(supabase);
-        throw new Error(error?.message || "Missing access token. Redirecting to login.");
+        throw new Error(error?.message || "Missing access token.");
     }
 
     const headers = buildAuthHeaders(init, accessToken);
