@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { describeRouteAuth, getBearerToken } from "@/lib/request-auth";
+import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked } from "@/lib/upload-lock";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
 import {
     describeSupabaseApiKey,
@@ -209,6 +210,20 @@ async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: 
                 authUserId,
                 email: data.user.email || null,
                 step: "user-id-mismatch",
+            },
+        };
+    }
+
+    if (areUploadsLocked() && !canUserUpload(data.user.email)) {
+        return {
+            ok: false,
+            status: 503,
+            error: UPLOAD_LOCK_MESSAGE,
+            details: {
+                ...routeAuth,
+                email: data.user.email || null,
+                step: "uploads-locked",
+                uploadsLocked: true,
             },
         };
     }

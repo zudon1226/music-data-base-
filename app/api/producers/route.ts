@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
+import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -256,6 +257,10 @@ export async function POST(request: Request) {
             const songId = String(body.songId || "").trim();
             if (!title || !producerName || !producerUserId || !songId) {
                 return jsonResponse({ error: "Beat title, producer, user id, and song id are required." }, 400);
+            }
+            const uploadLock = await requireUploadAllowedForUserId(producerUserId);
+            if (!uploadLock.ok) {
+                return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
             }
             const row = {
                 id: String(body.id || "").trim() || crypto.randomUUID(),

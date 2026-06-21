@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
+import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -131,6 +132,10 @@ export async function POST(request: Request) {
         }
         if (!authUserId) {
             return jsonResponse({ error: "You must log in again before uploading a video." }, 401);
+        }
+        const uploadLock = await requireUploadAllowedForUserId(authUserId);
+        if (!uploadLock.ok) {
+            return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
         }
         if (sessionUserId && userId && sessionUserId !== userId) {
             return jsonResponse({ error: "Video upload user id does not match the signed-in session." }, 401);

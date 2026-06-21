@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
+import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,6 +115,10 @@ export async function POST(request: Request) {
         }
         if (!authUserId) {
             return jsonResponse({ error: "You must log in again before saving song metadata." }, 401);
+        }
+        const uploadLock = await requireUploadAllowedForUserId(authUserId);
+        if (!uploadLock.ok) {
+            return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
         }
         if (legacyUserId && legacyUserId !== authUserId) {
             console.error("SONG USER ID MISMATCH", {

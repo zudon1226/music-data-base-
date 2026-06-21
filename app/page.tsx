@@ -9,6 +9,7 @@ import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
+import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -4733,6 +4734,10 @@ export default function Page() {
         return () => window.clearTimeout(timer);
     }, []);
     const accountUserId = user?.id || "";
+    const uploadsBlockedForCurrentUser = useMemo(
+        () => isUploadBlockedForEmail(user?.email),
+        [user?.email],
+    );
     const isPlatformOwner = isPlatformOwnerEmail(user?.email);
     useEffect(() => {
         if (authLoading)
@@ -5244,6 +5249,24 @@ export default function Page() {
         }
         return nextProfile;
     }
+    function getUploadLockMessageForUser(uploadUser?: SupabaseUser | null) {
+        return isUploadBlockedForEmail(uploadUser?.email || user?.email) ? UPLOAD_LOCK_MESSAGE : "";
+    }
+    function renderUploadLockNotice() {
+        if (!uploadsBlockedForCurrentUser) {
+            return null;
+        }
+        return (<div className="upload-lock-notice" role="status">
+            <p>{UPLOAD_LOCK_MESSAGE}</p>
+          </div>);
+    }
+    function assertUploadAllowed(uploadUser?: SupabaseUser | null) {
+        const message = getUploadLockMessageForUser(uploadUser);
+        if (!message) {
+            return;
+        }
+        throw new Error(message);
+    }
     function getAccountDisplayName(subject?: SupabaseUser | null) {
         const target = subject || user;
         return userAuthProfile.displayName
@@ -5351,6 +5374,11 @@ export default function Page() {
                 initialDataLoadInFlightKeyRef.current = "";
         };
     }, [accountUserId, authLoading]);
+    useEffect(() => {
+        if (uploadsBlockedForCurrentUser) {
+            setShowUpload(false);
+        }
+    }, [uploadsBlockedForCurrentUser]);
     const libraryStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds([...libraryIds, ...savedVideoIds, ...savedAlbumIds])), [libraryIds, savedAlbumIds, savedVideoIds]);
     const likedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(likedIds)), [likedIds]);
     const followedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedIds)), [followedIds]);
@@ -9523,6 +9551,7 @@ export default function Page() {
             }
             sessionUser = session.user;
         }
+        assertUploadAllowed(sessionUser);
         if (!sessionUser?.id) {
             throw new Error("You must log in again before uploading.");
         }
@@ -9629,6 +9658,7 @@ export default function Page() {
             lastError: "",
         });
         const { user: sessionUser, accessToken } = await getFreshVideoStorageUploadUser();
+        assertUploadAllowed(sessionUser);
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
         const storagePath = buildVideoStoragePath(sessionUser.id, file);
@@ -9951,6 +9981,12 @@ export default function Page() {
         event.preventDefault();
         setUploadError("");
         setStorageSetupCopied(false);
+        const uploadLockMessage = getUploadLockMessageForUser();
+        if (uploadLockMessage) {
+            setUploadError(uploadLockMessage);
+            showToast(uploadLockMessage, "info");
+            return;
+        }
         const title = uploadForm.title.trim();
         const artist = uploadForm.artist.trim();
         if (!title || !artist) {
@@ -10162,6 +10198,12 @@ export default function Page() {
         event.preventDefault();
         setUploadError("");
         setStorageSetupCopied(false);
+        const uploadLockMessage = getUploadLockMessageForUser();
+        if (uploadLockMessage) {
+            setUploadError(uploadLockMessage);
+            showToast(uploadLockMessage, "info");
+            return;
+        }
         const title = uploadForm.title.trim();
         const producerName = uploadForm.artist.trim() || currentProducerProfile.name;
         if (!title || !producerName) {
@@ -10311,6 +10353,12 @@ export default function Page() {
     }
     async function addUploadedVideo(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        const uploadLockMessage = getUploadLockMessageForUser();
+        if (uploadLockMessage) {
+            setVideoUploadError(uploadLockMessage);
+            showToast(uploadLockMessage, "info");
+            return;
+        }
         const submitForm = event.currentTarget;
         const stopUploadNetworkTrace = installVideoUploadNetworkTrace("app/page.tsx addUploadedVideo full Save Video flow", updateVideoUploadDebug);
         setHasAttemptedVideoUpload(true);
@@ -10496,6 +10544,12 @@ export default function Page() {
         event.preventDefault();
         setAlbumUploadError("");
         setAlbumUploadStatus("");
+        const uploadLockMessage = getUploadLockMessageForUser();
+        if (uploadLockMessage) {
+            setAlbumUploadError(uploadLockMessage);
+            showToast(uploadLockMessage, "info");
+            return;
+        }
         const ownerType: AlbumOwnerType = uploadMode === "producerAlbum" ? "producer" : "artist";
         const title = albumForm.title.trim();
         if (!title) {
@@ -12320,6 +12374,10 @@ export default function Page() {
         }
     }
     function toggleUploadPanel() {
+        if (uploadsBlockedForCurrentUser) {
+            showToast(UPLOAD_LOCK_MESSAGE, "info");
+            return;
+        }
         if (!showUpload) {
             if (view === "Producer Dashboard")
                 setUploadMode("beat");
@@ -13832,7 +13890,13 @@ export default function Page() {
               </section>)}
           </div>
 
-          <button className="upload-btn" onClick={toggleUploadPanel} title="Upload" type="button">
+          <button
+            className="upload-btn"
+            disabled={uploadsBlockedForCurrentUser}
+            onClick={toggleUploadPanel}
+            title={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : "Upload"}
+            type="button"
+          >
             <Upload size={17}/>
             Upload
           </button>
@@ -13855,7 +13919,7 @@ export default function Page() {
 
         {renderSharedVideoPlayer()}
 
-        {showUpload && (<section className="upload-shell">
+        {showUpload && !uploadsBlockedForCurrentUser && (<section className="upload-shell">
             {(view === "Artist Dashboard" || view === "Producer Dashboard") && (<div className="upload-mode-tabs" role="tablist" aria-label="Dashboard upload type">
                 {view === "Producer Dashboard" ? (<>
                     <button className={uploadMode === "beat" ? "active" : ""} onClick={() => setUploadMode("beat")} type="button">
@@ -14826,6 +14890,7 @@ export default function Page() {
               </HorizontalRail>
             </section>
           </section>) : view === "Videos" ? (<section className="video-page">
+            {renderUploadLockNotice()}
             <form className="video-upload-card" onSubmit={addUploadedVideo}>
               <div className="upload-brand">
                 <img src={BRAND_LOGO} alt="Music Data Base"/>
@@ -14835,7 +14900,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="video-form-grid">
+              <fieldset className="video-form-grid" disabled={uploadsBlockedForCurrentUser}>
                 <input name="videoTitle" value={videoForm.title} onChange={(event) => setVideoForm({ ...videoForm, title: event.target.value })} placeholder="Video title"/>
 
                 <input name="videoCreator" value={videoForm.creator} onChange={(event) => setVideoForm({ ...videoForm, creator: event.target.value })} placeholder="Creator name"/>
@@ -14873,7 +14938,7 @@ export default function Page() {
                   <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small>
                   {videoFile ? <small>{MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small> : null}
                 </label>
-              </div>
+              </fieldset>
 
               {(videoUploadBusy || videoUploadProgress > 0) && (<div className="upload-progress" aria-live="polite">
                   <div>
@@ -14894,7 +14959,7 @@ export default function Page() {
                   </div>
                 </div>)}
 
-              <button className="save-upload" type="submit" disabled={videoUploadBusy}>
+              <button className="save-upload" type="submit" disabled={videoUploadBusy || uploadsBlockedForCurrentUser}>
                 {videoUploadBusy ? "Uploading..." : "Save Video"}
               </button>
             </form>

@@ -394,3 +394,21 @@ body {
     padding-bottom: calc(env(safe-area-inset-bottom) + 56px) !important;
   }
 }
+
+.upload-lock-notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 193, 7, 0.45);
+  border-radius: 10px;
+  background: rgba(255, 193, 7, 0.12);
+  color: inherit;
+}
+
+.upload-lock-notice p {
+  margin: 0;
+}
+
+.upload-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
