@@ -52,18 +52,14 @@ function buildAuthHeaders(init: RequestInit | undefined, accessToken: string, re
     headers.delete("x-refresh-token");
     headers.delete(SUPABASE_REFRESH_TOKEN_HEADER);
 
-    const canUseBearer = Boolean(accessToken) && !isOversizedBearerToken(accessToken);
-    if (canUseBearer) {
+    const bearerIsUsable = Boolean(accessToken) && !isOversizedBearerToken(accessToken);
+    if (bearerIsUsable) {
         headers.set("Authorization", `Bearer ${accessToken}`);
-        return headers;
     }
-
     if (refreshToken) {
         headers.set(SUPABASE_REFRESH_TOKEN_HEADER, refreshToken);
-        return headers;
     }
-
-    if (accessToken) {
+    if (!bearerIsUsable && !refreshToken && accessToken) {
         headers.set("Authorization", `Bearer ${accessToken}`);
     }
     return headers;

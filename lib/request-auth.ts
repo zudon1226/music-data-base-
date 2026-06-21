@@ -53,10 +53,11 @@ function getAuthClient() {
 async function verifyRefreshTokenUserId(refreshToken: string) {
     const authClient = getAuthClient();
     const { data, error } = await authClient.auth.refreshSession({ refresh_token: refreshToken });
-    if (error || !data.user?.id) {
+    const userId = data.session?.user?.id || data.user?.id || "";
+    if (error || !userId) {
         return { userId: "", error: error?.message || "Invalid refresh token." };
     }
-    return { userId: data.user.id, error: "" };
+    return { userId, error: "" };
 }
 
 export async function verifyBearerUserId(request: Request) {
