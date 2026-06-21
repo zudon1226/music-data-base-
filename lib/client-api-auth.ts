@@ -1,10 +1,13 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { getAuthSession } from "./auth-session";
+import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
 
 export const ACCESS_TOKEN_SOURCE = "supabase.auth.getSession().session.access_token";
 
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
+const REFRESH_TOKEN_BODY_FIELD = REFRESH_TOKEN_BODY_KEYS[0];
+const ACCESS_TOKEN_BODY_FIELD = ACCESS_TOKEN_BODY_KEYS[0];
 
 export function readAccessTokenFromSession(session: Session | null | undefined) {
     return typeof session?.access_token === "string" ? session.access_token : "";
@@ -65,6 +68,48 @@ function buildAuthHeaders(init: RequestInit | undefined, accessToken: string, re
     return headers;
 }
 
+function attachSessionTokensToBody(
+    body: BodyInit | null | undefined,
+    accessToken: string,
+    refreshToken: string,
+) {
+    if (!body) {
+        return body;
+    }
+    if (typeof body === "string") {
+        try {
+            const parsed = JSON.parse(body) as Record<string, unknown>;
+            if (accessToken && !String(parsed[ACCESS_TOKEN_BODY_FIELD] || "").trim()) {
+                parsed[ACCESS_TOKEN_BODY_FIELD] = accessToken;
+            }
+            if (refreshToken && !String(parsed[REFRESH_TOKEN_BODY_FIELD] || "").trim()) {
+                parsed[REFRESH_TOKEN_BODY_FIELD] = refreshToken;
+            }
+            return JSON.stringify(parsed);
+        }
+        catch {
+            return body;
+        }
+    }
+    if (body instanceof FormData) {
+        const hasAccessField = ACCESS_TOKEN_BODY_KEYS.some((key) => {
+            const value = body.get(key);
+            return typeof value === "string" && value.trim().length > 0;
+        });
+        const hasRefreshField = REFRESH_TOKEN_BODY_KEYS.some((key) => {
+            const value = body.get(key);
+            return typeof value === "string" && value.trim().length > 0;
+        });
+        if (accessToken && !hasAccessField) {
+            body.append(ACCESS_TOKEN_BODY_FIELD, accessToken);
+        }
+        if (refreshToken && !hasRefreshField) {
+            body.append(REFRESH_TOKEN_BODY_FIELD, refreshToken);
+        }
+    }
+    return body;
+}
+
 export async function authFetch(
     supabase: SupabaseClient,
     input: RequestInfo | URL,
@@ -79,9 +124,10 @@ export async function authFetch(
     }
 
     const headers = buildAuthHeaders(init, accessToken, refreshToken);
+    const body = attachSessionTokensToBody(init.body ?? null, accessToken, refreshToken);
     return fetch(input, {
         method: init.method,
-        body: init.body,
+        body,
         cache: init.cache,
         signal: init.signal,
         referrer: init.referrer,

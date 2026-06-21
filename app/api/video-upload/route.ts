@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
-import { describeRouteAuth, resolveRequestUserId } from "@/lib/request-auth";
+import { ACCESS_TOKEN_BODY_KEYS, describeRouteAuth, getRefreshTokenFromRequest, REFRESH_TOKEN_BODY_KEYS, resolveRequestUserId } from "@/lib/request-auth";
 import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked } from "@/lib/upload-lock";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
 import {
@@ -143,9 +143,19 @@ type AuthFailure = {
     details: Record<string, unknown>;
 };
 
-async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: string[]): Promise<AuthSuccess | AuthFailure> {
+async function resolveAuthenticatedUploadUser(
+    request: Request,
+    claimedUserIds: string[],
+    sessionTokens: { refreshToken?: string; accessToken?: string } = {},
+): Promise<AuthSuccess | AuthFailure> {
     const claimedUserId = claimedUserIds.find((id) => id?.trim())?.trim() || "";
-    const routeAuth = describeRouteAuth(request, "/api/video-upload", claimedUserId);
+    const routeAuth = describeRouteAuth(
+        request,
+        "/api/video-upload",
+        claimedUserId,
+        sessionTokens.refreshToken || "",
+        sessionTokens.accessToken || "",
+    );
     const serviceRoleEnv = describeServiceRoleEnv();
 
     console.log("[api/video-upload] SESSION STATUS", {
@@ -154,7 +164,10 @@ async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: 
         supabaseUrl: SUPABASE_PROJECT_URL,
     });
 
-    const { userId, error } = await resolveRequestUserId(request);
+    const { userId, error } = await resolveRequestUserId(request, {
+        refreshToken: getRefreshTokenFromRequest(request, sessionTokens.refreshToken || ""),
+        accessToken: sessionTokens.accessToken || "",
+    });
     if (!userId) {
         return {
             ok: false,
@@ -177,9 +190,22 @@ async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: 
         };
     }
 
-    const supabase = getSupabaseServerClient();
-    const { data: userResult } = await supabase.auth.admin.getUserById(userId);
-    const email = userResult.user?.email || undefined;
+    let email: string | undefined;
+    try {
+        const supabase = getSupabaseServerClient();
+        const { data: userResult } = await supabase.auth.admin.getUserById(userId);
+        email = userResult.user?.email || undefined;
+    }
+    catch {
+        try {
+            const supabase = getSupabaseLibraryClient();
+            const { data: userResult } = await supabase.auth.admin.getUserById(userId);
+            email = userResult.user?.email || undefined;
+        }
+        catch {
+            email = undefined;
+        }
+    }
 
     console.log("[api/video-upload] AUTHENTICATED USER", {
         userId,
@@ -197,6 +223,23 @@ async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: 
             bearerTokenLength: routeAuth.bearerTokenLength,
             claimedUserId: claimedUserId || userId,
         },
+    };
+}
+
+function getSessionTokensFromRecord(record: Record<string, unknown>) {
+    return {
+        refreshToken: getRecordString(record, [...REFRESH_TOKEN_BODY_KEYS]),
+        accessToken: getRecordString(record, [...ACCESS_TOKEN_BODY_KEYS]),
+    };
+}
+
+function getSessionTokensFromFormData(formData: FormData) {
+    const readField = (keys: readonly string[]) => keys
+        .map((key) => String(formData.get(key) || "").trim())
+        .find(Boolean) || "";
+    return {
+        refreshToken: readField(REFRESH_TOKEN_BODY_KEYS),
+        accessToken: readField(ACCESS_TOKEN_BODY_KEYS),
     };
 }
 
@@ -399,7 +442,8 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
         }
 
         const claimedUserId = getRecordString(body, ["sessionUserId", "session_user_id", "userId", "user_id"]);
-        const auth = await resolveAuthenticatedUploadUser(request, [claimedUserId]);
+        const sessionTokens = getSessionTokensFromRecord(body);
+        const auth = await resolveAuthenticatedUploadUser(request, [claimedUserId], sessionTokens);
         if (!auth.ok) {
             const payload = buildPreparePayload(request, storagePath, {
                 ok: false,
@@ -968,8 +1012,9 @@ export async function POST(request: Request) {
             const storagePath = String(formData.get("storagePath") || formData.get("storage_path") || "").trim();
             const file = getFormFile(formData.get("file"));
             const contentType = String(formData.get("contentType") || formData.get("content_type") || "").trim();
+            const sessionTokens = getSessionTokensFromFormData(formData);
 
-            const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId]);
+            const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId], sessionTokens);
             if (!auth.ok) {
                 return jsonResponse({ error: auth.error, details: auth.details, uploadMethod: mode }, auth.status);
             }
@@ -1028,8 +1073,9 @@ export async function POST(request: Request) {
 
         const sessionUserId = getRecordString(body, ["sessionUserId", "session_user_id"]);
         const userId = getRecordString(body, ["userId", "user_id"]);
+        const sessionTokens = getSessionTokensFromRecord(body);
 
-        const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId]);
+        const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId], sessionTokens);
         if (!auth.ok) {
             return jsonResponse({ error: auth.error, details: auth.details }, auth.status);
         }
