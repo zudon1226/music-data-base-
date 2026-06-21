@@ -10,6 +10,37 @@ export type RepairAuthSessionResult = {
     error?: string;
 };
 
+const REPAIR_METADATA_PATHS = [
+    "/api/auth/repair-metadata",
+    "/api/platform/repair-auth-metadata",
+] as const;
+
+async function postRepairMetadata(email: string) {
+    let lastError = "Auth metadata repair failed.";
+    for (const path of REPAIR_METADATA_PATHS) {
+        const response = await fetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+            credentials: "omit",
+            cache: "no-store",
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            metadataChanged?: boolean;
+            repaired?: boolean;
+            error?: string;
+        };
+        if (response.ok) {
+            return { ok: true as const, data };
+        }
+        lastError = data.error || response.statusText || `Repair failed (${response.status}).`;
+        if (response.status !== 401 && response.status !== 404) {
+            break;
+        }
+    }
+    return { ok: false as const, error: lastError };
+}
+
 export async function repairOversizedAuthSession(
     supabase: SupabaseClient,
     options: { email?: string; password?: string; userId?: string } = {},
@@ -19,27 +50,17 @@ export async function repairOversizedAuthSession(
         return { repaired: false, metadataChanged: false, reauthenticated: false };
     }
 
-    const response = await fetch("/api/auth/repair-metadata", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-        credentials: "omit",
-        cache: "no-store",
-    });
-    const data = (await response.json().catch(() => ({}))) as {
-        metadataChanged?: boolean;
-        repaired?: boolean;
-        error?: string;
-    };
-    if (!response.ok) {
+    const repairResponse = await postRepairMetadata(email);
+    if (!repairResponse.ok) {
         return {
             repaired: false,
             metadataChanged: false,
             reauthenticated: false,
-            error: data.error || response.statusText || `Repair failed (${response.status}).`,
+            error: repairResponse.error,
         };
     }
 
+    const data = repairResponse.data;
     if (!data.metadataChanged) {
         return {
             repaired: Boolean(data.repaired),

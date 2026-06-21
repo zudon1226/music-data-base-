@@ -12,6 +12,7 @@ import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
+import { isOversizedBearerToken } from "../lib/session-token-limits";
 import { supabase } from "../lib/supabase";
 type Song = {
     id: string;
@@ -3178,6 +3179,7 @@ export default function Page() {
     const initialDataLoadedKeyRef = useRef("");
     const initialDataLoadInFlightKeyRef = useRef("");
     const persistedAuthUserRef = useRef<SupabaseUser | null>(null);
+    const authSubmitInProgressRef = useRef(false);
     const licenseLoadedUserRef = useRef("");
     const licenseLoadInFlightUserRef = useRef("");
     const salesLoadedUserRef = useRef("");
@@ -4957,6 +4959,9 @@ export default function Page() {
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
             if (!isMounted) {
+                return;
+            }
+            if (authSubmitInProgressRef.current) {
                 return;
             }
             if (event === "INITIAL_SESSION") {
@@ -9589,23 +9594,31 @@ export default function Page() {
             throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
         }
         let activeSession = session;
+        let accessToken = readAccessTokenFromSession(activeSession);
         const expiresAtMs = activeSession?.expires_at ? activeSession.expires_at * 1000 : 0;
-        if (activeSession?.refresh_token && expiresAtMs && expiresAtMs - Date.now() < 60000) {
+        const shouldRefreshSession = Boolean(activeSession?.refresh_token) && (
+            !accessToken
+            || isOversizedBearerToken(accessToken)
+            || (expiresAtMs > 0 && expiresAtMs - Date.now() < 60000)
+        );
+        if (shouldRefreshSession) {
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
             if (refreshError) {
                 throw new Error(`Supabase auth refresh failed before video upload: ${refreshError.message}`);
             }
-            activeSession = refreshData.session;
+            activeSession = refreshData.session ?? activeSession;
+            accessToken = readAccessTokenFromSession(activeSession);
         }
-        const accessToken = readAccessTokenFromSession(activeSession);
-        if (!accessToken || !activeSession?.user?.id) {
+        if (!activeSession?.user?.id) {
+            throw new Error("You must log in again before uploading videos to Supabase Storage.");
+        }
+        if (!accessToken || isOversizedBearerToken(accessToken)) {
             throw new Error(
-                activeSession?.user?.id
-                    ? `Invalid session access_token from ${ACCESS_TOKEN_SOURCE}. Expected JWT string starting with "eyJ".`
-                    : "You must log in again before uploading videos to Supabase Storage.",
+                `Invalid session access_token from ${ACCESS_TOKEN_SOURCE}. Sign out and sign in again after auth metadata repair.`,
             );
         }
         setUser((previous) => previous || activeSession.user);
+        setAuthSession((previous) => previous ?? activeSession);
         return {
             user: activeSession.user,
             accessToken,
@@ -12338,11 +12351,13 @@ export default function Page() {
     async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setAuthMessage("");
+        authSubmitInProgressRef.current = true;
         setAuthBusy(true);
         const email = authEmail.trim();
         const password = authPassword;
         if (!email || !password) {
             setAuthMessage("Enter your email and password.");
+            authSubmitInProgressRef.current = false;
             setAuthBusy(false);
             return;
         }
@@ -12367,15 +12382,31 @@ export default function Page() {
             }
             const signedInSession = response.data.session;
             const signedInUser = signedInSession?.user || response.data.user || null;
-            const repairResult = await repairOversizedAuthSession(supabase, {
-                email,
-                password,
-                userId: signedInUser?.id || "",
-            }).catch((): RepairAuthSessionResult => ({
+            let repairResult: RepairAuthSessionResult = {
                 repaired: false,
                 metadataChanged: false,
                 reauthenticated: false,
-            }));
+            };
+            if (isPlatformOwnerEmail(email)) {
+                repairResult = await repairOversizedAuthSession(supabase, {
+                    email,
+                    password,
+                    userId: signedInUser?.id || "",
+                }).catch((): RepairAuthSessionResult => ({
+                    repaired: false,
+                    metadataChanged: false,
+                    reauthenticated: false,
+                    error: "Auth metadata repair failed.",
+                }));
+                if (repairResult.error) {
+                    persistedAuthUserRef.current = null;
+                    setAuthSession(null);
+                    setUser(null);
+                    await logoutAndClearAuth(supabase).catch(() => undefined);
+                    setAuthMessage(repairResult.error);
+                    return;
+                }
+            }
 
             const activeSession = repairResult.reauthenticated && repairResult.session
                 ? repairResult.session
@@ -12423,6 +12454,7 @@ export default function Page() {
             setAuthMessage(getAuthErrorMessage(error));
         }
         finally {
+            authSubmitInProgressRef.current = false;
             setAuthBusy(false);
         }
     }

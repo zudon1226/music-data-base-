@@ -14,7 +14,10 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 
 export async function GET() {
     const result = handleRepairMetadataGet();
-    return jsonResponse(result.body, result.status);
+    return jsonResponse({
+        ...result.body,
+        route: "/api/platform/repair-auth-metadata",
+    }, result.status);
 }
 
 export async function POST(request: Request) {
