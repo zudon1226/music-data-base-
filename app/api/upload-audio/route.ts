@@ -1,5 +1,5 @@
-import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
+import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
@@ -12,35 +12,9 @@ const DEFAULT_AUDIO_COVER = "/music-data-base-logo.png";
 const REMOVED_PLACEHOLDER_IMAGES = [
     "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=900&q=80",
 ];
-const ACCEPTED_AUDIO_TYPES = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/mp4", "audio/aac"]);
-const AUDIO_CONTENT_TYPES_BY_EXTENSION: Record<string, string> = {
-    mp3: "audio/mpeg",
-    wav: "audio/wav",
-    m4a: "audio/mp4",
-    aac: "audio/aac",
-};
 
-function cleanStorageFileName(fileName: string) {
-    const extension = fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
-    const baseName = fileName
-        .replace(/\.[^/.]+$/, "")
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9._-]+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 80);
-    return `${baseName || "song"}.${extension || "mp3"}`;
-}
-
-function getAudioContentType(file: File) {
-    const browserType = file.type.trim().toLowerCase();
-    if (browserType && ACCEPTED_AUDIO_TYPES.has(browserType)) {
-        return browserType;
-    }
-    const extension = file.name.split(".").pop()?.toLowerCase() || "";
-    return AUDIO_CONTENT_TYPES_BY_EXTENSION[extension] || "audio/mpeg";
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+    return NextResponse.json(body, { status });
 }
 
 function getErrorDetails(error: unknown) {
@@ -59,29 +33,30 @@ function getErrorDetails(error: unknown) {
     return details;
 }
 
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-    return NextResponse.json(body, { status });
-}
-
 function getArtworkUrl(value: string) {
     const cleanValue = value.trim();
     return cleanValue && !REMOVED_PLACEHOLDER_IMAGES.includes(cleanValue) ? cleanValue : DEFAULT_AUDIO_COVER;
 }
 
-function getFormFile(value: FormDataEntryValue | null) {
-    if (value &&
-        typeof value === "object" &&
-        "arrayBuffer" in value &&
-        typeof value.arrayBuffer === "function" &&
-        "size" in value &&
-        typeof value.size === "number") {
-        return value as File;
+function getRecordString(record: Record<string, unknown>, keys: string[], fallback = "") {
+    for (const key of keys) {
+        const value = record[key];
+        if (typeof value === "string" && value.trim()) {
+            return value.trim();
+        }
+        if (typeof value === "number" && Number.isFinite(value)) {
+            return String(value);
+        }
     }
-    return null;
+    return fallback;
+}
+
+function normalizeStoragePath(path: string) {
+    return path.trim().replace(/^\/+/, "");
 }
 
 function getPublicSongUrl(supabase: ReturnType<typeof getSupabaseServerClient>, storagePath: string) {
-    const normalizedPath = storagePath.replace(/^\/+/, "");
+    const normalizedPath = normalizeStoragePath(storagePath);
     const fromClient = supabase.storage.from(SONGS_BUCKET).getPublicUrl(normalizedPath).data.publicUrl;
     if (fromClient?.includes(".supabase.co/storage/")) {
         return fromClient;
@@ -93,174 +68,287 @@ function getPublicSongUrl(supabase: ReturnType<typeof getSupabaseServerClient>, 
     return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${SONGS_BUCKET}/${encodedPath}`;
 }
 
+async function requireAudioUploadUser(request: Request, body: Record<string, unknown>) {
+    const sessionUserId = getRecordString(body, ["sessionUserId", "session_user_id"]);
+    const legacyUserId = getRecordString(body, ["userId", "user_id"]);
+    const authUserId = sessionUserId || legacyUserId;
+    if (!authUserId) {
+        return { ok: false as const, status: 401, error: "You must log in again before saving song metadata." };
+    }
+    if (sessionUserId && legacyUserId && sessionUserId !== legacyUserId) {
+        return { ok: false as const, status: 401, error: "Song metadata user id does not match the signed-in session." };
+    }
+
+    const sessionTokens = getSessionTokensFromRecord(body);
+    const auth = await requireMatchingUserId(request, "/api/upload-audio", authUserId, sessionTokens);
+    if (!auth.ok) {
+        return { ok: false as const, status: auth.status, error: auth.error };
+    }
+
+    const uploadLock = await requireUploadAllowedForUserId(auth.userId);
+    if (!uploadLock.ok) {
+        return {
+            ok: false as const,
+            status: uploadLock.status,
+            error: uploadLock.error,
+            uploadLockBlocked: uploadLock.status === 503,
+        };
+    }
+
+    return { ok: true as const, authUserId: auth.userId, sessionUserId, legacyUserId };
+}
+
+function validateStorageFolder(storagePath: string, authUserId: string) {
+    const normalizedPath = normalizeStoragePath(storagePath);
+    const storageFolder = normalizedPath.split("/")[0] || "";
+    if (!normalizedPath || storageFolder !== authUserId) {
+        return {
+            ok: false as const,
+            error: `storagePath folder ${storageFolder || "(missing)"} must match session userId ${authUserId}.`,
+        };
+    }
+    return { ok: true as const, storagePath: normalizedPath };
+}
+
+async function handlePrepareStorageUpload(request: Request, body: Record<string, unknown>) {
+    const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
+    if (!storagePath) {
+        return jsonResponse({ error: "storagePath is required." }, 400);
+    }
+
+    const auth = await requireAudioUploadUser(request, body);
+    if (!auth.ok) {
+        return jsonResponse(
+            auth.uploadLockBlocked ? uploadLockJsonBody() : { error: auth.error },
+            auth.status,
+        );
+    }
+
+    const folderCheck = validateStorageFolder(storagePath, auth.authUserId);
+    if (!folderCheck.ok) {
+        return jsonResponse({ error: folderCheck.error, storagePath }, 403);
+    }
+
+    const supabase = getSupabaseServerClient();
+    const signedUpload = await supabase.storage.from(SONGS_BUCKET).createSignedUploadUrl(folderCheck.storagePath, {
+        upsert: false,
+    });
+
+    if (signedUpload.error || !signedUpload.data?.token) {
+        console.error("[api/upload-audio] createSignedUploadUrl failed:", signedUpload.error);
+        return jsonResponse({
+            error: getErrorMessage(signedUpload.error || "Supabase did not return a signed upload token."),
+            details: {
+                bucket: SONGS_BUCKET,
+                storagePath: folderCheck.storagePath,
+                supabaseError: getErrorDetails(signedUpload.error),
+            },
+        }, 500);
+    }
+
+    const savedStoragePath = signedUpload.data.path || folderCheck.storagePath;
+    return jsonResponse({
+        bucket: SONGS_BUCKET,
+        storagePath: savedStoragePath,
+        token: signedUpload.data.token,
+        signedUrl: signedUpload.data.signedUrl || "",
+        publicUrl: getPublicSongUrl(supabase, savedStoragePath),
+        uploadMethod: "signed",
+    });
+}
+
+async function insertSongMetadata(
+    supabase: ReturnType<typeof getSupabaseServerClient>,
+    songRow: Record<string, unknown>,
+    authUserId: string,
+    sessionUserId: string,
+    legacyUserId: string,
+) {
+    let lastSongInsertPayload: Record<string, unknown> = songRow;
+    const insertSongRow = async (row: Record<string, unknown>, selectColumns: string) => {
+        lastSongInsertPayload = row;
+        console.error("INSERT USER ID:", row.user_id);
+        console.error("AUTH USER ID:", authUserId);
+        console.error("SESSION USER ID:", sessionUserId);
+        console.error("LEGACY USER ID:", legacyUserId);
+        console.error("SONG USER ID MATCH:", String(row.user_id || "") === authUserId);
+        console.error("FULL INSERT PAYLOAD:", row);
+        return supabase
+            .from("songs")
+            .insert(row)
+            .select(selectColumns)
+            .single();
+    };
+
+    const initialInsert = await insertSongRow(songRow, "id,title,artist,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
+    let savedSong = initialInsert.data as Record<string, unknown> | null;
+    let tableError = initialInsert.error;
+
+    if (tableError && /producer|beat_id/i.test(getErrorMessage(tableError))) {
+        const fallbackSongRow: Record<string, unknown> = { ...songRow };
+        delete fallbackSongRow.producer;
+        delete fallbackSongRow.producer_id;
+        delete fallbackSongRow.beat_id;
+        const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,artist,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
+        savedSong = fallbackResult.data as Record<string, unknown> | null;
+        tableError = fallbackResult.error;
+    }
+    if (tableError && getErrorMessage(tableError).toLowerCase().includes("album_id")) {
+        const fallbackSongRow: Record<string, unknown> = { ...songRow };
+        delete fallbackSongRow.album_id;
+        const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,artist,producer,producer_id,beat_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
+        savedSong = fallbackResult.data as Record<string, unknown> | null;
+        tableError = fallbackResult.error;
+    }
+    if (tableError && getErrorMessage(tableError).toLowerCase().includes("artist")) {
+        const fallbackSongRow: Record<string, unknown> = { ...songRow };
+        delete fallbackSongRow.artist;
+        const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,description,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
+        savedSong = fallbackResult.data as Record<string, unknown> | null;
+        tableError = fallbackResult.error;
+    }
+    if (tableError && getErrorMessage(tableError).toLowerCase().includes("description")) {
+        const minimalSongRow: Record<string, unknown> = { ...songRow };
+        delete minimalSongRow.artist;
+        delete minimalSongRow.description;
+        const minimalResult = await insertSongRow(minimalSongRow, "id,title,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
+        savedSong = minimalResult.data as Record<string, unknown> | null;
+        tableError = minimalResult.error;
+    }
+
+    return { savedSong, tableError, lastSongInsertPayload };
+}
+
+async function handleSaveSongMetadata(request: Request, body: Record<string, unknown>) {
+    const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
+    const publicUrl = getRecordString(body, ["publicUrl", "public_url", "audio_url"]);
+    const title = getRecordString(body, ["title"]) || "Untitled song";
+    const artist = getRecordString(body, ["artist"]) || "Unknown artist";
+    const category = getRecordString(body, ["category"]) || "New Releases";
+    const type = getRecordString(body, ["type"]) || "Beats";
+    const coverUrl = getArtworkUrl(getRecordString(body, ["cover_url", "coverUrl"]));
+    const producer = getRecordString(body, ["producer"]);
+    const producerId = getRecordString(body, ["producer_id", "producerId"]);
+    const beatId = getRecordString(body, ["beat_id", "beatId"]);
+    const albumId = getRecordString(body, ["album_id", "albumId"]);
+
+    if (!storagePath) {
+        return jsonResponse({ error: "storagePath is required after the Storage upload completes." }, 400);
+    }
+    if (!publicUrl) {
+        return jsonResponse({ error: "publicUrl is required after the Storage upload completes." }, 400);
+    }
+
+    const auth = await requireAudioUploadUser(request, body);
+    if (!auth.ok) {
+        return jsonResponse(
+            auth.uploadLockBlocked ? uploadLockJsonBody() : { error: auth.error },
+            auth.status,
+        );
+    }
+
+    const folderCheck = validateStorageFolder(storagePath, auth.authUserId);
+    if (!folderCheck.ok) {
+        return jsonResponse({ error: folderCheck.error, storagePath }, 403);
+    }
+
+    const supabase = getSupabaseServerClient();
+    const songRow = {
+        id: crypto.randomUUID(),
+        title,
+        artist,
+        description: artist,
+        producer,
+        producer_id: producerId || null,
+        beat_id: beatId || null,
+        album_id: albumId || null,
+        category,
+        type,
+        audio_url: publicUrl,
+        storage_path: folderCheck.storagePath,
+        cover_url: coverUrl,
+        avatar_url: coverUrl,
+        duration: 180,
+        plays: 0,
+        likes: 0,
+        created_at: new Date().toISOString(),
+        user_id: auth.authUserId,
+    };
+
+    const { savedSong, tableError, lastSongInsertPayload } = await insertSongMetadata(
+        supabase,
+        songRow,
+        auth.authUserId,
+        auth.sessionUserId,
+        auth.legacyUserId,
+    );
+
+    if (tableError) {
+        console.error("SONG INSERT FAILED", tableError);
+        console.error("[api/upload-audio] INSERT FAILED public.songs:", tableError);
+        return jsonResponse({
+            error: `Audio uploaded to Storage, but the songs table save failed: ${getErrorMessage(tableError)}`,
+            details: {
+                supabaseError: getErrorDetails(tableError),
+                insertUserId: String(lastSongInsertPayload.user_id || ""),
+                authUserId: auth.authUserId,
+                sessionUserId: auth.sessionUserId,
+                legacyUserId: auth.legacyUserId,
+                userIdMatchesAuth: String(lastSongInsertPayload.user_id || "") === auth.authUserId,
+                insertPayload: lastSongInsertPayload,
+                publicUrl,
+                storagePath: folderCheck.storagePath,
+                bucket: SONGS_BUCKET,
+            },
+        }, 500);
+    }
+
+    return jsonResponse({
+        publicUrl,
+        storagePath: folderCheck.storagePath,
+        song: savedSong || songRow,
+    });
+}
+
 export async function POST(request: Request) {
     try {
-        const formData = await request.formData();
-        const file = getFormFile(formData.get("file"));
-        const sessionUserId = String(formData.get("sessionUserId") || "").trim();
-        const legacyUserId = String(formData.get("userId") || "").trim();
-        const authUserId = sessionUserId;
-        const title = String(formData.get("title") || "").trim() || "Untitled song";
-        const artist = String(formData.get("artist") || "").trim() || "Unknown artist";
-        const category = String(formData.get("category") || "").trim() || "New Releases";
-        const type = String(formData.get("type") || "").trim() || "Beats";
-        const coverUrl = getArtworkUrl(String(formData.get("cover_url") || ""));
-        const producer = String(formData.get("producer") || "").trim();
-        const producerId = String(formData.get("producer_id") || "").trim();
-        const beatId = String(formData.get("beat_id") || "").trim();
-        const albumId = String(formData.get("album_id") || "").trim();
-        if (!file) {
-            return jsonResponse({ error: "Choose an MP3, WAV, or M4A audio file." }, 400);
-        }
-        if (!authUserId) {
-            return jsonResponse({ error: "You must log in again before saving song metadata." }, 401);
-        }
-        const uploadLock = await requireUploadAllowedForUserId(authUserId);
-        if (!uploadLock.ok) {
-            return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
-        }
-        if (legacyUserId && legacyUserId !== authUserId) {
-            console.error("SONG USER ID MISMATCH", {
-                sessionUserId: authUserId,
-                userId: legacyUserId,
-            });
-            return jsonResponse({ error: "Song metadata user id does not match the signed-in session." }, 401);
-        }
-        const contentType = getAudioContentType(file);
-        if (!contentType.startsWith("audio/")) {
-            return jsonResponse({ error: "Only MP3, WAV, and M4A audio files can be uploaded.", details: { contentType } }, 400);
-        }
-        const cleanFileName = cleanStorageFileName(file.name || "song.mp3");
-        const filePath = `${authUserId}/${crypto.randomUUID()}-${cleanFileName}`;
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const supabase = getSupabaseServerClient();
-
-        const uploadResult = await supabase.storage.from(SONGS_BUCKET).upload(filePath, buffer, {
-            cacheControl: "3600",
-            contentType,
-            upsert: false,
-        });
-        if (uploadResult.error) {
-            console.error("[api/upload-audio] Supabase upload error:", uploadResult.error);
+        const contentTypeHeader = request.headers.get("content-type") || "";
+        if (contentTypeHeader.toLowerCase().includes("multipart/form-data")) {
             return jsonResponse({
-                error: getErrorMessage(uploadResult.error),
+                error: "Audio files must upload directly to Supabase Storage. Do not POST the file to this route.",
                 details: {
-                    bucket: SONGS_BUCKET,
-                    storagePath: filePath,
-                    supabaseUrl: SUPABASE_PROJECT_URL,
-                    supabaseError: getErrorDetails(uploadResult.error),
+                    supportedModes: ["prepare-storage-upload", "save-metadata"],
+                    reason: "Vercel serverless request bodies are limited to about 4.5 MB.",
                 },
-            }, 500);
+            }, 413);
         }
 
-        const savedStoragePath = uploadResult.data?.path || filePath;
-        const publicUrl = getPublicSongUrl(supabase, savedStoragePath);
-        if (!publicUrl) {
-            await supabase.storage.from(SONGS_BUCKET).remove([savedStoragePath]);
-            return jsonResponse({ error: "Supabase did not return a public URL for the uploaded audio." }, 500);
+        const rawBody = await request.text();
+        let body: Record<string, unknown> = {};
+        if (rawBody.trim()) {
+            try {
+                body = JSON.parse(rawBody) as Record<string, unknown>;
+            }
+            catch (parseError) {
+                return jsonResponse({
+                    error: "Invalid JSON body.",
+                    details: { parseError: getErrorMessage(parseError) },
+                }, 400);
+            }
         }
 
-        const songRow = {
-            id: crypto.randomUUID(),
-            title,
-            artist,
-            description: artist,
-            producer,
-            producer_id: producerId || null,
-            beat_id: beatId || null,
-            album_id: albumId || null,
-            category,
-            type,
-            audio_url: publicUrl,
-            storage_path: savedStoragePath,
-            cover_url: coverUrl,
-            avatar_url: coverUrl,
-            duration: 180,
-            plays: 0,
-            likes: 0,
-            created_at: new Date().toISOString(),
-            user_id: authUserId,
-        };
-        let lastSongInsertPayload: Record<string, unknown> = songRow;
-        const insertSongRow = async (row: Record<string, unknown>, selectColumns: string) => {
-            lastSongInsertPayload = row;
-            console.error("INSERT USER ID:", row.user_id);
-            console.error("AUTH USER ID:", authUserId);
-            console.error("SESSION USER ID:", sessionUserId);
-            console.error("LEGACY USER ID:", legacyUserId);
-            console.error("SONG USER ID MATCH:", String(row.user_id || "") === authUserId);
-            console.error("FULL INSERT PAYLOAD:", row);
-            return supabase
-                .from("songs")
-                .insert(row)
-                .select(selectColumns)
-                .single();
-        };
-        const initialInsert = await insertSongRow(songRow, "id,title,artist,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
-        let savedSong = initialInsert.data as Record<string, unknown> | null;
-        let tableError = initialInsert.error;
-        if (tableError && /producer|beat_id/i.test(getErrorMessage(tableError))) {
-            const fallbackSongRow: Record<string, unknown> = { ...songRow };
-            delete fallbackSongRow.producer;
-            delete fallbackSongRow.producer_id;
-            delete fallbackSongRow.beat_id;
-            const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,artist,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
-            savedSong = fallbackResult.data as Record<string, unknown> | null;
-            tableError = fallbackResult.error;
+        const mode = getRecordString(body, ["mode"], "save-metadata");
+        if (mode === "prepare-storage-upload") {
+            return handlePrepareStorageUpload(request, body);
         }
-        if (tableError && getErrorMessage(tableError).toLowerCase().includes("album_id")) {
-            const fallbackSongRow: Record<string, unknown> = { ...songRow };
-            delete fallbackSongRow.album_id;
-            const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,artist,producer,producer_id,beat_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
-            savedSong = fallbackResult.data as Record<string, unknown> | null;
-            tableError = fallbackResult.error;
-        }
-        if (tableError && getErrorMessage(tableError).toLowerCase().includes("artist")) {
-            const fallbackSongRow: Record<string, unknown> = { ...songRow };
-            delete fallbackSongRow.artist;
-            const fallbackResult = await insertSongRow(fallbackSongRow, "id,title,description,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
-            savedSong = fallbackResult.data as Record<string, unknown> | null;
-            tableError = fallbackResult.error;
-        }
-        if (tableError && getErrorMessage(tableError).toLowerCase().includes("description")) {
-            const minimalSongRow: Record<string, unknown> = { ...songRow };
-            delete minimalSongRow.artist;
-            delete minimalSongRow.description;
-            const minimalResult = await insertSongRow(minimalSongRow, "id,title,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id");
-            savedSong = minimalResult.data as Record<string, unknown> | null;
-            tableError = minimalResult.error;
-        }
-        if (tableError) {
-            console.error("INSERT USER ID:", lastSongInsertPayload.user_id);
-            console.error("AUTH USER ID:", authUserId);
-            console.error("SESSION USER ID:", sessionUserId);
-            console.error("LEGACY USER ID:", legacyUserId);
-            console.error("SONG USER ID MATCH:", String(lastSongInsertPayload.user_id || "") === authUserId);
-            console.error("FULL INSERT PAYLOAD:", lastSongInsertPayload);
-            console.error("SONG INSERT FAILED", tableError);
-            console.error("[api/upload-audio] INSERT FAILED public.songs:", tableError);
-            await supabase.storage.from(SONGS_BUCKET).remove([savedStoragePath]);
+        if (mode !== "save-metadata") {
             return jsonResponse({
-                error: `Audio uploaded to Storage, but the songs table save failed: ${getErrorMessage(tableError)}`,
-                details: {
-                    supabaseError: getErrorDetails(tableError),
-                    insertUserId: String(lastSongInsertPayload.user_id || ""),
-                    authUserId,
-                    sessionUserId,
-                    legacyUserId,
-                    userIdMatchesAuth: String(lastSongInsertPayload.user_id || "") === authUserId,
-                    insertPayload: lastSongInsertPayload,
-                    publicUrl,
-                    storagePath: savedStoragePath,
-                    bucket: SONGS_BUCKET,
-                },
-            }, 500);
+                error: `Unsupported mode "${mode}".`,
+                details: { supportedModes: ["prepare-storage-upload", "save-metadata"] },
+            }, 400);
         }
-        return jsonResponse({
-            publicUrl,
-            storagePath: savedStoragePath,
-            song: savedSong || songRow,
-        });
+
+        return handleSaveSongMetadata(request, body);
     }
     catch (error) {
         console.error("[api/upload-audio] Server error:", error);

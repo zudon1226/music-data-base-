@@ -12,7 +12,7 @@ import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
-import { resolveSongStoragePath } from "../lib/song-storage-path";
+import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "../lib/session-token-limits";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -1008,6 +1008,7 @@ const DEFAULT_ARTIST_BANNER = "https://images.unsplash.com/photo-1501386761578-e
 const BRAND_TAGLINE = "STREAM • DISCOVER • CREATE";
 const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
 const VIDEOS_STORAGE_BUCKET = "videos";
+const SONGS_STORAGE_BUCKET = "songs";
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
 const MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE = "Mobile compatible video required: MP4 H.264 video with AAC audio.";
@@ -2638,6 +2639,37 @@ function cleanVideoStorageFileName(fileName: string) {
 function buildVideoStoragePath(userId: string, file: File) {
     const cleanFileName = cleanVideoStorageFileName(file.name || "video.mp4");
     return `${userId}/${Date.now()}-${cleanFileName}`;
+}
+function cleanAudioStorageFileName(fileName: string) {
+    const extension = fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
+    const baseName = fileName
+        .replace(/\.[^/.]+$/, "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9._-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 80);
+    return `${baseName || "song"}.${extension || "mp3"}`;
+}
+function buildAudioStoragePath(userId: string, file: File) {
+    const cleanFileName = cleanAudioStorageFileName(file.name || "song.mp3");
+    return `${userId}/${crypto.randomUUID()}-${cleanFileName}`;
+}
+function getAudioUploadContentType(file: File) {
+    const browserType = file.type.trim().toLowerCase();
+    if (browserType && ACCEPTED_AUDIO_TYPES.has(browserType)) {
+        return browserType;
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() || "";
+    if (extension === "wav")
+        return "audio/wav";
+    if (extension === "m4a")
+        return "audio/mp4";
+    if (extension === "aac")
+        return "audio/aac";
+    return "audio/mpeg";
 }
 function getVideoUploadContentType(file: File) {
     const browserType = file.type.trim().toLowerCase();
@@ -9703,68 +9735,206 @@ export default function Page() {
             cache: "no-store",
         });
     }
+    async function audioUploadFetch(
+        init: {
+            method?: string;
+            headers?: HeadersInit;
+            body: BodyInit;
+        },
+        tokens: { accessToken: string; refreshToken: string },
+    ) {
+        const headers = new Headers(init.headers);
+        headers.delete("authorization");
+        headers.delete("Authorization");
+        if (tokens.accessToken && !isOversizedBearerToken(tokens.accessToken)) {
+            headers.set("Authorization", `Bearer ${tokens.accessToken}`);
+        }
+        if (tokens.refreshToken) {
+            headers.set(SUPABASE_REFRESH_TOKEN_HEADER, tokens.refreshToken);
+        }
+
+        let body = init.body;
+        if (typeof body === "string") {
+            try {
+                const parsed = JSON.parse(body) as Record<string, unknown>;
+                body = JSON.stringify(appendVideoUploadSessionTokens(parsed, tokens));
+            }
+            catch {
+                // Keep the original JSON body when parsing fails.
+            }
+        }
+
+        return fetch("/api/upload-audio", {
+            method: init.method || "POST",
+            headers,
+            body,
+            credentials: "omit",
+            cache: "no-store",
+        });
+    }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
         const fileError = getAudioFileError(file);
         if (fileError) {
             throw new Error(fileError);
         }
         let sessionUser = uploadUser || null;
+        let accessToken = "";
+        let refreshToken = "";
         if (!sessionUser) {
             const { session } = await getAuthSession(supabase);
             if (!session?.access_token || !session.user) {
                 throw new Error("You must log in again before uploading.");
             }
             sessionUser = session.user;
+            accessToken = readAccessTokenFromSession(session);
+            refreshToken = readRefreshTokenFromSession(session);
+        }
+        else {
+            const { session } = await getAuthSession(supabase);
+            accessToken = readAccessTokenFromSession(session);
+            refreshToken = readRefreshTokenFromSession(session);
         }
         assertUploadAllowed(sessionUser);
         if (!sessionUser?.id) {
             throw new Error("You must log in again before uploading.");
         }
+        const uploadSessionTokens = { accessToken, refreshToken };
+        const sessionUserId = sessionUser.id;
+        const storagePath = buildAudioStoragePath(sessionUserId, file);
+        const contentType = getAudioUploadContentType(file);
+        const producer = getProducerById(songDetails.producerId);
+        const coverUrl = getArtworkUrl(songDetails.cover);
+
         setUploadStatus("Preparing upload...");
         setUploadProgress(4);
-        setUploadStatus("Uploading audio...");
-        const sessionUserId = sessionUser.id;
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("sessionUserId", sessionUserId);
-        formData.append("userId", sessionUserId);
-        formData.append("title", songDetails.title);
-        formData.append("artist", songDetails.artist);
-        formData.append("category", "New Releases");
-        formData.append("type", songDetails.type);
-        formData.append("cover_url", getArtworkUrl(songDetails.cover));
-        if (albumId) {
-            formData.append("album_id", albumId);
+        setUploadStatus("Requesting signed Supabase Storage upload URL...");
+
+        const prepareResponse = await audioUploadFetch({
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                mode: "prepare-storage-upload",
+                sessionUserId,
+                userId: sessionUserId,
+                storagePath,
+            }),
+        }, uploadSessionTokens);
+
+        const prepareResult = (await prepareResponse.json().catch(() => ({}))) as {
+            storagePath?: string;
+            token?: string;
+            signedUrl?: string;
+            publicUrl?: string;
+            error?: string;
+            details?: unknown;
+            bucket?: string;
+        };
+
+        let savedStoragePath = prepareResult.storagePath || storagePath;
+        let publicUrl = prepareResult.publicUrl || "";
+
+        if (!prepareResponse.ok || prepareResult.error || !prepareResult.token) {
+            const prepareErrorDetails = prepareResult.details ? ` ${JSON.stringify(prepareResult.details)}` : "";
+            const prepareFailureReason = prepareResult.error
+                ? `${prepareResult.error}${prepareErrorDetails}`
+                : `Signed upload prepare failed with HTTP ${prepareResponse.status}.`;
+            console.warn("AUDIO UPLOAD SIGNED PREPARE FAILED, FALLING BACK TO DIRECT CLIENT UPLOAD", {
+                reason: prepareFailureReason,
+                bucket: SONGS_STORAGE_BUCKET,
+                storagePath,
+                userId: sessionUserId,
+            });
+            setUploadStatus("Uploading audio directly to Supabase Storage...");
+            setUploadProgress(12);
+            const directUpload = await supabase.storage.from(SONGS_STORAGE_BUCKET).upload(storagePath, file, {
+                cacheControl: "3600",
+                contentType,
+                upsert: false,
+            });
+            if (directUpload.error) {
+                throw new Error(`Direct Supabase Storage upload failed: ${directUpload.error.message}. Signed prepare error: ${prepareFailureReason}`);
+            }
+            savedStoragePath = directUpload.data?.path || storagePath;
+            publicUrl = buildSongPublicUrl(savedStoragePath);
         }
-        const producer = getProducerById(songDetails.producerId);
-        formData.append("producer_id", producer?.id || "");
-        formData.append("producer", producer?.name || "");
+        else {
+            setUploadStatus("Uploading audio to Supabase Storage...");
+            setUploadProgress(12);
+            const storageUploadClient = createSupabaseStorageUploadClient();
+            const storageUpload = await storageUploadClient.storage.from(SONGS_STORAGE_BUCKET).uploadToSignedUrl(
+                prepareResult.storagePath || storagePath,
+                prepareResult.token,
+                file,
+                {
+                    cacheControl: "3600",
+                    contentType,
+                },
+            );
+            if (storageUpload.error) {
+                console.warn("AUDIO SIGNED CLIENT UPLOAD FAILED, FALLING BACK TO DIRECT CLIENT UPLOAD", storageUpload.error);
+                setUploadStatus("Retrying direct Supabase Storage upload...");
+                const directUpload = await supabase.storage.from(SONGS_STORAGE_BUCKET).upload(storagePath, file, {
+                    cacheControl: "3600",
+                    contentType,
+                    upsert: false,
+                });
+                if (directUpload.error) {
+                    const signedClientError = storageUpload.error.message || "Supabase Storage signed upload failed.";
+                    throw new Error(`Signed client upload failed (${signedClientError}). Direct fallback failed: ${directUpload.error.message}`);
+                }
+                savedStoragePath = directUpload.data?.path || storagePath;
+                publicUrl = buildSongPublicUrl(savedStoragePath);
+            }
+            else {
+                savedStoragePath = storageUpload.data?.path || prepareResult.storagePath || storagePath;
+                publicUrl = prepareResult.publicUrl || buildSongPublicUrl(savedStoragePath);
+            }
+        }
+
+        if (!publicUrl) {
+            throw new Error("Supabase did not return a public URL for the uploaded audio.");
+        }
+
+        setUploadProgress(88);
+        setUploadStatus("Saving song metadata...");
         const songInsertPayloadPreview = {
             user_id: sessionUserId,
             title: songDetails.title,
             artist: songDetails.artist,
             category: "New Releases",
             type: songDetails.type,
-            cover_url: getArtworkUrl(songDetails.cover),
+            cover_url: coverUrl,
             producer_id: producer?.id || "",
             producer: producer?.name || "",
             album_id: albumId || "",
+            storage_path: savedStoragePath,
+            audio_url: publicUrl,
         };
         console.error("INSERT USER ID:", songInsertPayloadPreview.user_id);
         console.error("AUTH USER ID:", sessionUserId);
         console.error("FULL INSERT PAYLOAD:", songInsertPayloadPreview);
-        let response: Response;
-        try {
-            response = await fetch("/api/upload-audio", {
-                method: "POST",
-                body: formData,
-            });
-        }
-        catch (error) {
-            const details = getErrorDetails(error);
-            throw new Error(`Audio upload route could not be reached.${details ? ` ${details}` : ""}`);
-        }
-        const responseText = await response.text();
+
+        const metadataResponse = await audioUploadFetch({
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                mode: "save-metadata",
+                sessionUserId,
+                userId: sessionUserId,
+                storagePath: savedStoragePath,
+                publicUrl,
+                title: songDetails.title,
+                artist: songDetails.artist,
+                category: "New Releases",
+                type: songDetails.type,
+                cover_url: coverUrl,
+                producer_id: producer?.id || "",
+                producer: producer?.name || "",
+                album_id: albumId || "",
+            }),
+        }, uploadSessionTokens);
+
+        const responseText = await metadataResponse.text();
         let uploadResult: {
             publicUrl?: string;
             storagePath?: string;
@@ -9780,7 +9950,7 @@ export default function Page() {
                 uploadResult = { error: responseText };
             }
         }
-        if (!response.ok) {
+        if (!metadataResponse.ok) {
             const detailText = typeof uploadResult.details === "string"
                 ? uploadResult.details
                 : uploadResult.details
@@ -9793,9 +9963,9 @@ export default function Page() {
             console.error("INSERT USER ID:", responseDetails.insertUserId || responseInsertPayload.user_id || songInsertPayloadPreview.user_id);
             console.error("AUTH USER ID:", responseDetails.authUserId || sessionUserId);
             console.error("FULL INSERT PAYLOAD:", responseInsertPayload);
-            console.error("SONG INSERT FAILED", uploadResult.error || response.statusText, detailText);
-            console.error("[music upload] INSERT FAILED public.songs:", uploadResult.error || response.statusText, detailText);
-            throw new Error([uploadResult.error || `Audio upload failed with HTTP ${response.status}.`, detailText]
+            console.error("SONG INSERT FAILED", uploadResult.error || metadataResponse.statusText, detailText);
+            console.error("[music upload] INSERT FAILED public.songs:", uploadResult.error || metadataResponse.statusText, detailText);
+            throw new Error([uploadResult.error || `Audio metadata save failed with HTTP ${metadataResponse.status}.`, detailText]
                 .filter(Boolean)
                 .join(" "));
         }
