@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { sanitizeAuthUserMetadata } from "@/lib/auth-user-metadata";
 import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -235,6 +236,15 @@ export async function POST(request: Request) {
                 }
                 producerProfile = data;
             }
+            const currentUser = await supabase.auth.admin.getUserById(userId);
+            const currentMetadata = (currentUser.data.user?.user_metadata || {}) as Record<string, unknown>;
+            await supabase.auth.admin.updateUserById(userId, {
+                user_metadata: sanitizeAuthUserMetadata({
+                    ...currentMetadata,
+                    displayName,
+                    role: accountType,
+                }),
+            });
             return jsonResponse({
                 ok: true,
                 accountType,

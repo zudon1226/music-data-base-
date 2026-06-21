@@ -5,14 +5,10 @@ import { useRouter } from "next/navigation";
 import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
+import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
-import { logAuthSessionStage } from "../lib/auth-session-stage-log";
-import {
-    getValidatedSession,
-    logoutAndClearAuth,
-    validateAccessToken,
-} from "../lib/auth-session-guard";
+import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -3270,6 +3266,11 @@ export default function Page() {
     const [authMessage, setAuthMessage] = useState("");
     const [authBusy, setAuthBusy] = useState(false);
     const [accountRole, setAccountRole] = useState<AccountRole>("Listener");
+    const [userAuthProfile, setUserAuthProfile] = useState({
+        displayName: "",
+        role: "listener",
+        avatarUrl: "",
+    });
     const [uploadForm, setUploadForm] = useState<UploadForm>({
         title: "",
         artist: "",
@@ -3865,7 +3866,7 @@ export default function Page() {
             itemId,
             itemType: commentTarget.type,
             userId: user.id,
-            authorName: user.user_metadata?.displayName || user.email?.split("@")[0] || "Music fan",
+            authorName: getAccountDisplayName() || "Music fan",
             body,
             likes: 0,
             likedBy: [],
@@ -3904,7 +3905,7 @@ export default function Page() {
         }));
     }
     function getCurrentUserDisplayName() {
-        return user?.user_metadata?.displayName || user?.email?.split("@")[0] || "Music Data Base user";
+        return getAccountDisplayName();
     }
     function createModerationReport(itemType: ModerationItemType, itemId: string, itemTitle: string, reason = "Community report", targetUserName = "", targetUserId = "") {
         if (!user?.id) {
@@ -4812,7 +4813,7 @@ export default function Page() {
         const byUser = accountUserId ? producerProfiles.find((profile) => profile.userId === accountUserId) : null;
         if (byUser)
             return byUser;
-        const fallbackName = user?.user_metadata?.displayName || user?.email?.split("@")[0] || "Producer";
+        const fallbackName = getAccountDisplayName() || "Producer";
         return {
             id: "",
             userId: accountUserId,
@@ -4898,20 +4899,23 @@ export default function Page() {
             }
             setAuthSession(session);
             setUser(sessionUser);
-            setAccountRole(isPlatformOwnerEmail(sessionUser?.email) ? "Listener" : normalizeAccountRole(sessionUser?.user_metadata?.accountRole));
+            if (!sessionUser) {
+                setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
+                setAccountRole("Listener");
+                return;
+            }
+            if (isPlatformOwnerEmail(sessionUser.email)) {
+                setAccountRole("Listener");
+            }
+            void reloadUserProfileFromSupabase(sessionUser.id, sessionUser.email || "");
         }
 
         setAuthLoading(true);
         runAuthStorageCleanupOnce();
 
         async function bootAuth() {
-            const { session, authInvalidated } = await getValidatedSession(supabase);
+            const { session } = await getAuthSession(supabase);
             if (!isMounted) {
-                return;
-            }
-            if (authInvalidated) {
-                applyAuthSession(null);
-                setAuthLoading(false);
                 return;
             }
             applyAuthSession(session);
@@ -4921,7 +4925,6 @@ export default function Page() {
         void bootAuth();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-            logAuthSessionStage("onAuthStateChange", session, event);
             if (!isMounted) {
                 return;
             }
@@ -4931,22 +4934,9 @@ export default function Page() {
             if (event === "SIGNED_OUT") {
                 setAuthSession(null);
                 setUser(null);
+                setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
                 setAccountRole("Listener");
                 return;
-            }
-            if (session?.access_token) {
-                const validation = validateAccessToken(session.access_token);
-                if (!validation.valid) {
-                    void logoutAndClearAuth(supabase).then(() => {
-                        if (!isMounted) {
-                            return;
-                        }
-                        setAuthSession(null);
-                        setUser(null);
-                        setAccountRole("Listener");
-                    });
-                    return;
-                }
             }
             applyAuthSession(session);
         });
@@ -5203,6 +5193,39 @@ export default function Page() {
             createdAt: typeof playlist.createdAt === "string" ? playlist.createdAt : new Date().toISOString(),
             updatedAt: typeof playlist.updatedAt === "string" ? playlist.updatedAt : new Date().toISOString(),
         }));
+    }
+    async function reloadUserProfileFromSupabase(userIdOverride = "", emailOverride = "") {
+        const profileUserId = userIdOverride || user?.id || "";
+        if (!profileUserId) {
+            setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
+            return null;
+        }
+        const response = await authFetch(supabase, `/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as {
+            displayName?: string;
+            role?: string;
+            avatarUrl?: string;
+            error?: string;
+        };
+        if (!response.ok) {
+            return null;
+        }
+        const nextProfile = {
+            displayName: String(data.displayName || "").trim(),
+            role: String(data.role || "listener").trim().toLowerCase(),
+            avatarUrl: String(data.avatarUrl || "").trim(),
+        };
+        setUserAuthProfile(nextProfile);
+        if (!isPlatformOwnerEmail(emailOverride || user?.email)) {
+            setAccountRole(normalizeAccountRole(nextProfile.role));
+        }
+        return nextProfile;
+    }
+    function getAccountDisplayName(subject?: SupabaseUser | null) {
+        const target = subject || user;
+        return userAuthProfile.displayName
+            || target?.email?.split("@")[0]
+            || "Music Data Base user";
     }
     async function reloadUserMusicStateFromSupabase(availableSongs = songs, availableVideos = videos) {
         if (!user?.id) {
@@ -7363,8 +7386,7 @@ export default function Page() {
         return `${beat.title || "beat"}-${licenseType}-license.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
     }
     function getBuyerDisplayName() {
-        const metadata = user?.user_metadata as Record<string, unknown> | undefined;
-        return getStringField(metadata || {}, ["displayName", "full_name", "name"]) || user?.email || "Music Data Base user";
+        return getStringField({ displayName: getAccountDisplayName() }, ["displayName", "full_name", "name"]) || user?.email || "Music Data Base user";
     }
     function getBeatLicenseSummary(beat: ProducerBeat, licenseType: LicenseType) {
         const terms = getBeatLicenseTerms(licenseType, beat);
@@ -9421,11 +9443,11 @@ export default function Page() {
     async function getAlbumUploadUser() {
         let sessionUser: SupabaseUser | null = null;
         try {
-            const { session, authInvalidated } = await getValidatedSession(supabase);
-            if (authInvalidated) {
+            const { session } = await getAuthSession(supabase);
+            if (!session?.user) {
                 throw new Error("You must log in again before uploading.");
             }
-            sessionUser = session?.user || null;
+            sessionUser = session.user;
         }
         catch (error) {
         }
@@ -9438,14 +9460,11 @@ export default function Page() {
         return uploadUser;
     }
     async function getFreshVideoStorageUploadUser() {
-        const { session, error: sessionError, authInvalidated } = await getValidatedSession(supabase);
-        if (authInvalidated) {
-            throw new Error("You must log in again before uploading videos to Supabase Storage.");
-        }
-        let activeSession = session;
+        const { session, error: sessionError } = await getAuthSession(supabase);
         if (sessionError) {
             throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
         }
+        let activeSession = session;
         const expiresAtMs = activeSession?.expires_at ? activeSession.expires_at * 1000 : 0;
         if (activeSession?.refresh_token && expiresAtMs && expiresAtMs - Date.now() < 60000) {
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
@@ -9475,8 +9494,8 @@ export default function Page() {
         }
         let sessionUser = uploadUser || null;
         if (!sessionUser) {
-            const { session, authInvalidated } = await getValidatedSession(supabase);
-            if (authInvalidated || !session?.access_token || !session.user) {
+            const { session } = await getAuthSession(supabase);
+            if (!session?.access_token || !session.user) {
                 throw new Error("You must log in again before uploading.");
             }
             sessionUser = session.user;
@@ -10027,6 +10046,17 @@ export default function Page() {
             else {
                 showToast(`${nextRole} account mode saved.`, "success");
             }
+            await authFetch(supabase, "/api/user-profile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "update",
+                    userId: user.id,
+                    role: nextRole.toLowerCase(),
+                    displayName: producerProfileForm.name.trim() || currentProducerProfile.name || getAccountDisplayName(),
+                }),
+            }).catch(() => undefined);
+            await reloadUserProfileFromSupabase(user.id, user.email || "");
         }
         catch (error) {
             setAccountRole(previousRole);
@@ -10503,7 +10533,7 @@ export default function Page() {
                 (ownerType === "producer"
                     ? producerProfile?.name || currentProducerProfile.name
                     : selectedDashboardArtist?.name ||
-                        uploadUser.user_metadata?.displayName ||
+                        getAccountDisplayName(uploadUser) ||
                         uploadUser.email?.split("@")[0] ||
                         "Artist");
             if (ownerType === "producer" && !producerProfile?.id) {
@@ -12169,18 +12199,16 @@ export default function Page() {
             return;
         }
         try {
+            const signupDisplayName = authName.trim() || email.split("@")[0];
             const response = authMode === "signup"
                 ? await supabase.auth.signUp({
                     email,
                     password,
                     options: {
-                        data: {
-                            displayName: authName.trim() || email.split("@")[0],
-                        },
+                        data: buildSignupUserMetadata({ displayName: signupDisplayName }),
                     },
                 })
                 : await supabase.auth.signInWithPassword({ email, password });
-            logAuthSessionStage("signInWithPassword", response.data.session);
             if (response.error) {
                 setAuthMessage(response.error.message);
                 return;
@@ -12188,6 +12216,18 @@ export default function Page() {
             if (authMode === "signup" && !response.data.session) {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
+            }
+            const signedInUserId = response.data.session?.user?.id || response.data.user?.id || "";
+            if (signedInUserId) {
+                await authFetch(supabase, "/api/user-profile", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        action: "ensure",
+                        userId: signedInUserId,
+                        displayName: signupDisplayName,
+                    }),
+                }).catch(() => undefined);
             }
             setAuthEmail("");
             setAuthPassword("");
@@ -14912,12 +14952,12 @@ export default function Page() {
           </section>) : view === "Profile" && !search.trim() ? (<section className="profile-page">
             <div className="profile-hero">
               <div className="profile-avatar">
-                {(user.user_metadata?.displayName || user.email || "Z").slice(0, 1).toUpperCase()}
+                {(getAccountDisplayName() || user.email || "Z").slice(0, 1).toUpperCase()}
               </div>
 
               <div>
                 <span className="playlist-kicker">{isPlatformOwner ? "OWNER / ADMIN" : "User Profile"}</span>
-                <h2>{user.user_metadata?.displayName || user.email?.split("@")[0] || "Z Music User"}</h2>
+                <h2>{getAccountDisplayName() || "Z Music User"}</h2>
                 <p>{user.email}</p>
 
                 <div className="profile-actions">
@@ -14950,7 +14990,7 @@ export default function Page() {
 
             <div className="profile-save">
               <h3>Account Sync</h3>
-              <p>{isPlatformOwner ? "Permanent Owner/Admin account. You control verification, reports, payouts, subscriptions, users, and platform settings." : "Your music stays saved locally. Account updates only run when you edit your profile or sign in."}</p>
+              <p>{isPlatformOwner ? "Permanent Owner/Admin account. You control verification, reports, payouts, subscriptions, users, and platform settings." : "Your library, likes, playlists, and uploads are stored in Supabase database tables. Auth metadata only keeps your display name, role, and avatar URL."}</p>
             </div>
 
             {isPlatformOwner ? (<div className="profile-save">

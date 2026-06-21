@@ -1,28 +1,22 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { getValidatedSession, validateAccessToken } from "./auth-session-guard";
+import { getAuthSession } from "./auth-session";
 
 export const ACCESS_TOKEN_SOURCE = "supabase.auth.getSession().session.access_token";
 
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
 
 export function readAccessTokenFromSession(session: Session | null | undefined) {
-    const raw = session?.access_token;
-    const validation = validateAccessToken(raw);
-    if (!validation.valid) {
-        return "";
-    }
-    return raw as string;
+    return typeof session?.access_token === "string" ? session.access_token : "";
 }
 
 async function readSessionAccessToken(supabase: SupabaseClient) {
-    const { session, error, authInvalidated } = await getValidatedSession(supabase);
+    const { session, error } = await getAuthSession(supabase);
     const accessToken = readAccessTokenFromSession(session);
     return {
         session,
         accessToken,
         userId: session?.user?.id || "",
         error,
-        authInvalidated,
     };
 }
 
@@ -58,11 +52,11 @@ export async function authFetch(
     input: RequestInfo | URL,
     init: RequestInit = {},
 ) {
-    const { accessToken, error, authInvalidated } = await readSessionAccessToken(supabase);
-    if (authInvalidated || !accessToken) {
+    const { accessToken, error } = await readSessionAccessToken(supabase);
+    if (!accessToken) {
         throw new Error(
             error?.message
-                || `Invalid session access_token from ${ACCESS_TOKEN_SOURCE}. Sign in again.`,
+                || `Missing session access_token from ${ACCESS_TOKEN_SOURCE}. Sign in again.`,
         );
     }
 
