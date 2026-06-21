@@ -69,15 +69,16 @@ export async function repairOversizedAuthSession(
         };
     }
 
-    await logoutAndClearAuth(supabase);
-
     if (!options.password) {
         return {
             repaired: true,
             metadataChanged: true,
             reauthenticated: false,
+            error: "Auth metadata was repaired. Sign in again with your password.",
         };
     }
+
+    await logoutAndClearAuth(supabase);
 
     const signInResult = await supabase.auth.signInWithPassword({
         email,

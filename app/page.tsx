@@ -4906,8 +4906,9 @@ export default function Page() {
         Boolean(activeProducerProfile?.userId && video.ownerId && video.ownerId === activeProducerProfile.userId));
     useEffect(() => {
         let isMounted = true;
+        let initialProfileLoaded = false;
 
-        function applyAuthSession(session: Session | null) {
+        function syncAuthSessionState(session: Session | null) {
             const sessionUser = session?.user || null;
             if (!sessionUser) {
                 return;
@@ -4915,30 +4916,17 @@ export default function Page() {
             if (isPlatformOwnerEmail(sessionUser.email)) {
                 setAccountRole("Listener");
             }
-            void (async () => {
-                const repairResult = await repairOversizedAuthSession(supabase, {
-                    email: sessionUser.email || "",
-                    userId: sessionUser.id,
-                }).catch((): RepairAuthSessionResult => ({
-                    repaired: false,
-                    metadataChanged: false,
-                    reauthenticated: false,
-                }));
-                if (repairResult.metadataChanged && !repairResult.reauthenticated) {
-                    persistedAuthUserRef.current = null;
-                    setAuthSession(null);
-                    setUser(null);
-                    return;
-                }
-                const activeSession = repairResult.reauthenticated && repairResult.session
-                    ? repairResult.session
-                    : session;
-                const activeUser = activeSession?.user || sessionUser;
-                persistedAuthUserRef.current = activeUser;
-                setAuthSession(activeSession);
-                setUser(activeUser);
-                await reloadUserProfileFromSupabase(activeUser.id, activeUser.email || "").catch(() => undefined);
-            })();
+            persistedAuthUserRef.current = sessionUser;
+            setAuthSession(session);
+            setUser(sessionUser);
+        }
+
+        async function loadInitialProfile(session: Session) {
+            if (initialProfileLoaded || !session.user?.id) {
+                return;
+            }
+            initialProfileLoaded = true;
+            await reloadUserProfileFromSupabase(session.user.id, session.user.email || "").catch(() => undefined);
         }
 
         setAuthLoading(true);
@@ -4950,7 +4938,8 @@ export default function Page() {
                 return;
             }
             if (session?.user) {
-                applyAuthSession(session);
+                syncAuthSessionState(session);
+                await loadInitialProfile(session);
             }
             setAuthLoading(false);
         }
@@ -4958,15 +4947,13 @@ export default function Page() {
         void bootAuth();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-            if (!isMounted) {
-                return;
-            }
-            if (authSubmitInProgressRef.current) {
+            if (!isMounted || authSubmitInProgressRef.current) {
                 return;
             }
             if (event === "INITIAL_SESSION") {
                 if (session?.user) {
-                    applyAuthSession(session);
+                    syncAuthSessionState(session);
+                    void loadInitialProfile(session);
                 }
                 setAuthLoading(false);
                 return;
@@ -4979,7 +4966,9 @@ export default function Page() {
                 setAccountRole("Listener");
                 return;
             }
-            applyAuthSession(session);
+            if (session?.user) {
+                syncAuthSessionState(session);
+            }
         });
 
         return () => {
