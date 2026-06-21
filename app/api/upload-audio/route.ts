@@ -1,9 +1,12 @@
 import { Buffer } from "node:buffer";
-import { createClient } from "@supabase/supabase-js";
-import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { NextResponse } from "next/server";
+import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
+import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
+import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 const SONGS_BUCKET = "songs";
 const DEFAULT_AUDIO_COVER = "/music-data-base-logo.png";
 const REMOVED_PLACEHOLDER_IMAGES = [
@@ -16,6 +19,7 @@ const AUDIO_CONTENT_TYPES_BY_EXTENSION: Record<string, string> = {
     m4a: "audio/mp4",
     aac: "audio/aac",
 };
+
 function cleanStorageFileName(fileName: string) {
     const extension = fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
     const baseName = fileName
@@ -29,6 +33,7 @@ function cleanStorageFileName(fileName: string) {
         .slice(0, 80);
     return `${baseName || "song"}.${extension || "mp3"}`;
 }
+
 function getAudioContentType(file: File) {
     const browserType = file.type.trim().toLowerCase();
     if (browserType && ACCEPTED_AUDIO_TYPES.has(browserType)) {
@@ -37,22 +42,7 @@ function getAudioContentType(file: File) {
     const extension = file.name.split(".").pop()?.toLowerCase() || "";
     return AUDIO_CONTENT_TYPES_BY_EXTENSION[extension] || "audio/mpeg";
 }
-function getErrorMessage(error: unknown) {
-    if (error instanceof Error)
-        return error.message;
-    if (typeof error === "string")
-        return error;
-    if (error && typeof error === "object") {
-        const record = error as Record<string, unknown>;
-        const message = ["message", "error", "code", "details", "hint", "status", "statusCode"]
-            .map((key) => record[key])
-            .filter((value): value is string | number => typeof value === "string" || typeof value === "number")
-            .map(String)
-            .join(" ");
-        return message || JSON.stringify(record);
-    }
-    return "Unknown server error";
-}
+
 function getErrorDetails(error: unknown) {
     if (!error || typeof error !== "object")
         return error;
@@ -68,13 +58,16 @@ function getErrorDetails(error: unknown) {
     }
     return details;
 }
+
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
+
 function getArtworkUrl(value: string) {
     const cleanValue = value.trim();
     return cleanValue && !REMOVED_PLACEHOLDER_IMAGES.includes(cleanValue) ? cleanValue : DEFAULT_AUDIO_COVER;
 }
+
 function getFormFile(value: FormDataEntryValue | null) {
     if (value &&
         typeof value === "object" &&
@@ -86,16 +79,22 @@ function getFormFile(value: FormDataEntryValue | null) {
     }
     return null;
 }
+
+function getPublicSongUrl(supabase: ReturnType<typeof getSupabaseServerClient>, storagePath: string) {
+    const normalizedPath = storagePath.replace(/^\/+/, "");
+    const fromClient = supabase.storage.from(SONGS_BUCKET).getPublicUrl(normalizedPath).data.publicUrl;
+    if (fromClient?.includes(".supabase.co/storage/")) {
+        return fromClient;
+    }
+    const encodedPath = normalizedPath
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${SONGS_BUCKET}/${encodedPath}`;
+}
+
 export async function POST(request: Request) {
     try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-        if (!supabaseUrl) {
-            return jsonResponse({ error: "NEXT_PUBLIC_SUPABASE_URL is missing." }, 500);
-        }
-        if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-            return jsonResponse({ error: "SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value." }, 500);
-        }
         const formData = await request.formData();
         const file = getFormFile(formData.get("file"));
         const sessionUserId = String(formData.get("sessionUserId") || "").trim();
@@ -134,25 +133,33 @@ export async function POST(request: Request) {
         const cleanFileName = cleanStorageFileName(file.name || "song.mp3");
         const filePath = `${authUserId}/${crypto.randomUUID()}-${cleanFileName}`;
         const buffer = Buffer.from(await file.arrayBuffer());
-        const supabase = createClient(supabaseUrl, serviceRoleKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false,
-            },
-        });
-        const { error } = await supabase.storage.from(SONGS_BUCKET).upload(filePath, buffer, {
+        const supabase = getSupabaseServerClient();
+
+        const uploadResult = await supabase.storage.from(SONGS_BUCKET).upload(filePath, buffer, {
             cacheControl: "3600",
             contentType,
             upsert: false,
         });
-        if (error) {
-            console.error("[api/upload-audio] Supabase upload error:", error);
-            return jsonResponse({ error: getErrorMessage(error), details: getErrorDetails(error) }, 500);
+        if (uploadResult.error) {
+            console.error("[api/upload-audio] Supabase upload error:", uploadResult.error);
+            return jsonResponse({
+                error: getErrorMessage(uploadResult.error),
+                details: {
+                    bucket: SONGS_BUCKET,
+                    storagePath: filePath,
+                    supabaseUrl: SUPABASE_PROJECT_URL,
+                    supabaseError: getErrorDetails(uploadResult.error),
+                },
+            }, 500);
         }
-        const { data } = supabase.storage.from(SONGS_BUCKET).getPublicUrl(filePath);
-        if (!data.publicUrl) {
+
+        const savedStoragePath = uploadResult.data?.path || filePath;
+        const publicUrl = getPublicSongUrl(supabase, savedStoragePath);
+        if (!publicUrl) {
+            await supabase.storage.from(SONGS_BUCKET).remove([savedStoragePath]);
             return jsonResponse({ error: "Supabase did not return a public URL for the uploaded audio." }, 500);
         }
+
         const songRow = {
             id: crypto.randomUUID(),
             title,
@@ -164,8 +171,8 @@ export async function POST(request: Request) {
             album_id: albumId || null,
             category,
             type,
-            audio_url: data.publicUrl,
-            storage_path: filePath,
+            audio_url: publicUrl,
+            storage_path: savedStoragePath,
             cover_url: coverUrl,
             avatar_url: coverUrl,
             duration: 180,
@@ -232,7 +239,7 @@ export async function POST(request: Request) {
             console.error("FULL INSERT PAYLOAD:", lastSongInsertPayload);
             console.error("SONG INSERT FAILED", tableError);
             console.error("[api/upload-audio] INSERT FAILED public.songs:", tableError);
-            await supabase.storage.from(SONGS_BUCKET).remove([filePath]);
+            await supabase.storage.from(SONGS_BUCKET).remove([savedStoragePath]);
             return jsonResponse({
                 error: `Audio uploaded to Storage, but the songs table save failed: ${getErrorMessage(tableError)}`,
                 details: {
@@ -243,12 +250,15 @@ export async function POST(request: Request) {
                     legacyUserId,
                     userIdMatchesAuth: String(lastSongInsertPayload.user_id || "") === authUserId,
                     insertPayload: lastSongInsertPayload,
+                    publicUrl,
+                    storagePath: savedStoragePath,
+                    bucket: SONGS_BUCKET,
                 },
             }, 500);
         }
         return jsonResponse({
-            publicUrl: data.publicUrl,
-            storagePath: filePath,
+            publicUrl,
+            storagePath: savedStoragePath,
             song: savedSong || songRow,
         });
     }
