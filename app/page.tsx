@@ -4733,10 +4733,14 @@ export default function Page() {
         }, 0);
         return () => window.clearTimeout(timer);
     }, []);
-    const accountUserId = user?.id || "";
+    const activeUser = useMemo(
+        () => user ?? authSession?.user ?? null,
+        [user, authSession?.user],
+    );
+    const accountUserId = activeUser?.id || "";
     const uploadsBlockedForCurrentUser = useMemo(
-        () => isUploadBlockedForEmail(user?.email),
-        [user?.email],
+        () => isUploadBlockedForEmail(activeUser?.email),
+        [activeUser?.email],
     );
     const isPlatformOwner = isPlatformOwnerEmail(user?.email);
     useEffect(() => {
@@ -4899,16 +4903,11 @@ export default function Page() {
 
         function applyAuthSession(session: Session | null) {
             const sessionUser = session?.user || null;
-            if (!sessionUser && (albumUploadUserRef.current || uploadInProgressRef.current)) {
+            if (!sessionUser) {
                 return;
             }
             setAuthSession(session);
             setUser(sessionUser);
-            if (!sessionUser) {
-                setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
-                setAccountRole("Listener");
-                return;
-            }
             if (isPlatformOwnerEmail(sessionUser.email)) {
                 setAccountRole("Listener");
             }
@@ -4923,7 +4922,15 @@ export default function Page() {
             if (!isMounted) {
                 return;
             }
-            applyAuthSession(session);
+            if (session?.user) {
+                applyAuthSession(session);
+            }
+            else {
+                setAuthSession(null);
+                setUser(null);
+                setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
+                setAccountRole("Listener");
+            }
             setAuthLoading(false);
         }
 
@@ -5217,17 +5224,16 @@ export default function Page() {
             error?: string;
         };
         if (data.metadataChanged) {
-            await supabase.auth.refreshSession();
+            await supabase.auth.refreshSession().catch(() => undefined);
         }
         return data;
     }
     async function reloadUserProfileFromSupabase(userIdOverride = "", emailOverride = "") {
-        const profileUserId = userIdOverride || user?.id || "";
+        const profileUserId = userIdOverride || activeUser?.id || "";
         if (!profileUserId) {
             setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
             return null;
         }
-        await syncUserAuthProfile(profileUserId).catch(() => undefined);
         const response = await authFetch(supabase, `/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             displayName?: string;
@@ -5244,13 +5250,13 @@ export default function Page() {
             avatarUrl: String(data.avatarUrl || "").trim(),
         };
         setUserAuthProfile(nextProfile);
-        if (!isPlatformOwnerEmail(emailOverride || user?.email)) {
+        if (!isPlatformOwnerEmail(emailOverride || activeUser?.email)) {
             setAccountRole(normalizeAccountRole(nextProfile.role));
         }
         return nextProfile;
     }
     function getUploadLockMessageForUser(uploadUser?: SupabaseUser | null) {
-        return isUploadBlockedForEmail(uploadUser?.email || user?.email) ? UPLOAD_LOCK_MESSAGE : "";
+        return isUploadBlockedForEmail(uploadUser?.email || activeUser?.email) ? UPLOAD_LOCK_MESSAGE : "";
     }
     function renderUploadLockNotice() {
         if (!uploadsBlockedForCurrentUser) {
@@ -12284,9 +12290,14 @@ export default function Page() {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
             }
-            const signedInUserId = response.data.session?.user?.id || response.data.user?.id || "";
-            if (signedInUserId) {
-                await syncUserAuthProfile(signedInUserId, {
+            const signedInSession = response.data.session;
+            const signedInUser = signedInSession?.user || response.data.user || null;
+            if (signedInSession?.user) {
+                setAuthSession(signedInSession);
+                setUser(signedInSession.user);
+            }
+            if (signedInUser?.id) {
+                await syncUserAuthProfile(signedInUser.id, {
                     action: authMode === "signup" ? "ensure" : "repair-auth-metadata",
                     displayName: signupDisplayName,
                 }).catch(() => undefined);
@@ -12319,7 +12330,7 @@ export default function Page() {
     }
     function handleNav(nextView: View) {
         setShowNotificationCenter(false);
-        if (!user &&
+        if (!activeUser &&
             [
                 "Library",
                 "License History",
@@ -13481,7 +13492,7 @@ export default function Page() {
         `}</style>
       </main>);
     }
-    if (!user) {
+    if (!activeUser) {
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">
@@ -15025,13 +15036,13 @@ export default function Page() {
           </section>) : view === "Profile" && !search.trim() ? (<section className="profile-page">
             <div className="profile-hero">
               <div className="profile-avatar">
-                {(getAccountDisplayName() || user.email || "Z").slice(0, 1).toUpperCase()}
+                {(getAccountDisplayName() || activeUser.email || "Z").slice(0, 1).toUpperCase()}
               </div>
 
               <div>
                 <span className="playlist-kicker">{isPlatformOwner ? "OWNER / ADMIN" : "User Profile"}</span>
                 <h2>{getAccountDisplayName() || "Z Music User"}</h2>
-                <p>{user.email}</p>
+                <p>{activeUser.email}</p>
 
                 <div className="profile-actions">
                   <button onClick={logout} type="button">

@@ -214,20 +214,6 @@ async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: 
         };
     }
 
-    if (areUploadsLocked() && !canUserUpload(data.user.email)) {
-        return {
-            ok: false,
-            status: 503,
-            error: UPLOAD_LOCK_MESSAGE,
-            details: {
-                ...routeAuth,
-                email: data.user.email || null,
-                step: "uploads-locked",
-                uploadsLocked: true,
-            },
-        };
-    }
-
     return {
         ok: true,
         userId: authUserId,
@@ -238,6 +224,22 @@ async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: 
             claimedUserId: claimedUserId || authUserId,
         },
     };
+}
+
+function getUploadLockFailure(email: string | null | undefined): AuthFailure | null {
+    if (areUploadsLocked() && !canUserUpload(email)) {
+        return {
+            ok: false,
+            status: 503,
+            error: UPLOAD_LOCK_MESSAGE,
+            details: {
+                email: email || null,
+                step: "uploads-locked",
+                uploadsLocked: true,
+            },
+        };
+    }
+    return null;
 }
 
 function getRecordString(record: Record<string, unknown>, keys: string[], fallback = "") {
@@ -448,6 +450,16 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
         }
 
         const authUserId = authData.user.id;
+        const uploadLock = getUploadLockFailure(authData.user.email);
+        if (uploadLock) {
+            const payload = buildPreparePayload(request, storagePath, {
+                ok: false,
+                step: "uploads-locked",
+                error: uploadLock.error,
+            });
+            console.log("[api/video-upload] PREPARE BLOCKED", payload);
+            return prepareStorageUploadResponse(uploadLock.status, payload);
+        }
         const claimedUserId = getRecordString(body, ["sessionUserId", "session_user_id", "userId", "user_id"]);
         if (claimedUserId && claimedUserId !== authUserId) {
             const payload = buildPreparePayload(request, storagePath, {
@@ -1009,6 +1021,10 @@ export async function POST(request: Request) {
             if (!auth.ok) {
                 return jsonResponse({ error: auth.error, details: auth.details, uploadMethod: mode }, auth.status);
             }
+            const uploadLock = getUploadLockFailure(auth.email);
+            if (uploadLock) {
+                return jsonResponse({ error: uploadLock.error, details: uploadLock.details, uploadsLocked: true }, uploadLock.status);
+            }
 
             if (mode !== "direct-storage-upload") {
                 return jsonResponse({
@@ -1064,6 +1080,10 @@ export async function POST(request: Request) {
         const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId]);
         if (!auth.ok) {
             return jsonResponse({ error: auth.error, details: auth.details }, auth.status);
+        }
+        const uploadLock = getUploadLockFailure(auth.email);
+        if (uploadLock) {
+            return jsonResponse({ error: uploadLock.error, details: uploadLock.details, uploadsLocked: true }, uploadLock.status);
         }
 
         return saveVideoMetadata(request, body, auth.userId);
