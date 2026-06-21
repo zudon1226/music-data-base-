@@ -18,7 +18,7 @@ export function readAccessTokenFromSession(session: Session | null | undefined) 
     return typeof session?.access_token === "string" ? session.access_token : "";
 }
 
-function readRefreshTokenFromSession(session: Session | null | undefined) {
+export function readRefreshTokenFromSession(session: Session | null | undefined) {
     return typeof session?.refresh_token === "string" ? session.refresh_token : "";
 }
 

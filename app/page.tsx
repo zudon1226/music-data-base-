@@ -6,13 +6,13 @@ import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/s
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
-import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
+import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession, readRefreshTokenFromSession } from "../lib/client-api-auth";
 import { repairOversizedAuthSession, type RepairAuthSessionResult } from "../lib/repair-auth-session";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
-import { isOversizedBearerToken } from "../lib/session-token-limits";
+import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "../lib/session-token-limits";
 import { supabase } from "../lib/supabase";
 type Song = {
     id: string;
@@ -9578,40 +9578,133 @@ export default function Page() {
         return uploadUser;
     }
     async function getFreshVideoStorageUploadUser() {
-        const { session, error: sessionError } = await getAuthSession(supabase);
+        const { session: storedSession, error: sessionError } = await getAuthSession(supabase);
         if (sessionError) {
             throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
         }
-        let activeSession = session;
+
+        let activeSession = authSession ?? storedSession ?? null;
+        if (authSession?.user) {
+            activeSession = authSession;
+            if (storedSession?.user?.id === authSession.user.id) {
+                activeSession = {
+                    ...storedSession,
+                    ...authSession,
+                    user: authSession.user,
+                    access_token: readAccessTokenFromSession(authSession)
+                        || readAccessTokenFromSession(storedSession)
+                        || "",
+                    refresh_token: readRefreshTokenFromSession(authSession)
+                        || readRefreshTokenFromSession(storedSession)
+                        || "",
+                };
+            }
+        }
+        else if (storedSession?.user) {
+            activeSession = storedSession;
+        }
+
         let accessToken = readAccessTokenFromSession(activeSession);
+        let refreshToken = readRefreshTokenFromSession(activeSession);
         const expiresAtMs = activeSession?.expires_at ? activeSession.expires_at * 1000 : 0;
-        const shouldRefreshSession = Boolean(activeSession?.refresh_token) && (
+        const shouldRefreshSession = Boolean(refreshToken) && (
             !accessToken
             || isOversizedBearerToken(accessToken)
             || (expiresAtMs > 0 && expiresAtMs - Date.now() < 60000)
         );
         if (shouldRefreshSession) {
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-            if (refreshError) {
-                throw new Error(`Supabase auth refresh failed before video upload: ${refreshError.message}`);
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
+                refresh_token: refreshToken,
+            });
+            if (!refreshError && refreshData.session) {
+                activeSession = refreshData.session;
+                accessToken = readAccessTokenFromSession(activeSession);
+                refreshToken = readRefreshTokenFromSession(activeSession);
             }
-            activeSession = refreshData.session ?? activeSession;
-            accessToken = readAccessTokenFromSession(activeSession);
         }
+
         if (!activeSession?.user?.id) {
             throw new Error("You must log in again before uploading videos to Supabase Storage.");
         }
-        if (!accessToken || isOversizedBearerToken(accessToken)) {
+
+        const hasUsableAccessToken = Boolean(accessToken) && !isOversizedBearerToken(accessToken);
+        if (!hasUsableAccessToken && !refreshToken) {
             throw new Error(
                 `Invalid session access_token from ${ACCESS_TOKEN_SOURCE}. Sign out and sign in again after auth metadata repair.`,
             );
         }
+
         setUser((previous) => previous || activeSession.user);
         setAuthSession((previous) => previous ?? activeSession);
         return {
             user: activeSession.user,
-            accessToken,
+            accessToken: hasUsableAccessToken ? accessToken : "",
+            refreshToken,
         };
+    }
+    function appendVideoUploadSessionTokens(
+        payload: Record<string, unknown>,
+        tokens: { accessToken: string; refreshToken: string },
+    ) {
+        if (tokens.accessToken && !isOversizedBearerToken(tokens.accessToken)) {
+            payload.accessToken = tokens.accessToken;
+        }
+        if (tokens.refreshToken) {
+            payload.refreshToken = tokens.refreshToken;
+        }
+        return payload;
+    }
+    function appendVideoUploadSessionTokensToForm(
+        formData: FormData,
+        tokens: { accessToken: string; refreshToken: string },
+    ) {
+        if (tokens.accessToken && !isOversizedBearerToken(tokens.accessToken)) {
+            formData.append("accessToken", tokens.accessToken);
+        }
+        if (tokens.refreshToken) {
+            formData.append("refreshToken", tokens.refreshToken);
+        }
+        return formData;
+    }
+    async function videoUploadFetch(
+        init: {
+            method?: string;
+            headers?: HeadersInit;
+            body: BodyInit;
+        },
+        tokens: { accessToken: string; refreshToken: string },
+    ) {
+        const headers = new Headers(init.headers);
+        headers.delete("authorization");
+        headers.delete("Authorization");
+        if (tokens.accessToken && !isOversizedBearerToken(tokens.accessToken)) {
+            headers.set("Authorization", `Bearer ${tokens.accessToken}`);
+        }
+        if (tokens.refreshToken) {
+            headers.set(SUPABASE_REFRESH_TOKEN_HEADER, tokens.refreshToken);
+        }
+
+        let body = init.body;
+        if (typeof body === "string") {
+            try {
+                const parsed = JSON.parse(body) as Record<string, unknown>;
+                body = JSON.stringify(appendVideoUploadSessionTokens(parsed, tokens));
+            }
+            catch {
+                // Keep the original JSON body when parsing fails.
+            }
+        }
+        else if (body instanceof FormData) {
+            appendVideoUploadSessionTokensToForm(body, tokens);
+        }
+
+        return fetch("/api/video-upload", {
+            method: init.method || "POST",
+            headers,
+            body,
+            credentials: "omit",
+            cache: "no-store",
+        });
     }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
         const fileError = getAudioFileError(file);
@@ -9732,7 +9825,8 @@ export default function Page() {
             currentStep: "Checking Supabase auth session for video upload",
             lastError: "",
         });
-        const { user: sessionUser, accessToken } = await getFreshVideoStorageUploadUser();
+        const { user: sessionUser, accessToken, refreshToken } = await getFreshVideoStorageUploadUser();
+        const uploadSessionTokens = { accessToken, refreshToken };
         assertUploadAllowed(sessionUser);
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
@@ -9773,8 +9867,7 @@ export default function Page() {
         });
 
         setVideoUploadStep("Requesting signed Supabase Storage upload URL...", 8);
-        const prepareResponse = await authFetch(supabase, "/api/video-upload", {
-            requireSession: true,
+        const prepareResponse = await videoUploadFetch({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -9783,7 +9876,7 @@ export default function Page() {
                 userId: sessionUser.id,
                 storagePath,
             }),
-        });
+        }, uploadSessionTokens);
 
         const prepareResult = (await prepareResponse.json().catch(() => ({}))) as {
             storagePath?: string;
@@ -9846,11 +9939,10 @@ export default function Page() {
             directFormData.append("storagePath", storagePath);
             directFormData.append("contentType", contentType);
 
-            const directResponse = await authFetch(supabase, "/api/video-upload", {
-                requireSession: true,
+            const directResponse = await videoUploadFetch({
                 method: "POST",
                 body: directFormData,
-            });
+            }, uploadSessionTokens);
             const directResult = (await directResponse.json().catch(() => ({}))) as {
                 publicUrl?: string;
                 storagePath?: string;
@@ -9911,11 +10003,10 @@ export default function Page() {
                 directFormData.append("userId", sessionUser.id);
                 directFormData.append("storagePath", storagePath);
                 directFormData.append("contentType", contentType);
-                const directResponse = await authFetch(supabase, "/api/video-upload", {
-                    requireSession: true,
+                const directResponse = await videoUploadFetch({
                     method: "POST",
                     body: directFormData,
-                });
+                }, uploadSessionTokens);
                 const directResult = (await directResponse.json().catch(() => ({}))) as {
                     publicUrl?: string;
                     storagePath?: string;
@@ -9959,8 +10050,7 @@ export default function Page() {
         }
 
         setVideoUploadStep("Saving video metadata...", 88);
-        const metadataResponse = await authFetch(supabase, "/api/video-upload", {
-            requireSession: true,
+        const metadataResponse = await videoUploadFetch({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -9986,7 +10076,7 @@ export default function Page() {
                 mobileCompatible: codecInfo.mobileCompatible,
                 cleanupOnFailure: true,
             }),
-        });
+        }, uploadSessionTokens);
 
         const metadataResult = (await metadataResponse.json().catch(() => ({}))) as {
             publicUrl?: string;
