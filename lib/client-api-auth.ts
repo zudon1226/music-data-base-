@@ -5,19 +5,10 @@ export const ACCESS_TOKEN_SOURCE = "supabase.auth.getSession().session.access_to
 
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
 
-export function readAccessTokenFromSession(
-    session: Session | null | undefined,
-    sourcePath = ACCESS_TOKEN_SOURCE,
-) {
+export function readAccessTokenFromSession(session: Session | null | undefined) {
     const raw = session?.access_token;
     const validation = validateAccessToken(raw);
     if (!validation.valid) {
-        console.error("ACCESS_TOKEN_REJECTED", {
-            sourcePath,
-            reason: validation.reason,
-            tokenLength: validation.tokenLength,
-            tokenPrefix: typeof raw === "string" ? raw.slice(0, 50) : null,
-        });
         return "";
     }
     return raw as string;

@@ -1,4 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { logAuthSessionStage } from "./auth-session-stage-log";
 
 export const SUPABASE_AUTH_STORAGE_KEY = "sb-aehuszoadgqtbkxsliyy-auth-token";
 export const MAX_ACCESS_TOKEN_LENGTH = 5000;
@@ -22,30 +23,6 @@ export function validateAccessToken(token: unknown): AccessTokenValidation {
     return { valid: true, reason: "", tokenLength: token.length };
 }
 
-function readPersistedAccessToken() {
-    if (typeof window === "undefined") {
-        return null;
-    }
-    const raw = window.localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
-    if (!raw) {
-        return null;
-    }
-    try {
-        const parsed = JSON.parse(raw) as {
-            access_token?: unknown;
-            currentSession?: { access_token?: unknown };
-            session?: { access_token?: unknown };
-        };
-        const token = parsed.access_token
-            ?? parsed.currentSession?.access_token
-            ?? parsed.session?.access_token;
-        return typeof token === "string" ? token : null;
-    }
-    catch {
-        return null;
-    }
-}
-
 export function clearSupabaseAuthStorage() {
     if (typeof window === "undefined") {
         return;
@@ -60,55 +37,31 @@ export function clearSupabaseAuthStorage() {
     }
 }
 
-export async function invalidateCorruptedAuthSession(
-    supabase: SupabaseClient,
-    reason: string,
-) {
-    console.error("AUTH_SESSION_INVALID", {
-        reason,
-        storageKey: SUPABASE_AUTH_STORAGE_KEY,
-    });
-    if (typeof window !== "undefined") {
-        window.localStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY);
-    }
-    await supabase.auth.signOut();
-}
+let rejectingInvalidSession = false;
 
-function validatePersistedAuthBeforeGetSession() {
-    const token = readPersistedAccessToken();
-    if (token === null) {
-        return { shouldInvalidate: false, validation: null as AccessTokenValidation | null };
+/** Clears all sb-* storage and signs out. Safe to call from multiple guards. */
+export async function rejectInvalidAuthSession(supabase: SupabaseClient) {
+    if (rejectingInvalidSession) {
+        return;
     }
-    const validation = validateAccessToken(token);
-    return { shouldInvalidate: !validation.valid, validation };
-}
-
-export async function runStartupAuthRepair(supabase: SupabaseClient) {
-    const { shouldInvalidate, validation } = validatePersistedAuthBeforeGetSession();
-    if (!shouldInvalidate || !validation) {
-        return false;
+    rejectingInvalidSession = true;
+    try {
+        clearSupabaseAuthStorage();
+        await supabase.auth.signOut();
     }
-    await invalidateCorruptedAuthSession(supabase, `startup-repair:${validation.reason}`);
-    return true;
+    finally {
+        rejectingInvalidSession = false;
+    }
 }
 
 export async function getValidatedSession(supabase: SupabaseClient) {
-    const persisted = validatePersistedAuthBeforeGetSession();
-    if (persisted.shouldInvalidate && persisted.validation) {
-        await invalidateCorruptedAuthSession(supabase, persisted.validation.reason);
-        return {
-            session: null as Session | null,
-            error: null as Error | null,
-            authInvalidated: true,
-        };
-    }
-
     const { data: { session }, error } = await supabase.auth.getSession();
+    logAuthSessionStage("getSession", session);
 
     if (session?.access_token) {
         const validation = validateAccessToken(session.access_token);
         if (!validation.valid) {
-            await invalidateCorruptedAuthSession(supabase, validation.reason);
+            await rejectInvalidAuthSession(supabase);
             return {
                 session: null as Session | null,
                 error: null as Error | null,
@@ -125,6 +78,5 @@ export async function getValidatedSession(supabase: SupabaseClient) {
 }
 
 export async function logoutAndClearAuth(supabase: SupabaseClient) {
-    clearSupabaseAuthStorage();
-    await supabase.auth.signOut();
+    await rejectInvalidAuthSession(supabase);
 }

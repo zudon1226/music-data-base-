@@ -2,15 +2,15 @@
 /* eslint-disable @next/next/no-img-element */
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, Home, ListMusic, LogIn, LogOut, MessageCircle, Music2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
+import { logAuthSessionStage } from "../lib/auth-session-stage-log";
 import {
     getValidatedSession,
     logoutAndClearAuth,
-    runStartupAuthRepair,
     validateAccessToken,
 } from "../lib/auth-session-guard";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
@@ -4905,15 +4905,6 @@ export default function Page() {
         runAuthStorageCleanupOnce();
 
         async function bootAuth() {
-            const repaired = await runStartupAuthRepair(supabase);
-            if (!isMounted) {
-                return;
-            }
-            if (repaired) {
-                applyAuthSession(null);
-                setAuthLoading(false);
-                return;
-            }
             const { session, authInvalidated } = await getValidatedSession(supabase);
             if (!isMounted) {
                 return;
@@ -4929,7 +4920,8 @@ export default function Page() {
 
         void bootAuth();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+            logAuthSessionStage("onAuthStateChange", session, event);
             if (!isMounted) {
                 return;
             }
@@ -9462,10 +9454,7 @@ export default function Page() {
             }
             activeSession = refreshData.session;
         }
-        const accessToken = readAccessTokenFromSession(
-            activeSession,
-            `${ACCESS_TOKEN_SOURCE} (video-upload getFreshVideoStorageUploadUser)`,
-        );
+        const accessToken = readAccessTokenFromSession(activeSession);
         if (!accessToken || !activeSession?.user?.id) {
             throw new Error(
                 activeSession?.user?.id
@@ -12191,6 +12180,7 @@ export default function Page() {
                     },
                 })
                 : await supabase.auth.signInWithPassword({ email, password });
+            logAuthSessionStage("signInWithPassword", response.data.session);
             if (response.error) {
                 setAuthMessage(response.error.message);
                 return;
