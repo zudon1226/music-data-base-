@@ -1,24 +1,32 @@
--- Remove legacy musicData blobs from auth.users metadata and migrate state to database tables.
--- Keeps only minimal JWT-safe user_metadata: displayName, role, avatarUrl (+ auth booleans).
+-- Migrate legacy auth user_metadata.musicData into public application tables only.
+-- Does NOT UPDATE auth.users. Auth metadata cleanup runs via app Admin API on login.
 
-create or replace function public.jsonb_text_array(value jsonb)
-returns text[]
-language sql
-immutable
-as $$
-  select coalesce(array_agg(trim(both '"' from elem::text)), array[]::text[])
-  from jsonb_array_elements(coalesce(value, '[]'::jsonb)) as elem
-  where trim(both '"' from elem::text) <> '';
-$$;
+create table if not exists public.auth_music_data_migration_log (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  target_table text not null,
+  target_key text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, target_table, target_key)
+);
+
+create index if not exists auth_music_data_migration_log_batch_idx
+on public.auth_music_data_migration_log (batch_id);
+
+create index if not exists auth_music_data_migration_log_user_idx
+on public.auth_music_data_migration_log (user_id);
+
+alter table public.auth_music_data_migration_log enable row level security;
 
 do $$
 declare
+  migration_batch_id uuid := gen_random_uuid();
   user_row record;
   music jsonb;
   liked_id text;
   library_id text;
   artist_id text;
-  existing_state public.user_music_state%rowtype;
 begin
   for user_row in
     select id, email, raw_user_meta_data
@@ -26,11 +34,6 @@ begin
     where raw_user_meta_data ? 'musicData'
   loop
     music := user_row.raw_user_meta_data->'musicData';
-
-    select *
-    into existing_state
-    from public.user_music_state
-    where user_id = user_row.id;
 
     insert into public.user_music_state as ums (
       user_id,
@@ -72,27 +75,54 @@ begin
       end,
       updated_at = now();
 
-    foreach liked_id in array public.jsonb_text_array(music->'likedIds')
+    insert into public.auth_music_data_migration_log (batch_id, user_id, target_table, target_key)
+    values (migration_batch_id, user_row.id, 'user_music_state', user_row.id::text)
+    on conflict (user_id, target_table, target_key) do nothing;
+
+    for liked_id in
+      select value
+      from jsonb_array_elements_text(coalesce(music->'likedIds', '[]'::jsonb)) as liked(value)
+      where btrim(value) <> ''
     loop
       insert into public.song_likes (song_id, user_id)
       values (liked_id, user_row.id)
       on conflict (song_id, user_id) do nothing;
+
+      insert into public.auth_music_data_migration_log (batch_id, user_id, target_table, target_key)
+      values (migration_batch_id, user_row.id, 'song_likes', liked_id)
+      on conflict (user_id, target_table, target_key) do nothing;
     end loop;
 
-    foreach library_id in array public.jsonb_text_array(music->'libraryIds')
+    for library_id in
+      select value
+      from jsonb_array_elements_text(coalesce(music->'libraryIds', '[]'::jsonb)) as library(value)
+      where btrim(value) <> ''
     loop
       if library_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
         insert into public.library_saves (user_id, item_id, item_type)
         values (user_row.id, library_id::uuid, 'song')
         on conflict (user_id, item_id, item_type) do nothing;
+
+        insert into public.auth_music_data_migration_log (batch_id, user_id, target_table, target_key)
+        values (migration_batch_id, user_row.id, 'library_saves', library_id)
+        on conflict (user_id, target_table, target_key) do nothing;
       end if;
     end loop;
 
-    foreach artist_id in array public.jsonb_text_array(coalesce(music->'followedArtistIds', music->'followedIds'))
+    for artist_id in
+      select value
+      from jsonb_array_elements_text(
+        coalesce(music->'followedArtistIds', music->'followedIds', '[]'::jsonb)
+      ) as artist(value)
+      where btrim(value) <> ''
     loop
       insert into public.artist_follows (artist_id, artist_name, user_id)
       values (artist_id, artist_id, user_row.id)
       on conflict (artist_id, user_id) do nothing;
+
+      insert into public.auth_music_data_migration_log (batch_id, user_id, target_table, target_key)
+      values (migration_batch_id, user_row.id, 'artist_follows', artist_id)
+      on conflict (user_id, target_table, target_key) do nothing;
     end loop;
 
     insert into public.profiles (id, user_id, display_name, account_type, avatar_url, updated_at)
@@ -118,117 +148,14 @@ begin
       account_type = coalesce(public.profiles.account_type, excluded.account_type),
       avatar_url = coalesce(public.profiles.avatar_url, excluded.avatar_url),
       updated_at = now();
+
+    insert into public.auth_music_data_migration_log (batch_id, user_id, target_table, target_key)
+    values (migration_batch_id, user_row.id, 'profiles', user_row.id::text)
+    on conflict (user_id, target_table, target_key) do nothing;
   end loop;
 end $$;
 
-update auth.users as users
-set raw_user_meta_data = jsonb_strip_nulls(
-  jsonb_build_object(
-    'displayName', coalesce(
-      nullif(users.raw_user_meta_data->>'displayName', ''),
-      nullif(users.raw_user_meta_data->>'display_name', ''),
-      nullif(profiles.display_name, ''),
-      split_part(users.email, '@', 1)
-    ),
-    'role', coalesce(
-      nullif(lower(users.raw_user_meta_data->>'role'), ''),
-      nullif(lower(users.raw_user_meta_data->>'accountRole'), ''),
-      nullif(lower(profiles.account_type), ''),
-      'listener'
-    ),
-    'avatarUrl', nullif(coalesce(
-      users.raw_user_meta_data->>'avatarUrl',
-      users.raw_user_meta_data->>'avatar_url',
-      profiles.avatar_url
-    ), ''),
-    'email_verified', users.raw_user_meta_data->'email_verified',
-    'phone_verified', users.raw_user_meta_data->'phone_verified'
-  )
-)
-from public.profiles
-where profiles.id = users.id
-  and (
-    users.raw_user_meta_data ? 'musicData'
-    or users.raw_user_meta_data ? 'songs'
-    or users.raw_user_meta_data ? 'videos'
-    or users.raw_user_meta_data ? 'playlists'
-    or users.raw_user_meta_data ? 'libraryIds'
-    or users.raw_user_meta_data ? 'likedIds'
-    or users.raw_user_meta_data ? 'accountRole'
-  );
-
-update auth.users as users
-set raw_user_meta_data = jsonb_strip_nulls(
-  jsonb_build_object(
-    'displayName', coalesce(
-      nullif(users.raw_user_meta_data->>'displayName', ''),
-      nullif(users.raw_user_meta_data->>'display_name', ''),
-      split_part(users.email, '@', 1)
-    ),
-    'role', coalesce(
-      nullif(lower(users.raw_user_meta_data->>'role'), ''),
-      nullif(lower(users.raw_user_meta_data->>'accountRole'), ''),
-      'listener'
-    ),
-    'avatarUrl', nullif(coalesce(users.raw_user_meta_data->>'avatarUrl', users.raw_user_meta_data->>'avatar_url'), ''),
-    'email_verified', users.raw_user_meta_data->'email_verified',
-    'phone_verified', users.raw_user_meta_data->'phone_verified'
-  )
-)
-where not exists (
-  select 1 from public.profiles where profiles.id = users.id
-)
-and (
-  users.raw_user_meta_data ? 'musicData'
-  or users.raw_user_meta_data ? 'songs'
-  or users.raw_user_meta_data ? 'videos'
-  or users.raw_user_meta_data ? 'playlists'
-  or users.raw_user_meta_data ? 'libraryIds'
-  or users.raw_user_meta_data ? 'likedIds'
-  or users.raw_user_meta_data ? 'accountRole'
-);
-
-create or replace function auth.enforce_minimal_user_metadata()
-returns trigger
-language plpgsql
-security definer
-set search_path = auth, public
-as $$
-declare
-  cleaned jsonb;
-begin
-  cleaned := jsonb_strip_nulls(jsonb_build_object(
-    'displayName', coalesce(
-      nullif(new.raw_user_meta_data->>'displayName', ''),
-      nullif(new.raw_user_meta_data->>'display_name', ''),
-      nullif(old.raw_user_meta_data->>'displayName', '')
-    ),
-    'role', coalesce(
-      nullif(lower(new.raw_user_meta_data->>'role'), ''),
-      nullif(lower(new.raw_user_meta_data->>'accountRole'), ''),
-      nullif(lower(old.raw_user_meta_data->>'role'), ''),
-      nullif(lower(old.raw_user_meta_data->>'accountRole'), ''),
-      'listener'
-    ),
-    'avatarUrl', nullif(coalesce(
-      new.raw_user_meta_data->>'avatarUrl',
-      new.raw_user_meta_data->>'avatar_url',
-      old.raw_user_meta_data->>'avatarUrl',
-      old.raw_user_meta_data->>'avatar_url'
-    ), ''),
-    'email_verified', coalesce(new.raw_user_meta_data->'email_verified', old.raw_user_meta_data->'email_verified'),
-    'phone_verified', coalesce(new.raw_user_meta_data->'phone_verified', old.raw_user_meta_data->'phone_verified')
-  ));
-
-  new.raw_user_meta_data := cleaned;
-  return new;
-end;
-$$;
-
-drop trigger if exists enforce_minimal_user_metadata on auth.users;
-create trigger enforce_minimal_user_metadata
-before insert or update of raw_user_meta_data on auth.users
-for each row
-execute function auth.enforce_minimal_user_metadata();
-
-drop function if exists public.jsonb_text_array(jsonb);
+-- Verification (read-only):
+-- select count(*) from public.auth_music_data_migration_log;
+-- select email, raw_user_meta_data ? 'musicData' as still_in_auth
+-- from auth.users order by email;

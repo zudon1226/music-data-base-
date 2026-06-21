@@ -2,8 +2,6 @@ export const ALLOWED_AUTH_USER_METADATA_KEYS = [
     "displayName",
     "role",
     "avatarUrl",
-    "email_verified",
-    "phone_verified",
 ] as const;
 
 export const FORBIDDEN_AUTH_USER_METADATA_KEYS = [
@@ -34,42 +32,35 @@ function cleanString(value: unknown) {
 }
 
 export function sanitizeAuthUserMetadata(
-    metadata: Record<string, unknown> | null | undefined,
-): Record<string, string | boolean> {
-    const source = metadata || {};
+    input: Record<string, unknown> | null | undefined,
+): Record<string, string> {
+    const source = input || {};
+    const sanitized: Record<string, string> = {};
     const displayName = cleanString(source.displayName)
         || cleanString(source.display_name)
         || cleanString(source.full_name)
         || cleanString(source.name);
-    const role = cleanString(source.role)
+    const role = (cleanString(source.role)
         || cleanString(source.accountRole)
         || cleanString(source.account_type)
-        || "listener";
+        || "listener").toLowerCase();
     const avatarUrl = cleanString(source.avatarUrl) || cleanString(source.avatar_url);
 
-    const sanitized: Record<string, string | boolean> = {};
     if (displayName) {
         sanitized.displayName = displayName;
     }
     if (role) {
-        sanitized.role = role.toLowerCase();
+        sanitized.role = role;
     }
     if (avatarUrl) {
         sanitized.avatarUrl = avatarUrl;
-    }
-    if (typeof source.email_verified === "boolean") {
-        sanitized.email_verified = source.email_verified;
-    }
-    if (typeof source.phone_verified === "boolean") {
-        sanitized.phone_verified = source.phone_verified;
     }
     return sanitized;
 }
 
 export function buildSignupUserMetadata(input: { displayName: string }) {
-    const displayName = cleanString(input.displayName);
     return sanitizeAuthUserMetadata({
-        displayName,
+        displayName: input.displayName,
         role: "listener",
     });
 }
@@ -79,4 +70,14 @@ export function hasForbiddenAuthMetadata(metadata: Record<string, unknown> | nul
         return false;
     }
     return FORBIDDEN_AUTH_USER_METADATA_KEYS.some((key) => key in metadata);
+}
+
+export function authMetadataNeedsRepair(metadata: Record<string, unknown> | null | undefined) {
+    if (!metadata) {
+        return false;
+    }
+    if (hasForbiddenAuthMetadata(metadata)) {
+        return true;
+    }
+    return JSON.stringify(metadata).length > 1000;
 }

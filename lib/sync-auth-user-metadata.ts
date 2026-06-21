@@ -1,0 +1,96 @@
+import {
+    authMetadataNeedsRepair,
+    sanitizeAuthUserMetadata,
+} from "@/lib/auth-user-metadata";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+type ProfileRow = {
+    display_name: string | null;
+    account_type: string | null;
+    avatar_url: string | null;
+};
+
+function normalizeRole(value: unknown) {
+    const cleanValue = String(value || "").trim().toLowerCase();
+    if (cleanValue === "admin" || cleanValue === "producer" || cleanValue === "artist") {
+        return cleanValue;
+    }
+    return "listener";
+}
+
+async function loadProfileRow(supabase: SupabaseClient, userId: string) {
+    const { data } = await supabase
+        .from("profiles")
+        .select("display_name,account_type,avatar_url")
+        .or(`id.eq.${userId},user_id.eq.${userId}`)
+        .maybeSingle();
+    return (data || null) as ProfileRow | null;
+}
+
+export async function ensureProfileRow(
+    supabase: SupabaseClient,
+    userId: string,
+    patch: { displayName?: string; role?: string; avatarUrl?: string } = {},
+) {
+    const userResult = await supabase.auth.admin.getUserById(userId);
+    const email = userResult.data.user?.email || "";
+    const metadata = (userResult.data.user?.user_metadata || {}) as Record<string, unknown>;
+    const existing = await loadProfileRow(supabase, userId);
+    const displayName = patch.displayName
+        || existing?.display_name
+        || String(metadata.displayName || "").trim()
+        || email.split("@")[0]
+        || "Music Data Base user";
+    const role = normalizeRole(patch.role || existing?.account_type || metadata.role || metadata.accountRole);
+    const avatarUrl = patch.avatarUrl || existing?.avatar_url || String(metadata.avatarUrl || metadata.avatar_url || "").trim();
+
+    await supabase.from("profiles").upsert({
+        id: userId,
+        user_id: userId,
+        display_name: displayName,
+        account_type: role,
+        avatar_url: avatarUrl || null,
+        updated_at: new Date().toISOString(),
+    }, { onConflict: "id" });
+
+    return { displayName, role, avatarUrl };
+}
+
+export async function repairAuthUserMetadata(
+    supabase: SupabaseClient,
+    userId: string,
+    patch: { displayName?: string; role?: string; avatarUrl?: string } = {},
+) {
+    const userResult = await supabase.auth.admin.getUserById(userId);
+    const currentMetadata = (userResult.data.user?.user_metadata || {}) as Record<string, unknown>;
+    const profileFields = await ensureProfileRow(supabase, userId, patch);
+    const nextMetadata = sanitizeAuthUserMetadata({
+        displayName: patch.displayName || profileFields.displayName,
+        role: patch.role || profileFields.role,
+        avatarUrl: patch.avatarUrl || profileFields.avatarUrl,
+    });
+
+    const metadataChanged = authMetadataNeedsRepair(currentMetadata)
+        || JSON.stringify(currentMetadata) !== JSON.stringify(nextMetadata);
+
+    if (!metadataChanged) {
+        return {
+            repaired: false,
+            metadataChanged: false,
+            userMetadata: nextMetadata,
+        };
+    }
+
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: nextMetadata,
+    });
+    if (error) {
+        throw error;
+    }
+
+    return {
+        repaired: true,
+        metadataChanged: true,
+        userMetadata: nextMetadata,
+    };
+}

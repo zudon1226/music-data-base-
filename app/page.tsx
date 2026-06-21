@@ -5194,12 +5194,35 @@ export default function Page() {
             updatedAt: typeof playlist.updatedAt === "string" ? playlist.updatedAt : new Date().toISOString(),
         }));
     }
+    async function syncUserAuthProfile(userId: string, options: { displayName?: string; action?: "ensure" | "repair-auth-metadata" } = {}) {
+        if (!userId) {
+            return { metadataChanged: false };
+        }
+        const response = await authFetch(supabase, "/api/user-profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: options.action || "repair-auth-metadata",
+                userId,
+                displayName: options.displayName || "",
+            }),
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            metadataChanged?: boolean;
+            error?: string;
+        };
+        if (data.metadataChanged) {
+            await supabase.auth.refreshSession();
+        }
+        return data;
+    }
     async function reloadUserProfileFromSupabase(userIdOverride = "", emailOverride = "") {
         const profileUserId = userIdOverride || user?.id || "";
         if (!profileUserId) {
             setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
             return null;
         }
+        await syncUserAuthProfile(profileUserId).catch(() => undefined);
         const response = await authFetch(supabase, `/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             displayName?: string;
@@ -10046,16 +10069,6 @@ export default function Page() {
             else {
                 showToast(`${nextRole} account mode saved.`, "success");
             }
-            await authFetch(supabase, "/api/user-profile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "update",
-                    userId: user.id,
-                    role: nextRole.toLowerCase(),
-                    displayName: producerProfileForm.name.trim() || currentProducerProfile.name || getAccountDisplayName(),
-                }),
-            }).catch(() => undefined);
             await reloadUserProfileFromSupabase(user.id, user.email || "");
         }
         catch (error) {
@@ -12219,14 +12232,9 @@ export default function Page() {
             }
             const signedInUserId = response.data.session?.user?.id || response.data.user?.id || "";
             if (signedInUserId) {
-                await authFetch(supabase, "/api/user-profile", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        action: "ensure",
-                        userId: signedInUserId,
-                        displayName: signupDisplayName,
-                    }),
+                await syncUserAuthProfile(signedInUserId, {
+                    action: authMode === "signup" ? "ensure" : "repair-auth-metadata",
+                    displayName: signupDisplayName,
                 }).catch(() => undefined);
             }
             setAuthEmail("");
