@@ -1,7 +1,6 @@
 import { Buffer } from "node:buffer";
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { describeRouteAuth, getBearerToken } from "@/lib/request-auth";
+import { describeRouteAuth, resolveRequestUserId } from "@/lib/request-auth";
 import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked } from "@/lib/upload-lock";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
 import {
@@ -126,16 +125,6 @@ function getStorageSupabaseClient(request?: Request) {
     }
 }
 
-function getSupabaseAuthClient() {
-    const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "");
-    if (!anonKey) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
-    }
-    return createClient(SUPABASE_PROJECT_URL, anonKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-    });
-}
-
 type AuthSuccess = {
     ok: true;
     userId: string;
@@ -157,7 +146,6 @@ type AuthFailure = {
 async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: string[]): Promise<AuthSuccess | AuthFailure> {
     const claimedUserId = claimedUserIds.find((id) => id?.trim())?.trim() || "";
     const routeAuth = describeRouteAuth(request, "/api/video-upload", claimedUserId);
-    const token = getBearerToken(request);
     const serviceRoleEnv = describeServiceRoleEnv();
 
     console.log("[api/video-upload] SESSION STATUS", {
@@ -166,62 +154,48 @@ async function resolveAuthenticatedUploadUser(request: Request, claimedUserIds: 
         supabaseUrl: SUPABASE_PROJECT_URL,
     });
 
-    if (!token) {
+    const { userId, error } = await resolveRequestUserId(request);
+    if (!userId) {
         return {
             ok: false,
             status: 401,
-            error: "Missing Authorization header. Send Authorization: Bearer <session.access_token> from the logged-in Supabase session.",
-            details: { ...routeAuth, serviceRoleEnv, step: "bearer-token-missing" },
+            error: error || "Missing or invalid authorization token.",
+            details: { ...routeAuth, serviceRoleEnv, step: "auth-failed" },
         };
     }
 
-    const authClient = getSupabaseAuthClient();
-    const { data, error } = await authClient.auth.getUser(token);
-
-    console.log("[api/video-upload] AUTHENTICATED USER", {
-        authError: error?.message || null,
-        userId: data.user?.id || null,
-        email: data.user?.email || null,
-        bearerTokenLength: token.length,
-    });
-
-    if (error || !data.user?.id) {
-        return {
-            ok: false,
-            status: 401,
-            error: `Session verification failed: ${error?.message || "Supabase auth.getUser returned no user."}`,
-            details: {
-                ...routeAuth,
-                serviceRoleEnv,
-                supabaseAuthError: getErrorDetails(error),
-                step: "auth-get-user-failed",
-            },
-        };
-    }
-
-    const authUserId = data.user.id;
-    if (claimedUserId && claimedUserId !== authUserId) {
+    if (claimedUserId && claimedUserId !== userId) {
         return {
             ok: false,
             status: 403,
             error: "Request user id does not match the authenticated session user.",
             details: {
                 claimedUserId,
-                authUserId,
-                email: data.user.email || null,
+                authUserId: userId,
                 step: "user-id-mismatch",
             },
         };
     }
 
+    const supabase = getSupabaseServerClient();
+    const { data: userResult } = await supabase.auth.admin.getUserById(userId);
+    const email = userResult.user?.email || undefined;
+
+    console.log("[api/video-upload] AUTHENTICATED USER", {
+        userId,
+        email: email || null,
+        bearerTokenLength: routeAuth.bearerTokenLength,
+        refreshTokenPresent: routeAuth.refreshTokenPresent,
+    });
+
     return {
         ok: true,
-        userId: authUserId,
-        email: data.user.email,
+        userId,
+        email,
         session: {
-            hasBearerToken: true,
-            bearerTokenLength: token.length,
-            claimedUserId: claimedUserId || authUserId,
+            hasBearerToken: routeAuth.bearerTokenPresent,
+            bearerTokenLength: routeAuth.bearerTokenLength,
+            claimedUserId: claimedUserId || userId,
         },
     };
 }
@@ -424,33 +398,20 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
             return prepareStorageUploadResponse(400, payload);
         }
 
-        const token = getBearerToken(request);
-        if (!token) {
+        const claimedUserId = getRecordString(body, ["sessionUserId", "session_user_id", "userId", "user_id"]);
+        const auth = await resolveAuthenticatedUploadUser(request, [claimedUserId]);
+        if (!auth.ok) {
             const payload = buildPreparePayload(request, storagePath, {
                 ok: false,
-                step: "verify-authorization",
-                error: "Missing Authorization bearer token.",
+                step: String(auth.details.step || "verify-session"),
+                error: auth.error,
+                supabaseError: auth.details,
             });
             console.log("[api/video-upload] PREPARE FAILED", payload);
-            return prepareStorageUploadResponse(401, payload);
+            return prepareStorageUploadResponse(auth.status, payload);
         }
 
-        const authClient = getSupabaseAuthClient();
-        const { data: authData, error: authError } = await authClient.auth.getUser(token);
-
-        if (authError || !authData.user?.id) {
-            const payload = buildPreparePayload(request, storagePath, {
-                ok: false,
-                step: "verify-session",
-                error: authError?.message || "auth.getUser returned no user.",
-                supabaseError: getErrorDetails(authError),
-            });
-            console.log("[api/video-upload] PREPARE FAILED", payload);
-            return prepareStorageUploadResponse(401, payload);
-        }
-
-        const authUserId = authData.user.id;
-        const uploadLock = getUploadLockFailure(authData.user.email);
+        const uploadLock = getUploadLockFailure(auth.email);
         if (uploadLock) {
             const payload = buildPreparePayload(request, storagePath, {
                 ok: false,
@@ -460,17 +421,8 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
             console.log("[api/video-upload] PREPARE BLOCKED", payload);
             return prepareStorageUploadResponse(uploadLock.status, payload);
         }
-        const claimedUserId = getRecordString(body, ["sessionUserId", "session_user_id", "userId", "user_id"]);
-        if (claimedUserId && claimedUserId !== authUserId) {
-            const payload = buildPreparePayload(request, storagePath, {
-                ok: false,
-                step: "verify-user-id",
-                error: `Request userId ${claimedUserId} does not match session userId ${authUserId}.`,
-                userId: authUserId,
-            });
-            console.log("[api/video-upload] PREPARE FAILED", payload);
-            return prepareStorageUploadResponse(403, payload);
-        }
+
+        const authUserId = auth.userId;
 
         const storageFolder = storagePath.split("/")[0] || "";
         if (storageFolder !== authUserId) {
