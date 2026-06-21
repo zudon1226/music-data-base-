@@ -1,8 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { authMetadataNeedsRepair } from "@/lib/auth-user-metadata";
-import { readAccessTokenFromSession } from "@/lib/client-api-auth";
-import { getAuthSession, logoutAndClearAuth } from "@/lib/auth-session";
-import { isOversizedBearerToken } from "@/lib/session-token-limits";
+import { logoutAndClearAuth } from "@/lib/auth-session";
 import { UPLOAD_LOCK_OWNER_EMAIL } from "@/lib/upload-lock";
 
 export type RepairAuthSessionResult = {
@@ -13,35 +10,21 @@ export type RepairAuthSessionResult = {
     error?: string;
 };
 
-function sessionNeedsMetadataRepair(session: Session | null | undefined) {
-    const accessToken = readAccessTokenFromSession(session);
-    const metadata = (session?.user?.user_metadata || {}) as Record<string, unknown>;
-    return isOversizedBearerToken(accessToken) || authMetadataNeedsRepair(metadata);
-}
-
 export async function repairOversizedAuthSession(
     supabase: SupabaseClient,
     options: { email?: string; password?: string; userId?: string } = {},
 ): Promise<RepairAuthSessionResult> {
-    const { session } = await getAuthSession(supabase);
-    const userId = options.userId || session?.user?.id || "";
-    const email = String(options.email || session?.user?.email || "").trim().toLowerCase();
-
-    if (!userId || !email) {
-        return { repaired: false, metadataChanged: false, reauthenticated: false };
-    }
-    if (email !== UPLOAD_LOCK_OWNER_EMAIL.toLowerCase()) {
-        return { repaired: false, metadataChanged: false, reauthenticated: false };
-    }
-    if (!sessionNeedsMetadataRepair(session)) {
+    const email = String(options.email || "").trim().toLowerCase();
+    if (!email || email !== UPLOAD_LOCK_OWNER_EMAIL.toLowerCase()) {
         return { repaired: false, metadataChanged: false, reauthenticated: false };
     }
 
     const response = await fetch("/api/auth/repair-metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, userId }),
+        body: JSON.stringify({ email }),
         credentials: "omit",
+        cache: "no-store",
     });
     const data = (await response.json().catch(() => ({}))) as {
         metadataChanged?: boolean;
@@ -53,9 +36,10 @@ export async function repairOversizedAuthSession(
             repaired: false,
             metadataChanged: false,
             reauthenticated: false,
-            error: data.error || response.statusText,
+            error: data.error || response.statusText || `Repair failed (${response.status}).`,
         };
     }
+
     if (!data.metadataChanged) {
         return {
             repaired: Boolean(data.repaired),

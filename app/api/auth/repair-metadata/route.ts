@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { findAdminUserByEmail } from "@/lib/admin-auth-users";
 import { authMetadataNeedsRepair } from "@/lib/auth-user-metadata";
 import {
     getErrorMessage,
     getSupabaseServerClient,
-    isPlatformOwnerEmail,
-    isUuid,
+    PLATFORM_OWNER_EMAIL,
 } from "@/lib/server-supabase";
 import { repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
 
@@ -15,35 +15,38 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
 
+export async function GET() {
+    return jsonResponse({
+        ok: true,
+        route: "/api/auth/repair-metadata",
+        methods: ["POST"],
+        ownerEmail: PLATFORM_OWNER_EMAIL,
+    });
+}
+
 export async function POST(request: Request) {
     try {
         const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-        const email = String(body.email || "").trim().toLowerCase();
-        const userId = String(body.userId || "").trim();
+        const email = String(body.email || PLATFORM_OWNER_EMAIL).trim().toLowerCase();
 
-        if (!email || !isPlatformOwnerEmail(email)) {
+        if (email !== PLATFORM_OWNER_EMAIL) {
             return jsonResponse({ error: "Auth metadata repair is limited to the platform owner account." }, 403);
-        }
-        if (!userId || !isUuid(userId)) {
-            return jsonResponse({ error: "Valid userId is required." }, 400);
         }
 
         const supabase = getSupabaseServerClient();
-        const userResult = await supabase.auth.admin.getUserById(userId);
-        const authUser = userResult.data.user;
-        if (userResult.error || !authUser) {
-            return jsonResponse({ error: getErrorMessage(userResult.error || "User not found.") }, 404);
-        }
-        if (String(authUser.email || "").trim().toLowerCase() !== email) {
-            return jsonResponse({ error: "User id does not match the owner email." }, 403);
+        const authUser = await findAdminUserByEmail(supabase, email);
+        if (!authUser?.id) {
+            return jsonResponse({ error: "Owner account not found." }, 404);
         }
 
+        const userId = authUser.id;
         const currentMetadata = (authUser.user_metadata || {}) as Record<string, unknown>;
         if (!authMetadataNeedsRepair(currentMetadata)) {
             return jsonResponse({
                 ok: true,
                 repaired: false,
                 metadataChanged: false,
+                userId,
                 userMetadata: currentMetadata,
             });
         }
@@ -53,6 +56,7 @@ export async function POST(request: Request) {
             ok: true,
             repaired: repairResult.repaired,
             metadataChanged: repairResult.metadataChanged,
+            userId,
             userMetadata: repairResult.userMetadata,
         });
     }
