@@ -1,5 +1,5 @@
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
-import { requireMatchingUserId } from "@/lib/request-auth";
+import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { ensureProfileRow, repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
 import { NextResponse } from "next/server";
 
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Valid userId is required." }, 400);
         }
-        const auth = await requireMatchingUserId(request, "/api/user-profile", userId);
+        const auth = await requireMatchingUserId(request, "/api/user-profile", userId, getSessionTokensFromRecord(body));
         if (!auth.ok) {
             return jsonResponse({ error: auth.error }, auth.status);
         }

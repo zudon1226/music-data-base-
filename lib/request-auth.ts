@@ -1,9 +1,27 @@
 import { createClient } from "@supabase/supabase-js";
-import { resolveSupabaseLoginUrl, SUPABASE_PROJECT_URL } from "./supabase-config";
+import { SUPABASE_PROJECT_URL } from "./supabase-config";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
 
 export const REFRESH_TOKEN_BODY_KEYS = ["refreshToken", "sessionRefreshToken", "refresh_token"] as const;
 export const ACCESS_TOKEN_BODY_KEYS = ["accessToken", "sessionAccessToken", "access_token"] as const;
+
+const REFRESH_TOKEN_QUERY_KEYS = ["refreshToken", "sessionRefreshToken", "refresh_token"] as const;
+const ACCESS_TOKEN_QUERY_KEYS = ["accessToken", "sessionAccessToken", "access_token"] as const;
+
+function stripEnvQuotes(value: string) {
+    return value.trim().replace(/^["']|["']$/g, "");
+}
+
+function readQueryToken(request: Request, keys: readonly string[]) {
+    const url = new URL(request.url);
+    for (const key of keys) {
+        const value = url.searchParams.get(key)?.trim();
+        if (value) {
+            return value;
+        }
+    }
+    return "";
+}
 
 export function getBearerToken(request: Request) {
     const authorization = request.headers.get("authorization") || "";
@@ -14,16 +32,45 @@ export function getBearerToken(request: Request) {
     return token.trim();
 }
 
+export function getRecordString(record: Record<string, unknown>, keys: readonly string[], fallback = "") {
+    for (const key of keys) {
+        const value = record[key];
+        if (typeof value === "string" && value.trim()) {
+            return value.trim();
+        }
+    }
+    return fallback;
+}
+
+export function getSessionTokensFromRecord(record: Record<string, unknown>) {
+    return {
+        refreshToken: getRecordString(record, REFRESH_TOKEN_BODY_KEYS),
+        accessToken: getRecordString(record, ACCESS_TOKEN_BODY_KEYS),
+    };
+}
+
 export function getAccessTokenFromRequest(request: Request, bodyAccessToken = "") {
     const headerToken = getBearerToken(request);
-    const bodyToken = String(bodyAccessToken || "").trim();
-    return headerToken || bodyToken;
+    if (headerToken) {
+        return headerToken;
+    }
+    const queryToken = readQueryToken(request, ACCESS_TOKEN_QUERY_KEYS);
+    if (queryToken) {
+        return queryToken;
+    }
+    return String(bodyAccessToken || "").trim();
 }
 
 export function getRefreshTokenFromRequest(request: Request, bodyRefreshToken = "") {
     const headerToken = request.headers.get(SUPABASE_REFRESH_TOKEN_HEADER)?.trim() || "";
-    const bodyToken = String(bodyRefreshToken || "").trim();
-    return headerToken || bodyToken;
+    if (headerToken) {
+        return headerToken;
+    }
+    const queryToken = readQueryToken(request, REFRESH_TOKEN_QUERY_KEYS);
+    if (queryToken) {
+        return queryToken;
+    }
+    return String(bodyRefreshToken || "").trim();
 }
 
 export function describeRouteAuth(
@@ -64,18 +111,11 @@ export function logRouteAuth(
 }
 
 function getUserAuthClient() {
-    const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "");
+    const anonKey = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
     if (!anonKey) {
         throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
     }
-    let supabaseUrl = SUPABASE_PROJECT_URL;
-    try {
-        supabaseUrl = resolveSupabaseLoginUrl();
-    }
-    catch {
-        // Keep hardcoded project URL when env URL is unavailable.
-    }
-    return createClient(supabaseUrl, anonKey, {
+    return createClient(SUPABASE_PROJECT_URL, anonKey, {
         auth: { autoRefreshToken: false, persistSession: false },
     });
 }
@@ -108,12 +148,37 @@ async function verifyAccessTokenUserId(accessToken: string) {
     return { userId: data.user.id, error: "" };
 }
 
+async function readJsonBodySessionTokens(request: Request) {
+    const contentType = (request.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("application/json")) {
+        return { accessToken: "", refreshToken: "" };
+    }
+    try {
+        const body = await request.clone().json() as Record<string, unknown>;
+        return getSessionTokensFromRecord(body);
+    }
+    catch {
+        return { accessToken: "", refreshToken: "" };
+    }
+}
+
 export async function resolveRequestUserId(
     request: Request,
     options: { refreshToken?: string; accessToken?: string } = {},
 ) {
-    const refreshToken = getRefreshTokenFromRequest(request, options.refreshToken);
-    const accessToken = getAccessTokenFromRequest(request, options.accessToken);
+    let accessToken = getAccessTokenFromRequest(request, options.accessToken);
+    let refreshToken = getRefreshTokenFromRequest(request, options.refreshToken);
+
+    if (!accessToken || !refreshToken) {
+        const bodyTokens = await readJsonBodySessionTokens(request);
+        if (!accessToken) {
+            accessToken = bodyTokens.accessToken;
+        }
+        if (!refreshToken) {
+            refreshToken = bodyTokens.refreshToken;
+        }
+    }
+
     let lastError = "Missing or invalid authorization token.";
 
     if (accessToken && !isOversizedBearerToken(accessToken)) {
@@ -148,7 +213,6 @@ export async function requireMatchingUserId(
     claimedUserId: string,
     options: { refreshToken?: string; accessToken?: string } = {},
 ) {
-    logRouteAuth(request, route, claimedUserId, options.refreshToken || "", options.accessToken || "");
     const cleanUserId = claimedUserId.trim();
     if (!cleanUserId) {
         return { ok: false as const, status: 401, error: "Missing user id." };

@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
-import { ACCESS_TOKEN_BODY_KEYS, getAccessTokenFromRequest, REFRESH_TOKEN_BODY_KEYS, requireMatchingUserId } from "@/lib/request-auth";
+import { ACCESS_TOKEN_BODY_KEYS, getAccessTokenFromRequest, getSessionTokensFromRecord, REFRESH_TOKEN_BODY_KEYS, requireMatchingUserId } from "@/lib/request-auth";
 import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked, UPLOAD_LOCK_OWNER_EMAIL } from "@/lib/upload-lock";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
 import {
@@ -211,13 +211,6 @@ async function requireAuthenticatedUploadUser(
     const accessToken = getAccessTokenFromRequest(request, sessionTokens.accessToken || "");
     const email = await lookupUploadUserEmail(auth.userId, accessToken);
     return { ok: true, userId: auth.userId, email };
-}
-
-function getSessionTokensFromRecord(record: Record<string, unknown>) {
-    return {
-        refreshToken: getRecordString(record, [...REFRESH_TOKEN_BODY_KEYS]),
-        accessToken: getRecordString(record, [...ACCESS_TOKEN_BODY_KEYS]),
-    };
 }
 
 function getSessionTokensFromFormData(formData: FormData) {

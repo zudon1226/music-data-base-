@@ -17,8 +17,26 @@ function readRefreshTokenFromSession(session: Session | null | undefined) {
     return typeof session?.refresh_token === "string" ? session.refresh_token : "";
 }
 
+function isAccessTokenExpired(session: Session | null | undefined) {
+    const expiresAt = session?.expires_at;
+    if (!expiresAt) {
+        return false;
+    }
+    return expiresAt * 1000 <= Date.now() + 15_000;
+}
+
 async function readSessionAccessToken(supabase: SupabaseClient) {
-    const { session, error } = await getAuthSession(supabase);
+    let { session, error } = await getAuthSession(supabase);
+    const shouldRefresh = Boolean(session?.refresh_token)
+        && (isAccessTokenExpired(session) || isOversizedBearerToken(readAccessTokenFromSession(session)));
+    if (shouldRefresh) {
+        const { data, error: refreshError } = await supabase.auth.refreshSession();
+        if (data.session) {
+            session = data.session;
+            error = refreshError ?? null;
+        }
+    }
+
     const accessToken = readAccessTokenFromSession(session);
     const refreshToken = readRefreshTokenFromSession(session);
     return {
@@ -61,9 +79,6 @@ function buildAuthHeaders(init: RequestInit | undefined, accessToken: string, re
     }
     if (refreshToken) {
         headers.set(SUPABASE_REFRESH_TOKEN_HEADER, refreshToken);
-    }
-    if (!bearerIsUsable && !refreshToken && accessToken) {
-        headers.set("Authorization", `Bearer ${accessToken}`);
     }
     return headers;
 }
@@ -110,6 +125,29 @@ function attachSessionTokensToBody(
     return body;
 }
 
+function appendSessionTokensToUrl(
+    input: RequestInfo | URL,
+    accessToken: string,
+    refreshToken: string,
+) {
+    if (typeof window === "undefined") {
+        return input;
+    }
+    const base = typeof input === "string"
+        ? input
+        : input instanceof URL
+            ? input.href
+            : input.url;
+    const url = new URL(base, window.location.origin);
+    if (refreshToken && !url.searchParams.has(REFRESH_TOKEN_BODY_FIELD)) {
+        url.searchParams.set(REFRESH_TOKEN_BODY_FIELD, refreshToken);
+    }
+    if (accessToken && !isOversizedBearerToken(accessToken) && !url.searchParams.has(ACCESS_TOKEN_BODY_FIELD)) {
+        url.searchParams.set(ACCESS_TOKEN_BODY_FIELD, accessToken);
+    }
+    return url.toString();
+}
+
 export async function authFetch(
     supabase: SupabaseClient,
     input: RequestInfo | URL,
@@ -125,7 +163,8 @@ export async function authFetch(
 
     const headers = buildAuthHeaders(init, accessToken, refreshToken);
     const body = attachSessionTokensToBody(init.body ?? null, accessToken, refreshToken);
-    return fetch(input, {
+    const requestUrl = appendSessionTokensToUrl(input, accessToken, refreshToken);
+    return fetch(requestUrl, {
         method: init.method,
         body,
         cache: init.cache,
