@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logRouteAuth, requireMatchingUserId } from "@/lib/request-auth";
+import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { getSupabaseLibraryClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -405,9 +405,9 @@ export async function GET(request: Request) {
         const recentUserId = getString(requestUrl.searchParams.get("userId"));
         logRouteAuth(request, "/api/albums", recentUserId);
         if (recentUserId) {
-            const auth = await requireMatchingUserId(request, "/api/albums", recentUserId);
+            const auth = await optionalMatchingUserId(request, recentUserId);
             if (!auth.ok) {
-                return jsonResponse({ error: auth.error, albums: [], recentAlbums: [] }, auth.status);
+                return jsonResponse({ albums: [], recentAlbums: [] });
             }
         }
         const supabase = getSupabaseServerClient();

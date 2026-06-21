@@ -226,3 +226,20 @@ export async function requireMatchingUserId(
     }
     return { ok: true as const, userId };
 }
+
+/** Read routes: verify session when present, but never surface 401 to the client. */
+export async function optionalMatchingUserId(
+    request: Request,
+    claimedUserId: string,
+    options: { refreshToken?: string; accessToken?: string } = {},
+) {
+    const cleanUserId = claimedUserId.trim();
+    if (!cleanUserId) {
+        return { ok: false as const, userId: "" };
+    }
+    const { userId } = await resolveRequestUserId(request, options);
+    if (!userId || userId !== cleanUserId) {
+        return { ok: false as const, userId: "" };
+    }
+    return { ok: true as const, userId };
+}

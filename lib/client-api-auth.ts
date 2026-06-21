@@ -5,6 +5,11 @@ import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session
 
 export const ACCESS_TOKEN_SOURCE = "supabase.auth.getSession().session.access_token";
 
+export type AuthFetchInit = RequestInit & {
+    /** When true, missing session tokens throw. Use for uploads and writes only. */
+    requireSession?: boolean;
+};
+
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
 const REFRESH_TOKEN_BODY_FIELD = REFRESH_TOKEN_BODY_KEYS[0];
 const ACCESS_TOKEN_BODY_FIELD = ACCESS_TOKEN_BODY_KEYS[0];
@@ -25,15 +30,23 @@ function isAccessTokenExpired(session: Session | null | undefined) {
     return expiresAt * 1000 <= Date.now() + 15_000;
 }
 
-async function readSessionAccessToken(supabase: SupabaseClient) {
+async function readSessionAccessToken(
+    supabase: SupabaseClient,
+    options: { allowRefresh?: boolean } = {},
+) {
     let { session, error } = await getAuthSession(supabase);
-    const shouldRefresh = Boolean(session?.refresh_token)
+    const shouldRefresh = Boolean(options.allowRefresh && session?.refresh_token)
         && (isAccessTokenExpired(session) || isOversizedBearerToken(readAccessTokenFromSession(session)));
+
     if (shouldRefresh) {
-        const { data, error: refreshError } = await supabase.auth.refreshSession();
-        if (data.session) {
-            session = data.session;
-            error = refreshError ?? null;
+        try {
+            const { data } = await supabase.auth.refreshSession();
+            if (data.session) {
+                session = data.session;
+            }
+        }
+        catch {
+            // Keep the existing session; failed refresh must not sign the user out.
         }
     }
 
@@ -151,27 +164,37 @@ function appendSessionTokensToUrl(
 export async function authFetch(
     supabase: SupabaseClient,
     input: RequestInfo | URL,
-    init: RequestInit = {},
+    init: AuthFetchInit = {},
 ) {
-    const { accessToken, refreshToken, error } = await readSessionAccessToken(supabase);
+    const { requireSession = false, ...fetchInit } = init;
+    const { accessToken, refreshToken, error } = await readSessionAccessToken(supabase, {
+        allowRefresh: requireSession,
+    });
+
     if (!accessToken && !refreshToken) {
-        throw new Error(
-            error?.message
-                || `Missing session access_token from ${ACCESS_TOKEN_SOURCE}. Sign in again.`,
-        );
+        if (requireSession) {
+            throw new Error(
+                error?.message
+                    || `Missing session access_token from ${ACCESS_TOKEN_SOURCE}. Sign in again.`,
+            );
+        }
+        return fetch(input, {
+            ...fetchInit,
+            credentials: "omit",
+        });
     }
 
-    const headers = buildAuthHeaders(init, accessToken, refreshToken);
-    const body = attachSessionTokensToBody(init.body ?? null, accessToken, refreshToken);
+    const headers = buildAuthHeaders(fetchInit, accessToken, refreshToken);
+    const body = attachSessionTokensToBody(fetchInit.body ?? null, accessToken, refreshToken);
     const requestUrl = appendSessionTokensToUrl(input, accessToken, refreshToken);
     return fetch(requestUrl, {
-        method: init.method,
+        method: fetchInit.method,
         body,
-        cache: init.cache,
-        signal: init.signal,
-        referrer: init.referrer,
-        mode: init.mode,
-        redirect: init.redirect,
+        cache: fetchInit.cache,
+        signal: fetchInit.signal,
+        referrer: fetchInit.referrer,
+        mode: fetchInit.mode,
+        redirect: fetchInit.redirect,
         headers,
         credentials: "omit",
     });

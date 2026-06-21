@@ -1,5 +1,5 @@
 import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
-import { requireMatchingUserId } from "@/lib/request-auth";
+import { optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,15 +23,14 @@ export async function GET(request: Request) {
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ libraryIds: [], recentlyPlayed: [], playlists: [], activePlaylistId: "" });
         }
-        const auth = await requireMatchingUserId(request, "/api/user-music-state", userId);
+        const auth = await optionalMatchingUserId(request, userId);
         if (!auth.ok) {
             return jsonResponse({
-                error: auth.error,
                 libraryIds: [],
                 recentlyPlayed: [],
                 playlists: [],
                 activePlaylistId: "",
-            }, auth.status);
+            });
         }
         const supabase = getSupabaseLibraryClient();
         const { data, error } = await supabase

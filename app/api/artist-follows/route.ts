@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logRouteAuth, requireMatchingUserId } from "@/lib/request-auth";
+import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,9 +70,9 @@ export async function GET(request: Request) {
             logRouteAuth(request, "/api/artist-follows");
             return jsonResponse({ follows: [], followerCounts: {}, error: "Missing or invalid user_id." }, 200);
         }
-        const auth = await requireMatchingUserId(request, "/api/artist-follows", userId);
+        const auth = await optionalMatchingUserId(request, userId);
         if (!auth.ok) {
-            return jsonResponse({ follows: [], followerCounts: {}, error: auth.error }, auth.status);
+            return jsonResponse({ follows: [], followerCounts: {} });
         }
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase

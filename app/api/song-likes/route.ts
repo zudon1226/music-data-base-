@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logRouteAuth, requireMatchingUserId } from "@/lib/request-auth";
+import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,9 +48,9 @@ export async function GET(request: Request) {
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId))
             return jsonResponse({ likedSongIds: [] });
-        const auth = await requireMatchingUserId(request, "/api/song-likes", userId);
+        const auth = await optionalMatchingUserId(request, userId);
         if (!auth.ok) {
-            return jsonResponse({ error: auth.error, likedSongIds: [] }, auth.status);
+            return jsonResponse({ likedSongIds: [] });
         }
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase
