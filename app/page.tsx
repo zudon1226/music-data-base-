@@ -12,6 +12,7 @@ import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
+import { resolveSongStoragePath } from "../lib/song-storage-path";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "../lib/session-token-limits";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -2500,7 +2501,7 @@ function mapSongRowToSong(row: SongTableRow): Song {
         cover,
         avatar: getArtworkUrl(row.avatar_url || cover),
         audio: row.audio_url || "",
-        audioPath: row.storage_path || "",
+        audioPath: resolveSongStoragePath(row.storage_path, row.audio_url),
         ownerId: row.user_id || "",
         albumId: row.album_id || "",
     };
@@ -2580,24 +2581,20 @@ function isPublicAudioUrl(value: string) {
     }
 }
 function getAudioPlaybackUrl(song: Song | null | undefined) {
-    if (!song?.audio)
+    if (!song)
         return "";
-    if (song.audioPath) {
-        return `/api/audio?path=${encodeURIComponent(song.audioPath)}`;
-    }
-    try {
-        const url = new URL(song.audio);
-        const marker = "/storage/v1/object/public/songs/";
-        const markerIndex = url.href.indexOf(marker);
-        if (markerIndex >= 0) {
-            const storagePath = decodeURIComponent(url.href.slice(markerIndex + marker.length));
-            return `/api/audio?path=${encodeURIComponent(storagePath)}`;
+    const storagePath = resolveSongStoragePath(song.audioPath, song.audio);
+    if (storagePath) {
+        const params = new URLSearchParams({ path: storagePath });
+        if (isDatabaseUuid(song.id)) {
+            params.set("songId", song.id);
         }
+        return `/api/audio?${params.toString()}`;
     }
-    catch {
+    if (song.audio && isPublicAudioUrl(song.audio)) {
         return song.audio;
     }
-    return song.audio;
+    return "";
 }
 function getAudioFileError(file: File | null) {
     if (!file)
