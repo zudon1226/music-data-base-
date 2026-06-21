@@ -1,6 +1,10 @@
 export const UPLOAD_LOCK_MESSAGE =
     "Uploads are temporarily disabled while Music Data Base is under construction.";
 
+export const UPLOAD_LOCK_OWNER_EMAIL = "zudon1226@gmail.com";
+
+const BUILT_IN_UPLOAD_ALLOWED_EMAILS = [UPLOAD_LOCK_OWNER_EMAIL];
+
 function parseTruthyFlag(value: string | undefined) {
     const normalized = (value || "").trim().toLowerCase();
     return normalized === "true" || normalized === "1" || normalized === "yes";
@@ -11,10 +15,11 @@ export function areUploadsLocked() {
 }
 
 export function getUploadAllowedEmails() {
-    return (process.env.NEXT_PUBLIC_UPLOAD_ALLOWED_EMAILS || "")
+    const configured = (process.env.NEXT_PUBLIC_UPLOAD_ALLOWED_EMAILS || "")
         .split(",")
         .map((email) => email.trim().toLowerCase())
         .filter(Boolean);
+    return [...new Set([...BUILT_IN_UPLOAD_ALLOWED_EMAILS, ...configured])];
 }
 
 export function canUserUpload(email: string | null | undefined) {

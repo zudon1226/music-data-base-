@@ -7,6 +7,7 @@ import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, 
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
+import { repairOversizedAuthSession } from "../lib/repair-auth-session";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
@@ -4739,10 +4740,10 @@ export default function Page() {
     );
     const accountUserId = activeUser?.id || "";
     const uploadsBlockedForCurrentUser = useMemo(
-        () => isUploadBlockedForEmail(activeUser?.email),
+        () => isPlatformOwnerEmail(activeUser?.email) ? false : isUploadBlockedForEmail(activeUser?.email),
         [activeUser?.email],
     );
-    const isPlatformOwner = isPlatformOwnerEmail(user?.email);
+    const isPlatformOwner = isPlatformOwnerEmail(activeUser?.email);
     useEffect(() => {
         if (authLoading)
             return;
@@ -4911,7 +4912,10 @@ export default function Page() {
             if (isPlatformOwnerEmail(sessionUser.email)) {
                 setAccountRole("Listener");
             }
-            void reloadUserProfileFromSupabase(sessionUser.id, sessionUser.email || "");
+            void (async () => {
+                await repairOversizedAuthSession(supabase).catch(() => undefined);
+                await reloadUserProfileFromSupabase(sessionUser.id, sessionUser.email || "");
+            })();
         }
 
         setAuthLoading(true);
@@ -12296,6 +12300,7 @@ export default function Page() {
                 setAuthSession(signedInSession);
                 setUser(signedInSession.user);
             }
+            await repairOversizedAuthSession(supabase).catch(() => undefined);
             if (signedInUser?.id) {
                 await syncUserAuthProfile(signedInUser.id, {
                     action: authMode === "signup" ? "ensure" : "repair-auth-metadata",
