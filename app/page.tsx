@@ -7,7 +7,7 @@ import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, 
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession } from "../lib/client-api-auth";
-import { repairOversizedAuthSession } from "../lib/repair-auth-session";
+import { repairOversizedAuthSession, type RepairAuthSessionResult } from "../lib/repair-auth-session";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
@@ -4910,15 +4910,32 @@ export default function Page() {
             if (!sessionUser) {
                 return;
             }
-            persistedAuthUserRef.current = sessionUser;
-            setAuthSession(session);
-            setUser(sessionUser);
             if (isPlatformOwnerEmail(sessionUser.email)) {
                 setAccountRole("Listener");
             }
             void (async () => {
-                await repairOversizedAuthSession(supabase).catch(() => undefined);
-                await reloadUserProfileFromSupabase(sessionUser.id, sessionUser.email || "").catch(() => undefined);
+                const repairResult = await repairOversizedAuthSession(supabase, {
+                    email: sessionUser.email || "",
+                    userId: sessionUser.id,
+                }).catch((): RepairAuthSessionResult => ({
+                    repaired: false,
+                    metadataChanged: false,
+                    reauthenticated: false,
+                }));
+                if (repairResult.metadataChanged && !repairResult.reauthenticated) {
+                    persistedAuthUserRef.current = null;
+                    setAuthSession(null);
+                    setUser(null);
+                    return;
+                }
+                const activeSession = repairResult.reauthenticated && repairResult.session
+                    ? repairResult.session
+                    : session;
+                const activeUser = activeSession?.user || sessionUser;
+                persistedAuthUserRef.current = activeUser;
+                setAuthSession(activeSession);
+                setUser(activeUser);
+                await reloadUserProfileFromSupabase(activeUser.id, activeUser.email || "").catch(() => undefined);
             })();
         }
 
@@ -5245,7 +5262,7 @@ export default function Page() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                action: options.action || "repair-auth-metadata",
+                action: options.action || "ensure",
                 userId,
                 displayName: options.displayName || "",
             }),
@@ -12350,26 +12367,56 @@ export default function Page() {
             }
             const signedInSession = response.data.session;
             const signedInUser = signedInSession?.user || response.data.user || null;
-            if (signedInSession?.user) {
-                persistedAuthUserRef.current = signedInSession.user;
-                setAuthSession(signedInSession);
-                setUser(signedInSession.user);
+            const repairResult = await repairOversizedAuthSession(supabase, {
+                email,
+                password,
+                userId: signedInUser?.id || "",
+            }).catch((): RepairAuthSessionResult => ({
+                repaired: false,
+                metadataChanged: false,
+                reauthenticated: false,
+            }));
+
+            const activeSession = repairResult.reauthenticated && repairResult.session
+                ? repairResult.session
+                : signedInSession;
+            const activeUser = activeSession?.user || signedInUser;
+
+            if (repairResult.metadataChanged && !repairResult.reauthenticated) {
+                persistedAuthUserRef.current = null;
+                setAuthSession(null);
+                setUser(null);
+                setAuthMessage("Auth metadata repaired. Sign in again with your password.");
+                return;
             }
-            else if (signedInUser) {
-                persistedAuthUserRef.current = signedInUser;
-                setUser(signedInUser);
+
+            if (activeUser) {
+                persistedAuthUserRef.current = activeUser;
+                if (activeSession?.user) {
+                    setAuthSession(activeSession);
+                    setUser(activeSession.user);
+                }
+                else {
+                    setUser(activeUser);
+                }
             }
-            await repairOversizedAuthSession(supabase).catch(() => undefined);
-            if (signedInUser?.id) {
-                await syncUserAuthProfile(signedInUser.id, {
-                    action: authMode === "signup" ? "ensure" : "repair-auth-metadata",
+
+            if (activeUser?.id) {
+                await syncUserAuthProfile(activeUser.id, {
+                    action: "ensure",
                     displayName: signupDisplayName,
                 }).catch(() => undefined);
             }
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
-            setAuthMessage(authMode === "signup" ? "Account created. Your music is now saved." : "Welcome back.");
+            setAuthMessage(
+                repairResult.metadataChanged && repairResult.reauthenticated
+                    ? "Welcome back. Your account metadata was repaired and your session was refreshed."
+                    : authMode === "signup"
+                        ? "Account created. Your music is now saved."
+                        : "Welcome back.",
+            );
             setView("Home");
         }
         catch (error) {
