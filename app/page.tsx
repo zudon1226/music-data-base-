@@ -13,6 +13,7 @@ import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
+import { applyLibraryCacheToState, clearLibraryCache, readLibraryCache, serializeLibraryCache, writeLibraryCache } from "../lib/library-storage";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "../lib/session-token-limits";
 import { supabase } from "../lib/supabase";
 type Song = {
@@ -835,8 +836,8 @@ type InitialDataReloadActions = {
     reloadSongLibrary: () => Promise<Song[]>;
     reloadVideoLibrary: () => Promise<VideoItem[]>;
     reloadUserMusicState: (availableSongs?: Song[], availableVideos?: VideoItem[]) => Promise<unknown>;
-    reloadLibrarySaves: () => Promise<unknown>;
-    reloadPlaylists: () => Promise<unknown>;
+    reloadLibrarySaves: (userIdOverride?: string) => Promise<unknown>;
+    reloadPlaylists: (userIdOverride?: string) => Promise<unknown>;
     reloadProducerData: () => Promise<unknown>;
     reloadAlbums: () => Promise<unknown>;
     reloadArtistFollows: () => Promise<unknown>;
@@ -1131,7 +1132,7 @@ function normalizeRecentForSongs(savedRecent: unknown, availableSongs: Song[], a
             duration: Math.max(0, Number(entry.duration) || 0),
         };
     })
-        .filter((entry) => Boolean((entry.itemType === "video" && entry.video) || (entry.itemType === "album" && entry.album) || (entry.itemType === "song" && entry.song)))
+        .filter((entry) => Boolean(entry.itemId || entry.songId))
         .slice(0, 100);
 }
 function getTrendingPeriodWeight(uploaded: string | undefined, period: TrendingPeriod) {
@@ -2187,6 +2188,13 @@ function normalizeVideoForPlayback(video: VideoItem | Record<string, unknown>) {
     return normalizeVideo(video);
 }
 function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | undefined) {
+    const storedCompatibility = getStoredMobileCompatibility(video);
+    if (storedCompatibility === false) {
+        return true;
+    }
+    if (storedCompatibility === true) {
+        return false;
+    }
     const videoCodec = String(video?.videoCodec || video?.video_codec || "").trim().toLowerCase();
     const audioCodec = String(video?.audioCodec || video?.audio_codec || "").trim().toLowerCase();
     if (videoCodec || audioCodec) {
@@ -2221,8 +2229,15 @@ function getPlaylistTypeFromRecord(record: Record<string, unknown>): PlaylistTyp
         return "song";
     return "mixed";
 }
+function sanitizePlaylistMediaIds(playlist: Playlist) {
+    return {
+        ...playlist,
+        songIds: uniqueIds(playlist.songIds).filter((id) => isDatabaseUuid(id)),
+        videoIds: uniqueIds(playlist.videoIds).filter((id) => isDatabaseUuid(id) && !id.startsWith("storage-")),
+    };
+}
 function normalizePlaylistMediaByType(playlist: Playlist): Playlist {
-    return playlist;
+    return sanitizePlaylistMediaIds(playlist);
 }
 function getPlaylistSummary(playlist: Playlist) {
     const songLabel = `${playlist.songIds.length} Song${playlist.songIds.length === 1 ? "" : "s"}`;
@@ -4623,7 +4638,14 @@ export default function Page() {
         setProgress(0);
         setVideoProgress(0);
         setActiveVideo(null);
+        setLibraryIds([]);
+        setSavedVideoIds([]);
         setSavedAlbumIds([]);
+        setPlaylists([]);
+        setActivePlaylistId("");
+        clearLibraryCache();
+        initialDataLoadedKeyRef.current = "";
+        initialDataLoadInFlightKeyRef.current = "";
         setAlbums([]);
         setNotifications([]);
         setCommentsByItem({});
@@ -4707,7 +4729,6 @@ export default function Page() {
             const savedSalesCart = readJson<SalesCartItem[] | null>(STORAGE_KEYS.salesCart, null);
             const savedPurchaseHistory = readJson<PurchaseHistoryItem[] | null>(STORAGE_KEYS.purchaseHistory, null);
             const savedDownloadVault = readJson<DownloadVaultItem[] | null>(STORAGE_KEYS.downloadVault, null);
-            const rawLibraryIds = uniqueIds(readJson<unknown>(STORAGE_KEYS.library, []));
             const cleanPlaylists = Array.isArray(savedPlaylists) && savedPlaylists.length > 0
                 ? savedPlaylists
                     .filter((playlist) => playlist?.id && playlist?.name)
@@ -4722,14 +4743,14 @@ export default function Page() {
                     updatedAt: playlist.updatedAt || new Date().toISOString(),
                 }))
                 : [];
+            setSongs(loadedSongs);
+            setVideos(loadedVideos);
+            setLibraryIds([]);
+            setSavedVideoIds([]);
+            setSavedAlbumIds([]);
             const savedCurrentId = localStorage.getItem(STORAGE_KEYS.current);
             const savedActivePlaylistId = localStorage.getItem(STORAGE_KEYS.activePlaylist) || "";
             const cleanCurrent = songMap.get(savedCurrentId || "") || loadedSongs[2] || loadedSongs[0] || DEFAULT_SONGS[0];
-            setSongs(loadedSongs);
-            setVideos(loadedVideos);
-            setLibraryIds(rawLibraryIds.filter((id) => songMap.has(id)));
-            setSavedVideoIds(rawLibraryIds.filter((id) => !songMap.has(id)));
-            setSavedAlbumIds([]);
             setLikedIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.liked, [])).filter((id) => songMap.has(id)));
             setFollowedIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.followed, [])).filter((id) => songMap.has(id)));
             setFollowedArtistIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.followedArtists, [])).filter((id) => cleanArtists.some((artist) => artist.id === id)));
@@ -5058,10 +5079,19 @@ export default function Page() {
         setActiveVideo((previous) => previous ? databaseVideos.find((video) => video.id === previous.id) || previous : databaseVideos[0] || null);
         return databaseVideos;
     }
-    async function reloadPlaylistsFromSupabase() {
-        if (!user?.id)
+    async function reloadPlaylistsFromSupabase(userIdOverride = accountUserId) {
+        const playlistUserId = String(userIdOverride || user?.id || accountUserId || "").trim();
+        if (!playlistUserId) {
             return [];
-        const response = await fetch(`/api/playlists?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+        }
+        let response: Response;
+        try {
+            response = await authFetch(supabase, `/api/playlists?userId=${encodeURIComponent(playlistUserId)}`, { cache: "no-store" });
+        }
+        catch (error) {
+            console.error("PLAYLIST ERROR:", error);
+            return playlists;
+        }
         const data = (await response.json().catch(() => ({}))) as {
             playlists?: Playlist[];
             error?: string;
@@ -5069,23 +5099,18 @@ export default function Page() {
         if (!response.ok) {
             throw new Error(data.error || "Could not load playlists from Supabase.");
         }
-        const nextPlaylists = (data.playlists || []).map((playlist) => {
-            const nextPlaylist = {
-                id: playlist.id,
-                name: playlist.name,
-                cover: getArtworkUrl(playlist.cover),
-                playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
-                songIds: uniqueIds(playlist.songIds),
-                videoIds: uniqueIds(playlist.videoIds),
-                createdAt: playlist.createdAt || new Date().toISOString(),
-                updatedAt: playlist.updatedAt || new Date().toISOString(),
-            };
-            return normalizePlaylistMediaByType(nextPlaylist);
-        });
-        if (nextPlaylists.length > 0) {
-            setPlaylists(nextPlaylists);
-            setActivePlaylistId((previous) => nextPlaylists.some((playlist) => playlist.id === previous) ? previous : nextPlaylists[0]?.id || "");
-        }
+        const nextPlaylists = (data.playlists || []).map((playlist) => normalizePlaylistMediaByType({
+            id: playlist.id,
+            name: playlist.name,
+            cover: getArtworkUrl(playlist.cover),
+            playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
+            songIds: uniqueIds(playlist.songIds),
+            videoIds: uniqueIds(playlist.videoIds),
+            createdAt: playlist.createdAt || new Date().toISOString(),
+            updatedAt: playlist.updatedAt || new Date().toISOString(),
+        }));
+        setPlaylists(nextPlaylists);
+        setActivePlaylistId((previous) => nextPlaylists.some((playlist) => playlist.id === previous) ? previous : nextPlaylists[0]?.id || "");
         return nextPlaylists;
     }
     async function reloadProducerDataFromSupabase() {
@@ -5196,16 +5221,38 @@ export default function Page() {
         setLikedIds(ids);
         return ids;
     }
-    async function reloadLibrarySavesFromSupabase() {
-        if (!user?.id)
+    async function reloadLibrarySavesFromSupabase(userIdOverride = accountUserId) {
+        const libraryUserId = String(userIdOverride || user?.id || accountUserId || "").trim();
+        if (!libraryUserId) {
             return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
+        }
+
+        const cachedLibrary = readLibraryCache(libraryUserId);
+        if (cachedLibrary) {
+            applyLibraryCacheToState(cachedLibrary, {
+                setLibraryIds,
+                setSavedVideoIds,
+                setSavedAlbumIds,
+            });
+        }
+
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/library-saves?userId=${encodeURIComponent(user.id)}`, {
+            response = await authFetch(supabase, `/api/library-saves?userId=${encodeURIComponent(libraryUserId)}`, {
                 cache: "no-store",
             });
         }
-        catch {
+        catch (error) {
+            console.error("LIBRARY ERROR:", error);
+            if (cachedLibrary) {
+                return {
+                    songIds: cachedLibrary.songIds,
+                    videoIds: cachedLibrary.videoIds,
+                    albumIds: cachedLibrary.albumIds,
+                    videos: [] as VideoItem[],
+                    albums: [] as Album[],
+                };
+            }
             return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
         }
         const data = (await response.json().catch(() => ({}))) as {
@@ -5227,8 +5274,18 @@ export default function Page() {
             const error = data.error || response.statusText;
             console.error("LIBRARY ERROR:", error);
             setLibraryLoadError(error);
+            if (cachedLibrary) {
+                showToast("Saved library could not refresh from Supabase. Showing your last saved library.", "error");
+                return {
+                    songIds: cachedLibrary.songIds,
+                    videoIds: cachedLibrary.videoIds,
+                    albumIds: cachedLibrary.albumIds,
+                    videos: [] as VideoItem[],
+                    albums: [] as Album[],
+                };
+            }
             showToast(error, "error");
-            return { songIds: libraryIds, videoIds: savedVideoIds, albumIds: savedAlbumIds, videos: [] as VideoItem[], albums: [] as Album[] };
+            return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
         }
         const savedSongRows = data.savedSongs || data.songs || [];
         const savedVideoRows = data.savedVideos || data.videos || [];
@@ -5237,12 +5294,19 @@ export default function Page() {
         const savedSongs = uniqueSongs(savedSongRows.map((row) => mapSongRowToSong(row)));
         const savedVideos = uniqueVideos(savedVideoRows.map((row) => mapVideoRowToVideoItem(row)));
         const savedAlbums = savedAlbumRows.map((album) => normalizeAlbumRecord(album));
-        const savedIds = uniqueIds([...(data.videoIds || []), ...savedVideos.map((video) => video.id)]);
+        const savedVideoIdsFromApi = uniqueIds([...(data.videoIds || []), ...savedVideos.map((video) => video.id)]);
         const savedAlbumIdsFromRows = uniqueIds([...(data.albumIds || []), ...savedAlbums.map((album) => album.id)]);
+        const nextSongIds = uniqueIds([...savedSongIds, ...savedSongs.map((song) => song.id)]);
         setLibraryLoadError("");
-        setLibraryIds(uniqueIds([...savedSongIds, ...savedSongs.map((song) => song.id)]));
-        setSavedVideoIds(savedIds);
+        setLibraryIds(nextSongIds);
+        setSavedVideoIds(savedVideoIdsFromApi);
         setSavedAlbumIds(savedAlbumIdsFromRows);
+        writeLibraryCache({
+            userId: libraryUserId,
+            songIds: nextSongIds,
+            videoIds: savedVideoIdsFromApi,
+            albumIds: savedAlbumIdsFromRows,
+        });
         if (savedSongs.length > 0) {
             setSongs((previous) => uniqueSongs([...savedSongs, ...previous]));
         }
@@ -5255,7 +5319,7 @@ export default function Page() {
                 return [...savedAlbums, ...previous.filter((album) => !existing.has(album.id))];
             });
         }
-        return { songIds: savedSongIds, videoIds: savedIds, albumIds: savedAlbumIdsFromRows, videos: savedVideos, albums: savedAlbums };
+        return { songIds: nextSongIds, videoIds: savedVideoIdsFromApi, albumIds: savedAlbumIdsFromRows, videos: savedVideos, albums: savedAlbums };
     }
     async function loadLibrary() {
         return reloadLibrarySavesFromSupabase();
@@ -5357,16 +5421,14 @@ export default function Page() {
             || "Music Data Base user";
     }
     async function reloadUserMusicStateFromSupabase(availableSongs = songs, availableVideos = videos) {
-        if (!user?.id) {
-            setRemoteMusicStateReady(false);
+        if (!accountUserId) {
             return null;
         }
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/user-music-state?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+            response = await authFetch(supabase, `/api/user-music-state?userId=${encodeURIComponent(accountUserId)}`, { cache: "no-store" });
         }
         catch {
-            setRemoteMusicStateReady(true);
             return null;
         }
         const data = (await response.json().catch(() => ({}))) as {
@@ -5380,34 +5442,17 @@ export default function Page() {
         };
         if (!response.ok) {
             showToast("Saved library state could not be loaded. Local browser state is still available.", "error");
-            setRemoteMusicStateReady(true);
             return null;
         }
         if (data.setupRequired) {
-            setRemoteMusicStateReady(true);
             return null;
         }
         if (!data.hasState) {
-            setRemoteMusicStateReady(true);
             return null;
         }
-        const legacySavedIds = uniqueIds(data.libraryIds || []);
-        const availableSongIds = new Set(availableSongs.filter((song) => !isVideoSong(song)).map((song) => song.id));
-        const availableVideoIds = new Set(uniqueVideos(availableVideos).map((video) => video.id));
-        const nextLibraryIds = legacySavedIds.filter((id) => availableSongIds.has(id));
-        const nextSavedVideoIds = legacySavedIds.filter((id) => availableVideoIds.has(id));
         const nextRecent = normalizeRecentForSongs(data.recentlyPlayed || [], availableSongs, availableVideos, albums);
-        const nextPlaylists = normalizePlaylistsForSongs(data.playlists || [], availableSongs);
-        const nextActivePlaylistId = nextPlaylists.some((playlist) => playlist.id === data.activePlaylistId)
-            ? data.activePlaylistId || ""
-            : "";
-        setLibraryIds(nextLibraryIds);
-        setSavedVideoIds((previous) => uniqueIds([...previous, ...nextSavedVideoIds]));
         setRecentlyPlayed(nextRecent);
-        setPlaylists(nextPlaylists);
-        setActivePlaylistId(nextActivePlaylistId);
-        setRemoteMusicStateReady(true);
-        return { libraryIds: nextLibraryIds, savedVideoIds: nextSavedVideoIds, recentlyPlayed: nextRecent, playlists: nextPlaylists };
+        return { recentlyPlayed: nextRecent };
     }
     useEffect(() => {
         initialDataReloadRef.current = {
@@ -5437,22 +5482,27 @@ export default function Page() {
             reloadActions.clearRemovedPlaceholderArtwork();
             setRemoteMusicStateReady(false);
             Promise.all([reloadActions.reloadSongLibrary(), reloadActions.reloadVideoLibrary()])
-                .then(([loadedSongs, loadedVideos]) => reloadActions.reloadUserMusicState(loadedSongs, loadedVideos))
-                .then(() => reloadActions.reloadLibrarySaves())
+                .then(([loadedSongs, loadedVideos]) => Promise.all([
+                    reloadActions.reloadLibrarySaves(loadKey),
+                    reloadActions.reloadUserMusicState(loadedSongs, loadedVideos),
+                    reloadActions.reloadPlaylists(loadKey),
+                ]))
                 .catch((error) => {
                 console.error("LIBRARY ERROR:", error);
                 setLibraryLoadError(error instanceof Error ? error.message : String(error));
                 reloadActions.showLibraryFailureToast();
-                reloadActions.reloadUserMusicState(reloadActions.fallbackSongs).catch(() => {
-                    setRemoteMusicStateReady(true);
-                });
+                return Promise.all([
+                    reloadActions.reloadLibrarySaves(loadKey).catch(() => undefined),
+                    reloadActions.reloadUserMusicState(reloadActions.fallbackSongs).catch(() => undefined),
+                    reloadActions.reloadPlaylists(loadKey).catch(() => undefined),
+                ]);
             })
                 .finally(() => {
+                setRemoteMusicStateReady(true);
                 initialDataLoadedKeyRef.current = loadKey;
                 if (initialDataLoadInFlightKeyRef.current === loadKey)
                     initialDataLoadInFlightKeyRef.current = "";
             });
-            reloadActions.reloadPlaylists().catch(() => undefined);
             reloadActions.reloadProducerData().catch(() => undefined);
             reloadActions.reloadAlbums().catch(() => undefined);
             reloadActions.reloadArtistFollows().catch(() => undefined);
@@ -5469,7 +5519,12 @@ export default function Page() {
             setShowUpload(false);
         }
     }, [uploadsBlockedForCurrentUser]);
-    const libraryStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds([...libraryIds, ...savedVideoIds, ...savedAlbumIds])), [libraryIds, savedAlbumIds, savedVideoIds]);
+    const libraryStorageSnapshot = useMemo(() => serializeLibraryCache({
+        userId: accountUserId,
+        songIds: libraryIds,
+        videoIds: savedVideoIds,
+        albumIds: savedAlbumIds,
+    }), [accountUserId, libraryIds, savedAlbumIds, savedVideoIds]);
     const likedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(likedIds)), [likedIds]);
     const followedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedIds)), [followedIds]);
     const followedArtistsStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedArtistIds)), [followedArtistIds]);
@@ -5495,10 +5550,10 @@ export default function Page() {
     const purchaseHistoryStorageSnapshot = useMemo(() => JSON.stringify(purchaseHistory.slice(0, 200)), [purchaseHistory]);
     const downloadVaultStorageSnapshot = useMemo(() => JSON.stringify(downloadVault.slice(0, 200)), [downloadVault]);
     useEffect(() => {
-        if (!hasLoaded)
+        if (!hasLoaded || !accountUserId)
             return;
         saveLocalStorageSnapshot(STORAGE_KEYS.library, libraryStorageSnapshot);
-    }, [hasLoaded, libraryStorageSnapshot, saveLocalStorageSnapshot]);
+    }, [accountUserId, hasLoaded, libraryStorageSnapshot, saveLocalStorageSnapshot]);
     useEffect(() => {
         if (!hasLoaded)
             return;
@@ -5818,7 +5873,7 @@ export default function Page() {
         }
         if (search.trim()) {
             const keyword = search.toLowerCase();
-            list = audioSongs
+            list = list
                 .map((song) => ({
                 song,
                 score: getSearchMatchScore(keyword, [song.title, song.artist, song.producer || "", song.type, song.category], Math.min(35, song.plays * 0.02 + song.likes * 0.6) + (isArtistVerified(song.artist) ? 20 : 0)),
@@ -5831,6 +5886,10 @@ export default function Page() {
     }, [audioSongs, view, activeTab, search, librarySongs, likedSongs, followingSongs, cleanQueue, trendingSongs, isArtistVerified]);
     const visibleVideos = useMemo(() => {
         let list = uniqueVideos(videos);
+        if (view === "Library")
+            list = libraryVideos;
+        if (view === "Liked")
+            list = likedVideos;
         if (search.trim()) {
             const keyword = search.toLowerCase();
             list = list
@@ -5843,7 +5902,7 @@ export default function Page() {
                 .map((entry) => entry.video);
         }
         return list;
-    }, [isArtistVerified, search, videos]);
+    }, [isArtistVerified, libraryVideos, likedVideos, search, videos, view]);
     const visibleAlbums = useMemo(() => {
         if (!search.trim())
             return [];
@@ -5931,9 +5990,9 @@ export default function Page() {
         }
         return [];
     }, [activeTab, libraryVideos, search, trendingVideos, view, visibleVideos]);
-    const recentlyPlayedSongs = useMemo(() => recentlyPlayed.filter((entry) => (entry.itemType || "song") === "song" && entry.song), [recentlyPlayed]);
-    const recentlyPlayedVideos = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "video" && entry.video), [recentlyPlayed]);
-    const recentlyPlayedAlbums = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "album" && entry.album), [recentlyPlayed]);
+    const recentlyPlayedSongs = useMemo(() => recentlyPlayed.filter((entry) => (entry.itemType || "song") === "song" && (entry.song || entry.itemId || entry.songId)), [recentlyPlayed]);
+    const recentlyPlayedVideos = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "video" && (entry.video || entry.itemId)), [recentlyPlayed]);
+    const recentlyPlayedAlbums = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "album" && (entry.album || entry.itemId)), [recentlyPlayed]);
     const visibleRecentPlays = recentTab === "Videos" ? recentlyPlayedVideos : recentTab === "Albums" ? recentlyPlayedAlbums : recentlyPlayedSongs;
     const sponsoredVideo = visibleVideos[0] || null;
     const sponsoredImage = getArtworkUrl(sponsoredVideo?.cover || currentSong?.cover);
@@ -6081,7 +6140,7 @@ export default function Page() {
                         playbackUrl,
                     });
                 }
-                if (mobileCompatible !== false) {
+                if (isDatabaseUuid(video.id)) {
                     void fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
@@ -8840,7 +8899,13 @@ export default function Page() {
         clearVideoPlayerIfDeleted(videoId);
     }
     function removeDeletedSongFromLocalStorage(songId: string) {
-        localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.library, [])).filter((id) => id !== songId)));
+        const cachedLibrary = readLibraryCache(accountUserId);
+        if (cachedLibrary) {
+            writeLibraryCache({
+                ...cachedLibrary,
+                songIds: cachedLibrary.songIds.filter((id) => id !== songId),
+            });
+        }
         localStorage.setItem(STORAGE_KEYS.liked, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.liked, [])).filter((id) => id !== songId)));
         localStorage.setItem(STORAGE_KEYS.followed, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.followed, [])).filter((id) => id !== songId)));
         localStorage.setItem(STORAGE_KEYS.queue, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.queue, [])).filter((id) => id !== songId)));
@@ -8855,7 +8920,13 @@ export default function Page() {
         }
     }
     function removeDeletedVideoFromLocalStorage(videoId: string) {
-        localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.library, [])).filter((id) => id !== videoId)));
+        const cachedLibrary = readLibraryCache(accountUserId);
+        if (cachedLibrary) {
+            writeLibraryCache({
+                ...cachedLibrary,
+                videoIds: cachedLibrary.videoIds.filter((id) => id !== videoId),
+            });
+        }
         localStorage.setItem(STORAGE_KEYS.playlists, JSON.stringify(readJson<Playlist[]>(STORAGE_KEYS.playlists, []).map((playlist) => ({
             ...playlist,
             videoIds: uniqueIds(playlist.videoIds || []).filter((id) => id !== videoId),
@@ -8871,7 +8942,14 @@ export default function Page() {
         playlists: Playlist[];
         currentSong: Song | null;
     }) {
-        localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(snapshot.libraryIds)));
+        if (accountUserId) {
+            writeLibraryCache({
+                userId: accountUserId,
+                songIds: uniqueIds(snapshot.libraryIds),
+                videoIds: savedVideoIds,
+                albumIds: savedAlbumIds,
+            });
+        }
         localStorage.setItem(STORAGE_KEYS.liked, JSON.stringify(uniqueIds(snapshot.likedIds)));
         localStorage.setItem(STORAGE_KEYS.followed, JSON.stringify(uniqueIds(snapshot.followedIds)));
         localStorage.setItem(STORAGE_KEYS.queue, JSON.stringify(uniqueSongs(snapshot.queue).map((song) => song.id)));
@@ -8887,7 +8965,14 @@ export default function Page() {
     function restoreVideoLocalStorageSnapshot(snapshot: {
         libraryIds: string[];
     }) {
-        localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(uniqueIds(snapshot.libraryIds)));
+        if (accountUserId) {
+            writeLibraryCache({
+                userId: accountUserId,
+                songIds: libraryIds,
+                videoIds: uniqueIds(snapshot.libraryIds),
+                albumIds: savedAlbumIds,
+            });
+        }
     }
     function addToQueue(song: Song) {
         const alreadyQueued = cleanQueue.some((item) => item.id === song.id);
@@ -15878,7 +15963,7 @@ export default function Page() {
             {renderAdminRevenueDashboard()}
             {renderPremiumContentFoundation(premiumContentItems)}
             {renderPayoutAdminReview()}
-          </section>) : view === "Producer Dashboard" && !search.trim() ? (<section className="dashboard-page producer-dashboard">
+          </section>) : view === "Producer Dashboard" ? (<section className="dashboard-page producer-dashboard">
             <div className="dashboard-brand">
               <img src={BRAND_LOGO} alt="Music Data Base"/>
               <div>
@@ -16147,7 +16232,7 @@ export default function Page() {
                   <p>Music videos connected to your producer beats will appear here.</p>
                 </div>) : (<div className="dashboard-song-list">{videosUsingProducerBeats.map((video) => renderDashboardVideoRow(video, "Videos Using Producer Beats"))}</div>)}
             </section>
-          </section>) : view === "Artist Dashboard" && !search.trim() ? (<section className="dashboard-page">
+          </section>) : view === "Artist Dashboard" ? (<section className="dashboard-page">
             <div className="dashboard-brand">
               <img src={BRAND_LOGO} alt="Music Data Base"/>
               <div>
