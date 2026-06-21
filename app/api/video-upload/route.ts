@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
-import { ACCESS_TOKEN_BODY_KEYS, describeRouteAuth, getRefreshTokenFromRequest, REFRESH_TOKEN_BODY_KEYS, resolveRequestUserId } from "@/lib/request-auth";
-import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked } from "@/lib/upload-lock";
+import { ACCESS_TOKEN_BODY_KEYS, getAccessTokenFromRequest, REFRESH_TOKEN_BODY_KEYS, requireMatchingUserId } from "@/lib/request-auth";
+import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked, UPLOAD_LOCK_OWNER_EMAIL } from "@/lib/upload-lock";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
 import {
     describeSupabaseApiKey,
@@ -128,102 +128,89 @@ function getStorageSupabaseClient(request?: Request) {
 type AuthSuccess = {
     ok: true;
     userId: string;
-    email: string | undefined;
-    session: {
-        hasBearerToken: boolean;
-        bearerTokenLength: number;
-        claimedUserId: string;
-    };
+    email: string;
 };
 
 type AuthFailure = {
     ok: false;
     status: number;
     error: string;
+    stage: string;
+    step: string;
     details: Record<string, unknown>;
 };
 
-async function resolveAuthenticatedUploadUser(
-    request: Request,
-    claimedUserIds: string[],
-    sessionTokens: { refreshToken?: string; accessToken?: string } = {},
-): Promise<AuthSuccess | AuthFailure> {
-    const claimedUserId = claimedUserIds.find((id) => id?.trim())?.trim() || "";
-    const routeAuth = describeRouteAuth(
-        request,
-        "/api/video-upload",
-        claimedUserId,
-        sessionTokens.refreshToken || "",
-        sessionTokens.accessToken || "",
-    );
-    const serviceRoleEnv = describeServiceRoleEnv();
+function uploadAuthFailure(
+    status: number,
+    error: string,
+    stage: string,
+    step: string,
+    details: Record<string, unknown> = {},
+): AuthFailure {
+    return {
+        ok: false,
+        status,
+        error,
+        stage,
+        step,
+        details,
+    };
+}
 
-    console.log("[api/video-upload] SESSION STATUS", {
-        ...routeAuth,
-        serviceRoleEnv,
-        supabaseUrl: SUPABASE_PROJECT_URL,
-    });
-
-    const { userId, error } = await resolveRequestUserId(request, {
-        refreshToken: getRefreshTokenFromRequest(request, sessionTokens.refreshToken || ""),
-        accessToken: sessionTokens.accessToken || "",
-    });
-    if (!userId) {
-        return {
-            ok: false,
-            status: 401,
-            error: error || "Missing or invalid authorization token.",
-            details: { ...routeAuth, serviceRoleEnv, step: "auth-failed" },
-        };
+function decodeEmailFromAccessToken(accessToken: string) {
+    if (!accessToken) {
+        return "";
     }
-
-    if (claimedUserId && claimedUserId !== userId) {
-        return {
-            ok: false,
-            status: 403,
-            error: "Request user id does not match the authenticated session user.",
-            details: {
-                claimedUserId,
-                authUserId: userId,
-                step: "user-id-mismatch",
-            },
-        };
-    }
-
-    let email: string | undefined;
     try {
-        const supabase = getSupabaseServerClient();
-        const { data: userResult } = await supabase.auth.admin.getUserById(userId);
-        email = userResult.user?.email || undefined;
+        const payloadPart = accessToken.split(".")[1];
+        if (!payloadPart) {
+            return "";
+        }
+        const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+        const payload = JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as { email?: string };
+        return String(payload.email || "").trim();
     }
     catch {
+        return "";
+    }
+}
+
+async function lookupUploadUserEmail(userId: string, accessToken: string) {
+    for (const getClient of [getSupabaseServerClient, getSupabaseLibraryClient]) {
         try {
-            const supabase = getSupabaseLibraryClient();
-            const { data: userResult } = await supabase.auth.admin.getUserById(userId);
-            email = userResult.user?.email || undefined;
+            const { data } = await getClient().auth.admin.getUserById(userId);
+            const email = String(data.user?.email || "").trim();
+            if (email) {
+                return email;
+            }
         }
         catch {
-            email = undefined;
+            // Try the next client.
         }
     }
+    return decodeEmailFromAccessToken(accessToken);
+}
 
-    console.log("[api/video-upload] AUTHENTICATED USER", {
-        userId,
-        email: email || null,
-        bearerTokenLength: routeAuth.bearerTokenLength,
-        refreshTokenPresent: routeAuth.refreshTokenPresent,
-    });
+async function requireAuthenticatedUploadUser(
+    request: Request,
+    claimedUserIds: string[],
+    sessionTokens: { refreshToken?: string; accessToken?: string },
+    stage: string,
+): Promise<AuthSuccess | AuthFailure> {
+    const claimedUserId = claimedUserIds.find((id) => id?.trim())?.trim() || "";
+    if (!claimedUserId) {
+        return uploadAuthFailure(401, "Missing user id.", stage, "missing-user-id");
+    }
 
-    return {
-        ok: true,
-        userId,
-        email,
-        session: {
-            hasBearerToken: routeAuth.bearerTokenPresent,
-            bearerTokenLength: routeAuth.bearerTokenLength,
-            claimedUserId: claimedUserId || userId,
-        },
-    };
+    const auth = await requireMatchingUserId(request, "/api/video-upload", claimedUserId, sessionTokens);
+    if (!auth.ok) {
+        return uploadAuthFailure(auth.status, auth.error, stage, "session-auth-failed", { claimedUserId });
+    }
+
+    const accessToken = getAccessTokenFromRequest(request, sessionTokens.accessToken || "");
+    const email = await lookupUploadUserEmail(auth.userId, accessToken);
+    return { ok: true, userId: auth.userId, email };
 }
 
 function getSessionTokensFromRecord(record: Record<string, unknown>) {
@@ -243,20 +230,26 @@ function getSessionTokensFromFormData(formData: FormData) {
     };
 }
 
-function getUploadLockFailure(email: string | null | undefined): AuthFailure | null {
-    if (areUploadsLocked() && !canUserUpload(email)) {
-        return {
-            ok: false,
-            status: 503,
-            error: UPLOAD_LOCK_MESSAGE,
-            details: {
-                email: email || null,
-                step: "uploads-locked",
-                uploadsLocked: true,
-            },
-        };
+function getUploadLockFailure(email: string) {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const ownerAllowed = normalizedEmail === UPLOAD_LOCK_OWNER_EMAIL.toLowerCase() || canUserUpload(email);
+    if (areUploadsLocked() && !ownerAllowed) {
+        return uploadAuthFailure(503, UPLOAD_LOCK_MESSAGE, "upload-lock", "uploads-locked", {
+            email: normalizedEmail || null,
+            uploadsLocked: true,
+        });
     }
     return null;
+}
+
+function uploadAuthJsonResponse(auth: AuthFailure, extra: Record<string, unknown> = {}) {
+    return jsonResponse({
+        error: auth.error,
+        stage: auth.stage,
+        step: auth.step,
+        details: auth.details,
+        ...extra,
+    }, auth.status);
 }
 
 function getRecordString(record: Record<string, unknown>, keys: string[], fallback = "") {
@@ -372,8 +365,8 @@ async function cleanupUploadedVideoObject(supabase: ReturnType<typeof getSupabas
     return error ? getErrorMessage(error) : null;
 }
 
-function sanitizePrepareHttpStatus(status: number): 200 | 400 | 401 | 403 | 500 {
-    if (status === 200 || status === 400 || status === 401 || status === 403 || status === 500) {
+function sanitizePrepareHttpStatus(status: number): 200 | 400 | 401 | 403 | 500 | 503 {
+    if (status === 200 || status === 400 || status === 401 || status === 403 || status === 500 || status === 503) {
         return status;
     }
     return 500;
@@ -443,25 +436,31 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
 
         const claimedUserId = getRecordString(body, ["sessionUserId", "session_user_id", "userId", "user_id"]);
         const sessionTokens = getSessionTokensFromRecord(body);
-        const auth = await resolveAuthenticatedUploadUser(request, [claimedUserId], sessionTokens);
+        const auth = await requireAuthenticatedUploadUser(request, [claimedUserId], sessionTokens, "prepare-storage-upload");
         if (!auth.ok) {
-            const payload = buildPreparePayload(request, storagePath, {
-                ok: false,
-                step: String(auth.details.step || "verify-session"),
-                error: auth.error,
-                supabaseError: auth.details,
-            });
+            const payload = {
+                ...buildPreparePayload(request, storagePath, {
+                    ok: false,
+                    step: auth.step,
+                    error: auth.error,
+                    supabaseError: { stage: auth.stage, ...auth.details },
+                }),
+                stage: auth.stage,
+            };
             console.log("[api/video-upload] PREPARE FAILED", payload);
             return prepareStorageUploadResponse(auth.status, payload);
         }
 
         const uploadLock = getUploadLockFailure(auth.email);
         if (uploadLock) {
-            const payload = buildPreparePayload(request, storagePath, {
-                ok: false,
-                step: "uploads-locked",
-                error: uploadLock.error,
-            });
+            const payload = {
+                ...buildPreparePayload(request, storagePath, {
+                    ok: false,
+                    step: uploadLock.step,
+                    error: uploadLock.error,
+                }),
+                stage: uploadLock.stage,
+            };
             console.log("[api/video-upload] PREPARE BLOCKED", payload);
             return prepareStorageUploadResponse(uploadLock.status, payload);
         }
@@ -1014,13 +1013,13 @@ export async function POST(request: Request) {
             const contentType = String(formData.get("contentType") || formData.get("content_type") || "").trim();
             const sessionTokens = getSessionTokensFromFormData(formData);
 
-            const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId], sessionTokens);
+            const auth = await requireAuthenticatedUploadUser(request, [sessionUserId, userId], sessionTokens, "direct-storage-upload");
             if (!auth.ok) {
-                return jsonResponse({ error: auth.error, details: auth.details, uploadMethod: mode }, auth.status);
+                return uploadAuthJsonResponse(auth, { uploadMethod: mode });
             }
             const uploadLock = getUploadLockFailure(auth.email);
             if (uploadLock) {
-                return jsonResponse({ error: uploadLock.error, details: uploadLock.details, uploadsLocked: true }, uploadLock.status);
+                return uploadAuthJsonResponse(uploadLock, { uploadMethod: mode, uploadsLocked: true });
             }
 
             if (mode !== "direct-storage-upload") {
@@ -1075,13 +1074,13 @@ export async function POST(request: Request) {
         const userId = getRecordString(body, ["userId", "user_id"]);
         const sessionTokens = getSessionTokensFromRecord(body);
 
-        const auth = await resolveAuthenticatedUploadUser(request, [sessionUserId, userId], sessionTokens);
+        const auth = await requireAuthenticatedUploadUser(request, [sessionUserId, userId], sessionTokens, "save-video-metadata");
         if (!auth.ok) {
-            return jsonResponse({ error: auth.error, details: auth.details }, auth.status);
+            return uploadAuthJsonResponse(auth);
         }
         const uploadLock = getUploadLockFailure(auth.email);
         if (uploadLock) {
-            return jsonResponse({ error: uploadLock.error, details: uploadLock.details, uploadsLocked: true }, uploadLock.status);
+            return uploadAuthJsonResponse(uploadLock, { uploadsLocked: true });
         }
 
         return saveVideoMetadata(request, body, auth.userId);

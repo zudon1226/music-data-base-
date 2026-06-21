@@ -114,23 +114,22 @@ export async function resolveRequestUserId(
 ) {
     const refreshToken = getRefreshTokenFromRequest(request, options.refreshToken);
     const accessToken = getAccessTokenFromRequest(request, options.accessToken);
-
-    if (refreshToken) {
-        const refreshResult = await verifyRefreshTokenUserId(refreshToken);
-        if (refreshResult.userId) {
-            return refreshResult;
-        }
-    }
+    let lastError = "Missing or invalid authorization token.";
 
     if (accessToken && !isOversizedBearerToken(accessToken)) {
         const accessResult = await verifyAccessTokenUserId(accessToken);
         if (accessResult.userId) {
             return accessResult;
         }
+        lastError = accessResult.error || lastError;
     }
 
     if (refreshToken) {
-        return { userId: "", error: "Invalid refresh token." };
+        const refreshResult = await verifyRefreshTokenUserId(refreshToken);
+        if (refreshResult.userId) {
+            return refreshResult;
+        }
+        lastError = refreshResult.error || lastError;
     }
 
     if (isOversizedBearerToken(accessToken)) {
@@ -140,7 +139,7 @@ export async function resolveRequestUserId(
         };
     }
 
-    return { userId: "", error: "Missing or invalid authorization token." };
+    return { userId: "", error: lastError };
 }
 
 export async function requireMatchingUserId(
