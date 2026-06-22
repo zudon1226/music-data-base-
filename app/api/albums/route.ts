@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { repairDeadAlbumVideoReferences } from "@/lib/album-video-refs";
 import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { getSupabaseLibraryClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
@@ -427,6 +428,7 @@ export async function GET(request: Request) {
             return jsonResponse({ error: getErrorMessage(itemsError), albums: [], setupRequired: isMissingTable(itemsError) }, isMissingTable(itemsError) ? 409 : 500);
         }
         await repairEmptyAlbumItemBuckets(supabase, albumRows, itemBuckets);
+        await repairDeadAlbumVideoReferences(supabase, albumRows, itemBuckets);
         const mappedAlbums = albumRows.map((album) => mapAlbumRow(album, itemBuckets));
         const recentAlbums = recentUserId
             ? mappedAlbums.filter((album) => album.userId === recentUserId ||

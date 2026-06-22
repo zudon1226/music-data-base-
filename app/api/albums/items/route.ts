@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { repairDeadAlbumVideoReferences } from "@/lib/album-video-refs";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
@@ -145,29 +146,46 @@ export async function GET(request: Request) {
             .filter((item) => item.item_type === "song")
             .map((item) => getString(item.item_id))
             .filter(Boolean);
-        const videoIds = itemResult.rows
+        let videoIds = itemResult.rows
             .filter((item) => item.item_type === "video")
             .map((item) => getString(item.item_id))
             .filter(Boolean);
-        const songsResult = songIds.length > 0
-            ? await supabase.from("songs").select("*").in("id", songIds)
+        const itemBuckets: Record<string, { songIds: string[]; videoIds: string[] }> = {
+            [albumId]: { songIds, videoIds },
+        };
+        await repairDeadAlbumVideoReferences(supabase, [albumResult.data as Record<string, unknown>], itemBuckets);
+        const refreshedItems = await loadAlbumItemRows(supabase, albumId);
+        if (refreshedItems.error) {
+            console.error("ALBUM ITEMS GET REFRESH ERROR", refreshedItems.error);
+            return jsonResponse({ error: getErrorMessage(refreshedItems.error), album: null, items: [], songs: [], videos: [] }, isMissingTable(refreshedItems.error) ? 409 : 500);
+        }
+        const refreshedSongIds = refreshedItems.rows
+            .filter((item) => item.item_type === "song")
+            .map((item) => getString(item.item_id))
+            .filter(Boolean);
+        const refreshedVideoIds = refreshedItems.rows
+            .filter((item) => item.item_type === "video")
+            .map((item) => getString(item.item_id))
+            .filter(Boolean);
+        const songsResult = refreshedSongIds.length > 0
+            ? await supabase.from("songs").select("*").in("id", refreshedSongIds)
             : { data: [], error: null };
         if (songsResult.error) {
             console.error("ALBUM ITEMS GET SONGS ERROR", songsResult.error);
             return jsonResponse({ error: getErrorMessage(songsResult.error), album: null, items: [], songs: [], videos: [] }, 500);
         }
-        const videosResult = videoIds.length > 0
-            ? await supabase.from("videos").select("*").in("id", videoIds)
+        const videosResult = refreshedVideoIds.length > 0
+            ? await supabase.from("videos").select("*").in("id", refreshedVideoIds)
             : { data: [], error: null };
         if (videosResult.error) {
             console.error("ALBUM ITEMS GET VIDEOS ERROR", videosResult.error);
             return jsonResponse({ error: getErrorMessage(videosResult.error), album: null, items: [], songs: [], videos: [] }, 500);
         }
         return jsonResponse({
-            album: mapAlbumRow(albumResult.data as Record<string, unknown>, songIds, videoIds),
-            items: itemResult.rows,
-            songIds,
-            videoIds,
+            album: mapAlbumRow(albumResult.data as Record<string, unknown>, refreshedSongIds, refreshedVideoIds),
+            items: refreshedItems.rows,
+            songIds: refreshedSongIds,
+            videoIds: refreshedVideoIds,
             songs: songsResult.data || [],
             videos: videosResult.data || [],
         });
