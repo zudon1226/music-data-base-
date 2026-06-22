@@ -339,6 +339,7 @@ type MobileVideoDebugState = {
     loadedMetadataFired: boolean;
     canPlayFired: boolean;
     errorFired: boolean;
+    eventLogs: string[];
 };
 type VerificationState = {
     artists: Record<string, boolean>;
@@ -370,6 +371,7 @@ const EMPTY_MOBILE_VIDEO_DEBUG: MobileVideoDebugState = {
     loadedMetadataFired: false,
     canPlayFired: false,
     errorFired: false,
+    eventLogs: [],
 };
 type PlaylistTarget = {
     type: "song";
@@ -3535,7 +3537,8 @@ export default function Page() {
     const [videoUploadBusy, setVideoUploadBusy] = useState(false);
     const [videoUploadError, setVideoUploadError] = useState("");
     const [videoUploadStatus, setVideoUploadStatus] = useState("");
-    const [, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
+    const [mobileVideoDebug, setMobileVideoDebug] = useState<MobileVideoDebugState>(EMPTY_MOBILE_VIDEO_DEBUG);
+    const [showVideoPlaybackDebug, setShowVideoPlaybackDebug] = useState(false);
     const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
     const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
@@ -8780,6 +8783,7 @@ export default function Page() {
         };
         console.log(`[mobile video] ${label}`, consolePayload);
         if (isMobilePlaybackEnvironment() && selectedVideo) {
+            const tracksPlaybackEvent = /loadedmetadata|canplay event|error event/.test(label);
             setMobileVideoDebug((previous) => ({
                 ...previous,
                 selectedVideoId: selectedVideo.id || "",
@@ -8800,6 +8804,9 @@ export default function Page() {
                 loadedMetadataFired: previous.loadedMetadataFired || label.includes("loadedmetadata"),
                 canPlayFired: previous.canPlayFired || label.includes("canplay"),
                 errorFired: previous.errorFired || label.includes("error"),
+                eventLogs: tracksPlaybackEvent
+                    ? [...previous.eventLogs.slice(-49), `${new Date().toISOString()} — ${label}${video?.error?.code != null ? ` | code ${video.error.code}` : ""}${video?.error?.message ? ` | ${video.error.message}` : ""}`]
+                    : previous.eventLogs,
             }));
         }
     }
@@ -14235,6 +14242,106 @@ export default function Page() {
           </div>
         </section>);
     }
+    function buildMobileVideoPlaybackDebugReport(debug: MobileVideoDebugState) {
+        const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
+        const eventLogText = debug.eventLogs.length > 0
+            ? debug.eventLogs.join("\n")
+            : [
+                debug.loadedMetadataFired ? "loadedmetadata: fired" : "loadedmetadata: not fired",
+                debug.canPlayFired ? "canplay: fired" : "canplay: not fired",
+                debug.errorFired ? "error: fired" : "error: not fired",
+            ].join("\n");
+        return [
+            "Mobile Video Playback Debug Report",
+            `Generated: ${new Date().toISOString()}`,
+            "",
+            `Video title: ${debug.title || "—"}`,
+            `Video id: ${debug.selectedVideoId || "—"}`,
+            `Video URL: ${debug.finalVideoUrl || debug.videoUrl || "—"}`,
+            `Storage path: ${debug.storagePath || "—"}`,
+            `mobile_compatible: ${debug.mobileCompatible || "—"}`,
+            `video_codec: ${debug.detectedVideoCodec || "—"}`,
+            `audio_codec: ${debug.detectedAudioCodec || "—"}`,
+            `User agent: ${userAgent || "—"}`,
+            `Last video error message: ${debug.errorMessage || "—"}`,
+            `Last media error code: ${debug.errorCode || "—"}`,
+            "",
+            "Media event logs:",
+            eventLogText,
+        ].join("\n");
+    }
+    async function copyMobileVideoPlaybackDebugReport() {
+        const report = buildMobileVideoPlaybackDebugReport(mobileVideoDebug);
+        try {
+            await navigator.clipboard.writeText(report);
+            showToast("Video debug report copied", "success");
+        }
+        catch {
+            showToast("Could not copy debug report", "error");
+        }
+    }
+    function renderMobileVideoPlaybackDebugPanel() {
+        const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
+        const eventLogText = mobileVideoDebug.eventLogs.length > 0
+            ? mobileVideoDebug.eventLogs.join("\n")
+            : [
+                mobileVideoDebug.loadedMetadataFired ? "loadedmetadata: fired" : "loadedmetadata: not fired",
+                mobileVideoDebug.canPlayFired ? "canplay: fired" : "canplay: not fired",
+                mobileVideoDebug.errorFired ? "error: fired" : "error: not fired",
+            ].join("\n");
+        return (<section className="mobile-video-debug-panel" aria-label="Mobile video playback debug">
+            <strong>Video playback debug</strong>
+            <dl>
+              <div>
+                <dt>Video title</dt>
+                <dd>{mobileVideoDebug.title || "—"}</dd>
+              </div>
+              <div>
+                <dt>Video id</dt>
+                <dd>{mobileVideoDebug.selectedVideoId || "—"}</dd>
+              </div>
+              <div>
+                <dt>Video URL</dt>
+                <dd>{mobileVideoDebug.finalVideoUrl || mobileVideoDebug.videoUrl || "—"}</dd>
+              </div>
+              <div>
+                <dt>Storage path</dt>
+                <dd>{mobileVideoDebug.storagePath || "—"}</dd>
+              </div>
+              <div>
+                <dt>mobile_compatible</dt>
+                <dd>{mobileVideoDebug.mobileCompatible || "—"}</dd>
+              </div>
+              <div>
+                <dt>video_codec</dt>
+                <dd>{mobileVideoDebug.detectedVideoCodec || "—"}</dd>
+              </div>
+              <div>
+                <dt>audio_codec</dt>
+                <dd>{mobileVideoDebug.detectedAudioCodec || "—"}</dd>
+              </div>
+              <div>
+                <dt>User agent</dt>
+                <dd>{userAgent || "—"}</dd>
+              </div>
+              <div>
+                <dt>Last error message</dt>
+                <dd>{mobileVideoDebug.errorMessage || "—"}</dd>
+              </div>
+              <div>
+                <dt>Last media error code</dt>
+                <dd>{mobileVideoDebug.errorCode || "—"}</dd>
+              </div>
+            </dl>
+            <div className="mobile-video-debug-event-logs">
+              <span>canplay / loadedmetadata / error logs</span>
+              <pre>{eventLogText}</pre>
+            </div>
+            <button type="button" className="mobile-video-debug-copy" onClick={() => void copyMobileVideoPlaybackDebugReport()}>
+              Copy Debug Report
+            </button>
+          </section>);
+    }
     function renderSharedVideoPlayer() {
         if (!activeVideo)
             return null;
@@ -14290,6 +14397,12 @@ export default function Page() {
                     errorMessage: event.currentTarget.error?.message || "",
                 });
             }}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
+        {mobilePlaybackEnvironment ? (<div className="mobile-video-debug-controls">
+            <button type="button" onClick={() => setShowVideoPlaybackDebug((value) => !value)}>
+              {showVideoPlaybackDebug ? "Hide Video Debug" : "Show Video Debug"}
+            </button>
+          </div>) : null}
+        {showVideoPlaybackDebug ? renderMobileVideoPlaybackDebugPanel() : null}
         <div className="video-player-copy">
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
@@ -19654,6 +19767,10 @@ export default function Page() {
           }
 
           .mobile-video-debug-panel {
+            display: none;
+          }
+
+          .mobile-video-debug-controls {
             display: none;
           }
 
@@ -25489,6 +25606,51 @@ export default function Page() {
             .mobile-video-debug-panel dd {
               color: #f8fafc;
               overflow-wrap: anywhere;
+              word-break: break-word;
+            }
+
+            .mobile-video-debug-controls {
+              grid-column: 1 / -1;
+              display: flex;
+              gap: 8px;
+              flex-wrap: wrap;
+            }
+
+            .mobile-video-debug-controls button,
+            .mobile-video-debug-copy {
+              border: 1px solid rgba(34, 211, 238, 0.45);
+              border-radius: 6px;
+              background: rgba(8, 47, 73, 0.72);
+              color: #e0f2fe;
+              font-size: 12px;
+              font-weight: 700;
+              padding: 8px 10px;
+              cursor: pointer;
+            }
+
+            .mobile-video-debug-event-logs {
+              display: grid;
+              gap: 6px;
+              min-width: 0;
+            }
+
+            .mobile-video-debug-event-logs span {
+              color: #9bdcf0;
+              font-weight: 900;
+              text-transform: uppercase;
+              font-size: 10px;
+            }
+
+            .mobile-video-debug-event-logs pre {
+              margin: 0;
+              padding: 8px;
+              border-radius: 6px;
+              background: rgba(15, 23, 42, 0.72);
+              color: #f8fafc;
+              font-size: 10px;
+              line-height: 1.35;
+              overflow-wrap: anywhere;
+              white-space: pre-wrap;
               word-break: break-word;
             }
 
