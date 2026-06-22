@@ -1032,6 +1032,7 @@ const SONGS_STORAGE_BUCKET = "songs";
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
 const MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE = "Mobile compatible video required: MP4 H.264 video with AAC audio.";
+const AV1_MOBILE_VIDEO_WARNING_MESSAGE = "This video uses AV1 codec and may not play on iPhone. Re-upload as MP4 H.264 video with AAC audio.";
 const VIDEO_UPLOAD_CODEC_GUIDANCE = "MP4 required. For iPhone/mobile playback, use H.264 video with AAC audio. Some downloaded MP4 files may need conversion before upload.";
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
@@ -1964,11 +1965,14 @@ function assessMobileVideoCompatibility(video: Partial<VideoItem> | null | undef
     return { compatible: null, reason: "unknown" as const };
 }
 function getMobileVideoCompatibilityWarningText(video: Partial<VideoItem> | null | undefined, playbackUrl = "") {
+    const videoCodec = String(video?.videoCodec || video?.video_codec || "").trim().toLowerCase();
+    if (videoCodec === "av01") {
+        return AV1_MOBILE_VIDEO_WARNING_MESSAGE;
+    }
     const assessment = assessMobileVideoCompatibility(video, playbackUrl);
     if (assessment.compatible !== false) {
         return "This video may not play on some mobile devices.";
     }
-    const videoCodec = String(video?.videoCodec || video?.video_codec || "").trim();
     const audioCodec = String(video?.audioCodec || video?.audio_codec || "").trim();
     if (assessment.reason === "codec" && (videoCodec || audioCodec)) {
         const codecSummary = [videoCodec, audioCodec].filter(Boolean).join(" / ");
@@ -2055,7 +2059,7 @@ function getMobileVideoPlaybackDiagnosticMessage(video: Partial<VideoItem> | nul
     }
     if (errorCode === 4) {
         return isVideoMarkedMobileIncompatible(video)
-            ? "This video must be re-uploaded as MP4 H.264/AAC for mobile."
+            ? getMobileVideoCompatibilityWarningText(video, playbackUrl)
             : "This video could not be decoded on this device.";
     }
     return "Video playback could not start. Check console diagnostics.";
@@ -12884,7 +12888,7 @@ export default function Page() {
               <span>
                 {formatCount(video.views)} views | {formatCount(video.likes || 0)} likes
               </span>
-              {isVideoMarkedMobileIncompatible(video) ? (<span className="video-compat-warning">This video must be re-uploaded as MP4 H.264/AAC for mobile.</span>) : null}
+              {isVideoMarkedMobileIncompatible(video) ? (<span className="video-compat-warning">{getMobileVideoCompatibilityWarningText(video)}</span>) : null}
             </div>
             <div className="dashboard-song-actions">
               <button onClick={() => playVideo(video, sourceLabel)} type="button">
@@ -13041,7 +13045,7 @@ export default function Page() {
             <span>{formatCount(video.likes || 0)} likes</span>
             <span>{video.uploaded}</span>
           </div>
-          {mobileIncompatible ? (<p className="video-compat-warning">This video must be re-uploaded as MP4 H.264/AAC for mobile.</p>) : null}
+          {mobileIncompatible ? (<p className="video-compat-warning">{getMobileVideoCompatibilityWarningText(video)}</p>) : null}
 
           <div className="card-actions media-card-actions">
             {renderVideoCardActions(video, options)}
