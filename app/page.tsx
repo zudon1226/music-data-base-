@@ -1030,6 +1030,7 @@ const SONGS_STORAGE_BUCKET = "songs";
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
 const MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE = "Mobile compatible video required: MP4 H.264 video with AAC audio.";
+const VIDEO_UPLOAD_CODEC_GUIDANCE = "MP4 required. For iPhone/mobile playback, use H.264 video with AAC audio. Some downloaded MP4 files may need conversion before upload.";
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
 }
@@ -14885,8 +14886,9 @@ export default function Page() {
                     <small>
                       {albumVideoFiles.length > 0
                     ? `${albumVideoFiles.length} video file${albumVideoFiles.length === 1 ? "" : "s"} selected`
-                    : MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}
+                    : "Choose MP4 video files"}
                     </small>
+                    <p className="video-upload-codec-guidance">{VIDEO_UPLOAD_CODEC_GUIDANCE}</p>
                   </label>
 
                   {(albumSongFiles.length > 0 || albumVideoFiles.length > 0) && (<div className="album-file-summary wide">
@@ -14928,6 +14930,8 @@ export default function Page() {
                   </div>
                 </div>
 
+                <p className="video-upload-codec-guidance">{VIDEO_UPLOAD_CODEC_GUIDANCE}</p>
+
                 <div className="video-form-grid">
                   <input name="dashboardVideoTitle" value={videoForm.title} onChange={(event) => setVideoForm({ ...videoForm, title: event.target.value })} placeholder="Video title"/>
 
@@ -14963,8 +14967,7 @@ export default function Page() {
                     setVideoUploadProgress(0);
                     setVideoUploadStatus("");
                 }}/>
-                    <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small>
-                    {videoFile ? <small>{MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small> : null}
+                    <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : "Choose an MP4 video file"}</small>
                   </label>
                 </div>
 
@@ -15802,6 +15805,8 @@ export default function Page() {
                 </div>
               </div>
 
+              <p className="video-upload-codec-guidance">{VIDEO_UPLOAD_CODEC_GUIDANCE}</p>
+
               <fieldset className="video-form-grid" disabled={uploadsBlockedForCurrentUser}>
                 <input name="videoTitle" value={videoForm.title} onChange={(event) => setVideoForm({ ...videoForm, title: event.target.value })} placeholder="Video title"/>
 
@@ -15837,8 +15842,7 @@ export default function Page() {
                 setVideoUploadProgress(0);
                 setVideoUploadStatus("");
             }}/>
-                  <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small>
-                  {videoFile ? <small>{MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE}</small> : null}
+                  <small>{videoFile ? `${videoFile.name} (${formatFileSize(videoFile.size)})` : "Choose an MP4 video file"}</small>
                 </label>
               </fieldset>
 
@@ -19617,6 +19621,18 @@ export default function Page() {
             font-size: 12px;
             font-weight: 800;
             line-height: 1.35;
+          }
+
+          .video-upload-codec-guidance {
+            margin: 0 0 12px;
+            border: 1px solid rgba(251, 191, 36, 0.46);
+            border-radius: 8px;
+            background: rgba(120, 53, 15, 0.42);
+            color: #fde68a;
+            padding: 9px 11px;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.4;
           }
 
           .video-compat-badge {
