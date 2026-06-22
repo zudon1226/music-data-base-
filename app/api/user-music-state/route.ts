@@ -1,5 +1,5 @@
 import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
-import { optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
+import { getSessionTokensFromRecord, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Log in before syncing music state." }, 401);
         }
-        const auth = await requireMatchingUserId(request, "/api/user-music-state", userId);
+        const auth = await requireMatchingUserId(request, "/api/user-music-state", userId, getSessionTokensFromRecord(body));
         if (!auth.ok) {
             return jsonResponse({ error: auth.error }, auth.status);
         }

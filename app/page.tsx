@@ -5286,7 +5286,7 @@ export default function Page() {
         }
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/playlists?userId=${encodeURIComponent(playlistUserId)}`, { cache: "no-store" });
+            response = await authFetch(supabase, `/api/playlists?userId=${encodeURIComponent(playlistUserId)}`, { cache: "no-store", requireSession: true });
         }
         catch (error) {
             console.error("PLAYLIST ERROR:", error);
@@ -5347,7 +5347,7 @@ export default function Page() {
         const albumsQuery = `?userId=${encodeURIComponent(recentUserId)}`;
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/albums${albumsQuery}`, { cache: "no-store" });
+            response = await authFetch(supabase, `/api/albums${albumsQuery}`, { cache: "no-store", requireSession: true });
         }
         catch {
             return albums;
@@ -5405,7 +5405,7 @@ export default function Page() {
             return [];
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/song-likes?userId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+            response = await authFetch(supabase, `/api/song-likes?userId=${encodeURIComponent(user.id)}`, { cache: "no-store", requireSession: true });
         }
         catch {
             return likedIds;
@@ -5440,6 +5440,7 @@ export default function Page() {
         try {
             response = await authFetch(supabase, `/api/library-saves?userId=${encodeURIComponent(libraryUserId)}`, {
                 cache: "no-store",
+                requireSession: true,
             });
         }
         catch (error) {
@@ -5626,7 +5627,7 @@ export default function Page() {
         }
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/user-music-state?userId=${encodeURIComponent(accountUserId)}`, { cache: "no-store" });
+            response = await authFetch(supabase, `/api/user-music-state?userId=${encodeURIComponent(accountUserId)}`, { cache: "no-store", requireSession: true });
         }
         catch {
             return null;
@@ -9565,7 +9566,8 @@ export default function Page() {
         setActivePlaylistId(playlist.id);
         setPlaylistContentTab("Songs");
         try {
-            const response = await fetch("/api/playlists", {
+            const response = await authFetch(supabase, "/api/playlists", {
+                requireSession: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -9586,7 +9588,8 @@ export default function Page() {
             }
             const savedPlaylist = data.playlist as Playlist;
             setPlaylists((previous) => previous.map((item) => (item.id === playlist.id ? { ...savedPlaylist, songIds: playlist.songIds, videoIds: [] } : item)));
-            await Promise.all(cleanQueue.map((song) => fetch("/api/playlist-items", {
+            await Promise.all(cleanQueue.map((song) => authFetch(supabase, "/api/playlist-items", {
+                requireSession: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: user.id, playlistId: savedPlaylist.id, itemId: song.id, itemType: "song" }),
@@ -9627,7 +9630,8 @@ export default function Page() {
         setPlaylistForm({ name: "", cover: "", playlistType: "mixed" });
         setView("Playlists");
         try {
-            const response = await fetch("/api/playlists", {
+            const response = await authFetch(supabase, "/api/playlists", {
+                requireSession: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -9673,7 +9677,8 @@ export default function Page() {
         if (!user?.id || !isUuid(playlistId))
             return;
         try {
-            const response = await fetch("/api/playlists", {
+            const response = await authFetch(supabase, "/api/playlists", {
+                requireSession: true,
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: user.id, playlistId, name: nextName }),
@@ -9712,7 +9717,8 @@ export default function Page() {
             return;
         }
         try {
-            const response = await fetch("/api/playlists", {
+            const response = await authFetch(supabase, "/api/playlists", {
+                requireSession: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: user.id, playlistId }),
@@ -9865,7 +9871,8 @@ export default function Page() {
             return;
         }
         try {
-            const response = await fetch("/api/playlist-items", {
+            const response = await authFetch(supabase, "/api/playlist-items", {
+                requireSession: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: user.id, playlistId, itemId: songId, itemType: "song" }),
@@ -9924,7 +9931,8 @@ export default function Page() {
             return;
         }
         try {
-            const response = await fetch("/api/playlist-items", {
+            const response = await authFetch(supabase, "/api/playlist-items", {
+                requireSession: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: user.id, playlistId, itemId: videoId, itemType: "video" }),
@@ -10007,7 +10015,8 @@ export default function Page() {
             const requests = [
                 ...songIdsToAdd.map((songId) => ({ itemId: songId, itemType: "song" as const })),
                 ...videoIdsToAdd.map((videoId) => ({ itemId: videoId, itemType: "video" as const })),
-            ].map((item) => fetch("/api/playlist-items", {
+            ].map((item) => authFetch(supabase, "/api/playlist-items", {
+                requireSession: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: user.id, playlistId, itemId: item.itemId, itemType: item.itemType }),
@@ -10059,7 +10068,8 @@ export default function Page() {
         if (!user?.id || !isUuid(playlistId))
             return;
         try {
-            const response = await fetch("/api/playlist-items", {
+            const response = await authFetch(supabase, "/api/playlist-items", {
+                requireSession: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: user.id, playlistId, itemId: songId, itemType: "song" }),
@@ -10096,7 +10106,8 @@ export default function Page() {
         if (!user?.id || !isUuid(playlistId))
             return;
         try {
-            const response = await fetch("/api/playlist-items", {
+            const response = await authFetch(supabase, "/api/playlist-items", {
+                requireSession: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: user.id, playlistId, itemId: videoId, itemType: "video" }),

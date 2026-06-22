@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { SUPABASE_PROJECT_URL } from "./supabase-config";
+import { readSupabaseAnonKey, SUPABASE_PROJECT_URL } from "./supabase-config";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
 
 export const REFRESH_TOKEN_BODY_KEYS = ["refreshToken", "sessionRefreshToken", "refresh_token"] as const;
@@ -111,11 +111,7 @@ export function logRouteAuth(
 }
 
 function getUserAuthClient() {
-    const anonKey = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
-    if (!anonKey) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
-    }
-    return createClient(SUPABASE_PROJECT_URL, anonKey, {
+    return createClient(SUPABASE_PROJECT_URL, readSupabaseAnonKey(), {
         auth: { autoRefreshToken: false, persistSession: false },
     });
 }

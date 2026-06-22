@@ -168,7 +168,7 @@ export async function authFetch(
 ) {
     const { requireSession = false, ...fetchInit } = init;
     const { accessToken, refreshToken, error } = await readSessionAccessToken(supabase, {
-        allowRefresh: requireSession,
+        allowRefresh: true,
     });
 
     if (!accessToken && !refreshToken) {

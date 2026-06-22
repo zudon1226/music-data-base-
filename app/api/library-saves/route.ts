@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
+import { getSessionTokensFromRecord, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -182,7 +182,7 @@ export async function POST(request: Request) {
         const itemType = normalizeItemType(body.itemType);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before saving to Library." }, 401);
-        const auth = await requireMatchingUserId(request, "/api/library-saves", userId);
+        const auth = await requireMatchingUserId(request, "/api/library-saves", userId, getSessionTokensFromRecord(body));
         if (!auth.ok) {
             return jsonResponse({ error: auth.error }, auth.status);
         }
@@ -238,7 +238,7 @@ export async function DELETE(request: Request) {
         const itemType = normalizeItemType(body.itemType);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before removing from Library." }, 401);
-        const auth = await requireMatchingUserId(request, "/api/library-saves", userId);
+        const auth = await requireMatchingUserId(request, "/api/library-saves", userId, getSessionTokensFromRecord(body));
         if (!auth.ok) {
             return jsonResponse({ error: auth.error }, auth.status);
         }

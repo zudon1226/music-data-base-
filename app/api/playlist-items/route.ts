@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
 
     if (!userId || !isUuid(userId)) {
       return jsonResponse({ error: "Log in before adding items to playlists." }, 401);
+    }
+    const auth = await requireMatchingUserId(request, "/api/playlist-items", userId, getSessionTokensFromRecord(body));
+    if (!auth.ok) {
+      return jsonResponse({ error: auth.error }, auth.status);
     }
 
     if (!playlistId || !isUuid(playlistId) || !itemId) {
@@ -129,6 +134,10 @@ export async function DELETE(request: Request) {
 
     if (!userId || !isUuid(userId)) {
       return jsonResponse({ error: "Log in before removing playlist items." }, 401);
+    }
+    const auth = await requireMatchingUserId(request, "/api/playlist-items", userId, getSessionTokensFromRecord(body));
+    if (!auth.ok) {
+      return jsonResponse({ error: auth.error }, auth.status);
     }
 
     if (!playlistId || !isUuid(playlistId)) {

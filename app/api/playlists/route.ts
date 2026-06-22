@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,6 +163,10 @@ export async function POST(request: Request) {
         const id = typeof body.id === "string" && isUuid(body.id.trim()) ? body.id.trim() : crypto.randomUUID();
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before creating playlists." }, 401);
+        const auth = await requireMatchingUserId(request, "/api/playlists", userId, getSessionTokensFromRecord(body));
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
+        }
         if (!name)
             return jsonResponse({ error: "Playlist name is required." }, 400);
         const supabase = getSupabaseLibraryClient();
@@ -234,6 +239,10 @@ export async function PATCH(request: Request) {
         const playlistType = body.playlistType === undefined ? undefined : normalizePlaylistType(body.playlistType);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before updating playlists." }, 401);
+        const auth = await requireMatchingUserId(request, "/api/playlists", userId, getSessionTokensFromRecord(body));
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
+        }
         if (!playlistId || !isUuid(playlistId))
             return jsonResponse({ error: "Choose a playlist first." }, 400);
         if (!name && !cover && playlistType === undefined)
@@ -323,6 +332,10 @@ export async function DELETE(request: Request) {
         const playlistId = typeof body.playlistId === "string" ? body.playlistId.trim() : "";
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before deleting playlists." }, 401);
+        const auth = await requireMatchingUserId(request, "/api/playlists", userId, getSessionTokensFromRecord(body));
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
+        }
         if (!playlistId || !isUuid(playlistId))
             return jsonResponse({ error: "Choose a playlist first." }, 400);
         const supabase = getSupabaseLibraryClient();

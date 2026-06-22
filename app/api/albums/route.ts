@@ -405,10 +405,11 @@ export async function GET(request: Request) {
         const requestUrl = new URL(request.url);
         const recentUserId = getString(requestUrl.searchParams.get("userId"));
         logRouteAuth(request, "/api/albums", recentUserId);
+        let verifiedRecentUserId = "";
         if (recentUserId) {
             const auth = await optionalMatchingUserId(request, recentUserId);
-            if (!auth.ok) {
-                return jsonResponse({ albums: [], recentAlbums: [] });
+            if (auth.ok) {
+                verifiedRecentUserId = auth.userId;
             }
         }
         const supabase = getSupabaseServerClient();
@@ -430,11 +431,11 @@ export async function GET(request: Request) {
         await repairEmptyAlbumItemBuckets(supabase, albumRows, itemBuckets);
         await repairDeadAlbumVideoReferences(supabase, albumRows, itemBuckets);
         const mappedAlbums = albumRows.map((album) => mapAlbumRow(album, itemBuckets));
-        const recentAlbums = recentUserId
-            ? mappedAlbums.filter((album) => album.userId === recentUserId ||
-                album.artistId === recentUserId ||
-                album.producerId === recentUserId ||
-                album.producerProfileId === recentUserId)
+        const recentAlbums = verifiedRecentUserId
+            ? mappedAlbums.filter((album) => album.userId === verifiedRecentUserId ||
+                album.artistId === verifiedRecentUserId ||
+                album.producerId === verifiedRecentUserId ||
+                album.producerProfileId === verifiedRecentUserId)
             : mappedAlbums;
         return jsonResponse({ albums: mappedAlbums, recentAlbums });
     }

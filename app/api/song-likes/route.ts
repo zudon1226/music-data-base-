@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
+import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId, getSessionTokensFromRecord } from "@/lib/request-auth";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
             return jsonResponse({ error: "Missing song id." }, 400);
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before liking songs." }, 401);
-        const auth = await requireMatchingUserId(request, "/api/song-likes", userId);
+        const auth = await requireMatchingUserId(request, "/api/song-likes", userId, getSessionTokensFromRecord(body as Record<string, unknown>));
         if (!auth.ok) {
             return jsonResponse({ error: auth.error }, auth.status);
         }
