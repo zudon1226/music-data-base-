@@ -9465,6 +9465,53 @@ export default function Page() {
         <span>Playlist</span>
       </button>);
     }
+    function renderVideoCardActions(video: VideoItem, options: VideoCardOptions = {}) {
+        const artistId = createArtistId(video.creator);
+        const isFollowing = followedArtistIds.includes(artistId);
+        const isLiked = Boolean(video.likedByUser);
+        const isSaved = savedVideoIds.includes(video.id);
+        const canDeleteVideo = options.showRemove && canDeleteUploadedVideo(video);
+        return (<>
+            <button className="play-btn" onClick={() => playVideo(video, options.sourceLabel || "Video Card")} type="button">
+              <span aria-hidden="true">▶</span>
+              <span>Play</span>
+            </button>
+
+            <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleVideoLike(video)} title={isLiked ? "Click to unlike" : "Like video"} type="button">
+              <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
+              <span>{isLiked ? options.unlikeLabel || "Liked" : "Like"}</span>
+            </button>
+
+            <button className={isFollowing ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, video.creator)} type="button">
+              <span aria-hidden="true">{isFollowing ? "✓" : "👤"}</span>
+              <span>{isFollowing ? "Following" : "Follow"}</span>
+            </button>
+
+            <button className={isSaved ? "library-btn saved" : "library-btn"} onClick={() => {
+                if (isSaved) {
+                    removeVideoFromLibrary(video.id);
+                    return;
+                }
+                handleSaveVideo(video.id);
+            }} title={isSaved ? "Remove video from Library" : "Save video to Library"} type="button">
+              <span aria-hidden="true">{isSaved ? "✓" : "+"}</span>
+              <span>{isSaved ? "Saved" : "Save"}</span>
+            </button>
+
+            {renderVideoPlaylistButton(video)}
+            {renderMobileVideoQueueButton(video)}
+            {canDeleteVideo && (<button type="button" className="danger-btn delete-button" onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handlePermanentDeleteVideo(video.id);
+            }}>
+              Delete
+            </button>)}
+            {options.showLibraryRemove && (<button className="card-icon-btn danger" onClick={() => removeVideoFromLibrary(video.id)} type="button" title="Remove from library">
+              <Trash2 size={15}/>
+            </button>)}
+          </>);
+    }
     async function addSongToPlaylist(playlistId: string, songId: string) {
         if (!playlistId || !songId) {
             showToast("Choose a playlist and song first.", "error");
@@ -12626,13 +12673,9 @@ export default function Page() {
       </article>);
     }
     function renderVideoCard(video: VideoItem, options: VideoCardOptions = {}) {
-        const artistId = createArtistId(video.creator);
-        const isFollowing = followedArtistIds.includes(artistId);
-        const isLiked = Boolean(video.likedByUser);
-        const isSaved = savedVideoIds.includes(video.id);
         const sourceLabel = options.sourceLabel || "Video Card";
+        const artistId = createArtistId(video.creator);
         const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
-        const showVideoLibraryDeleteTest = options.isLibraryCard || options.sourceLabel === "Video Library" || options.showRemove;
         return (<article className={options.isLibraryCard ? "video-card library-card media-card" : "video-card media-card"} key={video.id}>
         <div className="video-cover-wrap">
           <button className="video-cover" onClick={() => playVideo(video, sourceLabel)} type="button">
@@ -12640,9 +12683,6 @@ export default function Page() {
             <span>{video.category}</span>
             <Film size={34}/>
           </button>
-          {options.showLibraryRemove && (<button className="card-icon-btn danger" onClick={() => removeVideoFromLibrary(video.id)} type="button" title="Remove from library">
-              <Trash2 size={15}/>
-            </button>)}
         </div>
 
         <div className="video-card-body media-card-content">
@@ -12661,49 +12701,7 @@ export default function Page() {
           {mobileIncompatible ? (<p className="video-compat-warning">This video must be re-uploaded as MP4 H.264/AAC for mobile.</p>) : null}
 
           <div className="card-actions media-card-actions">
-            {showVideoLibraryDeleteTest && renderMobileVideoQueueButton(video)}
-            {showVideoLibraryDeleteTest && (<button type="button" className="danger-btn delete-button" onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handlePermanentDeleteVideo(video.id);
-            }}>
-              Delete
-            </button>)}
-            <button className="play-btn" onClick={() => playVideo(video, sourceLabel)} type="button">
-              <span aria-hidden="true">▶</span>
-              <span>Play</span>
-            </button>
-
-            <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleVideoLike(video)} title={isLiked ? "Click to unlike" : "Like video"} type="button">
-              <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
-              <span>{isLiked ? options.unlikeLabel || "Liked" : "Like"}</span>
-            </button>
-
-            <button className={isFollowing ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, video.creator)} type="button">
-              <span aria-hidden="true">{isFollowing ? "✓" : "👤"}</span>
-              <span>{isFollowing ? "Following" : "Follow"}</span>
-            </button>
-            <button className={isSaved ? "library-btn saved" : "library-btn"} onClick={() => {
-                console.log("VIDEO SAVE ID", video.id);
-                console.log("VIDEO STORAGE PATH", video.storage_path || video.storagePath || "");
-                if (isSaved) {
-                    removeVideoFromLibrary(video.id);
-                    return;
-                }
-                handleSaveVideo(video.id);
-            }} title={isSaved ? "Remove video from Library" : "Save video to Library"} type="button">
-              <span aria-hidden="true">{isSaved ? "✓" : "+"}</span>
-              <span>{isSaved ? "Saved" : "Save"}</span>
-            </button>
-            {!showVideoLibraryDeleteTest && renderMobileVideoQueueButton(video)}
-            {!showVideoLibraryDeleteTest && options.isLibraryCard && (<button type="button" className="delete-button" onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handlePermanentDeleteVideo(video.id);
-            }}>
-              Delete
-            </button>)}
-            {renderVideoPlaylistButton(video)}
+            {renderVideoCardActions(video, options)}
           </div>
           <div className="card-secondary-actions">
             <button onClick={() => openComments("video", video)} type="button">
@@ -20224,14 +20222,22 @@ export default function Page() {
             grid-row: 3;
           }
 
-          .video-card-body {
-            grid-template-rows: 58px 24px minmax(104px, 1fr) 30px;
+          .video-card-body .video-compat-warning {
+            margin: 0;
+            font-size: 11px;
+            line-height: 1.2;
           }
 
-          .video-card-body .card-actions {
+          .video-card-body {
+            grid-template-rows: 58px 24px minmax(112px, auto) 30px;
+          }
+
+          .video-card-body .card-actions,
+          .video-card .card-actions,
+          .library-card.video-card .video-card-body .card-actions {
             height: auto;
-            min-height: 104px;
-            overflow: hidden;
+            min-height: 112px;
+            overflow: visible;
           }
 
           .card-actions .play-btn {
@@ -20367,9 +20373,9 @@ export default function Page() {
           .library-card .card-actions,
           .library-card .video-card-body .card-actions {
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            grid-auto-rows: minmax(24px, 1fr);
-            height: 78px;
-            min-height: 78px;
+            grid-auto-rows: minmax(31px, auto);
+            height: auto;
+            min-height: 112px;
             overflow: visible;
           }
 
@@ -23907,7 +23913,9 @@ export default function Page() {
           }
 
           .video-card .card-actions {
+            height: auto;
             min-height: 112px;
+            overflow: visible;
           }
 
           .song-head h3,
@@ -25656,7 +25664,15 @@ export default function Page() {
 
             .video-card-body,
             .library-card.video-card .video-card-body {
-              grid-template-rows: 48px 20px 92px 26px;
+              grid-template-rows: 48px 20px minmax(112px, auto) 26px;
+            }
+
+            .video-card-body .card-actions,
+            .video-card .card-actions,
+            .library-card.video-card .video-card-body .card-actions {
+              height: auto;
+              min-height: 112px;
+              overflow: visible;
             }
 
             .song-body .desc {
