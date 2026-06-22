@@ -938,7 +938,15 @@ const STORAGE_KEYS = {
     salesCart: "zml_sales_cart",
     purchaseHistory: "zml_purchase_history",
     downloadVault: "zml_download_vault",
+    search: "zml_search_query",
 };
+const GLOBAL_SEARCH_VIEWS: View[] = ["Home", "Videos", "Library", "Beats", "Artists", "Trending"];
+function usesGlobalSearchScope(view: View, searchQuery: string) {
+    return Boolean(searchQuery.trim()) && GLOBAL_SEARCH_VIEWS.includes(view);
+}
+function usesLibrarySearchScope(view: View, searchQuery: string) {
+    return Boolean(searchQuery.trim()) && view === "Library";
+}
 const LICENSE_TYPES: LicenseType[] = ["Basic", "Premium", "Unlimited", "Exclusive"];
 const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     {
@@ -4886,6 +4894,9 @@ export default function Page() {
             setActivePlaylistId(cleanPlaylists.some((playlist) => playlist.id === savedActivePlaylistId) ? savedActivePlaylistId : "");
             setCurrentSong(cleanCurrent);
             setSelectedVideoId(loadedVideos[0]?.id || "");
+            const savedSearchQuery = localStorage.getItem(STORAGE_KEYS.search) || "";
+            setSearchInput(savedSearchQuery);
+            setSearch(savedSearchQuery.trim());
             setHasLoaded(true);
         }, 0);
         return () => window.clearTimeout(timer);
@@ -5638,6 +5649,7 @@ export default function Page() {
     const followedArtistsStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedArtistIds)), [followedArtistIds]);
     const queueStorageSnapshot = useMemo(() => JSON.stringify(uniqueSongs(queue).map((song) => song.id)), [queue]);
     const recentStorageSnapshot = useMemo(() => JSON.stringify(serializeRecentPlaysForStorage(recentlyPlayed)), [recentlyPlayed]);
+    const searchStorageSnapshot = useMemo(() => searchInput.trim(), [searchInput]);
     const playlistStorageSnapshot = useMemo(() => JSON.stringify(playlists), [playlists]);
     const artistStorageSnapshot = useMemo(() => JSON.stringify(uniqueArtists(mergedArtistProfiles)), [mergedArtistProfiles]);
     const notificationStorageSnapshot = useMemo(() => JSON.stringify(notifications.slice(0, 50)), [notifications]);
@@ -5691,6 +5703,7 @@ export default function Page() {
         saveLocalStorageSnapshot(STORAGE_KEYS.salesCart, salesCartStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.purchaseHistory, purchaseHistoryStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.downloadVault, downloadVaultStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.search, searchStorageSnapshot);
     }, [
         activePlaylistId,
         activeSubscriptionPlanId,
@@ -5715,6 +5728,7 @@ export default function Page() {
         recentStorageSnapshot,
         releaseNoteStorageSnapshot,
         salesCartStorageSnapshot,
+        searchStorageSnapshot,
         saveLocalStorageSnapshot,
         supportTicketStorageSnapshot,
         userFeedbackStorageSnapshot,
@@ -5981,27 +5995,31 @@ export default function Page() {
         .slice(0, 8), [mergedArtistProfiles]);
     const visibleSongs = useMemo(() => {
         let list = audioSongs;
-        if (view === "Library")
+        if (usesLibrarySearchScope(view, search))
             list = librarySongs;
-        if (view === "Liked")
-            list = likedSongs;
-        if (view === "Following")
-            list = followingSongs;
-        if (view === "Queue")
-            list = cleanQueue;
-        if (view === "Beats")
-            list = audioSongs.filter((song) => BEAT_CATEGORIES.includes(song.type) || song.category === "Producer Beats");
-        if (view === "Artists")
-            list = audioSongs.filter((song) => song.type === "Artists");
-        if (view === "Trending")
-            list = trendingSongs;
-        if (view === "Home") {
-            if (activeTab === "Trending")
+        else if (!usesGlobalSearchScope(view, search)) {
+            if (view === "Library")
+                list = librarySongs;
+            if (view === "Liked")
+                list = likedSongs;
+            if (view === "Following")
+                list = followingSongs;
+            if (view === "Queue")
+                list = cleanQueue;
+            if (view === "Beats")
+                list = audioSongs.filter((song) => BEAT_CATEGORIES.includes(song.type) || song.category === "Producer Beats");
+            if (view === "Artists")
+                list = audioSongs.filter((song) => song.type === "Artists");
+            if (view === "Trending")
                 list = trendingSongs;
-            else if (activeTab === "New Releases")
-                list = audioSongs.filter((song) => song.category === "New Releases");
-            else
-                list = audioSongs.filter((song) => song.type === activeTab);
+            if (view === "Home") {
+                if (activeTab === "Trending")
+                    list = trendingSongs;
+                else if (activeTab === "New Releases")
+                    list = audioSongs.filter((song) => song.category === "New Releases");
+                else
+                    list = audioSongs.filter((song) => song.type === activeTab);
+            }
         }
         if (search.trim()) {
             const keyword = search.toLowerCase();
@@ -6018,10 +6036,14 @@ export default function Page() {
     }, [audioSongs, view, activeTab, search, librarySongs, likedSongs, followingSongs, cleanQueue, trendingSongs, isArtistVerified]);
     const visibleVideos = useMemo(() => {
         let list = uniqueVideos(videos);
-        if (view === "Library")
+        if (usesLibrarySearchScope(view, search))
             list = libraryVideos;
-        if (view === "Liked")
-            list = likedVideos;
+        else if (!usesGlobalSearchScope(view, search)) {
+            if (view === "Library")
+                list = libraryVideos;
+            if (view === "Liked")
+                list = likedVideos;
+        }
         if (search.trim()) {
             const keyword = search.toLowerCase();
             list = list
@@ -6039,7 +6061,8 @@ export default function Page() {
         if (!search.trim())
             return [];
         const keyword = search.toLowerCase();
-        return resolvedAlbums
+        const albumPool = usesLibrarySearchScope(view, search) ? libraryAlbums : resolvedAlbums;
+        return albumPool
             .map((album) => ({
             album,
             score: getSearchMatchScore(keyword, [
@@ -6055,7 +6078,47 @@ export default function Page() {
             .filter((entry) => entry.score > 0)
             .sort((a, b) => b.score - a.score)
             .map((entry) => entry.album);
-    }, [isArtistVerified, isProducerVerified, resolvedAlbums, search]);
+    }, [isArtistVerified, isProducerVerified, libraryAlbums, resolvedAlbums, search, view]);
+    const searchableProducers = useMemo(() => {
+        const profileNameIds = new Set(producerProfiles.map((profile) => createArtistId(profile.name)));
+        const creditedNames = new Set<string>();
+        audioSongs.forEach((song) => {
+            const producerName = song.producer?.trim();
+            if (producerName)
+                creditedNames.add(producerName);
+        });
+        producerBeats.forEach((beat) => {
+            const producerName = beat.producerName?.trim();
+            if (producerName)
+                creditedNames.add(producerName);
+        });
+        uniqueVideos(videos).forEach((video) => {
+            const producerName = (video.producerName || video.producer || "").trim();
+            if (producerName)
+                creditedNames.add(producerName);
+        });
+        resolvedAlbums.forEach((album) => {
+            const producerName = album.producerName?.trim();
+            if (producerName)
+                creditedNames.add(producerName);
+        });
+        const creditedProfiles = [...creditedNames]
+            .filter((name) => !profileNameIds.has(createArtistId(name)))
+            .map((name) => ({
+            id: createArtistId(name),
+            userId: "",
+            name,
+            avatar: BRAND_LOGO,
+            banner: DEFAULT_ARTIST_BANNER,
+            bio: "",
+            tagline: "",
+            website: "",
+            followers: 0,
+            following: 0,
+            createdAt: "",
+        }));
+        return [...producerProfiles, ...creditedProfiles];
+    }, [audioSongs, producerBeats, producerProfiles, resolvedAlbums, videos]);
     const searchArtistResults = useMemo(() => {
         if (!search.trim())
             return [];
@@ -6073,7 +6136,7 @@ export default function Page() {
         if (!search.trim())
             return [];
         const keyword = search.toLowerCase();
-        return producerProfiles
+        return searchableProducers
             .map((producer) => ({
             producer,
             score: getSearchMatchScore(keyword, [producer.name, producer.bio, producer.tagline, producer.website], Math.min(45, producer.followers * 0.7 + producerBeats.filter((beat) => beat.producerId === producer.id || createArtistId(beat.producerName) === createArtistId(producer.name)).length * 4) + (isProducerVerified(producer.id) || isProducerVerified(producer.name) ? 35 : 0)),
@@ -6081,7 +6144,7 @@ export default function Page() {
             .filter((entry) => entry.score > 0)
             .sort((a, b) => b.score - a.score)
             .map((entry) => entry.producer);
-    }, [isProducerVerified, producerBeats, producerProfiles, search]);
+    }, [isProducerVerified, producerBeats, search, searchableProducers]);
     const searchPlaylistResults = useMemo(() => {
         if (!search.trim())
             return [];
@@ -15595,7 +15658,7 @@ export default function Page() {
                   </article>))}
               </HorizontalRail>
             </section>
-          </section>) : view === "Videos" ? (<section className="video-page">
+          </section>) : view === "Videos" && !search.trim() ? (<section className="video-page">
             {renderUploadLockNotice()}
             <form className="video-upload-card" onSubmit={addUploadedVideo}>
               <div className="upload-brand">
