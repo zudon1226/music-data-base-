@@ -3,7 +3,7 @@
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, Home, ListMusic, LogIn, LogOut, MessageCircle, Music2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
-import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, type WheelEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
+import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession, readRefreshTokenFromSession } from "../lib/client-api-auth";
@@ -3237,20 +3237,26 @@ function HorizontalRail({ children, className, label, }: {
         const cardWidth = firstCard?.offsetWidth || Math.max(180, Math.round(track.clientWidth * 0.8));
         track.scrollBy({ left: direction * (cardWidth + 12), behavior: "smooth" });
     }
-    function handleWheel(event: WheelEvent<HTMLElement>) {
+    useEffect(() => {
         const track = trackRef.current;
-        if (!track || track.scrollWidth <= track.clientWidth)
+        if (!track)
             return;
-        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX))
-            return;
-        event.preventDefault();
-        track.scrollLeft += event.deltaY;
-    }
+        function handleWheel(event: globalThis.WheelEvent) {
+            if (track.scrollWidth <= track.clientWidth)
+                return;
+            if (Math.abs(event.deltaY) <= Math.abs(event.deltaX))
+                return;
+            event.preventDefault();
+            track.scrollLeft += event.deltaY;
+        }
+        track.addEventListener("wheel", handleWheel, { passive: false });
+        return () => track.removeEventListener("wheel", handleWheel);
+    }, []);
     return (<div className="horizontal-rail" aria-label={label}>
       <button className="rail-arrow rail-arrow-left" onClick={() => scrollByCard(-1)} type="button" aria-label={`Scroll ${label} left`}>
         <span aria-hidden="true">{"<"}</span>
       </button>
-      <section ref={trackRef} className={`horizontal-rail-track ${className}`} onWheel={handleWheel} tabIndex={0}>
+      <section ref={trackRef} className={`horizontal-rail-track ${className}`} tabIndex={0}>
         {children}
       </section>
       <button className="rail-arrow rail-arrow-right" onClick={() => scrollByCard(1)} type="button" aria-label={`Scroll ${label} right`}>
@@ -14462,10 +14468,7 @@ export default function Page() {
             </label>
             {searchFocused && searchSuggestions.length > 0 && (<div className="search-suggestions" role="listbox" aria-label={searchInput.trim() ? "Search suggestions" : "Popular searches"}>
                 <span>{searchInput.trim() ? "Suggestions" : "Popular searches"}</span>
-                {searchSuggestions.map((suggestion) => (<button key={`${suggestion.type}-${suggestion.id}`} onMouseDown={(event) => {
-                    event.preventDefault();
-                    selectSearchSuggestion(suggestion);
-                }} type="button">
+                {searchSuggestions.map((suggestion) => (<button key={`${suggestion.type}-${suggestion.id}`} onClick={() => selectSearchSuggestion(suggestion)} type="button">
                     <img src={getArtworkUrl(suggestion.cover)} alt=""/>
                     <strong>{suggestion.title}</strong>
                     <small>{suggestion.subtitle} | {suggestion.type}</small>
