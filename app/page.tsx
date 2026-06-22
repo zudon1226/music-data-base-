@@ -947,6 +947,15 @@ function usesGlobalSearchScope(view: View, searchQuery: string) {
 function usesLibrarySearchScope(view: View, searchQuery: string) {
     return Boolean(searchQuery.trim()) && view === "Library";
 }
+function isDashboardView(view: View) {
+    return view === "Artist Dashboard" || view === "Producer Dashboard";
+}
+function showGlobalSearchHeading(view: View, searchQuery: string) {
+    return Boolean(searchQuery.trim())
+        && view !== "Marketplace"
+        && view !== "License History"
+        && !isDashboardView(view);
+}
 const LICENSE_TYPES: LicenseType[] = ["Basic", "Premium", "Unlimited", "Exclusive"];
 const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     {
@@ -13162,7 +13171,7 @@ export default function Page() {
         setShowUpload((value) => !value);
     }
     function pageTitle() {
-        if (search.trim() && view !== "Marketplace" && view !== "License History")
+        if (showGlobalSearchHeading(view, search))
             return view === "Videos" ? "Video Search" : "Search Results";
         if (view === "Marketplace")
             return "Music Marketplace";
@@ -13185,7 +13194,7 @@ export default function Page() {
         return view;
     }
     function pageSubtitle() {
-        if (search.trim() && view !== "Marketplace" && view !== "License History")
+        if (showGlobalSearchHeading(view, search))
             return "Songs, videos, albums, artists, and producers matching your search.";
         if (view === "Marketplace")
             return "Browse artist stores, producer stores, releases, charts, and marketplace filters.";
@@ -14673,7 +14682,12 @@ export default function Page() {
 
           <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title="Artist Dashboard" type="button">
             <BarChart3 size={17}/>
-            Dashboard
+            Artist
+          </button>
+
+          <button className="dashboard-btn producer-dashboard-btn" onClick={() => handleNav("Producer Dashboard")} title="Producer Dashboard" type="button">
+            <Disc3 size={17}/>
+            Producer
           </button>
 
           <button className="profile-btn" onClick={openProfileFromHeader} title="Profile" type="button">
@@ -15196,6 +15210,17 @@ export default function Page() {
             <h2>{pageTitle()}</h2>
             <p>{pageSubtitle()}</p>
           </div>
+
+          {showGlobalSearchHeading(view, search) && (<div className="dashboard-nav-row" role="navigation" aria-label="Dashboard shortcuts">
+              <button onClick={() => handleNav("Artist Dashboard")} type="button">
+                <BarChart3 size={16}/>
+                Artist Dashboard
+              </button>
+              <button onClick={() => handleNav("Producer Dashboard")} type="button">
+                <Disc3 size={16}/>
+                Producer Dashboard
+              </button>
+            </div>)}
 
           {view === "Recently Played" && recentlyPlayed.length > 0 && !search.trim() && (<button className="clear-recent" onClick={clearRecentlyPlayed}>
               Clear Recently Played
@@ -18614,7 +18639,7 @@ export default function Page() {
 
           .topbar {
             display: grid;
-            grid-template-columns: minmax(190px, 0.72fr) minmax(180px, 0.58fr) 44px repeat(4, minmax(108px, 1fr));
+            grid-template-columns: minmax(190px, 0.72fr) minmax(180px, 0.58fr) 44px repeat(5, minmax(96px, 1fr));
             gap: 10px;
             align-items: center;
             position: sticky;
@@ -18910,6 +18935,31 @@ export default function Page() {
 
           .dashboard-btn {
             background: #8b5cf6;
+          }
+
+          .producer-dashboard-btn {
+            background: #7c3aed;
+          }
+
+          .dashboard-nav-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            width: 100%;
+          }
+
+          .dashboard-nav-row button {
+            border: 1px solid rgba(139, 92, 246, 0.45);
+            border-radius: 8px;
+            background: #1e1b4b;
+            color: white;
+            font-weight: 900;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
           }
 
           .logout-btn {
@@ -20130,6 +20180,7 @@ export default function Page() {
             justify-content: space-between;
             gap: 12px;
             margin-bottom: 12px;
+            flex-wrap: wrap;
           }
 
           .section-heading h2 {
@@ -25088,7 +25139,7 @@ export default function Page() {
             }
 
             .topbar {
-              grid-template-columns: repeat(5, minmax(0, 1fr));
+              grid-template-columns: repeat(6, minmax(0, 1fr));
               gap: 5px;
               padding-bottom: 5px;
               z-index: 80;
@@ -25158,6 +25209,7 @@ export default function Page() {
 
             .topbar > button,
             .topbar .notification-wrap,
+            .dashboard-btn,
             .profile-btn,
             .logout-btn {
               position: relative;
@@ -26340,7 +26392,7 @@ export default function Page() {
             }
 
             .topbar {
-              grid-template-columns: repeat(5, minmax(0, 1fr));
+              grid-template-columns: repeat(6, minmax(0, 1fr));
               gap: 5px;
               padding-bottom: 5px;
             }
