@@ -19461,14 +19461,14 @@ export default function Page() {
           }
 
           .video-card {
-            height: 350px;
+            height: auto;
             border: 1px solid rgba(0, 212, 255, 0.28);
             border-radius: 8px;
             background: #10204a;
-            overflow: hidden;
+            overflow: visible;
             container-type: inline-size;
             display: grid;
-            grid-template-rows: 100px minmax(0, 1fr);
+            grid-template-rows: auto auto;
           }
 
           .video-cover-wrap {
@@ -19525,10 +19525,10 @@ export default function Page() {
           .video-card-body {
             padding: 8px;
             display: grid;
-            grid-template-rows: 58px 24px minmax(104px, 1fr) 30px;
+            grid-template-rows: auto auto auto auto;
             gap: 6px;
             min-height: 0;
-            overflow: hidden;
+            overflow: visible;
           }
 
           .card-meta {
@@ -20291,16 +20291,84 @@ export default function Page() {
             line-height: 1.2;
           }
 
-          .video-card-body {
-            grid-template-rows: 58px 24px minmax(112px, auto) 30px;
+          .video-card,
+          .library-card.video-card {
+            height: auto;
+            overflow: visible;
+            grid-template-rows: auto auto;
           }
 
-          .video-card-body .card-actions,
-          .video-card .card-actions,
-          .library-card.video-card .video-card-body .card-actions {
-            height: auto;
-            min-height: 112px;
+          .video-card-body,
+          .library-card.video-card .video-card-body {
             overflow: visible;
+            grid-template-rows: auto auto auto auto;
+            min-height: 0;
+          }
+
+          .video-card-body .card-meta,
+          .video-card-body .stats,
+          .video-card-body .video-compat-warning,
+          .video-card-body .card-actions,
+          .video-card-body .card-secondary-actions {
+            grid-row: auto;
+          }
+
+          .video-card .card-actions,
+          .video-card-body .card-actions,
+          .library-card.video-card .card-actions,
+          .library-card.video-card .video-card-body .card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            height: auto;
+            min-height: 0;
+            max-height: none;
+            overflow: visible;
+          }
+
+          .video-card .card-actions button,
+          .video-card-body .card-actions button,
+          .library-card.video-card .card-actions button,
+          .library-card.video-card .video-card-body .card-actions button {
+            flex: 1 1 calc(50% - 5px);
+            min-width: 72px;
+            width: auto;
+            order: 0;
+          }
+
+          .video-card .card-actions .play-btn,
+          .video-card-body .card-actions .play-btn {
+            order: 1;
+          }
+
+          .video-card .card-actions .like-btn,
+          .video-card-body .card-actions .like-btn {
+            order: 2;
+          }
+
+          .video-card .card-actions .follow-btn,
+          .video-card-body .card-actions .follow-btn {
+            order: 3;
+          }
+
+          .video-card .card-actions .library-btn,
+          .video-card-body .card-actions .library-btn {
+            order: 4;
+          }
+
+          .video-card .card-actions .playlist-btn,
+          .video-card-body .card-actions .playlist-btn {
+            order: 5;
+          }
+
+          .video-card .card-actions .mobile-queue-btn,
+          .video-card-body .card-actions .mobile-queue-btn {
+            order: 6;
+          }
+
+          .video-card .card-actions .delete-button,
+          .video-card-body .card-actions .delete-button {
+            order: 7;
           }
 
           .card-actions .play-btn {
@@ -20411,9 +20479,12 @@ export default function Page() {
             }
           }
 
-          .library-card.song-card,
-          .library-card.video-card {
+          .library-card.song-card {
             height: 360px;
+          }
+
+          .library-card.video-card {
+            height: auto;
           }
 
           .library-card .song-body {
@@ -20430,11 +20501,12 @@ export default function Page() {
           }
 
           .library-card.video-card .video-card-body {
-            grid-template-rows: 58px 24px minmax(91px, 1fr) 30px;
+            grid-template-rows: auto auto auto auto;
+            overflow: visible;
           }
 
-          .library-card .card-actions,
-          .library-card .video-card-body .card-actions {
+          .library-card.song-card .card-actions,
+          .library-card.song-card .song-body .card-actions {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             grid-auto-rows: minmax(31px, auto);
             height: auto;
@@ -20442,17 +20514,17 @@ export default function Page() {
             overflow: visible;
           }
 
-          .library-card .card-actions button {
+          .library-card.song-card .card-actions button {
             min-height: 24px;
             font-size: 11.5px;
             padding: 0 5px;
           }
 
-          .library-card .card-actions .library-btn {
+          .library-card.song-card .card-actions .library-btn {
             order: 4;
           }
 
-          .library-card .card-actions .playlist-btn {
+          .library-card.song-card .card-actions .playlist-btn {
             grid-column: 1 / -1;
             order: 5;
           }
@@ -20531,6 +20603,16 @@ export default function Page() {
           .view-list .card-actions {
             grid-template-columns: repeat(5, minmax(74px, 1fr));
             grid-auto-rows: minmax(31px, 1fr);
+          }
+
+          .view-list .video-card .card-actions,
+          .view-list .video-card-body .card-actions,
+          .view-list .library-card.video-card .card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            height: auto;
+            min-height: 0;
+            overflow: visible;
           }
 
           .view-list .card-actions .playlist-btn {
@@ -23977,8 +24059,10 @@ export default function Page() {
 
           .video-card .card-actions {
             height: auto;
-            min-height: 112px;
+            min-height: 0;
             overflow: visible;
+            display: flex;
+            flex-wrap: wrap;
           }
 
           .song-head h3,
@@ -25260,7 +25344,7 @@ export default function Page() {
             }
 
             .song-card .card-actions,
-            .library-card .card-actions {
+            .library-card.song-card .card-actions {
               grid-template-columns: repeat(2, minmax(0, 1fr));
               grid-auto-rows: 32px;
               min-height: 104px;
@@ -25269,7 +25353,7 @@ export default function Page() {
             }
 
             .song-card .card-actions button,
-            .library-card .card-actions button {
+            .library-card.song-card .card-actions button {
               min-height: 32px;
               height: 32px;
               font-size: 11px;
@@ -25699,13 +25783,16 @@ export default function Page() {
 
             .song-card,
             .video-card {
-              height: 300px;
-              grid-template-rows: 82px minmax(0, 1fr);
+              height: auto;
+              grid-template-rows: auto auto;
             }
 
-            .library-card.song-card,
-            .library-card.video-card {
+            .library-card.song-card {
               height: 306px;
+            }
+
+            .library-card.video-card {
+              height: auto;
             }
 
             .cover-wrap,
@@ -25727,14 +25814,17 @@ export default function Page() {
 
             .video-card-body,
             .library-card.video-card .video-card-body {
-              grid-template-rows: 48px 20px minmax(112px, auto) 26px;
+              grid-template-rows: auto auto auto auto;
+              overflow: visible;
             }
 
             .video-card-body .card-actions,
             .video-card .card-actions,
             .library-card.video-card .video-card-body .card-actions {
+              display: flex;
+              flex-wrap: wrap;
               height: auto;
-              min-height: 112px;
+              min-height: 0;
               overflow: visible;
             }
 
@@ -25776,14 +25866,23 @@ export default function Page() {
 
             .card-actions,
             .song-card .card-actions,
-            .video-card .card-actions,
-            .video-card-body .card-actions,
-            .library-card .card-actions,
-            .library-card .video-card-body .card-actions {
+            .library-card.song-card .card-actions {
               gap: 4px;
               grid-auto-rows: 28px;
               height: auto;
               min-height: 88px;
+            }
+
+            .video-card .card-actions,
+            .video-card-body .card-actions,
+            .library-card.video-card .card-actions,
+            .library-card.video-card .video-card-body .card-actions {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 4px;
+              height: auto;
+              min-height: 0;
+              overflow: visible;
             }
 
             .card-actions button,
@@ -25875,7 +25974,7 @@ export default function Page() {
             }
 
             .song-card .card-actions,
-            .library-card .card-actions {
+            .library-card.song-card .card-actions {
               grid-template-columns: repeat(2, minmax(0, 1fr));
               grid-auto-rows: 32px;
               min-height: 104px;
@@ -25884,7 +25983,7 @@ export default function Page() {
             }
 
             .song-card .card-actions button,
-            .library-card .card-actions button {
+            .library-card.song-card .card-actions button {
               min-height: 32px;
               height: 32px;
               font-size: 11px;
@@ -26204,8 +26303,16 @@ export default function Page() {
               min-height: 0;
               grid-template-columns: 1fr;
               grid-template-rows: auto;
-              overflow: hidden;
+              overflow: visible;
               justify-self: center;
+            }
+
+            .song-card,
+            .library-card.song-card,
+            .artist-album-card,
+            .artist-playlist-card,
+            .playlist-tile {
+              overflow: hidden;
             }
 
             .song-card .cover-wrap,
@@ -26295,10 +26402,7 @@ export default function Page() {
             }
 
             .song-card .card-actions,
-            .video-card .card-actions,
-            .video-card-body .card-actions,
-            .library-card .card-actions,
-            .library-card .video-card-body .card-actions,
+            .library-card.song-card .card-actions,
             .artist-album-card .artist-album-actions,
             .artist-card .artist-card-actions {
               display: grid;
@@ -26310,11 +26414,20 @@ export default function Page() {
               overflow: visible;
             }
 
+            .video-card .card-actions,
+            .video-card-body .card-actions,
+            .library-card.video-card .card-actions,
+            .library-card.video-card .video-card-body .card-actions {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 4px;
+              min-height: 0;
+              height: auto;
+              overflow: visible;
+            }
+
             .song-card .card-actions button,
-            .video-card .card-actions button,
-            .video-card-body .card-actions button,
-            .library-card .card-actions button,
-            .library-card .video-card-body .card-actions button,
+            .library-card.song-card .card-actions button,
             .artist-album-card .artist-album-actions button,
             .artist-card .artist-card-actions button {
               width: 100%;
@@ -26328,6 +26441,21 @@ export default function Page() {
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
+            }
+
+            .video-card .card-actions button,
+            .video-card-body .card-actions button,
+            .library-card.video-card .card-actions button,
+            .library-card.video-card .video-card-body .card-actions button {
+              flex: 1 1 calc(50% - 4px);
+              min-width: 72px;
+              width: auto;
+              height: auto;
+              min-height: 30px;
+              border-radius: 7px;
+              font-size: 11px;
+              gap: 3px;
+              padding: 0 5px;
             }
 
             .song-card .card-secondary-actions,
@@ -26462,7 +26590,6 @@ export default function Page() {
 
             .media-card,
             .song-card,
-            .video-card,
             .artist-album-card,
             .artist-playlist-card,
             .playlist-tile {
@@ -26477,6 +26604,11 @@ export default function Page() {
               gap: 12px !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
+            }
+
+            .video-card,
+            .library-card.video-card {
+              overflow: visible !important;
             }
 
             .horizontal-rail {
