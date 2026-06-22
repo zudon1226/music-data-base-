@@ -839,7 +839,7 @@ type InitialDataReloadActions = {
     reloadLibrarySaves: (userIdOverride?: string) => Promise<unknown>;
     reloadPlaylists: (userIdOverride?: string) => Promise<unknown>;
     reloadProducerData: () => Promise<unknown>;
-    reloadAlbums: () => Promise<unknown>;
+    reloadAlbums: (userIdOverride?: string) => Promise<Album[]>;
     reloadArtistFollows: () => Promise<unknown>;
     reloadSongLikes: () => Promise<unknown>;
     fallbackSongs: Song[];
@@ -3295,15 +3295,16 @@ function HorizontalRail({ children, className, label, }: {
         if (!track)
             return;
         function handleWheel(event: globalThis.WheelEvent) {
-            if (track.scrollWidth <= track.clientWidth)
+            const rail = trackRef.current;
+            if (!rail || rail.scrollWidth <= rail.clientWidth)
                 return;
             if (Math.abs(event.deltaY) <= Math.abs(event.deltaX))
                 return;
             event.preventDefault();
-            track.scrollLeft += event.deltaY;
+            rail.scrollLeft += event.deltaY;
         }
         track.addEventListener("wheel", handleWheel, { passive: false });
-        return () => track.removeEventListener("wheel", handleWheel);
+        return () => trackRef.current?.removeEventListener("wheel", handleWheel);
     }, []);
     return (<div className="horizontal-rail" aria-label={label}>
       <button className="rail-arrow rail-arrow-left" onClick={() => scrollByCard(-1)} type="button" aria-label={`Scroll ${label} left`}>
@@ -3349,7 +3350,7 @@ export default function Page() {
         reloadLibrarySaves: async () => undefined,
         reloadPlaylists: async () => undefined,
         reloadProducerData: async () => undefined,
-        reloadAlbums: async () => undefined,
+        reloadAlbums: async () => [],
         reloadArtistFollows: async () => undefined,
         reloadSongLikes: async () => undefined,
         fallbackSongs: DEFAULT_SONGS,
