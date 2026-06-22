@@ -1863,6 +1863,56 @@ function isMobileCompatibleCodec(videoCodec: string, audioCodec: string) {
     const audioCompatible = !normalizedAudio || normalizedAudio === "mp4a";
     return videoCompatible && audioCompatible;
 }
+function getVideoMimeTypeFromUrl(url: string) {
+    const extension = getVideoUrlExtension(url);
+    if (extension === "webm")
+        return "video/webm";
+    if (extension === "mov")
+        return "video/quicktime";
+    if (extension === "ogv" || extension === "ogg")
+        return "video/ogg";
+    return "video/mp4";
+}
+function probeBrowserVideoCanPlayType(url: string, video?: Partial<VideoItem> | null, videoElement?: HTMLVideoElement | null) {
+    if (!url || typeof document === "undefined")
+        return "";
+    const element = videoElement || document.createElement("video");
+    const mimeType = getVideoMimeTypeFromUrl(url);
+    const videoCodec = String(video?.videoCodec || video?.video_codec || "").trim();
+    const audioCodec = String(video?.audioCodec || video?.audio_codec || "").trim();
+    if (videoCodec && audioCodec && mimeType === "video/mp4") {
+        const codecSupport = element.canPlayType(`video/mp4; codecs="${videoCodec}, ${audioCodec}"`);
+        if (codecSupport === "probably" || codecSupport === "maybe")
+            return codecSupport;
+    }
+    if (videoCodec && mimeType === "video/mp4") {
+        const videoSupport = element.canPlayType(`video/mp4; codecs="${videoCodec}"`);
+        if (videoSupport === "probably" || videoSupport === "maybe")
+            return videoSupport;
+    }
+    return element.canPlayType(mimeType) || "";
+}
+function canBrowserPlayVideoUrl(url: string, video?: Partial<VideoItem> | null, videoElement?: HTMLVideoElement | null) {
+    const support = probeBrowserVideoCanPlayType(url, video, videoElement);
+    return support === "probably" || support === "maybe";
+}
+function shouldBlockMobileVideoPlayback(url: string, video?: Partial<VideoItem> | null, videoElement?: HTMLVideoElement | null) {
+    if (!isMobilePlaybackEnvironment() || !url)
+        return false;
+    return !canBrowserPlayVideoUrl(url, video, videoElement);
+}
+function getMobileVideoPlaybackDiagnosticMessage(video: Partial<VideoItem> | null | undefined, playbackUrl: string, errorCode?: number | null) {
+    const canPlaySupport = probeBrowserVideoCanPlayType(playbackUrl, video);
+    if (canPlaySupport === "") {
+        return "This video format is not supported on this mobile browser. Re-upload as MP4 H.264/AAC if needed.";
+    }
+    if (errorCode === 4) {
+        return isVideoMarkedMobileIncompatible(video)
+            ? "This video must be re-uploaded as MP4 H.264/AAC for mobile."
+            : "This video could not be decoded on this device.";
+    }
+    return "Video playback could not start. Check console diagnostics.";
+}
 function findAsciiTagsInBytes(bytes: Uint8Array, tags: string[]) {
     const found = new Set<string>();
     for (let offset = 0; offset < bytes.length; offset += 1) {
@@ -6000,6 +6050,9 @@ export default function Page() {
     const sponsoredCreator = sponsoredVideo?.creator || currentSong?.artist || "Music Data Base";
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
     const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
+    const shouldBlockActiveMobileVideoPlayback = mobilePlaybackEnvironment
+        && Boolean(activeVideoPlaybackUrl)
+        && !canBrowserPlayVideoUrl(activeVideoPlaybackUrl, activeVideo);
     useEffect(() => {
         let cancelled = false;
         let snapshotTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -6119,7 +6172,15 @@ export default function Page() {
                 const probe = await probeVideoPlaybackUrl(playbackUrl);
                 if (cancelled)
                     return;
-                const mobileCompatible = getDetectedMobileCompatibility(probe.videoCodec, probe.audioCodec);
+                let mobileCompatible = getDetectedMobileCompatibility(probe.videoCodec, probe.audioCodec);
+                if (playbackUrl) {
+                    if (canBrowserPlayVideoUrl(playbackUrl, video)) {
+                        mobileCompatible = true;
+                    }
+                    else if (mobileCompatible === null && probeBrowserVideoCanPlayType(playbackUrl, video) === "") {
+                        mobileCompatible = false;
+                    }
+                }
                 setVideos((previous) => previous.map((item) => item.id === video.id
                     ? normalizeVideoForPlayback({
                         ...item,
@@ -8323,7 +8384,7 @@ export default function Page() {
         const video = mainVideoRef.current;
         if (!video || !activeVideo || !activeVideoPlaybackUrl)
             return;
-        if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(activeVideo)) {
+        if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(activeVideo) && canBrowserPlayVideoUrl(activeVideoPlaybackUrl, activeVideo)) {
             showToast("This video may not play on some mobile devices.", "info");
         }
         if (videoPlaying) {
@@ -8378,13 +8439,13 @@ export default function Page() {
             });
             if (isMobilePlaybackEnvironment()) {
                 pendingVideoPlayRef.current = false;
-                if (video.error?.code === 4 || isVideoMarkedMobileIncompatible(activeVideo)) {
+                if (video.error?.code === 4 || shouldBlockMobileVideoPlayback(activeVideoPlaybackUrl, activeVideo, video)) {
                     const probe = await probeVideoPlaybackUrl(activeVideoPlaybackUrl);
                     if (isMissingSupabaseStorageVideoResponse(activeVideoPlaybackUrl, probe.status, probe.contentType)) {
                         showToast("Video file missing from storage", "error");
                         return;
                     }
-                    showToast("This video may not play on some mobile devices.", "error");
+                    showToast(getMobileVideoPlaybackDiagnosticMessage(activeVideo, activeVideoPlaybackUrl, video.error?.code), "error");
                     return;
                 }
                 return;
@@ -8467,7 +8528,7 @@ export default function Page() {
             muted: video?.muted ?? null,
             autoplay: video?.autoplay ?? null,
             preload: video?.preload || "",
-            canPlayTypeMp4: video?.canPlayType("video/mp4") || "",
+            canPlayTypeMp4: probeBrowserVideoCanPlayType(finalVideoUrl, selectedVideo ?? undefined, video) || video?.canPlayType("video/mp4") || "",
             ...extra,
         };
         console.log(`[mobile video] ${label}`, consolePayload);
@@ -8484,7 +8545,7 @@ export default function Page() {
                 networkState: String(video?.networkState ?? ""),
                 errorCode: String(video?.error?.code ?? ""),
                 errorMessage: video?.error?.message || "",
-                canPlayTypeMp4: video?.canPlayType("video/mp4") || "",
+                canPlayTypeMp4: probeBrowserVideoCanPlayType(finalVideoUrl, selectedVideo ?? undefined, video) || video?.canPlayType("video/mp4") || "",
                 detectedVideoCodec: selectedVideo.videoCodec || selectedVideo.video_codec || previous.detectedVideoCodec,
                 detectedAudioCodec: selectedVideo.audioCodec || selectedVideo.audio_codec || previous.detectedAudioCodec,
                 mobileCompatible: String(selectedVideo.mobileCompatible ?? selectedVideo.mobile_compatible ?? previous.mobileCompatible),
@@ -8499,7 +8560,7 @@ export default function Page() {
         const video = mainVideoRef.current;
         if (!video || !activeVideo || !activeVideoPlaybackUrl)
             return;
-        if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(activeVideo)) {
+        if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(activeVideo) && canBrowserPlayVideoUrl(activeVideoPlaybackUrl, activeVideo)) {
             logVideoElementState("native tap warning incompatible codec", video);
             showToast("This video may not play on some mobile devices.", "info");
         }
@@ -8541,7 +8602,7 @@ export default function Page() {
                 showToast("Video file missing from storage", "error");
                 return;
             }
-            showToast("Video playback could not start. Check console diagnostics.", "error");
+            showToast(getMobileVideoPlaybackDiagnosticMessage(activeVideo, activeVideoPlaybackUrl, null), "error");
         }
     }
     function handleVideoPlay() {
@@ -11319,7 +11380,7 @@ export default function Page() {
             setVideoProgress(0);
             setVideoDuration(0);
         });
-        if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(nextActiveVideo)) {
+        if (isMobilePlaybackEnvironment() && isVideoMarkedMobileIncompatible(nextActiveVideo) && canBrowserPlayVideoUrl(videoUrl, nextActiveVideo)) {
             showToast("This video may not play on some mobile devices.", "info");
         }
         const mainVideo = mainVideoRef.current;
@@ -11381,8 +11442,8 @@ export default function Page() {
                 const message = error instanceof Error ? error.message : String(error);
                 if (isMobilePlaybackEnvironment()) {
                     pendingVideoPlayRef.current = false;
-                    if (mainVideo.error?.code === 4 || isVideoMarkedMobileIncompatible(nextActiveVideo)) {
-                        showToast("This video may not play on some mobile devices.", "error");
+                    if (mainVideo.error?.code === 4 || shouldBlockMobileVideoPlayback(videoUrl, nextActiveVideo, mainVideo)) {
+                        showToast(getMobileVideoPlaybackDiagnosticMessage(nextActiveVideo, videoUrl, mainVideo.error?.code), "error");
                         return;
                     }
                     return;
@@ -13918,14 +13979,15 @@ export default function Page() {
     function renderSharedVideoPlayer() {
         if (!activeVideo)
             return null;
-        const showMobileIncompatibleFallback = mobilePlaybackEnvironment && isVideoMarkedMobileIncompatible(activeVideo);
+        const showMobileIncompatibleFallback = shouldBlockActiveMobileVideoPlayback;
+        const showMobileCompatibilityWarning = isVideoMarkedMobileIncompatible(activeVideo) && !showMobileIncompatibleFallback;
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
         {showMobileIncompatibleFallback ? (<div className="video-mobile-incompatible-panel">
             <Film size={42}/>
             <strong>Mobile incompatible video</strong>
-            <span>This video must be re-uploaded as MP4 H.264/AAC for mobile.</span>
+            <span>{getMobileVideoPlaybackDiagnosticMessage(activeVideo, activeVideoPlaybackUrl, 4)}</span>
           </div>) : null}
-        {activeVideoPlaybackUrl ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
+        {activeVideoPlaybackUrl && !showMobileIncompatibleFallback ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
                 updateVideoDuration(event);
                 logVideoElementState("loadedmetadata event", event.currentTarget);
             }} onDurationChange={(event) => {
@@ -13954,7 +14016,7 @@ export default function Page() {
                 console.log("MEDIA MESSAGE", event.currentTarget.error?.message);
                 if (mobilePlaybackEnvironment && event.currentTarget.error?.code === 4) {
                     setVideoPlaying(false);
-                    showToast("This video may not play on some mobile devices.", "error");
+                    showToast(getMobileVideoPlaybackDiagnosticMessage(activeVideo, activeVideoPlaybackUrl, event.currentTarget.error?.code), "error");
                 }
                 console.error("[mobile video] exact media error", {
                     selectedVideoId: activeVideo.id,
@@ -13972,7 +14034,8 @@ export default function Page() {
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
           <p>{activeVideo.creator}</p>
-          {isVideoMarkedMobileIncompatible(activeVideo) ? (<p className="mobile-video-incompatible">{showMobileIncompatibleFallback ? "This video must be re-uploaded as MP4 H.264/AAC for mobile." : "This video may not play on some mobile devices."}</p>) : null}
+          {showMobileCompatibilityWarning ? (<p className="mobile-video-incompatible">This video may not play on some mobile devices.</p>) : null}
+          {!showMobileCompatibilityWarning && showMobileIncompatibleFallback ? (<p className="mobile-video-incompatible">{getMobileVideoPlaybackDiagnosticMessage(activeVideo, activeVideoPlaybackUrl, 4)}</p>) : null}
           <div className="video-player-actions">
             <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={getVideoPlaybackList().length < 2}>
               <SkipBack size={16} fill="currentColor"/>
