@@ -16949,8 +16949,13 @@ export default function Page() {
                 <h2>No playlists yet</h2>
                 <p>Create a playlist, then add songs or videos from cards across Music Data Base.</p>
               </div>) : (<div className="playlist-layout">
-                <HorizontalRail className="playlist-list" label="Playlists">
-                  {playlists.map((playlist) => (<button key={playlist.id} className={activePlaylist?.id === playlist.id ? "playlist-tile media-card active" : "playlist-tile media-card"} onClick={() => {
+                <aside className="playlist-sidebar">
+                  <div className="artist-section-title">
+                    <h3>Your Playlists</h3>
+                    <span>{playlists.length} playlists</span>
+                  </div>
+                  <div className="playlist-list">
+                    {playlists.map((playlist) => (<button key={playlist.id} className={activePlaylist?.id === playlist.id ? "playlist-tile media-card active" : "playlist-tile media-card"} onClick={() => {
                         setActivePlaylistId(playlist.id);
                         setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
                     }}>
@@ -16962,7 +16967,8 @@ export default function Page() {
                         </small>
                       </span>
                     </button>))}
-                </HorizontalRail>
+                  </div>
+                </aside>
 
                 {activePlaylist && (<section className="playlist-detail">
                     <div className="playlist-hero">
@@ -20851,30 +20857,61 @@ export default function Page() {
           }
 
           .playlist-workspace {
-            max-width: 1160px;
+            width: 100%;
+            max-width: min(1160px, 100%);
+            margin: 0 auto;
+            display: grid;
+            gap: 16px;
           }
 
           .playlist-layout {
             display: grid;
-            grid-template-columns: 250px minmax(0, 1fr);
-            gap: 14px;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 16px;
             align-items: start;
+            width: 100%;
+          }
+
+          .playlist-sidebar {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .playlist-sidebar .artist-section-title {
+            margin-bottom: 10px;
+          }
+
+          .playlist-sidebar .playlist-list {
+            justify-content: stretch;
+          }
+
+          .playlist-sidebar .playlist-tile {
+            max-width: none;
+            justify-self: stretch;
+          }
+
+          .playlist-sidebar .playlist-tile img {
+            aspect-ratio: 1;
           }
 
           .playlist-list {
             display: grid;
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+            gap: 12px;
+            width: 100%;
           }
 
           .playlist-tile {
-            border: 1px solid rgba(0, 212, 255, 0.18);
+            width: 100%;
+            min-height: 96px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
             border-radius: 8px;
             background: #10204a;
             color: white;
-            padding: 8px;
+            padding: 12px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             text-align: left;
           }
 
@@ -20885,11 +20922,16 @@ export default function Page() {
           }
 
           .playlist-tile img {
-            width: 54px;
-            height: 54px;
+            width: 72px;
+            height: 72px;
             border-radius: 8px;
             object-fit: cover;
             flex-shrink: 0;
+          }
+
+          .playlist-tile > span {
+            min-width: 0;
+            flex: 1 1 auto;
           }
 
           .playlist-tile strong,
@@ -20900,33 +20942,50 @@ export default function Page() {
             white-space: nowrap;
           }
 
+          .playlist-tile strong {
+            font-size: 15px;
+            line-height: 1.2;
+          }
+
           .playlist-tile small {
             color: #9bdcf0;
             font-size: 12px;
             font-weight: 800;
+            margin-top: 4px;
           }
 
           .playlist-detail {
             min-width: 0;
+            width: 100%;
+            max-width: 100%;
+            display: grid;
+            gap: 16px;
           }
 
           .playlist-hero {
             display: grid;
-            grid-template-columns: 190px minmax(0, 1fr);
-            gap: 18px;
+            grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+            gap: 24px;
             align-items: start;
             border: 1px solid rgba(0, 212, 255, 0.35);
             border-radius: 8px;
             background: #0b1736;
-            padding: 16px;
-            margin-bottom: 16px;
+            padding: 20px;
+            width: 100%;
           }
 
           .playlist-hero > img {
-            width: 190px;
+            width: 100%;
+            max-width: 280px;
             aspect-ratio: 1;
             border-radius: 8px;
             object-fit: cover;
+            justify-self: start;
+          }
+
+          .playlist-hero > div {
+            min-width: 0;
+            width: 100%;
           }
 
           .playlist-kicker {
@@ -20973,7 +21032,72 @@ export default function Page() {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
-            margin: 0 0 14px;
+            width: 100%;
+          }
+
+          .playlist-add-panel,
+          .playlist-songs {
+            width: 100%;
+            max-width: 100%;
+          }
+
+          .add-song-list {
+            max-height: 310px;
+            overflow: auto;
+            display: grid;
+            gap: 8px;
+            width: 100%;
+          }
+
+          .add-song-row,
+          .playlist-song-row {
+            display: grid;
+            gap: 12px;
+            align-items: center;
+            background: #10204a;
+            border-radius: 8px;
+            padding: 12px 14px;
+            width: 100%;
+            box-sizing: border-box;
+          }
+
+          .add-song-row {
+            grid-template-columns: 56px minmax(0, 1fr) auto;
+          }
+
+          .playlist-song-row:not(.playlist-track-row) {
+            grid-template-columns: 36px 56px minmax(0, 1fr) auto auto auto;
+          }
+
+          .playlist-song-row.playlist-track-row {
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+          }
+
+          .playlist-track-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+          }
+
+          .playlist-track-actions,
+          .playlist-song-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+            align-items: center;
+          }
+
+          .add-song-row img,
+          .playlist-song-row img,
+          .playlist-song-artwork {
+            width: 56px;
+            height: 56px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
           }
 
           .playlist-content-tabs button {
@@ -21019,32 +21143,6 @@ export default function Page() {
             margin-bottom: 12px;
           }
 
-          .add-song-list {
-            max-height: 310px;
-            overflow: auto;
-            display: grid;
-            gap: 8px;
-          }
-
-          .add-song-row,
-          .playlist-song-row {
-            display: grid;
-            grid-template-columns: 44px 1fr 74px;
-            gap: 10px;
-            align-items: center;
-            background: #10204a;
-            border-radius: 8px;
-            padding: 8px;
-          }
-
-          .add-song-row img,
-          .playlist-song-row img {
-            width: 44px;
-            height: 44px;
-            border-radius: 8px;
-            object-fit: cover;
-          }
-
           .add-song-row span,
           .playlist-song-row span {
             min-width: 0;
@@ -21069,13 +21167,13 @@ export default function Page() {
             color: #020617;
           }
 
-          .playlist-songs h3 {
-            margin: 0 0 12px;
+          .playlist-songs {
+            display: grid;
+            gap: 8px;
           }
 
-          .playlist-song-row {
-            grid-template-columns: 32px 48px minmax(0, 1fr) 38px 38px;
-            margin-bottom: 8px;
+          .playlist-songs h3 {
+            margin: 0 0 4px;
           }
 
           .playlist-song-row > button:last-child {
@@ -27274,15 +27372,38 @@ export default function Page() {
               overflow-x: hidden !important;
             }
 
+            .playlist-sidebar .playlist-list {
+              grid-template-columns: 1fr !important;
+              justify-content: stretch !important;
+              width: 100% !important;
+            }
+
+            .playlist-sidebar .playlist-tile {
+              width: 100% !important;
+              max-width: 100% !important;
+              justify-self: stretch !important;
+              display: flex !important;
+              flex-direction: row !important;
+              align-items: center !important;
+            }
+
+            .playlist-sidebar .playlist-tile img {
+              aspect-ratio: 1 !important;
+              width: 64px !important;
+              height: 64px !important;
+              max-height: none !important;
+            }
+
             .playlist-layout,
             .playlist-detail,
             .playlist-create,
             .playlist-add-panel,
             .playlist-songs,
+            .playlist-sidebar,
             .queue-toolbar,
             .queue-manage-list {
               width: calc(100% - 24px) !important;
-              max-width: 680px !important;
+              max-width: 100% !important;
               margin-left: auto !important;
               margin-right: auto !important;
               box-sizing: border-box !important;
@@ -27337,10 +27458,12 @@ export default function Page() {
             }
 
             .playlist-hero > img {
-              width: 100% !important;
+              width: min(100%, 280px) !important;
               height: auto !important;
-              max-height: 180px !important;
+              max-height: none !important;
+              aspect-ratio: 1 !important;
               object-fit: cover !important;
+              align-self: center !important;
             }
 
             .playlist-hero > div {
