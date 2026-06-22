@@ -3681,7 +3681,7 @@ export default function Page() {
             <div className="video-upload-debug-head">
               <strong>Video upload debug</strong>
               <button type="button" onClick={() => setShowVideoUploadDebug((value) => !value)}>
-                {showVideoUploadDebug ? "Hide details" : "Show details"}
+                {showVideoUploadDebug ? "Hide Upload Debug" : "Show Upload Debug"}
               </button>
               {videoUploadDebug.lastUpdated && <span>{videoUploadDebug.lastUpdated}</span>}
             </div>
@@ -14311,6 +14311,12 @@ export default function Page() {
             </button>
           </div>);
     }
+    function renderVideoPlaybackDebugSection() {
+        return (<div className="video-playback-debug-section">
+            {renderVideoPlaybackDebugControls()}
+            {showVideoPlaybackDebug ? renderMobileVideoPlaybackDebugPanel() : null}
+          </div>);
+    }
     function renderMobileVideoPlaybackDebugPanel() {
         const debug = getVideoPlaybackDebugSnapshot();
         const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
@@ -14389,8 +14395,7 @@ export default function Page() {
             <Film size={42}/>
             <strong>Mobile incompatible video</strong>
             <span>{mobileCompatibilityMessage}</span>
-            {mobilePlaybackEnvironment ? renderVideoPlaybackDebugControls() : null}
-            {showVideoPlaybackDebug ? renderMobileVideoPlaybackDebugPanel() : null}
+            {renderVideoPlaybackDebugSection()}
           </div>) : null}
         {activeVideoPlaybackUrl && !showMobileIncompatibleFallback ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
                 updateVideoDuration(event);
@@ -14440,8 +14445,7 @@ export default function Page() {
           <h3>{activeVideo.title}</h3>
           <p>{activeVideo.creator}</p>
           {showMobileCompatibilityWarning ? (<p className="mobile-video-incompatible">{mobileCompatibilityMessage}</p>) : null}
-          {!showMobileIncompatibleFallback && mobilePlaybackEnvironment ? renderVideoPlaybackDebugControls() : null}
-          {!showMobileIncompatibleFallback && showVideoPlaybackDebug ? renderMobileVideoPlaybackDebugPanel() : null}
+          {!showMobileIncompatibleFallback ? renderVideoPlaybackDebugSection() : null}
           <div className="video-player-actions">
             <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={getVideoPlaybackList().length < 2}>
               <SkipBack size={16} fill="currentColor"/>
@@ -15126,7 +15130,7 @@ export default function Page() {
                     <progress max="100" value={videoUploadProgress}/>
                   </div>)}
 
-                {renderVideoUploadDebugPanel()}
+                {activeMediaType !== "video" ? renderVideoUploadDebugPanel() : null}
 
                 {hasAttemptedVideoUpload && videoUploadError && (<div className="upload-error">
                     <p>{videoUploadError}</p>
@@ -16001,7 +16005,7 @@ export default function Page() {
                   <progress max="100" value={videoUploadProgress}/>
                 </div>)}
 
-              {renderVideoUploadDebugPanel()}
+              {activeMediaType !== "video" ? renderVideoUploadDebugPanel() : null}
 
               {hasAttemptedVideoUpload && videoUploadError && (<div className="upload-error">
                   <p>{videoUploadError}</p>
@@ -19805,6 +19809,10 @@ export default function Page() {
           }
 
           .video-playback-debug-controls {
+            display: none;
+          }
+
+          .video-playback-debug-section {
             display: none;
           }
 
@@ -25592,7 +25600,16 @@ export default function Page() {
               display: block;
             }
 
-            .global-video-player .video-playback-debug-panel {
+            .global-video-player .video-playback-debug-section,
+            .video-mobile-incompatible-panel .video-playback-debug-section {
+              grid-column: 1 / -1;
+              display: grid;
+              gap: 8px;
+              min-width: 0;
+            }
+
+            .global-video-player .video-playback-debug-panel,
+            .video-mobile-incompatible-panel .video-playback-debug-panel {
               grid-column: 1 / -1;
               display: grid;
               gap: 8px;
@@ -25644,7 +25661,8 @@ export default function Page() {
             }
 
             .global-video-player .video-playback-debug-controls,
-            .video-mobile-incompatible-panel .video-playback-debug-controls {
+            .video-mobile-incompatible-panel .video-playback-debug-controls,
+            .global-video-player .video-playback-debug-section .video-playback-debug-controls {
               grid-column: 1 / -1;
               display: flex;
               gap: 8px;
