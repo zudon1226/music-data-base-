@@ -26910,7 +26910,6 @@ export default function Page() {
             .liked-page,
             .profile-page,
             .artist-profile,
-            .playlist-workspace,
             .playlist-songs,
             .add-song-list,
             .queue-page,
@@ -27394,6 +27393,25 @@ export default function Page() {
               max-height: none !important;
             }
 
+            .playlist-workspace {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 12px !important;
+              box-sizing: border-box !important;
+            }
+
+            .playlist-workspace > *,
+            .playlist-layout > *,
+            .playlist-detail > * {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+
             .playlist-layout,
             .playlist-detail,
             .playlist-create,
@@ -27402,10 +27420,10 @@ export default function Page() {
             .playlist-sidebar,
             .queue-toolbar,
             .queue-manage-list {
-              width: calc(100% - 24px) !important;
+              width: 100% !important;
               max-width: 100% !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
+              margin-left: 0 !important;
+              margin-right: 0 !important;
               box-sizing: border-box !important;
               overflow-x: hidden !important;
             }
@@ -27463,7 +27481,7 @@ export default function Page() {
               max-height: none !important;
               aspect-ratio: 1 !important;
               object-fit: cover !important;
-              align-self: center !important;
+              align-self: stretch !important;
             }
 
             .playlist-hero > div {
