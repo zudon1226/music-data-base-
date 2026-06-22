@@ -1033,7 +1033,7 @@ const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
 const MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE = "Mobile compatible video required: MP4 H.264 video with AAC audio.";
 const AV1_MOBILE_VIDEO_WARNING_MESSAGE = "This video uses AV1 codec and may not play on iPhone. Re-upload as MP4 H.264 video with AAC audio.";
-const VIDEO_UPLOAD_CODEC_GUIDANCE = "MP4 required. For iPhone/mobile playback, use H.264 video with AAC audio. Some downloaded MP4 files may need conversion before upload.";
+const VIDEO_UPLOAD_CODEC_GUIDANCE = "MP4 required. For iPhone/mobile playback, use H.264 video with AAC audio. Some downloaded MP4 files may need conversion before upload. MP4 alone does not guarantee mobile playback. Some MP4 files use AV1 codec, which may play on desktop but fail on iPhone. Use H.264/AAC.";
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
 }
