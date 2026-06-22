@@ -12867,34 +12867,18 @@ export default function Page() {
                     email,
                     password,
                     userId: signedInUser?.id || "",
+                    accessToken: signedInSession?.access_token || "",
                 }).catch((): RepairAuthSessionResult => ({
                     repaired: false,
                     metadataChanged: false,
                     reauthenticated: false,
-                    error: "Auth metadata repair failed.",
                 }));
-                if (repairResult.error) {
-                    persistedAuthUserRef.current = null;
-                    setAuthSession(null);
-                    setUser(null);
-                    await logoutAndClearAuth(supabase).catch(() => undefined);
-                    setAuthMessage(repairResult.error);
-                    return;
-                }
             }
 
             const activeSession = repairResult.reauthenticated && repairResult.session
                 ? repairResult.session
                 : signedInSession;
             const activeUser = activeSession?.user || signedInUser;
-
-            if (repairResult.metadataChanged && !repairResult.reauthenticated) {
-                persistedAuthUserRef.current = null;
-                setAuthSession(null);
-                setUser(null);
-                setAuthMessage("Auth metadata repaired. Sign in again with your password.");
-                return;
-            }
 
             if (activeUser) {
                 persistedAuthUserRef.current = activeUser;
