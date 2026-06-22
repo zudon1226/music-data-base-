@@ -1,41 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
-import { isPlatformOwnerUserId } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
 const SONGS_BUCKET = "songs";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
-}
-function getErrorMessage(error: unknown) {
-    if (error instanceof Error)
-        return error.message;
-    if (typeof error === "string")
-        return error;
-    if (error && typeof error === "object") {
-        const record = error as Record<string, unknown>;
-        return String(record.message || record.error || JSON.stringify(record));
-    }
-    return "Unknown server error";
-}
-function getSupabaseServerClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!supabaseUrl) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
-    }
-    if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-        throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing or still set to the placeholder value.");
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
-    });
 }
 function normalizeLicense(value: unknown) {
     if (value === "Free" || value === "Lease" || value === "Exclusive" || value === "Split percentage") {
@@ -82,7 +54,7 @@ async function deleteOptionalTypedItemRows(supabase: ReturnType<typeof getSupaba
 }
 export async function GET() {
     try {
-        const supabase = getSupabaseServerClient();
+        const supabase = getSupabaseLibraryClient();
         const [profilesResult, beatsResult] = await Promise.all([
             supabase
                 .from("producer_profiles")
