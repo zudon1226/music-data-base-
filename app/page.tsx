@@ -9340,14 +9340,43 @@ export default function Page() {
     function updatePlaylist(playlistId: string, updates: Partial<Playlist>) {
         setPlaylists((previous) => previous.map((playlist) => playlist.id === playlistId ? { ...playlist, ...updates, updatedAt: new Date().toISOString() } : playlist));
     }
-    function renamePlaylist(playlistId: string) {
+    async function renamePlaylist(playlistId: string) {
         const playlist = playlists.find((item) => item.id === playlistId);
         if (!playlist)
             return;
         const nextName = window.prompt("Rename playlist", playlist.name)?.trim();
         if (!nextName)
             return;
+        const previousName = playlist.name;
         updatePlaylist(playlistId, { name: nextName });
+        if (!user?.id || !isUuid(playlistId))
+            return;
+        try {
+            const response = await fetch("/api/playlists", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, playlistId, name: nextName }),
+            });
+            const data = (await response.json().catch(() => ({}))) as {
+                playlist?: Playlist;
+                error?: string;
+            };
+            if (!response.ok || !data.playlist) {
+                updatePlaylist(playlistId, { name: previousName });
+                reportPlatformError("playlist", "rename-playlist", data.error || "Playlist rename sync failed.", { playlistId });
+                showToast(data.error || "Playlist rename could not be saved.", "error");
+                return;
+            }
+            setPlaylists((previous) => previous.map((item) => item.id === playlistId
+                ? { ...item, ...data.playlist, songIds: item.songIds, videoIds: item.videoIds }
+                : item));
+            showToast("Playlist renamed.", "success");
+        }
+        catch (error) {
+            updatePlaylist(playlistId, { name: previousName });
+            reportPlatformError("playlist", "rename-playlist", error instanceof Error ? error.message : String(error), { playlistId });
+            showToast("Playlist rename could not be saved.", "error");
+        }
     }
     async function deletePlaylist(playlistId: string) {
         const playlist = playlists.find((item) => item.id === playlistId);
@@ -9647,23 +9676,79 @@ export default function Page() {
         }
         addSongToPlaylist(playlistId, target.item.id);
     }
-    function removeSongFromPlaylist(playlistId: string, songId: string) {
-        setPlaylists((previous) => previous.map((playlist) => playlist.id === playlistId
+    async function removeSongFromPlaylist(playlistId: string, songId: string) {
+        const playlist = playlists.find((item) => item.id === playlistId);
+        if (!playlist)
+            return;
+        const previousSongIds = uniqueIds(playlist.songIds);
+        setPlaylists((previous) => previous.map((item) => item.id === playlistId
             ? {
-                ...playlist,
-                songIds: uniqueIds(playlist.songIds).filter((id) => id !== songId),
+                ...item,
+                songIds: previousSongIds.filter((id) => id !== songId),
                 updatedAt: new Date().toISOString(),
             }
-            : playlist));
+            : item));
+        if (!user?.id || !isUuid(playlistId))
+            return;
+        try {
+            const response = await fetch("/api/playlist-items", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, playlistId, itemId: songId, itemType: "song" }),
+            });
+            const data = (await response.json().catch(() => ({}))) as { error?: string };
+            if (!response.ok) {
+                setPlaylists((previous) => previous.map((item) => item.id === playlistId
+                    ? { ...item, songIds: previousSongIds, updatedAt: playlist.updatedAt }
+                    : item));
+                reportPlatformError("playlist", "remove-song", data.error || "Playlist item remove failed.", { playlistId, songId });
+                showToast(data.error || "Could not remove song from playlist.", "error");
+            }
+        }
+        catch (error) {
+            setPlaylists((previous) => previous.map((item) => item.id === playlistId
+                ? { ...item, songIds: previousSongIds, updatedAt: playlist.updatedAt }
+                : item));
+            reportPlatformError("playlist", "remove-song", error instanceof Error ? error.message : String(error), { playlistId, songId });
+            showToast("Could not remove song from playlist.", "error");
+        }
     }
-    function removeVideoFromPlaylist(playlistId: string, videoId: string) {
-        setPlaylists((previous) => previous.map((playlist) => playlist.id === playlistId
+    async function removeVideoFromPlaylist(playlistId: string, videoId: string) {
+        const playlist = playlists.find((item) => item.id === playlistId);
+        if (!playlist)
+            return;
+        const previousVideoIds = uniqueIds(playlist.videoIds);
+        setPlaylists((previous) => previous.map((item) => item.id === playlistId
             ? {
-                ...playlist,
-                videoIds: uniqueIds(playlist.videoIds).filter((id) => id !== videoId),
+                ...item,
+                videoIds: previousVideoIds.filter((id) => id !== videoId),
                 updatedAt: new Date().toISOString(),
             }
-            : playlist));
+            : item));
+        if (!user?.id || !isUuid(playlistId))
+            return;
+        try {
+            const response = await fetch("/api/playlist-items", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, playlistId, itemId: videoId, itemType: "video" }),
+            });
+            const data = (await response.json().catch(() => ({}))) as { error?: string };
+            if (!response.ok) {
+                setPlaylists((previous) => previous.map((item) => item.id === playlistId
+                    ? { ...item, videoIds: previousVideoIds, updatedAt: playlist.updatedAt }
+                    : item));
+                reportPlatformError("playlist", "remove-video", data.error || "Playlist video remove failed.", { playlistId, videoId });
+                showToast(data.error || "Could not remove video from playlist.", "error");
+            }
+        }
+        catch (error) {
+            setPlaylists((previous) => previous.map((item) => item.id === playlistId
+                ? { ...item, videoIds: previousVideoIds, updatedAt: playlist.updatedAt }
+                : item));
+            reportPlatformError("playlist", "remove-video", error instanceof Error ? error.message : String(error), { playlistId, videoId });
+            showToast("Could not remove video from playlist.", "error");
+        }
     }
     function getProducerById(producerId: string) {
         if (!producerId)

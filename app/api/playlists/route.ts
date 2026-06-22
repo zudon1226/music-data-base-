@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
-function isUuid(value: string) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+function isValidPlaylistItemId(value: string) {
+    return isUuid(value) && !value.startsWith("storage-");
 }
 function isMissingColumn(error: unknown, columnName: string) {
     const message = getErrorMessage(error).toLowerCase();
@@ -71,17 +71,60 @@ export async function GET(request: Request) {
             : { data: [], error: null };
         if (itemsResult.error) {
         }
+        const rawItems = (itemsResult.data || []) as Array<{
+            playlist_id: string;
+            item_id: string;
+            item_type: string;
+        }>;
+        const candidateSongIds = [...new Set(rawItems
+            .filter((item) => item.item_type !== "video")
+            .map((item) => String(item.item_id || "").trim())
+            .filter(isValidPlaylistItemId))];
+        const candidateVideoIds = [...new Set(rawItems
+            .filter((item) => item.item_type === "video")
+            .map((item) => String(item.item_id || "").trim())
+            .filter(isValidPlaylistItemId))];
+        const [songsResult, videosResult] = await Promise.all([
+            candidateSongIds.length > 0
+                ? supabase.from("songs").select("id").in("id", candidateSongIds)
+                : Promise.resolve({ data: [], error: null }),
+            candidateVideoIds.length > 0
+                ? supabase.from("videos").select("id").in("id", candidateVideoIds)
+                : Promise.resolve({ data: [], error: null }),
+        ]);
+        const validSongIds = new Set((songsResult.data || []).map((row) => String(row.id || "")));
+        const validVideoIds = new Set((videosResult.data || []).map((row) => String(row.id || "")));
+        const staleItems = rawItems.filter((item) => {
+            const itemId = String(item.item_id || "").trim();
+            if (!isValidPlaylistItemId(itemId))
+                return true;
+            if (item.item_type === "video")
+                return !validVideoIds.has(itemId);
+            return !validSongIds.has(itemId);
+        });
+        if (staleItems.length > 0) {
+            await Promise.all(staleItems.map((item) => supabase
+                .from("playlist_items")
+                .delete()
+                .eq("playlist_id", String(item.playlist_id || ""))
+                .eq("item_id", String(item.item_id || ""))
+                .eq("item_type", item.item_type === "video" ? "video" : "song")));
+        }
         const itemsByPlaylist = new Map<string, {
             songIds: string[];
             videoIds: string[];
         }>();
-        (itemsResult.data || []).forEach((item) => {
+        rawItems.forEach((item) => {
             const playlistId = String(item.playlist_id || "");
+            const itemId = String(item.item_id || "").trim();
             const ids = itemsByPlaylist.get(playlistId) || { songIds: [], videoIds: [] };
-            if (item.item_type === "video")
-                ids.videoIds.push(String(item.item_id));
-            else
-                ids.songIds.push(String(item.item_id));
+            if (item.item_type === "video") {
+                if (validVideoIds.has(itemId))
+                    ids.videoIds.push(itemId);
+            }
+            else if (validSongIds.has(itemId)) {
+                ids.songIds.push(itemId);
+            }
             itemsByPlaylist.set(playlistId, ids);
         });
         return jsonResponse({
@@ -178,6 +221,98 @@ export async function POST(request: Request) {
     }
     catch (error) {
         console.error("[api/playlists] post server error:", error);
+        return jsonResponse({ error: getErrorMessage(error) }, 500);
+    }
+}
+export async function PATCH(request: Request) {
+    try {
+        const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+        const userId = typeof body.userId === "string" ? body.userId.trim() : "";
+        const playlistId = typeof body.playlistId === "string" ? body.playlistId.trim() : "";
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        const cover = typeof body.cover === "string" ? body.cover.trim() : "";
+        const playlistType = body.playlistType === undefined ? undefined : normalizePlaylistType(body.playlistType);
+        if (!userId || !isUuid(userId))
+            return jsonResponse({ error: "Log in before updating playlists." }, 401);
+        if (!playlistId || !isUuid(playlistId))
+            return jsonResponse({ error: "Choose a playlist first." }, 400);
+        if (!name && !cover && playlistType === undefined)
+            return jsonResponse({ error: "Nothing to update." }, 400);
+        const supabase = getSupabaseLibraryClient();
+        const existing = await supabase
+            .from("playlists")
+            .select("id,user_id,name,playlist_type,cover_url,created_at,updated_at")
+            .eq("id", playlistId)
+            .eq("user_id", userId)
+            .maybeSingle();
+        if (existing.error) {
+            console.error("[api/playlists] patch lookup failed:", existing.error);
+            return jsonResponse({ error: getErrorMessage(existing.error) }, 500);
+        }
+        if (!existing.data)
+            return jsonResponse({ error: "Playlist not found for this user." }, 404);
+        const now = new Date().toISOString();
+        const updateRow: Record<string, unknown> = { updated_at: now };
+        if (name)
+            updateRow.name = name;
+        if (cover)
+            updateRow.cover_url = cover;
+        if (playlistType !== undefined)
+            updateRow.playlist_type = playlistType;
+        const updateResult = await supabase
+            .from("playlists")
+            .update(updateRow)
+            .eq("id", playlistId)
+            .eq("user_id", userId)
+            .select("id,user_id,name,playlist_type,cover_url,created_at,updated_at")
+            .single();
+        if (updateResult.error && isMissingColumn(updateResult.error, "playlist_type")) {
+            const fallbackRow: Record<string, unknown> = { updated_at: now };
+            if (name)
+                fallbackRow.name = name;
+            if (cover)
+                fallbackRow.cover_url = cover;
+            const fallbackResult = await supabase
+                .from("playlists")
+                .update(fallbackRow)
+                .eq("id", playlistId)
+                .eq("user_id", userId)
+                .select("id,user_id,name,cover_url,created_at,updated_at")
+                .single();
+            if (fallbackResult.error) {
+                console.error("[api/playlists] patch failed:", fallbackResult.error);
+                return jsonResponse({ error: getErrorMessage(fallbackResult.error) }, 500);
+            }
+            const data = fallbackResult.data as Record<string, unknown>;
+            return jsonResponse({
+                playlist: {
+                    id: String(data.id || playlistId),
+                    name: String(data.name || name || existing.data.name || "Playlist"),
+                    playlistType: playlistType ?? normalizePlaylistType(existing.data.playlist_type),
+                    cover: typeof data.cover_url === "string" ? data.cover_url : cover,
+                    createdAt: typeof data.created_at === "string" ? data.created_at : now,
+                    updatedAt: typeof data.updated_at === "string" ? data.updated_at : now,
+                },
+            });
+        }
+        if (updateResult.error) {
+            console.error("[api/playlists] patch failed:", updateResult.error);
+            return jsonResponse({ error: getErrorMessage(updateResult.error) }, 500);
+        }
+        const data = updateResult.data as Record<string, unknown>;
+        return jsonResponse({
+            playlist: {
+                id: String(data.id || playlistId),
+                name: String(data.name || name || existing.data.name || "Playlist"),
+                playlistType: normalizePlaylistType(data.playlist_type ?? existing.data.playlist_type),
+                cover: typeof data.cover_url === "string" ? data.cover_url : cover,
+                createdAt: typeof data.created_at === "string" ? data.created_at : now,
+                updatedAt: typeof data.updated_at === "string" ? data.updated_at : now,
+            },
+        });
+    }
+    catch (error) {
+        console.error("[api/playlists] patch server error:", error);
         return jsonResponse({ error: getErrorMessage(error) }, 500);
     }
 }

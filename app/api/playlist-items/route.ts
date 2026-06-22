@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status });
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function normalizeItemType(value: unknown) {
@@ -48,7 +44,20 @@ export async function POST(request: Request) {
       return jsonResponse({ error: "Choose a playlist and item first." }, 400);
     }
 
+    if (!isUuid(itemId) || itemId.startsWith("storage-")) {
+      return jsonResponse({ error: "Playlist items must use real Supabase media ids." }, 400);
+    }
+
     const supabase = getSupabaseLibraryClient();
+    const mediaTable = itemType === "video" ? "videos" : "songs";
+    const mediaResult = await supabase.from(mediaTable).select("id").eq("id", itemId).maybeSingle();
+    if (mediaResult.error) {
+      console.error("[api/playlist-items] media lookup failed:", mediaResult.error);
+      return jsonResponse({ error: getErrorMessage(mediaResult.error) }, 500);
+    }
+    if (!mediaResult.data) {
+      return jsonResponse({ error: `${itemType === "video" ? "Video" : "Song"} not found.` }, 404);
+    }
     let owner = await supabase
       .from("playlists")
       .select("id,name,playlist_type")
