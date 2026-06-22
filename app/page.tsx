@@ -835,7 +835,7 @@ type InitialDataReloadActions = {
     clearRemovedPlaceholderArtwork: () => void;
     reloadSongLibrary: () => Promise<Song[]>;
     reloadVideoLibrary: () => Promise<VideoItem[]>;
-    reloadUserMusicState: (availableSongs?: Song[], availableVideos?: VideoItem[]) => Promise<unknown>;
+    reloadUserMusicState: (availableSongs?: Song[], availableVideos?: VideoItem[], availableAlbums?: Album[]) => Promise<unknown>;
     reloadLibrarySaves: (userIdOverride?: string) => Promise<unknown>;
     reloadPlaylists: (userIdOverride?: string) => Promise<unknown>;
     reloadProducerData: () => Promise<unknown>;
@@ -1108,13 +1108,58 @@ function normalizeDownloadVaultItem(value: unknown): DownloadVaultItem | null {
         licensePdfFileName: String(record.licensePdfFileName || record.license_pdf_file_name || ""),
     };
 }
+function getRecentPlayIdentity(entry: RecentPlay) {
+    const itemType = entry.itemType || "song";
+    const itemId = entry.itemId || entry.songId || "";
+    return `${itemType}:${itemId}`;
+}
+function serializeRecentPlayForStorage(entry: RecentPlay): RecentPlay {
+    const itemType = entry.itemType || "song";
+    const itemId = entry.itemId || entry.songId || "";
+    return {
+        playId: entry.playId || `${itemType}-${itemId}-${entry.playedAt}`,
+        songId: itemType === "song" ? itemId : entry.songId || "",
+        itemId,
+        itemType,
+        playedAt: entry.playedAt,
+        position: Math.max(0, Number(entry.position) || 0),
+        duration: Math.max(0, Number(entry.duration) || 0),
+    };
+}
+function serializeRecentPlaysForStorage(entries: RecentPlay[]) {
+    return entries.map(serializeRecentPlayForStorage).slice(0, 100);
+}
+function mergeRecentPlays(...lists: RecentPlay[][]) {
+    const merged = new Map<string, RecentPlay>();
+    for (const list of lists) {
+        for (const entry of list) {
+            if (!entry?.playedAt)
+                continue;
+            const identity = getRecentPlayIdentity(entry);
+            if (!identity.endsWith(":")) {
+                const existing = merged.get(identity);
+                if (!existing || new Date(entry.playedAt).getTime() >= new Date(existing.playedAt).getTime()) {
+                    merged.set(identity, entry);
+                }
+            }
+        }
+    }
+    return [...merged.values()]
+        .sort((a, b) => new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime())
+        .slice(0, 100);
+}
+function prependRecentPlay(previous: RecentPlay[], entry: RecentPlay) {
+    const identity = getRecentPlayIdentity(entry);
+    const withoutDuplicate = previous.filter((candidate) => getRecentPlayIdentity(candidate) !== identity);
+    return [entry, ...withoutDuplicate].slice(0, 100);
+}
 function normalizeRecentForSongs(savedRecent: unknown, availableSongs: Song[], availableVideos: VideoItem[] = [], availableAlbums: Album[] = []) {
     const songMap = new Map(availableSongs.map((song) => [song.id, song]));
     const videoMap = new Map(uniqueVideos(availableVideos).map((video) => [video.id, video]));
     const albumMap = new Map(availableAlbums.map((album) => [album.id, album]));
     if (!Array.isArray(savedRecent))
         return [];
-    return savedRecent
+    const entries = savedRecent
         .filter((entry): entry is RecentPlay => Boolean(entry && typeof entry === "object" && "playedAt" in entry))
         .map((entry) => {
         const itemType = entry.itemType || "song";
@@ -1132,8 +1177,8 @@ function normalizeRecentForSongs(savedRecent: unknown, availableSongs: Song[], a
             duration: Math.max(0, Number(entry.duration) || 0),
         };
     })
-        .filter((entry) => Boolean(entry.itemId || entry.songId))
-        .slice(0, 100);
+        .filter((entry) => Boolean(entry.itemId || entry.songId));
+    return mergeRecentPlays(entries);
 }
 function getTrendingPeriodWeight(uploaded: string | undefined, period: TrendingPeriod) {
     if (period === "All Time")
@@ -5476,7 +5521,7 @@ export default function Page() {
             || target?.email?.split("@")[0]
             || "Music Data Base user";
     }
-    async function reloadUserMusicStateFromSupabase(availableSongs = songs, availableVideos = videos) {
+    async function reloadUserMusicStateFromSupabase(availableSongs = songs, availableVideos = videos, availableAlbums = albums) {
         if (!accountUserId) {
             return null;
         }
@@ -5506,9 +5551,14 @@ export default function Page() {
         if (!data.hasState) {
             return null;
         }
-        const nextRecent = normalizeRecentForSongs(data.recentlyPlayed || [], availableSongs, availableVideos, albums);
-        setRecentlyPlayed(nextRecent);
-        return { recentlyPlayed: nextRecent };
+        const remoteRecent = normalizeRecentForSongs(data.recentlyPlayed || [], availableSongs, availableVideos, availableAlbums);
+        let mergedRecent = remoteRecent;
+        setRecentlyPlayed((previous) => {
+            const localRecent = normalizeRecentForSongs(previous, availableSongs, availableVideos, availableAlbums);
+            mergedRecent = mergeRecentPlays(localRecent, remoteRecent);
+            return mergedRecent;
+        });
+        return { recentlyPlayed: mergedRecent };
     }
     useEffect(() => {
         initialDataReloadRef.current = {
@@ -5538,11 +5588,14 @@ export default function Page() {
             reloadActions.clearRemovedPlaceholderArtwork();
             setRemoteMusicStateReady(false);
             Promise.all([reloadActions.reloadSongLibrary(), reloadActions.reloadVideoLibrary()])
-                .then(([loadedSongs, loadedVideos]) => Promise.all([
+                .then(async ([loadedSongs, loadedVideos]) => {
+                const loadedAlbums = await reloadActions.reloadAlbums(loadKey).catch(() => [] as Album[]);
+                await Promise.all([
                     reloadActions.reloadLibrarySaves(loadKey),
-                    reloadActions.reloadUserMusicState(loadedSongs, loadedVideos),
+                    reloadActions.reloadUserMusicState(loadedSongs, loadedVideos, loadedAlbums),
                     reloadActions.reloadPlaylists(loadKey),
-                ]))
+                ]);
+            })
                 .catch((error) => {
                 console.error("LIBRARY ERROR:", error);
                 setLibraryLoadError(error instanceof Error ? error.message : String(error));
@@ -5560,7 +5613,6 @@ export default function Page() {
                     initialDataLoadInFlightKeyRef.current = "";
             });
             reloadActions.reloadProducerData().catch(() => undefined);
-            reloadActions.reloadAlbums().catch(() => undefined);
             reloadActions.reloadArtistFollows().catch(() => undefined);
             reloadActions.reloadSongLikes().catch(() => undefined);
         }, 0);
@@ -5585,7 +5637,7 @@ export default function Page() {
     const followedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedIds)), [followedIds]);
     const followedArtistsStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedArtistIds)), [followedArtistIds]);
     const queueStorageSnapshot = useMemo(() => JSON.stringify(uniqueSongs(queue).map((song) => song.id)), [queue]);
-    const recentStorageSnapshot = useMemo(() => JSON.stringify(recentlyPlayed), [recentlyPlayed]);
+    const recentStorageSnapshot = useMemo(() => JSON.stringify(serializeRecentPlaysForStorage(recentlyPlayed)), [recentlyPlayed]);
     const playlistStorageSnapshot = useMemo(() => JSON.stringify(playlists), [playlists]);
     const artistStorageSnapshot = useMemo(() => JSON.stringify(uniqueArtists(mergedArtistProfiles)), [mergedArtistProfiles]);
     const notificationStorageSnapshot = useMemo(() => JSON.stringify(notifications.slice(0, 50)), [notifications]);
@@ -5677,7 +5729,7 @@ export default function Page() {
     const remoteMusicStateSaveBody = useMemo(() => JSON.stringify({
         userId: accountUserId,
         libraryIds: uniqueIds([...libraryIds, ...savedVideoIds, ...savedAlbumIds]),
-        recentlyPlayed: recentlyPlayed.slice(0, 100),
+        recentlyPlayed: serializeRecentPlaysForStorage(recentlyPlayed),
         playlists,
         activePlaylistId,
     }), [accountUserId, activePlaylistId, libraryIds, playlists, recentlyPlayed, savedAlbumIds, savedVideoIds]);
@@ -5780,6 +5832,30 @@ export default function Page() {
             };
         });
     }, [albumVideoPool, albums, audioSongs]);
+    useEffect(() => {
+        if (!hasLoaded)
+            return;
+        setRecentlyPlayed((previous) => {
+            if (previous.length === 0)
+                return previous;
+            const needsHydration = previous.some((entry) => {
+                const itemType = entry.itemType || "song";
+                const itemId = entry.itemId || entry.songId;
+                if (!itemId)
+                    return false;
+                if (itemType === "song")
+                    return !entry.song;
+                if (itemType === "video")
+                    return !entry.video;
+                if (itemType === "album")
+                    return !entry.album;
+                return false;
+            });
+            if (!needsHydration)
+                return previous;
+            return normalizeRecentForSongs(previous, audioSongs, albumVideoPool, resolvedAlbums);
+        });
+    }, [hasLoaded, audioSongs, albumVideoPool, resolvedAlbums]);
     const libraryAlbums = useMemo(() => {
         const savedIds = new Set(savedAlbumIds);
         return resolvedAlbums.filter((album) => savedIds.has(album.id) || Boolean(accountUserId && album.userId === accountUserId));
@@ -8111,7 +8187,7 @@ export default function Page() {
             duration: parseDurationToSeconds(song.time),
             song: playedSong,
         };
-        setRecentlyPlayed((previous) => [recentEntry, ...previous].slice(0, 100));
+        setRecentlyPlayed((previous) => prependRecentPlay(previous, recentEntry));
     }
     function saveVideoPlay(video: VideoItem) {
         const playedVideo = normalizeVideoForPlayback(video);
@@ -8126,7 +8202,7 @@ export default function Page() {
             duration: videoDuration,
             video: playedVideo,
         };
-        setRecentlyPlayed((previous) => [recentEntry, ...previous].slice(0, 100));
+        setRecentlyPlayed((previous) => prependRecentPlay(previous, recentEntry));
     }
     function saveAlbumPlay(album: Album | ResolvedAlbum) {
         const resolvedAlbum = resolveAlbumTracksFromPools(album);
@@ -8141,7 +8217,7 @@ export default function Page() {
             duration: getAlbumRuntimeSeconds(resolvedAlbum),
             album: normalizeAlbumRecord(resolvedAlbum),
         };
-        setRecentlyPlayed((previous) => [recentEntry, ...previous].slice(0, 100));
+        setRecentlyPlayed((previous) => prependRecentPlay(previous, recentEntry));
     }
     function updateRecentPlaybackPosition(itemType: "song" | "video", itemId: string, positionValue: number, durationValue: number, force = false) {
         if (!itemId)
@@ -9283,6 +9359,7 @@ export default function Page() {
     }
     function clearRecentlyPlayed() {
         setRecentlyPlayed([]);
+        remoteMusicStateSaveSnapshotRef.current = "";
     }
     async function saveQueueAsPlaylist() {
         if (cleanQueue.length === 0) {
@@ -12250,30 +12327,41 @@ export default function Page() {
         playVideoList(resolvedAlbum.videos, undefined, sourceLabel.includes("Album") ? sourceLabel : `${sourceLabel} Album`);
     }
     function resumeRecentPlay(entry: RecentPlay) {
-        if ((entry.itemType || "song") === "song" && entry.song) {
-            playSong(entry.song);
-            if (entry.position && entry.position > 0) {
+        const [hydratedEntry] = normalizeRecentForSongs([entry], audioSongs, albumVideoPool, resolvedAlbums);
+        const resolved = hydratedEntry || entry;
+        if ((resolved.itemType || "song") === "song") {
+            const song = resolved.song || audioSongs.find((item) => item.id === (resolved.itemId || resolved.songId));
+            if (!song)
+                return;
+            playSong(song);
+            if (resolved.position && resolved.position > 0) {
                 window.setTimeout(() => {
                     if (audioRef.current) {
-                        audioRef.current.currentTime = Math.min(entry.position || 0, audioRef.current.duration || entry.position || 0);
+                        audioRef.current.currentTime = Math.min(resolved.position || 0, audioRef.current.duration || resolved.position || 0);
                     }
                 }, 120);
             }
             return;
         }
-        if (entry.itemType === "video" && entry.video) {
-            playVideo(entry.video, "Recently Played Videos");
-            if (entry.position && entry.position > 0) {
+        if (resolved.itemType === "video") {
+            const video = resolved.video || albumVideoPool.find((item) => item.id === resolved.itemId);
+            if (!video)
+                return;
+            playVideo(video, "Recently Played Videos");
+            if (resolved.position && resolved.position > 0) {
                 window.setTimeout(() => {
                     if (mainVideoRef.current) {
-                        mainVideoRef.current.currentTime = Math.min(entry.position || 0, mainVideoRef.current.duration || entry.position || 0);
+                        mainVideoRef.current.currentTime = Math.min(resolved.position || 0, mainVideoRef.current.duration || resolved.position || 0);
                     }
                 }, 220);
             }
             return;
         }
-        if (entry.itemType === "album" && entry.album) {
-            const album = resolvedAlbums.find((item) => item.id === entry.album?.id) || resolveAlbumTracksFromPools(entry.album);
+        if (resolved.itemType === "album") {
+            const albumRecord = resolved.album || resolvedAlbums.find((item) => item.id === resolved.itemId);
+            if (!albumRecord)
+                return;
+            const album = resolvedAlbums.find((item) => item.id === albumRecord.id) || resolveAlbumTracksFromPools(albumRecord);
             void playAlbum(album, "Recently Played Albums");
         }
     }
