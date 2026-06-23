@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { getAuthSession } from "./auth-session";
+import { getAuthSession, readStoredAuthSession } from "./auth-session";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
 
@@ -14,6 +14,8 @@ export type AuthFetchInit = RequestInit & {
 
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
 let sessionRefreshPromise: Promise<Session | null> | null = null;
+let refreshStartCount = 0;
+let refreshFinishCount = 0;
 
 export function readAccessTokenFromSession(session: Session | null | undefined) {
     return typeof session?.access_token === "string" ? session.access_token : "";
@@ -35,13 +37,20 @@ async function readSessionAccessToken(
     supabase: SupabaseClient,
     options: { allowRefresh?: boolean; forceRefresh?: boolean } = {},
 ) {
-    let { session, error } = await getAuthSession(supabase);
+    let session = readStoredAuthSession();
+    let error: Error | null = null;
     const shouldRefresh = Boolean(options.allowRefresh && session?.refresh_token)
         && (isAccessTokenExpired(session) || isOversizedBearerToken(readAccessTokenFromSession(session)));
 
     if (options.forceRefresh || shouldRefresh) {
         try {
             if (!sessionRefreshPromise) {
+                refreshStartCount += 1;
+                console.info("[authFetch] Supabase refresh start", {
+                    refreshStartCount,
+                    refreshFinishCount,
+                    reason: options.forceRefresh ? "401-retry" : "expired-or-oversized-token",
+                });
                 sessionRefreshPromise = supabase.auth.refreshSession()
                     .then(({ data, error: refreshError }) => {
                     if (refreshError) {
@@ -50,7 +59,19 @@ async function readSessionAccessToken(
                     return data.session ?? null;
                 })
                     .finally(() => {
+                    refreshFinishCount += 1;
+                    console.info("[authFetch] Supabase refresh finish", {
+                        refreshStartCount,
+                        refreshFinishCount,
+                    });
                     sessionRefreshPromise = null;
+                });
+            }
+            else {
+                console.info("[authFetch] Supabase refresh queued behind active refresh", {
+                    refreshStartCount,
+                    refreshFinishCount,
+                    reason: options.forceRefresh ? "401-retry" : "expired-or-oversized-token",
                 });
             }
             const refreshedSession = await sessionRefreshPromise;
@@ -58,9 +79,7 @@ async function readSessionAccessToken(
                 session = refreshedSession;
             }
             else {
-                const latest = await getAuthSession(supabase);
-                session = latest.session;
-                error = latest.error || error;
+                session = readStoredAuthSession();
             }
         }
         catch {
