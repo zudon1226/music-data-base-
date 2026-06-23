@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionTokensFromRecord, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
+import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,9 +34,10 @@ export async function GET(request: Request) {
                 saveCount: 0,
             });
         }
-        const auth = await optionalMatchingUserId(request, userId);
+        const auth = await requireMatchingUserId(request, "/api/library-saves", userId);
         if (!auth.ok) {
             return jsonResponse({
+                error: auth.error,
                 songIds: [],
                 videoIds: [],
                 albumIds: [],
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
                 savedVideos: [],
                 savedAlbums: [],
                 saveCount: 0,
-            });
+            }, auth.status);
         }
         const supabase = getSupabaseLibraryClient();
         const savesResult = await supabase

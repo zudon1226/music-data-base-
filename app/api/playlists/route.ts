@@ -36,6 +36,10 @@ export async function GET(request: Request) {
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId))
             return jsonResponse({ playlists: [] });
+        const auth = await requireMatchingUserId(request, "/api/playlists", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error, playlists: [] }, auth.status);
+        }
         const supabase = getSupabaseLibraryClient();
         const loadPlaylists = async (selectColumns: string, orderColumn: string) => supabase.from("playlists").select(selectColumns).eq("user_id", userId).order(orderColumn, { ascending: false });
         const attempts = [

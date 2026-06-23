@@ -17,6 +17,10 @@ let sessionRefreshPromise: Promise<Session | null> | null = null;
 let refreshStartCount = 0;
 let refreshFinishCount = 0;
 
+function getTokenTail(token: string) {
+    return token ? token.slice(-8) : "";
+}
+
 export function readAccessTokenFromSession(session: Session | null | undefined) {
     return typeof session?.access_token === "string" ? session.access_token : "";
 }
@@ -239,6 +243,11 @@ export async function authFetch(
         throw new Error(refreshed.session ? API_AUTH_FAILED_MESSAGE : SESSION_EXPIRED_MESSAGE);
     }
 
+    console.info("[authFetch] Protected API retry token", {
+        previousTokenTail: getTokenTail(accessToken),
+        retryTokenTail: getTokenTail(refreshed.accessToken),
+        tokenChanged: getTokenTail(accessToken) !== getTokenTail(refreshed.accessToken),
+    });
     const retryRequest = buildAuthenticatedRequest(input, fetchInit, refreshed.accessToken);
     const retryResponse = await fetch(retryRequest.input, retryRequest.init);
     if (retryResponse.status === 401) {

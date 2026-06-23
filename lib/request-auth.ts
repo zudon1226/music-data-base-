@@ -162,6 +162,11 @@ export async function resolveRequestUserId(
     request: Request,
     options: { refreshToken?: string; accessToken?: string } = {},
 ) {
+    const bearerToken = getBearerToken(request);
+    if (bearerToken) {
+        return verifyAccessTokenUserId(bearerToken);
+    }
+
     let accessToken = getAccessTokenFromRequest(request, options.accessToken);
     let refreshToken = getRefreshTokenFromRequest(request, options.refreshToken);
 
@@ -215,10 +220,10 @@ export async function requireMatchingUserId(
     }
     const { userId, error } = await resolveRequestUserId(request, options);
     if (!userId) {
-        return { ok: false as const, status: 401, error: error || "Missing or invalid authorization token." };
+        return { ok: false as const, status: 401, error: error || "Missing or invalid Authorization bearer token." };
     }
     if (userId !== cleanUserId) {
-        return { ok: false as const, status: 403, error: "User id does not match session token." };
+        return { ok: false as const, status: 403, error: "Authorization bearer token user does not match requested user id." };
     }
     return { ok: true as const, userId };
 }
