@@ -222,6 +222,36 @@ function buildAuthenticatedRequest(
     };
 }
 
+function resolveOutboundUrl(input: RequestInfo | URL) {
+    if (typeof input === "string") {
+        return input;
+    }
+    if (input instanceof URL) {
+        return input.href;
+    }
+    return input.url;
+}
+
+function isProtectedDesktopApiUrl(url: string) {
+    return url.includes("/api/user-music-state")
+        || url.includes("/api/library-saves")
+        || url.includes("/api/playlists");
+}
+
+function logAuthOutbound(input: RequestInfo | URL, headers: HeadersInit | Headers | undefined) {
+    const url = resolveOutboundUrl(input);
+    if (!isProtectedDesktopApiUrl(url)) {
+        return;
+    }
+    const headerBag = headers instanceof Headers ? headers : new Headers(headers);
+    console.log(
+        "[AUTH OUTBOUND]",
+        url,
+        headerBag.get("Authorization"),
+        headerBag.get("apikey"),
+    );
+}
+
 export async function authFetch(
     supabase: SupabaseClient,
     input: RequestInfo | URL,
@@ -236,6 +266,7 @@ export async function authFetch(
         if (requireSession) {
             throw new Error(session ? API_AUTH_FAILED_MESSAGE : SESSION_EXPIRED_MESSAGE);
         }
+        logAuthOutbound(input, fetchInit.headers);
         return fetch(input, {
             ...fetchInit,
             credentials: "omit",
@@ -243,6 +274,7 @@ export async function authFetch(
     }
 
     const request = buildAuthenticatedRequest(input, fetchInit, accessToken);
+    logAuthOutbound(request.input, request.init.headers);
     const response = await fetch(request.input, request.init);
     if (response.status !== 401) {
         return response;
@@ -262,6 +294,7 @@ export async function authFetch(
         tokenChanged: getTokenTail(accessToken) !== getTokenTail(refreshed.accessToken),
     });
     const retryRequest = buildAuthenticatedRequest(input, fetchInit, refreshed.accessToken);
+    logAuthOutbound(retryRequest.input, retryRequest.init.headers);
     const retryResponse = await fetch(retryRequest.input, retryRequest.init);
     if (retryResponse.status === 401) {
         const { session: currentSession } = await getAuthSession(supabase);
