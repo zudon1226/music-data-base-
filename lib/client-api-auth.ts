@@ -12,7 +12,15 @@ export type AuthFetchInit = RequestInit & {
     requireSession?: boolean;
 };
 
-const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
+const STRIPPED_REQUEST_HEADERS = new Set([
+    "authorization",
+    "apikey",
+    "x-supabase-auth",
+    "x-session",
+    "x-user",
+    "x-refresh-token",
+    SUPABASE_REFRESH_TOKEN_HEADER.toLowerCase(),
+]);
 let sessionRefreshPromise: Promise<Session | null> | null = null;
 let refreshStartCount = 0;
 let refreshFinishCount = 0;
@@ -37,11 +45,16 @@ function isAccessTokenExpired(session: Session | null | undefined) {
     return expiresAt * 1000 <= Date.now() + 15_000;
 }
 
+async function readCurrentSupabaseSession(supabase: SupabaseClient) {
+    const { session } = await getAuthSession(supabase);
+    return session ?? readStoredAuthSession();
+}
+
 async function readSessionAccessToken(
     supabase: SupabaseClient,
     options: { allowRefresh?: boolean; forceRefresh?: boolean } = {},
 ) {
-    let session = readStoredAuthSession();
+    let session = await readCurrentSupabaseSession(supabase);
     let error: Error | null = null;
     const shouldRefresh = Boolean(options.allowRefresh && session?.refresh_token)
         && (isAccessTokenExpired(session) || isOversizedBearerToken(readAccessTokenFromSession(session)));
@@ -56,11 +69,11 @@ async function readSessionAccessToken(
                     reason: options.forceRefresh ? "401-retry" : "expired-or-oversized-token",
                 });
                 sessionRefreshPromise = supabase.auth.refreshSession()
-                    .then(({ data, error: refreshError }) => {
+                    .then(async ({ data, error: refreshError }) => {
                     if (refreshError) {
                         error = refreshError;
                     }
-                    return data.session ?? null;
+                    return data.session ?? (await readCurrentSupabaseSession(supabase));
                 })
                     .finally(() => {
                     refreshFinishCount += 1;
@@ -83,12 +96,16 @@ async function readSessionAccessToken(
                 session = refreshedSession;
             }
             else {
-                session = readStoredAuthSession();
+                session = await readCurrentSupabaseSession(supabase);
             }
         }
         catch {
             // Keep the existing session; failed refresh must not sign the user out.
         }
+    }
+
+    if (!readAccessTokenFromSession(session)) {
+        session = await readCurrentSupabaseSession(supabase);
     }
 
     const accessToken = readAccessTokenFromSession(session);
@@ -102,30 +119,26 @@ async function readSessionAccessToken(
     };
 }
 
-function copyAllowedHeaders(target: Headers, source: HeadersInit | undefined) {
+function copyPreservedHeaders(target: Headers, source: HeadersInit | undefined) {
     if (!source) {
         return;
     }
     const incoming = new Headers(source);
     incoming.forEach((value, key) => {
         const lowerKey = key.toLowerCase();
-        if (ALLOWED_REQUEST_HEADERS.has(lowerKey)) {
-            target.set(key, value);
+        if (STRIPPED_REQUEST_HEADERS.has(lowerKey)) {
+            return;
         }
+        target.set(key, value);
     });
 }
 
 function buildAuthHeaders(init: RequestInit | undefined, accessToken: string) {
     const headers = new Headers();
-    copyAllowedHeaders(headers, init?.headers);
-    headers.delete("authorization");
-    headers.delete("Authorization");
-    headers.delete("apikey");
-    headers.delete("x-supabase-auth");
-    headers.delete("x-session");
-    headers.delete("x-user");
-    headers.delete("x-refresh-token");
-    headers.delete(SUPABASE_REFRESH_TOKEN_HEADER);
+    copyPreservedHeaders(headers, init?.headers);
+    STRIPPED_REQUEST_HEADERS.forEach((headerName) => {
+        headers.delete(headerName);
+    });
 
     const bearerIsUsable = Boolean(accessToken) && !isOversizedBearerToken(accessToken);
     if (bearerIsUsable) {
