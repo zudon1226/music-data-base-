@@ -13,7 +13,7 @@ export type AuthFetchInit = RequestInit & {
 };
 
 const ALLOWED_REQUEST_HEADERS = new Set(["content-type", "accept", "cache-control"]);
-const ACCESS_TOKEN_BODY_FIELD = ACCESS_TOKEN_BODY_KEYS[0];
+let sessionRefreshPromise: Promise<Session | null> | null = null;
 
 export function readAccessTokenFromSession(session: Session | null | undefined) {
     return typeof session?.access_token === "string" ? session.access_token : "";
@@ -41,12 +41,26 @@ async function readSessionAccessToken(
 
     if (options.forceRefresh || shouldRefresh) {
         try {
-            const { data, error: refreshError } = await supabase.auth.refreshSession();
-            if (refreshError) {
-                error = refreshError;
+            if (!sessionRefreshPromise) {
+                sessionRefreshPromise = supabase.auth.refreshSession()
+                    .then(({ data, error: refreshError }) => {
+                    if (refreshError) {
+                        error = refreshError;
+                    }
+                    return data.session ?? null;
+                })
+                    .finally(() => {
+                    sessionRefreshPromise = null;
+                });
             }
-            if (data.session) {
-                session = data.session;
+            const refreshedSession = await sessionRefreshPromise;
+            if (refreshedSession) {
+                session = refreshedSession;
+            }
+            else {
+                const latest = await getAuthSession(supabase);
+                session = latest.session;
+                error = latest.error || error;
             }
         }
         catch {
@@ -97,10 +111,7 @@ function buildAuthHeaders(init: RequestInit | undefined, accessToken: string) {
     return headers;
 }
 
-function attachSessionTokensToBody(
-    body: BodyInit | null | undefined,
-    accessToken: string,
-) {
+function stripSessionTokensFromBody(body: BodyInit | null | undefined) {
     if (!body) {
         return body;
     }
@@ -113,9 +124,6 @@ function attachSessionTokensToBody(
             REFRESH_TOKEN_BODY_KEYS.forEach((key) => {
                 delete parsed[key];
             });
-            if (accessToken) {
-                parsed[ACCESS_TOKEN_BODY_FIELD] = accessToken;
-            }
             return JSON.stringify(parsed);
         }
         catch {
@@ -129,16 +137,12 @@ function attachSessionTokensToBody(
         REFRESH_TOKEN_BODY_KEYS.forEach((key) => {
             body.delete(key);
         });
-        if (accessToken) {
-            body.set(ACCESS_TOKEN_BODY_FIELD, accessToken);
-        }
     }
     return body;
 }
 
-function appendSessionTokensToUrl(
+function stripSessionTokensFromUrl(
     input: RequestInfo | URL,
-    accessToken: string,
 ) {
     if (typeof window === "undefined") {
         return input;
@@ -155,9 +159,6 @@ function appendSessionTokensToUrl(
     REFRESH_TOKEN_BODY_KEYS.forEach((key) => {
         url.searchParams.delete(key);
     });
-    if (accessToken && !isOversizedBearerToken(accessToken)) {
-        url.searchParams.set(ACCESS_TOKEN_BODY_FIELD, accessToken);
-    }
     return url.toString();
 }
 
@@ -167,8 +168,8 @@ function buildAuthenticatedRequest(
     accessToken: string,
 ) {
     const headers = buildAuthHeaders(fetchInit, accessToken);
-    const body = attachSessionTokensToBody(fetchInit.body ?? null, accessToken);
-    const requestUrl = appendSessionTokensToUrl(input, accessToken);
+    const body = stripSessionTokensFromBody(fetchInit.body ?? null);
+    const requestUrl = stripSessionTokensFromUrl(input);
     return {
         input: requestUrl,
         init: {
