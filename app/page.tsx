@@ -10244,6 +10244,26 @@ export default function Page() {
         }
         return formData;
     }
+    async function getVideoMetadataSaveAccessToken() {
+        const currentAccessToken = readAccessTokenFromSession(authSession);
+        if (currentAccessToken && !isOversizedBearerToken(currentAccessToken)) {
+            return currentAccessToken;
+        }
+
+        const { session, error } = await getAuthSession(supabase);
+        if (error || !session?.access_token) {
+            throw new Error("Session expired. Please log out and log back in, then retry save.");
+        }
+
+        const accessToken = readAccessTokenFromSession(session);
+        if (!accessToken || isOversizedBearerToken(accessToken)) {
+            throw new Error("Session expired. Please log out and log back in, then retry save.");
+        }
+
+        setAuthSession(session);
+        setUser((previous) => previous || session.user);
+        return accessToken;
+    }
     async function videoUploadFetch(
         init: {
             method?: string;
@@ -10766,6 +10786,7 @@ export default function Page() {
         }
 
         setVideoUploadStep("Saving video metadata...", 88);
+        const metadataAccessToken = await getVideoMetadataSaveAccessToken();
         const metadataResponse = await videoUploadFetch({
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -10792,7 +10813,7 @@ export default function Page() {
                 mobileCompatible: codecInfo.mobileCompatible,
                 cleanupOnFailure: true,
             }),
-        }, uploadSessionTokens);
+        }, { accessToken: metadataAccessToken, refreshToken: "" });
 
         const metadataResult = (await metadataResponse.json().catch(() => ({}))) as {
             publicUrl?: string;
