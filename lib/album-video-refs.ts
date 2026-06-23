@@ -110,14 +110,15 @@ export async function repairDeadAlbumVideoReferences(supabase: SupabaseClient, a
             continue;
         const bucket = itemBuckets[albumId] || { songIds: [], videoIds: [] };
         const deadVideoIds = bucket.videoIds.filter((videoId) => !validVideoIds.has(videoId));
+        const broadRepair = albumUsesBroadVideoRepair(album);
         stats.deadFound += deadVideoIds.length;
-        if (deadVideoIds.length === 0)
-            continue;
         for (const deadVideoId of deadVideoIds) {
             await deleteAlbumVideoReference(supabase, albumId, deadVideoId);
             stats.removed += 1;
         }
         bucket.videoIds = bucket.videoIds.filter((videoId) => validVideoIds.has(videoId));
+        if (deadVideoIds.length === 0 && !broadRepair)
+            continue;
         const repairCandidates = findRepairVideoCandidates(album, validVideoRows, bucket.videoIds, deadVideoIds.length);
         for (const candidate of repairCandidates) {
             const videoId = getString(candidate.id);
