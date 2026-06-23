@@ -48,7 +48,7 @@ export async function GET(request: Request) {
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId))
             return jsonResponse({ likedSongIds: [] });
-        const auth = await optionalMatchingUserId(request, userId);
+        const auth = await optionalMatchingUserId(request, userId, { route: "/api/song-likes" });
         if (!auth.ok) {
             return jsonResponse({ likedSongIds: [] });
         }

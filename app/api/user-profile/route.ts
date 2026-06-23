@@ -24,7 +24,7 @@ export async function GET(request: Request) {
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Valid userId is required." }, 400);
         }
-        const auth = await optionalMatchingUserId(request, userId);
+        const auth = await optionalMatchingUserId(request, userId, { route: "/api/user-profile" });
         if (!auth.ok) {
             return jsonResponse({
                 displayName: "",

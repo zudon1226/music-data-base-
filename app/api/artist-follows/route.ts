@@ -70,7 +70,7 @@ export async function GET(request: Request) {
             logRouteAuth(request, "/api/artist-follows");
             return jsonResponse({ follows: [], followerCounts: {}, error: "Missing or invalid user_id." }, 200);
         }
-        const auth = await optionalMatchingUserId(request, userId);
+        const auth = await optionalMatchingUserId(request, userId, { route: "/api/artist-follows" });
         if (!auth.ok) {
             return jsonResponse({ follows: [], followerCounts: {} });
         }

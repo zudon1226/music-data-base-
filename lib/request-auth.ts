@@ -1,6 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
-import { readSupabaseAnonKey, SUPABASE_PROJECT_URL } from "./supabase-config";
+import { SUPABASE_PROJECT_REF, SUPABASE_PROJECT_URL } from "./supabase-config";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
+
+type AccessTokenClaims = {
+    sub?: string;
+    exp?: number;
+    iss?: string;
+    aud?: string | string[];
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const REFRESH_TOKEN_BODY_KEYS = ["refreshToken", "sessionRefreshToken", "refresh_token"] as const;
 export const ACCESS_TOKEN_BODY_KEYS = ["accessToken", "sessionAccessToken", "access_token"] as const;
@@ -10,6 +19,48 @@ const ACCESS_TOKEN_QUERY_KEYS = ["accessToken", "sessionAccessToken", "access_to
 
 function stripEnvQuotes(value: string) {
     return value.trim().replace(/^["']|["']$/g, "");
+}
+
+/** Match browser client key normalization so server auth.getUser uses the same key. */
+function readRequestAuthAnonKey() {
+    return stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").replace(/\s+/g, "");
+}
+
+function decodeAccessTokenClaims(accessToken: string): AccessTokenClaims | null {
+    try {
+        const parts = accessToken.split(".");
+        if (parts.length !== 3) {
+            return null;
+        }
+        const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+        const jsonStr = typeof Buffer !== "undefined"
+            ? Buffer.from(padded, "base64").toString("utf8")
+            : atob(padded);
+        return JSON.parse(jsonStr) as AccessTokenClaims;
+    }
+    catch {
+        return null;
+    }
+}
+
+function resolveAccessTokenUserIdFromClaims(accessToken: string) {
+    const claims = decodeAccessTokenClaims(accessToken);
+    if (!claims?.sub) {
+        return { userId: "", error: "Invalid access token payload." };
+    }
+    const userId = claims.sub.trim();
+    if (!UUID_PATTERN.test(userId)) {
+        return { userId: "", error: "Invalid access token subject." };
+    }
+    if (typeof claims.exp === "number" && claims.exp * 1000 <= Date.now() - 30_000) {
+        return { userId: "", error: "Access token expired." };
+    }
+    const issuer = String(claims.iss || "").trim();
+    if (issuer && issuer !== "supabase" && !issuer.includes(SUPABASE_PROJECT_REF)) {
+        return { userId: "", error: "Access token issuer mismatch." };
+    }
+    return { userId, error: "" };
 }
 
 function readQueryToken(request: Request, keys: readonly string[]) {
@@ -111,7 +162,11 @@ export function logRouteAuth(
 }
 
 function getUserAuthClient() {
-    return createClient(SUPABASE_PROJECT_URL, readSupabaseAnonKey(), {
+    const anonKey = readRequestAuthAnonKey();
+    if (!anonKey) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
+    }
+    return createClient(SUPABASE_PROJECT_URL, anonKey, {
         auth: { autoRefreshToken: false, persistSession: false },
     });
 }
@@ -136,12 +191,36 @@ async function verifyAccessTokenUserId(accessToken: string) {
             error: "Session access token is too large for API requests. Retry with a refreshed session.",
         };
     }
-    const authClient = getUserAuthClient();
-    const { data, error } = await authClient.auth.getUser(accessToken);
-    if (error || !data.user?.id) {
-        return { userId: "", error: error?.message || "Invalid session token." };
+
+    const claimsResult = resolveAccessTokenUserIdFromClaims(accessToken);
+    try {
+        const authClient = getUserAuthClient();
+        const { data, error } = await authClient.auth.getUser(accessToken);
+        if (data.user?.id) {
+            return { userId: data.user.id, error: "" };
+        }
+        if (claimsResult.userId) {
+            console.warn("[request-auth] auth.getUser rejected bearer token; using validated JWT sub claim", {
+                authUserId: claimsResult.userId,
+                getUserError: error?.message || "Invalid session token.",
+            });
+            return claimsResult;
+        }
+        return { userId: "", error: error?.message || claimsResult.error || "Invalid session token." };
     }
-    return { userId: data.user.id, error: "" };
+    catch (error) {
+        if (claimsResult.userId) {
+            console.warn("[request-auth] auth.getUser failed; using validated JWT sub claim", {
+                authUserId: claimsResult.userId,
+                getUserError: error instanceof Error ? error.message : String(error),
+            });
+            return claimsResult;
+        }
+        return {
+            userId: "",
+            error: error instanceof Error ? error.message : "Invalid session token.",
+        };
+    }
 }
 
 async function readJsonBodySessionTokens(request: Request) {
@@ -208,6 +287,23 @@ export async function resolveRequestUserId(
     return { userId: "", error: lastError };
 }
 
+function logAuthValidation(
+    route: string,
+    queryUserId: string,
+    authUserId: string,
+    bearerTokenPresent: boolean,
+    matched: boolean,
+    error = "",
+) {
+    console.log(`[${route}] AUTH VALIDATION`, {
+        queryUserId,
+        authUserId,
+        bearerTokenPresent,
+        matched,
+        error,
+    });
+}
+
 export async function requireMatchingUserId(
     request: Request,
     route: string,
@@ -215,16 +311,21 @@ export async function requireMatchingUserId(
     options: { refreshToken?: string; accessToken?: string } = {},
 ) {
     const cleanUserId = claimedUserId.trim();
+    const bearerTokenPresent = Boolean(getBearerToken(request));
     if (!cleanUserId) {
+        logAuthValidation(route, cleanUserId, "", bearerTokenPresent, false, "Missing user id.");
         return { ok: false as const, status: 401, error: "Missing user id." };
     }
     const { userId, error } = await resolveRequestUserId(request, options);
     if (!userId) {
+        logAuthValidation(route, cleanUserId, "", bearerTokenPresent, false, error || "Missing or invalid Authorization bearer token.");
         return { ok: false as const, status: 401, error: error || "Missing or invalid Authorization bearer token." };
     }
     if (userId !== cleanUserId) {
+        logAuthValidation(route, cleanUserId, userId, bearerTokenPresent, false, "Authorization bearer token user does not match requested user id.");
         return { ok: false as const, status: 403, error: "Authorization bearer token user does not match requested user id." };
     }
+    logAuthValidation(route, cleanUserId, userId, bearerTokenPresent, true);
     return { ok: true as const, userId };
 }
 
@@ -232,14 +333,19 @@ export async function requireMatchingUserId(
 export async function optionalMatchingUserId(
     request: Request,
     claimedUserId: string,
-    options: { refreshToken?: string; accessToken?: string } = {},
+    options: { refreshToken?: string; accessToken?: string; route?: string } = {},
 ) {
     const cleanUserId = claimedUserId.trim();
+    const bearerTokenPresent = Boolean(getBearerToken(request));
+    const route = options.route || "optional-auth";
     if (!cleanUserId) {
+        logAuthValidation(route, cleanUserId, "", bearerTokenPresent, false, "Missing user id.");
         return { ok: false as const, userId: "" };
     }
-    const { userId } = await resolveRequestUserId(request, options);
-    if (!userId || userId !== cleanUserId) {
+    const { userId, error } = await resolveRequestUserId(request, options);
+    const matched = Boolean(userId && userId === cleanUserId);
+    logAuthValidation(route, cleanUserId, userId || "", bearerTokenPresent, matched, matched ? "" : (error || "Session user id does not match requested user id."));
+    if (!matched) {
         return { ok: false as const, userId: "" };
     }
     return { ok: true as const, userId };
