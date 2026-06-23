@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { getAuthSession, readStoredAuthSession } from "./auth-session";
+import { getAuthSession, readStoredAuthSession, SUPABASE_AUTH_STORAGE_KEY } from "./auth-session";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
 
@@ -45,16 +45,138 @@ function isAccessTokenExpired(session: Session | null | undefined) {
     return expiresAt * 1000 <= Date.now() + 15_000;
 }
 
-async function readCurrentSupabaseSession(supabase: SupabaseClient) {
-    const { session } = await getAuthSession(supabase);
-    return session ?? readStoredAuthSession();
+function resolveOutboundUrl(input: RequestInfo | URL) {
+    if (typeof input === "string") {
+        return input;
+    }
+    if (input instanceof URL) {
+        return input.href;
+    }
+    return input.url;
+}
+
+function isProtectedDesktopApiUrl(url: string) {
+    return url.includes("/api/user-music-state")
+        || url.includes("/api/library-saves")
+        || url.includes("/api/playlists");
+}
+
+function parseStoredSessionRaw(raw: string | null): Session | null {
+    if (!raw) {
+        return null;
+    }
+    try {
+        const parsed = JSON.parse(raw) as { currentSession?: Session } | Session;
+        if ("currentSession" in parsed) {
+            return parsed.currentSession ?? null;
+        }
+        return parsed as Session;
+    }
+    catch {
+        return null;
+    }
+}
+
+function logSessionFallbackSources(
+    phase: string,
+    getSessionResult: Awaited<ReturnType<SupabaseClient["auth"]["getSession"]>>,
+) {
+    const getSessionData = getSessionResult.data.session;
+    console.log(
+        "[SESSION SOURCE] getSession()",
+        phase,
+        Boolean(getSessionData),
+        Boolean(getSessionData?.access_token),
+        getSessionData?.user?.id || "",
+    );
+
+    const storedSession = readStoredAuthSession();
+    console.log(
+        "[SESSION SOURCE] readStoredAuthSession()",
+        phase,
+        Boolean(storedSession),
+        Boolean(readAccessTokenFromSession(storedSession)),
+        storedSession?.user?.id || "",
+    );
+
+    if (typeof window !== "undefined") {
+        const localRaw = window.localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+        const localSession = parseStoredSessionRaw(localRaw);
+        console.log(
+            "[SESSION SOURCE] localStorage",
+            phase,
+            Boolean(localRaw),
+            Boolean(readAccessTokenFromSession(localSession)),
+            localSession?.user?.id || "",
+        );
+
+        const sessionRaw = window.sessionStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+        const browserSession = parseStoredSessionRaw(sessionRaw);
+        console.log(
+            "[SESSION SOURCE] sessionStorage",
+            phase,
+            Boolean(sessionRaw),
+            Boolean(readAccessTokenFromSession(browserSession)),
+            browserSession?.user?.id || "",
+        );
+    }
+}
+
+async function readCurrentSupabaseSession(
+    supabase: SupabaseClient,
+    options: { debugUrl?: string; phase?: string } = {},
+) {
+    const phase = options.phase || "readCurrentSupabaseSession";
+    const shouldLog = Boolean(options.debugUrl && isProtectedDesktopApiUrl(options.debugUrl));
+    const getSessionResult = await supabase.auth.getSession();
+
+    if (shouldLog) {
+        console.log(
+            "[SESSION CHECK]",
+            !!getSessionResult?.data?.session,
+            !!getSessionResult?.data?.session?.access_token,
+            getSessionResult?.data?.session?.user?.id,
+        );
+        logSessionFallbackSources(phase, getSessionResult);
+    }
+
+    if (getSessionResult.data.session) {
+        if (shouldLog) {
+            console.log(
+                "[SESSION SOURCE] resolved getSession()",
+                phase,
+                true,
+                Boolean(getSessionResult.data.session.access_token),
+                getSessionResult.data.session.user?.id || "",
+            );
+        }
+        return getSessionResult.data.session;
+    }
+
+    const storedSession = readStoredAuthSession();
+    if (shouldLog) {
+        if (storedSession) {
+            console.log(
+                "[SESSION SOURCE] resolved readStoredAuthSession()",
+                phase,
+                true,
+                Boolean(readAccessTokenFromSession(storedSession)),
+                storedSession.user?.id || "",
+            );
+        }
+        else {
+            console.log("[SESSION SOURCE] resolved none", phase, false, false, "");
+        }
+    }
+    return storedSession;
 }
 
 async function readSessionAccessToken(
     supabase: SupabaseClient,
-    options: { allowRefresh?: boolean; forceRefresh?: boolean } = {},
+    options: { allowRefresh?: boolean; forceRefresh?: boolean; debugUrl?: string } = {},
 ) {
-    let session = await readCurrentSupabaseSession(supabase);
+    const phase = options.forceRefresh ? "readSessionAccessToken:401-retry" : "readSessionAccessToken:initial";
+    let session = await readCurrentSupabaseSession(supabase, { debugUrl: options.debugUrl, phase });
     let error: Error | null = null;
     const shouldRefresh = Boolean(options.allowRefresh && session?.refresh_token)
         && (isAccessTokenExpired(session) || isOversizedBearerToken(readAccessTokenFromSession(session)));
@@ -73,7 +195,10 @@ async function readSessionAccessToken(
                     if (refreshError) {
                         error = refreshError;
                     }
-                    return data.session ?? (await readCurrentSupabaseSession(supabase));
+                    return data.session ?? (await readCurrentSupabaseSession(supabase, {
+                        debugUrl: options.debugUrl,
+                        phase: `${phase}:after-refresh`,
+                    }));
                 })
                     .finally(() => {
                     refreshFinishCount += 1;
@@ -96,7 +221,10 @@ async function readSessionAccessToken(
                 session = refreshedSession;
             }
             else {
-                session = await readCurrentSupabaseSession(supabase);
+                session = await readCurrentSupabaseSession(supabase, {
+                    debugUrl: options.debugUrl,
+                    phase: `${phase}:refresh-fallback`,
+                });
             }
         }
         catch {
@@ -105,11 +233,24 @@ async function readSessionAccessToken(
     }
 
     if (!readAccessTokenFromSession(session)) {
-        session = await readCurrentSupabaseSession(supabase);
+        session = await readCurrentSupabaseSession(supabase, {
+            debugUrl: options.debugUrl,
+            phase: `${phase}:missing-access-token`,
+        });
     }
 
     const accessToken = readAccessTokenFromSession(session);
     const refreshToken = readRefreshTokenFromSession(session);
+    if (options.debugUrl && isProtectedDesktopApiUrl(options.debugUrl)) {
+        console.log(
+            "[SESSION RESULT]",
+            phase,
+            Boolean(session),
+            Boolean(accessToken),
+            session?.user?.id || "",
+            isOversizedBearerToken(accessToken) ? "oversized-token" : "",
+        );
+    }
     return {
         session,
         accessToken,
@@ -222,22 +363,6 @@ function buildAuthenticatedRequest(
     };
 }
 
-function resolveOutboundUrl(input: RequestInfo | URL) {
-    if (typeof input === "string") {
-        return input;
-    }
-    if (input instanceof URL) {
-        return input.href;
-    }
-    return input.url;
-}
-
-function isProtectedDesktopApiUrl(url: string) {
-    return url.includes("/api/user-music-state")
-        || url.includes("/api/library-saves")
-        || url.includes("/api/playlists");
-}
-
 function logAuthOutbound(input: RequestInfo | URL, headers: HeadersInit | Headers | undefined) {
     const url = resolveOutboundUrl(input);
     if (!isProtectedDesktopApiUrl(url)) {
@@ -258,8 +383,11 @@ export async function authFetch(
     init: AuthFetchInit = {},
 ) {
     const { requireSession = false, ...fetchInit } = init;
+    const debugUrl = resolveOutboundUrl(input);
+    const sessionDebugUrl = isProtectedDesktopApiUrl(debugUrl) ? debugUrl : undefined;
     const { session, accessToken } = await readSessionAccessToken(supabase, {
         allowRefresh: true,
+        debugUrl: sessionDebugUrl,
     });
 
     if (!accessToken) {
@@ -283,6 +411,7 @@ export async function authFetch(
     const refreshed = await readSessionAccessToken(supabase, {
         allowRefresh: true,
         forceRefresh: true,
+        debugUrl: sessionDebugUrl,
     });
     if (!refreshed.accessToken) {
         throw new Error(refreshed.session ? API_AUTH_FAILED_MESSAGE : SESSION_EXPIRED_MESSAGE);
