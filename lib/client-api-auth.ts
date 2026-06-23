@@ -5,6 +5,7 @@ import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session
 
 export const ACCESS_TOKEN_SOURCE = "supabase.auth.getSession().session.access_token";
 export const SESSION_EXPIRED_MESSAGE = "Session expired. Please log out and log back in, then retry.";
+const API_AUTH_FAILED_MESSAGE = "API request could not authenticate. Please retry.";
 
 export type AuthFetchInit = RequestInit & {
     /** When true, missing session tokens throw. Use for uploads and writes only. */
@@ -190,13 +191,13 @@ export async function authFetch(
     init: AuthFetchInit = {},
 ) {
     const { requireSession = false, ...fetchInit } = init;
-    const { accessToken } = await readSessionAccessToken(supabase, {
+    const { session, accessToken } = await readSessionAccessToken(supabase, {
         allowRefresh: true,
     });
 
     if (!accessToken) {
         if (requireSession) {
-            throw new Error(SESSION_EXPIRED_MESSAGE);
+            throw new Error(session ? API_AUTH_FAILED_MESSAGE : SESSION_EXPIRED_MESSAGE);
         }
         return fetch(input, {
             ...fetchInit,
@@ -215,13 +216,16 @@ export async function authFetch(
         forceRefresh: true,
     });
     if (!refreshed.accessToken) {
-        throw new Error(SESSION_EXPIRED_MESSAGE);
+        throw new Error(refreshed.session ? API_AUTH_FAILED_MESSAGE : SESSION_EXPIRED_MESSAGE);
     }
 
     const retryRequest = buildAuthenticatedRequest(input, fetchInit, refreshed.accessToken);
     const retryResponse = await fetch(retryRequest.input, retryRequest.init);
     if (retryResponse.status === 401) {
-        throw new Error(SESSION_EXPIRED_MESSAGE);
+        const { session: currentSession } = await getAuthSession(supabase);
+        if (!currentSession) {
+            throw new Error(SESSION_EXPIRED_MESSAGE);
+        }
     }
     return retryResponse;
 }

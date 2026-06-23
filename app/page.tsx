@@ -5474,6 +5474,28 @@ export default function Page() {
         if (!response.ok || data.setupRequired) {
             const error = data.error || response.statusText;
             console.error("LIBRARY ERROR:", error);
+            if (response.status === 401) {
+                const { session } = await getAuthSession(supabase);
+                if (session) {
+                    console.warn("LIBRARY RELOAD AUTH WARNING: /api/library-saves returned 401 while Supabase session is still present. Keeping current Library state.");
+                    if (cachedLibrary) {
+                        return {
+                            songIds: cachedLibrary.songIds,
+                            videoIds: cachedLibrary.videoIds,
+                            albumIds: cachedLibrary.albumIds,
+                            videos: [] as VideoItem[],
+                            albums: [] as Album[],
+                        };
+                    }
+                    return {
+                        songIds: uniqueIds(libraryIds),
+                        videoIds: uniqueIds(savedVideoIds),
+                        albumIds: uniqueIds(savedAlbumIds),
+                        videos: [] as VideoItem[],
+                        albums: [] as Album[],
+                    };
+                }
+            }
             setLibraryLoadError(error);
             if (cachedLibrary) {
                 showToast("Saved library could not refresh from Supabase. Showing your last saved library.", "error");
