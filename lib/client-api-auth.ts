@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { getAuthSession, readStoredAuthSession, SUPABASE_AUTH_STORAGE_KEY } from "./auth-session";
+import { clearSupabaseAuthStorage, getAuthSession } from "./auth-session";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { isOversizedBearerToken, MAX_SAFE_BEARER_TOKEN_LENGTH, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
 
@@ -7,10 +7,7 @@ export const ACCESS_TOKEN_SOURCE = "supabase.auth.getSession().session.access_to
 export const SESSION_EXPIRED_MESSAGE = "Session expired. Please log out and log back in, then retry.";
 
 const API_AUTH_FAILED_MESSAGE = "API request could not authenticate. Please retry.";
-const OVERSIZED_ACCESS_TOKEN_MESSAGE = `Session access_token exceeds maximum safe length (${MAX_SAFE_BEARER_TOKEN_LENGTH}). Log out and log in again.`;
-
-const JWT_PATTERN = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/;
-const CLEAN_JWT_PATTERN = /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+const CORRUPTED_ACCESS_TOKEN_MESSAGE = "Stored session access_token is corrupted. Please log out and log in again.";
 
 export type AuthFetchInit = RequestInit & {
     /** When true, missing session tokens throw. Use for uploads and writes only. */
@@ -37,104 +34,35 @@ function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
 }
 
-function extractJwtAccessToken(value: unknown) {
-    if (typeof value !== "string") {
-        return "";
-    }
-
-    const trimmed = value.trim();
-    if (!trimmed || trimmed.startsWith("{") || trimmed.startsWith("[")) {
-        return "";
-    }
-
-    if (CLEAN_JWT_PATTERN.test(trimmed)) {
-        return trimmed;
-    }
-
-    const match = trimmed.match(JWT_PATTERN);
-    return match?.[0] ?? "";
+function readRawAccessToken(session: Session | null | undefined) {
+    return typeof session?.access_token === "string" ? session.access_token : "";
 }
 
-function logAccessTokenSource(sourceName: string, raw: unknown) {
-    const type = raw === null ? "null" : typeof raw;
-    const length = typeof raw === "string" ? raw.length : null;
-    const first50 = typeof raw === "string" ? raw.slice(0, 50) : null;
-    const containsAccessToken = typeof raw === "string" && raw.includes("access_token");
-    const containsRefreshToken = typeof raw === "string" && raw.includes("refresh_token");
-    const containsOpenBrace = typeof raw === "string" && raw.includes("{");
-    const containsCloseBrace = typeof raw === "string" && raw.includes("}");
-
-    console.log(
-        "[ACCESS_TOKEN_SOURCE]",
-        "source:", sourceName,
-        "type:", type,
-        "length:", length,
-        "first50:", first50,
-        "containsAccessToken:", containsAccessToken,
-        "containsRefreshToken:", containsRefreshToken,
-        "containsOpenBrace:", containsOpenBrace,
-        "containsCloseBrace:", containsCloseBrace,
-    );
+function hasExactlyThreeJwtSegments(token: string) {
+    const parts = token.split(".");
+    return parts.length === 3 && parts.every((part) => part.length > 0);
 }
 
-function readAccessTokenFromStorageRaw(raw: string | null) {
-    if (!raw) {
-        return null;
+function isAcceptableAccessToken(token: string) {
+    if (!token || token.length >= MAX_SAFE_BEARER_TOKEN_LENGTH) {
+        return false;
     }
-    try {
-        const parsed = JSON.parse(raw) as {
-            access_token?: unknown;
-            currentSession?: { access_token?: unknown };
-        };
-        if (typeof parsed.access_token === "string") {
-            return parsed.access_token;
-        }
-        if (typeof parsed.currentSession?.access_token === "string") {
-            return parsed.currentSession.access_token;
-        }
-        return null;
+    if (!token.startsWith("eyJ")) {
+        return false;
     }
-    catch {
-        return raw;
-    }
+    return hasExactlyThreeJwtSegments(token);
 }
 
-function logAllAccessTokenSources(session: Session | null | undefined) {
-    logAccessTokenSource("getSession", session?.access_token);
-
-    const storedSession = readStoredAuthSession();
-    logAccessTokenSource("readStoredAuthSession", storedSession?.access_token);
-
-    if (typeof window !== "undefined") {
-        const localRaw = window.localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
-        logAccessTokenSource("localStorage", readAccessTokenFromStorageRaw(localRaw));
-
-        const sessionRaw = window.sessionStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
-        logAccessTokenSource("sessionStorage", readAccessTokenFromStorageRaw(sessionRaw));
+function isCorruptedStoredAccessToken(token: string) {
+    if (!token) {
+        return false;
     }
-}
-
-function assertUsableAccessToken(accessToken: string) {
-    if (!accessToken) {
-        return;
-    }
-
-    if (!CLEAN_JWT_PATTERN.test(accessToken)) {
-        throw new Error(`Invalid session access_token from ${ACCESS_TOKEN_SOURCE}. Sign out and sign in again.`);
-    }
-
-    if (isOversizedBearerToken(accessToken)) {
-        console.error("[authFetch] Oversized access_token rejected", {
-            length: accessToken.length,
-            first100: accessToken.slice(0, 100),
-            last100: accessToken.slice(-100),
-        });
-        throw new Error(OVERSIZED_ACCESS_TOKEN_MESSAGE);
-    }
+    return isOversizedBearerToken(token) || !isAcceptableAccessToken(token);
 }
 
 export function readAccessTokenFromSession(session: Session | null | undefined) {
-    return extractJwtAccessToken(session?.access_token);
+    const raw = readRawAccessToken(session);
+    return isAcceptableAccessToken(raw) ? raw : "";
 }
 
 export function readRefreshTokenFromSession(session: Session | null | undefined) {
@@ -157,14 +85,29 @@ function isAccessTokenExpired(session: Session | null | undefined) {
     return expiresAt * 1000 <= Date.now() + 15_000;
 }
 
-function resolveOutboundUrl(input: RequestInfo | URL) {
-    if (typeof input === "string") {
-        return input;
+function resetAuthTokenCache() {
+    sessionRefreshPromise = null;
+}
+
+async function recoverFromCorruptedStoredSession(
+    supabase: SupabaseClient,
+    session: Session | null | undefined,
+) {
+    const refreshToken = readRefreshTokenFromSession(session);
+
+    clearSupabaseAuthStorage();
+    resetAuthTokenCache();
+
+    await supabase.auth.signOut({ scope: "local" });
+
+    if (refreshToken) {
+        const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+        if (!error && data.session && isAcceptableAccessToken(readRawAccessToken(data.session))) {
+            return data.session;
+        }
     }
-    if (input instanceof URL) {
-        return input.href;
-    }
-    return input.url;
+
+    return null;
 }
 
 function copyPreservedHeaders(target: Headers, source: HeadersInit | undefined) {
@@ -179,6 +122,12 @@ function copyPreservedHeaders(target: Headers, source: HeadersInit | undefined) 
         }
         target.set(key, value);
     });
+}
+
+function assertUsableAccessToken(accessToken: string) {
+    if (!isAcceptableAccessToken(accessToken)) {
+        throw new Error(CORRUPTED_ACCESS_TOKEN_MESSAGE);
+    }
 }
 
 function buildAuthHeaders(init: RequestInit | undefined, accessToken: string) {
@@ -279,9 +228,14 @@ async function readSupabaseSession(supabase: SupabaseClient) {
     return { session, error: error ?? null };
 }
 
-async function refreshSupabaseSession(supabase: SupabaseClient) {
+async function refreshSupabaseSession(
+    supabase: SupabaseClient,
+    refreshToken?: string,
+) {
     if (!sessionRefreshPromise) {
-        sessionRefreshPromise = supabase.auth.refreshSession()
+        sessionRefreshPromise = (refreshToken
+            ? supabase.auth.refreshSession({ refresh_token: refreshToken })
+            : supabase.auth.refreshSession())
             .then(({ data }) => data.session ?? null)
             .finally(() => {
                 sessionRefreshPromise = null;
@@ -295,18 +249,38 @@ async function readSessionAccessToken(
     options: { allowRefresh?: boolean; forceRefresh?: boolean } = {},
 ) {
     let { session, error } = await readSupabaseSession(supabase);
+    const rawAccessToken = readRawAccessToken(session);
+
+    if (isCorruptedStoredAccessToken(rawAccessToken)) {
+        const recoveredSession = await recoverFromCorruptedStoredSession(supabase, session);
+        if (recoveredSession && !isCorruptedStoredAccessToken(readRawAccessToken(recoveredSession))) {
+            session = recoveredSession;
+            error = null;
+        }
+        else {
+            session = null;
+            error = null;
+        }
+    }
+
     let accessToken = readAccessTokenFromSession(session);
     const refreshToken = readRefreshTokenFromSession(session);
 
     const needsRefresh = Boolean(options.allowRefresh && refreshToken)
-        && (options.forceRefresh || !accessToken || isAccessTokenExpired(session) || isOversizedBearerToken(accessToken));
+        && (options.forceRefresh || !accessToken || isAccessTokenExpired(session));
 
     if (needsRefresh) {
         try {
-            const refreshedSession = await refreshSupabaseSession(supabase);
+            const refreshedSession = await refreshSupabaseSession(supabase, refreshToken || undefined);
             if (refreshedSession) {
-                session = refreshedSession;
-                accessToken = readAccessTokenFromSession(refreshedSession);
+                const refreshedRaw = readRawAccessToken(refreshedSession);
+                if (isCorruptedStoredAccessToken(refreshedRaw)) {
+                    session = await recoverFromCorruptedStoredSession(supabase, refreshedSession);
+                }
+                else {
+                    session = refreshedSession;
+                }
+                accessToken = readAccessTokenFromSession(session);
             }
             else {
                 ({ session, error } = await readSupabaseSession(supabase));
@@ -317,8 +291,6 @@ async function readSessionAccessToken(
             // Keep existing session when refresh fails.
         }
     }
-
-    logAllAccessTokenSources(session);
 
     if (accessToken) {
         assertUsableAccessToken(accessToken);
