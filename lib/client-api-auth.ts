@@ -24,7 +24,24 @@ const STRIPPED_REQUEST_HEADERS = new Set([
     SUPABASE_REFRESH_TOKEN_HEADER.toLowerCase(),
 ]);
 
+const PROTECTED_DESKTOP_API_PREFIXES = [
+    "/api/user-profile",
+    "/api/library-saves",
+    "/api/playlists",
+    "/api/user-music-state",
+];
+
 let sessionRefreshPromise: Promise<Session | null> | null = null;
+let corruptedAuthCleanupDoneThisPageLoad = false;
+let desktopAuthRecoveryRequired = false;
+
+export function isDesktopAuthRecoveryRequired() {
+    return desktopAuthRecoveryRequired;
+}
+
+export function resetDesktopAuthRecoveryState() {
+    desktopAuthRecoveryRequired = false;
+}
 
 function getTokenTail(token: string) {
     return token ? token.slice(-8) : "";
@@ -32,6 +49,20 @@ function getTokenTail(token: string) {
 
 function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
+}
+
+function resolveOutboundUrl(input: RequestInfo | URL) {
+    if (typeof input === "string") {
+        return input;
+    }
+    if (input instanceof URL) {
+        return input.href;
+    }
+    return input.url;
+}
+
+function isProtectedDesktopApiUrl(url: string) {
+    return PROTECTED_DESKTOP_API_PREFIXES.some((prefix) => url.includes(prefix));
 }
 
 function readRawAccessToken(session: Session | null | undefined) {
@@ -89,25 +120,26 @@ function resetAuthTokenCache() {
     sessionRefreshPromise = null;
 }
 
-async function recoverFromCorruptedStoredSession(
-    supabase: SupabaseClient,
-    session: Session | null | undefined,
-) {
-    const refreshToken = readRefreshTokenFromSession(session);
+function emptySessionAccessTokenResult() {
+    return {
+        session: null,
+        accessToken: "",
+        refreshToken: "",
+        userId: "",
+        error: null,
+    };
+}
+
+async function runCorruptedAuthCleanupOnce(supabase: SupabaseClient) {
+    desktopAuthRecoveryRequired = true;
+    if (corruptedAuthCleanupDoneThisPageLoad) {
+        return;
+    }
+    corruptedAuthCleanupDoneThisPageLoad = true;
 
     clearSupabaseAuthStorage();
     resetAuthTokenCache();
-
-    await supabase.auth.signOut({ scope: "local" });
-
-    if (refreshToken) {
-        const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
-        if (!error && data.session && isAcceptableAccessToken(readRawAccessToken(data.session))) {
-            return data.session;
-        }
-    }
-
-    return null;
+    await supabase.auth.signOut();
 }
 
 function copyPreservedHeaders(target: Headers, source: HeadersInit | undefined) {
@@ -228,14 +260,12 @@ async function readSupabaseSession(supabase: SupabaseClient) {
     return { session, error: error ?? null };
 }
 
-async function refreshSupabaseSession(
-    supabase: SupabaseClient,
-    refreshToken?: string,
-) {
+async function refreshSupabaseSession(supabase: SupabaseClient) {
+    if (desktopAuthRecoveryRequired) {
+        return null;
+    }
     if (!sessionRefreshPromise) {
-        sessionRefreshPromise = (refreshToken
-            ? supabase.auth.refreshSession({ refresh_token: refreshToken })
-            : supabase.auth.refreshSession())
+        sessionRefreshPromise = supabase.auth.refreshSession()
             .then(({ data }) => data.session ?? null)
             .finally(() => {
                 sessionRefreshPromise = null;
@@ -248,39 +278,35 @@ async function readSessionAccessToken(
     supabase: SupabaseClient,
     options: { allowRefresh?: boolean; forceRefresh?: boolean } = {},
 ) {
+    if (desktopAuthRecoveryRequired) {
+        return emptySessionAccessTokenResult();
+    }
+
     let { session, error } = await readSupabaseSession(supabase);
     const rawAccessToken = readRawAccessToken(session);
 
     if (isCorruptedStoredAccessToken(rawAccessToken)) {
-        const recoveredSession = await recoverFromCorruptedStoredSession(supabase, session);
-        if (recoveredSession && !isCorruptedStoredAccessToken(readRawAccessToken(recoveredSession))) {
-            session = recoveredSession;
-            error = null;
-        }
-        else {
-            session = null;
-            error = null;
-        }
+        await runCorruptedAuthCleanupOnce(supabase);
+        return emptySessionAccessTokenResult();
     }
 
     let accessToken = readAccessTokenFromSession(session);
     const refreshToken = readRefreshTokenFromSession(session);
 
-    const needsRefresh = Boolean(options.allowRefresh && refreshToken)
+    const needsRefresh = Boolean(options.allowRefresh && refreshToken && !desktopAuthRecoveryRequired)
         && (options.forceRefresh || !accessToken || isAccessTokenExpired(session));
 
     if (needsRefresh) {
         try {
-            const refreshedSession = await refreshSupabaseSession(supabase, refreshToken || undefined);
+            const refreshedSession = await refreshSupabaseSession(supabase);
             if (refreshedSession) {
                 const refreshedRaw = readRawAccessToken(refreshedSession);
                 if (isCorruptedStoredAccessToken(refreshedRaw)) {
-                    session = await recoverFromCorruptedStoredSession(supabase, refreshedSession);
+                    await runCorruptedAuthCleanupOnce(supabase);
+                    return emptySessionAccessTokenResult();
                 }
-                else {
-                    session = refreshedSession;
-                }
-                accessToken = readAccessTokenFromSession(session);
+                session = refreshedSession;
+                accessToken = readAccessTokenFromSession(refreshedSession);
             }
             else {
                 ({ session, error } = await readSupabaseSession(supabase));
@@ -294,6 +320,7 @@ async function readSessionAccessToken(
 
     if (accessToken) {
         assertUsableAccessToken(accessToken);
+        desktopAuthRecoveryRequired = false;
     }
 
     return {
@@ -305,15 +332,33 @@ async function readSessionAccessToken(
     };
 }
 
+function blockProtectedApiWithoutSession(url: string, accessToken: string) {
+    if (isProtectedDesktopApiUrl(url) && !accessToken) {
+        throw new Error(SESSION_EXPIRED_MESSAGE);
+    }
+}
+
 export async function authFetch(
     supabase: SupabaseClient,
     input: RequestInfo | URL,
     init: AuthFetchInit = {},
 ) {
     const { requireSession = false, ...fetchInit } = init;
+    const requestUrl = resolveOutboundUrl(input);
+
+    if (desktopAuthRecoveryRequired) {
+        throw new Error(SESSION_EXPIRED_MESSAGE);
+    }
+
     const { session, accessToken } = await readSessionAccessToken(supabase, {
         allowRefresh: true,
     });
+
+    if (desktopAuthRecoveryRequired) {
+        throw new Error(SESSION_EXPIRED_MESSAGE);
+    }
+
+    blockProtectedApiWithoutSession(requestUrl, accessToken);
 
     if (!accessToken) {
         if (requireSession) {
@@ -327,7 +372,7 @@ export async function authFetch(
 
     const request = buildAuthenticatedRequest(input, fetchInit, accessToken);
     const response = await fetch(request.input, request.init);
-    if (response.status !== 401) {
+    if (response.status !== 401 || desktopAuthRecoveryRequired) {
         return response;
     }
 
@@ -335,8 +380,9 @@ export async function authFetch(
         allowRefresh: true,
         forceRefresh: true,
     });
-    if (!refreshed.accessToken) {
-        throw new Error(refreshed.session ? API_AUTH_FAILED_MESSAGE : SESSION_EXPIRED_MESSAGE);
+
+    if (desktopAuthRecoveryRequired || !refreshed.accessToken) {
+        throw new Error(SESSION_EXPIRED_MESSAGE);
     }
 
     console.info("[authFetch] Protected API retry token", {
@@ -344,6 +390,8 @@ export async function authFetch(
         retryTokenTail: getTokenTail(refreshed.accessToken),
         tokenChanged: getTokenTail(accessToken) !== getTokenTail(refreshed.accessToken),
     });
+
+    blockProtectedApiWithoutSession(requestUrl, refreshed.accessToken);
 
     const retryRequest = buildAuthenticatedRequest(input, fetchInit, refreshed.accessToken);
     const retryResponse = await fetch(retryRequest.input, retryRequest.init);
