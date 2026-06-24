@@ -260,10 +260,6 @@ async function readSessionAccessToken(
     };
 }
 
-function readBrowserSupabaseAnonKey() {
-    return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
-}
-
 function copyPreservedHeaders(target: Headers, source: HeadersInit | undefined) {
     if (!source) {
         return;
@@ -278,20 +274,27 @@ function copyPreservedHeaders(target: Headers, source: HeadersInit | undefined) 
     });
 }
 
-function buildAuthHeaders(init: RequestInit | undefined, accessToken: string) {
+function buildAuthHeaders(init: RequestInit | undefined, accessToken: string, debugUrl?: string) {
     const headers = new Headers();
     copyPreservedHeaders(headers, init?.headers);
     STRIPPED_REQUEST_HEADERS.forEach((headerName) => {
         headers.delete(headerName);
     });
 
-    const cleanAccessToken = accessToken.trim();
-    if (cleanAccessToken) {
-        headers.set("Authorization", `Bearer ${cleanAccessToken}`);
+    const bearerIsUsable = Boolean(accessToken) && !isOversizedBearerToken(accessToken);
+    if (bearerIsUsable) {
+        headers.set("Authorization", `Bearer ${accessToken}`);
     }
-    const anonKey = readBrowserSupabaseAnonKey();
-    if (anonKey) {
-        headers.set("apikey", anonKey);
+    if (debugUrl && isProtectedDesktopApiUrl(debugUrl)) {
+        console.log(
+            "[AUTH HEADER BUILD]",
+            "url:", debugUrl,
+            "accessToken length:", accessToken.length,
+            "bearerIsUsable:", bearerIsUsable,
+            "isOversizedBearerToken:", isOversizedBearerToken(accessToken),
+            "Authorization final:", headers.get("Authorization"),
+            "apikey final:", headers.get("apikey"),
+        );
     }
     return headers;
 }
@@ -352,7 +355,7 @@ function buildAuthenticatedRequest(
     fetchInit: RequestInit,
     accessToken: string,
 ) {
-    const headers = buildAuthHeaders(fetchInit, accessToken);
+    const headers = buildAuthHeaders(fetchInit, accessToken, resolveOutboundUrl(input));
     const body = stripSessionTokensFromBody(fetchInit.body ?? null);
     const requestUrl = stripSessionTokensFromUrl(input);
     return {
@@ -398,8 +401,7 @@ export async function authFetch(
         debugUrl: sessionDebugUrl,
     });
 
-    const bearerToken = accessToken || readAccessTokenFromSession(session);
-    if (!bearerToken) {
+    if (!accessToken) {
         if (requireSession) {
             throw new Error(session ? API_AUTH_FAILED_MESSAGE : SESSION_EXPIRED_MESSAGE);
         }
@@ -410,7 +412,7 @@ export async function authFetch(
         });
     }
 
-    const request = buildAuthenticatedRequest(input, fetchInit, bearerToken);
+    const request = buildAuthenticatedRequest(input, fetchInit, accessToken);
     logAuthOutbound(request.input, request.init.headers);
     const response = await fetch(request.input, request.init);
     if (response.status !== 401) {
@@ -427,12 +429,11 @@ export async function authFetch(
     }
 
     console.info("[authFetch] Protected API retry token", {
-        previousTokenTail: getTokenTail(bearerToken),
+        previousTokenTail: getTokenTail(accessToken),
         retryTokenTail: getTokenTail(refreshed.accessToken),
-        tokenChanged: getTokenTail(bearerToken) !== getTokenTail(refreshed.accessToken),
+        tokenChanged: getTokenTail(accessToken) !== getTokenTail(refreshed.accessToken),
     });
-    const retryBearerToken = refreshed.accessToken || readAccessTokenFromSession(refreshed.session);
-    const retryRequest = buildAuthenticatedRequest(input, fetchInit, retryBearerToken);
+    const retryRequest = buildAuthenticatedRequest(input, fetchInit, refreshed.accessToken);
     logAuthOutbound(retryRequest.input, retryRequest.init.headers);
     const retryResponse = await fetch(retryRequest.input, retryRequest.init);
     if (retryResponse.status === 401) {
