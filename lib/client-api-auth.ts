@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { getAuthSession } from "./auth-session";
+import { getAuthSession, readStoredAuthSession, SUPABASE_AUTH_STORAGE_KEY } from "./auth-session";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { isOversizedBearerToken, MAX_SAFE_BEARER_TOKEN_LENGTH, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
 
@@ -53,6 +53,65 @@ function extractJwtAccessToken(value: unknown) {
 
     const match = trimmed.match(JWT_PATTERN);
     return match?.[0] ?? "";
+}
+
+function logAccessTokenSource(sourceName: string, raw: unknown) {
+    const type = raw === null ? "null" : typeof raw;
+    const length = typeof raw === "string" ? raw.length : null;
+    const first50 = typeof raw === "string" ? raw.slice(0, 50) : null;
+    const containsAccessToken = typeof raw === "string" && raw.includes("access_token");
+    const containsRefreshToken = typeof raw === "string" && raw.includes("refresh_token");
+    const containsOpenBrace = typeof raw === "string" && raw.includes("{");
+    const containsCloseBrace = typeof raw === "string" && raw.includes("}");
+
+    console.log(
+        "[ACCESS_TOKEN_SOURCE]",
+        "source:", sourceName,
+        "type:", type,
+        "length:", length,
+        "first50:", first50,
+        "containsAccessToken:", containsAccessToken,
+        "containsRefreshToken:", containsRefreshToken,
+        "containsOpenBrace:", containsOpenBrace,
+        "containsCloseBrace:", containsCloseBrace,
+    );
+}
+
+function readAccessTokenFromStorageRaw(raw: string | null) {
+    if (!raw) {
+        return null;
+    }
+    try {
+        const parsed = JSON.parse(raw) as {
+            access_token?: unknown;
+            currentSession?: { access_token?: unknown };
+        };
+        if (typeof parsed.access_token === "string") {
+            return parsed.access_token;
+        }
+        if (typeof parsed.currentSession?.access_token === "string") {
+            return parsed.currentSession.access_token;
+        }
+        return null;
+    }
+    catch {
+        return raw;
+    }
+}
+
+function logAllAccessTokenSources(session: Session | null | undefined) {
+    logAccessTokenSource("getSession", session?.access_token);
+
+    const storedSession = readStoredAuthSession();
+    logAccessTokenSource("readStoredAuthSession", storedSession?.access_token);
+
+    if (typeof window !== "undefined") {
+        const localRaw = window.localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+        logAccessTokenSource("localStorage", readAccessTokenFromStorageRaw(localRaw));
+
+        const sessionRaw = window.sessionStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+        logAccessTokenSource("sessionStorage", readAccessTokenFromStorageRaw(sessionRaw));
+    }
 }
 
 function assertUsableAccessToken(accessToken: string) {
@@ -258,6 +317,8 @@ async function readSessionAccessToken(
             // Keep existing session when refresh fails.
         }
     }
+
+    logAllAccessTokenSources(session);
 
     if (accessToken) {
         assertUsableAccessToken(accessToken);
