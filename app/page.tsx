@@ -8,6 +8,7 @@ import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { canRenderDesktopApplicationShell, runDesktopRemoteBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
+import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
@@ -4895,7 +4896,10 @@ function PageContent() {
         return () => window.clearTimeout(timer);
     }, [view]);
     useEffect(() => {
-        startDesktopLocalBootstrap(() => setHasLoaded(true), () => {
+        startDesktopLocalBootstrap(() => {
+            setHasLoaded(true);
+            resolveUserMusicStateBootstrapAfterLocalHydration(() => setRemoteMusicStateReady(true));
+        }, () => {
             clearOversizedMediaStorageKeys();
             clearRemovedPlaceholderArtworkFromLocalStorage();
             const loadedSongs = DEFAULT_SONGS;
@@ -5664,11 +5668,13 @@ function PageContent() {
         if (initialDataLoadedKeyRef.current === loadKey || initialDataLoadInFlightKeyRef.current === loadKey)
             return;
         initialDataLoadInFlightKeyRef.current = loadKey;
-        setRemoteMusicStateReady(false);
         void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions)
             .then((result) => {
                 if (result.stalledStep) {
                     console.error(`[desktop-bootstrap] unresolved step: ${result.stalledStep}`);
+                }
+                if (result.userMusicStateOutcome) {
+                    console.info(`[desktop-bootstrap] userMusicState outcome: ${result.userMusicStateOutcome}`);
                 }
             })
             .catch((error) => {
@@ -5676,7 +5682,6 @@ function PageContent() {
                 initialDataReloadRef.current.showLibraryFailureToast();
             })
             .finally(() => {
-                setRemoteMusicStateReady(true);
                 initialDataLoadedKeyRef.current = loadKey;
                 if (initialDataLoadInFlightKeyRef.current === loadKey)
                     initialDataLoadInFlightKeyRef.current = "";

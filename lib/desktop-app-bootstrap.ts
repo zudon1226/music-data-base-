@@ -1,5 +1,10 @@
 /** DESKTOP ONLY — application bootstrap gate and traced remote initialization queue. */
 
+import {
+    runUserMusicStateBootstrapNonBlocking,
+    type UserMusicStateLoader,
+} from "./desktop-user-music-state-bootstrap";
+
 export const DESKTOP_BOOTSTRAP_LOG_PREFIX = "[desktop-bootstrap]";
 
 export type DesktopBootstrapStep =
@@ -21,11 +26,7 @@ export type DesktopRemoteBootstrapActions = {
     reloadVideoLibrary: () => Promise<unknown>;
     reloadAlbums: (userId: string) => Promise<unknown>;
     reloadLibrarySaves: (userId: string) => Promise<unknown>;
-    reloadUserMusicState: (
-        loadedSongs?: unknown,
-        loadedVideos?: unknown,
-        loadedAlbums?: unknown,
-    ) => Promise<unknown>;
+    reloadUserMusicState: UserMusicStateLoader;
     reloadPlaylists: (userId: string) => Promise<unknown>;
     reloadProducerData: () => Promise<unknown>;
     reloadArtistFollows: () => Promise<unknown>;
@@ -51,18 +52,18 @@ export type DesktopRemoteBootstrapResult = {
     stalledStep: DesktopBootstrapStep | null;
     completedSteps: DesktopBootstrapStep[];
     failedSteps: DesktopBootstrapStep[];
+    userMusicStateOutcome: string;
 };
 
 const DEFAULT_STEP_TIMEOUT_MS = 12000;
+
+/** Steps that must never halt the bootstrap queue. */
+const NON_BLOCKING_STEPS = new Set<DesktopBootstrapStep>(["userMusicState"]);
 
 function formatStepLabel(step: DesktopBootstrapStep) {
     return `${DESKTOP_BOOTSTRAP_LOG_PREFIX} ${step}`;
 }
 
-/**
- * Logs the exact bootstrap step whose promise did not settle before the timeout.
- * Returns the step name when stalled, otherwise returns null.
- */
 export async function traceBootstrapStep<T>(
     step: DesktopBootstrapStep,
     promise: Promise<T>,
@@ -128,7 +129,6 @@ export function diagnoseDesktopShellGate(input: DesktopShellGateInput): DesktopS
     };
 }
 
-/** Post-auth shell gate — never wait on accountUserId or remote bootstrap promises. */
 export function canRenderDesktopApplicationShell(input: DesktopShellGateInput) {
     const decision = diagnoseDesktopShellGate(input);
     if (!decision.canRender) {
@@ -137,7 +137,6 @@ export function canRenderDesktopApplicationShell(input: DesktopShellGateInput) {
     return decision.canRender;
 }
 
-/** Unblock the shell immediately; hydrate browser storage asynchronously. */
 export function startDesktopLocalBootstrap(markReady: () => void, hydrate: () => void) {
     console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} localStorageHydration shell unblocked`);
     markReady();
@@ -165,13 +164,12 @@ async function runTracedStep<T>(
         return { ok: true as const, value: result.value };
     }
     failedSteps.push(step);
+    if (NON_BLOCKING_STEPS.has(step)) {
+        return { ok: true as const, value: undefined as T };
+    }
     return { ok: false as const, stalledStep: result.stalledStep, error: result.error };
 }
 
-/**
- * Post-auth remote bootstrap. Every step is traced, time-bounded, and logged.
- * The returned promise always settles — remote bootstrap must not block the shell.
- */
 export async function runDesktopRemoteBootstrap(
     userId: string,
     actions: DesktopRemoteBootstrapActions,
@@ -219,9 +217,16 @@ export async function runDesktopRemoteBootstrap(
     const loadedVideos = videoResult.ok ? videoResult.value : undefined;
     const loadedAlbums = albumResult.ok ? albumResult.value : undefined;
 
+    const userMusicStateResult = await runUserMusicStateBootstrapNonBlocking(actions.reloadUserMusicState, {
+        loadedSongs,
+        loadedVideos,
+        loadedAlbums,
+    });
+    completedSteps.push("userMusicState");
+    console.info(`${formatStepLabel("userMusicState")} ${userMusicStateResult.outcome}`);
+
     const parallelSteps: Array<[DesktopBootstrapStep, () => Promise<unknown>]> = [
         ["librarySaves", () => actions.reloadLibrarySaves(userId)],
-        ["userMusicState", () => actions.reloadUserMusicState(loadedSongs, loadedVideos, loadedAlbums)],
         ["playlists", () => actions.reloadPlaylists(userId)],
     ];
 
@@ -257,5 +262,10 @@ export async function runDesktopRemoteBootstrap(
         console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue completed`);
     }
 
-    return { stalledStep, completedSteps, failedSteps };
+    return {
+        stalledStep,
+        completedSteps,
+        failedSteps,
+        userMusicStateOutcome: userMusicStateResult.outcome,
+    };
 }
