@@ -7,7 +7,8 @@ import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, 
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, canRunDesktopProtectedLoads, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
-import { isDesktopSessionReady } from "../lib/desktop-auth-recovery-gate";
+import { isDesktopAuthRecoveryActive, isDesktopSessionReady, sessionHasAcceptableAccessToken } from "../lib/desktop-auth-recovery-gate";
+import { commitDesktopAuthSession, confirmDesktopAuthSession, resolveDesktopSessionAfterSignIn, shouldShowDesktopLoginScreen } from "../lib/desktop-auth-session-flow";
 import { repairOversizedAuthSession, type RepairAuthSessionResult } from "../lib/repair-auth-session";
 import { useDesktopAuthGate } from "../lib/use-desktop-auth-gate";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
@@ -5004,11 +5005,14 @@ export default function Page() {
         return () => window.clearTimeout(timer);
     }, []);
     const activeUser = useMemo(() => {
-        if (!isDesktopSessionReady(authSession)) {
+        if (authLoading) {
             return null;
         }
-        return user ?? authSession?.user ?? null;
-    }, [user, authSession, authGateTick]);
+        if (!authSession?.access_token || !sessionHasAcceptableAccessToken(authSession) || isDesktopAuthRecoveryActive()) {
+            return null;
+        }
+        return user ?? authSession.user ?? null;
+    }, [authLoading, user, authSession, authGateTick]);
     const accountUserId = activeUser?.id || "";
     const uploadsBlockedForCurrentUser = useMemo(
         () => isPlatformOwnerEmail(activeUser?.email) ? false : isUploadBlockedForEmail(activeUser?.email),
@@ -5174,8 +5178,8 @@ export default function Page() {
         let isMounted = true;
         let initialProfileLoaded = false;
 
-        function syncAuthSessionState(session: Session | null) {
-            if (!session || !isDesktopSessionReady(session)) {
+        function applySessionToAppState(session: Session) {
+            if (!commitDesktopAuthSession(session)) {
                 return;
             }
             const sessionUser = session.user || null;
@@ -5191,10 +5195,7 @@ export default function Page() {
         }
 
         async function loadInitialProfile(session: Session) {
-            if (!isDesktopSessionReady(session)) {
-                return;
-            }
-            if (initialProfileLoaded || !session.user?.id) {
+            if (!sessionHasAcceptableAccessToken(session) || initialProfileLoaded || !session.user?.id) {
                 return;
             }
             initialProfileLoaded = true;
@@ -5205,12 +5206,12 @@ export default function Page() {
         runAuthStorageCleanupOnce();
 
         async function bootAuth() {
-            const { session } = await getAuthSession(supabase);
+            const session = await confirmDesktopAuthSession(supabase);
             if (!isMounted) {
                 return;
             }
-            if (session?.user && isDesktopSessionReady(session)) {
-                syncAuthSessionState(session);
+            if (session?.user) {
+                applySessionToAppState(session);
                 await loadInitialProfile(session);
             }
             else {
@@ -5224,15 +5225,18 @@ export default function Page() {
         void bootAuth();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-            if (!isMounted || authSubmitInProgressRef.current) {
+            if (!isMounted) {
                 return;
             }
             if (event === "INITIAL_SESSION") {
-                if (session?.user && isDesktopSessionReady(session)) {
-                    syncAuthSessionState(session);
+                if (!authSubmitInProgressRef.current && session?.user && commitDesktopAuthSession(session)) {
+                    applySessionToAppState(session);
                     void loadInitialProfile(session);
                 }
                 setAuthLoading(false);
+                return;
+            }
+            if (authSubmitInProgressRef.current && event !== "SIGNED_OUT") {
                 return;
             }
             if (event === "SIGNED_OUT") {
@@ -5245,11 +5249,14 @@ export default function Page() {
                 initialDataLoadInFlightKeyRef.current = "";
                 return;
             }
-            if (!isDesktopSessionReady(session)) {
+            if (event === "SIGNED_IN" && session) {
+                clearRecoveryAfterLogin(session);
+                applySessionToAppState(session);
+                void loadInitialProfile(session);
                 return;
             }
-            if (session?.user) {
-                syncAuthSessionState(session);
+            if (session && commitDesktopAuthSession(session)) {
+                applySessionToAppState(session);
             }
         });
 
@@ -5257,7 +5264,7 @@ export default function Page() {
             isMounted = false;
             subscription.unsubscribe();
         };
-    }, []);
+    }, [clearRecoveryAfterLogin]);
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.displayMode, displayMode);
     }, [displayMode]);
@@ -13267,29 +13274,24 @@ export default function Page() {
                 }));
             }
 
-            const activeSession = repairResult.reauthenticated && repairResult.session
+            const repairSession = repairResult.reauthenticated && repairResult.session
                 ? repairResult.session
                 : signedInSession;
-            const activeUser = activeSession?.user || signedInUser;
-
-            if (activeUser && isDesktopSessionReady(activeSession)) {
-                clearRecoveryAfterLogin(activeSession);
-                persistedAuthUserRef.current = activeUser;
-                if (activeSession?.user) {
-                    setAuthSession(activeSession);
-                    setUser(activeSession.user);
-                }
-                else {
-                    setUser(activeUser);
-                }
+            const activeSession = await resolveDesktopSessionAfterSignIn(supabase, repairSession);
+            if (!activeSession?.user || !commitDesktopAuthSession(activeSession)) {
+                setAuthMessage("Login succeeded but your session could not be restored. Please try again.");
+                return;
             }
 
-            if (activeUser?.id && isDesktopSessionReady(activeSession)) {
-                await syncUserAuthProfile(activeUser.id, {
-                    action: "ensure",
-                    displayName: signupDisplayName,
-                }).catch(() => undefined);
-            }
+            clearRecoveryAfterLogin(activeSession);
+            persistedAuthUserRef.current = activeSession.user;
+            setAuthSession(activeSession);
+            setUser(activeSession.user);
+
+            await syncUserAuthProfile(activeSession.user.id, {
+                action: "ensure",
+                displayName: signupDisplayName,
+            }).catch(() => undefined);
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
@@ -14633,7 +14635,7 @@ export default function Page() {
         `}</style>
       </main>);
     }
-    if (!activeUser) {
+    if (shouldShowDesktopLoginScreen({ authLoading, authSession })) {
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">
@@ -14875,6 +14877,17 @@ export default function Page() {
             letter-spacing: 0;
           }
         `}</style>
+      </main>);
+    }
+    if (!activeUser) {
+        return (<main className="auth-page">
+        <section className="auth-panel">
+          <div className="auth-mark">
+            <img src={BRAND_LOGO} alt="Music Data Base"/>
+            <span>{BRAND_TAGLINE}</span>
+          </div>
+          <p>Checking your session...</p>
+        </section>
       </main>);
     }
     const failedUploadErrors = platformErrors.filter((error) => error.category === "upload");

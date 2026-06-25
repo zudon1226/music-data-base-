@@ -39,6 +39,13 @@ function isCorruptedStoredAccessToken(token: string) {
     return isOversizedBearerToken(token) || !isAcceptableDesktopAccessToken(token);
 }
 
+export function sessionHasAcceptableAccessToken(session: Session | null | undefined) {
+    if (!session?.access_token) {
+        return false;
+    }
+    return isAcceptableDesktopAccessToken(readRawAccessToken(session));
+}
+
 export function readAccessTokenFromSession(session: Session | null | undefined) {
     const raw = readRawAccessToken(session);
     return isAcceptableDesktopAccessToken(raw) ? raw : "";
@@ -48,11 +55,11 @@ export function hasValidDesktopAccessToken(session: Session | null | undefined) 
     if (recoveryActive || !session?.access_token) {
         return false;
     }
-    return isAcceptableDesktopAccessToken(readRawAccessToken(session));
+    return sessionHasAcceptableAccessToken(session);
 }
 
 export function isDesktopSessionReady(session: Session | null | undefined) {
-    return !recoveryActive && hasValidDesktopAccessToken(session);
+    return !recoveryActive && sessionHasAcceptableAccessToken(session);
 }
 
 export function engageDesktopAuthRecovery() {
@@ -63,14 +70,14 @@ export function engageDesktopAuthRecovery() {
 }
 
 export function clearDesktopAuthRecoveryGate(session?: Session | null) {
-    if (session !== undefined && session !== null && !hasValidDesktopAccessToken(session)) {
+    if (session !== undefined && session !== null && !sessionHasAcceptableAccessToken(session)) {
         return;
     }
     recoveryActive = false;
 }
 
 export function noteValidatedDesktopSession(session: Session | null | undefined) {
-    if (hasValidDesktopAccessToken(session)) {
+    if (sessionHasAcceptableAccessToken(session)) {
         recoveryActive = false;
     }
 }
@@ -83,7 +90,7 @@ export async function canRunDesktopProtectedLoads(supabase: SupabaseClient) {
     if (recoveryActive || !session?.access_token) {
         return false;
     }
-    return hasValidDesktopAccessToken(session);
+    return sessionHasAcceptableAccessToken(session);
 }
 
 export async function runCorruptedAuthCleanupOnce(supabase: SupabaseClient) {
