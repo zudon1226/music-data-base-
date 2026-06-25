@@ -2,16 +2,14 @@
 /* eslint-disable @next/next/no-img-element */
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, Home, ListMusic, LogIn, LogOut, MessageCircle, Music2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
+import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
-import { ACCESS_TOKEN_SOURCE, authFetch, canRunDesktopProtectedLoads, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
-import { isDesktopAuthRecoveryActive, isDesktopSessionReady, sessionHasAcceptableAccessToken } from "../lib/desktop-auth-recovery-gate";
-import { applyDesktopAuthSessionToState, completeDesktopPostLoginPersistence, initializeDesktopAuthPersistence, shouldShowDesktopLoginScreen } from "../lib/desktop-auth-session-flow";
-import { useDesktopAuthGate } from "../lib/use-desktop-auth-gate";
-import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
-import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
+import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
+import { canRenderDesktopApplicationShell, runDesktopRemoteBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
+import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
+import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
 import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
@@ -846,6 +844,7 @@ type InitialDataReloadActions = {
     reloadAlbums: (userIdOverride?: string) => Promise<Album[]>;
     reloadArtistFollows: () => Promise<unknown>;
     reloadSongLikes: () => Promise<unknown>;
+    reloadUserProfile?: (userId: string) => Promise<unknown>;
     fallbackSongs: Song[];
     showLibraryFailureToast: () => void;
 };
@@ -3407,6 +3406,14 @@ function HorizontalRail({ children, className, label, }: {
     </div>);
 }
 export default function Page() {
+    return (
+        <DesktopAuthProvider>
+            <PageContent />
+        </DesktopAuthProvider>
+    );
+}
+
+function PageContent() {
     const router = useRouter();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -3420,7 +3427,6 @@ export default function Page() {
     const localStorageSnapshotRef = useRef<Record<string, string>>({});
     const initialDataLoadedKeyRef = useRef("");
     const initialDataLoadInFlightKeyRef = useRef("");
-    const persistedAuthUserRef = useRef<SupabaseUser | null>(null);
     const licenseLoadedUserRef = useRef("");
     const licenseLoadInFlightUserRef = useRef("");
     const salesLoadedUserRef = useRef("");
@@ -3502,9 +3508,22 @@ export default function Page() {
     const [showUpload, setShowUpload] = useState(false);
     const [uploadMode, setUploadMode] = useState<UploadMode>("song");
     const [hasLoaded, setHasLoaded] = useState(false);
-    const [authLoading, setAuthLoading] = useState(true);
-    const [authSession, setAuthSession] = useState<Session | null>(null);
-    const [user, setUser] = useState<SupabaseUser | null>(null);
+    const {
+        authSession,
+        user,
+        activeUser,
+        accountUserId,
+        isInitializing: authLoading,
+        authReady,
+        isAuthenticated,
+        shouldShowLoginScreen,
+        authRevision: authGateTick,
+        setAuthSession,
+        setUser,
+        completeSignIn,
+        confirmAuthenticatedFromApi,
+        signOut: signOutFromAuthState,
+    } = useDesktopAuthState();
     const [authMode, setAuthMode] = useState<AuthMode>("login");
     const [authEmail, setAuthEmail] = useState("");
     const [authPassword, setAuthPassword] = useState("");
@@ -3516,23 +3535,6 @@ export default function Page() {
         displayName: "",
         role: "listener",
         avatarUrl: "",
-    });
-    const handleDesktopAuthRecoveryRequired = useCallback(() => {
-        persistedAuthUserRef.current = null;
-        setAuthSession(null);
-        setUser(null);
-        setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
-        setAccountRole("Listener");
-        initialDataLoadedKeyRef.current = "";
-        initialDataLoadInFlightKeyRef.current = "";
-    }, []);
-    const {
-        authInitialized,
-        gateTick: authGateTick,
-        markAuthInitialized,
-        clearRecoveryAfterLogin,
-    } = useDesktopAuthGate({
-        onRecoveryRequired: handleDesktopAuthRecoveryRequired,
     });
     const [uploadForm, setUploadForm] = useState<UploadForm>({
         title: "",
@@ -4832,9 +4834,6 @@ export default function Page() {
         albumUploadUserRef.current = null;
         uploadInProgressRef.current = false;
         activeUploadKeysRef.current.clear();
-        persistedAuthUserRef.current = null;
-        setUser(null);
-        persistedAuthUserRef.current = null;
         setAccountRole("Listener");
         setAuthMode("login");
         setAuthEmail("");
@@ -4896,7 +4895,7 @@ export default function Page() {
         return () => window.clearTimeout(timer);
     }, [view]);
     useEffect(() => {
-        const timer = window.setTimeout(() => {
+        startDesktopLocalBootstrap(() => setHasLoaded(true), () => {
             clearOversizedMediaStorageKeys();
             clearRemovedPlaceholderArtworkFromLocalStorage();
             const loadedSongs = DEFAULT_SONGS;
@@ -5003,20 +5002,8 @@ export default function Page() {
             const savedSearchQuery = localStorage.getItem(STORAGE_KEYS.search) || "";
             setSearchInput(savedSearchQuery);
             setSearch(savedSearchQuery.trim());
-            setHasLoaded(true);
-        }, 0);
-        return () => window.clearTimeout(timer);
+        });
     }, []);
-    const activeUser = useMemo(() => {
-        if (!authInitialized || authLoading) {
-            return null;
-        }
-        if (!authSession?.access_token || !sessionHasAcceptableAccessToken(authSession) || isDesktopAuthRecoveryActive()) {
-            return null;
-        }
-        return user ?? authSession.user ?? null;
-    }, [authInitialized, authLoading, user, authSession, authGateTick]);
-    const accountUserId = activeUser?.id || "";
     const uploadsBlockedForCurrentUser = useMemo(
         () => isPlatformOwnerEmail(activeUser?.email) ? false : isUploadBlockedForEmail(activeUser?.email),
         [activeUser?.email],
@@ -5178,94 +5165,11 @@ export default function Page() {
         Boolean(video.artistName && activeProducerProfile?.name && video.artistName === activeProducerProfile.name) ||
         Boolean(activeProducerProfile?.userId && video.ownerId && video.ownerId === activeProducerProfile.userId));
     useEffect(() => {
-        let isMounted = true;
-        let initialProfileLoaded = false;
-
-        function applySessionToAppState(session: Session) {
-            if (!applyDesktopAuthSessionToState(session)) {
-                return;
-            }
-            const sessionUser = session.user || null;
-            if (!sessionUser) {
-                return;
-            }
-            if (isPlatformOwnerEmail(sessionUser.email)) {
-                setAccountRole("Listener");
-            }
-            persistedAuthUserRef.current = sessionUser;
-            setAuthSession(session);
-            setUser(sessionUser);
+        if (!accountUserId) {
+            return;
         }
-
-        async function loadInitialProfile(session: Session) {
-            if (!sessionHasAcceptableAccessToken(session) || initialProfileLoaded || !session.user?.id) {
-                return;
-            }
-            initialProfileLoaded = true;
-            await reloadUserProfileFromSupabase(session.user.id, session.user.email || "").catch(() => undefined);
-        }
-
-        runAuthStorageCleanupOnce();
-
-        async function bootAuth() {
-            const session = await initializeDesktopAuthPersistence(supabase);
-            if (!isMounted) {
-                return;
-            }
-            if (session?.user) {
-                applySessionToAppState(session);
-                await loadInitialProfile(session);
-            }
-            else {
-                persistedAuthUserRef.current = null;
-                setAuthSession(null);
-                setUser(null);
-            }
-            markAuthInitialized();
-            setAuthLoading(false);
-        }
-
-        void bootAuth();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-            if (!isMounted) {
-                return;
-            }
-            if (event === "INITIAL_SESSION") {
-                if (session?.user && applyDesktopAuthSessionToState(session)) {
-                    applySessionToAppState(session);
-                    void loadInitialProfile(session);
-                }
-                markAuthInitialized();
-                setAuthLoading(false);
-                return;
-            }
-            if (event === "SIGNED_OUT") {
-                persistedAuthUserRef.current = null;
-                setAuthSession(null);
-                setUser(null);
-                setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
-                setAccountRole("Listener");
-                initialDataLoadedKeyRef.current = "";
-                initialDataLoadInFlightKeyRef.current = "";
-                return;
-            }
-            if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
-                clearRecoveryAfterLogin(session);
-                applySessionToAppState(session);
-                void loadInitialProfile(session);
-                return;
-            }
-            if (session && applyDesktopAuthSessionToState(session)) {
-                applySessionToAppState(session);
-            }
-        });
-
-        return () => {
-            isMounted = false;
-            subscription.unsubscribe();
-        };
-    }, [clearRecoveryAfterLogin, markAuthInitialized]);
+        void reloadUserProfileFromSupabase(accountUserId, activeUser?.email || "").catch(() => undefined);
+    }, [accountUserId, activeUser?.email]);
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.displayMode, displayMode);
     }, [displayMode]);
@@ -5288,6 +5192,9 @@ export default function Page() {
         const databaseSongs = uniqueSongs((data.songs || []).map((row) => mapSongRowToSong(row)));
         const nextSongs = uniqueSongs([...databaseSongs, ...DEFAULT_SONGS]);
         setSongs(nextSongs);
+        if (accountUserId) {
+            await confirmAuthenticatedFromApi(accountUserId);
+        }
         setCurrentSong((previous) => previous &&
             (databaseSongs.some((song) => song.id === previous.id) || DEFAULT_SONGS.some((song) => song.id === previous.id))
             ? previous
@@ -5320,9 +5227,6 @@ export default function Page() {
         return databaseVideos;
     }
     async function reloadPlaylistsFromSupabase(userIdOverride = accountUserId) {
-        if (!(await canRunDesktopProtectedLoads(supabase))) {
-            return [];
-        }
         const playlistUserId = String(userIdOverride || user?.id || accountUserId || "").trim();
         if (!playlistUserId) {
             return [];
@@ -5356,6 +5260,7 @@ export default function Page() {
         }));
         setPlaylists(nextPlaylists);
         setActivePlaylistId((previous) => nextPlaylists.some((playlist) => playlist.id === previous) ? previous : nextPlaylists[0]?.id || "");
+        await confirmAuthenticatedFromApi(playlistUserId);
         return nextPlaylists;
     }
     async function reloadProducerDataFromSupabase() {
@@ -5467,9 +5372,6 @@ export default function Page() {
         return ids;
     }
     async function reloadLibrarySavesFromSupabase(userIdOverride = accountUserId) {
-        if (!(await canRunDesktopProtectedLoads(supabase))) {
-            return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
-        }
         const libraryUserId = String(userIdOverride || user?.id || accountUserId || "").trim();
         if (!libraryUserId) {
             return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
@@ -5592,6 +5494,7 @@ export default function Page() {
                 return [...savedAlbums, ...previous.filter((album) => !existing.has(album.id))];
             });
         }
+        await confirmAuthenticatedFromApi(libraryUserId);
         return { songIds: nextSongIds, videoIds: savedVideoIdsFromApi, albumIds: savedAlbumIdsFromRows, videos: savedVideos, albums: savedAlbums };
     }
     async function loadLibrary() {
@@ -5615,9 +5518,6 @@ export default function Page() {
         }));
     }
     async function syncUserAuthProfile(userId: string, options: { displayName?: string; action?: "ensure" | "repair-auth-metadata" } = {}) {
-        if (!(await canRunDesktopProtectedLoads(supabase))) {
-            return { metadataChanged: false };
-        }
         if (!userId) {
             return { metadataChanged: false };
         }
@@ -5637,12 +5537,10 @@ export default function Page() {
         if (data.metadataChanged) {
             await supabase.auth.refreshSession().catch(() => undefined);
         }
+        await confirmAuthenticatedFromApi(userId);
         return data;
     }
     async function reloadUserProfileFromSupabase(userIdOverride = "", emailOverride = "") {
-        if (!(await canRunDesktopProtectedLoads(supabase))) {
-            return null;
-        }
         const profileUserId = userIdOverride || activeUser?.id || "";
         if (!profileUserId) {
             setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
@@ -5673,6 +5571,7 @@ export default function Page() {
         if (!isPlatformOwnerEmail(emailOverride || activeUser?.email)) {
             setAccountRole(normalizeAccountRole(nextProfile.role));
         }
+        await confirmAuthenticatedFromApi(profileUserId);
         return nextProfile;
     }
     function getUploadLockMessageForUser(uploadUser?: SupabaseUser | null) {
@@ -5700,9 +5599,6 @@ export default function Page() {
             || "Music Data Base user";
     }
     async function reloadUserMusicStateFromSupabase(availableSongs = songs, availableVideos = videos, availableAlbums = albums) {
-        if (!(await canRunDesktopProtectedLoads(supabase))) {
-            return null;
-        }
         if (!accountUserId) {
             return null;
         }
@@ -5739,6 +5635,7 @@ export default function Page() {
             mergedRecent = mergeRecentPlays(localRecent, remoteRecent);
             return mergedRecent;
         });
+        await confirmAuthenticatedFromApi(accountUserId);
         return { recentlyPlayed: mergedRecent };
     }
     useEffect(() => {
@@ -5753,56 +5650,42 @@ export default function Page() {
             reloadAlbums: reloadAlbumsFromSupabase,
             reloadArtistFollows: reloadArtistFollowsFromSupabase,
             reloadSongLikes: reloadSongLikesFromSupabase,
+            reloadUserProfile: (userId: string) => reloadUserProfileFromSupabase(userId, activeUser?.email || ""),
             fallbackSongs: songs,
             showLibraryFailureToast: () => showToast("Saved library could not load from Supabase.", "error"),
         };
     });
     useEffect(() => {
-        if (authLoading || !accountUserId || !isDesktopSessionReady(authSession))
+        if (authLoading || !isAuthenticated)
             return;
         const loadKey = accountUserId;
+        if (!loadKey)
+            return;
         if (initialDataLoadedKeyRef.current === loadKey || initialDataLoadInFlightKeyRef.current === loadKey)
             return;
         initialDataLoadInFlightKeyRef.current = loadKey;
-        const timer = window.setTimeout(() => {
-            const reloadActions = initialDataReloadRef.current;
-            reloadActions.clearRemovedPlaceholderArtwork();
-            setRemoteMusicStateReady(false);
-            Promise.all([reloadActions.reloadSongLibrary(), reloadActions.reloadVideoLibrary()])
-                .then(async ([loadedSongs, loadedVideos]) => {
-                const loadedAlbums = await reloadActions.reloadAlbums(loadKey).catch(() => [] as Album[]);
-                await Promise.all([
-                    reloadActions.reloadLibrarySaves(loadKey),
-                    reloadActions.reloadUserMusicState(loadedSongs, loadedVideos, loadedAlbums),
-                    reloadActions.reloadPlaylists(loadKey),
-                ]);
+        setRemoteMusicStateReady(false);
+        void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions)
+            .then((result) => {
+                if (result.stalledStep) {
+                    console.error(`[desktop-bootstrap] unresolved step: ${result.stalledStep}`);
+                }
             })
-                .catch((error) => {
-                console.error("LIBRARY ERROR:", error);
-                setLibraryLoadError(error instanceof Error ? error.message : String(error));
-                reloadActions.showLibraryFailureToast();
-                return Promise.all([
-                    reloadActions.reloadLibrarySaves(loadKey).catch(() => undefined),
-                    reloadActions.reloadUserMusicState(reloadActions.fallbackSongs).catch(() => undefined),
-                    reloadActions.reloadPlaylists(loadKey).catch(() => undefined),
-                ]);
+            .catch((error) => {
+                console.error("[desktop-bootstrap] queue failed", error);
+                initialDataReloadRef.current.showLibraryFailureToast();
             })
-                .finally(() => {
+            .finally(() => {
                 setRemoteMusicStateReady(true);
                 initialDataLoadedKeyRef.current = loadKey;
                 if (initialDataLoadInFlightKeyRef.current === loadKey)
                     initialDataLoadInFlightKeyRef.current = "";
             });
-            reloadActions.reloadProducerData().catch(() => undefined);
-            reloadActions.reloadArtistFollows().catch(() => undefined);
-            reloadActions.reloadSongLikes().catch(() => undefined);
-        }, 0);
         return () => {
-            window.clearTimeout(timer);
             if (initialDataLoadInFlightKeyRef.current === loadKey && initialDataLoadedKeyRef.current !== loadKey)
                 initialDataLoadInFlightKeyRef.current = "";
         };
-    }, [accountUserId, authLoading, authSession, authGateTick]);
+    }, [accountUserId, authLoading, authGateTick, isAuthenticated]);
     useEffect(() => {
         if (uploadsBlockedForCurrentUser) {
             setShowUpload(false);
@@ -13253,16 +13136,13 @@ export default function Page() {
                 return;
             }
             const signedInSession = response.data.session;
-            const activeSession = await completeDesktopPostLoginPersistence(supabase, signedInSession);
+            const activeSession = await completeDesktopSignIn(supabase, signedInSession);
             if (!activeSession?.user) {
                 setAuthMessage("Login succeeded but your session could not be restored. Please try again.");
                 return;
             }
 
-            clearRecoveryAfterLogin(activeSession);
-            persistedAuthUserRef.current = activeSession.user;
-            setAuthSession(activeSession);
-            setUser(activeSession.user);
+            completeSignIn(activeSession);
 
             await syncUserAuthProfile(activeSession.user.id, {
                 action: "ensure",
@@ -13274,10 +13154,6 @@ export default function Page() {
             setAuthMessage(authMode === "signup"
                 ? "Account created. Your music is now saved."
                 : "Welcome back.");
-            if (!authInitialized) {
-                markAuthInitialized();
-                setAuthLoading(false);
-            }
             setView("Home");
         }
         catch (error) {
@@ -13290,13 +13166,12 @@ export default function Page() {
     async function logout() {
         setAuthMessage("");
         try {
-            await logoutAndClearAuth(supabase);
+            await signOutFromAuthState();
         }
         catch (error) {
             console.error("Logout failed:", error);
         }
         finally {
-            setAuthSession(null);
             clearLocalSessionState();
         }
     }
@@ -14547,7 +14422,7 @@ export default function Page() {
         </div>
       </section>);
     }
-    if (!authInitialized || authLoading) {
+    if (authLoading) {
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">
@@ -14610,7 +14485,7 @@ export default function Page() {
         `}</style>
       </main>);
     }
-    if (shouldShowDesktopLoginScreen({ authInitialized, authSession })) {
+    if (shouldShowLoginScreen) {
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">
@@ -14791,77 +14666,19 @@ export default function Page() {
         `}</style>
       </main>);
     }
-    if (!hasLoaded) {
+    if (!canRenderDesktopApplicationShell({
+        authReady,
+        isAuthenticated,
+        accountUserId,
+        localBootstrapReady: hasLoaded,
+    })) {
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">
             <img src={BRAND_LOGO} alt="Music Data Base"/>
             <span>{BRAND_TAGLINE}</span>
           </div>
-          <p>Loading your music library...</p>
-        </section>
-
-        <style jsx global>{`
-          * {
-            box-sizing: border-box;
-          }
-
-          html,
-          body {
-            margin: 0;
-            min-height: 100%;
-            background: #020617;
-            color: white;
-            font-family: Arial, Helvetica, sans-serif;
-          }
-
-          .auth-page {
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            padding: 20px;
-            background: #020617;
-          }
-
-          .auth-panel {
-            width: min(440px, 100%);
-            border: 1px solid rgba(0, 212, 255, 0.35);
-            border-radius: 8px;
-            background: #0b1736;
-            padding: 24px;
-          }
-
-          .auth-mark {
-            display: grid;
-            justify-items: center;
-            gap: 10px;
-            text-align: center;
-          }
-
-          .auth-mark img {
-            width: min(260px, 82vw);
-            max-height: 260px;
-            object-fit: contain;
-            display: block;
-          }
-
-          .auth-mark span {
-            color: #fbbf24;
-            font-size: 12px;
-            font-weight: 900;
-            letter-spacing: 0;
-          }
-        `}</style>
-      </main>);
-    }
-    if (!activeUser) {
-        return (<main className="auth-page">
-        <section className="auth-panel">
-          <div className="auth-mark">
-            <img src={BRAND_LOGO} alt="Music Data Base"/>
-            <span>{BRAND_TAGLINE}</span>
-          </div>
-          <p>Checking your session...</p>
+          <p>{isAuthenticated ? "Opening your library..." : "Loading your music library..."}</p>
         </section>
       </main>);
     }
@@ -16181,13 +15998,13 @@ export default function Page() {
           </section>) : view === "Profile" && !search.trim() ? (<section className="profile-page">
             <div className="profile-hero">
               <div className="profile-avatar">
-                {(getAccountDisplayName() || activeUser.email || "Z").slice(0, 1).toUpperCase()}
+                {(getAccountDisplayName() || activeUser?.email || "Z").slice(0, 1).toUpperCase()}
               </div>
 
               <div>
                 <span className="playlist-kicker">{isPlatformOwner ? "OWNER / ADMIN" : "User Profile"}</span>
                 <h2>{getAccountDisplayName() || "Z Music User"}</h2>
-                <p>{activeUser.email}</p>
+                <p>{activeUser?.email}</p>
 
                 <div className="profile-actions">
                   <button onClick={logout} type="button">
