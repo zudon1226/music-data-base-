@@ -8,8 +8,7 @@ import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, canRunDesktopProtectedLoads, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { isDesktopAuthRecoveryActive, isDesktopSessionReady, sessionHasAcceptableAccessToken } from "../lib/desktop-auth-recovery-gate";
-import { commitDesktopAuthSession, confirmDesktopAuthSession, resolveDesktopSessionAfterSignIn, shouldShowDesktopLoginScreen } from "../lib/desktop-auth-session-flow";
-import { repairOversizedAuthSession, type RepairAuthSessionResult } from "../lib/repair-auth-session";
+import { applyDesktopAuthSessionToState, completeDesktopPostLoginPersistence, initializeDesktopAuthPersistence, shouldShowDesktopLoginScreen } from "../lib/desktop-auth-session-flow";
 import { useDesktopAuthGate } from "../lib/use-desktop-auth-gate";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
@@ -3422,7 +3421,6 @@ export default function Page() {
     const initialDataLoadedKeyRef = useRef("");
     const initialDataLoadInFlightKeyRef = useRef("");
     const persistedAuthUserRef = useRef<SupabaseUser | null>(null);
-    const authSubmitInProgressRef = useRef(false);
     const licenseLoadedUserRef = useRef("");
     const licenseLoadInFlightUserRef = useRef("");
     const salesLoadedUserRef = useRef("");
@@ -3528,7 +3526,12 @@ export default function Page() {
         initialDataLoadedKeyRef.current = "";
         initialDataLoadInFlightKeyRef.current = "";
     }, []);
-    const { gateTick: authGateTick, clearRecoveryAfterLogin } = useDesktopAuthGate({
+    const {
+        authInitialized,
+        gateTick: authGateTick,
+        markAuthInitialized,
+        clearRecoveryAfterLogin,
+    } = useDesktopAuthGate({
         onRecoveryRequired: handleDesktopAuthRecoveryRequired,
     });
     const [uploadForm, setUploadForm] = useState<UploadForm>({
@@ -5005,14 +5008,14 @@ export default function Page() {
         return () => window.clearTimeout(timer);
     }, []);
     const activeUser = useMemo(() => {
-        if (authLoading) {
+        if (!authInitialized || authLoading) {
             return null;
         }
         if (!authSession?.access_token || !sessionHasAcceptableAccessToken(authSession) || isDesktopAuthRecoveryActive()) {
             return null;
         }
         return user ?? authSession.user ?? null;
-    }, [authLoading, user, authSession, authGateTick]);
+    }, [authInitialized, authLoading, user, authSession, authGateTick]);
     const accountUserId = activeUser?.id || "";
     const uploadsBlockedForCurrentUser = useMemo(
         () => isPlatformOwnerEmail(activeUser?.email) ? false : isUploadBlockedForEmail(activeUser?.email),
@@ -5179,7 +5182,7 @@ export default function Page() {
         let initialProfileLoaded = false;
 
         function applySessionToAppState(session: Session) {
-            if (!commitDesktopAuthSession(session)) {
+            if (!applyDesktopAuthSessionToState(session)) {
                 return;
             }
             const sessionUser = session.user || null;
@@ -5205,7 +5208,7 @@ export default function Page() {
         runAuthStorageCleanupOnce();
 
         async function bootAuth() {
-            const session = await confirmDesktopAuthSession(supabase);
+            const session = await initializeDesktopAuthPersistence(supabase);
             if (!isMounted) {
                 return;
             }
@@ -5218,6 +5221,7 @@ export default function Page() {
                 setAuthSession(null);
                 setUser(null);
             }
+            markAuthInitialized();
             setAuthLoading(false);
         }
 
@@ -5228,14 +5232,12 @@ export default function Page() {
                 return;
             }
             if (event === "INITIAL_SESSION") {
-                if (!authSubmitInProgressRef.current && session?.user && commitDesktopAuthSession(session)) {
+                if (session?.user && applyDesktopAuthSessionToState(session)) {
                     applySessionToAppState(session);
                     void loadInitialProfile(session);
                 }
+                markAuthInitialized();
                 setAuthLoading(false);
-                return;
-            }
-            if (authSubmitInProgressRef.current && event !== "SIGNED_OUT") {
                 return;
             }
             if (event === "SIGNED_OUT") {
@@ -5248,13 +5250,13 @@ export default function Page() {
                 initialDataLoadInFlightKeyRef.current = "";
                 return;
             }
-            if (event === "SIGNED_IN" && session) {
+            if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
                 clearRecoveryAfterLogin(session);
                 applySessionToAppState(session);
                 void loadInitialProfile(session);
                 return;
             }
-            if (session && commitDesktopAuthSession(session)) {
+            if (session && applyDesktopAuthSessionToState(session)) {
                 applySessionToAppState(session);
             }
         });
@@ -5263,7 +5265,7 @@ export default function Page() {
             isMounted = false;
             subscription.unsubscribe();
         };
-    }, [clearRecoveryAfterLogin]);
+    }, [clearRecoveryAfterLogin, markAuthInitialized]);
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.displayMode, displayMode);
     }, [displayMode]);
@@ -13223,13 +13225,11 @@ export default function Page() {
     async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setAuthMessage("");
-        authSubmitInProgressRef.current = true;
         setAuthBusy(true);
         const email = authEmail.trim();
         const password = authPassword;
         if (!email || !password) {
             setAuthMessage("Enter your email and password.");
-            authSubmitInProgressRef.current = false;
             setAuthBusy(false);
             return;
         }
@@ -13253,31 +13253,8 @@ export default function Page() {
                 return;
             }
             const signedInSession = response.data.session;
-            const signedInUser = signedInSession?.user || response.data.user || null;
-            let repairResult: RepairAuthSessionResult = {
-                repaired: false,
-                metadataChanged: false,
-                reauthenticated: false,
-            };
-            const signedInAccessToken = readAccessTokenFromSession(signedInSession);
-            if (isPlatformOwnerEmail(email) && signedInAccessToken) {
-                repairResult = await repairOversizedAuthSession(supabase, {
-                    email,
-                    password,
-                    userId: signedInUser?.id || "",
-                    accessToken: signedInAccessToken,
-                }).catch((): RepairAuthSessionResult => ({
-                    repaired: false,
-                    metadataChanged: false,
-                    reauthenticated: false,
-                }));
-            }
-
-            const repairSession = repairResult.reauthenticated && repairResult.session
-                ? repairResult.session
-                : signedInSession;
-            const activeSession = await resolveDesktopSessionAfterSignIn(supabase, repairSession);
-            if (!activeSession?.user || !commitDesktopAuthSession(activeSession)) {
+            const activeSession = await completeDesktopPostLoginPersistence(supabase, signedInSession);
+            if (!activeSession?.user) {
                 setAuthMessage("Login succeeded but your session could not be restored. Please try again.");
                 return;
             }
@@ -13294,20 +13271,19 @@ export default function Page() {
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
-            setAuthMessage(
-                repairResult.metadataChanged && repairResult.reauthenticated
-                    ? "Welcome back. Your account metadata was repaired and your session was refreshed."
-                    : authMode === "signup"
-                        ? "Account created. Your music is now saved."
-                        : "Welcome back.",
-            );
+            setAuthMessage(authMode === "signup"
+                ? "Account created. Your music is now saved."
+                : "Welcome back.");
+            if (!authInitialized) {
+                markAuthInitialized();
+                setAuthLoading(false);
+            }
             setView("Home");
         }
         catch (error) {
             setAuthMessage(getAuthErrorMessage(error));
         }
         finally {
-            authSubmitInProgressRef.current = false;
             setAuthBusy(false);
         }
     }
@@ -14571,7 +14547,7 @@ export default function Page() {
         </div>
       </section>);
     }
-    if (authLoading) {
+    if (!authInitialized || authLoading) {
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">
@@ -14634,7 +14610,7 @@ export default function Page() {
         `}</style>
       </main>);
     }
-    if (shouldShowDesktopLoginScreen({ authLoading, authSession })) {
+    if (shouldShowDesktopLoginScreen({ authInitialized, authSession })) {
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">

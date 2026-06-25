@@ -69,10 +69,7 @@ export function engageDesktopAuthRecovery() {
     }
 }
 
-export function clearDesktopAuthRecoveryGate(session?: Session | null) {
-    if (session !== undefined && session !== null && !sessionHasAcceptableAccessToken(session)) {
-        return;
-    }
+export function clearDesktopAuthRecoveryGate(_session?: Session | null) {
     recoveryActive = false;
 }
 

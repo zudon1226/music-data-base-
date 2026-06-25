@@ -9,35 +9,44 @@ import {
     isDesktopSessionReady,
 } from "./desktop-auth-recovery-gate";
 
-type DesktopAuthRecoveryListenerOptions = {
+type DesktopAuthGateOptions = {
     onRecoveryRequired: () => void;
 };
 
-/** DESKTOP ONLY — React bridge for the shared desktop auth recovery gate. */
-export function useDesktopAuthGate(options: DesktopAuthRecoveryListenerOptions) {
+/** DESKTOP ONLY — auth initialization gate and recovery bridge for the desktop shell. */
+export function useDesktopAuthGate(options: DesktopAuthGateOptions) {
     const { onRecoveryRequired } = options;
+    const [authInitialized, setAuthInitialized] = useState(false);
     const [gateTick, setGateTick] = useState(0);
+
     const bumpGateTick = useCallback(() => {
         setGateTick((value) => value + 1);
     }, []);
 
+    const markAuthInitialized = useCallback(() => {
+        setAuthInitialized(true);
+    }, []);
+
+    const clearRecoveryAfterLogin = useCallback((session: Session | null | undefined) => {
+        clearDesktopAuthRecoveryGate();
+        void session;
+        bumpGateTick();
+    }, [bumpGateTick]);
+
     useEffect(() => {
         function handleRecoveryRequired() {
             onRecoveryRequired();
-            setGateTick((value) => value + 1);
+            bumpGateTick();
         }
         window.addEventListener(DESKTOP_AUTH_RECOVERY_EVENT, handleRecoveryRequired);
         return () => window.removeEventListener(DESKTOP_AUTH_RECOVERY_EVENT, handleRecoveryRequired);
-    }, [onRecoveryRequired]);
-
-    const clearRecoveryAfterLogin = useCallback((session: Session | null | undefined) => {
-        clearDesktopAuthRecoveryGate(session);
-        setGateTick((value) => value + 1);
-    }, []);
+    }, [bumpGateTick, onRecoveryRequired]);
 
     return {
+        authInitialized,
         gateTick,
         bumpGateTick,
+        markAuthInitialized,
         clearRecoveryAfterLogin,
         isRecoveryActive: isDesktopAuthRecoveryActive(),
         isSessionReady: (session: Session | null | undefined) => isDesktopSessionReady(session),
