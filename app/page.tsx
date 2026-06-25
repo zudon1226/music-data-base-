@@ -6,8 +6,10 @@ import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/s
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
-import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession, readRefreshTokenFromSession } from "../lib/client-api-auth";
+import { ACCESS_TOKEN_SOURCE, authFetch, canRunDesktopProtectedLoads, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
+import { isDesktopSessionReady } from "../lib/desktop-auth-recovery-gate";
 import { repairOversizedAuthSession, type RepairAuthSessionResult } from "../lib/repair-auth-session";
+import { useDesktopAuthGate } from "../lib/use-desktop-auth-gate";
 import { runAuthStorageCleanupOnce } from "../lib/auth-boot";
 import { getAuthSession, logoutAndClearAuth } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
@@ -3516,6 +3518,18 @@ export default function Page() {
         role: "listener",
         avatarUrl: "",
     });
+    const handleDesktopAuthRecoveryRequired = useCallback(() => {
+        persistedAuthUserRef.current = null;
+        setAuthSession(null);
+        setUser(null);
+        setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
+        setAccountRole("Listener");
+        initialDataLoadedKeyRef.current = "";
+        initialDataLoadInFlightKeyRef.current = "";
+    }, []);
+    const { gateTick: authGateTick, clearRecoveryAfterLogin } = useDesktopAuthGate({
+        onRecoveryRequired: handleDesktopAuthRecoveryRequired,
+    });
     const [uploadForm, setUploadForm] = useState<UploadForm>({
         title: "",
         artist: "",
@@ -4989,10 +5003,12 @@ export default function Page() {
         }, 0);
         return () => window.clearTimeout(timer);
     }, []);
-    const activeUser = useMemo(
-        () => user ?? authSession?.user ?? persistedAuthUserRef.current ?? null,
-        [user, authSession?.user],
-    );
+    const activeUser = useMemo(() => {
+        if (!isDesktopSessionReady(authSession)) {
+            return null;
+        }
+        return user ?? authSession?.user ?? null;
+    }, [user, authSession, authGateTick]);
     const accountUserId = activeUser?.id || "";
     const uploadsBlockedForCurrentUser = useMemo(
         () => isPlatformOwnerEmail(activeUser?.email) ? false : isUploadBlockedForEmail(activeUser?.email),
@@ -5159,7 +5175,10 @@ export default function Page() {
         let initialProfileLoaded = false;
 
         function syncAuthSessionState(session: Session | null) {
-            const sessionUser = session?.user || null;
+            if (!session || !isDesktopSessionReady(session)) {
+                return;
+            }
+            const sessionUser = session.user || null;
             if (!sessionUser) {
                 return;
             }
@@ -5172,6 +5191,9 @@ export default function Page() {
         }
 
         async function loadInitialProfile(session: Session) {
+            if (!isDesktopSessionReady(session)) {
+                return;
+            }
             if (initialProfileLoaded || !session.user?.id) {
                 return;
             }
@@ -5187,9 +5209,14 @@ export default function Page() {
             if (!isMounted) {
                 return;
             }
-            if (session?.user) {
+            if (session?.user && isDesktopSessionReady(session)) {
                 syncAuthSessionState(session);
                 await loadInitialProfile(session);
+            }
+            else {
+                persistedAuthUserRef.current = null;
+                setAuthSession(null);
+                setUser(null);
             }
             setAuthLoading(false);
         }
@@ -5201,7 +5228,7 @@ export default function Page() {
                 return;
             }
             if (event === "INITIAL_SESSION") {
-                if (session?.user) {
+                if (session?.user && isDesktopSessionReady(session)) {
                     syncAuthSessionState(session);
                     void loadInitialProfile(session);
                 }
@@ -5214,6 +5241,11 @@ export default function Page() {
                 setUser(null);
                 setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
                 setAccountRole("Listener");
+                initialDataLoadedKeyRef.current = "";
+                initialDataLoadInFlightKeyRef.current = "";
+                return;
+            }
+            if (!isDesktopSessionReady(session)) {
                 return;
             }
             if (session?.user) {
@@ -5280,6 +5312,9 @@ export default function Page() {
         return databaseVideos;
     }
     async function reloadPlaylistsFromSupabase(userIdOverride = accountUserId) {
+        if (!(await canRunDesktopProtectedLoads(supabase))) {
+            return [];
+        }
         const playlistUserId = String(userIdOverride || user?.id || accountUserId || "").trim();
         if (!playlistUserId) {
             return [];
@@ -5289,7 +5324,9 @@ export default function Page() {
             response = await authFetch(supabase, `/api/playlists?userId=${encodeURIComponent(playlistUserId)}`, { cache: "no-store", requireSession: true });
         }
         catch (error) {
-            console.error("PLAYLIST ERROR:", error);
+            if (!(error instanceof Error && error.message === SESSION_EXPIRED_MESSAGE)) {
+                console.error("PLAYLIST ERROR:", error);
+            }
             return playlists;
         }
         const data = (await response.json().catch(() => ({}))) as {
@@ -5422,6 +5459,9 @@ export default function Page() {
         return ids;
     }
     async function reloadLibrarySavesFromSupabase(userIdOverride = accountUserId) {
+        if (!(await canRunDesktopProtectedLoads(supabase))) {
+            return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
+        }
         const libraryUserId = String(userIdOverride || user?.id || accountUserId || "").trim();
         if (!libraryUserId) {
             return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
@@ -5444,7 +5484,9 @@ export default function Page() {
             });
         }
         catch (error) {
-            console.error("LIBRARY ERROR:", error);
+            if (!(error instanceof Error && error.message === SESSION_EXPIRED_MESSAGE)) {
+                console.error("LIBRARY ERROR:", error);
+            }
             if (cachedLibrary) {
                 return {
                     songIds: cachedLibrary.songIds,
@@ -5565,6 +5607,9 @@ export default function Page() {
         }));
     }
     async function syncUserAuthProfile(userId: string, options: { displayName?: string; action?: "ensure" | "repair-auth-metadata" } = {}) {
+        if (!(await canRunDesktopProtectedLoads(supabase))) {
+            return { metadataChanged: false };
+        }
         if (!userId) {
             return { metadataChanged: false };
         }
@@ -5587,6 +5632,9 @@ export default function Page() {
         return data;
     }
     async function reloadUserProfileFromSupabase(userIdOverride = "", emailOverride = "") {
+        if (!(await canRunDesktopProtectedLoads(supabase))) {
+            return null;
+        }
         const profileUserId = userIdOverride || activeUser?.id || "";
         if (!profileUserId) {
             setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
@@ -5644,6 +5692,9 @@ export default function Page() {
             || "Music Data Base user";
     }
     async function reloadUserMusicStateFromSupabase(availableSongs = songs, availableVideos = videos, availableAlbums = albums) {
+        if (!(await canRunDesktopProtectedLoads(supabase))) {
+            return null;
+        }
         if (!accountUserId) {
             return null;
         }
@@ -5699,7 +5750,7 @@ export default function Page() {
         };
     });
     useEffect(() => {
-        if (authLoading || !accountUserId)
+        if (authLoading || !accountUserId || !isDesktopSessionReady(authSession))
             return;
         const loadKey = accountUserId;
         if (initialDataLoadedKeyRef.current === loadKey || initialDataLoadInFlightKeyRef.current === loadKey)
@@ -5743,7 +5794,7 @@ export default function Page() {
             if (initialDataLoadInFlightKeyRef.current === loadKey && initialDataLoadedKeyRef.current !== loadKey)
                 initialDataLoadInFlightKeyRef.current = "";
         };
-    }, [accountUserId, authLoading]);
+    }, [accountUserId, authLoading, authSession, authGateTick]);
     useEffect(() => {
         if (uploadsBlockedForCurrentUser) {
             setShowUpload(false);
@@ -13202,12 +13253,13 @@ export default function Page() {
                 metadataChanged: false,
                 reauthenticated: false,
             };
-            if (isPlatformOwnerEmail(email)) {
+            const signedInAccessToken = readAccessTokenFromSession(signedInSession);
+            if (isPlatformOwnerEmail(email) && signedInAccessToken) {
                 repairResult = await repairOversizedAuthSession(supabase, {
                     email,
                     password,
                     userId: signedInUser?.id || "",
-                    accessToken: signedInSession?.access_token || "",
+                    accessToken: signedInAccessToken,
                 }).catch((): RepairAuthSessionResult => ({
                     repaired: false,
                     metadataChanged: false,
@@ -13220,7 +13272,8 @@ export default function Page() {
                 : signedInSession;
             const activeUser = activeSession?.user || signedInUser;
 
-            if (activeUser) {
+            if (activeUser && isDesktopSessionReady(activeSession)) {
+                clearRecoveryAfterLogin(activeSession);
                 persistedAuthUserRef.current = activeUser;
                 if (activeSession?.user) {
                     setAuthSession(activeSession);
@@ -13231,7 +13284,7 @@ export default function Page() {
                 }
             }
 
-            if (activeUser?.id) {
+            if (activeUser?.id && isDesktopSessionReady(activeSession)) {
                 await syncUserAuthProfile(activeUser.id, {
                     action: "ensure",
                     displayName: signupDisplayName,
