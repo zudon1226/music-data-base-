@@ -5202,7 +5202,6 @@ export default function Page() {
             await reloadUserProfileFromSupabase(session.user.id, session.user.email || "").catch(() => undefined);
         }
 
-        setAuthLoading(true);
         runAuthStorageCleanupOnce();
 
         async function bootAuth() {
