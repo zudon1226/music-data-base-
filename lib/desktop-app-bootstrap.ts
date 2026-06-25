@@ -1,7 +1,7 @@
 /** DESKTOP ONLY — application bootstrap gate and traced remote initialization queue. */
 
 import {
-    runUserMusicStateBootstrapNonBlocking,
+    startUserMusicStateBootstrapInBackground,
     type UserMusicStateLoader,
 } from "./desktop-user-music-state-bootstrap";
 
@@ -14,7 +14,6 @@ export type DesktopBootstrapStep =
     | "videoLibrary"
     | "albums"
     | "librarySaves"
-    | "userMusicState"
     | "playlists"
     | "producerData"
     | "artistFollows"
@@ -56,9 +55,6 @@ export type DesktopRemoteBootstrapResult = {
 };
 
 const DEFAULT_STEP_TIMEOUT_MS = 12000;
-
-/** Steps that must never halt the bootstrap queue. */
-const NON_BLOCKING_STEPS = new Set<DesktopBootstrapStep>(["userMusicState"]);
 
 function formatStepLabel(step: DesktopBootstrapStep) {
     return `${DESKTOP_BOOTSTRAP_LOG_PREFIX} ${step}`;
@@ -164,9 +160,6 @@ async function runTracedStep<T>(
         return { ok: true as const, value: result.value };
     }
     failedSteps.push(step);
-    if (NON_BLOCKING_STEPS.has(step)) {
-        return { ok: true as const, value: undefined as T };
-    }
     return { ok: false as const, stalledStep: result.stalledStep, error: result.error };
 }
 
@@ -217,13 +210,11 @@ export async function runDesktopRemoteBootstrap(
     const loadedVideos = videoResult.ok ? videoResult.value : undefined;
     const loadedAlbums = albumResult.ok ? albumResult.value : undefined;
 
-    const userMusicStateResult = await runUserMusicStateBootstrapNonBlocking(actions.reloadUserMusicState, {
+    const userMusicStateHandle = startUserMusicStateBootstrapInBackground(actions.reloadUserMusicState, {
         loadedSongs,
         loadedVideos,
         loadedAlbums,
     });
-    completedSteps.push("userMusicState");
-    console.info(`${formatStepLabel("userMusicState")} ${userMusicStateResult.outcome}`);
 
     const parallelSteps: Array<[DesktopBootstrapStep, () => Promise<unknown>]> = [
         ["librarySaves", () => actions.reloadLibrarySaves(userId)],
@@ -266,6 +257,6 @@ export async function runDesktopRemoteBootstrap(
         stalledStep,
         completedSteps,
         failedSteps,
-        userMusicStateOutcome: userMusicStateResult.outcome,
+        userMusicStateOutcome: userMusicStateHandle.outcome,
     };
 }

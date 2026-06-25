@@ -1,8 +1,8 @@
-/** DESKTOP ONLY — non-blocking userMusicState bootstrap (never blocks Home or the boot queue). */
+/** DESKTOP ONLY — userMusicState bootstrap (never blocks Home or the remote boot queue). */
 
 export const USER_MUSIC_STATE_BOOTSTRAP_LOG = "[desktop-user-music-state-bootstrap]";
 
-/** Foreground wait window — boot continues with default empty state after this. */
+/** Foreground observation window — boot queue does not wait longer than this. */
 export const USER_MUSIC_STATE_FOREGROUND_TIMEOUT_MS = 2000;
 
 export type UserMusicStateLoader = (
@@ -11,16 +11,20 @@ export type UserMusicStateLoader = (
     loadedAlbums?: unknown,
 ) => Promise<unknown>;
 
+export type UserMusicStateBootstrapContext = {
+    loadedSongs?: unknown;
+    loadedVideos?: unknown;
+    loadedAlbums?: unknown;
+};
+
 export type UserMusicStateBootstrapOutcome =
     | "loaded-in-foreground"
     | "continued-with-default-background-pending"
     | "failed-in-foreground"
     | "skipped-no-loader";
 
-export type UserMusicStateBootstrapResult = {
+export type UserMusicStateBootstrapHandle = {
     outcome: UserMusicStateBootstrapOutcome;
-    /** Always true — this step never blocks the remote bootstrap queue. */
-    queueContinues: true;
 };
 
 function logInfo(message: string) {
@@ -36,8 +40,8 @@ function logError(message: string, error?: unknown) {
 }
 
 /**
- * Requirement 3 — mark userMusicState bootstrap resolved as soon as local storage
- * hydration unblocks the shell. Remote fetch runs later and never gates Home.
+ * Requirement 3 — resolve userMusicState bootstrap immediately after localStorage hydration.
+ * Home never waits on the remote /api/user-music-state call.
  */
 export function resolveUserMusicStateBootstrapAfterLocalHydration(markReady: () => void) {
     markReady();
@@ -45,24 +49,19 @@ export function resolveUserMusicStateBootstrapAfterLocalHydration(markReady: () 
 }
 
 /**
- * Requirement 2/4/5 — wait at most 2s in the foreground boot queue, then continue with
- * default empty state while the same loader promise keeps running in the background.
- * Never throws; never halts the bootstrap queue.
+ * Requirement 1/2/4/5/6 — start remote userMusicState fetch without blocking the boot queue.
+ * Returns immediately; the loader keeps the existing API contract (/api/user-music-state GET).
  */
-export async function runUserMusicStateBootstrapNonBlocking(
+export function startUserMusicStateBootstrapInBackground(
     loader: UserMusicStateLoader | undefined,
-    context: {
-        loadedSongs?: unknown;
-        loadedVideos?: unknown;
-        loadedAlbums?: unknown;
-    } = {},
-): Promise<UserMusicStateBootstrapResult> {
+    context: UserMusicStateBootstrapContext = {},
+): UserMusicStateBootstrapHandle {
     if (!loader) {
         logInfo("skipped — no loader registered");
-        return { outcome: "skipped-no-loader", queueContinues: true };
+        return { outcome: "skipped-no-loader" };
     }
 
-    logInfo("started");
+    logInfo("background fetch started");
 
     let foregroundFinished = false;
     let foregroundFailed = false;
@@ -80,28 +79,27 @@ export async function runUserMusicStateBootstrapNonBlocking(
             return null;
         });
 
-    const timedOut = await Promise.race([
-        remotePromise.then(() => false),
-        new Promise<boolean>((resolve) => {
-            window.setTimeout(() => resolve(true), USER_MUSIC_STATE_FOREGROUND_TIMEOUT_MS);
+    void Promise.race([
+        remotePromise.then(() => "done" as const),
+        new Promise<"timeout">((resolve) => {
+            window.setTimeout(() => resolve("timeout"), USER_MUSIC_STATE_FOREGROUND_TIMEOUT_MS);
         }),
-    ]);
+    ]).then((raceResult) => {
+        if (raceResult === "timeout" && !foregroundFinished) {
+            logWarn(
+                `continuing boot with default empty state after ${USER_MUSIC_STATE_FOREGROUND_TIMEOUT_MS}ms — background fetch continues`,
+            );
+            void remotePromise.then((value) => {
+                if (value != null) {
+                    logInfo("background fetch applied remote userMusicState");
+                }
+            });
+            return;
+        }
+        if (foregroundFailed) {
+            logError("foreground window ended with API failure — boot queue unaffected");
+        }
+    });
 
-    if (!foregroundFinished && timedOut) {
-        logWarn(
-            `continuing boot with default empty state after ${USER_MUSIC_STATE_FOREGROUND_TIMEOUT_MS}ms — background fetch continues`,
-        );
-        void remotePromise.then((value) => {
-            if (value != null) {
-                logInfo("background fetch applied remote userMusicState");
-            }
-        });
-        return { outcome: "continued-with-default-background-pending", queueContinues: true };
-    }
-
-    if (foregroundFailed) {
-        return { outcome: "failed-in-foreground", queueContinues: true };
-    }
-
-    return { outcome: "loaded-in-foreground", queueContinues: true };
+    return { outcome: "continued-with-default-background-pending" };
 }
