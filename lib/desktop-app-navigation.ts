@@ -1,5 +1,11 @@
 /** DESKTOP ONLY — sidebar view keys, access rules, and navigation handler. */
 
+import type { Session } from "@supabase/supabase-js";
+import {
+    hasDesktopProtectedActionAccess,
+    type DesktopProtectedActionAuthSources,
+} from "./desktop-protected-action-auth-guard";
+
 export type DesktopNavView =
     | "Home"
     | "Marketplace"
@@ -24,8 +30,9 @@ export type DesktopNavView =
 
 export type DesktopNavAccessContext = {
     accountUserId: string;
-    isAuthenticated: boolean;
+    authSession: Session | null;
     isPlatformOwner: boolean;
+    getAuthSources?: () => DesktopProtectedActionAuthSources;
 };
 
 export type DesktopNavBlockReason = "login-required" | "owner-required";
@@ -58,7 +65,15 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
 ];
 
 export function hasDesktopAccountAccess(context: DesktopNavAccessContext) {
-    return Boolean(context.accountUserId) || context.isAuthenticated;
+    if (context.getAuthSources) {
+        return hasDesktopProtectedActionAccess(context.getAuthSources());
+    }
+    return hasDesktopProtectedActionAccess({
+        readAuthSession: () => context.authSession,
+        readAccountUserId: () => context.accountUserId,
+        readUser: () => null,
+        readActiveUser: () => null,
+    });
 }
 
 export function evaluateDesktopNavAccess(

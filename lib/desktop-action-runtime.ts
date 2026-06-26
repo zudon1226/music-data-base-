@@ -26,7 +26,6 @@ export type DesktopActionIdentityInput = {
     user?: SupabaseUser | null;
     activeUser?: SupabaseUser | null;
     authSession?: Session | null;
-    isAuthenticated?: boolean;
 };
 
 export type DesktopUploadDeleteAccessInput = {
@@ -37,7 +36,7 @@ export type DesktopUploadDeleteAccessInput = {
     artistProfileId?: string;
     artistName?: string;
     accountUserId: string;
-    isAuthenticated: boolean;
+    authSession?: Session | null;
     isPlatformOwner: boolean;
     currentProducerProfileId?: string;
     selectedArtistProfileId?: string;
@@ -112,6 +111,20 @@ export function resolveDesktopActionUserId(input: DesktopActionIdentityInput = {
     return "";
 }
 
+export function hasUsableDesktopProtectedActionSession(session: Session | null | undefined) {
+    if (!session) {
+        return false;
+    }
+    if (session.user?.id) {
+        return true;
+    }
+    if (readDesktopActionBearerToken(session)) {
+        return true;
+    }
+    const refreshToken = session.refresh_token;
+    return typeof refreshToken === "string" && refreshToken.trim().length > 0;
+}
+
 export function resolveDesktopProfileDisplayName(input: DesktopProfileDisplayInput = {}) {
     const profileName = String(input.profileDisplayName || "").trim();
     if (profileName) {
@@ -137,13 +150,6 @@ export function resolveDesktopProfileDisplayName(input: DesktopProfileDisplayInp
     return "";
 }
 
-export function canPerformDesktopProtectedActions(input: DesktopActionIdentityInput = {}) {
-    if (!input.isAuthenticated) {
-        return false;
-    }
-    return Boolean(resolveDesktopActionUserId(input));
-}
-
 export function canDeleteDesktopUploadedItem(input: DesktopUploadDeleteAccessInput) {
     const isUuid = input.isDatabaseUuid ?? ((value: string) => Boolean(value));
     if (!isUuid(input.itemId)) {
@@ -154,9 +160,10 @@ export function canDeleteDesktopUploadedItem(input: DesktopUploadDeleteAccessInp
     }
     const userId = resolveDesktopActionUserId({
         accountUserId: input.accountUserId,
-        isAuthenticated: input.isAuthenticated,
+        authSession: input.authSession,
     });
-    if (!userId && !input.isAuthenticated) {
+    const hasSessionAccess = hasUsableDesktopProtectedActionSession(input.authSession);
+    if (!userId && !hasSessionAccess) {
         return false;
     }
     if (userId && input.ownerUserId && input.ownerUserId === userId) {
@@ -193,10 +200,6 @@ export function createDesktopActionRuntime(config: DesktopActionRuntimeConfig) {
             authSession: input.authSession ?? config.readAuthSession(),
         }),
         resolveDisplayName: (input: DesktopProfileDisplayInput = {}) => resolveDesktopProfileDisplayName(input),
-        canPerformProtectedActions: (input: DesktopActionIdentityInput = {}) => canPerformDesktopProtectedActions({
-            ...input,
-            authSession: input.authSession ?? config.readAuthSession(),
-        }),
     };
 }
 
