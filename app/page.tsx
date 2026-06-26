@@ -5764,8 +5764,8 @@ function PageContent() {
         initialDataLoadInFlightKeyRef.current = loadKey;
         void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions)
             .then((result) => {
-                if (result.stalledStep) {
-                    console.error(`[desktop-bootstrap] unresolved step: ${result.stalledStep}`);
+                if (result.failedSteps.length > 0) {
+                    console.warn(`[desktop-bootstrap] steps with failures: ${result.failedSteps.join(", ")}`);
                 }
                 if (result.userMusicStateOutcome) {
                     console.info(`[desktop-bootstrap] userMusicState outcome: ${result.userMusicStateOutcome}`);

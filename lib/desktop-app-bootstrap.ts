@@ -1,4 +1,4 @@
-/** DESKTOP ONLY — application bootstrap gate and traced remote initialization queue. */
+/** DESKTOP ONLY — application bootstrap gate and independent remote initialization queue. */
 
 import {
     startUserMusicStateBootstrapInBackground,
@@ -48,7 +48,6 @@ export type DesktopShellGateDecision = {
 };
 
 export type DesktopRemoteBootstrapResult = {
-    stalledStep: DesktopBootstrapStep | null;
     completedSteps: DesktopBootstrapStep[];
     failedSteps: DesktopBootstrapStep[];
     userMusicStateOutcome: string;
@@ -64,7 +63,7 @@ export async function traceBootstrapStep<T>(
     step: DesktopBootstrapStep,
     promise: Promise<T>,
     timeoutMs = DEFAULT_STEP_TIMEOUT_MS,
-): Promise<{ ok: true; value: T } | { ok: false; stalledStep: DesktopBootstrapStep; error: unknown }> {
+): Promise<{ ok: true; value: T } | { ok: false; step: DesktopBootstrapStep; error: unknown }> {
     const label = formatStepLabel(step);
     console.info(`${label} started`);
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
@@ -90,11 +89,10 @@ export async function traceBootstrapStep<T>(
     catch (error) {
         settled = true;
         const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("STALLED after")) {
-            return { ok: false, stalledStep: step, error };
+        if (!message.includes("STALLED after")) {
+            console.warn(`${label} failed`, error);
         }
-        console.warn(`${label} failed`, error);
-        return { ok: false, stalledStep: step, error };
+        return { ok: false, step, error };
     }
     finally {
         if (timeoutHandle) {
@@ -148,21 +146,40 @@ export function startDesktopLocalBootstrap(markReady: () => void, hydrate: () =>
     });
 }
 
-async function runTracedStep<T>(
+type BootstrapStepTask = {
+    step: DesktopBootstrapStep;
+    run: () => Promise<unknown>;
+};
+
+async function runIndependentBootstrapStep(
     step: DesktopBootstrapStep,
-    task: () => Promise<T>,
+    task: () => Promise<unknown>,
     completedSteps: DesktopBootstrapStep[],
     failedSteps: DesktopBootstrapStep[],
 ) {
     const result = await traceBootstrapStep(step, task());
     if (result.ok) {
         completedSteps.push(step);
-        return { ok: true as const, value: result.value };
+        return;
     }
     failedSteps.push(step);
-    return { ok: false as const, stalledStep: result.stalledStep, error: result.error };
+    if (step === "playlists") {
+        console.error(`${formatStepLabel("playlists")} failed — bootstrap continues`, result.error);
+    }
 }
 
+function readCatalogValue<T>(
+    results: Array<{ step: DesktopBootstrapStep; ok: boolean; value?: T }>,
+    step: DesktopBootstrapStep,
+) {
+    const entry = results.find((item) => item.step === step);
+    return entry?.ok ? entry.value : undefined;
+}
+
+/**
+ * Remote bootstrap queue — every user-state loader runs independently.
+ * A playlist failure or stall must never block songLikes, artistFollows, library, or profile.
+ */
 export async function runDesktopRemoteBootstrap(
     userId: string,
     actions: DesktopRemoteBootstrapActions,
@@ -170,83 +187,54 @@ export async function runDesktopRemoteBootstrap(
     console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue started for user ${userId || "(missing user id)"}`);
     const completedSteps: DesktopBootstrapStep[] = [];
     const failedSteps: DesktopBootstrapStep[] = [];
-    let stalledStep: DesktopBootstrapStep | null = null;
 
     actions.clearRemovedPlaceholderArtwork();
 
-    if (actions.reloadUserProfile && userId) {
-        const profileResult = await runTracedStep(
-            "profileBootstrap",
-            () => actions.reloadUserProfile!(userId),
-            completedSteps,
-            failedSteps,
-        );
-        if (!profileResult.ok && !stalledStep) {
-            stalledStep = profileResult.stalledStep;
-        }
-    }
-
-    const songResult = await runTracedStep("songLibrary", actions.reloadSongLibrary, completedSteps, failedSteps);
-    if (!songResult.ok && !stalledStep) {
-        stalledStep = songResult.stalledStep;
-    }
-
-    const videoResult = await runTracedStep("videoLibrary", actions.reloadVideoLibrary, completedSteps, failedSteps);
-    if (!videoResult.ok && !stalledStep) {
-        stalledStep = videoResult.stalledStep;
-    }
-
-    const albumResult = await runTracedStep(
-        "albums",
-        () => actions.reloadAlbums(userId),
-        completedSteps,
-        failedSteps,
-    );
-    if (!albumResult.ok && !stalledStep) {
-        stalledStep = albumResult.stalledStep;
-    }
-
-    const loadedSongs = songResult.ok ? songResult.value : undefined;
-    const loadedVideos = videoResult.ok ? videoResult.value : undefined;
-    const loadedAlbums = albumResult.ok ? albumResult.value : undefined;
-
-    const userMusicStateHandle = startUserMusicStateBootstrapInBackground(actions.reloadUserMusicState, {
-        loadedSongs,
-        loadedVideos,
-        loadedAlbums,
-    });
-
-    const parallelSteps: Array<[DesktopBootstrapStep, () => Promise<unknown>]> = [
-        ["librarySaves", () => actions.reloadLibrarySaves(userId)],
-        ["playlists", () => actions.reloadPlaylists(userId)],
+    const catalogTasks: BootstrapStepTask[] = [
+        { step: "songLibrary", run: actions.reloadSongLibrary },
+        { step: "videoLibrary", run: actions.reloadVideoLibrary },
+        { step: "albums", run: () => actions.reloadAlbums(userId) },
     ];
 
-    const parallelResults = await Promise.all(parallelSteps.map(async ([step, task]) => {
-        const result = await runTracedStep(step, task, completedSteps, failedSteps);
-        return { step, result };
+    const catalogResults = await Promise.all(catalogTasks.map(async ({ step, run }) => {
+        const result = await traceBootstrapStep(step, run());
+        if (result.ok) {
+            completedSteps.push(step);
+            return { step, ok: true as const, value: result.value };
+        }
+        failedSteps.push(step);
+        return { step, ok: false as const, value: undefined };
     }));
 
-    for (const entry of parallelResults) {
-        if (!entry.result.ok && !stalledStep) {
-            stalledStep = entry.result.stalledStep;
-        }
+    const userMusicStateHandle = startUserMusicStateBootstrapInBackground(actions.reloadUserMusicState, {
+        loadedSongs: readCatalogValue(catalogResults, "songLibrary"),
+        loadedVideos: readCatalogValue(catalogResults, "videoLibrary"),
+        loadedAlbums: readCatalogValue(catalogResults, "albums"),
+    });
+
+    const userStateTasks: BootstrapStepTask[] = [
+        { step: "librarySaves", run: () => actions.reloadLibrarySaves(userId) },
+        { step: "playlists", run: () => actions.reloadPlaylists(userId) },
+        { step: "artistFollows", run: actions.reloadArtistFollows },
+        { step: "songLikes", run: actions.reloadSongLikes },
+    ];
+
+    if (actions.reloadUserProfile && userId) {
+        userStateTasks.unshift({
+            step: "profileBootstrap",
+            run: () => actions.reloadUserProfile!(userId),
+        });
     }
+
+    await Promise.all(userStateTasks.map(({ step, run }) =>
+        runIndependentBootstrapStep(step, run, completedSteps, failedSteps),
+    ));
 
     void traceBootstrapStep("producerData", actions.reloadProducerData()).catch((error) => {
         console.warn(`${formatStepLabel("producerData")} background failed`, error);
     });
-    void traceBootstrapStep("artistFollows", actions.reloadArtistFollows()).catch((error) => {
-        console.warn(`${formatStepLabel("artistFollows")} background failed`, error);
-    });
-    void traceBootstrapStep("songLikes", actions.reloadSongLikes()).catch((error) => {
-        console.warn(`${formatStepLabel("songLikes")} background failed`, error);
-    });
 
-    if (stalledStep) {
-        console.error(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue halted at ${stalledStep}`);
-        actions.showLibraryFailureToast();
-    }
-    else if (failedSteps.length > 0) {
+    if (failedSteps.length > 0) {
         console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue finished with failures: ${failedSteps.join(", ")}`);
     }
     else {
@@ -254,7 +242,6 @@ export async function runDesktopRemoteBootstrap(
     }
 
     return {
-        stalledStep,
         completedSteps,
         failedSteps,
         userMusicStateOutcome: userMusicStateHandle.outcome,
