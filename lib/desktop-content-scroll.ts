@@ -1,6 +1,6 @@
 /** DESKTOP ONLY — music-card/content scroll layer and wheel routing. */
 
-import { routeDesktopLibraryCardRailWheel } from "./desktop-library-card-rail-scroll";
+import { routeDesktopLibraryGridCarouselWheel } from "./desktop-library-card-rail-scroll";
 
 export const DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX = 821;
 
@@ -19,8 +19,8 @@ export const DESKTOP_MUSIC_CARD_LAYER_SELECTOR = [
 
 /**
  * Desktop layout: body locked; sidebar and main content scroll independently.
- * Wheel routing is handled in bindDesktopMusicCardWheelScroll.
- * Library Grid View rails route horizontal wheel input in capture phase.
+ * Vertical wheel over music cards forwards to .content.
+ * Library Grid carousel only hijacks Shift+wheel or dominant deltaX.
  */
 export const DESKTOP_CONTENT_SCROLL_CSS = `
   @media (min-width: ${DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX}px) {
@@ -99,6 +99,10 @@ function isVerticallyScrollable(element: HTMLElement, deltaY: number) {
 function shouldUseNestedVerticalScroller(event: WheelEvent, contentRoot: HTMLElement) {
     let node = event.target instanceof Element ? event.target as HTMLElement : null;
     while (node && node !== contentRoot) {
+        if (node.classList.contains("horizontal-rail-track")) {
+            node = node.parentElement;
+            continue;
+        }
         if (isVerticallyScrollable(node, event.deltaY)) {
             return true;
         }
@@ -132,9 +136,9 @@ function applyContentVerticalWheel(event: WheelEvent, contentRoot: HTMLElement) 
 }
 
 /**
- * Single desktop wheel router for the main content scroller.
- * Vertical wheel over music cards/rails scrolls .content.
- * Library Grid View rails scroll horizontally from mouse wheel / trackpad.
+ * Desktop wheel router for the main content scroller.
+ * Vertical wheel over cards scrolls .content.
+ * Library Grid carousel horizontal scroll: Shift+wheel or dominant deltaX only.
  */
 export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null) {
     if (!contentRoot) {
@@ -147,13 +151,9 @@ export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null)
             return;
         }
 
-        const libraryWheelResult = routeDesktopLibraryCardRailWheel(event, {
-            applyContentVerticalWheel: (wheelEvent) => applyContentVerticalWheel(wheelEvent, scrollRoot),
-        });
-        if (libraryWheelResult.handled) {
-            if (libraryWheelResult.preventDefault) {
-                event.preventDefault();
-            }
+        const libraryCarouselResult = routeDesktopLibraryGridCarouselWheel(event);
+        if (libraryCarouselResult.handled) {
+            event.preventDefault();
             return;
         }
 
