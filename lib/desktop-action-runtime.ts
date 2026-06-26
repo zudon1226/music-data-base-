@@ -4,9 +4,8 @@ import type { Session, SupabaseClient, User as SupabaseUser } from "@supabase/su
 import { readAccessTokenFromSession } from "./desktop-auth-recovery-gate";
 import { isOversizedBearerToken } from "./session-token-limits";
 import {
-    createDesktopProtectedActionClient,
-    type DesktopProtectedActionFetch,
-} from "./desktop-protected-action-client";
+    createDesktopAuthenticatedFetch,
+} from "./desktop-authenticated-request-pipeline";
 
 export type DesktopActionRuntimeConfig = {
     supabase: SupabaseClient;
@@ -185,9 +184,8 @@ export function canDeleteDesktopUploadedItem(input: DesktopUploadDeleteAccessInp
 }
 
 export function createDesktopActionRuntime(config: DesktopActionRuntimeConfig) {
-    const fetch = createDesktopProtectedActionClient({
+    const fetch = createDesktopAuthenticatedFetch({
         supabase: config.supabase,
-        readAccessToken: () => readDesktopActionBearerToken(config.readAuthSession()),
         readAuthSession: config.readAuthSession,
     });
 
@@ -204,4 +202,4 @@ export function createDesktopActionRuntime(config: DesktopActionRuntimeConfig) {
 }
 
 export type DesktopActionRuntime = ReturnType<typeof createDesktopActionRuntime>;
-export type { DesktopProtectedActionFetch };
+export type { DesktopAuthenticatedFetch as DesktopProtectedActionFetch } from "./desktop-authenticated-request-pipeline";

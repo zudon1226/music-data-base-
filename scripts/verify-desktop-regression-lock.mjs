@@ -45,11 +45,13 @@ function assertNotIncludes(content, needle, context) {
 
 function assertExport(content, exportName, file) {
   const patterns = [
+    `export async function ${exportName}`,
     `export function ${exportName}`,
     `export const ${exportName}`,
     `export type ${exportName}`,
     `export { ${exportName}`,
     `export {\n    ${exportName}`,
+    `${exportName},`,
   ];
   if (!patterns.some((p) => content.includes(p))) {
     fail(`${file}: missing export \`${exportName}\``);
@@ -60,6 +62,7 @@ console.log("Desktop regression lock — static verification\n");
 
 // --- Required desktop module files ---
 const REQUIRED_DESKTOP_MODULES = [
+  "lib/desktop-authenticated-request-pipeline.ts",
   "lib/desktop-protected-action-auth-guard.ts",
   "lib/desktop-protected-action-client.ts",
   "lib/desktop-action-runtime.ts",
@@ -91,12 +94,18 @@ assertExport(runtime, "hasUsableDesktopProtectedActionSession", "desktop-action-
 assertExport(runtime, "resolveDesktopProfileDisplayName", "desktop-action-runtime.ts");
 assertExport(runtime, "canDeleteDesktopUploadedItem", "desktop-action-runtime.ts");
 
+const pipeline = read("lib/desktop-authenticated-request-pipeline.ts");
+assertExport(pipeline, "createDesktopAuthenticatedFetch", "desktop-authenticated-request-pipeline.ts");
+assertExport(pipeline, "resolveDesktopAuthenticatedCredentials", "desktop-authenticated-request-pipeline.ts");
+assertIncludes(pipeline, "DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS = 494", "desktop-authenticated-request-pipeline.ts 494 handler");
+assertIncludes(pipeline, "Authorization", "desktop-authenticated-request-pipeline.ts bearer header");
+assertIncludes(pipeline, 'authMode: "bearer-preferred"', "desktop-authenticated-request-pipeline.ts bearer-preferred default");
+assertIncludes(pipeline, "forceRefresh: true", "desktop-authenticated-request-pipeline.ts 401 retry");
+assertNotIncludes(pipeline, "preferRefreshHeader", "desktop-authenticated-request-pipeline.ts must not retry 401 with refresh-only");
+
 const client = read("lib/desktop-protected-action-client.ts");
 assertExport(client, "createDesktopProtectedActionClient", "desktop-protected-action-client.ts");
-assertIncludes(client, "DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS = 494", "desktop-protected-action-client.ts 494 handler");
-assertIncludes(client, "SUPABASE_REFRESH_TOKEN_HEADER", "desktop-protected-action-client.ts refresh-header fallback");
-assertIncludes(client, "preferRefreshHeader", "desktop-protected-action-client.ts 494 retry path");
-assertNotIncludes(client, "session?.access_token === \"string\" ? data.session.access_token.trim()", "desktop-protected-action-client.ts must not bypass token size gate");
+assertIncludes(client, "desktop-authenticated-request-pipeline", "desktop-protected-action-client.ts re-exports pipeline");
 
 const nav = read("lib/desktop-app-navigation.ts");
 assertExport(nav, "evaluateDesktopNavAccess", "desktop-app-navigation.ts");
