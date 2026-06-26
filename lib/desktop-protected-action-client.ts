@@ -1,6 +1,6 @@
 /** DESKTOP ONLY — same-origin protected /api action client (Like, Follow, Save, Playlist, Delete). */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { readAccessTokenFromSession, SESSION_EXPIRED_MESSAGE } from "./desktop-auth-recovery-gate";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 
@@ -25,6 +25,7 @@ export type DesktopProtectedActionFetchInit = Omit<RequestInit, "credentials"> &
 export type DesktopProtectedActionClientConfig = {
     supabase: SupabaseClient;
     readAccessToken: () => string;
+    readAuthSession?: () => Session | null;
 };
 
 function readBrowserSupabaseAnonKey() {
@@ -141,37 +142,49 @@ function buildProtectedActionRequest(path: string, fetchInit: RequestInit, acces
     };
 }
 
-async function refreshSupabaseAccessToken(supabase: SupabaseClient) {
+async function refreshSupabaseAccessToken(supabase: SupabaseClient, session: Session | null | undefined) {
+    if (!session?.refresh_token) {
+        return "";
+    }
     const { data, error } = await supabase.auth.refreshSession();
     if (error) {
         return "";
     }
-    return readAccessTokenFromSession(data.session);
+    return readAccessTokenFromSession(data.session) || (typeof data.session?.access_token === "string" ? data.session.access_token.trim() : "");
 }
 
 async function resolveDesktopActionAccessToken(
     config: DesktopProtectedActionClientConfig,
     options: { forceRefresh?: boolean } = {},
 ) {
+    const readSession = config.readAuthSession ?? (() => null);
     const immediateToken = config.readAccessToken().trim();
     if (immediateToken && !options.forceRefresh) {
         return immediateToken;
     }
 
-    const { data: { session } } = await config.supabase.auth.getSession();
-    let accessToken = readAccessTokenFromSession(session);
+    const session = readSession();
+    let accessToken = config.readAccessToken() || readAccessTokenFromSession(session);
     if (accessToken && !options.forceRefresh) {
         return accessToken;
     }
 
-    if (options.forceRefresh && session?.refresh_token) {
-        accessToken = await refreshSupabaseAccessToken(config.supabase);
+    const { data: { session: storedSession } } = await config.supabase.auth.getSession();
+    accessToken = config.readAccessToken()
+        || readAccessTokenFromSession(storedSession)
+        || (typeof storedSession?.access_token === "string" ? storedSession.access_token.trim() : "");
+    if (accessToken && !options.forceRefresh) {
+        return accessToken;
+    }
+
+    if ((options.forceRefresh || !accessToken) && (session?.refresh_token || storedSession?.refresh_token)) {
+        accessToken = await refreshSupabaseAccessToken(config.supabase, storedSession || session);
         if (accessToken) {
             return accessToken;
         }
     }
 
-    return readAccessTokenFromSession(session);
+    return accessToken;
 }
 
 export function createDesktopProtectedActionClient(config: DesktopProtectedActionClientConfig) {

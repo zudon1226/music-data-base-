@@ -8,7 +8,7 @@ import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { canRenderDesktopApplicationShell, runDesktopRemoteBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
-import { canDeleteDesktopUploadedItem, createDesktopProtectedActionFetch, resolveDesktopActionUserId } from "../lib/desktop-protected-action-bindings";
+import { canDeleteDesktopUploadedItem, createDesktopActionRuntime } from "../lib/desktop-action-runtime";
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
@@ -3528,11 +3528,36 @@ function PageContent() {
         confirmAuthenticatedFromApi,
         signOut: signOutFromAuthState,
     } = useDesktopAuthState();
-    const desktopActionFetch = useMemo(
-        () => createDesktopProtectedActionFetch(supabase, authSession),
-        [authSession],
-    );
-    const desktopActionUserId = resolveDesktopActionUserId(accountUserId, user?.id || activeUser?.id || "");
+    const authSessionRef = useRef(authSession);
+    authSessionRef.current = authSession;
+    const desktopRuntime = useMemo(() => createDesktopActionRuntime({
+        supabase,
+        readAuthSession: () => authSessionRef.current,
+    }), [supabase]);
+    const desktopActionFetch = desktopRuntime.fetch;
+    function getDesktopActionIdentity() {
+        return {
+            accountUserId,
+            user,
+            activeUser,
+            authSession: authSessionRef.current,
+            isAuthenticated,
+        };
+    }
+    const desktopActionUserId = desktopRuntime.resolveUserId(getDesktopActionIdentity());
+    function requireDesktopActionUserId(loginMessage: string) {
+        const identity = getDesktopActionIdentity();
+        if (!identity.isAuthenticated) {
+            showToast(loginMessage, "error");
+            return "";
+        }
+        const actionUserId = desktopRuntime.resolveUserId(identity);
+        if (!actionUserId) {
+            showToast("Your session is still loading. Try again in a moment.", "error");
+            return "";
+        }
+        return actionUserId;
+    }
     const [authMode, setAuthMode] = useState<AuthMode>("login");
     const [authEmail, setAuthEmail] = useState("");
     const [authPassword, setAuthPassword] = useState("");
@@ -5553,16 +5578,45 @@ function PageContent() {
         return data;
     }
     async function reloadUserProfileFromSupabase(userIdOverride = "", emailOverride = "") {
-        const profileUserId = userIdOverride || activeUser?.id || "";
+        const profileUserId = userIdOverride
+            || accountUserId
+            || desktopRuntime.resolveUserId(getDesktopActionIdentity());
         if (!profileUserId) {
-            setUserAuthProfile({ displayName: "", role: "listener", avatarUrl: "" });
+            const fallbackDisplayName = desktopRuntime.resolveDisplayName({
+                profileDisplayName: userAuthProfile.displayName,
+                user,
+                activeUser,
+                authSession: authSessionRef.current,
+                authEmail,
+            });
+            setUserAuthProfile({
+                displayName: fallbackDisplayName,
+                role: "listener",
+                avatarUrl: "",
+            });
             return null;
         }
         let response: Response;
         try {
-            response = await desktopActionFetch(`/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, { cache: "no-store" });
+            response = await desktopActionFetch(`/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, {
+                cache: "no-store",
+                requireAuth: true,
+            });
         }
         catch {
+            const fallbackDisplayName = desktopRuntime.resolveDisplayName({
+                profileDisplayName: userAuthProfile.displayName,
+                user,
+                activeUser,
+                authSession: authSessionRef.current,
+                authEmail: emailOverride || authEmail,
+            });
+            if (fallbackDisplayName) {
+                setUserAuthProfile((previous) => ({
+                    ...previous,
+                    displayName: previous.displayName || fallbackDisplayName,
+                }));
+            }
             return null;
         }
         const data = (await response.json().catch(() => ({}))) as {
@@ -5572,10 +5626,29 @@ function PageContent() {
             error?: string;
         };
         if (!response.ok) {
+            const fallbackDisplayName = desktopRuntime.resolveDisplayName({
+                profileDisplayName: userAuthProfile.displayName,
+                user,
+                activeUser,
+                authSession: authSessionRef.current,
+                authEmail: emailOverride || authEmail,
+            });
+            if (fallbackDisplayName) {
+                setUserAuthProfile((previous) => ({
+                    ...previous,
+                    displayName: previous.displayName || fallbackDisplayName,
+                }));
+            }
             return null;
         }
+        const fallbackDisplayName = desktopRuntime.resolveDisplayName({
+            user,
+            activeUser,
+            authSession: authSessionRef.current,
+            authEmail: emailOverride || authEmail,
+        });
         const nextProfile = {
-            displayName: String(data.displayName || "").trim(),
+            displayName: String(data.displayName || fallbackDisplayName || "").trim(),
             role: String(data.role || "listener").trim().toLowerCase(),
             avatarUrl: String(data.avatarUrl || "").trim(),
         };
@@ -5605,10 +5678,13 @@ function PageContent() {
         throw new Error(message);
     }
     function getAccountDisplayName(subject?: SupabaseUser | null) {
-        const target = subject || user;
-        return userAuthProfile.displayName
-            || target?.email?.split("@")[0]
-            || "Music Data Base user";
+        return desktopRuntime.resolveDisplayName({
+            profileDisplayName: userAuthProfile.displayName,
+            user: subject || user,
+            activeUser,
+            authSession: authSessionRef.current,
+            authEmail,
+        }) || "Music Data Base user";
     }
     async function reloadUserMusicStateFromSupabase(availableSongs = songs, availableVideos = videos, availableAlbums = albums) {
         if (!accountUserId) {
@@ -5699,6 +5775,25 @@ function PageContent() {
                 initialDataLoadInFlightKeyRef.current = "";
         };
     }, [accountUserId, authLoading, authGateTick, isAuthenticated]);
+    useEffect(() => {
+        if (!isAuthenticated) {
+            return;
+        }
+        const resolvedDisplayName = desktopRuntime.resolveDisplayName({
+            profileDisplayName: userAuthProfile.displayName,
+            user,
+            activeUser,
+            authSession: authSessionRef.current,
+            authEmail,
+        });
+        if (!resolvedDisplayName || userAuthProfile.displayName) {
+            return;
+        }
+        setUserAuthProfile((previous) => ({
+            ...previous,
+            displayName: resolvedDisplayName,
+        }));
+    }, [isAuthenticated, user, activeUser, authSession, authEmail, userAuthProfile.displayName, desktopRuntime]);
     useEffect(() => {
         if (uploadsBlockedForCurrentUser) {
             setShowUpload(false);
@@ -8915,13 +9010,13 @@ function PageContent() {
         return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
     }
     async function saveLibraryItem(item: Song | VideoItem | Album | ResolvedAlbum, itemType: "song" | "video" | "album") {
-        if (!desktopActionUserId) {
-            showToast("Log in before saving to Library.", "error");
+        const actionUserId = requireDesktopActionUserId("Log in before saving to Library.");
+        if (!actionUserId) {
             return false;
         }
         try {
             const payload = {
-                user_id: desktopActionUserId,
+                user_id: actionUserId,
                 item_id: item.id,
                 item_type: itemType,
             };
@@ -8962,8 +9057,8 @@ function PageContent() {
         }
     }
     async function removeLibraryItem(itemId: string, itemType: "song" | "video" | "album") {
-        if (!desktopActionUserId) {
-            showToast("Log in before removing from Library.", "error");
+        const actionUserId = requireDesktopActionUserId("Log in before removing from Library.");
+        if (!actionUserId) {
             return false;
         }
         try {
@@ -8971,7 +9066,7 @@ function PageContent() {
                 requireAuth: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: desktopActionUserId, itemId, itemType }),
+                body: JSON.stringify({ userId: actionUserId, itemId, itemType }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -9105,7 +9200,7 @@ function PageContent() {
             producerUserId: song.producerId,
             producerProfileId: song.producerId,
             artistName: song.artist,
-            accountUserId,
+            accountUserId: desktopRuntime.resolveUserId(getDesktopActionIdentity()) || accountUserId,
             isAuthenticated,
             isPlatformOwner,
             currentProducerProfileId: currentProducerProfile.id,
@@ -9124,7 +9219,7 @@ function PageContent() {
             producerUserId: video.producerId || video.producerProfileId,
             producerProfileId: video.producerId || video.producerProfileId,
             artistProfileId: video.artistId,
-            accountUserId,
+            accountUserId: desktopRuntime.resolveUserId(getDesktopActionIdentity()) || accountUserId,
             isAuthenticated,
             isPlatformOwner,
             currentProducerProfileId: currentProducerProfile.id,
@@ -9384,8 +9479,8 @@ function PageContent() {
         });
     }
     async function toggleLike(songId: string) {
-        if (!desktopActionUserId) {
-            showToast("Log in before liking songs.", "error");
+        const actionUserId = requireDesktopActionUserId("Log in before liking songs.");
+        if (!actionUserId) {
             return;
         }
         const song = songs.find((item) => item.id === songId);
@@ -9401,7 +9496,7 @@ function PageContent() {
                 requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ songId, userId: desktopActionUserId, like: !wasLiked }),
+                body: JSON.stringify({ songId, userId: actionUserId, like: !wasLiked }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -9445,8 +9540,8 @@ function PageContent() {
         setView("Artist Profile");
     }
     async function toggleArtistFollow(artistId: string, artistName?: string) {
-        if (!desktopActionUserId) {
-            showToast("Log in before following artists.", "error");
+        const actionUserId = requireDesktopActionUserId("Log in before following artists.");
+        if (!actionUserId) {
             return;
         }
         const artist = mergedArtistProfiles.find((item) => item.id === artistId);
@@ -9469,7 +9564,7 @@ function PageContent() {
                     artistId,
                     artistName: name,
                     follow: !wasFollowing,
-                    userId: desktopActionUserId,
+                    userId: actionUserId,
                 }),
             });
             const data = (await response.json().catch(() => ({}))) as {
@@ -9732,15 +9827,13 @@ function PageContent() {
         }
     }
     function openPlaylistMenu(song: Song) {
-        if (!desktopActionUserId) {
-            showToast("Log in before adding songs to playlists.", "error");
+        if (!requireDesktopActionUserId("Log in before adding songs to playlists.")) {
             return;
         }
         setPlaylistTarget({ type: "song", item: song });
     }
     function openVideoPlaylistMenu(video: VideoItem) {
-        if (!desktopActionUserId) {
-            showToast("Log in before adding videos to playlists.", "error");
+        if (!requireDesktopActionUserId("Log in before adding videos to playlists.")) {
             return;
         }
         setPlaylistTarget({ type: "video", item: normalizeVideoForPlayback(video) });
@@ -11811,8 +11904,8 @@ function PageContent() {
         playVideo(list[nextIndex], "Video Player Controls");
     }
     async function toggleVideoLike(video: VideoItem) {
-        if (!desktopActionUserId) {
-            showToast("Log in before liking videos.", "error");
+        const actionUserId = requireDesktopActionUserId("Log in before liking videos.");
+        if (!actionUserId) {
             return;
         }
         const previousLikes = video.likes || 0;
@@ -11825,7 +11918,7 @@ function PageContent() {
                 requireAuth: true,
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ like: shouldLike, userId: desktopActionUserId }),
+                body: JSON.stringify({ like: shouldLike, userId: actionUserId }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -13178,6 +13271,10 @@ function PageContent() {
             }
 
             completeSignIn(activeSession);
+            setUserAuthProfile((previous) => ({
+                ...previous,
+                displayName: signupDisplayName,
+            }));
 
             await syncUserAuthProfile(activeSession.user.id, {
                 action: "ensure",
