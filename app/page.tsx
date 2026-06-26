@@ -12,8 +12,8 @@ import { canDeleteDesktopUploadedItem, createDesktopActionRuntime } from "../lib
 import { createDesktopProtectedActionAuthGuard } from "../lib/desktop-protected-action-auth-guard";
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
+import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
 import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
-import { DESKTOP_CONTENT_SCROLL_CSS } from "../lib/desktop-content-scroll";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { getAuthSession } from "../lib/auth-session";
@@ -14868,7 +14868,7 @@ function PageContent() {
         </button>
       </aside>
 
-        <section className="content">
+        <DesktopContentScrollRoot>
         <header className="topbar">
           <div className="search-wrap">
             <label className="search-box">
@@ -18122,7 +18122,7 @@ function PageContent() {
                 </DesktopHorizontalRail>
               </section>)}
           </>)}
-      </section>
+      </DesktopContentScrollRoot>
 
       {toast && (<div className={`toast toast-${toast.tone}`} role="status" aria-live="polite">
           {toast.message}
@@ -18894,8 +18894,6 @@ function PageContent() {
             width: calc(100% - 188px);
             padding: 14px 14px 154px;
           }
-
-          ${DESKTOP_CONTENT_SCROLL_CSS}
 
           .mobile-player-spacer {
             display: none;

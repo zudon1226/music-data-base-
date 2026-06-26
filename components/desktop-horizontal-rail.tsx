@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
-import { bindDesktopHorizontalRailWheel } from "../lib/desktop-content-scroll";
+import { useRef, type ReactNode } from "react";
 
 type DesktopHorizontalRailProps = {
     children: ReactNode;
@@ -9,7 +8,7 @@ type DesktopHorizontalRailProps = {
     label: string;
 };
 
-/** DESKTOP ONLY — horizontal card rail; vertical wheel scroll passes through to main content. */
+/** DESKTOP ONLY — horizontal card rail; wheel routing lives on the content scroll root. */
 export function DesktopHorizontalRail({
     children,
     className,
@@ -26,10 +25,6 @@ export function DesktopHorizontalRail({
         const cardWidth = firstCard?.offsetWidth || Math.max(180, Math.round(track.clientWidth * 0.8));
         track.scrollBy({ left: direction * (cardWidth + 12), behavior: "smooth" });
     }
-
-    useEffect(() => {
-        return bindDesktopHorizontalRailWheel(trackRef.current);
-    }, []);
 
     return (
         <div className="horizontal-rail" aria-label={label}>
