@@ -1,12 +1,24 @@
 /** DESKTOP ONLY — same-origin protected /api action client (Like, Follow, Save, Playlist, Delete). */
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { readAccessTokenFromSession, SESSION_EXPIRED_MESSAGE } from "./desktop-auth-recovery-gate";
+import { readRefreshTokenFromSession } from "./client-api-auth";
+import {
+    isCorruptedDesktopAccessToken,
+    readAccessTokenFromSession,
+    SESSION_EXPIRED_MESSAGE,
+} from "./desktop-auth-recovery-gate";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
+import {
+    isOversizedBearerToken,
+    SUPABASE_REFRESH_TOKEN_HEADER,
+} from "./session-token-limits";
 
 export { SESSION_EXPIRED_MESSAGE };
 
 const API_AUTH_FAILED_MESSAGE = "API request could not authenticate. Please retry.";
+
+/** Vercel/nginx rejects the request before Next.js when Authorization exceeds header limits. */
+export const DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS = 494;
 
 const STRIPPED_REQUEST_HEADERS = new Set([
     "authorization",
@@ -15,6 +27,7 @@ const STRIPPED_REQUEST_HEADERS = new Set([
     "x-session",
     "x-user",
     "x-refresh-token",
+    SUPABASE_REFRESH_TOKEN_HEADER.toLowerCase(),
 ]);
 
 export type DesktopProtectedActionFetchInit = Omit<RequestInit, "credentials"> & {
@@ -28,12 +41,40 @@ export type DesktopProtectedActionClientConfig = {
     readAuthSession?: () => Session | null;
 };
 
+type ProtectedActionAuthTransport =
+    | { kind: "bearer"; accessToken: string }
+    | { kind: "refresh"; refreshToken: string };
+
 function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
 }
 
 function getTokenTail(token: string) {
     return token ? token.slice(-8) : "";
+}
+
+function readRawAccessToken(session: Session | null | undefined) {
+    return typeof session?.access_token === "string" ? session.access_token.trim() : "";
+}
+
+function sessionRequiresRefreshHeaderAuth(session: Session | null | undefined) {
+    const raw = readRawAccessToken(session);
+    if (!raw) {
+        return false;
+    }
+    return isOversizedBearerToken(raw) || isCorruptedDesktopAccessToken(raw);
+}
+
+function readSafeBearerToken(session: Session | null | undefined) {
+    return readAccessTokenFromSession(session);
+}
+
+function readSafeBearerFromString(token: string) {
+    const trimmed = token.trim();
+    if (!trimmed) {
+        return "";
+    }
+    return readAccessTokenFromSession({ access_token: trimmed } as Session);
 }
 
 export function assertDesktopRelativeApiPath(path: string) {
@@ -64,13 +105,20 @@ function copyPreservedHeaders(target: Headers, source: HeadersInit | undefined) 
     });
 }
 
-function buildProtectedActionHeaders(init: RequestInit | undefined, accessToken: string) {
+function buildProtectedActionHeaders(init: RequestInit | undefined, transport: ProtectedActionAuthTransport) {
     const headers = new Headers();
     copyPreservedHeaders(headers, init?.headers);
     STRIPPED_REQUEST_HEADERS.forEach((headerName) => {
         headers.delete(headerName);
     });
-    headers.set("Authorization", `Bearer ${accessToken}`);
+
+    if (transport.kind === "bearer") {
+        headers.set("Authorization", `Bearer ${transport.accessToken}`);
+    }
+    else {
+        headers.set(SUPABASE_REFRESH_TOKEN_HEADER, transport.refreshToken);
+    }
+
     const anonKey = readBrowserSupabaseAnonKey();
     if (!anonKey) {
         throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY for authenticated API requests.");
@@ -124,7 +172,7 @@ function stripSessionTokensFromRelativePath(path: string) {
     return `${url.pathname}${url.search}`;
 }
 
-function buildProtectedActionRequest(path: string, fetchInit: RequestInit, accessToken: string) {
+function buildProtectedActionRequest(path: string, fetchInit: RequestInit, transport: ProtectedActionAuthTransport) {
     const requestPath = stripSessionTokensFromRelativePath(path);
     return {
         path: requestPath,
@@ -136,55 +184,96 @@ function buildProtectedActionRequest(path: string, fetchInit: RequestInit, acces
             referrer: fetchInit.referrer,
             mode: fetchInit.mode,
             redirect: fetchInit.redirect,
-            headers: buildProtectedActionHeaders(fetchInit, accessToken),
+            headers: buildProtectedActionHeaders(fetchInit, transport),
             credentials: "omit" as RequestCredentials,
         },
     };
 }
 
-async function refreshSupabaseAccessToken(supabase: SupabaseClient, session: Session | null | undefined) {
-    if (!session?.refresh_token) {
-        return "";
-    }
+async function refreshSupabaseSession(supabase: SupabaseClient) {
     const { data, error } = await supabase.auth.refreshSession();
     if (error) {
-        return "";
+        return null;
     }
-    return readAccessTokenFromSession(data.session) || (typeof data.session?.access_token === "string" ? data.session.access_token.trim() : "");
+    return data.session ?? null;
 }
 
-async function resolveDesktopActionAccessToken(
-    config: DesktopProtectedActionClientConfig,
-    options: { forceRefresh?: boolean } = {},
-) {
-    const readSession = config.readAuthSession ?? (() => null);
-    const immediateToken = config.readAccessToken().trim();
-    if (immediateToken && !options.forceRefresh) {
-        return immediateToken;
-    }
-
-    const session = readSession();
-    let accessToken = config.readAccessToken() || readAccessTokenFromSession(session);
-    if (accessToken && !options.forceRefresh) {
-        return accessToken;
-    }
-
-    const { data: { session: storedSession } } = await config.supabase.auth.getSession();
-    accessToken = config.readAccessToken()
-        || readAccessTokenFromSession(storedSession)
-        || (typeof storedSession?.access_token === "string" ? storedSession.access_token.trim() : "");
-    if (accessToken && !options.forceRefresh) {
-        return accessToken;
-    }
-
-    if ((options.forceRefresh || !accessToken) && (session?.refresh_token || storedSession?.refresh_token)) {
-        accessToken = await refreshSupabaseAccessToken(config.supabase, storedSession || session);
-        if (accessToken) {
-            return accessToken;
+function resolveTransportFromSession(
+    session: Session | null | undefined,
+    options: { preferRefreshHeader?: boolean } = {},
+): ProtectedActionAuthTransport | null {
+    if (options.preferRefreshHeader || sessionRequiresRefreshHeaderAuth(session)) {
+        const refreshToken = readRefreshTokenFromSession(session);
+        if (refreshToken) {
+            return { kind: "refresh", refreshToken };
         }
     }
 
-    return accessToken;
+    const accessToken = readSafeBearerToken(session);
+    if (accessToken) {
+        return { kind: "bearer", accessToken };
+    }
+
+    const refreshToken = readRefreshTokenFromSession(session);
+    if (refreshToken) {
+        return { kind: "refresh", refreshToken };
+    }
+
+    return null;
+}
+
+async function resolveProtectedActionAuthTransport(
+    config: DesktopProtectedActionClientConfig,
+    options: { forceRefresh?: boolean; preferRefreshHeader?: boolean } = {},
+): Promise<ProtectedActionAuthTransport | null> {
+    const readSession = config.readAuthSession ?? (() => null);
+
+    if (!options.forceRefresh && !options.preferRefreshHeader) {
+        const immediateToken = readSafeBearerFromString(config.readAccessToken());
+        if (immediateToken) {
+            return { kind: "bearer", accessToken: immediateToken };
+        }
+
+        const contextTransport = resolveTransportFromSession(readSession(), options);
+        if (contextTransport) {
+            return contextTransport;
+        }
+    }
+
+    const { data: { session: storedSession } } = await config.supabase.auth.getSession();
+    if (storedSession && !options.forceRefresh) {
+        const storedTransport = resolveTransportFromSession(storedSession, options);
+        if (storedTransport) {
+            return storedTransport;
+        }
+    }
+
+    const shouldRefresh = options.forceRefresh
+        || options.preferRefreshHeader
+        || sessionRequiresRefreshHeaderAuth(storedSession)
+        || sessionRequiresRefreshHeaderAuth(readSession());
+
+    if (shouldRefresh) {
+        const refreshedSession = await refreshSupabaseSession(config.supabase);
+        const refreshedTransport = resolveTransportFromSession(refreshedSession, options);
+        if (refreshedTransport) {
+            return refreshedTransport;
+        }
+    }
+
+    return resolveTransportFromSession(storedSession || readSession(), {
+        preferRefreshHeader: options.preferRefreshHeader || shouldRefresh,
+    });
+}
+
+function shouldRetryProtectedActionResponse(status: number, preferRefreshHeader: boolean) {
+    if (status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) {
+        return true;
+    }
+    if (status === 401 && !preferRefreshHeader) {
+        return true;
+    }
+    return false;
 }
 
 export function createDesktopProtectedActionClient(config: DesktopProtectedActionClientConfig) {
@@ -195,8 +284,8 @@ export function createDesktopProtectedActionClient(config: DesktopProtectedActio
         const { requireAuth = true, ...fetchInit } = init;
         const requestPath = assertDesktopRelativeApiPath(path);
 
-        let accessToken = await resolveDesktopActionAccessToken(config);
-        if (!accessToken) {
+        const transport = await resolveProtectedActionAuthTransport(config);
+        if (!transport) {
             if (requireAuth) {
                 throw new Error(API_AUTH_FAILED_MESSAGE);
             }
@@ -206,28 +295,50 @@ export function createDesktopProtectedActionClient(config: DesktopProtectedActio
             });
         }
 
-        const request = buildProtectedActionRequest(requestPath, fetchInit, accessToken);
+        const request = buildProtectedActionRequest(requestPath, fetchInit, transport);
         let response = await fetch(request.path, request.init);
-        if (response.status !== 401) {
+
+        if (response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) {
+            console.warn("[desktopProtectedActionFetch] REQUEST_HEADER_TOO_LARGE (494) — retrying with refresh-token header auth", {
+                path: requestPath,
+                transport: transport.kind,
+            });
+        }
+
+        const preferRefreshHeader = response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS
+            || transport.kind === "bearer" && sessionRequiresRefreshHeaderAuth(config.readAuthSession?.() ?? null);
+
+        if (!shouldRetryProtectedActionResponse(response.status, preferRefreshHeader)) {
             return response;
         }
 
-        const retryToken = await resolveDesktopActionAccessToken(config, { forceRefresh: true });
-        if (!retryToken) {
-            throw new Error(SESSION_EXPIRED_MESSAGE);
-        }
-
-        console.info("[desktopProtectedActionFetch] Protected API retry token", {
-            previousTokenTail: getTokenTail(accessToken),
-            retryTokenTail: getTokenTail(retryToken),
-            tokenChanged: getTokenTail(accessToken) !== getTokenTail(retryToken),
+        const retryTransport = await resolveProtectedActionAuthTransport(config, {
+            forceRefresh: response.status !== DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS,
+            preferRefreshHeader: true,
         });
 
-        const retryRequest = buildProtectedActionRequest(requestPath, fetchInit, retryToken);
+        if (!retryTransport) {
+            if (requireAuth) {
+                throw new Error(SESSION_EXPIRED_MESSAGE);
+            }
+            return response;
+        }
+
+        console.info("[desktopProtectedActionFetch] Protected API retry auth transport", {
+            path: requestPath,
+            previousTransport: transport.kind,
+            retryTransport: retryTransport.kind,
+            previousTokenTail: transport.kind === "bearer" ? getTokenTail(transport.accessToken) : "",
+            retryTokenTail: retryTransport.kind === "bearer" ? getTokenTail(retryTransport.accessToken) : getTokenTail(retryTransport.refreshToken),
+        });
+
+        const retryRequest = buildProtectedActionRequest(requestPath, fetchInit, retryTransport);
         response = await fetch(retryRequest.path, retryRequest.init);
-        if (response.status === 401 && requireAuth) {
+
+        if ((response.status === 401 || response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) && requireAuth) {
             throw new Error(SESSION_EXPIRED_MESSAGE);
         }
+
         return response;
     };
 }
