@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
-import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, Home, ListMusic, LogIn, LogOut, MessageCircle, Music2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
+import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
@@ -9,6 +9,8 @@ import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { canRenderDesktopApplicationShell, runDesktopRemoteBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
+import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
+import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
@@ -13182,28 +13184,19 @@ function PageContent() {
     }
     function handleNav(nextView: View) {
         setShowNotificationCenter(false);
-        if (!activeUser &&
-            [
-                "Library",
-                "License History",
-                "Sales",
-                "Liked",
-                "Following",
-                "Videos",
-                "Playlists",
-                "Recently Played",
-                "Queue",
-                "Profile",
-                "Artist Dashboard",
-                "Producer Dashboard",
-                "Platform Stability",
-            ].includes(nextView)) {
-            setAuthMode("login");
-            setAuthMessage("Log in to open that section and save it to your account.");
-            return;
-        }
-        if (nextView === "Platform Stability" && !isPlatformOwner) {
-            showToast("Owner admin access is required for platform controls.", "error");
+        const accessDecision = evaluateDesktopNavAccess(nextView as DesktopNavView, {
+            accountUserId,
+            isAuthenticated,
+            isPlatformOwner,
+        });
+        if (!accessDecision.allowed) {
+            if (accessDecision.reason === "login-required") {
+                setAuthMode("login");
+                setAuthMessage("Log in to open that section and save it to your account.");
+            }
+            else {
+                showToast("Owner admin access is required for platform controls.", "error");
+            }
             return;
         }
         setView(nextView);
@@ -13315,30 +13308,6 @@ function PageContent() {
             return "Create playlists, add songs, set covers, and play them straight through.";
         return "Browse music and keep your favorites close.";
     }
-    const navItems: {
-        label: View;
-        icon: ReactNode;
-    }[] = [
-        { label: "Home", icon: <Home size={17}/> },
-        { label: "Marketplace", icon: <Disc3 size={17}/> },
-        { label: "Sales", icon: <Upload size={17}/> },
-        { label: "License History", icon: <BookOpen size={17}/> },
-        { label: "Trending", icon: <Zap size={17}/> },
-        { label: "Beats", icon: <Music2 size={17}/> },
-        { label: "Artists", icon: <Music2 size={17}/> },
-        { label: "Videos", icon: <Film size={17}/> },
-        { label: "Library", icon: <BookOpen size={17}/> },
-        { label: "Liked", icon: <Heart size={17}/> },
-        { label: "Following", icon: <UserPlus size={17}/> },
-        { label: "Playlists", icon: <ListMusic size={17}/> },
-        { label: "Artist Dashboard", icon: <BarChart3 size={17}/> },
-        { label: "Producer Dashboard", icon: <Disc3 size={17}/> },
-        { label: "Platform Stability", icon: <BarChart3 size={17}/> },
-        { label: "Recently Played", icon: <Clock3 size={17}/> },
-        { label: "Queue", icon: <ListMusic size={17}/> },
-        { label: "Profile", icon: <UserCircle size={17}/> },
-    ];
-    const visibleNavItems = navItems.filter((item) => item.label !== "Platform Stability" || isPlatformOwner);
     function renderCreatorGrowthPanel(summary: CreatorGrowthSummary) {
         const trendMax = Math.max(1, ...summary.followerTrend.map((point) => point.followers));
         return (<section className="dashboard-panel growth-panel">
@@ -14737,12 +14706,11 @@ function PageContent() {
           <span>{BRAND_TAGLINE}</span>
         </button>
 
-        <nav className="nav" aria-label="Main">
-          {visibleNavItems.map((item) => (<button key={item.label} className={view === item.label ? "active" : ""} onClick={() => handleNav(item.label)} title={item.label}>
-              {item.icon}
-              <span>{item.label}</span>
-            </button>))}
-        </nav>
+        <DesktopAppSidebarNav
+          activeView={view as DesktopNavView}
+          access={{ accountUserId, isAuthenticated, isPlatformOwner }}
+          onNavigate={(nextView) => handleNav(nextView as View)}
+        />
 
         <section className="mini-stats" aria-label="Music stats">
           <div>
@@ -18424,7 +18392,18 @@ function PageContent() {
             border-right: 1px solid rgba(0, 212, 255, 0.25);
             padding: 14px 12px 95px;
             overflow-y: auto;
-            z-index: 10;
+            z-index: 120;
+            pointer-events: auto;
+          }
+
+          .desktop-sidebar-nav {
+            position: relative;
+            z-index: 1;
+          }
+
+          .desktop-sidebar-nav button {
+            pointer-events: auto;
+            touch-action: manipulation;
           }
 
           .logo {
@@ -30039,6 +30018,8 @@ function PageContent() {
               padding-bottom: var(--mobile-player-reserve) !important;
               overflow-y: auto !important;
               overscroll-behavior: contain !important;
+              z-index: 120 !important;
+              pointer-events: auto !important;
             }
 
             .content {
@@ -30056,6 +30037,7 @@ function PageContent() {
               overscroll-behavior: contain !important;
               scroll-padding-top: 0 !important;
               scroll-padding-bottom: var(--mobile-player-reserve) !important;
+              z-index: 1 !important;
             }
 
             .topbar {
