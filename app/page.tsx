@@ -12,6 +12,8 @@ import { canDeleteDesktopUploadedItem, createDesktopActionRuntime } from "../lib
 import { createDesktopProtectedActionAuthGuard } from "../lib/desktop-protected-action-auth-guard";
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
+import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
+import { DESKTOP_CONTENT_SCROLL_CSS } from "../lib/desktop-content-scroll";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { getAuthSession } from "../lib/auth-session";
@@ -3367,48 +3369,6 @@ function ArtistNameButton({ name, className = "", onOpen, }: {
         }} title={`Open ${name} profile`} type="button">
       {name}
     </button>);
-}
-function HorizontalRail({ children, className, label, }: {
-    children: ReactNode;
-    className: string;
-    label: string;
-}) {
-    const trackRef = useRef<HTMLElement | null>(null);
-    function scrollByCard(direction: -1 | 1) {
-        const track = trackRef.current;
-        if (!track)
-            return;
-        const firstCard = track.querySelector<HTMLElement>("article, button, .playlist-tile, .artist-playlist-card");
-        const cardWidth = firstCard?.offsetWidth || Math.max(180, Math.round(track.clientWidth * 0.8));
-        track.scrollBy({ left: direction * (cardWidth + 12), behavior: "smooth" });
-    }
-    useEffect(() => {
-        const track = trackRef.current;
-        if (!track)
-            return;
-        function handleWheel(event: globalThis.WheelEvent) {
-            const rail = trackRef.current;
-            if (!rail || rail.scrollWidth <= rail.clientWidth)
-                return;
-            if (Math.abs(event.deltaY) <= Math.abs(event.deltaX))
-                return;
-            event.preventDefault();
-            rail.scrollLeft += event.deltaY;
-        }
-        track.addEventListener("wheel", handleWheel, { passive: false });
-        return () => trackRef.current?.removeEventListener("wheel", handleWheel);
-    }, []);
-    return (<div className="horizontal-rail" aria-label={label}>
-      <button className="rail-arrow rail-arrow-left" onClick={() => scrollByCard(-1)} type="button" aria-label={`Scroll ${label} left`}>
-        <span aria-hidden="true">{"<"}</span>
-      </button>
-      <section ref={trackRef} className={`horizontal-rail-track ${className}`} tabIndex={0}>
-        {children}
-      </section>
-      <button className="rail-arrow rail-arrow-right" onClick={() => scrollByCard(1)} type="button" aria-label={`Scroll ${label} right`}>
-        <span aria-hidden="true">{">"}</span>
-      </button>
-    </div>);
 }
 export default function Page() {
     return (
@@ -15277,7 +15237,7 @@ function PageContent() {
               <h3>Trending Artists</h3>
               <span>{trendingArtists.length} artists</span>
             </div>
-            <HorizontalRail className="artist-grid" label="Trending Artists">
+            <DesktopHorizontalRail className="artist-grid" label="Trending Artists">
               {trendingArtists.map((artist) => (<article className="artist-card" key={artist.id}>
                   <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
                     <img src={getArtworkUrl(artist.avatar)} alt=""/>
@@ -15293,7 +15253,7 @@ function PageContent() {
                     </button>
                   </div>
                 </article>))}
-            </HorizontalRail>
+            </DesktopHorizontalRail>
           </section>)}
 
         {view === "Trending" && !search.trim() && trendingDiscoveryItems.length > 0 && (<section className="artist-section discovery-section">
@@ -15304,9 +15264,9 @@ function PageContent() {
               </div>
               <span>{trendingDiscoveryItems.length} items</span>
             </div>
-            <HorizontalRail className="discovery-grid" label="Trending Discovery Items">
+            <DesktopHorizontalRail className="discovery-grid" label="Trending Discovery Items">
               {trendingDiscoveryItems.map(renderDiscoveryItemCard)}
-            </HorizontalRail>
+            </DesktopHorizontalRail>
           </section>)}
 
         {view === "Trending" && !search.trim() && trendingProducers.length > 0 && (<section className="artist-section discovery-section">
@@ -15317,7 +15277,7 @@ function PageContent() {
               </div>
               <span>{trendingProducers.length} producers</span>
             </div>
-            <HorizontalRail className="discovery-grid" label="Trending Producers">
+            <DesktopHorizontalRail className="discovery-grid" label="Trending Producers">
               {trendingProducers.map((producer) => renderDiscoveryItemCard({
                     id: producer.id,
                     type: "producer",
@@ -15328,7 +15288,7 @@ function PageContent() {
                     metric: `${formatCount(producer.followers)} followers`,
                     badge: "Producer",
                 }))}
-            </HorizontalRail>
+            </DesktopHorizontalRail>
           </section>)}
 
         {view === "Home" && !search.trim() && (<>
@@ -15360,9 +15320,9 @@ function PageContent() {
                   </div>
                   <span>{discoveryForYouItems.length} picks</span>
                 </div>
-                <HorizontalRail className="discovery-grid" label="For You Recommendations">
+                <DesktopHorizontalRail className="discovery-grid" label="For You Recommendations">
                   {discoveryForYouItems.map(renderDiscoveryItemCard)}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {trendingDiscoveryItems.length > 0 && (<section className="artist-section discovery-section">
@@ -15373,9 +15333,9 @@ function PageContent() {
                   </div>
                   <span>{trendingPeriod}</span>
                 </div>
-                <HorizontalRail className="discovery-grid" label="Trending Discovery">
+                <DesktopHorizontalRail className="discovery-grid" label="Trending Discovery">
                   {trendingDiscoveryItems.map(renderDiscoveryItemCard)}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {newReleaseDiscoveryItems.length > 0 && (<section className="artist-section discovery-section">
@@ -15386,9 +15346,9 @@ function PageContent() {
                   </div>
                   <span>{newReleaseDiscoveryItems.length} new</span>
                 </div>
-                <HorizontalRail className="discovery-grid" label="New Release Discovery">
+                <DesktopHorizontalRail className="discovery-grid" label="New Release Discovery">
                   {newReleaseDiscoveryItems.map(renderDiscoveryItemCard)}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {suggestedCreatorItems.length > 0 && (<section className="artist-section discovery-section">
@@ -15399,9 +15359,9 @@ function PageContent() {
                   </div>
                   <span>{suggestedCreatorItems.length} creators</span>
                 </div>
-                <HorizontalRail className="discovery-grid" label="Suggested Artists and Producers">
+                <DesktopHorizontalRail className="discovery-grid" label="Suggested Artists and Producers">
                   {suggestedCreatorItems.map(renderDiscoveryItemCard)}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {creatorGrowthItems.length > 0 && (<section className="artist-section discovery-section">
@@ -15412,9 +15372,9 @@ function PageContent() {
                   </div>
                   <span>{creatorGrowthItems.length} signals</span>
                 </div>
-                <HorizontalRail className="discovery-grid" label="Creator Growth Tools">
+                <DesktopHorizontalRail className="discovery-grid" label="Creator Growth Tools">
                   {creatorGrowthItems.map(renderDiscoveryItemCard)}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             <div className="tabs">
@@ -15786,9 +15746,9 @@ function PageContent() {
                     <h3>Featured Releases</h3>
                     <span>{marketplaceFeaturedReleases.length} featured</span>
                   </div>
-                  <HorizontalRail className="marketplace-release-grid" label="Featured Releases">
+                  <DesktopHorizontalRail className="marketplace-release-grid" label="Featured Releases">
                     {marketplaceFeaturedReleases.map(renderMarketplaceReleaseCard)}
-                  </HorizontalRail>
+                  </DesktopHorizontalRail>
                 </section>
 
                 <section className="artist-section">
@@ -15796,9 +15756,9 @@ function PageContent() {
                     <h3>New Releases</h3>
                     <span>{marketplaceNewReleases.length} releases</span>
                   </div>
-                  <HorizontalRail className="marketplace-release-grid" label="New Releases">
+                  <DesktopHorizontalRail className="marketplace-release-grid" label="New Releases">
                     {marketplaceNewReleases.map(renderMarketplaceReleaseCard)}
-                  </HorizontalRail>
+                  </DesktopHorizontalRail>
                 </section>
 
                 {marketplaceBundles.length > 0 && (<section className="artist-section">
@@ -15806,7 +15766,7 @@ function PageContent() {
                       <h3>Bundle Sales</h3>
                       <span>{marketplaceBundles.length} bundles</span>
                     </div>
-                    <HorizontalRail className="marketplace-bundle-grid" label="Marketplace Bundles">
+                    <DesktopHorizontalRail className="marketplace-bundle-grid" label="Marketplace Bundles">
                       {marketplaceBundles.map((bundle) => (<article className="marketplace-bundle-card" key={bundle.id}>
                           <img src={getArtworkUrl(bundle.cover)} alt=""/>
                           <div>
@@ -15819,7 +15779,7 @@ function PageContent() {
                             Add Bundle
                           </button>
                         </article>))}
-                    </HorizontalRail>
+                    </DesktopHorizontalRail>
                   </section>)}
 
                 {marketplaceLimitedReleases.length > 0 && (<section className="artist-section">
@@ -15827,7 +15787,7 @@ function PageContent() {
                       <h3>Limited Releases</h3>
                       <span>{marketplaceLimitedReleases.length} drops</span>
                     </div>
-                    <HorizontalRail className="marketplace-limited-grid" label="Limited Releases">
+                    <DesktopHorizontalRail className="marketplace-limited-grid" label="Limited Releases">
                       {marketplaceLimitedReleases.map((drop) => (<article className="marketplace-limited-card" key={drop.id}>
                           <img src={getArtworkUrl(drop.release.cover)} alt=""/>
                           <div>
@@ -15840,7 +15800,7 @@ function PageContent() {
                             Buy
                           </button>
                         </article>))}
-                    </HorizontalRail>
+                    </DesktopHorizontalRail>
                   </section>)}
 
                 {marketplacePreorders.length > 0 && (<section className="artist-section">
@@ -15848,7 +15808,7 @@ function PageContent() {
                       <h3>Pre-Order Foundation</h3>
                       <span>{marketplacePreorders.length} upcoming</span>
                     </div>
-                    <HorizontalRail className="marketplace-preorder-grid" label="Marketplace Preorders">
+                    <DesktopHorizontalRail className="marketplace-preorder-grid" label="Marketplace Preorders">
                       {marketplacePreorders.map((preorder) => (<article className="marketplace-preorder-card" key={preorder.id}>
                           <img src={getArtworkUrl(preorder.cover)} alt=""/>
                           <div>
@@ -15861,7 +15821,7 @@ function PageContent() {
                             Reserve
                           </button>
                         </article>))}
-                    </HorizontalRail>
+                    </DesktopHorizontalRail>
                   </section>)}
 
                 <section className="marketplace-chart-section">
@@ -15880,7 +15840,7 @@ function PageContent() {
                 <h3>Artist Store Pages</h3>
                 <span>{marketplaceArtistStores.length} stores</span>
               </div>
-              <HorizontalRail className="artist-grid" label="Artist Store Pages">
+              <DesktopHorizontalRail className="artist-grid" label="Artist Store Pages">
                 {marketplaceArtistStores.map((artist) => (<article className="artist-card" key={`market-artist-${artist.id}`}>
                     <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
                       <img src={getArtworkUrl(artist.avatar)} alt=""/>
@@ -15900,7 +15860,7 @@ function PageContent() {
                       </button>
                     </div>
                   </article>))}
-              </HorizontalRail>
+              </DesktopHorizontalRail>
             </section>
 
             <section className="artist-section">
@@ -15908,7 +15868,7 @@ function PageContent() {
                 <h3>Producer Store Pages</h3>
                 <span>{marketplaceProducerStores.length} stores</span>
               </div>
-              <HorizontalRail className="artist-grid" label="Producer Store Pages">
+              <DesktopHorizontalRail className="artist-grid" label="Producer Store Pages">
                 {marketplaceProducerStores.map((producer) => (<article className="artist-card" key={`market-producer-${producer.id}`}>
                     <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
                       <img src={getArtworkUrl(producer.avatar)} alt=""/>
@@ -15924,7 +15884,7 @@ function PageContent() {
                       </button>
                     </div>
                   </article>))}
-              </HorizontalRail>
+              </DesktopHorizontalRail>
             </section>
 
             <section className="artist-section">
@@ -15932,7 +15892,7 @@ function PageContent() {
                 <h3>Top Producers</h3>
                 <span>{adminTopProducers.length} producers</span>
               </div>
-              <HorizontalRail className="artist-grid" label="Top Producers">
+              <DesktopHorizontalRail className="artist-grid" label="Top Producers">
                 {adminTopProducers.map((producer) => (<article className="artist-card" key={`market-top-producer-${producer.id}`}>
                     <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
                       <img src={getArtworkUrl(producer.avatar)} alt=""/>
@@ -15948,7 +15908,7 @@ function PageContent() {
                       </button>
                     </div>
                   </article>))}
-              </HorizontalRail>
+              </DesktopHorizontalRail>
             </section>
 
             <section className="artist-section">
@@ -15956,7 +15916,7 @@ function PageContent() {
                 <h3>Trending Artists</h3>
                 <span>{trendingArtists.length} artists</span>
               </div>
-              <HorizontalRail className="artist-grid" label="Marketplace Trending Artists">
+              <DesktopHorizontalRail className="artist-grid" label="Marketplace Trending Artists">
                 {trendingArtists.map((artist) => (<article className="artist-card" key={`market-trending-${artist.id}`}>
                     <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
                       <img src={getArtworkUrl(artist.avatar)} alt=""/>
@@ -15972,7 +15932,7 @@ function PageContent() {
                       </button>
                     </div>
                   </article>))}
-              </HorizontalRail>
+              </DesktopHorizontalRail>
             </section>
           </section>) : view === "Videos" && !search.trim() ? (<section className="video-page">
             {renderUploadLockNotice()}
@@ -16068,14 +16028,14 @@ function PageContent() {
             {visibleVideos.length === 0 ? (<div className="empty-state">
                 <h2>No videos found</h2>
                 <p>Upload a video here and it will appear in Video Library.</p>
-              </div>) : (<HorizontalRail className="video-grid" label="Video Library">
+              </div>) : (<DesktopHorizontalRail className="video-grid" label="Video Library">
                 {visibleVideos.map((video) => renderVideoCard(video, { showRemove: true, sourceLabel: "Video Library" }))}
-              </HorizontalRail>)}
+              </DesktopHorizontalRail>)}
           </section>) : view === "Artists" && !search.trim() ? (<section className="artist-directory">
             {mergedArtistProfiles.length === 0 ? (<div className="empty-state">
                 <h2>No artist profiles yet</h2>
                 <p>Upload songs or videos and artist profiles will appear here.</p>
-              </div>) : (<HorizontalRail className="artist-grid" label="Artists">
+              </div>) : (<DesktopHorizontalRail className="artist-grid" label="Artists">
                 {mergedArtistProfiles.map((artist) => {
                     const artistSongs = audioSongs.filter((song) => createArtistId(song.artist) === artist.id);
                     const artistVideos = uniqueVideos(videos).filter((video) => createArtistId(video.creator) === artist.id);
@@ -16107,7 +16067,7 @@ function PageContent() {
                       </div>
                     </article>);
                 })}
-              </HorizontalRail>)}
+              </DesktopHorizontalRail>)}
           </section>) : view === "Profile" && !search.trim() ? (<section className="profile-page">
             <div className="profile-hero">
               <div className="profile-avatar">
@@ -16732,9 +16692,9 @@ function PageContent() {
               {producerDashboardAlbums.length === 0 ? (<div className="dashboard-empty-card">
                   <h3>No producer albums yet</h3>
                   <p>Use Upload Album in Producer Dashboard to save a full project with songs and optional videos.</p>
-                </div>) : (<HorizontalRail className="artist-album-grid" label="Producer Dashboard Albums">
+                </div>) : (<DesktopHorizontalRail className="artist-album-grid" label="Producer Dashboard Albums">
                   {producerDashboardAlbums.map((album) => renderAlbumCard(album, "Producer Dashboard Albums"))}
-                </HorizontalRail>)}
+                </DesktopHorizontalRail>)}
             </section>
 
             <section className="dashboard-panel">
@@ -17008,9 +16968,9 @@ function PageContent() {
               {dashboardArtistAlbums.length === 0 ? (<div className="dashboard-empty-card">
                   <h3>No albums uploaded yet</h3>
                   <p>Use Upload Album in Artist Dashboard to save a full project with songs and optional videos.</p>
-                </div>) : (<HorizontalRail className="artist-album-grid" label="Artist Dashboard Albums">
+                </div>) : (<DesktopHorizontalRail className="artist-album-grid" label="Artist Dashboard Albums">
                   {dashboardArtistAlbums.map((album) => renderAlbumCard(album, "Artist Dashboard Albums"))}
-                </HorizontalRail>)}
+                </DesktopHorizontalRail>)}
             </section>
 
             <section className="dashboard-panel">
@@ -17210,9 +17170,9 @@ function PageContent() {
                   <span>{activeArtistVideos.length} videos</span>
                 </div>
 
-                {activeArtistVideos.length === 0 ? (<p className="empty-small">No videos uploaded by this artist yet.</p>) : (<HorizontalRail className="video-grid" label="Artist Profile Videos">
+                {activeArtistVideos.length === 0 ? (<p className="empty-small">No videos uploaded by this artist yet.</p>) : (<DesktopHorizontalRail className="video-grid" label="Artist Profile Videos">
                     {activeArtistVideos.map((video) => renderVideoCard(video, { sourceLabel: "Artist Profile Videos" }))}
-                  </HorizontalRail>)}
+                  </DesktopHorizontalRail>)}
               </section>
 
               <section className="artist-section">
@@ -17221,9 +17181,9 @@ function PageContent() {
                   <span>{activeArtistAlbums.length} collections</span>
                 </div>
 
-                {activeArtistAlbums.length === 0 ? (<p className="empty-small">Albums uploaded by this artist will appear here.</p>) : (<HorizontalRail className="artist-album-grid" label="Artist Profile Albums">
+                {activeArtistAlbums.length === 0 ? (<p className="empty-small">Albums uploaded by this artist will appear here.</p>) : (<DesktopHorizontalRail className="artist-album-grid" label="Artist Profile Albums">
                     {activeArtistAlbums.map((album) => renderAlbumCard(album, "Artist Profile Albums"))}
-                  </HorizontalRail>)}
+                  </DesktopHorizontalRail>)}
               </section>
 
               <section className="artist-section">
@@ -17232,7 +17192,7 @@ function PageContent() {
                   <span>{activeArtistPlaylists.length} playlists</span>
                 </div>
 
-                {activeArtistPlaylists.length === 0 ? (<p className="empty-small">Add this artist&apos;s songs or videos to a playlist and it will show here.</p>) : (<HorizontalRail className="artist-playlist-grid" label="Artist Playlists">
+                {activeArtistPlaylists.length === 0 ? (<p className="empty-small">Add this artist&apos;s songs or videos to a playlist and it will show here.</p>) : (<DesktopHorizontalRail className="artist-playlist-grid" label="Artist Playlists">
                     {activeArtistPlaylists.map((playlist) => (<button className="artist-playlist-card" key={playlist.id} onClick={() => {
                         setActivePlaylistId(playlist.id);
                         handleNav("Playlists");
@@ -17245,7 +17205,7 @@ function PageContent() {
                           </small>
                         </span>
                       </button>))}
-                  </HorizontalRail>)}
+                  </DesktopHorizontalRail>)}
               </section>
             </section>)) : view === "Producer Profile" && !search.trim() ? (!activeProducerProfile ? (<div className="empty-state">
               <h2>Producer not found</h2>
@@ -17363,9 +17323,9 @@ function PageContent() {
                   <span>{activeProducerAlbums.length} albums</span>
                 </div>
 
-                {activeProducerAlbums.length === 0 ? (<p className="empty-small">Albums uploaded by this producer will appear here.</p>) : (<HorizontalRail className="artist-album-grid" label="Producer Profile Albums">
+                {activeProducerAlbums.length === 0 ? (<p className="empty-small">Albums uploaded by this producer will appear here.</p>) : (<DesktopHorizontalRail className="artist-album-grid" label="Producer Profile Albums">
                     {activeProducerAlbums.map((album) => renderAlbumCard(album, "Producer Profile Albums"))}
-                  </HorizontalRail>)}
+                  </DesktopHorizontalRail>)}
               </section>
 
               <section className="artist-section">
@@ -17691,7 +17651,7 @@ function PageContent() {
                       <span>{libraryContentSongs.length} tracks</span>
                     </div>
 
-                    {libraryContentSongs.length === 0 ? (<p className="empty-small">No songs available yet.</p>) : (<HorizontalRail className="song-grid" label="Library Songs">
+                    {libraryContentSongs.length === 0 ? (<p className="empty-small">No songs available yet.</p>) : (<DesktopHorizontalRail className="song-grid" label="Library Songs">
                         {libraryContentSongs.map((song) => {
                             const isSaved = libraryIds.includes(song.id);
                             const isLiked = likedIds.includes(song.id);
@@ -17768,7 +17728,7 @@ function PageContent() {
                               </div>
                             </article>);
                         })}
-                      </HorizontalRail>)}
+                      </DesktopHorizontalRail>)}
                   </section>)}
 
                 {libraryTab === "Videos" && (<section className="artist-section">
@@ -17777,9 +17737,9 @@ function PageContent() {
                       <span>{libraryContentVideos.length} videos</span>
                     </div>
 
-                    {libraryContentVideos.length === 0 ? (<p className="empty-small">No videos available yet.</p>) : (<HorizontalRail className="video-grid" label="Library Videos">
+                    {libraryContentVideos.length === 0 ? (<p className="empty-small">No videos available yet.</p>) : (<DesktopHorizontalRail className="video-grid" label="Library Videos">
                         {libraryContentVideos.map((video) => renderVideoCard(video, { isLibraryCard: true, sourceLabel: "Library Videos" }))}
-                      </HorizontalRail>)}
+                      </DesktopHorizontalRail>)}
                   </section>)}
 
                 {libraryTab === "Albums" && (<section className="artist-section">
@@ -17788,9 +17748,9 @@ function PageContent() {
                       <span>{libraryAlbums.length} albums</span>
                     </div>
 
-                    {libraryAlbums.length === 0 ? (<p className="empty-small">No saved albums yet.</p>) : (<HorizontalRail className="artist-album-grid" label="Library Albums">
+                    {libraryAlbums.length === 0 ? (<p className="empty-small">No saved albums yet.</p>) : (<DesktopHorizontalRail className="artist-album-grid" label="Library Albums">
                         {libraryAlbums.map((album) => renderAlbumCard(album, "Library Albums"))}
-                      </HorizontalRail>)}
+                      </DesktopHorizontalRail>)}
                   </section>)}
               </section>) : null}
           </section>) : view === "Liked" && !search.trim() ? (<section className="liked-page">
@@ -17810,7 +17770,7 @@ function PageContent() {
                       <span>{likedSongs.length} songs</span>
                     </div>
 
-                    {likedSongs.length === 0 ? (<p className="empty-small">No liked songs yet.</p>) : (<HorizontalRail className="song-grid" label="Liked Songs">
+                    {likedSongs.length === 0 ? (<p className="empty-small">No liked songs yet.</p>) : (<DesktopHorizontalRail className="song-grid" label="Liked Songs">
                         {likedSongs.map((song) => {
                             const artistId = createArtistId(song.artist);
                             const isFollowed = followedArtistIds.includes(artistId);
@@ -17860,7 +17820,7 @@ function PageContent() {
                               </div>
                             </article>);
                         })}
-                      </HorizontalRail>)}
+                      </DesktopHorizontalRail>)}
                   </section>)}
 
                 {(likedTab === "All" || likedTab === "Videos") && (<section className="artist-section">
@@ -17869,9 +17829,9 @@ function PageContent() {
                       <span>{likedVideos.length} videos</span>
                     </div>
 
-                    {likedVideos.length === 0 ? (<p className="empty-small">No liked videos yet.</p>) : (<HorizontalRail className="video-grid" label="Liked Videos">
+                    {likedVideos.length === 0 ? (<p className="empty-small">No liked videos yet.</p>) : (<DesktopHorizontalRail className="video-grid" label="Liked Videos">
                         {likedVideos.map((video) => renderVideoCard(video, { unlikeLabel: "Liked", sourceLabel: "Liked Videos" }))}
-                      </HorizontalRail>)}
+                      </DesktopHorizontalRail>)}
                   </section>)}
 
                 {likedTab === "All" && likedArtists.length > 0 && (<section className="artist-section">
@@ -17879,7 +17839,7 @@ function PageContent() {
                       <h3>Liked Artists</h3>
                       <span>{likedArtists.length} artists</span>
                     </div>
-                    <HorizontalRail className="artist-grid" label="Liked Artists">
+                    <DesktopHorizontalRail className="artist-grid" label="Liked Artists">
                       {likedArtists.map((artist) => (<article className="artist-card" key={artist.id}>
                           <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
                             <img src={getArtworkUrl(artist.avatar)} alt=""/>
@@ -17899,7 +17859,7 @@ function PageContent() {
                             </button>
                           </div>
                         </article>))}
-                    </HorizontalRail>
+                    </DesktopHorizontalRail>
                   </section>)}
               </section>)}
           </section>) : view === "Following" && !search.trim() ? (followingSongs.length === 0 && followingVideos.length === 0 ? (<div className="empty-state">
@@ -17912,7 +17872,7 @@ function PageContent() {
                   <span>{followingSongs.length} tracks</span>
                 </div>
 
-                {followingSongs.length === 0 ? (<p className="empty-small">Followed artists have not uploaded songs yet.</p>) : (<HorizontalRail className="song-grid" label="Following Songs">
+                {followingSongs.length === 0 ? (<p className="empty-small">Followed artists have not uploaded songs yet.</p>) : (<DesktopHorizontalRail className="song-grid" label="Following Songs">
                     {followingSongs.map((song) => {
                     const isLiked = likedIds.includes(song.id);
                     const artistId = createArtistId(song.artist);
@@ -17951,7 +17911,7 @@ function PageContent() {
                           </div>
                         </article>);
                 })}
-                  </HorizontalRail>)}
+                  </DesktopHorizontalRail>)}
               </section>
 
               <section className="artist-section">
@@ -17960,9 +17920,9 @@ function PageContent() {
                   <span>{followingVideos.length} videos</span>
                 </div>
 
-                {followingVideos.length === 0 ? (<p className="empty-small">Followed artists have not uploaded videos yet.</p>) : (<HorizontalRail className="video-grid" label="Following Videos">
+                {followingVideos.length === 0 ? (<p className="empty-small">Followed artists have not uploaded videos yet.</p>) : (<DesktopHorizontalRail className="video-grid" label="Following Videos">
                     {followingVideos.map((video) => renderVideoCard(video, { sourceLabel: "Following Videos" }))}
-                  </HorizontalRail>)}
+                  </DesktopHorizontalRail>)}
               </section>
             </section>)) : visibleSongs.length === 0 &&
             inlineVideos.length === 0 &&
@@ -17978,9 +17938,9 @@ function PageContent() {
                   <h3>Album Results</h3>
                   <span>{visibleAlbums.length} albums</span>
                 </div>
-                <HorizontalRail className="artist-album-grid" label="Album Search Results">
+                <DesktopHorizontalRail className="artist-album-grid" label="Album Search Results">
                   {visibleAlbums.map((album) => renderAlbumCard(album, "Search Album Results"))}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {searchArtistResults.length > 0 && (<section className="artist-section">
@@ -17988,7 +17948,7 @@ function PageContent() {
                   <h3>Artist Results</h3>
                   <span>{searchArtistResults.length} artists</span>
                 </div>
-                <HorizontalRail className="artist-grid" label="Artist Search Results">
+                <DesktopHorizontalRail className="artist-grid" label="Artist Search Results">
                   {searchArtistResults.map((artist) => (<article className="artist-card" key={artist.id}>
                       <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
                         <img src={getArtworkUrl(artist.avatar)} alt=""/>
@@ -18008,7 +17968,7 @@ function PageContent() {
                         </button>
                       </div>
                     </article>))}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {searchProducerResults.length > 0 && (<section className="artist-section">
@@ -18016,7 +17976,7 @@ function PageContent() {
                   <h3>Producer Results</h3>
                   <span>{searchProducerResults.length} producers</span>
                 </div>
-                <HorizontalRail className="artist-grid" label="Producer Search Results">
+                <DesktopHorizontalRail className="artist-grid" label="Producer Search Results">
                   {searchProducerResults.map((producer) => (<article className="artist-card" key={producer.id}>
                       <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
                         <img src={getArtworkUrl(producer.avatar)} alt=""/>
@@ -18032,7 +17992,7 @@ function PageContent() {
                         </button>
                       </div>
                     </article>))}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {searchPlaylistResults.length > 0 && (<section className="artist-section">
@@ -18040,7 +18000,7 @@ function PageContent() {
                   <h3>Playlist Results</h3>
                   <span>{searchPlaylistResults.length} playlists</span>
                 </div>
-                <HorizontalRail className="artist-playlist-grid" label="Playlist Search Results">
+                <DesktopHorizontalRail className="artist-playlist-grid" label="Playlist Search Results">
                   {searchPlaylistResults.map((playlist) => (<button className="artist-playlist-card" key={playlist.id} onClick={() => {
                         setActivePlaylistId(playlist.id);
                         setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
@@ -18052,7 +18012,7 @@ function PageContent() {
                         <small>{getPlaylistSummary(playlist)}</small>
                       </span>
                     </button>))}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {inlineVideos.length > 0 && (<section className="artist-section">
@@ -18060,11 +18020,11 @@ function PageContent() {
                   <h3>{search.trim() ? "Video Results" : view === "Library" ? "Videos" : "Trending Videos"}</h3>
                   <span>{inlineVideos.length} videos</span>
                 </div>
-                <HorizontalRail className="video-grid" label="Video Search Results">
+                <DesktopHorizontalRail className="video-grid" label="Video Search Results">
                   {inlineVideos.map((video) => renderVideoCard(video, view === "Library" && !search.trim()
                     ? { isLibraryCard: true, sourceLabel: "Library Videos" }
                     : { sourceLabel: search.trim() ? "Search Video Results" : "Trending Videos" }))}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
 
             {visibleSongs.length > 0 && (<section className="artist-section">
@@ -18072,7 +18032,7 @@ function PageContent() {
                     <h3>Song Results</h3>
                     <span>{visibleSongs.length} songs</span>
                   </div>)}
-                <HorizontalRail className="song-grid" label={search.trim() ? "Song Search Results" : "Songs"}>
+                <DesktopHorizontalRail className="song-grid" label={search.trim() ? "Song Search Results" : "Songs"}>
                   {visibleSongs.map((song) => {
                     const isSaved = libraryIds.includes(song.id);
                     const isLiked = likedIds.includes(song.id);
@@ -18159,7 +18119,7 @@ function PageContent() {
                   </div>
                 </article>);
                 })}
-                </HorizontalRail>
+                </DesktopHorizontalRail>
               </section>)}
           </>)}
       </section>
@@ -18934,6 +18894,8 @@ function PageContent() {
             width: calc(100% - 188px);
             padding: 14px 14px 154px;
           }
+
+          ${DESKTOP_CONTENT_SCROLL_CSS}
 
           .mobile-player-spacer {
             display: none;
