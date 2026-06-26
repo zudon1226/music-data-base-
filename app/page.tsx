@@ -5723,21 +5723,29 @@ function PageContent() {
         if (initialDataLoadedKeyRef.current === loadKey || initialDataLoadInFlightKeyRef.current === loadKey)
             return;
         initialDataLoadInFlightKeyRef.current = loadKey;
-        void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions)
+        void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions, {
+            supabase,
+            readAuthSession: () => authSessionRef.current,
+        })
             .then((result) => {
+                if (result.deferred) {
+                    initialDataLoadInFlightKeyRef.current = "";
+                    return;
+                }
                 if (result.failedSteps.length > 0) {
                     console.warn(`[desktop-bootstrap] steps with failures: ${result.failedSteps.join(", ")}`);
                 }
                 if (result.userMusicStateOutcome) {
                     console.info(`[desktop-bootstrap] userMusicState outcome: ${result.userMusicStateOutcome}`);
                 }
+                initialDataLoadedKeyRef.current = loadKey;
             })
             .catch((error) => {
                 console.error("[desktop-bootstrap] queue failed", error);
                 initialDataReloadRef.current.showLibraryFailureToast();
+                initialDataLoadedKeyRef.current = loadKey;
             })
             .finally(() => {
-                initialDataLoadedKeyRef.current = loadKey;
                 if (initialDataLoadInFlightKeyRef.current === loadKey)
                     initialDataLoadInFlightKeyRef.current = "";
             });

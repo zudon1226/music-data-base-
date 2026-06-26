@@ -1,4 +1,4 @@
-/** DESKTOP ONLY — compatibility re-exports for the authenticated request pipeline. */
+/** DESKTOP ONLY — compatibility re-exports for the unified auth bootstrap flow. */
 
 export {
     assertDesktopRelativeApiPath,
@@ -17,4 +17,4 @@ export {
     type DesktopProtectedActionClientConfig,
     type DesktopProtectedActionFetch,
     type DesktopProtectedActionFetchInit,
-} from "./desktop-authenticated-request-pipeline";
+} from "./desktop-auth-bootstrap-flow";

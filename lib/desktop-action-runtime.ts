@@ -1,16 +1,14 @@
 /** DESKTOP ONLY — live session runtime for protected actions, profile display, and delete access. */
 
 import type { Session, SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js";
+import {
+    createDesktopAuthBootstrapRuntime,
+    type DesktopAuthBootstrapConfig,
+} from "./desktop-auth-bootstrap-flow";
 import { readAccessTokenFromSession } from "./desktop-auth-recovery-gate";
 import { isOversizedBearerToken } from "./session-token-limits";
-import {
-    createDesktopAuthenticatedFetch,
-} from "./desktop-authenticated-request-pipeline";
 
-export type DesktopActionRuntimeConfig = {
-    supabase: SupabaseClient;
-    readAuthSession: () => Session | null;
-};
+export type DesktopActionRuntimeConfig = DesktopAuthBootstrapConfig;
 
 export type DesktopProfileDisplayInput = {
     profileDisplayName?: string;
@@ -184,13 +182,12 @@ export function canDeleteDesktopUploadedItem(input: DesktopUploadDeleteAccessInp
 }
 
 export function createDesktopActionRuntime(config: DesktopActionRuntimeConfig) {
-    const fetch = createDesktopAuthenticatedFetch({
-        supabase: config.supabase,
-        readAuthSession: config.readAuthSession,
-    });
+    const bootstrapRuntime = createDesktopAuthBootstrapRuntime(config);
 
     return {
-        fetch,
+        fetch: bootstrapRuntime.fetch,
+        waitForApiCredentials: bootstrapRuntime.waitForApiCredentials,
+        resolveCredentials: bootstrapRuntime.resolveCredentials,
         readAuthSession: config.readAuthSession,
         readAccessToken: () => readDesktopActionBearerToken(config.readAuthSession()),
         resolveUserId: (input: DesktopActionIdentityInput = {}) => resolveDesktopActionUserId({
@@ -202,4 +199,4 @@ export function createDesktopActionRuntime(config: DesktopActionRuntimeConfig) {
 }
 
 export type DesktopActionRuntime = ReturnType<typeof createDesktopActionRuntime>;
-export type { DesktopAuthenticatedFetch as DesktopProtectedActionFetch } from "./desktop-authenticated-request-pipeline";
+export type { DesktopAuthenticatedFetch as DesktopProtectedActionFetch } from "./desktop-auth-bootstrap-flow";
