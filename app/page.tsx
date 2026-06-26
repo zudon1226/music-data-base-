@@ -6,8 +6,9 @@ import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
-import { ACCESS_TOKEN_SOURCE, authFetch, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
+import { ACCESS_TOKEN_SOURCE, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { canRenderDesktopApplicationShell, runDesktopRemoteBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
+import { canDeleteDesktopUploadedItem, createDesktopProtectedActionFetch, resolveDesktopActionUserId } from "../lib/desktop-protected-action-bindings";
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
@@ -3527,6 +3528,11 @@ function PageContent() {
         confirmAuthenticatedFromApi,
         signOut: signOutFromAuthState,
     } = useDesktopAuthState();
+    const desktopActionFetch = useMemo(
+        () => createDesktopProtectedActionFetch(supabase, authSession),
+        [authSession],
+    );
+    const desktopActionUserId = resolveDesktopActionUserId(accountUserId, user?.id || activeUser?.id || "");
     const [authMode, setAuthMode] = useState<AuthMode>("login");
     const [authEmail, setAuthEmail] = useState("");
     const [authPassword, setAuthPassword] = useState("");
@@ -5239,7 +5245,7 @@ function PageContent() {
         }
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/playlists?userId=${encodeURIComponent(playlistUserId)}`, { cache: "no-store", requireSession: true });
+            response = await desktopActionFetch(`/api/playlists?userId=${encodeURIComponent(playlistUserId)}`, { cache: "no-store", requireAuth: true });
         }
         catch (error) {
             if (!(error instanceof Error && error.message === SESSION_EXPIRED_MESSAGE)) {
@@ -5303,7 +5309,7 @@ function PageContent() {
         const albumsQuery = `?userId=${encodeURIComponent(recentUserId)}`;
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/albums${albumsQuery}`, { cache: "no-store", requireSession: true });
+            response = await desktopActionFetch(`/api/albums${albumsQuery}`, { cache: "no-store", requireAuth: true });
         }
         catch {
             return albums;
@@ -5325,18 +5331,18 @@ function PageContent() {
         return reloadAlbumsFromSupabase(userIdOverride);
     }
     async function reloadArtistFollowsFromSupabase() {
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             setFollowedArtistIds([]);
             return [];
         }
         const artistIds = uniqueIds(mergedArtistProfiles.map((artist) => artist.id));
         const query = new URLSearchParams({
-            userId: user.id,
+            userId: desktopActionUserId,
             artistIds: artistIds.join(","),
         });
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/artist-follows?${query.toString()}`, { cache: "no-store" });
+            response = await desktopActionFetch(`/api/artist-follows?${query.toString()}`, { cache: "no-store" });
         }
         catch {
             return followedArtistIds;
@@ -5357,11 +5363,11 @@ function PageContent() {
         return ids;
     }
     async function reloadSongLikesFromSupabase() {
-        if (!user?.id)
+        if (!desktopActionUserId)
             return [];
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/song-likes?userId=${encodeURIComponent(user.id)}`, { cache: "no-store", requireSession: true });
+            response = await desktopActionFetch(`/api/song-likes?userId=${encodeURIComponent(desktopActionUserId)}`, { cache: "no-store", requireAuth: true });
         }
         catch {
             return likedIds;
@@ -5394,9 +5400,9 @@ function PageContent() {
 
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/library-saves?userId=${encodeURIComponent(libraryUserId)}`, {
+            response = await desktopActionFetch(`/api/library-saves?userId=${encodeURIComponent(libraryUserId)}`, {
                 cache: "no-store",
-                requireSession: true,
+                requireAuth: true,
             });
         }
         catch (error) {
@@ -5527,7 +5533,7 @@ function PageContent() {
         if (!userId) {
             return { metadataChanged: false };
         }
-        const response = await authFetch(supabase, "/api/user-profile", {
+        const response = await desktopActionFetch("/api/user-profile", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -5554,7 +5560,7 @@ function PageContent() {
         }
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, { cache: "no-store" });
+            response = await desktopActionFetch(`/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, { cache: "no-store" });
         }
         catch {
             return null;
@@ -5610,7 +5616,7 @@ function PageContent() {
         }
         let response: Response;
         try {
-            response = await authFetch(supabase, `/api/user-music-state?userId=${encodeURIComponent(accountUserId)}`, { cache: "no-store", requireSession: true });
+            response = await desktopActionFetch(`/api/user-music-state?userId=${encodeURIComponent(accountUserId)}`, { cache: "no-store", requireAuth: true });
         }
         catch {
             return null;
@@ -5817,8 +5823,8 @@ function PageContent() {
             return;
         remoteMusicStateSaveSnapshotRef.current = remoteMusicStateSaveBody;
         const timer = window.setTimeout(() => {
-            authFetch(supabase, "/api/user-music-state", {
-                requireSession: true,
+            desktopActionFetch("/api/user-music-state", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: remoteMusicStateSaveBody,
@@ -8909,18 +8915,18 @@ function PageContent() {
         return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
     }
     async function saveLibraryItem(item: Song | VideoItem | Album | ResolvedAlbum, itemType: "song" | "video" | "album") {
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before saving to Library.", "error");
             return false;
         }
         try {
             const payload = {
-                user_id: user.id,
+                user_id: desktopActionUserId,
                 item_id: item.id,
                 item_type: itemType,
             };
-            const response = await authFetch(supabase, "/api/library/save", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/library/save", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -8956,16 +8962,16 @@ function PageContent() {
         }
     }
     async function removeLibraryItem(itemId: string, itemType: "song" | "video" | "album") {
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before removing from Library.", "error");
             return false;
         }
         try {
-            const response = await authFetch(supabase, "/api/library-saves", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/library-saves", {
+                requireAuth: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, itemId, itemType }),
+                body: JSON.stringify({ userId: desktopActionUserId, itemId, itemType }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -9025,8 +9031,8 @@ function PageContent() {
         if (!user?.id) {
             return video;
         }
-        const response = await authFetch(supabase, "/api/video-upload", {
-            requireSession: true,
+        const response = await desktopActionFetch("/api/video-upload", {
+            requireAuth: true,
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -9093,23 +9099,39 @@ function PageContent() {
         await removeLibraryItem(albumId, "album");
     }
     function canDeleteUploadedSong(song: Song) {
-        return Boolean(isDatabaseUuid(song.id) && (isPlatformOwner || (accountUserId && song.ownerId === accountUserId)));
+        return canDeleteDesktopUploadedItem({
+            itemId: song.id,
+            ownerUserId: song.ownerId,
+            producerUserId: song.producerId,
+            producerProfileId: song.producerId,
+            artistName: song.artist,
+            accountUserId,
+            isAuthenticated,
+            isPlatformOwner,
+            currentProducerProfileId: currentProducerProfile.id,
+            selectedArtistProfileId: selectedDashboardArtist?.id,
+            resolveArtistId: createArtistId,
+            isDatabaseUuid,
+        });
     }
     function canDeleteUploadedVideo(video: VideoItem) {
-        if (isPlatformOwner)
+        if (isPlatformOwner) {
             return isDatabaseUuid(video.id) || video.id.startsWith("storage-");
-        if (!isDatabaseUuid(video.id))
-            return false;
-        if (!accountUserId)
-            return false;
-        return (video.ownerId === accountUserId ||
-            video.artistId === accountUserId ||
-            video.producerId === accountUserId ||
-            video.producerProfileId === accountUserId ||
-            (Boolean(currentProducerProfile.id) &&
-                (video.producerId === currentProducerProfile.id ||
-                    video.producerProfileId === currentProducerProfile.id)) ||
-            (Boolean(selectedDashboardArtist?.id) && video.artistId === selectedDashboardArtist.id));
+        }
+        return canDeleteDesktopUploadedItem({
+            itemId: video.id,
+            ownerUserId: video.ownerId,
+            producerUserId: video.producerId || video.producerProfileId,
+            producerProfileId: video.producerId || video.producerProfileId,
+            artistProfileId: video.artistId,
+            accountUserId,
+            isAuthenticated,
+            isPlatformOwner,
+            currentProducerProfileId: currentProducerProfile.id,
+            selectedArtistProfileId: selectedDashboardArtist?.id,
+            resolveArtistId: createArtistId,
+            isDatabaseUuid,
+        });
     }
     function canDeleteUploadedAlbum(album: ResolvedAlbum) {
         return Boolean(isDatabaseUuid(album.id) &&
@@ -9362,7 +9384,7 @@ function PageContent() {
         });
     }
     async function toggleLike(songId: string) {
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before liking songs.", "error");
             return;
         }
@@ -9375,11 +9397,11 @@ function PageContent() {
         setLikedIds(nextLikedIds);
         setSongs((previous) => previous.map((item) => (item.id === songId ? { ...item, likes: optimisticLikes } : item)));
         try {
-            const response = await authFetch(supabase, "/api/song-likes", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/song-likes", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ songId, userId: user.id, like: !wasLiked }),
+                body: JSON.stringify({ songId, userId: desktopActionUserId, like: !wasLiked }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -9423,7 +9445,7 @@ function PageContent() {
         setView("Artist Profile");
     }
     async function toggleArtistFollow(artistId: string, artistName?: string) {
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before following artists.", "error");
             return;
         }
@@ -9439,15 +9461,15 @@ function PageContent() {
             [artistId]: Math.max(0, (previous[artistId] || 0) + (wasFollowing ? -1 : 1)),
         }));
         try {
-            const response = await authFetch(supabase, "/api/artist-follow", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/artist-follow", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     artistId,
                     artistName: name,
                     follow: !wasFollowing,
-                    userId: user.id,
+                    userId: desktopActionUserId,
                 }),
             });
             const data = (await response.json().catch(() => ({}))) as {
@@ -9515,7 +9537,7 @@ function PageContent() {
             showToast("Queue is empty.", "info");
             return;
         }
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before saving a queue playlist.", "error");
             return;
         }
@@ -9537,12 +9559,12 @@ function PageContent() {
         setActivePlaylistId(playlist.id);
         setPlaylistContentTab("Songs");
         try {
-            const response = await authFetch(supabase, "/api/playlists", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/playlists", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    userId: user.id,
+                    userId: desktopActionUserId,
                     id: playlist.id,
                     name: playlist.name,
                     cover: playlist.cover,
@@ -9559,11 +9581,11 @@ function PageContent() {
             }
             const savedPlaylist = data.playlist as Playlist;
             setPlaylists((previous) => previous.map((item) => (item.id === playlist.id ? { ...savedPlaylist, songIds: playlist.songIds, videoIds: [] } : item)));
-            await Promise.all(cleanQueue.map((song) => authFetch(supabase, "/api/playlist-items", {
-                requireSession: true,
+            await Promise.all(cleanQueue.map((song) => desktopActionFetch("/api/playlist-items", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, playlistId: savedPlaylist.id, itemId: song.id, itemType: "song" }),
+                body: JSON.stringify({ userId: desktopActionUserId, playlistId: savedPlaylist.id, itemId: song.id, itemType: "song" }),
             })));
             setActivePlaylistId(savedPlaylist.id);
             showToast("Queue saved as playlist.", "success");
@@ -9580,7 +9602,7 @@ function PageContent() {
             alert("Name the playlist first.");
             return;
         }
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before creating playlists.", "error");
             return;
         }
@@ -9601,12 +9623,12 @@ function PageContent() {
         setPlaylistForm({ name: "", cover: "", playlistType: "mixed" });
         setView("Playlists");
         try {
-            const response = await authFetch(supabase, "/api/playlists", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/playlists", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    userId: user.id,
+                    userId: desktopActionUserId,
                     id: playlist.id,
                     name: playlist.name,
                     cover: playlist.cover,
@@ -9645,14 +9667,14 @@ function PageContent() {
             return;
         const previousName = playlist.name;
         updatePlaylist(playlistId, { name: nextName });
-        if (!user?.id || !isUuid(playlistId))
+        if (!desktopActionUserId || !isUuid(playlistId))
             return;
         try {
-            const response = await authFetch(supabase, "/api/playlists", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/playlists", {
+                requireAuth: true,
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, playlistId, name: nextName }),
+                body: JSON.stringify({ userId: desktopActionUserId, playlistId, name: nextName }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 playlist?: Playlist;
@@ -9683,16 +9705,16 @@ function PageContent() {
             return;
         setPlaylists((previous) => previous.filter((item) => item.id !== playlistId));
         setActivePlaylistId((previous) => (previous === playlistId ? "" : previous));
-        if (!user?.id || !isUuid(playlistId)) {
+        if (!desktopActionUserId || !isUuid(playlistId)) {
             showToast("Playlist deleted.", "success");
             return;
         }
         try {
-            const response = await authFetch(supabase, "/api/playlists", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/playlists", {
+                requireAuth: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, playlistId }),
+                body: JSON.stringify({ userId: desktopActionUserId, playlistId }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -9710,14 +9732,14 @@ function PageContent() {
         }
     }
     function openPlaylistMenu(song: Song) {
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before adding songs to playlists.", "error");
             return;
         }
         setPlaylistTarget({ type: "song", item: song });
     }
     function openVideoPlaylistMenu(video: VideoItem) {
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before adding videos to playlists.", "error");
             return;
         }
@@ -9815,7 +9837,7 @@ function PageContent() {
             showToast("Choose a playlist and song first.", "error");
             return;
         }
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before adding songs to playlists.", "error");
             return;
         }
@@ -9842,11 +9864,11 @@ function PageContent() {
             return;
         }
         try {
-            const response = await authFetch(supabase, "/api/playlist-items", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/playlist-items", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, playlistId, itemId: songId, itemType: "song" }),
+                body: JSON.stringify({ userId: desktopActionUserId, playlistId, itemId: songId, itemType: "song" }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -9875,7 +9897,7 @@ function PageContent() {
             showToast("Choose a playlist and video first.", "error");
             return;
         }
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before adding videos to playlists.", "error");
             return;
         }
@@ -9902,11 +9924,11 @@ function PageContent() {
             return;
         }
         try {
-            const response = await authFetch(supabase, "/api/playlist-items", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/playlist-items", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, playlistId, itemId: videoId, itemType: "video" }),
+                body: JSON.stringify({ userId: desktopActionUserId, playlistId, itemId: videoId, itemType: "video" }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -9935,7 +9957,7 @@ function PageContent() {
             showToast("Choose a playlist and album first.", "error");
             return;
         }
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before adding albums to playlists.", "error");
             return;
         }
@@ -9986,11 +10008,11 @@ function PageContent() {
             const requests = [
                 ...songIdsToAdd.map((songId) => ({ itemId: songId, itemType: "song" as const })),
                 ...videoIdsToAdd.map((videoId) => ({ itemId: videoId, itemType: "video" as const })),
-            ].map((item) => authFetch(supabase, "/api/playlist-items", {
-                requireSession: true,
+            ].map((item) => desktopActionFetch("/api/playlist-items", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, playlistId, itemId: item.itemId, itemType: item.itemType }),
+                body: JSON.stringify({ userId: desktopActionUserId, playlistId, itemId: item.itemId, itemType: item.itemType }),
             }));
             const responses = await Promise.all(requests);
             const failedResponse = responses.find((response) => !response.ok);
@@ -10036,14 +10058,14 @@ function PageContent() {
                 updatedAt: new Date().toISOString(),
             }
             : item));
-        if (!user?.id || !isUuid(playlistId))
+        if (!desktopActionUserId || !isUuid(playlistId))
             return;
         try {
-            const response = await authFetch(supabase, "/api/playlist-items", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/playlist-items", {
+                requireAuth: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, playlistId, itemId: songId, itemType: "song" }),
+                body: JSON.stringify({ userId: desktopActionUserId, playlistId, itemId: songId, itemType: "song" }),
             });
             const data = (await response.json().catch(() => ({}))) as { error?: string };
             if (!response.ok) {
@@ -10074,14 +10096,14 @@ function PageContent() {
                 updatedAt: new Date().toISOString(),
             }
             : item));
-        if (!user?.id || !isUuid(playlistId))
+        if (!desktopActionUserId || !isUuid(playlistId))
             return;
         try {
-            const response = await authFetch(supabase, "/api/playlist-items", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/playlist-items", {
+                requireAuth: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id, playlistId, itemId: videoId, itemType: "video" }),
+                body: JSON.stringify({ userId: desktopActionUserId, playlistId, itemId: videoId, itemType: "video" }),
             });
             const data = (await response.json().catch(() => ({}))) as { error?: string };
             if (!response.ok) {
@@ -11176,13 +11198,14 @@ function PageContent() {
         const previousBeats = producerBeats;
         setProducerBeats((previous) => previous.filter((item) => item.id !== beat.id));
         try {
-            const response = await fetch("/api/producers", {
+            const response = await desktopActionFetch("/api/producers", {
+                requireAuth: true,
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     action: "delete-beat",
                     id: beat.id,
-                    userId: accountUserId || "",
+                    userId: desktopActionUserId,
                 }),
             });
             const data = (await response.json().catch(() => ({}))) as {
@@ -11368,8 +11391,8 @@ function PageContent() {
         releaseDate: string;
     };
     async function createAlbumRowInSupabase(payload: AlbumSavePayload) {
-        const response = await authFetch(supabase, "/api/albums/create", {
-            requireSession: true,
+        const response = await desktopActionFetch("/api/albums/create", {
+            requireAuth: true,
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -11403,8 +11426,8 @@ function PageContent() {
         if (!albumId || !isUuid(albumId)) {
             throw new Error("Album id is required before saving album items.");
         }
-        const response = await authFetch(supabase, "/api/albums/items", {
-            requireSession: true,
+        const response = await desktopActionFetch("/api/albums/items", {
+            requireAuth: true,
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ albumId, userId, items }),
@@ -11788,7 +11811,7 @@ function PageContent() {
         playVideo(list[nextIndex], "Video Player Controls");
     }
     async function toggleVideoLike(video: VideoItem) {
-        if (!user?.id) {
+        if (!desktopActionUserId) {
             showToast("Log in before liking videos.", "error");
             return;
         }
@@ -11798,10 +11821,11 @@ function PageContent() {
         setVideos((previous) => previous.map((item) => item.id === video.id ? { ...item, likes: optimisticLikes, likedByUser: shouldLike } : item));
         setActiveVideo((previous) => previous?.id === video.id ? { ...previous, likes: optimisticLikes, likedByUser: shouldLike } : previous);
         try {
-            const response = await fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+            const response = await desktopActionFetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+                requireAuth: true,
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ like: shouldLike, userId: user.id }),
+                body: JSON.stringify({ like: shouldLike, userId: desktopActionUserId }),
             });
             const data = (await response.json().catch(() => ({}))) as {
                 error?: string;
@@ -11870,7 +11894,10 @@ function PageContent() {
         };
         purgeDeletedVideoFromUi(videoId);
         try {
-            const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}?userId=${encodeURIComponent(accountUserId || "")}`, { method: "DELETE" });
+            const response = await desktopActionFetch(`/api/videos/${encodeURIComponent(videoId)}?userId=${encodeURIComponent(desktopActionUserId)}`, {
+                requireAuth: true,
+                method: "DELETE",
+            });
             if (!response.ok) {
                 const data = (await response.json().catch(() => ({}))) as {
                     error?: string;
@@ -12064,7 +12091,8 @@ function PageContent() {
             activeMediaType,
         };
         try {
-            const response = await fetch(`/api/songs/${encodeURIComponent(songId)}?userId=${encodeURIComponent(accountUserId)}`, {
+            const response = await desktopActionFetch(`/api/songs/${encodeURIComponent(songId)}?userId=${encodeURIComponent(desktopActionUserId)}`, {
+                requireAuth: true,
                 method: "DELETE",
             });
             if (!response.ok) {
@@ -12617,8 +12645,8 @@ function PageContent() {
             : album));
         cancelEditingAlbum();
         try {
-            const response = await authFetch(supabase, "/api/albums", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/albums", {
+                requireAuth: true,
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -12671,8 +12699,8 @@ function PageContent() {
         setSavedAlbumIds((previous) => uniqueIds(previous).filter((id) => id !== albumId));
         setPlaylistTarget((target) => (target?.type === "album" && target.item.id === albumId ? null : target));
         try {
-            const response = await authFetch(supabase, "/api/albums", {
-                requireSession: true,
+            const response = await desktopActionFetch("/api/albums", {
+                requireAuth: true,
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: albumId, userId: accountUserId || "" }),
