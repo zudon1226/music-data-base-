@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
     bindDesktopLibraryCardRailScroll,
     DESKTOP_LIBRARY_CARD_RAIL_CSS,
@@ -13,16 +13,24 @@ type DesktopLibraryCardRailProps = {
     label: string;
 };
 
-/** DESKTOP ONLY — Library horizontal card rail with native horizontal scroll controls. */
+/** DESKTOP ONLY — Library horizontal card rail; wheel routing lives on the content scroll root. */
 export function DesktopLibraryCardRail({
     children,
     className,
     label,
 }: DesktopLibraryCardRailProps) {
     const trackRef = useRef<HTMLElement | null>(null);
+    const detachDragRef = useRef<(() => void) | null>(null);
 
-    useEffect(() => {
-        return bindDesktopLibraryCardRailScroll(trackRef.current);
+    const bindTrack = useCallback((node: HTMLElement | null) => {
+        trackRef.current = node;
+        detachDragRef.current?.();
+        detachDragRef.current = node ? bindDesktopLibraryCardRailScroll(node) : null;
+    }, []);
+
+    useEffect(() => () => {
+        detachDragRef.current?.();
+        detachDragRef.current = null;
     }, []);
 
     function scrollByCard(direction: -1 | 1) {
@@ -42,7 +50,7 @@ export function DesktopLibraryCardRail({
                 <button className="rail-arrow rail-arrow-left" onClick={() => scrollByCard(-1)} type="button" aria-label={`Scroll ${label} left`}>
                     <span aria-hidden="true">{"<"}</span>
                 </button>
-                <section ref={trackRef} className={`horizontal-rail-track ${className}`} tabIndex={0}>
+                <section ref={bindTrack} className={`horizontal-rail-track ${className}`} tabIndex={0}>
                     {children}
                 </section>
                 <button className="rail-arrow rail-arrow-right" onClick={() => scrollByCard(1)} type="button" aria-label={`Scroll ${label} right`}>
