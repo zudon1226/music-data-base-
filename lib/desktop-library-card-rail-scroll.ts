@@ -6,13 +6,13 @@ export const DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS = "desktop-library-card-rail";
 
 export const DESKTOP_LIBRARY_CARD_RAIL_CSS = `
   @media (min-width: ${DESKTOP_LIBRARY_CARD_RAIL_MIN_WIDTH_PX}px) {
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail {
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail {
       width: 100%;
       min-width: 0;
       overflow: visible;
     }
 
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track {
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track {
       min-width: 0;
       width: 100%;
       max-width: none;
@@ -26,27 +26,27 @@ export const DESKTOP_LIBRARY_CARD_RAIL_CSS = `
       cursor: grab;
     }
 
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.is-drag-scrolling {
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.is-drag-scrolling {
       cursor: grabbing;
       scroll-behavior: auto;
       user-select: none;
     }
 
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.song-grid,
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.video-grid,
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.artist-album-grid {
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.song-grid,
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.video-grid,
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.artist-album-grid {
       display: grid;
       grid-auto-flow: column;
       grid-template-columns: none;
       align-items: stretch;
     }
 
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.song-grid,
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.video-grid {
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.song-grid,
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.video-grid {
       grid-auto-columns: minmax(174px, 188px);
     }
 
-    .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.artist-album-grid {
+    .view-grid .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.artist-album-grid {
       grid-auto-columns: minmax(210px, 245px);
     }
   }
@@ -57,6 +57,10 @@ function isDesktopViewport() {
         return false;
     }
     return window.matchMedia(`(min-width: ${DESKTOP_LIBRARY_CARD_RAIL_MIN_WIDTH_PX}px)`).matches;
+}
+
+function isLibraryGridView(rail: HTMLElement) {
+    return !rail.closest(".view-list");
 }
 
 function findContentScrollRoot(track: HTMLElement) {
@@ -71,12 +75,12 @@ function isInteractiveDragTarget(target: EventTarget | null) {
     return Boolean(target.closest("button, a, input, textarea, select, label, [role='button']"));
 }
 
-function isHorizontalRailIntent(event: WheelEvent) {
-    return event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+function railHasHorizontalOverflow(rail: HTMLElement) {
+    return rail.scrollWidth > rail.clientWidth + 1;
 }
 
 function canScrollRailHorizontally(rail: HTMLElement, delta: number) {
-    if (rail.scrollWidth <= rail.clientWidth + 1) {
+    if (!railHasHorizontalOverflow(rail)) {
         return false;
     }
     if (delta < 0) {
@@ -88,12 +92,38 @@ function canScrollRailHorizontally(rail: HTMLElement, delta: number) {
     return false;
 }
 
+function readRailWheelDelta(event: WheelEvent) {
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        return event.deltaX;
+    }
+    if (event.shiftKey && event.deltaY !== 0) {
+        return event.deltaY;
+    }
+    return event.deltaY;
+}
+
 function applyContentVerticalWheel(event: WheelEvent, contentRoot: HTMLElement) {
     if (event.deltaY === 0) {
         return false;
     }
     contentRoot.scrollTop += event.deltaY;
     return true;
+}
+
+function applyLibraryGridHorizontalWheel(event: WheelEvent, rail: HTMLElement) {
+    const delta = readRailWheelDelta(event);
+    if (delta === 0) {
+        return false;
+    }
+    if (!canScrollRailHorizontally(rail, delta)) {
+        return false;
+    }
+    rail.scrollLeft += delta;
+    return true;
+}
+
+function isHorizontalRailIntent(event: WheelEvent) {
+    return event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
 }
 
 function applyHorizontalRailWheel(event: WheelEvent, rail: HTMLElement) {
@@ -106,8 +136,10 @@ function applyHorizontalRailWheel(event: WheelEvent, rail: HTMLElement) {
 }
 
 /**
- * Library rails own wheel + pointer drag so horizontal scrollbar/arrows/drag work
- * while vertical wheel still scrolls the main content pane.
+ * Library rails own wheel + pointer drag.
+ * Grid View: mouse wheel and trackpad move the card rail horizontally; vertical page
+ * scroll chains only when the rail cannot absorb the wheel delta.
+ * List View: vertical wheel scrolls the page; horizontal trackpad/shift+wheel scrolls the rail.
  */
 export function bindDesktopLibraryCardRailScroll(track: HTMLElement | null) {
     if (!track) {
@@ -125,6 +157,21 @@ export function bindDesktopLibraryCardRailScroll(track: HTMLElement | null) {
         }
 
         event.stopPropagation();
+
+        if (isLibraryGridView(rail)) {
+            if (applyLibraryGridHorizontalWheel(event, rail)) {
+                event.preventDefault();
+                return;
+            }
+
+            if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+                const contentRoot = findContentScrollRoot(rail);
+                if (contentRoot && applyContentVerticalWheel(event, contentRoot)) {
+                    event.preventDefault();
+                }
+            }
+            return;
+        }
 
         if (isHorizontalRailIntent(event)) {
             if (applyHorizontalRailWheel(event, rail)) {
@@ -144,10 +191,10 @@ export function bindDesktopLibraryCardRailScroll(track: HTMLElement | null) {
     }
 
     function handlePointerDown(event: PointerEvent) {
-        if (!isDesktopViewport() || event.button !== 0 || isInteractiveDragTarget(event.target)) {
+        if (!isDesktopViewport() || !isLibraryGridView(rail) || event.button !== 0 || isInteractiveDragTarget(event.target)) {
             return;
         }
-        if (rail.scrollWidth <= rail.clientWidth + 1) {
+        if (!railHasHorizontalOverflow(rail)) {
             return;
         }
 
@@ -177,14 +224,14 @@ export function bindDesktopLibraryCardRailScroll(track: HTMLElement | null) {
         }
     }
 
-    rail.addEventListener("wheel", handleWheel, { passive: false });
+    rail.addEventListener("wheel", handleWheel, { passive: false, capture: true });
     rail.addEventListener("pointerdown", handlePointerDown);
     rail.addEventListener("pointermove", handlePointerMove);
     rail.addEventListener("pointerup", endDrag);
     rail.addEventListener("pointercancel", endDrag);
 
     return () => {
-        rail.removeEventListener("wheel", handleWheel);
+        rail.removeEventListener("wheel", handleWheel, { capture: true });
         rail.removeEventListener("pointerdown", handlePointerDown);
         rail.removeEventListener("pointermove", handlePointerMove);
         rail.removeEventListener("pointerup", endDrag);
