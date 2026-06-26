@@ -1,5 +1,7 @@
 /** DESKTOP ONLY — music-card/content scroll layer and wheel routing. */
 
+import { isInsideDesktopLibraryCardRail } from "./desktop-library-card-rail-scroll";
+
 export const DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX = 821;
 
 export const DESKTOP_MUSIC_CARD_LAYER_SELECTOR = [
@@ -18,6 +20,7 @@ export const DESKTOP_MUSIC_CARD_LAYER_SELECTOR = [
 /**
  * Desktop layout: body locked; sidebar and main content scroll independently.
  * Wheel routing is handled in bindDesktopMusicCardWheelScroll.
+ * Library card rails handle their own wheel routing.
  */
 export const DESKTOP_CONTENT_SCROLL_CSS = `
   @media (min-width: ${DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX}px) {
@@ -132,6 +135,7 @@ function applyContentVerticalWheel(event: WheelEvent, contentRoot: HTMLElement) 
  * Single desktop wheel router for the main content scroller.
  * Vertical wheel over music cards/rails scrolls .content.
  * Horizontal wheel (or Shift+wheel) scrolls the active card rail.
+ * Library card rails are excluded; they use bindDesktopLibraryCardRailScroll.
  */
 export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null) {
     if (!contentRoot) {
@@ -141,6 +145,10 @@ export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null)
 
     function handleWheel(event: WheelEvent) {
         if (!isDesktopViewport() || event.defaultPrevented) {
+            return;
+        }
+
+        if (isInsideDesktopLibraryCardRail(event.target)) {
             return;
         }
 

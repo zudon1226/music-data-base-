@@ -14,6 +14,7 @@ import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/deskto
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
 import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
+import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { getAuthSession } from "../lib/auth-session";
@@ -17651,7 +17652,7 @@ function PageContent() {
                       <span>{libraryContentSongs.length} tracks</span>
                     </div>
 
-                    {libraryContentSongs.length === 0 ? (<p className="empty-small">No songs available yet.</p>) : (<DesktopHorizontalRail className="song-grid" label="Library Songs">
+                    {libraryContentSongs.length === 0 ? (<p className="empty-small">No songs available yet.</p>) : (<DesktopLibraryCardRail className="song-grid" label="Library Songs">
                         {libraryContentSongs.map((song) => {
                             const isSaved = libraryIds.includes(song.id);
                             const isLiked = likedIds.includes(song.id);
@@ -17728,7 +17729,7 @@ function PageContent() {
                               </div>
                             </article>);
                         })}
-                      </DesktopHorizontalRail>)}
+                      </DesktopLibraryCardRail>)}
                   </section>)}
 
                 {libraryTab === "Videos" && (<section className="artist-section">
@@ -17737,9 +17738,9 @@ function PageContent() {
                       <span>{libraryContentVideos.length} videos</span>
                     </div>
 
-                    {libraryContentVideos.length === 0 ? (<p className="empty-small">No videos available yet.</p>) : (<DesktopHorizontalRail className="video-grid" label="Library Videos">
+                    {libraryContentVideos.length === 0 ? (<p className="empty-small">No videos available yet.</p>) : (<DesktopLibraryCardRail className="video-grid" label="Library Videos">
                         {libraryContentVideos.map((video) => renderVideoCard(video, { isLibraryCard: true, sourceLabel: "Library Videos" }))}
-                      </DesktopHorizontalRail>)}
+                      </DesktopLibraryCardRail>)}
                   </section>)}
 
                 {libraryTab === "Albums" && (<section className="artist-section">
@@ -17748,9 +17749,9 @@ function PageContent() {
                       <span>{libraryAlbums.length} albums</span>
                     </div>
 
-                    {libraryAlbums.length === 0 ? (<p className="empty-small">No saved albums yet.</p>) : (<DesktopHorizontalRail className="artist-album-grid" label="Library Albums">
+                    {libraryAlbums.length === 0 ? (<p className="empty-small">No saved albums yet.</p>) : (<DesktopLibraryCardRail className="artist-album-grid" label="Library Albums">
                         {libraryAlbums.map((album) => renderAlbumCard(album, "Library Albums"))}
-                      </DesktopHorizontalRail>)}
+                      </DesktopLibraryCardRail>)}
                   </section>)}
               </section>) : null}
           </section>) : view === "Liked" && !search.trim() ? (<section className="liked-page">
