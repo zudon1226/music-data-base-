@@ -1,6 +1,9 @@
 /** DESKTOP ONLY — music-card/content scroll layer and wheel routing. */
 
-import { routeDesktopLibraryGridCarouselWheel } from "./desktop-library-card-rail-scroll";
+import {
+    routeDesktopLibraryGridCarouselWheel,
+    shouldPassThroughLibraryGridVerticalWheel,
+} from "./desktop-library-card-rail-scroll";
 
 export const DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX = 821;
 
@@ -19,8 +22,8 @@ export const DESKTOP_MUSIC_CARD_LAYER_SELECTOR = [
 
 /**
  * Desktop layout: body locked; sidebar and main content scroll independently.
- * Vertical wheel over music cards forwards to .content.
- * Library Grid carousel only hijacks Shift+wheel or dominant deltaX.
+ * Library Grid vertical wheel passes through to native page scroll.
+ * Library Grid horizontal carousel: Shift+wheel or dominant deltaX only.
  */
 export const DESKTOP_CONTENT_SCROLL_CSS = `
   @media (min-width: ${DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX}px) {
@@ -48,6 +51,7 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
       overflow-y: auto;
       overflow-x: hidden;
       overscroll-behavior: auto;
+      scroll-behavior: auto;
       -webkit-overflow-scrolling: touch;
     }
 
@@ -120,7 +124,7 @@ function applyHorizontalRailWheel(event: WheelEvent, rail: HTMLElement) {
         return false;
     }
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-    rail.scrollLeft += delta;
+    rail.scrollBy({ left: delta, top: 0, behavior: "auto" });
     return true;
 }
 
@@ -131,14 +135,14 @@ function applyContentVerticalWheel(event: WheelEvent, contentRoot: HTMLElement) 
     if (shouldUseNestedVerticalScroller(event, contentRoot)) {
         return false;
     }
-    contentRoot.scrollTop += event.deltaY;
+    contentRoot.scrollBy({ top: event.deltaY, left: 0, behavior: "auto" });
     return true;
 }
 
 /**
  * Desktop wheel router for the main content scroller.
- * Vertical wheel over cards scrolls .content.
- * Library Grid carousel horizontal scroll: Shift+wheel or dominant deltaX only.
+ * Library Grid vertical wheel is never hijacked.
+ * Other music-card layers forward vertical wheel to .content with full deltaY.
  */
 export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null) {
     if (!contentRoot) {
@@ -148,6 +152,10 @@ export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null)
 
     function handleWheel(event: WheelEvent) {
         if (!isDesktopViewport() || event.defaultPrevented) {
+            return;
+        }
+
+        if (shouldPassThroughLibraryGridVerticalWheel(event)) {
             return;
         }
 

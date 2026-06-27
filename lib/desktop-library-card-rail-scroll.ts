@@ -21,7 +21,7 @@ export const DESKTOP_LIBRARY_CARD_RAIL_CSS = `
       overflow-y: visible;
       overscroll-behavior-x: contain;
       overscroll-behavior-y: auto;
-      scroll-behavior: smooth;
+      scroll-behavior: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
     }
@@ -83,8 +83,20 @@ export function isDesktopLibraryGridViewRail(rail: HTMLElement | null) {
     return !rail.closest(".view-list");
 }
 
-function isHorizontalCarouselIntent(event: WheelEvent) {
+export function isHorizontalLibraryGridCarouselIntent(event: WheelEvent) {
     return event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+}
+
+/** Vertical wheel over Library Grid View must not be hijacked by JS routers. */
+export function shouldPassThroughLibraryGridVerticalWheel(event: WheelEvent) {
+    if (!isDesktopViewport()) {
+        return false;
+    }
+    const track = findDesktopLibraryCardRailTrack(event.target);
+    if (!track || !isDesktopLibraryGridViewRail(track)) {
+        return false;
+    }
+    return !isHorizontalLibraryGridCarouselIntent(event);
 }
 
 function canScrollRailHorizontally(rail: HTMLElement, delta: number) {
@@ -105,13 +117,14 @@ function applyHorizontalCarouselWheel(event: WheelEvent, rail: HTMLElement) {
     if (!canScrollRailHorizontally(rail, delta)) {
         return false;
     }
-    rail.scrollLeft += delta;
+    rail.scrollBy({ left: delta, top: 0, behavior: "auto" });
     return true;
 }
 
 /**
- * Library Grid View: only Shift+wheel or dominant deltaX scrolls the carousel horizontally.
- * Vertical wheel (dominant deltaY) is not handled here — page scroll owns that path.
+ * Library Grid View horizontal carousel only.
+ * Shift+wheel or dominant deltaX scrolls left/right with preventDefault.
+ * Vertical wheel is never handled here.
  */
 export function routeDesktopLibraryGridCarouselWheel(event: WheelEvent): DesktopLibraryGridWheelResult {
     if (!isDesktopViewport() || event.defaultPrevented) {
@@ -123,7 +136,7 @@ export function routeDesktopLibraryGridCarouselWheel(event: WheelEvent): Desktop
         return { handled: false };
     }
 
-    if (!isHorizontalCarouselIntent(event)) {
+    if (!isHorizontalLibraryGridCarouselIntent(event)) {
         return { handled: false };
     }
 
