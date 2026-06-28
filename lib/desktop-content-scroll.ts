@@ -24,7 +24,7 @@ export const DESKTOP_MUSIC_CARD_LAYER_SELECTOR = [
 
 /**
  * Desktop layout: body locked; sidebar and main content scroll independently.
- * Library Grid never hijacks vertical wheel for horizontal movement.
+ * Sidebar stacking lives in desktop-sidebar-layout.ts.
  */
 export const DESKTOP_CONTENT_SCROLL_CSS = `
   @media (min-width: ${DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX}px) {
@@ -39,12 +39,6 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
       min-height: 100vh;
       overflow: hidden;
       padding-bottom: 0;
-    }
-
-    .sidebar {
-      height: 100vh;
-      overflow-y: auto;
-      overscroll-behavior: contain;
     }
 
     .content.desktop-content-scroll-root {
@@ -143,11 +137,6 @@ function applyContentVerticalWheel(event: WheelEvent, contentRoot: HTMLElement) 
     return true;
 }
 
-/**
- * Library Grid horizontal wheel only.
- * Returns true when the event was fully handled and the main router must stop.
- * Returns false when vertical wheel must continue to the content scroll path untouched.
- */
 function tryHandleDesktopLibraryGridHorizontalWheel(event: WheelEvent) {
     if (!isDesktopLibraryGridView(event.target)) {
         return false;
@@ -177,9 +166,6 @@ function tryHandleDesktopLibraryGridHorizontalWheel(event: WheelEvent) {
     return true;
 }
 
-/**
- * Desktop wheel router for the main content scroller.
- */
 export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null) {
     if (!contentRoot) {
         return () => undefined;

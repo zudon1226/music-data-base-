@@ -31,6 +31,7 @@ export type DesktopNavView =
 export type DesktopNavAccessContext = {
     accountUserId: string;
     authSession: Session | null;
+    isAuthenticated: boolean;
     isPlatformOwner: boolean;
     getAuthSources?: () => DesktopProtectedActionAuthSources;
 };
@@ -65,6 +66,9 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
 ];
 
 export function hasDesktopAccountAccess(context: DesktopNavAccessContext) {
+    if (Boolean(context.accountUserId) || context.isAuthenticated) {
+        return true;
+    }
     if (context.getAuthSources) {
         return hasDesktopProtectedActionAccess(context.getAuthSources());
     }
@@ -104,6 +108,7 @@ export type DesktopNavHandlerOptions = {
     onOwnerRequired: () => void;
 };
 
+/** Shared sidebar click router — every nav button calls this. */
 export function createDesktopNavHandler(options: DesktopNavHandlerOptions) {
     const { access, navigate, onLoginRequired, onOwnerRequired } = options;
     return function handleDesktopNav(nextView: DesktopNavView) {

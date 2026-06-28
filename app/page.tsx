@@ -3521,9 +3521,10 @@ function PageContent() {
     const desktopNavAccess = useMemo(() => ({
         accountUserId,
         authSession,
+        isAuthenticated,
         isPlatformOwner: isPlatformOwnerEmail(activeUser?.email),
         getAuthSources: getDesktopProtectedActionAuthSources,
-    }), [accountUserId, authSession, activeUser?.email, getDesktopProtectedActionAuthSources]);
+    }), [accountUserId, authSession, isAuthenticated, activeUser?.email, getDesktopProtectedActionAuthSources]);
     function requireDesktopActionUserId(loginMessage: string) {
         return desktopActionAuthGuard.requireUserId(loginMessage, (message) => showToast(message, "error"));
     }
@@ -13309,10 +13310,12 @@ function PageContent() {
             return;
         }
         setView(nextView);
-        if (nextView === "Artist Dashboard")
+        if (nextView === "Artist Dashboard") {
             setUploadMode("song");
-        if (nextView === "Producer Dashboard")
+        }
+        if (nextView === "Producer Dashboard") {
             setUploadMode("beat");
+        }
         if (nextView === "Platform Stability") {
             window.setTimeout(() => {
                 void loadLaunchStatus();
@@ -13326,8 +13329,9 @@ function PageContent() {
         if (typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches) {
             window.setTimeout(() => {
                 const content = document.querySelector<HTMLElement>(".content");
-                if (content)
+                if (content) {
                     content.scrollTo({ top: 0, left: 0, behavior: "auto" });
+                }
                 window.scrollTo({ top: 0, left: 0, behavior: "auto" });
             }, 0);
         }

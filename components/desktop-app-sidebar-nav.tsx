@@ -21,6 +21,7 @@ import {
     type DesktopNavAccessContext,
     type DesktopNavView,
 } from "../lib/desktop-app-navigation";
+import { DESKTOP_SIDEBAR_LAYOUT_CSS } from "../lib/desktop-sidebar-layout";
 
 const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     Home: <Home size={17}/>,
@@ -51,7 +52,7 @@ type DesktopAppSidebarNavProps = {
     onNavigate: (nextView: DesktopNavView) => void;
 };
 
-/** DESKTOP ONLY — sidebar navigation buttons with explicit view keys. */
+/** DESKTOP ONLY — sidebar navigation buttons wired to the shared page router. */
 export function DesktopAppSidebarNav({
     activeView,
     access,
@@ -60,20 +61,23 @@ export function DesktopAppSidebarNav({
     const visibleItems = listVisibleDesktopNavItems(access);
 
     return (
-        <nav className="nav desktop-sidebar-nav" aria-label="Main">
-            {visibleItems.map((item) => (
-                <button
-                    key={item.view}
-                    type="button"
-                    className={activeView === item.view ? "active" : ""}
-                    aria-current={activeView === item.view ? "page" : undefined}
-                    title={item.view}
-                    onClick={() => onNavigate(item.view)}
-                >
-                    {DESKTOP_NAV_ICONS[item.view]}
-                    <span>{item.view}</span>
-                </button>
-            ))}
-        </nav>
+        <>
+            <style jsx global>{DESKTOP_SIDEBAR_LAYOUT_CSS}</style>
+            <nav className="nav desktop-sidebar-nav" aria-label="Main">
+                {visibleItems.map((item) => (
+                    <button
+                        key={item.view}
+                        type="button"
+                        className={activeView === item.view ? "active" : ""}
+                        aria-current={activeView === item.view ? "page" : undefined}
+                        title={item.view}
+                        onClick={() => onNavigate(item.view)}
+                    >
+                        {DESKTOP_NAV_ICONS[item.view]}
+                        <span>{item.view}</span>
+                    </button>
+                ))}
+            </nav>
+        </>
     );
 }
