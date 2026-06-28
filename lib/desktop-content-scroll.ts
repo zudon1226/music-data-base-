@@ -1,8 +1,10 @@
 /** DESKTOP ONLY — music-card/content scroll layer and wheel routing. */
 
 import {
+    findDesktopLibraryCardRailTrack,
+    isDesktopLibraryGridView,
     isInsideDesktopLibraryCardRail,
-    resolveDesktopLibraryGridWheel,
+    scrollDesktopLibraryGridHorizontally,
 } from "./desktop-library-card-rail-scroll";
 
 export const DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX = 821;
@@ -22,7 +24,7 @@ export const DESKTOP_MUSIC_CARD_LAYER_SELECTOR = [
 
 /**
  * Desktop layout: body locked; sidebar and main content scroll independently.
- * Library Grid vertical wheel is never handled here — the browser owns it.
+ * Library Grid never hijacks vertical wheel for horizontal movement.
  */
 export const DESKTOP_CONTENT_SCROLL_CSS = `
   @media (min-width: ${DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX}px) {
@@ -117,7 +119,7 @@ function shouldUseNestedVerticalScroller(event: WheelEvent, contentRoot: HTMLEle
     return false;
 }
 
-function isHorizontalRailIntent(event: WheelEvent) {
+function isNonLibraryHorizontalRailIntent(event: WheelEvent) {
     return event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
 }
 
@@ -142,8 +144,41 @@ function applyContentVerticalWheel(event: WheelEvent, contentRoot: HTMLElement) 
 }
 
 /**
+ * Library Grid horizontal wheel only.
+ * Returns true when the event was fully handled and the main router must stop.
+ * Returns false when vertical wheel must continue to the content scroll path untouched.
+ */
+function tryHandleDesktopLibraryGridHorizontalWheel(event: WheelEvent) {
+    if (!isDesktopLibraryGridView(event.target)) {
+        return false;
+    }
+
+    if (event.deltaY !== 0 && !event.shiftKey) {
+        return false;
+    }
+
+    const track = findDesktopLibraryCardRailTrack(event.target);
+    if (!track) {
+        return true;
+    }
+
+    if (event.shiftKey && event.deltaY !== 0) {
+        scrollDesktopLibraryGridHorizontally(track, event.deltaY);
+        return true;
+    }
+
+    if (event.deltaY === 0 && event.deltaX !== 0) {
+        if (scrollDesktopLibraryGridHorizontally(track, event.deltaX)) {
+            event.preventDefault();
+        }
+        return true;
+    }
+
+    return true;
+}
+
+/**
  * Desktop wheel router for the main content scroller.
- * Library Grid: browser owns vertical wheel; JS only handles Shift+wheel or pure deltaX.
  */
 export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null) {
     if (!contentRoot) {
@@ -156,18 +191,16 @@ export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null)
             return;
         }
 
-        const libraryGridWheel = resolveDesktopLibraryGridWheel(event);
-        if (libraryGridWheel.scope === "library-grid") {
-            if (libraryGridWheel.action === "horizontal") {
-                event.preventDefault();
-            }
+        const inLibraryGrid = isDesktopLibraryGridView(event.target);
+
+        if (tryHandleDesktopLibraryGridHorizontalWheel(event)) {
             return;
         }
 
         const rail = findHorizontalRailTrack(event.target);
         const onMusicLayer = isInsideMusicCardLayer(event.target) || Boolean(rail);
 
-        if (rail && isHorizontalRailIntent(event)) {
+        if (rail && !isInsideDesktopLibraryCardRail(event.target) && isNonLibraryHorizontalRailIntent(event)) {
             if (applyHorizontalRailWheel(event, rail)) {
                 event.preventDefault();
             }
@@ -178,11 +211,16 @@ export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null)
             return;
         }
 
-        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+        if (!inLibraryGrid && Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
             return;
         }
 
         if (!onMusicLayer && scrollRoot.contains(event.target as Node)) {
+            return;
+        }
+
+        if (inLibraryGrid && event.deltaY !== 0) {
+            applyContentVerticalWheel(event, scrollRoot);
             return;
         }
 
