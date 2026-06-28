@@ -1,4 +1,4 @@
-/** DESKTOP ONLY — Library Grid View carousel CSS and wheel routing helpers. */
+/** DESKTOP ONLY — Library Grid View carousel CSS and wheel pass-through rules. */
 
 export const DESKTOP_LIBRARY_CARD_RAIL_MIN_WIDTH_PX = 821;
 
@@ -10,20 +10,17 @@ export const DESKTOP_LIBRARY_CARD_RAIL_CSS = `
       width: 100%;
       min-width: 0;
       overflow: visible;
-      pointer-events: auto;
     }
 
     .zml-app:not(.view-list) .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track {
       min-width: 0;
       width: 100%;
       max-width: none;
-      overflow-x: auto;
-      overflow-y: visible;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
       overscroll-behavior-x: contain;
-      overscroll-behavior-y: auto;
+      overscroll-behavior-y: none;
       scroll-behavior: auto;
-      -webkit-overflow-scrolling: touch;
-      touch-action: pan-x pan-y;
     }
 
     .zml-app:not(.view-list) .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.song-grid,
@@ -43,12 +40,21 @@ export const DESKTOP_LIBRARY_CARD_RAIL_CSS = `
     .zml-app:not(.view-list) .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .horizontal-rail-track.artist-album-grid {
       grid-auto-columns: minmax(210px, 245px);
     }
+
+    .zml-app:not(.view-list) .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .library-card,
+    .zml-app:not(.view-list) .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .song-card,
+    .zml-app:not(.view-list) .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .video-card,
+    .zml-app:not(.view-list) .${DESKTOP_LIBRARY_CARD_RAIL_ROOT_CLASS} .media-card {
+      overflow: visible;
+      overscroll-behavior-y: auto;
+    }
   }
 `;
 
-export type DesktopLibraryGridWheelResult =
-    | { handled: true; preventDefault: true }
-    | { handled: false };
+export type DesktopLibraryGridWheelOutcome =
+    | { scope: "not-library-grid" }
+    | { scope: "library-grid"; action: "pass-through" }
+    | { scope: "library-grid"; action: "horizontal"; preventDefault: true };
 
 function isDesktopViewport() {
     if (typeof window === "undefined") {
@@ -76,27 +82,12 @@ export function findDesktopLibraryCardRailTrack(target: EventTarget | null) {
         ?? target.closest<HTMLElement>(".horizontal-rail-track");
 }
 
-export function isDesktopLibraryGridViewRail(rail: HTMLElement | null) {
-    if (!rail) {
+function isDesktopLibraryGridView(target: EventTarget | null) {
+    if (!(target instanceof Element)) {
         return false;
     }
-    return !rail.closest(".view-list");
-}
-
-export function isHorizontalLibraryGridCarouselIntent(event: WheelEvent) {
-    return event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
-}
-
-/** Vertical wheel over Library Grid View must not be hijacked by JS routers. */
-export function shouldPassThroughLibraryGridVerticalWheel(event: WheelEvent) {
-    if (!isDesktopViewport()) {
-        return false;
-    }
-    const track = findDesktopLibraryCardRailTrack(event.target);
-    if (!track || !isDesktopLibraryGridViewRail(track)) {
-        return false;
-    }
-    return !isHorizontalLibraryGridCarouselIntent(event);
+    return Boolean(target.closest(".zml-app:not(.view-list)"))
+        && isInsideDesktopLibraryCardRail(target);
 }
 
 function canScrollRailHorizontally(rail: HTMLElement, delta: number) {
@@ -112,8 +103,7 @@ function canScrollRailHorizontally(rail: HTMLElement, delta: number) {
     return false;
 }
 
-function applyHorizontalCarouselWheel(event: WheelEvent, rail: HTMLElement) {
-    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+function scrollLibraryGridCarouselHorizontally(rail: HTMLElement, delta: number) {
     if (!canScrollRailHorizontally(rail, delta)) {
         return false;
     }
@@ -122,27 +112,41 @@ function applyHorizontalCarouselWheel(event: WheelEvent, rail: HTMLElement) {
 }
 
 /**
- * Library Grid View horizontal carousel only.
- * Shift+wheel or dominant deltaX scrolls left/right with preventDefault.
- * Vertical wheel is never handled here.
+ * Library Grid wheel routing only.
+ * Any deltaY without Shift passes through to the browser (no listeners, no preventDefault).
+ * Horizontal carousel: Shift+wheel uses deltaY, pure horizontal trackpad uses deltaX only.
  */
-export function routeDesktopLibraryGridCarouselWheel(event: WheelEvent): DesktopLibraryGridWheelResult {
+export function resolveDesktopLibraryGridWheel(event: WheelEvent): DesktopLibraryGridWheelOutcome {
     if (!isDesktopViewport() || event.defaultPrevented) {
-        return { handled: false };
+        return { scope: "not-library-grid" };
+    }
+
+    if (!isDesktopLibraryGridView(event.target)) {
+        return { scope: "not-library-grid" };
     }
 
     const track = findDesktopLibraryCardRailTrack(event.target);
-    if (!track || !isDesktopLibraryGridViewRail(track)) {
-        return { handled: false };
+    if (!track) {
+        return { scope: "library-grid", action: "pass-through" };
     }
 
-    if (!isHorizontalLibraryGridCarouselIntent(event)) {
-        return { handled: false };
+    if (event.deltaY !== 0 && !event.shiftKey) {
+        return { scope: "library-grid", action: "pass-through" };
     }
 
-    if (applyHorizontalCarouselWheel(event, track)) {
-        return { handled: true, preventDefault: true };
+    if (event.shiftKey && event.deltaY !== 0) {
+        if (scrollLibraryGridCarouselHorizontally(track, event.deltaY)) {
+            return { scope: "library-grid", action: "horizontal", preventDefault: true };
+        }
+        return { scope: "library-grid", action: "pass-through" };
     }
 
-    return { handled: false };
+    if (event.deltaY === 0 && event.deltaX !== 0) {
+        if (scrollLibraryGridCarouselHorizontally(track, event.deltaX)) {
+            return { scope: "library-grid", action: "horizontal", preventDefault: true };
+        }
+        return { scope: "library-grid", action: "pass-through" };
+    }
+
+    return { scope: "library-grid", action: "pass-through" };
 }

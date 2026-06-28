@@ -1,8 +1,8 @@
 /** DESKTOP ONLY — music-card/content scroll layer and wheel routing. */
 
 import {
-    routeDesktopLibraryGridCarouselWheel,
-    shouldPassThroughLibraryGridVerticalWheel,
+    isInsideDesktopLibraryCardRail,
+    resolveDesktopLibraryGridWheel,
 } from "./desktop-library-card-rail-scroll";
 
 export const DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX = 821;
@@ -22,8 +22,7 @@ export const DESKTOP_MUSIC_CARD_LAYER_SELECTOR = [
 
 /**
  * Desktop layout: body locked; sidebar and main content scroll independently.
- * Library Grid vertical wheel passes through to native page scroll.
- * Library Grid horizontal carousel: Shift+wheel or dominant deltaX only.
+ * Library Grid vertical wheel is never handled here — the browser owns it.
  */
 export const DESKTOP_CONTENT_SCROLL_CSS = `
   @media (min-width: ${DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX}px) {
@@ -103,6 +102,9 @@ function isVerticallyScrollable(element: HTMLElement, deltaY: number) {
 function shouldUseNestedVerticalScroller(event: WheelEvent, contentRoot: HTMLElement) {
     let node = event.target instanceof Element ? event.target as HTMLElement : null;
     while (node && node !== contentRoot) {
+        if (isInsideDesktopLibraryCardRail(node)) {
+            return false;
+        }
         if (node.classList.contains("horizontal-rail-track")) {
             node = node.parentElement;
             continue;
@@ -141,8 +143,7 @@ function applyContentVerticalWheel(event: WheelEvent, contentRoot: HTMLElement) 
 
 /**
  * Desktop wheel router for the main content scroller.
- * Library Grid vertical wheel is never hijacked.
- * Other music-card layers forward vertical wheel to .content with full deltaY.
+ * Library Grid: browser owns vertical wheel; JS only handles Shift+wheel or pure deltaX.
  */
 export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null) {
     if (!contentRoot) {
@@ -155,13 +156,11 @@ export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null)
             return;
         }
 
-        if (shouldPassThroughLibraryGridVerticalWheel(event)) {
-            return;
-        }
-
-        const libraryCarouselResult = routeDesktopLibraryGridCarouselWheel(event);
-        if (libraryCarouselResult.handled) {
-            event.preventDefault();
+        const libraryGridWheel = resolveDesktopLibraryGridWheel(event);
+        if (libraryGridWheel.scope === "library-grid") {
+            if (libraryGridWheel.action === "horizontal") {
+                event.preventDefault();
+            }
             return;
         }
 
@@ -197,7 +196,8 @@ export function bindDesktopMusicCardWheelScroll(contentRoot: HTMLElement | null)
 }
 
 /** @deprecated Use bindDesktopMusicCardWheelScroll */
-export function bindDesktopHorizontalRailWheel(_track: HTMLElement | null) {
+export function bindDesktopHorizontalRailWheel(_unusedTrack: HTMLElement | null) {
+    void _unusedTrack;
     return () => undefined;
 }
 
