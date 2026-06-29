@@ -8,7 +8,7 @@ type DesktopHorizontalRailProps = {
     label: string;
 };
 
-/** DESKTOP ONLY — horizontal card rail; wheel routing lives on the content scroll root. */
+/** DESKTOP ONLY — horizontal card rail; native browser scroll only. */
 export function DesktopHorizontalRail({
     children,
     className,

@@ -12,7 +12,7 @@ type DesktopLibraryCardRailProps = {
     label: string;
 };
 
-/** DESKTOP ONLY — Library Grid View carousel; wheel routing lives on the content scroll root. */
+/** DESKTOP ONLY — Library Grid View carousel; native browser scroll only. */
 export function DesktopLibraryCardRail({
     children,
     className,
