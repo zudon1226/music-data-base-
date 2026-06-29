@@ -15,8 +15,9 @@ import {
     UserPlus,
     Zap,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
+    createDesktopNavHandler,
     listVisibleDesktopNavItems,
     type DesktopNavAccessContext,
     type DesktopNavView,
@@ -50,15 +51,25 @@ type DesktopAppSidebarNavProps = {
     activeView: DesktopNavView;
     access: DesktopNavAccessContext;
     onNavigate: (nextView: DesktopNavView) => void;
+    onOwnerRequired: () => void;
 };
 
-/** DESKTOP ONLY — sidebar navigation buttons wired to the shared page router. */
+/** DESKTOP ONLY — sidebar buttons use the shared nav router and layout stack. */
 export function DesktopAppSidebarNav({
     activeView,
     access,
     onNavigate,
+    onOwnerRequired,
 }: DesktopAppSidebarNavProps) {
     const visibleItems = listVisibleDesktopNavItems(access);
+    const handleNavClick = useMemo(
+        () => createDesktopNavHandler({
+            access,
+            navigate: onNavigate,
+            onOwnerRequired,
+        }),
+        [access, onNavigate, onOwnerRequired],
+    );
 
     return (
         <>
@@ -71,7 +82,7 @@ export function DesktopAppSidebarNav({
                         className={activeView === item.view ? "active" : ""}
                         aria-current={activeView === item.view ? "page" : undefined}
                         title={item.view}
-                        onClick={() => onNavigate(item.view)}
+                        onClick={() => handleNavClick(item.view)}
                     >
                         {DESKTOP_NAV_ICONS[item.view]}
                         <span>{item.view}</span>

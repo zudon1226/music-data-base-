@@ -3523,8 +3523,7 @@ function PageContent() {
         authSession,
         isAuthenticated,
         isPlatformOwner: isPlatformOwnerEmail(activeUser?.email),
-        getAuthSources: getDesktopProtectedActionAuthSources,
-    }), [accountUserId, authSession, isAuthenticated, activeUser?.email, getDesktopProtectedActionAuthSources]);
+    }), [accountUserId, authSession, isAuthenticated, activeUser?.email]);
     function requireDesktopActionUserId(loginMessage: string) {
         return desktopActionAuthGuard.requireUserId(loginMessage, (message) => showToast(message, "error"));
     }
@@ -13296,19 +13295,7 @@ function PageContent() {
             clearLocalSessionState();
         }
     }
-    function handleNav(nextView: View) {
-        setShowNotificationCenter(false);
-        const accessDecision = evaluateDesktopNavAccess(nextView as DesktopNavView, desktopNavAccess);
-        if (!accessDecision.allowed) {
-            if (accessDecision.reason === "login-required") {
-                setAuthMode("login");
-                setAuthMessage("Log in to open that section and save it to your account.");
-            }
-            else {
-                showToast("Owner admin access is required for platform controls.", "error");
-            }
-            return;
-        }
+    function applyDesktopView(nextView: View) {
         setView(nextView);
         if (nextView === "Artist Dashboard") {
             setUploadMode("song");
@@ -13335,6 +13322,15 @@ function PageContent() {
                 window.scrollTo({ top: 0, left: 0, behavior: "auto" });
             }, 0);
         }
+    }
+    function handleNav(nextView: View) {
+        setShowNotificationCenter(false);
+        const accessDecision = evaluateDesktopNavAccess(nextView as DesktopNavView, desktopNavAccess);
+        if (!accessDecision.allowed) {
+            showToast("Owner admin access is required for platform controls.", "error");
+            return;
+        }
+        applyDesktopView(nextView);
     }
     function openProfileFromHeader() {
         handleNav("Profile");
@@ -14822,7 +14818,13 @@ function PageContent() {
         <DesktopAppSidebarNav
           activeView={view as DesktopNavView}
           access={desktopNavAccess}
-          onNavigate={(nextView) => handleNav(nextView as View)}
+          onNavigate={(nextView) => {
+            setShowNotificationCenter(false);
+            applyDesktopView(nextView as View);
+          }}
+          onOwnerRequired={() => {
+            showToast("Owner admin access is required for platform controls.", "error");
+          }}
         />
 
         <section className="mini-stats" aria-label="Music stats">

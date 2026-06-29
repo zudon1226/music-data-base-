@@ -6,9 +6,9 @@ export const DESKTOP_SIDEBAR_WIDTH_PX = 188;
 
 /**
  * Desktop shell stacking:
- * - sidebar above content overlays and player
+ * - sidebar above content overlays and player (clickable nav)
  * - modals above sidebar
- * - content never paints over the sidebar hit area
+ * - content clipped to the right of the sidebar column
  */
 export const DESKTOP_SIDEBAR_LAYOUT_CSS = `
   @media (min-width: ${DESKTOP_SIDEBAR_LAYOUT_MIN_WIDTH_PX}px) {
@@ -18,13 +18,13 @@ export const DESKTOP_SIDEBAR_LAYOUT_CSS = `
     }
 
     .sidebar {
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: ${DESKTOP_SIDEBAR_WIDTH_PX}px;
-      z-index: 130;
-      pointer-events: auto;
+      position: fixed !important;
+      left: 0 !important;
+      top: 0 !important;
+      bottom: 0 !important;
+      width: ${DESKTOP_SIDEBAR_WIDTH_PX}px !important;
+      z-index: 200 !important;
+      pointer-events: auto !important;
       isolation: isolate;
     }
 
@@ -33,61 +33,51 @@ export const DESKTOP_SIDEBAR_LAYOUT_CSS = `
     .sidebar .logo,
     .sidebar .reset-btn,
     .sidebar .queue-panel,
-    .sidebar .mini-stats {
-      pointer-events: auto;
+    .sidebar .mini-stats,
+    .sidebar .queue-list,
+    .sidebar .queue-item {
+      pointer-events: auto !important;
+      touch-action: manipulation;
     }
 
     .content.desktop-content-scroll-root,
     .content {
-      position: relative;
-      z-index: 1;
-      margin-left: ${DESKTOP_SIDEBAR_WIDTH_PX}px;
-      width: calc(100% - ${DESKTOP_SIDEBAR_WIDTH_PX}px);
-      max-width: calc(100vw - ${DESKTOP_SIDEBAR_WIDTH_PX}px);
-      box-sizing: border-box;
-      pointer-events: auto;
+      position: relative !important;
+      z-index: 1 !important;
+      margin-left: ${DESKTOP_SIDEBAR_WIDTH_PX}px !important;
+      width: calc(100% - ${DESKTOP_SIDEBAR_WIDTH_PX}px) !important;
+      max-width: calc(100vw - ${DESKTOP_SIDEBAR_WIDTH_PX}px) !important;
+      box-sizing: border-box !important;
+      pointer-events: auto !important;
       isolation: isolate;
     }
 
-    .content.desktop-content-scroll-root::before,
-    .content::before {
-      content: none;
-    }
-
     .topbar {
-      z-index: 10;
+      z-index: 10 !important;
     }
 
     .queue-drawer {
-      z-index: 38;
+      z-index: 38 !important;
     }
 
     .toast {
-      z-index: 40;
+      z-index: 40 !important;
     }
 
     .player,
     .video-player-bar,
     .music-bottom-player,
     .video-bottom-player,
-    .bottom-player {
-      z-index: 40;
-      left: ${DESKTOP_SIDEBAR_WIDTH_PX}px;
-      right: 0;
-      pointer-events: auto;
+    .bottom-player,
+    .fixed-mobile-player {
+      z-index: 40 !important;
+      left: ${DESKTOP_SIDEBAR_WIDTH_PX}px !important;
+      right: 0 !important;
+      pointer-events: auto !important;
     }
 
     .modal-backdrop {
-      z-index: 200;
-    }
-
-    .horizontal-rail,
-    .horizontal-rail-track,
-    .desktop-library-card-rail,
-    .song-card,
-    .library-card,
-    .media-card {
-      pointer-events: auto;
+      z-index: 300 !important;
     }
   }
 `;
