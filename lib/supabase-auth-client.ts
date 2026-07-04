@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseLoginUrl } from "./supabase-config";
 import { createSupabaseAuthStorage } from "./supabase-auth-storage";
 
+const DESKTOP_BROWSER_CLIENT_KEY = "__mdb_desktop_supabase_client__";
+
 function readBrowserSupabaseAnonKey() {
     const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "")
         .trim()
@@ -75,14 +77,40 @@ function buildDesktopSupabaseClientOptions(supabaseUrl: string, anonKey: string,
     } as const;
 }
 
-/** DESKTOP ONLY — browser Supabase auth client for signInWithPassword and session persistence. */
+type DesktopBrowserClientGlobal = typeof globalThis & {
+    [DESKTOP_BROWSER_CLIENT_KEY]?: SupabaseClient;
+};
+
+/**
+ * DESKTOP ONLY — browser Supabase auth client.
+ * Exactly one GoTrueClient per browser context (globalThis singleton).
+ */
 export function createDesktopSupabaseAuthClient(): SupabaseClient {
     const supabaseUrl = resolveSupabaseLoginUrl();
     const anonKey = readBrowserSupabaseAnonKey();
-    return createClient(supabaseUrl, anonKey, buildDesktopSupabaseClientOptions(supabaseUrl, anonKey, true));
+
+    if (typeof window !== "undefined") {
+        const scope = globalThis as DesktopBrowserClientGlobal;
+        if (scope[DESKTOP_BROWSER_CLIENT_KEY]) {
+            return scope[DESKTOP_BROWSER_CLIENT_KEY];
+        }
+        const client = createClient(
+            supabaseUrl,
+            anonKey,
+            buildDesktopSupabaseClientOptions(supabaseUrl, anonKey, true),
+        );
+        scope[DESKTOP_BROWSER_CLIENT_KEY] = client;
+        return client;
+    }
+
+    return createClient(
+        supabaseUrl,
+        anonKey,
+        buildDesktopSupabaseClientOptions(supabaseUrl, anonKey, true),
+    );
 }
 
-/** SSR stub — same apikey configuration, no persisted browser session. */
+/** SSR stub — no persisted browser session, never stored on globalThis. */
 export function createDesktopSupabaseServerStubClient(): SupabaseClient {
     const supabaseUrl = resolveSupabaseLoginUrl();
     const anonKey = readBrowserSupabaseAnonKey();

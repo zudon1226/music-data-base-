@@ -1,23 +1,12 @@
-import { createClient } from "@supabase/supabase-js";
-import { SUPABASE_PROJECT_REF, SUPABASE_PROJECT_URL } from "./supabase-config";
+/** DESKTOP ONLY — signed storage upload via fetch (no second Supabase/GoTrue client). */
 
-function readStorageAnonKey() {
-    return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "");
-}
+import { resolveSupabaseLoginUrl, SUPABASE_PROJECT_REF } from "./supabase-config";
 
-function decodeJwtPayload(key: string) {
-    try {
-        const payload = key.split(".")[1];
-        if (!payload) {
-            return null;
-        }
-        const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonStr = atob(normalized);
-        return JSON.parse(jsonStr) as { iss?: string; ref?: string; role?: string };
-    }
-    catch {
-        return null;
-    }
+function readBrowserSupabaseAnonKey() {
+    return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "")
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .replace(/\s+/g, "");
 }
 
 /** Storage hostname client URL (browser direct upload). */
@@ -26,11 +15,11 @@ export function getSupabaseStorageUploadUrl() {
 }
 
 export function describeStorageUploadAuth() {
-    const anonKey = readStorageAnonKey();
+    const anonKey = readBrowserSupabaseAnonKey();
     const storageUploadUrl = getSupabaseStorageUploadUrl();
-    const jwtPayload = decodeJwtPayload(anonKey);
+    const supabaseUrl = typeof window === "undefined" ? "" : resolveSupabaseLoginUrl();
     return {
-        supabaseUrl: SUPABASE_PROJECT_URL,
+        supabaseUrl,
         storageUploadUrl,
         keySource: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
         serviceRoleKeyUsed: false,
@@ -41,31 +30,72 @@ export function describeStorageUploadAuth() {
               : anonKey
                 ? "other"
                 : "missing",
-        jwtPayload,
+        jwtPayload: null,
         authorizationHeaderSent: false,
+        sharedAuthClient: true,
     };
 }
 
+/** Matches server getPublicVideoUrl() / Supabase getPublicUrl output. */
+export function buildVideoPublicStorageUrl(storagePath: string) {
+    const cleanPath = storagePath.trim().replace(/^\/+/, "").replace(/^videos\/+/i, "");
+    if (!cleanPath) {
+        return "";
+    }
+    const projectUrl = resolveSupabaseLoginUrl().replace(/\/+$/, "");
+    return `${projectUrl}/storage/v1/object/public/videos/${cleanPath}`;
+}
+
+export type SignedStorageUploadResult = {
+    path: string;
+};
+
 /**
- * Browser Storage upload client for signed uploads.
- * Uses anon key only — signed upload token is passed to uploadToSignedUrl().
+ * Upload a file to a signed Supabase Storage URL without creating a Supabase client.
+ * Uses the signedUrl + token returned by /api/video-upload prepare.
  */
-export function createSupabaseStorageUploadClient() {
-    const anonKey = readStorageAnonKey();
+export async function uploadFileToSignedSupabaseStorage(
+    signedUrl: string,
+    token: string,
+    file: File,
+    contentType: string,
+): Promise<SignedStorageUploadResult> {
+    const anonKey = readBrowserSupabaseAnonKey();
     if (!anonKey) {
         throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
     }
-    if (!anonKey.startsWith("eyJ")) {
-        throw new Error(
-            "Storage uploads require the legacy anon JWT in NEXT_PUBLIC_SUPABASE_ANON_KEY (eyJ...). sb_publishable keys are not valid for Storage apikey.",
-        );
+    if (!signedUrl || !token) {
+        throw new Error("Signed storage upload is missing signedUrl or token.");
     }
-    const storageUrl = getSupabaseStorageUploadUrl();
-    return createClient(storageUrl, anonKey, {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-            detectSessionInUrl: false,
+
+    const uploadUrl = new URL(signedUrl);
+    uploadUrl.searchParams.set("token", token);
+
+    const response = await fetch(uploadUrl.toString(), {
+        method: "PUT",
+        headers: {
+            apikey: anonKey,
+            Authorization: `Bearer ${token}`,
+            "Content-Type": contentType || file.type || "application/octet-stream",
+            "x-upsert": "false",
         },
+        body: file,
+        cache: "no-store",
     });
+
+    if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(errorText || `Signed storage upload failed with HTTP ${response.status}.`);
+    }
+
+    const pathMatch = uploadUrl.pathname.match(/\/object\/upload\/sign\/videos\/(.+)$/i)
+        || uploadUrl.pathname.match(/\/videos\/(.+)$/i);
+    return {
+        path: pathMatch?.[1] ? decodeURIComponent(pathMatch[1]) : file.name,
+    };
+}
+
+/** @deprecated Use uploadFileToSignedSupabaseStorage — avoids duplicate GoTrueClient. */
+export function createSupabaseStorageUploadClient(): never {
+    throw new Error("createSupabaseStorageUploadClient is removed. Use uploadFileToSignedSupabaseStorage instead.");
 }

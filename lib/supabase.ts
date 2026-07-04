@@ -1,27 +1,42 @@
+/** DESKTOP ONLY — one shared browser Supabase client for the entire app. */
+
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolveSupabaseLoginUrl } from "./supabase-config";
 import {
     createDesktopSupabaseAuthClient,
     createDesktopSupabaseServerStubClient,
 } from "./supabase-auth-client";
 
-/** DESKTOP ONLY — shared browser auth client (NEXT_PUBLIC_SUPABASE_URL + anon key). */
-export const supabaseLoginUrl = resolveSupabaseLoginUrl();
+const DESKTOP_SUPABASE_CLIENT_KEY = "__mdb_desktop_supabase_client__";
 
-const BROWSER_CLIENT_KEY = "__mdb_browser_supabase_client__";
-
-type BrowserClientGlobal = typeof globalThis & {
-    [BROWSER_CLIENT_KEY]?: SupabaseClient;
+type DesktopSupabaseClientGlobal = typeof globalThis & {
+    [DESKTOP_SUPABASE_CLIENT_KEY]?: SupabaseClient;
 };
 
-function getBrowserSupabaseClient() {
-    const scope = globalThis as BrowserClientGlobal;
-    if (!scope[BROWSER_CLIENT_KEY]) {
-        scope[BROWSER_CLIENT_KEY] = createDesktopSupabaseAuthClient();
+/**
+ * Returns the single desktop Supabase auth client.
+ * Browser: one GoTrueClient on globalThis. Server: ephemeral stub per call.
+ */
+export function getDesktopSupabaseClient(): SupabaseClient {
+    if (typeof window === "undefined") {
+        return createDesktopSupabaseServerStubClient();
     }
-    return scope[BROWSER_CLIENT_KEY];
+
+    const scope = globalThis as DesktopSupabaseClientGlobal;
+    if (!scope[DESKTOP_SUPABASE_CLIENT_KEY]) {
+        scope[DESKTOP_SUPABASE_CLIENT_KEY] = createDesktopSupabaseAuthClient();
+    }
+    return scope[DESKTOP_SUPABASE_CLIENT_KEY];
 }
 
-export const supabase = typeof window !== "undefined"
-    ? getBrowserSupabaseClient()
-    : createDesktopSupabaseServerStubClient();
+/** Lazy singleton — every property access resolves to the shared client. */
+export const supabase: SupabaseClient = typeof window === "undefined"
+    ? createDesktopSupabaseServerStubClient()
+    : new Proxy({} as SupabaseClient, {
+        get(_target, prop) {
+            const client = getDesktopSupabaseClient();
+            const value = Reflect.get(client, prop, client) as unknown;
+            return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(client) : value;
+        },
+    });
+
+export { resolveSupabaseLoginUrl as supabaseLoginUrl } from "./supabase-config";

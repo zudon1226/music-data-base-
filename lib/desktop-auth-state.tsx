@@ -1,6 +1,7 @@
 "use client";
 
 import type { AuthChangeEvent, Session, SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js";
+import { isDesktopVideoUploadLifecycleActive } from "./desktop-video-upload-lifecycle";
 import {
     createContext,
     useCallback,
@@ -153,6 +154,9 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
     }, [completeSignIn]);
 
     const syncSessionFromClient = useCallback(async () => {
+        if (isDesktopVideoUploadLifecycleActive()) {
+            return authSession;
+        }
         clearDesktopAuthRecoveryGate();
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error || !session || !hasUsableAuthCredentials(session)) {
@@ -184,7 +188,14 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
     const setAuthSession = useCallback((value: SetStateAction<Session | null>) => {
         setAuthSessionState((previous) => {
             const next = typeof value === "function" ? value(previous) : value;
-            if (next && hasUsableAuthCredentials(next)) {
+            const tokensUnchanged = Boolean(
+                next
+                && previous
+                && next.access_token === previous.access_token
+                && next.refresh_token === previous.refresh_token
+                && next.expires_at === previous.expires_at,
+            );
+            if (next && hasUsableAuthCredentials(next) && !tokensUnchanged) {
                 markAuthenticated(next, resolveSessionUser(next, persistedUserRef.current));
             }
             return next;

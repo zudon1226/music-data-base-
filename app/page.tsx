@@ -6,7 +6,8 @@ import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
-import { ACCESS_TOKEN_SOURCE, readAccessTokenFromSession, readRefreshTokenFromSession, SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
+import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
+import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
 import { canRenderDesktopApplicationShell, runDesktopRemoteBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
 import { canDeleteDesktopUploadedItem, createDesktopActionRuntime } from "../lib/desktop-action-runtime";
 import { createDesktopProtectedActionAuthGuard } from "../lib/desktop-protected-action-auth-guard";
@@ -15,14 +16,19 @@ import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
 import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
 import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail";
+import { DesktopSongMediaCard, DesktopVideoMediaCard } from "../components/desktop-media-card";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
-import { createSupabaseStorageUploadClient, describeStorageUploadAuth, getSupabaseStorageUploadUrl } from "../lib/supabase-storage-upload";
+import { describeStorageUploadAuth } from "../lib/supabase-storage-upload";
+import { runDesktopVideoUpload } from "../lib/desktop-video-upload-runner";
+import { DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE } from "../lib/desktop-video-upload-progress";
+import { isDesktopVideoUploadLifecycleActive } from "../lib/desktop-video-upload-lifecycle";
+import { refreshDesktopSupabaseSessionWhenSafe } from "../lib/desktop-upload-auth-session-guard";
 import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
 import { applyLibraryCacheToState, clearLibraryCache, readLibraryCache, serializeLibraryCache, writeLibraryCache } from "../lib/library-storage";
-import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "../lib/session-token-limits";
+import { desktopUploadFetch, resolveDesktopUploadSession } from "../lib/desktop-upload-auth";
 import { supabase } from "../lib/supabase";
 type Song = {
     id: string;
@@ -3671,6 +3677,11 @@ function PageContent() {
             lastUpdated: new Date().toLocaleTimeString(),
         });
     }
+    function applyVideoUploadProgressUpdate(step: string, progress: number) {
+        flushSync(() => {
+            setVideoUploadStep(step, progress);
+        });
+    }
     function clearStaleVideoUploadState() {
         setVideoUploadError("");
         setVideoUploadStatus("");
@@ -4812,6 +4823,9 @@ function PageContent() {
         }
     }
     function retryCurrentUpload() {
+        if (uploadBusy || videoUploadBusy || albumUploadBusy) {
+            return;
+        }
         const retryEvent = { preventDefault() { } } as FormEvent<HTMLFormElement>;
         if (uploadMode === "album" || uploadMode === "producerAlbum") {
             void addUploadedAlbum(retryEvent);
@@ -4828,6 +4842,9 @@ function PageContent() {
         void addUploadedSong(retryEvent);
     }
     function retryVideoUpload() {
+        if (videoUploadBusy) {
+            return;
+        }
         const retryEvent = { preventDefault() { } } as FormEvent<HTMLFormElement>;
         void addUploadedVideo(retryEvent);
     }
@@ -5543,7 +5560,7 @@ function PageContent() {
             error?: string;
         };
         if (data.metadataChanged) {
-            await supabase.auth.refreshSession().catch(() => undefined);
+            await refreshDesktopSupabaseSessionWhenSafe(() => supabase.auth.refreshSession());
         }
         await confirmAuthenticatedFromApi(userId);
         return data;
@@ -9861,52 +9878,108 @@ function PageContent() {
         <span>Playlist</span>
       </button>);
     }
-    function renderVideoCardActions(video: VideoItem, options: VideoCardOptions = {}) {
+    function renderDesktopSongCard(song: Song, options: { variant?: "default" | "library" } = {}) {
+        const isSaved = libraryIds.includes(song.id);
+        const isLiked = likedIds.includes(song.id);
+        const artistId = createArtistId(song.artist);
+        const isFollowed = followedArtistIds.includes(artistId);
+        const isQueued = cleanQueue.some((item) => item.id === song.id);
+        const producerCredit = getProducerCreditForSong(song);
+        const canDeleteTrack = canDeleteUploadedSong(song);
+        return (<DesktopSongMediaCard
+            key={song.id}
+            song={song}
+            variant={options.variant}
+            state={{
+                isLiked,
+                isSaved,
+                isFollowed,
+                isQueued,
+                canDelete: canDeleteTrack,
+                producerCredit,
+                commentCount: getCommentsForItem("song", song.id).length,
+                verifiedBadge: renderVerifiedBadge(isArtistVerified(song.artist), "Verified Artist"),
+            }}
+            handlers={{
+                onPlay: () => playSong(song),
+                onToggleLike: () => toggleLike(song.id),
+                onToggleFollow: () => toggleArtistFollow(artistId, song.artist),
+                onToggleSave: () => {
+                    if (isSaved) {
+                        removeFromLibrary(song.id);
+                        return;
+                    }
+                    saveSongToLibrary(song);
+                },
+                onAddToQueue: () => addToQueue(song),
+                onOpenPlaylist: () => openPlaylistMenu(song),
+                onDelete: () => permanentDeleteSong(song.id, "Permanently delete this song?"),
+                onOpenComments: () => openComments("song", song),
+                onShare: () => copyShareLink("song", song.id, song.title),
+                onReport: () => createModerationReport("song", song.id, song.title, "Community song report", song.artist, artistId),
+                onClaim: () => createCopyrightClaim("song", song.id, song.title, song.artist),
+                onOpenArtist: openArtistProfile,
+            }}
+        />);
+    }
+    function renderDesktopVideoCard(video: VideoItem, options: VideoCardOptions = {}) {
+        const sourceLabel = options.sourceLabel || "Video Card";
         const artistId = createArtistId(video.creator);
         const isFollowing = followedArtistIds.includes(artistId);
         const isLiked = Boolean(video.likedByUser);
         const isSaved = savedVideoIds.includes(video.id);
-        const canDeleteVideo = options.showRemove && canDeleteUploadedVideo(video);
-        return (<>
-            <button className="play-btn" onClick={() => playVideo(video, options.sourceLabel || "Video Card")} type="button">
-              <span aria-hidden="true">▶</span>
-              <span>Play</span>
-            </button>
-
-            <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleVideoLike(video)} title={isLiked ? "Click to unlike" : "Like video"} type="button">
-              <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
-              <span>{isLiked ? options.unlikeLabel || "Liked" : "Like"}</span>
-            </button>
-
-            <button className={isFollowing ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, video.creator)} type="button">
-              <span aria-hidden="true">{isFollowing ? "✓" : "👤"}</span>
-              <span>{isFollowing ? "Following" : "Follow"}</span>
-            </button>
-
-            <button className={isSaved ? "library-btn saved" : "library-btn"} onClick={() => {
-                if (isSaved) {
-                    removeVideoFromLibrary(video.id);
-                    return;
-                }
-                handleSaveVideo(video.id);
-            }} title={isSaved ? "Remove video from Library" : "Save video to Library"} type="button">
-              <span aria-hidden="true">{isSaved ? "✓" : "+"}</span>
-              <span>{isSaved ? "Saved" : "Save"}</span>
-            </button>
-
-            {renderVideoPlaylistButton(video)}
-            {renderMobileVideoQueueButton(video)}
-            {canDeleteVideo && (<button type="button" className="danger-btn delete-button" onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                handlePermanentDeleteVideo(video.id);
-            }}>
-              Delete
-            </button>)}
-            {options.showLibraryRemove && (<button className="card-icon-btn danger" onClick={() => removeVideoFromLibrary(video.id)} type="button" title="Remove from library">
-              <Trash2 size={15}/>
-            </button>)}
-          </>);
+        const isQueued = uniqueVideos(videoPlaybackQueue).some((item) => item.id === video.id);
+        const canDeleteVideo = canDeleteUploadedVideo(video);
+        const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
+        return (<DesktopVideoMediaCard
+            key={video.id}
+            video={{
+                id: video.id,
+                title: video.title,
+                creator: video.creator,
+                category: video.category,
+                cover: video.cover,
+                uploaded: video.uploaded,
+                views: formatCount(video.views),
+                likes: formatCount(video.likes || 0),
+            }}
+            variant={options.isLibraryCard ? "library" : "default"}
+            likeLabel={options.unlikeLabel}
+            state={{
+                isLiked,
+                isSaved,
+                isFollowed: isFollowing,
+                isQueued,
+                canDelete: canDeleteVideo,
+                commentCount: getCommentsForItem("video", video.id).length,
+                verifiedBadge: renderVerifiedBadge(isArtistVerified(video.creator), "Verified Artist"),
+                mobileIncompatible,
+                mobileCompatibilityWarning: mobileIncompatible ? getMobileVideoCompatibilityWarningText(video) : null,
+            }}
+            handlers={{
+                onPlay: () => playVideo(video, sourceLabel),
+                onToggleLike: () => toggleVideoLike(video),
+                onToggleFollow: () => toggleArtistFollow(artistId, video.creator),
+                onToggleSave: () => {
+                    if (isSaved) {
+                        removeVideoFromLibrary(video.id);
+                        return;
+                    }
+                    handleSaveVideo(video.id);
+                },
+                onAddToQueue: () => addVideoToQueue(video),
+                onOpenPlaylist: () => handleVideoPlaylist(video.id),
+                onDelete: () => handlePermanentDeleteVideo(video.id),
+                onOpenComments: () => openComments("video", video),
+                onShare: () => copyShareLink("video", video.id, video.title),
+                onReport: () => createModerationReport("video", video.id, video.title, "Community video report", video.creator, artistId),
+                onClaim: () => createCopyrightClaim("video", video.id, video.title, video.creator),
+                onOpenArtist: openArtistProfile,
+            }}
+        />);
+    }
+    function renderVideoCard(video: VideoItem, options: VideoCardOptions = {}) {
+        return renderDesktopVideoCard(video, options);
     }
     async function addSongToPlaylist(playlistId: string, songId: string) {
         if (!playlistId || !songId) {
@@ -10229,191 +10302,30 @@ function PageContent() {
         setUser((previous) => previous || uploadUser);
         return uploadUser;
     }
-    async function getFreshVideoStorageUploadUser() {
-        const { session: storedSession, error: sessionError } = await getAuthSession(supabase);
-        if (sessionError) {
-            throw new Error(`Supabase auth check failed before video upload: ${sessionError.message}`);
+    function syncDesktopUploadSession(session: Session) {
+        if (isDesktopVideoUploadLifecycleActive()) {
+            noteValidatedDesktopSession(session);
+            clearDesktopAuthRecoveryGate(session);
+            return;
         }
-
-        let activeSession = authSession ?? storedSession ?? null;
-        if (authSession?.user) {
-            activeSession = authSession;
-            if (storedSession?.user?.id === authSession.user.id) {
-                activeSession = {
-                    ...storedSession,
-                    ...authSession,
-                    user: authSession.user,
-                    access_token: readAccessTokenFromSession(authSession)
-                        || readAccessTokenFromSession(storedSession)
-                        || "",
-                    refresh_token: readRefreshTokenFromSession(authSession)
-                        || readRefreshTokenFromSession(storedSession)
-                        || "",
-                };
+        if (uploadInProgressRef.current) {
+            noteValidatedDesktopSession(session);
+            clearDesktopAuthRecoveryGate(session);
+            return;
+        }
+        noteValidatedDesktopSession(session);
+        clearDesktopAuthRecoveryGate(session);
+        setAuthSession((previous) => {
+            if (
+                previous?.access_token === session.access_token
+                && previous?.refresh_token === session.refresh_token
+                && previous?.expires_at === session.expires_at
+            ) {
+                return previous;
             }
-        }
-        else if (storedSession?.user) {
-            activeSession = storedSession;
-        }
-
-        let accessToken = readAccessTokenFromSession(activeSession);
-        let refreshToken = readRefreshTokenFromSession(activeSession);
-        const expiresAtMs = activeSession?.expires_at ? activeSession.expires_at * 1000 : 0;
-        const shouldRefreshSession = Boolean(refreshToken) && (
-            !accessToken
-            || isOversizedBearerToken(accessToken)
-            || (expiresAtMs > 0 && expiresAtMs - Date.now() < 60000)
-        );
-        if (shouldRefreshSession) {
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
-                refresh_token: refreshToken,
-            });
-            if (!refreshError && refreshData.session) {
-                activeSession = refreshData.session;
-                accessToken = readAccessTokenFromSession(activeSession);
-                refreshToken = readRefreshTokenFromSession(activeSession);
-            }
-        }
-
-        if (!activeSession?.user?.id) {
-            throw new Error("You must log in again before uploading videos to Supabase Storage.");
-        }
-
-        const hasUsableAccessToken = Boolean(accessToken) && !isOversizedBearerToken(accessToken);
-        if (!hasUsableAccessToken && !refreshToken) {
-            throw new Error(
-                `Invalid session access_token from ${ACCESS_TOKEN_SOURCE}. Sign out and sign in again after auth metadata repair.`,
-            );
-        }
-
-        setUser((previous) => previous || activeSession.user);
-        setAuthSession((previous) => previous ?? activeSession);
-        return {
-            user: activeSession.user,
-            accessToken: hasUsableAccessToken ? accessToken : "",
-            refreshToken,
-        };
-    }
-    function appendVideoUploadSessionTokens(
-        payload: Record<string, unknown>,
-        tokens: { accessToken: string; refreshToken: string },
-    ) {
-        if (tokens.accessToken && !isOversizedBearerToken(tokens.accessToken)) {
-            payload.accessToken = tokens.accessToken;
-        }
-        if (tokens.refreshToken) {
-            payload.refreshToken = tokens.refreshToken;
-        }
-        return payload;
-    }
-    function appendVideoUploadSessionTokensToForm(
-        formData: FormData,
-        tokens: { accessToken: string; refreshToken: string },
-    ) {
-        if (tokens.accessToken && !isOversizedBearerToken(tokens.accessToken)) {
-            formData.append("accessToken", tokens.accessToken);
-        }
-        if (tokens.refreshToken) {
-            formData.append("refreshToken", tokens.refreshToken);
-        }
-        return formData;
-    }
-    async function getVideoMetadataSaveAccessToken() {
-        const currentAccessToken = readAccessTokenFromSession(authSession);
-        if (currentAccessToken && !isOversizedBearerToken(currentAccessToken)) {
-            return currentAccessToken;
-        }
-
-        const { session, error } = await getAuthSession(supabase);
-        if (error || !session?.access_token) {
-            throw new Error("Session expired. Please log out and log back in, then retry save.");
-        }
-
-        const accessToken = readAccessTokenFromSession(session);
-        if (!accessToken || isOversizedBearerToken(accessToken)) {
-            throw new Error("Session expired. Please log out and log back in, then retry save.");
-        }
-
-        setAuthSession(session);
+            return session;
+        });
         setUser((previous) => previous || session.user);
-        return accessToken;
-    }
-    async function videoUploadFetch(
-        init: {
-            method?: string;
-            headers?: HeadersInit;
-            body: BodyInit;
-        },
-        tokens: { accessToken: string; refreshToken: string },
-    ) {
-        const headers = new Headers(init.headers);
-        headers.delete("authorization");
-        headers.delete("Authorization");
-        if (tokens.accessToken && !isOversizedBearerToken(tokens.accessToken)) {
-            headers.set("Authorization", `Bearer ${tokens.accessToken}`);
-        }
-        if (tokens.refreshToken) {
-            headers.set(SUPABASE_REFRESH_TOKEN_HEADER, tokens.refreshToken);
-        }
-
-        let body = init.body;
-        if (typeof body === "string") {
-            try {
-                const parsed = JSON.parse(body) as Record<string, unknown>;
-                body = JSON.stringify(appendVideoUploadSessionTokens(parsed, tokens));
-            }
-            catch {
-                // Keep the original JSON body when parsing fails.
-            }
-        }
-        else if (body instanceof FormData) {
-            appendVideoUploadSessionTokensToForm(body, tokens);
-        }
-
-        return fetch("/api/video-upload", {
-            method: init.method || "POST",
-            headers,
-            body,
-            credentials: "omit",
-            cache: "no-store",
-        });
-    }
-    async function audioUploadFetch(
-        init: {
-            method?: string;
-            headers?: HeadersInit;
-            body: BodyInit;
-        },
-        tokens: { accessToken: string; refreshToken: string },
-    ) {
-        const headers = new Headers(init.headers);
-        headers.delete("authorization");
-        headers.delete("Authorization");
-        if (tokens.accessToken && !isOversizedBearerToken(tokens.accessToken)) {
-            headers.set("Authorization", `Bearer ${tokens.accessToken}`);
-        }
-        if (tokens.refreshToken) {
-            headers.set(SUPABASE_REFRESH_TOKEN_HEADER, tokens.refreshToken);
-        }
-
-        let body = init.body;
-        if (typeof body === "string") {
-            try {
-                const parsed = JSON.parse(body) as Record<string, unknown>;
-                body = JSON.stringify(appendVideoUploadSessionTokens(parsed, tokens));
-            }
-            catch {
-                // Keep the original JSON body when parsing fails.
-            }
-        }
-
-        return fetch("/api/upload-audio", {
-            method: init.method || "POST",
-            headers,
-            body,
-            credentials: "omit",
-            cache: "no-store",
-        });
     }
     async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
         const fileError = getAudioFileError(file);
@@ -10421,27 +10333,21 @@ function PageContent() {
             throw new Error(fileError);
         }
         let sessionUser = uploadUser || null;
-        let accessToken = "";
-        let refreshToken = "";
         if (!sessionUser) {
-            const { session } = await getAuthSession(supabase);
-            if (!session?.access_token || !session.user) {
-                throw new Error("You must log in again before uploading.");
-            }
-            sessionUser = session.user;
-            accessToken = readAccessTokenFromSession(session);
-            refreshToken = readRefreshTokenFromSession(session);
+            const { user } = await resolveDesktopUploadSession(supabase, {
+                onSession: syncDesktopUploadSession,
+            });
+            sessionUser = user;
         }
         else {
-            const { session } = await getAuthSession(supabase);
-            accessToken = readAccessTokenFromSession(session);
-            refreshToken = readRefreshTokenFromSession(session);
+            await resolveDesktopUploadSession(supabase, {
+                onSession: syncDesktopUploadSession,
+            });
         }
         assertUploadAllowed(sessionUser);
         if (!sessionUser?.id) {
             throw new Error("You must log in again before uploading.");
         }
-        const uploadSessionTokens = { accessToken, refreshToken };
         const sessionUserId = sessionUser.id;
         const storagePath = buildAudioStoragePath(sessionUserId, file);
         const contentType = getAudioUploadContentType(file);
@@ -10452,7 +10358,7 @@ function PageContent() {
         setUploadProgress(4);
         setUploadStatus("Requesting signed Supabase Storage upload URL...");
 
-        const prepareResponse = await audioUploadFetch({
+        const prepareResponse = await desktopUploadFetch(supabase, "/api/upload-audio", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -10461,7 +10367,7 @@ function PageContent() {
                 userId: sessionUserId,
                 storagePath,
             }),
-        }, uploadSessionTokens);
+        }, { onSession: syncDesktopUploadSession });
 
         const prepareResult = (await prepareResponse.json().catch(() => ({}))) as {
             storagePath?: string;
@@ -10503,8 +10409,7 @@ function PageContent() {
         else {
             setUploadStatus("Uploading audio to Supabase Storage...");
             setUploadProgress(12);
-            const storageUploadClient = createSupabaseStorageUploadClient();
-            const storageUpload = await storageUploadClient.storage.from(SONGS_STORAGE_BUCKET).uploadToSignedUrl(
+            const storageUpload = await supabase.storage.from(SONGS_STORAGE_BUCKET).uploadToSignedUrl(
                 prepareResult.storagePath || storagePath,
                 prepareResult.token,
                 file,
@@ -10557,7 +10462,7 @@ function PageContent() {
         console.error("AUTH USER ID:", sessionUserId);
         console.error("FULL INSERT PAYLOAD:", songInsertPayloadPreview);
 
-        const metadataResponse = await audioUploadFetch({
+        const metadataResponse = await desktopUploadFetch(supabase, "/api/upload-audio", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -10575,7 +10480,7 @@ function PageContent() {
                 producer: producer?.name || "",
                 album_id: albumId || "",
             }),
-        }, uploadSessionTokens);
+        }, { onSession: syncDesktopUploadSession });
 
         const responseText = await metadataResponse.text();
         let uploadResult: {
@@ -10631,320 +10536,62 @@ function PageContent() {
         if (uploadUser?.id) {
             albumUploadUserRef.current = uploadUser;
         }
-        updateVideoUploadDebug({
-            currentStep: "Checking Supabase auth session for video upload",
-            lastError: "",
-        });
-        const { user: sessionUser, accessToken, refreshToken } = await getFreshVideoStorageUploadUser();
-        const uploadSessionTokens = { accessToken, refreshToken };
-        assertUploadAllowed(sessionUser);
         const producer = getProducerById(videoDetails.producerId);
         const producerId = producer?.id || videoDetails.producerId || "";
-        const storagePath = buildVideoStoragePath(sessionUser.id, file);
-        const contentType = getVideoUploadContentType(file);
-        const codecInfo = await inspectVideoFileCodecInfo(file);
         const storageAuthDebug = describeStorageUploadAuth();
-        const storageUploadUrl = storageAuthDebug.storageUploadUrl;
-
-        console.log("VIDEO UPLOAD SESSION STATUS", {
-            userId: sessionUser.id,
-            email: sessionUser.email || null,
-            bucket: VIDEOS_STORAGE_BUCKET,
-            storagePath,
-            fileSize: file.size,
-            fileName: file.name,
-        });
-        console.log("STORAGE UPLOAD AUTH", storageAuthDebug);
-
-        setVideoUploadStep("Preparing video...", 4);
         updateVideoUploadDebug({
+            currentStep: "Starting desktop video upload",
+            lastError: "",
             uploadMethod: "Signed Supabase Storage upload with direct-upload fallback",
             supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-            uploadTargetUrl: storageUploadUrl,
+            uploadTargetUrl: storageAuthDebug.storageUploadUrl,
             bucket: VIDEOS_STORAGE_BUCKET,
             fileSize: String(file.size),
             fileName: file.name,
             selectedFileName: file.name,
             selectedFileSize: String(file.size),
             hasFileObject: true,
-            currentStep: "Requesting signed Supabase Storage upload URL",
-            lastError: "",
-            fullErrorJson: "",
-            insertUserId: sessionUser.id,
-            authUserId: sessionUser.id,
-            insertUserMatchesAuth: "true",
             sourceLocation: "app/page.tsx uploadVideoToSupabase",
         });
-
-        setVideoUploadStep("Requesting signed Supabase Storage upload URL...", 8);
-        const prepareResponse = await videoUploadFetch({
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                mode: "prepare-storage-upload",
-                sessionUserId: sessionUser.id,
-                userId: sessionUser.id,
-                storagePath,
-            }),
-        }, uploadSessionTokens);
-
-        const prepareResult = (await prepareResponse.json().catch(() => ({}))) as {
-            storagePath?: string;
-            token?: string;
-            signedUrl?: string;
-            publicUrl?: string;
-            error?: string;
-            details?: unknown;
-            useDirectUpload?: boolean;
-            uploadMethod?: string;
-            authUserId?: string;
-            bucket?: string;
-        };
-
-        console.log("VIDEO UPLOAD PREPARE RESPONSE", {
-            ok: prepareResponse.ok,
-            status: prepareResponse.status,
-            bucket: prepareResult.bucket || VIDEOS_STORAGE_BUCKET,
-            storagePath: prepareResult.storagePath || storagePath,
-            signedUrl: prepareResult.signedUrl || "",
-            hasToken: Boolean(prepareResult.token),
-            useDirectUpload: Boolean(prepareResult.useDirectUpload),
-            uploadMethod: prepareResult.uploadMethod || "",
-            error: prepareResult.error || null,
-            details: prepareResult.details || null,
-        });
-
-        let savedStoragePath = prepareResult.storagePath || storagePath;
-        let publicUrl = prepareResult.publicUrl || "";
-        let uploadMethod = prepareResult.uploadMethod || "signed";
-
-        const shouldUseDirectUpload = !prepareResponse.ok
-            || prepareResult.useDirectUpload
-            || !prepareResult.token
-            || prepareResult.error;
-
-        if (shouldUseDirectUpload) {
-            const prepareErrorDetails = prepareResult.details ? ` ${JSON.stringify(prepareResult.details)}` : "";
-            const prepareFailureReason = prepareResult.error
-                ? `${prepareResult.error}${prepareErrorDetails}`
-                : `Signed upload prepare failed with HTTP ${prepareResponse.status}.`;
-            console.warn("VIDEO UPLOAD SIGNED PREPARE FAILED, FALLING BACK TO DIRECT UPLOAD", {
-                reason: prepareFailureReason,
-                bucket: VIDEOS_STORAGE_BUCKET,
-                storagePath,
-                userId: sessionUser.id,
-            });
-            setVideoUploadStep("Signed upload unavailable, uploading directly...", 12);
-            updateVideoUploadDebug({
-                currentStep: "Falling back to direct server storage upload",
-                lastError: prepareFailureReason,
-                uploadMethod: "direct-storage-upload",
-            });
-
-            const directFormData = new FormData();
-            directFormData.append("mode", "direct-storage-upload");
-            directFormData.append("file", file);
-            directFormData.append("sessionUserId", sessionUser.id);
-            directFormData.append("userId", sessionUser.id);
-            directFormData.append("storagePath", storagePath);
-            directFormData.append("contentType", contentType);
-
-            const directResponse = await videoUploadFetch({
-                method: "POST",
-                body: directFormData,
-            }, uploadSessionTokens);
-            const directResult = (await directResponse.json().catch(() => ({}))) as {
-                publicUrl?: string;
-                storagePath?: string;
-                error?: string;
-                details?: unknown;
-                uploadMethod?: string;
-                bucket?: string;
-            };
-
-            console.log("VIDEO UPLOAD DIRECT RESPONSE", {
-                ok: directResponse.ok,
-                status: directResponse.status,
-                bucket: directResult.bucket || VIDEOS_STORAGE_BUCKET,
-                storagePath: directResult.storagePath || storagePath,
-                publicUrl: directResult.publicUrl || "",
-                uploadMethod: directResult.uploadMethod || "direct",
-                error: directResult.error || null,
-                details: directResult.details || null,
-            });
-
-            if (!directResponse.ok || directResult.error || !directResult.publicUrl || !directResult.storagePath) {
-                const directErrorDetails = directResult.details ? ` ${JSON.stringify(directResult.details)}` : "";
-                throw new Error(directResult.error
-                    ? `Direct storage upload failed: ${directResult.error}${directErrorDetails}`
-                    : `Direct storage upload failed with HTTP ${directResponse.status}. Signed prepare error: ${prepareFailureReason}`);
-            }
-
-            savedStoragePath = normalizeVideoStoragePath(directResult.storagePath);
-            publicUrl = directResult.publicUrl;
-            uploadMethod = directResult.uploadMethod || "direct";
-        }
-        else {
-            setVideoUploadStep("Uploading video to Supabase Storage...", 12);
-            console.log("SIGNED VIDEO UPLOAD PREPARED", {
-                fileName: file.name,
-                fileSize: file.size,
-                storagePath: prepareResult.storagePath,
-                signedUrl: prepareResult.signedUrl || "",
-                bucket: prepareResult.bucket || VIDEOS_STORAGE_BUCKET,
-            });
-
-            const storageUploadClient = createSupabaseStorageUploadClient();
-            console.log("STORAGE UPLOAD CLIENT", describeStorageUploadAuth());
-            const storageUpload = await storageUploadClient.storage.from(VIDEOS_STORAGE_BUCKET).uploadToSignedUrl(prepareResult.storagePath!, prepareResult.token!, file, {
-                cacheControl: "3600",
-                contentType,
-            });
-
-            console.log("VIDEO STORAGE UPLOAD RESULT", storageUpload.data);
-            console.log("VIDEO STORAGE UPLOAD ERROR", storageUpload.error);
-
-            if (storageUpload.error) {
-                console.warn("VIDEO SIGNED CLIENT UPLOAD FAILED, FALLING BACK TO DIRECT UPLOAD", storageUpload.error);
-                const directFormData = new FormData();
-                directFormData.append("mode", "direct-storage-upload");
-                directFormData.append("file", file);
-                directFormData.append("sessionUserId", sessionUser.id);
-                directFormData.append("userId", sessionUser.id);
-                directFormData.append("storagePath", storagePath);
-                directFormData.append("contentType", contentType);
-                const directResponse = await videoUploadFetch({
-                    method: "POST",
-                    body: directFormData,
-                }, uploadSessionTokens);
-                const directResult = (await directResponse.json().catch(() => ({}))) as {
-                    publicUrl?: string;
-                    storagePath?: string;
-                    error?: string;
-                    details?: unknown;
-                };
-                if (!directResponse.ok || directResult.error || !directResult.publicUrl || !directResult.storagePath) {
-                    const signedClientError = storageUpload.error.message || "Supabase Storage signed upload failed.";
-                    const directErrorDetails = directResult.details ? ` ${JSON.stringify(directResult.details)}` : "";
-                    throw new Error(directResult.error
-                        ? `Signed client upload failed (${signedClientError}). Direct fallback failed: ${directResult.error}${directErrorDetails}`
-                        : `Signed client upload failed (${signedClientError}). Direct fallback HTTP ${directResponse.status}.`);
-                }
-                savedStoragePath = normalizeVideoStoragePath(directResult.storagePath);
-                publicUrl = directResult.publicUrl;
-                uploadMethod = "direct";
-            }
-            else {
-                savedStoragePath = normalizeVideoStoragePath(storageUpload.data?.path || prepareResult.storagePath || storagePath);
-                const { data: publicUrlData } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(savedStoragePath);
-                publicUrl = publicUrlData.publicUrl || "";
-                uploadMethod = "signed";
-            }
-        }
-
-        updateVideoUploadDebug({
-            currentStep: publicUrl ? "Supabase Storage upload complete" : "Supabase Storage upload failed",
-            lastError: publicUrl ? "" : "Supabase did not return a public URL for the uploaded video.",
-            uploadMethod,
-            fullErrorJson: JSON.stringify({
-                uploadMethod,
-                savedStoragePath,
-                publicUrl,
-                bucket: VIDEOS_STORAGE_BUCKET,
-            }, null, 2),
-        });
-
-        console.log("VIDEO FINAL PUBLIC URL", publicUrl);
-        if (!publicUrl) {
-            throw new Error("Supabase did not return a public URL for the uploaded video.");
-        }
-
-        setVideoUploadStep("Saving video metadata...", 88);
-        const metadataAccessToken = await getVideoMetadataSaveAccessToken();
-        const metadataResponse = await videoUploadFetch({
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                sessionUserId: sessionUser.id,
-                userId: sessionUser.id,
-                publicUrl,
-                storagePath: savedStoragePath,
-                fileName: file.name || "video.mp4",
-                fileSize: file.size,
-                contentType,
+        assertUploadAllowed(uploadUser || authSessionRef.current?.user || null);
+        const uploadResult = await runDesktopVideoUpload({
+            supabase,
+            file,
+            pinnedSession: authSessionRef.current,
+            videoDetails: {
                 title: videoDetails.title,
-                description: videoDetails.creator,
-                artistName: videoDetails.creator,
-                artist_id: sessionUser.id,
+                creator: videoDetails.creator,
                 category: videoDetails.category,
-                coverUrl: videoDetails.cover || DEFAULT_COVER,
-                producerName: producer?.name || "",
+                cover: videoDetails.cover || DEFAULT_COVER,
                 producerId: producerId || "",
-                producer_profile_id: producerId || "",
-                album_id: albumId || "",
-                videoCodec: codecInfo.videoCodec || "",
-                audioCodec: codecInfo.audioCodec || "",
-                mobileCompatible: codecInfo.mobileCompatible,
-                cleanupOnFailure: true,
-            }),
-        }, { accessToken: metadataAccessToken, refreshToken: "" });
-
-        const metadataResult = (await metadataResponse.json().catch(() => ({}))) as {
-            publicUrl?: string;
-            storagePath?: string;
-            error?: string;
-            details?: unknown;
-            verification?: Record<string, unknown>;
-            video?: VideoTableRow;
-        };
-        const metadataErrorDetails = metadataResult.details ? ` ${JSON.stringify(metadataResult.details)}` : "";
-        console.log("VIDEO DATABASE SAVE RESULT", metadataResult.video);
-        console.log("VIDEO DATABASE SAVE ERROR", metadataResult.error || null);
-
-        updateVideoUploadDebug({
-            currentStep: metadataResponse.ok && metadataResult.video ? "Video database insert complete" : "Video database insert failed",
-            lastError: metadataResult.error || "",
-            fullInsertPayload: JSON.stringify(metadataResult.video || {}, null, 2),
-            fullErrorJson: JSON.stringify({
-                databaseInsertResult: metadataResult.video || null,
-                databaseInsertError: metadataResult.error || null,
-                verification: metadataResult.verification || null,
-                details: metadataResult.details || null,
-                finalPublicUrl: metadataResult.publicUrl || "",
-            }, null, 2),
+                producerName: producer?.name || "",
+                albumId: albumId || "",
+            },
+            onProgress: (update) => {
+                applyVideoUploadProgressUpdate(update.status, update.percent);
+            },
         });
-
-        if (!metadataResponse.ok || metadataResult.error || !metadataResult.video) {
-            throw new Error(metadataResult.error
-                ? `Video metadata save failed: ${metadataResult.error}${metadataErrorDetails}`
-                : `Video metadata save failed with HTTP ${metadataResponse.status}.`);
-        }
-
-        const savedVideo = metadataResult.video;
-        if (!isUuid(savedVideo.id)) {
-            throw new Error("Supabase inserted a video row without a real UUID id.");
-        }
-        if (!metadataResult.storagePath || savedVideo.storage_path !== metadataResult.storagePath) {
-            throw new Error("Saved video row storage_path does not match uploaded storage path.");
-        }
-        if (!metadataResult.publicUrl || savedVideo.video_url !== metadataResult.publicUrl) {
-            throw new Error("Saved video row video_url does not match uploaded public URL.");
-        }
-
-        setVideoUploadStep("Finishing upload...", 98);
-        setVideoUploadStep("Video upload complete.", 100);
         updateVideoUploadDebug({
             currentStep: "Video upload complete.",
             lastError: "",
+            uploadMethod: uploadResult.uploadMethod,
             uploadTargetUrl: "/api/video-upload",
             requestMethod: "POST",
-            requestBodyType: `${uploadMethod} storage upload + verified server metadata insert`,
+            requestBodyType: `${uploadResult.uploadMethod} storage upload + verified server metadata insert`,
             requestBodySize: String(file.size),
-            insertUserId: String(savedVideo.user_id || sessionUser.id),
-            authUserId: sessionUser.id,
-            insertUserMatchesAuth: String(String(savedVideo.user_id || sessionUser.id) === sessionUser.id),
-            fullInsertPayload: JSON.stringify(savedVideo, null, 2),
+            fullInsertPayload: JSON.stringify(uploadResult.video || {}, null, 2),
+            fullErrorJson: JSON.stringify({
+                uploadMethod: uploadResult.uploadMethod,
+                savedStoragePath: uploadResult.storagePath,
+                publicUrl: uploadResult.publicUrl,
+                bucket: VIDEOS_STORAGE_BUCKET,
+            }, null, 2),
         });
+        syncDesktopUploadSession(uploadResult.session);
+        const savedVideo = uploadResult.video as VideoTableRow;
+        if (!isUuid(savedVideo.id)) {
+            throw new Error("Supabase inserted a video row without a real UUID id.");
+        }
         return mapVideoRowToVideoItem(savedVideo);
     }
     async function copyStorageSetupSql() {
@@ -11386,10 +11033,23 @@ function PageContent() {
             stopUploadNetworkTrace();
             return;
         }
+        let producerProfileForUpload: ProducerProfile | null = null;
+        if (mode === "producerVideo") {
+            producerProfileForUpload = currentProducerProfile.id ? currentProducerProfile : await saveProducerProfile();
+            if (!producerProfileForUpload?.id) {
+                setVideoUploadError("Save your producer profile before uploading a producer video.");
+                updateVideoUploadDebug({
+                    currentStep: "Producer profile validation failed",
+                    lastError: "Save your producer profile before uploading a producer video.",
+                });
+                stopUploadNetworkTrace();
+                return;
+            }
+        }
         setVideoUploadBusy(true);
-        setVideoUploadStep("Starting video upload...", 1);
         let uploadGuardActive = false;
         let uploadGuardKey = "";
+        let videoUploadSucceeded = false;
         try {
             if (!selectedVideoFile) {
                 setVideoUploadError("Choose an MP4, MOV, or WEBM video file.");
@@ -11404,27 +11064,27 @@ function PageContent() {
             uploadGuardActive = beginUploadGuard(uploadGuardKey, "This video upload is already running.");
             if (!uploadGuardActive)
                 return;
-            const producerProfile = mode === "producerVideo" ? (currentProducerProfile.id ? currentProducerProfile : await saveProducerProfile()) : null;
-            if (mode === "producerVideo" && !producerProfile?.id) {
-                setVideoUploadError("Save your producer profile before uploading a producer video.");
-                updateVideoUploadDebug({
-                    currentStep: "Producer profile validation failed",
-                    lastError: "Save your producer profile before uploading a producer video.",
-                });
-                return;
-            }
             const newVideo = await uploadVideoToSupabase(selectedVideoFile, {
                 title,
-                creator: mode === "producerVideo" ? producerProfile?.name || creator : creator,
+                creator: mode === "producerVideo" ? producerProfileForUpload?.name || creator : creator,
                 category: videoForm.category,
                 cover: videoForm.cover,
-                producerId: producerProfile?.id || videoForm.producerId,
+                producerId: producerProfileForUpload?.id || videoForm.producerId,
             });
+            setVideos((previous) => uniqueVideos([newVideo, ...previous]));
+            setSelectedVideoId(newVideo.id);
+            setActiveVideo(newVideo);
             setVideoUploadStep("Reloading video library...", 99);
-            const databaseVideos = await reloadVideoLibraryFromSupabase();
-            const savedVideo = databaseVideos.find((video) => video.id === newVideo.id) || newVideo;
-            setActiveVideo(savedVideo);
-            setSelectedVideoId(savedVideo.id);
+            try {
+                const databaseVideos = await reloadVideoLibraryFromSupabase();
+                await reloadProducerDataFromSupabase();
+                const savedVideo = databaseVideos.find((video) => video.id === newVideo.id) || newVideo;
+                setActiveVideo(savedVideo);
+                setSelectedVideoId(savedVideo.id);
+            }
+            catch (reloadError) {
+                console.warn("[video upload] dashboard refresh after save failed:", reloadError);
+            }
             setVideoForm({ title: "", creator: "", category: "Music Video", cover: "", producerId: "" });
             selectedVideoFileRef.current = null;
             setVideoFile(null);
@@ -11435,11 +11095,26 @@ function PageContent() {
             });
             setView(mode === "producerVideo" ? "Producer Dashboard" : sourceView === "Artist Dashboard" ? "Artist Dashboard" : "Videos");
             showToast(mode === "producerVideo" ? "Producer video uploaded." : "Video uploaded.", "success");
+            videoUploadSucceeded = true;
+            setVideoUploadProgress(0);
+            setVideoUploadStatus("");
         }
         catch (error) {
-            const message = getVideoUploadErrorMessage(error);
+            let message = getVideoUploadErrorMessage(error);
+            if (error instanceof Error && error.name === "AbortError") {
+                message = DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE;
+            }
+            if (message === DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE || (error instanceof Error && error.name === "DesktopVideoUploadStallError")) {
+                message = DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE;
+            }
+            if (message === SESSION_EXPIRED_MESSAGE && authSessionRef.current) {
+                message = error instanceof Error && error.message !== SESSION_EXPIRED_MESSAGE
+                    ? error.message
+                    : "Video metadata save failed. Please retry save.";
+            }
             setVideoUploadError(message);
             setVideoUploadStatus("");
+            setVideoUploadProgress(0);
             updateVideoUploadDebug({
                 currentStep: "Upload failed",
                 lastError: message,
@@ -11451,6 +11126,13 @@ function PageContent() {
         finally {
             if (uploadGuardActive) {
                 endUploadGuard(uploadGuardKey);
+            }
+            if (!videoUploadSucceeded) {
+                setVideoUploadProgress(0);
+                setVideoUploadStatus("");
+            }
+            else if (authSessionRef.current) {
+                syncDesktopUploadSession(authSessionRef.current);
             }
             setVideoUploadBusy(false);
             stopUploadNetworkTrace();
@@ -13128,59 +12810,6 @@ function PageContent() {
                 </button>)}
             </div>
           </>)}
-      </article>);
-    }
-    function renderVideoCard(video: VideoItem, options: VideoCardOptions = {}) {
-        const sourceLabel = options.sourceLabel || "Video Card";
-        const artistId = createArtistId(video.creator);
-        const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
-        return (<article className={options.isLibraryCard ? "video-card library-card media-card" : "video-card media-card"} key={video.id}>
-        <div className="video-cover-wrap">
-          <button className="video-cover" onClick={() => playVideo(video, sourceLabel)} type="button">
-            <img src={video.cover} alt=""/>
-            <span>{video.category}</span>
-            <Film size={34}/>
-          </button>
-          {mobileIncompatible ? (<span className="video-compat-badge">Mobile unsupported</span>) : null}
-        </div>
-
-        <div className="video-card-body media-card-content">
-          <div className="card-meta">
-            <h3 className="media-card-title">{video.title}{renderVerifiedBadge(isArtistVerified(video.creator), "Verified Artist")}</h3>
-            <p className="media-card-artist">
-              <ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>
-            </p>
-          </div>
-
-          <div className="stats">
-            <span>{formatCount(video.views)} views</span>
-            <span>{formatCount(video.likes || 0)} likes</span>
-            <span>{video.uploaded}</span>
-          </div>
-          {mobileIncompatible ? (<p className="video-compat-warning">{getMobileVideoCompatibilityWarningText(video)}</p>) : null}
-
-          <div className="card-actions media-card-actions">
-            {renderVideoCardActions(video, options)}
-          </div>
-          <div className="card-secondary-actions">
-            <button onClick={() => openComments("video", video)} type="button">
-              <MessageCircle size={14}/>
-              Comments {getCommentsForItem("video", video.id).length}
-            </button>
-            <button onClick={() => copyShareLink("video", video.id, video.title)} type="button">
-              <Share2 size={14}/>
-              Share Video
-            </button>
-            <button onClick={() => createModerationReport("video", video.id, video.title, "Community video report", video.creator, artistId)} type="button">
-              <Bell size={14}/>
-              Report
-            </button>
-            <button onClick={() => createCopyrightClaim("video", video.id, video.title, video.creator)} type="button">
-              <BookOpen size={14}/>
-              Claim
-            </button>
-          </div>
-        </div>
       </article>);
     }
     function saveArtistProfile(event: FormEvent<HTMLFormElement>) {
@@ -15128,7 +14757,7 @@ function PageContent() {
 
                 {(videoUploadBusy || videoUploadProgress > 0) && (<div className="upload-progress" aria-live="polite">
                     <div>
-                      <span>{videoUploadStatus || "Video upload ready"}</span>
+                      <span>{videoUploadStatus || (videoUploadBusy ? "Uploading..." : "Video upload ready")}</span>
                       <strong>{videoUploadProgress}%</strong>
                     </div>
                     <progress max="100" value={videoUploadProgress}/>
@@ -16003,7 +15632,7 @@ function PageContent() {
 
               {(videoUploadBusy || videoUploadProgress > 0) && (<div className="upload-progress" aria-live="polite">
                   <div>
-                    <span>{videoUploadStatus || "Video upload ready"}</span>
+                    <span>{videoUploadStatus || (videoUploadBusy ? "Uploading..." : "Video upload ready")}</span>
                     <strong>{videoUploadProgress}%</strong>
                   </div>
                   <progress max="100" value={videoUploadProgress}/>
@@ -17667,82 +17296,7 @@ function PageContent() {
                     </div>
 
                     {libraryContentSongs.length === 0 ? (<p className="empty-small">No songs available yet.</p>) : (<DesktopLibraryCardRail className="song-grid" label="Library Songs">
-                        {libraryContentSongs.map((song) => {
-                            const isSaved = libraryIds.includes(song.id);
-                            const isLiked = likedIds.includes(song.id);
-                            const artistId = createArtistId(song.artist);
-                            const isFollowed = followedArtistIds.includes(artistId);
-                            const isQueued = cleanQueue.some((item) => item.id === song.id);
-                            const producerCredit = getProducerCreditForSong(song);
-                            const canDeleteTrack = canDeleteUploadedSong(song);
-                            return (<article className="song-card library-card media-card" key={song.id}>
-                              <div className="cover-wrap">
-                                <img className="cover" src={song.cover} alt=""/>
-                                <span className="badge">{song.category}</span>
-                                <span className="duration">{song.time}</span>
-                                <div className="card-header-actions">
-                                  <button className={isQueued ? "card-icon-btn queued" : "card-icon-btn"} onClick={() => addToQueue(song)} title={isQueued ? "Queued" : "Add to queue"} type="button">
-                                    <ListMusic size={15}/>
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="song-body media-card-content">
-                                <div className="song-head">
-                                  <img src={song.cover} alt=""/>
-                                  <div>
-                                    <h3 className="media-card-title">{song.title}</h3>
-                                    <p className="media-card-artist">
-                                      <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <p className="desc">
-                                  {producerCredit ? `Produced by ${producerCredit}` : "No producer assigned."}
-                                </p>
-
-                                <div className="stats">
-                                  <span>audio</span>
-                                  <span>{song.plays} plays</span>
-                                  <span>{song.likes + (isLiked ? 1 : 0)} likes</span>
-                                  <span>{song.uploaded}</span>
-                                </div>
-
-                                <div className="card-actions media-card-actions">
-                                  <button className="play-btn" onClick={() => playSong(song)} type="button">
-                                    <span aria-hidden="true">▶</span>
-                                    <span>Play</span>
-                                  </button>
-
-                                  <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleLike(song.id)} type="button">
-                                    <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
-                                    <span>{isLiked ? "Liked" : "Like"}</span>
-                                  </button>
-
-                                  <button className={isFollowed ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, song.artist)} type="button">
-                                    <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
-                                    <span>{isFollowed ? "Following" : "Follow"}</span>
-                                  </button>
-                                  <button className={isSaved ? "library-btn saved" : "library-btn"} onClick={() => {
-                                    if (isSaved) {
-                                        removeFromLibrary(song.id);
-                                        return;
-                                    }
-                                    saveSongToLibrary(song);
-                                }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
-                                    <span>{isSaved ? "Saved" : "Save"}</span>
-                                  </button>
-                                  {renderMobileSongQueueButton(song)}
-                                  {renderPlaylistButton(song)}
-                                  {canDeleteTrack && (<button className="danger-btn library-song-delete-btn" onClick={() => handlePermanentDeleteSong(song.id)} type="button">
-                                      <Trash2 size={15}/>
-                                      Delete
-                                    </button>)}
-                                </div>
-                              </div>
-                            </article>);
-                        })}
+                        {libraryContentSongs.map((song) => renderDesktopSongCard(song, { variant: "library" }))}
                       </DesktopLibraryCardRail>)}
                   </section>)}
 
@@ -17786,55 +17340,7 @@ function PageContent() {
                     </div>
 
                     {likedSongs.length === 0 ? (<p className="empty-small">No liked songs yet.</p>) : (<DesktopHorizontalRail className="song-grid" label="Liked Songs">
-                        {likedSongs.map((song) => {
-                            const artistId = createArtistId(song.artist);
-                            const isFollowed = followedArtistIds.includes(artistId);
-                            const isQueued = cleanQueue.some((item) => item.id === song.id);
-                            return (<article className="song-card media-card" key={song.id}>
-                              <div className="cover-wrap">
-                                <img className="cover" src={song.cover} alt=""/>
-                                <span className="badge">{song.category}</span>
-                                <span className="duration">{song.time}</span>
-                                <div className="card-header-actions">
-                                  <button className={isQueued ? "card-icon-btn queued" : "card-icon-btn"} onClick={() => addToQueue(song)} title={isQueued ? "Queued" : "Add to queue"} type="button">
-                                    <ListMusic size={15}/>
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="song-body media-card-content">
-                                <div className="song-head">
-                                  <img src={song.cover} alt=""/>
-                                  <div>
-                                    <h3 className="media-card-title">{song.title}</h3>
-                                    <p className="media-card-artist">
-                                      <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="stats">
-                                  <span>{formatCount(song.plays)} plays</span>
-                                  <span>{formatCount(song.likes)} likes</span>
-                                  <span>{song.uploaded}</span>
-                                </div>
-                                <div className="card-actions media-card-actions">
-                                  <button className="play-btn" onClick={() => playSong(song)} type="button">
-                                    <span aria-hidden="true">▶</span>
-                                    <span>Play</span>
-                                  </button>
-                                  <button className="like-btn liked" onClick={() => toggleLike(song.id)} type="button">
-                                    <span aria-hidden="true">♥</span>
-                                    <span>Liked</span>
-                                  </button>
-                                  <button className={isFollowed ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, song.artist)} type="button">
-                                    <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
-                                    <span>{isFollowed ? "Following" : "Follow"}</span>
-                                  </button>
-                                  {renderMobileSongQueueButton(song)}
-                                  {renderPlaylistButton(song)}
-                                </div>
-                              </div>
-                            </article>);
-                        })}
+                        {likedSongs.map((song) => renderDesktopSongCard(song))}
                       </DesktopHorizontalRail>)}
                   </section>)}
 
@@ -17888,44 +17394,7 @@ function PageContent() {
                 </div>
 
                 {followingSongs.length === 0 ? (<p className="empty-small">Followed artists have not uploaded songs yet.</p>) : (<DesktopHorizontalRail className="song-grid" label="Following Songs">
-                    {followingSongs.map((song) => {
-                    const isLiked = likedIds.includes(song.id);
-                    const artistId = createArtistId(song.artist);
-                    return (<article className="song-card media-card" key={song.id}>
-                          <div className="cover-wrap">
-                            <img className="cover" src={song.cover} alt=""/>
-                            <span className="badge">{song.category}</span>
-                            <span className="duration">{song.time}</span>
-                          </div>
-                            <div className="song-body media-card-content">
-                            <div className="song-head">
-                              <img src={song.cover} alt=""/>
-                              <div>
-                                <h3 className="media-card-title">{song.title}</h3>
-                                <p className="media-card-artist">
-                                  <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
-                                </p>
-                              </div>
-                            </div>
-                            <div className="card-actions media-card-actions">
-                              <button className="play-btn" onClick={() => playSong(song)} type="button">
-                                <span aria-hidden="true">▶</span>
-                                <span>Play</span>
-                              </button>
-                              <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleLike(song.id)} type="button">
-                                <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
-                                <span>{isLiked ? "Liked" : "Like"}</span>
-                              </button>
-                              <button className="follow-btn followed" onClick={() => toggleArtistFollow(artistId, song.artist)} type="button">
-                                <span aria-hidden="true">✓</span>
-                                <span>Following</span>
-                              </button>
-                              {renderMobileSongQueueButton(song)}
-                              {renderPlaylistButton(song)}
-                            </div>
-                          </div>
-                        </article>);
-                })}
+                    {followingSongs.map((song) => renderDesktopSongCard(song))}
                   </DesktopHorizontalRail>)}
               </section>
 
@@ -18048,92 +17517,7 @@ function PageContent() {
                     <span>{visibleSongs.length} songs</span>
                   </div>)}
                 <DesktopHorizontalRail className="song-grid" label={search.trim() ? "Song Search Results" : "Songs"}>
-                  {visibleSongs.map((song) => {
-                    const isSaved = libraryIds.includes(song.id);
-                    const isLiked = likedIds.includes(song.id);
-                    const artistId = createArtistId(song.artist);
-                    const isFollowed = followedArtistIds.includes(artistId);
-                    const isQueued = cleanQueue.some((item) => item.id === song.id);
-                    const producerCredit = getProducerCreditForSong(song);
-                    const canDeleteTrack = canDeleteUploadedSong(song);
-                    return (<article className="song-card media-card" key={song.id}>
-                  <div className="cover-wrap">
-                    <img className="cover" src={song.cover} alt=""/>
-                    <span className="badge">{song.category}</span>
-                    <span className="duration">{song.time}</span>
-                    <div className="card-header-actions">
-                      <button className={isQueued ? "card-icon-btn queued" : "card-icon-btn"} onClick={() => addToQueue(song)} title={isQueued ? "Queued" : "Add to queue"} type="button">
-                        <ListMusic size={15}/>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="song-body media-card-content">
-                    <div className="song-head">
-                      <img src={song.cover} alt=""/>
-
-                      <div>
-                        <h3 className="media-card-title">{song.title}{renderVerifiedBadge(isArtistVerified(song.artist), "Verified Artist")}</h3>
-                        <p className="media-card-artist">
-                          <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
-                        </p>
-                      </div>
-                    </div>
-
-                    <p className="desc">
-                      {producerCredit ? `Produced by ${producerCredit}` : "No producer assigned."}
-                    </p>
-
-                    <div className="stats">
-                      <span>{song.mediaKind === "video" ? "video" : "audio"}</span>
-                      <span>{song.plays} plays</span>
-                      <span>{song.likes + (isLiked ? 1 : 0)} likes</span>
-                      <span>{song.uploaded}</span>
-                    </div>
-
-                    <div className="card-actions media-card-actions">
-                      <button className="play-btn" onClick={() => playSong(song)}>
-                        <span aria-hidden="true">▶</span>
-                        <span>{song.mediaKind === "video" ? "Open" : "Play"}</span>
-                      </button>
-
-                      <button className={isLiked ? "like-btn liked" : "like-btn"} onClick={() => toggleLike(song.id)}>
-                        <span aria-hidden="true">{isLiked ? "♥" : "♡"}</span>
-                        <span>{isLiked ? "Liked" : "Like"}</span>
-                      </button>
-
-                      <button className={isFollowed ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artistId, song.artist)}>
-                        <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
-                        <span>{isFollowed ? "Following" : "Follow"}</span>
-                      </button>
-                      {renderMobileSongQueueButton(song)}
-                      {renderPlaylistButton(song)}
-                      {canDeleteTrack && (<button className="danger-btn" onClick={() => permanentDeleteSong(song.id)} type="button">
-                          <Trash2 size={15}/>
-                          Delete
-                        </button>)}
-                    </div>
-                    <div className="card-secondary-actions">
-                      <button onClick={() => openComments("song", song)} type="button">
-                        <MessageCircle size={14}/>
-                        Comments {getCommentsForItem("song", song.id).length}
-                      </button>
-                      <button onClick={() => copyShareLink("song", song.id, song.title)} type="button">
-                        <Share2 size={14}/>
-                        Share Song
-                      </button>
-                      <button onClick={() => createModerationReport("song", song.id, song.title, "Community song report", song.artist, artistId)} type="button">
-                        <Bell size={14}/>
-                        Report
-                      </button>
-                      <button onClick={() => createCopyrightClaim("song", song.id, song.title, song.artist)} type="button">
-                        <BookOpen size={14}/>
-                        Claim
-                      </button>
-                    </div>
-                  </div>
-                </article>);
-                })}
+                  {visibleSongs.map((song) => renderDesktopSongCard(song))}
                 </DesktopHorizontalRail>
               </section>)}
           </>)}

@@ -8,6 +8,7 @@ import {
     runCorruptedAuthCleanupOnce,
     SESSION_EXPIRED_MESSAGE,
 } from "./desktop-auth-recovery-gate";
+import { isDesktopVideoUploadLifecycleActive } from "./desktop-video-upload-lifecycle";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
 
@@ -230,7 +231,7 @@ async function readSupabaseSession(supabase: SupabaseClient) {
 }
 
 async function refreshSupabaseSession(supabase: SupabaseClient) {
-    if (isDesktopAuthRecoveryActive()) {
+    if (isDesktopAuthRecoveryActive() || isDesktopVideoUploadLifecycleActive()) {
         return null;
     }
     if (!sessionRefreshPromise) {
@@ -248,6 +249,10 @@ async function readSessionAccessToken(
     options: { allowRefresh?: boolean; forceRefresh?: boolean } = {},
 ) {
     if (isDesktopAuthRecoveryActive()) {
+        return emptySessionAccessTokenResult();
+    }
+
+    if (isDesktopVideoUploadLifecycleActive()) {
         return emptySessionAccessTokenResult();
     }
 

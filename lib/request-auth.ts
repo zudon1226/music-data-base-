@@ -329,6 +329,36 @@ export async function requireMatchingUserId(
     return { ok: true as const, userId };
 }
 
+/** Desktop upload routes: bearer access token only — never consumes refresh tokens. */
+export async function requireBearerOnlyMatchingUserId(
+    request: Request,
+    route: string,
+    claimedUserId: string,
+) {
+    const cleanUserId = claimedUserId.trim();
+    const bearerToken = getBearerToken(request);
+    const bearerTokenPresent = Boolean(bearerToken);
+    if (!cleanUserId) {
+        logAuthValidation(route, cleanUserId, "", bearerTokenPresent, false, "Missing user id.");
+        return { ok: false as const, status: 401, error: "Missing user id." };
+    }
+    if (!bearerToken) {
+        logAuthValidation(route, cleanUserId, "", false, false, "Missing or invalid Authorization bearer token.");
+        return { ok: false as const, status: 401, error: "Missing or invalid Authorization bearer token." };
+    }
+    const { userId, error } = await verifyAccessTokenUserId(bearerToken);
+    if (!userId) {
+        logAuthValidation(route, cleanUserId, "", bearerTokenPresent, false, error || "Missing or invalid Authorization bearer token.");
+        return { ok: false as const, status: 401, error: error || "Missing or invalid Authorization bearer token." };
+    }
+    if (userId !== cleanUserId) {
+        logAuthValidation(route, cleanUserId, userId, bearerTokenPresent, false, "Authorization bearer token user does not match requested user id.");
+        return { ok: false as const, status: 403, error: "Authorization bearer token user does not match requested user id." };
+    }
+    logAuthValidation(route, cleanUserId, userId, bearerTokenPresent, true);
+    return { ok: true as const, userId };
+}
+
 /** Read routes: verify session when present, but never surface 401 to the client. */
 export async function optionalMatchingUserId(
     request: Request,

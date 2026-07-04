@@ -2,6 +2,7 @@
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { readRefreshTokenFromSession } from "./client-api-auth";
+import { isDesktopVideoUploadLifecycleActive } from "./desktop-video-upload-lifecycle";
 import {
     isCorruptedDesktopAccessToken,
     isDesktopAuthRecoveryActive,
@@ -199,6 +200,9 @@ function pickBestDesktopSession(stored: Session | null, context: Session | null)
 }
 
 async function syncDesktopSupabaseSession(config: DesktopAuthBootstrapConfig) {
+    if (isDesktopVideoUploadLifecycleActive()) {
+        return;
+    }
     const contextSession = config.readAuthSession();
     if (!contextSession) {
         return;
@@ -231,6 +235,9 @@ async function syncDesktopSupabaseSession(config: DesktopAuthBootstrapConfig) {
 }
 
 async function readMergedDesktopSession(config: DesktopAuthBootstrapConfig) {
+    if (isDesktopVideoUploadLifecycleActive()) {
+        return config.readAuthSession();
+    }
     await syncDesktopSupabaseSession(config);
     const contextSession = config.readAuthSession();
     const { data: { session: storedSession } } = await config.supabase.auth.getSession();
@@ -238,6 +245,9 @@ async function readMergedDesktopSession(config: DesktopAuthBootstrapConfig) {
 }
 
 async function refreshSupabaseSession(supabase: SupabaseClient) {
+    if (isDesktopVideoUploadLifecycleActive()) {
+        return null;
+    }
     if (!sessionRefreshPromise) {
         sessionRefreshPromise = withTimeout(
             supabase.auth.refreshSession().then(({ data, error }) => {
@@ -259,6 +269,11 @@ function buildTransport(
     session: Session,
     mode: "bearer-preferred" | "refresh-header-only",
 ): DesktopAuthTransport | null {
+    if (isDesktopVideoUploadLifecycleActive()) {
+        const accessToken = readSafeBearerToken(session);
+        return accessToken ? { kind: "bearer", accessToken } : null;
+    }
+
     if (mode === "refresh-header-only" || sessionRequiresRefreshHeaderAuth(session)) {
         const refreshToken = readRefreshTokenFromSession(session);
         if (refreshToken) {
@@ -292,6 +307,23 @@ export async function resolveDesktopAuthenticatedCredentials(
 ): Promise<DesktopAuthenticatedCredentials | null> {
     if (isDesktopAuthRecoveryActive()) {
         return null;
+    }
+
+    if (isDesktopVideoUploadLifecycleActive()) {
+        const session = config.readAuthSession();
+        if (!session) {
+            return null;
+        }
+        const accessToken = readSafeBearerToken(session);
+        const userId = String(session.user?.id || "").trim() || (accessToken ? readUserIdFromJwt(accessToken) : "");
+        if (!userId || !accessToken) {
+            return null;
+        }
+        return {
+            session,
+            userId,
+            transport: { kind: "bearer", accessToken },
+        };
     }
 
     const authMode = options.authMode ?? "bearer-preferred";

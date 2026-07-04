@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
-import { ACCESS_TOKEN_BODY_KEYS, getAccessTokenFromRequest, getSessionTokensFromRecord, REFRESH_TOKEN_BODY_KEYS, requireMatchingUserId } from "@/lib/request-auth";
+import { ACCESS_TOKEN_BODY_KEYS, getBearerToken, getSessionTokensFromRecord, REFRESH_TOKEN_BODY_KEYS, requireBearerOnlyMatchingUserId } from "@/lib/request-auth";
 import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked, UPLOAD_LOCK_OWNER_EMAIL } from "@/lib/upload-lock";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
 import {
@@ -195,7 +195,7 @@ async function lookupUploadUserEmail(userId: string, accessToken: string) {
 async function requireAuthenticatedUploadUser(
     request: Request,
     claimedUserIds: string[],
-    sessionTokens: { refreshToken?: string; accessToken?: string },
+    _sessionTokens: { refreshToken?: string; accessToken?: string },
     stage: string,
 ): Promise<AuthSuccess | AuthFailure> {
     const claimedUserId = claimedUserIds.find((id) => id?.trim())?.trim() || "";
@@ -203,12 +203,12 @@ async function requireAuthenticatedUploadUser(
         return uploadAuthFailure(401, "Missing user id.", stage, "missing-user-id");
     }
 
-    const auth = await requireMatchingUserId(request, "/api/video-upload", claimedUserId, sessionTokens);
+    const auth = await requireBearerOnlyMatchingUserId(request, "/api/video-upload", claimedUserId);
     if (!auth.ok) {
         return uploadAuthFailure(auth.status, auth.error, stage, "session-auth-failed", { claimedUserId });
     }
 
-    const accessToken = getAccessTokenFromRequest(request, sessionTokens.accessToken || "");
+    const accessToken = getBearerToken(request);
     const email = await lookupUploadUserEmail(auth.userId, accessToken);
     return { ok: true, userId: auth.userId, email };
 }
