@@ -24,6 +24,7 @@ import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock
 import { describeStorageUploadAuth } from "../lib/supabase-storage-upload";
 import { runDesktopVideoUpload } from "../lib/desktop-video-upload-runner";
 import { DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE } from "../lib/desktop-video-upload-progress";
+import { UPLOAD_REAUTH_MESSAGE } from "../lib/desktop-video-upload-transaction";
 import { isDesktopVideoUploadLifecycleActive } from "../lib/desktop-video-upload-lifecycle";
 import { refreshDesktopSupabaseSessionWhenSafe } from "../lib/desktop-upload-auth-session-guard";
 import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
@@ -10554,10 +10555,18 @@ function PageContent() {
             sourceLocation: "app/page.tsx uploadVideoToSupabase",
         });
         assertUploadAllowed(uploadUser || authSessionRef.current?.user || null);
+        const uploadCredentials = await desktopRuntime.resolveCredentials({
+            forceRefresh: true,
+            authMode: "bearer-preferred",
+        });
+        if (!uploadCredentials?.session || uploadCredentials.transport.kind !== "bearer") {
+            throw new Error(UPLOAD_REAUTH_MESSAGE);
+        }
+        syncDesktopUploadSession(uploadCredentials.session);
         const uploadResult = await runDesktopVideoUpload({
             supabase,
             file,
-            pinnedSession: authSessionRef.current,
+            pinnedSession: uploadCredentials.session,
             videoDetails: {
                 title: videoDetails.title,
                 creator: videoDetails.creator,
@@ -11045,6 +11054,31 @@ function PageContent() {
                 stopUploadNetworkTrace();
                 return;
             }
+        }
+        const uploadUserId = requireDesktopActionUserId("Log in before uploading a video.");
+        if (!uploadUserId) {
+            stopUploadNetworkTrace();
+            return;
+        }
+        try {
+            const uploadPreflight = await desktopRuntime.resolveCredentials({
+                forceRefresh: true,
+                authMode: "bearer-preferred",
+            });
+            if (!uploadPreflight?.session || uploadPreflight.transport.kind !== "bearer") {
+                setVideoUploadError(UPLOAD_REAUTH_MESSAGE);
+                showToast(UPLOAD_REAUTH_MESSAGE, "error");
+                stopUploadNetworkTrace();
+                return;
+            }
+            syncDesktopUploadSession(uploadPreflight.session);
+        }
+        catch (preflightError) {
+            const message = preflightError instanceof Error ? preflightError.message : UPLOAD_REAUTH_MESSAGE;
+            setVideoUploadError(message);
+            showToast(message, "error");
+            stopUploadNetworkTrace();
+            return;
         }
         setVideoUploadBusy(true);
         let uploadGuardActive = false;

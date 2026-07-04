@@ -4,6 +4,7 @@ import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { readRefreshTokenFromSession } from "./client-api-auth";
 import { isDesktopVideoUploadLifecycleActive } from "./desktop-video-upload-lifecycle";
 import {
+    engageDesktopAuthRecovery,
     isCorruptedDesktopAccessToken,
     isDesktopAuthRecoveryActive,
     noteValidatedDesktopSession,
@@ -598,10 +599,21 @@ export function createDesktopAuthenticatedFetch(config: DesktopAuthBootstrapConf
         }
 
         if (response.status === 401) {
-            const retryModes: Array<"bearer-preferred" | "refresh-header-only"> = [
-                "bearer-preferred",
-                "refresh-header-only",
-            ];
+            if (isDesktopAuthRecoveryActive()) {
+                throw new Error(SESSION_EXPIRED_MESSAGE);
+            }
+
+            const mergedSession = await readMergedDesktopSession(config);
+            const hasRefreshToken = Boolean(readRefreshTokenFromSession(mergedSession));
+            const hasBearerToken = Boolean(readSafeBearerToken(mergedSession));
+            if (!hasBearerToken && !hasRefreshToken) {
+                engageDesktopAuthRecovery();
+                throw new Error(SESSION_EXPIRED_MESSAGE);
+            }
+
+            const retryModes: Array<"bearer-preferred" | "refresh-header-only"> = hasRefreshToken
+                ? ["bearer-preferred", "refresh-header-only"]
+                : ["bearer-preferred"];
             for (const authMode of retryModes) {
                 const refreshedCredentials = await resolveDesktopAuthenticatedCredentials(config, {
                     forceRefresh: authMode === "bearer-preferred",
@@ -627,6 +639,11 @@ export function createDesktopAuthenticatedFetch(config: DesktopAuthBootstrapConf
                 if (response.status !== 401) {
                     break;
                 }
+            }
+
+            if (response.status === 401) {
+                engageDesktopAuthRecovery();
+                throw new Error(SESSION_EXPIRED_MESSAGE);
             }
         }
 

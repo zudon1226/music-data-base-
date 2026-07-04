@@ -1,8 +1,10 @@
 /** DESKTOP ONLY — pinned-session video upload (prepare → storage → insert, no mid-upload auth). */
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { readRefreshTokenFromSession } from "./client-api-auth";
 import {
     clearDesktopAuthRecoveryGate,
+    isCorruptedDesktopAccessToken,
     noteValidatedDesktopSession,
     readAccessTokenFromSession,
     SESSION_EXPIRED_MESSAGE,
@@ -39,6 +41,7 @@ export type DesktopVideoUploadTransactionFetchInit = {
 };
 
 const PRE_UPLOAD_ACCESS_TOKEN_SKEW_MS = 30_000;
+const UPLOAD_REAUTH_MESSAGE = "Please log out and log back in, then try your upload again.";
 
 function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "")
@@ -47,19 +50,13 @@ function readBrowserSupabaseAnonKey() {
         .replace(/\s+/g, "");
 }
 
-function readPinnedUploadAccessToken(session: Session) {
-    const gated = readAccessTokenFromSession(session);
-    if (gated) {
-        return gated;
-    }
-    const raw = typeof session.access_token === "string" ? session.access_token.trim() : "";
-    if (!raw || isOversizedBearerToken(raw)) {
-        return "";
-    }
-    if (!raw.startsWith("eyJ") || raw.split(".").length !== 3) {
-        return "";
-    }
-    return raw;
+function readRawAccessToken(session: Session | null | undefined) {
+    return typeof session?.access_token === "string" ? session.access_token.trim() : "";
+}
+
+/** Same bearer gate as protected desktop API calls. */
+function readUploadBearerToken(session: Session | null | undefined) {
+    return readAccessTokenFromSession(session);
 }
 
 function isAccessTokenExpiredBeforeUpload(session: Session) {
@@ -71,8 +68,43 @@ function isAccessTokenExpiredBeforeUpload(session: Session) {
 }
 
 function sessionNeedsPreUploadRefresh(session: Session) {
-    const accessToken = readPinnedUploadAccessToken(session);
-    return !accessToken || isAccessTokenExpiredBeforeUpload(session);
+    const raw = readRawAccessToken(session);
+    const accessToken = readUploadBearerToken(session);
+    return !accessToken
+        || isAccessTokenExpiredBeforeUpload(session)
+        || isOversizedBearerToken(raw)
+        || isCorruptedDesktopAccessToken(raw);
+}
+
+function scoreUploadSession(session: Session | null | undefined) {
+    if (!session) {
+        return -1;
+    }
+    let score = 0;
+    if (session.user?.id) {
+        score += 4;
+    }
+    if (readUploadBearerToken(session)) {
+        score += 8;
+    }
+    if (readRefreshTokenFromSession(session)) {
+        score += 4;
+    }
+    if (!isAccessTokenExpiredBeforeUpload(session)) {
+        score += 2;
+    }
+    score += (session.expires_at ?? 0) / 1_000_000_000;
+    return score;
+}
+
+function pickBestUploadSession(stored: Session | null, pinned: Session | null) {
+    if (!stored) {
+        return pinned;
+    }
+    if (!pinned) {
+        return stored;
+    }
+    return scoreUploadSession(pinned) >= scoreUploadSession(stored) ? pinned : stored;
 }
 
 function stripRefreshTokensFromBody(body: BodyInit) {
@@ -116,7 +148,7 @@ function buildTransactionAuthHeaders(init: DesktopVideoUploadTransactionFetchIni
         headers.delete(headerName);
     }
     if (!accessToken) {
-        throw new Error("Upload authorization token is missing.");
+        throw new Error(UPLOAD_REAUTH_MESSAGE);
     }
     headers.set("Authorization", `Bearer ${accessToken}`);
     const anonKey = readBrowserSupabaseAnonKey();
@@ -132,36 +164,51 @@ async function resolveSessionBeforeUpload(
     signal?: AbortSignal,
 ) {
     throwIfDesktopVideoUploadAborted(signal);
-    let session = pinnedSession ?? null;
 
-    if (!session?.user?.id || sessionNeedsPreUploadRefresh(session)) {
-        const { data: { session: storedSession }, error } = await runDesktopVideoUploadWithAbortSignal(
-            supabase.auth.getSession(),
-            signal,
-        );
-        if (error) {
-            throw new Error(`Supabase auth check failed before upload: ${error.message}`);
-        }
-        if (storedSession && (!session || sessionNeedsPreUploadRefresh(session))) {
-            session = storedSession;
-        }
+    const { data: { session: storedSession }, error: storedError } = await runDesktopVideoUploadWithAbortSignal(
+        supabase.auth.getSession(),
+        signal,
+    );
+    if (storedError) {
+        throw new Error(`Supabase auth check failed before upload: ${storedError.message}`);
     }
 
+    let session = pickBestUploadSession(storedSession, pinnedSession ?? null);
     throwIfDesktopVideoUploadAborted(signal);
 
-    if (!session) {
+    if (!session?.user?.id && !readRefreshTokenFromSession(session)) {
         throw new Error(SESSION_EXPIRED_MESSAGE);
     }
 
-    if (sessionNeedsPreUploadRefresh(session)) {
+    if (session && sessionNeedsPreUploadRefresh(session)) {
+        const refreshToken = readRefreshTokenFromSession(session)
+            || readRefreshTokenFromSession(storedSession)
+            || readRefreshTokenFromSession(pinnedSession);
+        if (!refreshToken) {
+            throw new Error(UPLOAD_REAUTH_MESSAGE);
+        }
         const { data, error } = await runDesktopVideoUploadWithAbortSignal(
             supabase.auth.refreshSession(),
             signal,
         );
         if (error || !data.session) {
-            throw new Error(error?.message || "Could not refresh upload session before starting.");
+            throw new Error(error?.message || UPLOAD_REAUTH_MESSAGE);
         }
-        session = data.session;
+        session = pickBestUploadSession(data.session, session);
+    }
+
+    if (!session) {
+        throw new Error(SESSION_EXPIRED_MESSAGE);
+    }
+
+    const userId = String(session.user?.id || "").trim();
+    if (!userId) {
+        throw new Error(UPLOAD_REAUTH_MESSAGE);
+    }
+
+    const accessToken = readUploadBearerToken(session);
+    if (!accessToken) {
+        throw new Error(UPLOAD_REAUTH_MESSAGE);
     }
 
     return session;
@@ -178,13 +225,9 @@ export async function beginDesktopVideoUploadTransaction(
     const session = await resolveSessionBeforeUpload(supabase, options.pinnedSession, options.signal);
 
     const userId = String(session.user?.id || "").trim();
-    if (!userId) {
-        throw new Error("You must be signed in before uploading.");
-    }
-
-    const accessToken = readPinnedUploadAccessToken(session);
-    if (!accessToken) {
-        throw new Error("Upload authentication token is unavailable.");
+    const accessToken = readUploadBearerToken(session);
+    if (!userId || !accessToken) {
+        throw new Error(UPLOAD_REAUTH_MESSAGE);
     }
 
     noteValidatedDesktopSession(session);
@@ -223,3 +266,5 @@ export function publishDesktopVideoUploadSession(session: Session) {
     noteValidatedDesktopSession(session);
     clearDesktopAuthRecoveryGate(session);
 }
+
+export { UPLOAD_REAUTH_MESSAGE };
