@@ -1,18 +1,22 @@
-/** DESKTOP ONLY — live-session protected action pipeline (Like, Follow, Save, Playlist). */
+/** DESKTOP ONLY — single protected request pipeline. Fresh getSession() before every dispatch. */
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { readStoredAuthSession } from "./auth-session";
-import {
-    clearDesktopAuthRecoveryGate,
-    noteValidatedDesktopSession,
-} from "./desktop-auth-recovery-gate";
-import { isDesktopVideoUploadLifecycleActive } from "./desktop-video-upload-lifecycle";
+import { readRefreshTokenFromSession } from "./client-api-auth";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { isOversizedBearerToken } from "./session-token-limits";
 
 export const DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE = "Log in to continue.";
 export const DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS = 494;
 export const DESKTOP_PROTECTED_API_SESSION_MESSAGE = "Session expired. Please log in again.";
+
+/** Shared protected write/read endpoints — one pipeline for all. */
+export const DESKTOP_PROTECTED_ENDPOINTS = [
+    "/api/song-likes",
+    "/api/library/save",
+    "/api/playlists",
+    "/api/artist-follow",
+    "/api/video-upload",
+] as const;
 
 export const DESKTOP_PROTECTED_LIBRARY_API_PATHS = [
     "/api/song-likes",
@@ -21,9 +25,10 @@ export const DESKTOP_PROTECTED_LIBRARY_API_PATHS = [
     "/api/artist-follows",
     "/api/artist-follow",
     "/api/playlists",
+    "/api/video-upload",
 ] as const;
 
-const DEBUG_PREFIX = "[desktop-protected-action]";
+const DEBUG_PREFIX = "[desktop-protected-request]";
 const TOKEN_EXPIRY_SKEW_MS = 30_000;
 
 const PROTECTED_FETCH_DEFAULTS = {
@@ -44,7 +49,7 @@ const STRIPPED_REQUEST_HEADERS = new Set([
 
 export type DesktopProtectedActionPipelineConfig = {
     supabase: SupabaseClient;
-    /** Upload lifecycle only — never used for bearer resolution on protected writes. */
+    /** Optional React sync only — never used for bearer resolution. */
     readAuthSession?: () => Session | null;
     writeAuthSession?: (session: Session) => void;
 };
@@ -54,7 +59,6 @@ export type DesktopProtectedApiPipelineConfig = DesktopProtectedActionPipelineCo
 
 export type DesktopProtectedActionFetchInit = Omit<RequestInit, "credentials"> & {
     requireAuth?: boolean;
-    /** Merge JWT user id into JSON body as userId and user_id before dispatch. */
     injectAuthenticatedUserId?: boolean;
 };
 
@@ -74,7 +78,7 @@ export type DesktopProtectedActionCredentials = {
 /** @deprecated alias */
 export type DesktopProtectedApiCredentials = DesktopProtectedActionCredentials;
 
-function debugProtectedAction(step: string, details: Record<string, unknown>) {
+function debugProtectedRequest(step: string, details: Record<string, unknown>) {
     console.log(DEBUG_PREFIX, step, details);
 }
 
@@ -138,16 +142,6 @@ function isAccessTokenExpired(session: Session | null | undefined) {
     return false;
 }
 
-function normalizeSessionUser(session: Session, userId: string) {
-    if (session.user?.id) {
-        return session;
-    }
-    return {
-        ...session,
-        user: { id: userId } as Session["user"],
-    };
-}
-
 function credentialsFromSession(session: Session | null | undefined): DesktopProtectedActionCredentials | null {
     if (!session) {
         return null;
@@ -161,151 +155,97 @@ function credentialsFromSession(session: Session | null | undefined): DesktopPro
         return null;
     }
     return {
-        session: normalizeSessionUser(session, userId),
+        session: session.user?.id ? session : { ...session, user: { id: userId } as Session["user"] },
         userId,
         accessToken,
     };
 }
 
-function publishFreshDesktopSession(config: DesktopProtectedActionPipelineConfig, session: Session) {
-    clearDesktopAuthRecoveryGate(session);
-    noteValidatedDesktopSession(session);
-    config.writeAuthSession?.(session);
-}
-
-async function readCurrentSupabaseSession(supabase: SupabaseClient) {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) {
-        console.warn(`${DEBUG_PREFIX} getSession failed`, error.message);
-    }
-    return session ?? null;
-}
-
-async function hydrateSupabaseClientFromStorage(
-    config: DesktopProtectedActionPipelineConfig,
-): Promise<Session | null> {
-    const stored = readStoredAuthSession();
-    const refreshToken = typeof stored?.refresh_token === "string" ? stored.refresh_token.trim() : "";
-    if (!refreshToken) {
-        return null;
-    }
-
-    debugProtectedAction("hydrate-from-storage", {
-        hasStoredSession: Boolean(stored),
-        hasRefreshToken: true,
-    });
-
-    const accessToken = typeof stored?.access_token === "string" ? stored.access_token.trim() : "";
-    const { data, error } = await config.supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-    });
-
-    if (error) {
-        console.warn(`${DEBUG_PREFIX} setSession from storage failed`, error.message);
-        const refreshed = await config.supabase.auth.refreshSession({ refresh_token: refreshToken });
-        if (refreshed.error) {
-            console.warn(`${DEBUG_PREFIX} refreshSession(refresh_token) failed`, refreshed.error.message);
-            return null;
-        }
-        const session = refreshed.data.session ?? null;
-        if (session) {
-            publishFreshDesktopSession(config, session);
-        }
-        return session;
-    }
-
-    const session = data.session ?? null;
-    if (session) {
-        publishFreshDesktopSession(config, session);
-    }
-    return session;
-}
-
-async function readLiveSupabaseSession(config: DesktopProtectedActionPipelineConfig) {
-    let session = await readCurrentSupabaseSession(config.supabase);
-    if (session?.refresh_token || readLiveAccessToken(session)) {
-        return session;
-    }
-    return hydrateSupabaseClientFromStorage(config);
-}
-
-async function refreshCurrentSupabaseSession(
-    config: DesktopProtectedActionPipelineConfig,
-): Promise<Session | null> {
-    const stored = readStoredAuthSession();
-    const refreshToken = typeof stored?.refresh_token === "string" ? stored.refresh_token.trim() : "";
-    const { data, error } = refreshToken
-        ? await config.supabase.auth.refreshSession({ refresh_token: refreshToken })
-        : await config.supabase.auth.refreshSession();
-    if (error) {
-        console.warn(`${DEBUG_PREFIX} refreshSession failed`, error.message);
-        return null;
-    }
-    const session = data.session ?? null;
-    if (session) {
-        publishFreshDesktopSession(config, session);
-    }
-    return session;
+function publishLiveSession(config: DesktopProtectedActionPipelineConfig | undefined, session: Session) {
+    config?.writeAuthSession?.(session);
 }
 
 /**
- * Resolve live credentials for one protected action.
- * Always getSession() first; refresh once when bearer is missing or expired.
+ * Acquire credentials immediately before one protected request.
+ * Always reads supabase.auth.getSession() — never React/storage caches.
  */
+export async function acquireFreshDesktopProtectedCredentials(
+    supabase: SupabaseClient,
+    options: { debugLabel?: string; writeAuthSession?: (session: Session) => void } = {},
+): Promise<DesktopProtectedActionCredentials> {
+    const label = options.debugLabel || "acquire";
+
+    const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+        debugProtectedRequest("getSession-failed", { label, error: sessionError.message });
+    }
+
+    let session = initialSession ?? null;
+    let credentials = credentialsFromSession(session);
+
+    debugProtectedRequest("getSession", {
+        label,
+        sessionExists: Boolean(session),
+        accessTokenPresent: Boolean(credentials?.accessToken),
+    });
+
+    if (!credentials || isAccessTokenExpired(session)) {
+        const refreshToken = readRefreshTokenFromSession(session);
+        if (!refreshToken) {
+            debugProtectedRequest("abort-no-session", { label, reason: "missing-refresh-token" });
+            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+        }
+
+        debugProtectedRequest("refreshSession-once", { label });
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession({
+            refresh_token: refreshToken,
+        });
+
+        if (refreshError || !refreshed.session) {
+            debugProtectedRequest("abort-no-session", {
+                label,
+                reason: "refresh-failed",
+                error: refreshError?.message || "no-session-after-refresh",
+            });
+            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+        }
+
+        session = refreshed.session;
+        credentials = credentialsFromSession(session);
+        if (options.writeAuthSession && session) {
+            publishLiveSession({ supabase, writeAuthSession: options.writeAuthSession }, session);
+        }
+    }
+
+    if (!credentials) {
+        debugProtectedRequest("abort-no-session", { label, reason: "missing-bearer-after-refresh" });
+        throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+    }
+
+    debugProtectedRequest("session-ready", {
+        label,
+        sessionExists: true,
+        accessTokenPresent: true,
+        userId: credentials.userId,
+    });
+
+    return credentials;
+}
+
+/** @deprecated alias — always fresh getSession; returns null when no live session. */
 export async function resolveLiveDesktopProtectedActionCredentials(
     config: DesktopProtectedActionPipelineConfig,
     options: { debugLabel?: string } = {},
 ): Promise<DesktopProtectedActionCredentials | null> {
-    const label = options.debugLabel || "resolve";
-
-    if (isDesktopVideoUploadLifecycleActive()) {
-        const uploadCredentials = credentialsFromSession(config.readAuthSession?.() ?? null);
-        debugProtectedAction("upload-lifecycle-session", {
-            label,
-            sessionExists: Boolean(uploadCredentials?.session),
-            accessTokenPresent: Boolean(uploadCredentials?.accessToken),
+    try {
+        return await acquireFreshDesktopProtectedCredentials(config.supabase, {
+            debugLabel: options.debugLabel,
+            writeAuthSession: config.writeAuthSession,
         });
-        return uploadCredentials;
     }
-
-    let session = await readLiveSupabaseSession(config);
-    debugProtectedAction("getSession", {
-        label,
-        sessionExists: Boolean(session),
-        accessTokenPresent: Boolean(readLiveAccessToken(session)),
-    });
-
-    let credentials = credentialsFromSession(session);
-    const needsRefresh = !credentials || isAccessTokenExpired(session);
-
-    if (credentials && !needsRefresh) {
-        publishFreshDesktopSession(config, credentials.session);
-        debugProtectedAction("session-ready", {
-            label,
-            sessionExists: true,
-            accessTokenPresent: true,
-            userId: credentials.userId,
-        });
-        return credentials;
+    catch {
+        return null;
     }
-
-    debugProtectedAction("refreshSession", {
-        label,
-        reason: credentials ? "expired-bearer" : "missing-bearer",
-    });
-
-    session = await refreshCurrentSupabaseSession(config);
-    credentials = credentialsFromSession(session);
-
-    debugProtectedAction("after-refresh", {
-        label,
-        sessionExists: Boolean(session),
-        accessTokenPresent: Boolean(credentials?.accessToken),
-        userId: credentials?.userId || "",
-    });
-
-    return credentials;
 }
 
 /** @deprecated alias */
@@ -315,8 +255,15 @@ export const resolveDesktopProtectedApiCredentials = resolveLiveDesktopProtected
 export async function resolveLiveProtectedApiSession(
     config: DesktopProtectedActionPipelineConfig,
 ): Promise<Session | null> {
-    const credentials = await resolveLiveDesktopProtectedActionCredentials(config);
-    return credentials?.session ?? null;
+    try {
+        const credentials = await acquireFreshDesktopProtectedCredentials(config.supabase, {
+            writeAuthSession: config.writeAuthSession,
+        });
+        return credentials.session;
+    }
+    catch {
+        return null;
+    }
 }
 
 export function assertDesktopRelativeApiPath(path: string) {
@@ -391,7 +338,7 @@ function copyPreservedHeaders(target: Headers, source: HeadersInit | undefined) 
     });
 }
 
-function buildFreshProtectedApiHeaders(init: RequestInit | undefined, accessToken: string) {
+export function buildFreshProtectedApiHeaders(init: RequestInit | undefined, accessToken: string) {
     const headers = new Headers();
     copyPreservedHeaders(headers, init?.headers);
     STRIPPED_REQUEST_HEADERS.forEach((headerName) => {
@@ -406,61 +353,9 @@ function buildFreshProtectedApiHeaders(init: RequestInit | undefined, accessToke
     return headers;
 }
 
-async function sendProtectedApiRequest(
-    requestPath: string,
-    fetchInit: RequestInit,
-    accessToken: string,
-) {
-    const headers = buildFreshProtectedApiHeaders(fetchInit, accessToken);
-    debugProtectedAction("request-dispatched", {
-        path: requestPath,
-        method: fetchInit.method || "GET",
-        sessionExists: true,
-        accessTokenPresent: true,
-        authorizationAdded: headers.has("Authorization"),
-        apikeyAdded: headers.has("apikey"),
-    });
-    try {
-        return await fetch(requestPath, {
-            method: fetchInit.method,
-            body: stripSessionTokensFromBody(fetchInit.body ?? null),
-            cache: fetchInit.cache,
-            signal: fetchInit.signal,
-            referrer: fetchInit.referrer,
-            ...PROTECTED_FETCH_DEFAULTS,
-            headers,
-        });
-    }
-    catch (error) {
-        if (error instanceof TypeError && error.message.toLowerCase().includes("redirect")) {
-            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
-        }
-        throw error;
-    }
-}
-
-export async function waitForDesktopApiCredentials(
-    config: DesktopProtectedActionPipelineConfig,
-    timeoutMs = 8_000,
-) {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-        const credentials = await resolveLiveDesktopProtectedActionCredentials(config);
-        if (credentials) {
-            return credentials;
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 120));
-    }
-    return null;
-}
-
-export function hasValidDesktopSupabaseSession(session: Session | null | undefined) {
-    return Boolean(session && readLiveAccessToken(session) && !isAccessTokenExpired(session));
-}
-
-function injectAuthenticatedUserIdIntoJsonBody(body: BodyInit | null | undefined, userId: string) {
+function injectAuthenticatedUserIdIntoJsonBody(body: BodyInit | null | undefined, userId: string): BodyInit | null {
     if (!body || typeof body !== "string") {
-        return body;
+        return body ?? null;
     }
     try {
         const parsed = JSON.parse(body) as Record<string, unknown>;
@@ -473,18 +368,71 @@ function injectAuthenticatedUserIdIntoJsonBody(body: BodyInit | null | undefined
     }
 }
 
-function prepareProtectedRequestInit(
-    fetchInit: RequestInit,
-    credentials: DesktopProtectedActionCredentials,
-    injectAuthenticatedUserId: boolean,
-) {
-    if (!injectAuthenticatedUserId) {
-        return fetchInit;
+/**
+ * Shared protected request helper — fresh session + bearer headers on every call.
+ */
+export async function executeDesktopProtectedRequest(
+    supabase: SupabaseClient,
+    path: string,
+    init: RequestInit & { injectAuthenticatedUserId?: boolean; writeAuthSession?: (session: Session) => void } = {},
+): Promise<Response> {
+    const requestPath = stripSessionTokensFromRelativePath(path);
+    const credentials = await acquireFreshDesktopProtectedCredentials(supabase, {
+        debugLabel: requestPath,
+        writeAuthSession: init.writeAuthSession,
+    });
+
+    let body: BodyInit | null = init.body ?? null;
+    if (init.injectAuthenticatedUserId) {
+        body = injectAuthenticatedUserIdIntoJsonBody(body, credentials.userId);
     }
-    return {
-        ...fetchInit,
-        body: injectAuthenticatedUserIdIntoJsonBody(fetchInit.body ?? null, credentials.userId),
-    };
+
+    const headers = buildFreshProtectedApiHeaders(init, credentials.accessToken);
+    debugProtectedRequest("request-dispatched", {
+        path: requestPath,
+        method: init.method || "GET",
+        sessionExists: true,
+        accessTokenPresent: true,
+        authorizationAdded: headers.has("Authorization"),
+        apikeyAdded: headers.has("apikey"),
+    });
+
+    try {
+        return await fetch(requestPath, {
+            method: init.method,
+            body: stripSessionTokensFromBody(body),
+            cache: init.cache,
+            signal: init.signal,
+            referrer: init.referrer,
+            ...PROTECTED_FETCH_DEFAULTS,
+            headers,
+        });
+    }
+    catch (error) {
+        if (error instanceof TypeError && error.message.toLowerCase().includes("redirect")) {
+            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+        }
+        throw error;
+    }
+}
+
+export function hasValidDesktopSupabaseSession(session: Session | null | undefined) {
+    return Boolean(session && readLiveAccessToken(session) && !isAccessTokenExpired(session));
+}
+
+/** @deprecated — single acquire, no polling. */
+export async function waitForDesktopApiCredentials(
+    config: DesktopProtectedActionPipelineConfig,
+    _timeoutMs?: number,
+) {
+    try {
+        return await acquireFreshDesktopProtectedCredentials(config.supabase, {
+            writeAuthSession: config.writeAuthSession,
+        });
+    }
+    catch {
+        return null;
+    }
 }
 
 export function createDesktopProtectedActionFetch(config: DesktopProtectedActionPipelineConfig) {
@@ -506,42 +454,25 @@ export function createDesktopProtectedActionFetch(config: DesktopProtectedAction
             });
         }
 
-        let credentials = await resolveLiveDesktopProtectedActionCredentials(config, { debugLabel: requestPath });
-        if (!credentials) {
-            debugProtectedAction("blocked", {
-                path: requestPath,
-                sessionExists: false,
-                accessTokenPresent: false,
-                reason: "no-credentials-after-refresh",
-            });
-            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
-        }
-
-        let requestInit = prepareProtectedRequestInit(fetchInit, credentials, injectAuthenticatedUserId);
-        let response = await sendProtectedApiRequest(requestPath, requestInit, credentials.accessToken);
+        let response = await executeDesktopProtectedRequest(config.supabase, requestPath, {
+            ...fetchInit,
+            injectAuthenticatedUserId,
+            writeAuthSession: config.writeAuthSession,
+        });
 
         if (response.status === 401 || response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) {
-            debugProtectedAction("401-retry", { path: requestPath, status: response.status });
-            const refreshedSession = await refreshCurrentSupabaseSession(config);
-            if (!refreshedSession) {
-                throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
-            }
-
-            const retryCredentials = credentialsFromSession(refreshedSession);
-            if (!retryCredentials) {
-                throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
-            }
-
-            requestInit = prepareProtectedRequestInit(fetchInit, retryCredentials, injectAuthenticatedUserId);
-            response = await sendProtectedApiRequest(requestPath, requestInit, retryCredentials.accessToken);
+            debugProtectedRequest("401-retry", { path: requestPath, status: response.status });
+            response = await executeDesktopProtectedRequest(config.supabase, requestPath, {
+                ...fetchInit,
+                injectAuthenticatedUserId,
+                writeAuthSession: config.writeAuthSession,
+            });
 
             if (response.status === 401 || response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) {
                 const errorBody = (await response.clone().json().catch(() => ({}))) as { error?: string };
-                console.warn(`${DEBUG_PREFIX} request rejected after refresh retry`, {
+                console.warn(`${DEBUG_PREFIX} request rejected after retry`, {
                     path: requestPath,
                     method: fetchInit.method || "GET",
-                    bearerTail: retryCredentials.accessToken.slice(-8),
-                    userId: retryCredentials.userId,
                     status: response.status,
                     error: errorBody.error || response.statusText,
                 });
@@ -562,19 +493,30 @@ export type DesktopProtectedActionFetch = ReturnType<typeof createDesktopProtect
 export type DesktopProtectedApiFetch = DesktopProtectedActionFetch;
 export type DesktopAuthenticatedFetch = DesktopProtectedActionFetch;
 
+/** @deprecated */
+export type DesktopResolveCredentialsOptions = {
+    forceRefresh?: boolean;
+    authMode?: string;
+};
+
 /** @deprecated alias */
 export async function resolveDesktopAuthenticatedCredentials(
     config: DesktopProtectedActionPipelineConfig,
+    _options?: DesktopResolveCredentialsOptions,
 ) {
-    const credentials = await resolveLiveDesktopProtectedActionCredentials(config);
-    if (!credentials) {
+    try {
+        const credentials = await acquireFreshDesktopProtectedCredentials(config.supabase, {
+            writeAuthSession: config.writeAuthSession,
+        });
+        return {
+            session: credentials.session,
+            userId: credentials.userId,
+            transport: { kind: "bearer" as const, accessToken: credentials.accessToken },
+        };
+    }
+    catch {
         return null;
     }
-    return {
-        session: credentials.session,
-        userId: credentials.userId,
-        transport: { kind: "bearer" as const, accessToken: credentials.accessToken },
-    };
 }
 
 /** @deprecated */
@@ -591,19 +533,46 @@ export function createDesktopProtectedActionPipeline(config: DesktopProtectedAct
     const fetch = createDesktopProtectedActionFetch(config);
     return {
         fetch,
-        waitForApiCredentials: (timeoutMs?: number) => waitForDesktopApiCredentials(config, timeoutMs),
-        resolveCredentials: (_options?: {
-            forceRefresh?: boolean;
-            authMode?: "bearer-preferred" | "refresh-header-only";
-        }) => resolveDesktopAuthenticatedCredentials(config),
-        resolveProtectedCredentials: () => resolveLiveDesktopProtectedActionCredentials(config),
+        waitForApiCredentials: () => waitForDesktopApiCredentials(config),
+        resolveCredentials: (options?: DesktopResolveCredentialsOptions) =>
+            resolveDesktopAuthenticatedCredentials(config, options),
+        resolveProtectedCredentials: () => acquireFreshDesktopProtectedCredentials(config.supabase, {
+            writeAuthSession: config.writeAuthSession,
+        }).catch(() => null),
         resolveLiveUserId: async () => {
-            const credentials = await resolveLiveDesktopProtectedActionCredentials(config);
-            return credentials?.userId ?? "";
+            try {
+                const credentials = await acquireFreshDesktopProtectedCredentials(config.supabase, {
+                    writeAuthSession: config.writeAuthSession,
+                });
+                return credentials.userId;
+            }
+            catch {
+                return "";
+            }
         },
+        executeProtectedRequest: (path: string, init?: RequestInit & { injectAuthenticatedUserId?: boolean }) =>
+            executeDesktopProtectedRequest(config.supabase, path, {
+                ...init,
+                writeAuthSession: config.writeAuthSession,
+            }),
     };
 }
 
 /** @deprecated alias */
 export const createDesktopProtectedApiRuntime = createDesktopProtectedActionPipeline;
 export const createDesktopAuthBootstrapRuntime = createDesktopProtectedActionPipeline;
+
+/** @deprecated — storage hydration removed; uses live getSession only. */
+export async function hydrateSupabaseClientFromStorage(
+    config: DesktopProtectedActionPipelineConfig,
+): Promise<Session | null> {
+    try {
+        const credentials = await acquireFreshDesktopProtectedCredentials(config.supabase, {
+            writeAuthSession: config.writeAuthSession,
+        });
+        return credentials.session;
+    }
+    catch {
+        return null;
+    }
+}

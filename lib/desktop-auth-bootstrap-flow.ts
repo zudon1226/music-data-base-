@@ -20,6 +20,8 @@ import {
 
 export { SESSION_EXPIRED_MESSAGE };
 
+export const DESKTOP_AUTH_RATE_LIMIT_MESSAGE = "Please wait a minute and try again.";
+
 export type DesktopAuthBootstrapConfig = DesktopProtectedActionPipelineConfig;
 
 /** @deprecated alias */
@@ -36,8 +38,22 @@ export type DesktopAuthenticatedFetchInit = import("./desktop-protected-action-p
 export const DESKTOP_BOOTSTRAP_LOG_PREFIX = "[desktop-bootstrap]";
 const AUTH_SESSION_BOOT_PREFIX = "[desktop-auth-bootstrap]";
 const DEFAULT_STEP_TIMEOUT_MS = 12_000;
-const AUTH_SESSION_WAIT_MS = 15_000;
+const SIGNED_IN_WAIT_MS = 8_000;
+const RATE_LIMIT_COOLDOWN_MS = 60_000;
 const TOKEN_EXPIRY_SKEW_MS = 30_000;
+
+export type DesktopAuthBootstrapOutcome = {
+    ready: boolean;
+    rateLimited: boolean;
+    message?: string;
+};
+
+export type DesktopAuthSessionBootstrapOptions = {
+    userId: string;
+    sessionHint?: Session | null;
+    /** Fresh login — verify SIGNED_IN / getSession only; never setSession or refreshSession. */
+    waitForSignedInEvent?: boolean;
+};
 
 export type DesktopBootstrapStep =
     | "localStorageHydration"
@@ -78,7 +94,6 @@ export type DesktopShellGateInput = {
     isAuthenticated: boolean;
     accountUserId: string;
     localBootstrapReady: boolean;
-    /** When authenticated, shell stays blocked until Supabase session bootstrap completes. */
     authSessionInitialized?: boolean;
 };
 
@@ -88,16 +103,26 @@ export type DesktopShellGateDecision = {
     detail: string;
 };
 
-type AuthBootstrapState = {
+type AuthBootstrapLock = {
     userKey: string;
-    promise: Promise<boolean> | null;
+    promise: Promise<DesktopAuthBootstrapOutcome> | null;
     complete: boolean;
+    signInPending: boolean;
+    setSessionAttempted: boolean;
+    refreshAttempted: boolean;
+    rateLimitedUntil: number;
+    running: boolean;
 };
 
-const authBootstrapState: AuthBootstrapState = {
+const authBootstrapLock: AuthBootstrapLock = {
     userKey: "",
     promise: null,
     complete: false,
+    signInPending: false,
+    setSessionAttempted: false,
+    refreshAttempted: false,
+    rateLimitedUntil: 0,
+    running: false,
 };
 
 function formatStepLabel(step: DesktopBootstrapStep) {
@@ -106,6 +131,13 @@ function formatStepLabel(step: DesktopBootstrapStep) {
 
 function logAuthBootstrap(step: string, details: Record<string, unknown> = {}) {
     console.info(AUTH_SESSION_BOOT_PREFIX, step, details);
+}
+
+function isRateLimitError(error: { message?: string; status?: number } | null | undefined) {
+    const message = String(error?.message || "").toLowerCase();
+    return error?.status === 429
+        || message.includes("429")
+        || message.includes("rate limit");
 }
 
 function isAccessTokenExpired(session: Session | null | undefined) {
@@ -137,6 +169,17 @@ function isAccessTokenExpired(session: Session | null | undefined) {
     return false;
 }
 
+function hasBearer(session: Session | null | undefined) {
+    return Boolean(readDesktopActionBearerToken(session));
+}
+
+function hasPersistableSessionMaterial(session: Session | null | undefined) {
+    if (!session) {
+        return false;
+    }
+    return Boolean(readDesktopActionBearerToken(session) && readRefreshTokenFromSession(session));
+}
+
 function publishBootstrappedSession(config: DesktopAuthBootstrapConfig, session: Session) {
     clearDesktopAuthRecoveryGate(session);
     noteValidatedDesktopSession(session);
@@ -151,177 +194,306 @@ async function readSupabaseClientSession(supabase: SupabaseClient) {
     return session ?? null;
 }
 
-async function seedSupabaseClientFromSession(
-    config: DesktopAuthBootstrapConfig,
-    sourceSession: Session,
-): Promise<Session | null> {
-    const refreshToken = readRefreshTokenFromSession(sourceSession);
-    const accessToken = readDesktopActionBearerToken(sourceSession);
-
-    if (!refreshToken && !accessToken) {
-        return null;
+function normalizeBootstrapOptions(
+    options: DesktopAuthSessionBootstrapOptions | string,
+): DesktopAuthSessionBootstrapOptions {
+    if (typeof options === "string") {
+        return {
+            userId: options,
+            sessionHint: null,
+            waitForSignedInEvent: false,
+        };
     }
-
-    logAuthBootstrap("setSession", {
-        hasAccessToken: Boolean(accessToken),
-        hasRefreshToken: Boolean(refreshToken),
-    });
-
-    const { data, error } = await config.supabase.auth.setSession({
-        access_token: accessToken || "",
-        refresh_token: refreshToken || "",
-    });
-
-    if (error) {
-        console.warn(`${AUTH_SESSION_BOOT_PREFIX} setSession failed`, error.message);
-        if (!refreshToken) {
-            return null;
-        }
-        const refreshed = await config.supabase.auth.refreshSession({ refresh_token: refreshToken });
-        if (refreshed.error) {
-            console.warn(`${AUTH_SESSION_BOOT_PREFIX} refreshSession failed`, refreshed.error.message);
-            return null;
-        }
-        return refreshed.data.session ?? null;
-    }
-
-    return data.session ?? null;
+    return options;
 }
 
-async function refreshSessionWithStoredToken(
-    config: DesktopAuthBootstrapConfig,
-    refreshToken: string,
-): Promise<Session | null> {
-    const normalizedRefreshToken = refreshToken.trim();
-    if (!normalizedRefreshToken) {
-        return null;
-    }
-
-    logAuthBootstrap("refreshSession", { hasRefreshToken: true });
-    const { data, error } = await config.supabase.auth.refreshSession({
-        refresh_token: normalizedRefreshToken,
-    });
-    if (error) {
-        console.warn(`${AUTH_SESSION_BOOT_PREFIX} refreshSession failed`, error.message);
-        return null;
-    }
-    return data.session ?? null;
-}
-
-/**
- * Restore the GoTrue client session from React state and/or persisted storage,
- * then verify getSession() returns a usable bearer.
- */
-export async function ensureDesktopAuthenticatedSession(
-    config: DesktopAuthBootstrapConfig,
-): Promise<Session | null> {
-    const reactSession = config.readAuthSession?.() ?? null;
-    const storedSession = readStoredAuthSession();
-    const mergedSession = mergeDesktopAuthSessionSources(reactSession, storedSession);
-
-    let clientSession = await readSupabaseClientSession(config.supabase);
-    let bearer = readDesktopActionBearerToken(clientSession);
-
-    if (!bearer && mergedSession) {
-        clientSession = await seedSupabaseClientFromSession(config, mergedSession);
-        bearer = readDesktopActionBearerToken(clientSession);
-    }
-
-    if ((!bearer || isAccessTokenExpired(clientSession)) && mergedSession) {
-        const refreshToken = readRefreshTokenFromSession(clientSession)
-            || readRefreshTokenFromSession(mergedSession);
-        if (refreshToken) {
-            const refreshedSession = await refreshSessionWithStoredToken(config, refreshToken);
-            if (refreshedSession) {
-                clientSession = refreshedSession;
-                bearer = readDesktopActionBearerToken(clientSession);
-            }
-        }
-    }
-
-    if (!bearer) {
-        clientSession = await readSupabaseClientSession(config.supabase);
-        bearer = readDesktopActionBearerToken(clientSession);
-    }
-
-    if (!clientSession || !bearer) {
-        logAuthBootstrap("session-missing", {
-            hasReactSession: Boolean(reactSession),
-            hasStoredSession: Boolean(storedSession),
-            hasMergedSession: Boolean(mergedSession),
-        });
-        return null;
-    }
-
-    publishBootstrappedSession(config, clientSession);
-    logAuthBootstrap("session-ready", {
-        sessionExists: true,
-        accessTokenPresent: true,
-        userId: clientSession.user?.id || "",
-    });
-    return clientSession;
-}
-
-export async function waitForDesktopAuthenticatedSession(
-    config: DesktopAuthBootstrapConfig,
-    timeoutMs = AUTH_SESSION_WAIT_MS,
-): Promise<Session | null> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-        const session = await ensureDesktopAuthenticatedSession(config);
-        if (session) {
-            return session;
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 120));
-    }
-    return null;
+/** Call immediately before signInWithPassword / signUp so bootstrap uses the fresh-login path. */
+export function markDesktopAuthSignInPending() {
+    authBootstrapLock.signInPending = true;
 }
 
 export function resetDesktopAuthSessionBootstrap() {
-    authBootstrapState.userKey = "";
-    authBootstrapState.promise = null;
-    authBootstrapState.complete = false;
+    if (authBootstrapLock.running) {
+        return;
+    }
+    authBootstrapLock.userKey = "";
+    authBootstrapLock.promise = null;
+    authBootstrapLock.complete = false;
+    authBootstrapLock.signInPending = false;
+    authBootstrapLock.setSessionAttempted = false;
+    authBootstrapLock.refreshAttempted = false;
 }
 
 export function isDesktopAuthSessionBootstrapComplete() {
-    return authBootstrapState.complete;
+    return authBootstrapLock.complete;
 }
 
-/** Begin authenticated session bootstrap once per signed-in user. */
-export function startDesktopAuthSessionBootstrap(
-    config: DesktopAuthBootstrapConfig,
-    userId = "",
-): Promise<boolean> {
-    const userKey = String(userId || "").trim() || "authenticated";
-    if (authBootstrapState.promise && authBootstrapState.userKey === userKey) {
-        return authBootstrapState.promise;
+export function isDesktopAuthBootstrapRateLimited() {
+    return Date.now() < authBootstrapLock.rateLimitedUntil;
+}
+
+async function waitForSupabaseSignedInOnce(
+    supabase: SupabaseClient,
+    timeoutMs = SIGNED_IN_WAIT_MS,
+): Promise<Session | null> {
+    const existing = await readSupabaseClientSession(supabase);
+    if (existing && hasBearer(existing)) {
+        logAuthBootstrap("signed-in-already-present", { userId: existing.user?.id || "" });
+        return existing;
     }
 
-    authBootstrapState.userKey = userKey;
-    authBootstrapState.complete = false;
-    authBootstrapState.promise = (async () => {
-        console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization started for ${userKey}`);
-        const session = await waitForDesktopAuthenticatedSession(config);
-        authBootstrapState.complete = Boolean(session);
-        if (session) {
-            console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization complete`);
-        }
-        else {
-            console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization failed — no authenticated Supabase session`);
-        }
-        return authBootstrapState.complete;
-    })();
+    logAuthBootstrap("waiting-for-signed-in", { timeoutMs });
 
-    return authBootstrapState.promise;
+    return new Promise((resolve) => {
+        let settled = false;
+        const finish = (session: Session | null) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            window.clearTimeout(timer);
+            subscription.unsubscribe();
+            resolve(session);
+        };
+
+        const timer = window.setTimeout(() => finish(null), timeoutMs);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event !== "SIGNED_IN" || !session || !hasBearer(session)) {
+                return;
+            }
+            logAuthBootstrap("signed-in-received", { userId: session.user?.id || "" });
+            finish(session);
+        });
+    });
 }
 
-/** @deprecated — bootstrap owns credential readiness; re-exported for compatibility. */
+/**
+ * Fresh login path: completeDesktopSignIn already saved the session once.
+ * Bootstrap only verifies getSession / SIGNED_IN — never setSession or refreshSession.
+ */
+async function resolveFreshSignInSession(
+    config: DesktopAuthBootstrapConfig,
+    sessionHint: Session | null | undefined,
+): Promise<{ session: Session | null; rateLimited: boolean }> {
+    const signedInSession = await waitForSupabaseSignedInOnce(config.supabase);
+    if (signedInSession) {
+        publishBootstrappedSession(config, signedInSession);
+        logAuthBootstrap("session-ready", { source: "fresh-sign-in", userId: signedInSession.user?.id || "" });
+        return { session: signedInSession, rateLimited: false };
+    }
+
+    const clientSession = await readSupabaseClientSession(config.supabase);
+    if (clientSession && hasBearer(clientSession)) {
+        publishBootstrappedSession(config, clientSession);
+        logAuthBootstrap("session-ready", { source: "fresh-getSession", userId: clientSession.user?.id || "" });
+        return { session: clientSession, rateLimited: false };
+    }
+
+    if (sessionHint && hasBearer(sessionHint)) {
+        publishBootstrappedSession(config, sessionHint);
+        logAuthBootstrap("session-ready", {
+            source: "fresh-sign-in-hint",
+            userId: sessionHint.user?.id || "",
+        });
+        return { session: sessionHint, rateLimited: false };
+    }
+
+    logAuthBootstrap("session-missing", {
+        reason: "fresh-sign-in-no-bearer-after-signed-in-check",
+        hasSessionHint: Boolean(sessionHint),
+    });
+    return { session: null, rateLimited: false };
+}
+
+/**
+ * Reload / restore path for returning users. Single setSession + optional single refresh only.
+ */
+async function restoreStoredDesktopSession(
+    config: DesktopAuthBootstrapConfig,
+    sessionHint: Session | null | undefined,
+): Promise<{ session: Session | null; rateLimited: boolean }> {
+    if (Date.now() < authBootstrapLock.rateLimitedUntil) {
+        logAuthBootstrap("rate-limited", {
+            retryAfterMs: authBootstrapLock.rateLimitedUntil - Date.now(),
+        });
+        return { session: null, rateLimited: true };
+    }
+
+    let clientSession = await readSupabaseClientSession(config.supabase);
+    if (clientSession && hasBearer(clientSession) && !isAccessTokenExpired(clientSession)) {
+        publishBootstrappedSession(config, clientSession);
+        logAuthBootstrap("session-ready", { source: "restore-getSession", userId: clientSession.user?.id || "" });
+        return { session: clientSession, rateLimited: false };
+    }
+
+    const mergedSession = mergeDesktopAuthSessionSources(sessionHint, readStoredAuthSession());
+    if (!hasPersistableSessionMaterial(mergedSession)) {
+        logAuthBootstrap("session-missing", {
+            reason: "restore-no-session-material",
+            hasReactSession: Boolean(sessionHint),
+            hasStoredSession: Boolean(readStoredAuthSession()),
+        });
+        return { session: null, rateLimited: false };
+    }
+
+    if (!authBootstrapLock.setSessionAttempted) {
+        authBootstrapLock.setSessionAttempted = true;
+        const accessToken = readDesktopActionBearerToken(mergedSession);
+        const refreshToken = readRefreshTokenFromSession(mergedSession);
+        logAuthBootstrap("restore-setSession-once", {
+            hasAccessToken: Boolean(accessToken),
+            hasRefreshToken: Boolean(refreshToken),
+        });
+
+        const { data, error } = await config.supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+        });
+
+        if (error) {
+            if (isRateLimitError(error)) {
+                authBootstrapLock.rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+                return { session: null, rateLimited: true };
+            }
+            console.warn(`${AUTH_SESSION_BOOT_PREFIX} setSession failed`, error.message);
+        }
+        else if (data.session) {
+            clientSession = data.session;
+        }
+    }
+
+    clientSession = await readSupabaseClientSession(config.supabase);
+    if (clientSession && hasBearer(clientSession) && !isAccessTokenExpired(clientSession)) {
+        publishBootstrappedSession(config, clientSession);
+        logAuthBootstrap("session-ready", { source: "restore-after-setSession", userId: clientSession.user?.id || "" });
+        return { session: clientSession, rateLimited: false };
+    }
+
+    const refreshToken = readRefreshTokenFromSession(clientSession) || readRefreshTokenFromSession(mergedSession);
+    if (refreshToken && isAccessTokenExpired(clientSession) && !authBootstrapLock.refreshAttempted) {
+        authBootstrapLock.refreshAttempted = true;
+        logAuthBootstrap("restore-refreshSession-once", { hasRefreshToken: true });
+        const { data, error } = await config.supabase.auth.refreshSession({ refresh_token: refreshToken });
+        if (error) {
+            if (isRateLimitError(error)) {
+                authBootstrapLock.rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+                return { session: null, rateLimited: true };
+            }
+            console.warn(`${AUTH_SESSION_BOOT_PREFIX} refreshSession failed`, error.message);
+        }
+        else if (data.session) {
+            publishBootstrappedSession(config, data.session);
+            logAuthBootstrap("session-ready", { source: "restore-after-refresh", userId: data.session.user?.id || "" });
+            return { session: data.session, rateLimited: false };
+        }
+    }
+
+    clientSession = await readSupabaseClientSession(config.supabase);
+    if (clientSession && hasBearer(clientSession)) {
+        publishBootstrappedSession(config, clientSession);
+        logAuthBootstrap("session-ready", { source: "restore-final-getSession", userId: clientSession.user?.id || "" });
+        return { session: clientSession, rateLimited: false };
+    }
+
+    logAuthBootstrap("session-missing", { reason: "restore-getSession-empty-after-single-pass" });
+    return { session: null, rateLimited: false };
+}
+
+/** Single-pass session resolution — fresh login never calls setSession/refreshSession. */
+export async function ensureDesktopAuthenticatedSession(
+    config: DesktopAuthBootstrapConfig,
+    options: Omit<DesktopAuthSessionBootstrapOptions, "userId"> = {},
+): Promise<{ session: Session | null; rateLimited: boolean }> {
+    const sessionHint = options.sessionHint ?? config.readAuthSession?.() ?? null;
+
+    if (options.waitForSignedInEvent) {
+        return resolveFreshSignInSession(config, sessionHint);
+    }
+
+    return restoreStoredDesktopSession(config, sessionHint);
+}
+
+/** @deprecated — single pass only. */
+export async function waitForDesktopAuthenticatedSession(
+    config: DesktopAuthBootstrapConfig,
+    _timeoutMs?: number,
+    options: Omit<DesktopAuthSessionBootstrapOptions, "userId"> = {},
+): Promise<Session | null> {
+    const result = await ensureDesktopAuthenticatedSession(config, options);
+    return result.session;
+}
+
+/** Locked bootstrap — one run per user at a time. */
+export function startDesktopAuthSessionBootstrap(
+    config: DesktopAuthBootstrapConfig,
+    options: DesktopAuthSessionBootstrapOptions | string,
+): Promise<DesktopAuthBootstrapOutcome> {
+    const normalized = normalizeBootstrapOptions(options);
+    const userKey = String(normalized.userId || "").trim() || "authenticated";
+
+    if (authBootstrapLock.promise && authBootstrapLock.userKey === userKey) {
+        return authBootstrapLock.promise;
+    }
+
+    if (authBootstrapLock.running) {
+        logAuthBootstrap("bootstrap-skipped", { reason: "already-running", userKey });
+        return authBootstrapLock.promise ?? Promise.resolve({ ready: false, rateLimited: false });
+    }
+
+    authBootstrapLock.userKey = userKey;
+    authBootstrapLock.complete = false;
+    authBootstrapLock.setSessionAttempted = false;
+    authBootstrapLock.refreshAttempted = false;
+
+    const waitForSignedInEvent = normalized.waitForSignedInEvent || authBootstrapLock.signInPending;
+    authBootstrapLock.signInPending = false;
+
+    authBootstrapLock.running = true;
+    authBootstrapLock.promise = (async () => {
+        console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization started for ${userKey}`, {
+            freshSignIn: waitForSignedInEvent,
+        });
+
+        try {
+            const { session, rateLimited } = await ensureDesktopAuthenticatedSession(config, {
+                sessionHint: normalized.sessionHint,
+                waitForSignedInEvent,
+            });
+
+            if (rateLimited) {
+                console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization rate-limited`);
+                return {
+                    ready: false,
+                    rateLimited: true,
+                    message: DESKTOP_AUTH_RATE_LIMIT_MESSAGE,
+                };
+            }
+
+            authBootstrapLock.complete = Boolean(session);
+            if (session) {
+                console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization complete`);
+                return { ready: true, rateLimited: false };
+            }
+
+            console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization incomplete after single pass`);
+            return { ready: false, rateLimited: false };
+        }
+        finally {
+            authBootstrapLock.running = false;
+        }
+    })();
+
+    return authBootstrapLock.promise;
+}
+
+/** @deprecated — single pass only. */
 export async function waitForDesktopApiCredentials(
     config: DesktopAuthBootstrapConfig,
-    timeoutMs = AUTH_SESSION_WAIT_MS,
+    _timeoutMs?: number,
+    options: Omit<DesktopAuthSessionBootstrapOptions, "userId"> = {},
 ) {
-    const session = await waitForDesktopAuthenticatedSession(config, timeoutMs);
-    if (!session) {
+    const { session, rateLimited } = await ensureDesktopAuthenticatedSession(config, options);
+    if (rateLimited || !session) {
         return null;
     }
     const accessToken = readDesktopActionBearerToken(session);
@@ -329,11 +501,7 @@ export async function waitForDesktopApiCredentials(
     if (!accessToken || !userId) {
         return null;
     }
-    return {
-        session,
-        userId,
-        accessToken,
-    };
+    return { session, userId, accessToken };
 }
 
 export async function traceBootstrapStep<T>(
@@ -460,7 +628,7 @@ function readCatalogValue<T>(
     return entry?.ok ? entry.value : undefined;
 }
 
-/** Remote bootstrap — waits for authenticated session, then runs independent user-state loaders. */
+/** Remote bootstrap — reads getSession only; auth bootstrap must have completed first. */
 export async function runDesktopRemoteBootstrap(
     userId: string,
     actions: DesktopRemoteBootstrapActions,
@@ -469,8 +637,18 @@ export async function runDesktopRemoteBootstrap(
     console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue started for user ${userId || "(missing user id)"}`);
 
     if (auth) {
-        const session = await waitForDesktopAuthenticatedSession(auth);
-        if (!session) {
+        if (!authBootstrapLock.complete) {
+            console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} protected bootstrap deferred until auth session bootstrap completes`);
+            return {
+                completedSteps: [],
+                failedSteps: [],
+                userMusicStateOutcome: "deferred-auth-bootstrap-incomplete",
+                deferred: true,
+            };
+        }
+
+        const session = await readSupabaseClientSession(auth.supabase);
+        if (!session || !hasBearer(session)) {
             console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} API credentials not ready — remote bootstrap deferred`);
             return {
                 completedSteps: [],

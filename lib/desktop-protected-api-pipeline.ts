@@ -1,6 +1,7 @@
 /** @deprecated Re-exports — use lib/desktop-protected-action-pipeline.ts */
 
 export {
+    acquireFreshDesktopProtectedCredentials,
     assertDesktopRelativeApiPath,
     createDesktopAuthBootstrapRuntime,
     createDesktopAuthenticatedFetch,
@@ -12,8 +13,11 @@ export {
     DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS,
     DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE,
     DESKTOP_PROTECTED_API_SESSION_MESSAGE,
+    DESKTOP_PROTECTED_ENDPOINTS,
     DESKTOP_PROTECTED_LIBRARY_API_PATHS,
+    executeDesktopProtectedRequest,
     hasValidDesktopSupabaseSession,
+    hydrateSupabaseClientFromStorage,
     resolveDesktopAuthenticatedCredentials,
     resolveDesktopProtectedApiCredentials,
     resolveLiveDesktopProtectedActionCredentials,

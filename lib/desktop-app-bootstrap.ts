@@ -2,10 +2,12 @@
 
 export {
     canRenderDesktopApplicationShell,
+    DESKTOP_AUTH_RATE_LIMIT_MESSAGE,
     DESKTOP_BOOTSTRAP_LOG_PREFIX,
     diagnoseDesktopShellGate,
     ensureDesktopAuthenticatedSession,
     isDesktopAuthSessionBootstrapComplete,
+    markDesktopAuthSignInPending,
     resetDesktopAuthSessionBootstrap,
     runDesktopRemoteBootstrap,
     startDesktopAuthSessionBootstrap,
@@ -13,6 +15,8 @@ export {
     traceBootstrapStep,
     waitForDesktopAuthenticatedSession,
     type DesktopAuthBootstrapConfig,
+    type DesktopAuthBootstrapOutcome,
+    type DesktopAuthSessionBootstrapOptions,
     type DesktopBootstrapStep,
     type DesktopRemoteBootstrapActions,
     type DesktopRemoteBootstrapResult,

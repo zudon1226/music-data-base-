@@ -125,12 +125,11 @@ assertExport(clickDispatch, "dispatchDesktopArtistFollow", "desktop-protected-cl
 assertExport(clickDispatch, "dispatchDesktopLibrarySave", "desktop-protected-click-dispatch.ts");
 assertExport(clickDispatch, "dispatchDesktopCreatePlaylist", "desktop-protected-click-dispatch.ts");
 assertExport(clickDispatch, "registerDesktopProductionSessionPublisher", "desktop-protected-click-dispatch.ts");
-assertIncludes(clickDispatch, "getDesktopSupabaseClient", "desktop-protected-click-dispatch.ts module singleton client");
+assertIncludes(clickDispatch, "executeDesktopProtectedRequest", "desktop-protected-click-dispatch.ts uses shared pipeline");
+assertIncludes(clickDispatch, "desktop-protected-action-pipeline", "desktop-protected-click-dispatch.ts shared pipeline import");
 assertIncludes(clickDispatch, "[desktop-protected-click-dispatch]", "desktop-protected-click-dispatch.ts logging");
 assertIncludes(clickDispatch, 'method: "POST"', "desktop-protected-click-dispatch.ts always POST");
-assertIncludes(clickDispatch, 'headers.set("Authorization"', "desktop-protected-click-dispatch.ts bearer header");
-assertIncludes(clickDispatch, 'headers.set("apikey"', "desktop-protected-click-dispatch.ts apikey header");
-assertIncludes(clickDispatch, "dispatchProtectedWrite", "desktop-protected-click-dispatch.ts single write path");
+assertIncludes(clickDispatch, "injectAuthenticatedUserId", "desktop-protected-click-dispatch.ts injects user id");
 
 const productionRuntime = read("lib/desktop-production-protected-runtime.ts");
 assertIncludes(productionRuntime, "desktop-protected-click-dispatch", "desktop-production-protected-runtime.ts re-exports click dispatch");
@@ -149,6 +148,10 @@ const actionPipeline = read("lib/desktop-protected-action-pipeline.ts");
 assertExport(actionPipeline, "createDesktopProtectedActionFetch", "desktop-protected-action-pipeline.ts");
 assertExport(actionPipeline, "resolveLiveDesktopProtectedActionCredentials", "desktop-protected-action-pipeline.ts");
 assertExport(actionPipeline, "createDesktopProtectedActionPipeline", "desktop-protected-action-pipeline.ts");
+assertExport(actionPipeline, "acquireFreshDesktopProtectedCredentials", "desktop-protected-action-pipeline.ts");
+assertExport(actionPipeline, "executeDesktopProtectedRequest", "desktop-protected-action-pipeline.ts");
+assertIncludes(actionPipeline, "DESKTOP_PROTECTED_ENDPOINTS", "desktop-protected-action-pipeline.ts protected endpoints");
+assertIncludes(actionPipeline, '[desktop-protected-request]', "desktop-protected-action-pipeline.ts logging prefix");
 assertIncludes(actionPipeline, 'headers.set("Authorization"', "desktop-protected-action-pipeline.ts bearer header");
 assertIncludes(actionPipeline, 'headers.set("apikey"', "desktop-protected-action-pipeline.ts apikey header");
 assertIncludes(actionPipeline, 'redirect: "error"', "desktop-protected-action-pipeline.ts blocks SSO redirects");
@@ -160,11 +163,12 @@ assertIncludes(actionPipeline, "request-dispatched", "desktop-protected-action-p
 assertIncludes(actionPipeline, "sessionExists", "desktop-protected-action-pipeline.ts session debug logging");
 assertIncludes(actionPipeline, "accessTokenPresent", "desktop-protected-action-pipeline.ts token debug logging");
 assertIncludes(actionPipeline, "authorizationAdded", "desktop-protected-action-pipeline.ts authorization debug logging");
-assertIncludes(actionPipeline, "hydrateSupabaseClientFromStorage", "desktop-protected-action-pipeline.ts storage hydration");
-assertIncludes(actionPipeline, "readStoredAuthSession", "desktop-protected-action-pipeline.ts storage hydration source");
 assertIncludes(actionPipeline, "injectAuthenticatedUserId", "desktop-protected-action-pipeline.ts body user id injection");
+assertIncludes(actionPipeline, "abort-no-session", "desktop-protected-action-pipeline.ts aborts without bearer");
 
 assertNotIncludes(actionPipeline, "mergeDesktopAuthSessionSources", "desktop-protected-action-pipeline.ts must not merge stale sessions");
+assertNotIncludes(actionPipeline, "readStoredAuthSession", "desktop-protected-action-pipeline.ts must not read storage cache");
+assertNotIncludes(actionPipeline, "readAuthSession?.()", "desktop-protected-action-pipeline.ts must not use React session cache for bearer");
 
 const protectedApiPipeline = read("lib/desktop-protected-api-pipeline.ts");
 assertIncludes(protectedApiPipeline, "desktop-protected-action-pipeline", "desktop-protected-api-pipeline.ts re-exports action pipeline");
@@ -186,6 +190,13 @@ const authBootstrapFlow = read("lib/desktop-auth-bootstrap-flow.ts");
 assertIncludes(authBootstrapFlow, "runDesktopRemoteBootstrap", "desktop-auth-bootstrap-flow.ts remote bootstrap");
 assertIncludes(authBootstrapFlow, "ensureDesktopAuthenticatedSession", "desktop-auth-bootstrap-flow.ts session restore");
 assertIncludes(authBootstrapFlow, "startDesktopAuthSessionBootstrap", "desktop-auth-bootstrap-flow.ts auth init gate");
+assertIncludes(authBootstrapFlow, "markDesktopAuthSignInPending", "desktop-auth-bootstrap-flow.ts sign-in gate");
+assertIncludes(authBootstrapFlow, "DESKTOP_AUTH_RATE_LIMIT_MESSAGE", "desktop-auth-bootstrap-flow.ts rate limit message");
+assertIncludes(authBootstrapFlow, "waitForSupabaseSignedInOnce", "desktop-auth-bootstrap-flow.ts waits for SIGNED_IN");
+assertIncludes(authBootstrapFlow, "resolveFreshSignInSession", "desktop-auth-bootstrap-flow.ts fresh login path");
+assertIncludes(authBootstrapFlow, "restoreStoredDesktopSession", "desktop-auth-bootstrap-flow.ts restore path");
+assertIncludes(authBootstrapFlow, "fresh-sign-in-no-bearer", "desktop-auth-bootstrap-flow.ts fresh path never refreshes");
+assertNotIncludes(authBootstrapFlow, "setTimeout(resolve, 120)", "desktop-auth-bootstrap-flow.ts must not poll refreshSession");
 assertIncludes(authBootstrapFlow, "supabase.auth.setSession", "desktop-auth-bootstrap-flow.ts seeds GoTrue client");
 assertIncludes(authBootstrapFlow, "supabase.auth.getSession", "desktop-auth-bootstrap-flow.ts verifies live session");
 assertNotIncludes(authBootstrapFlow, "refreshSupabaseSession", "desktop-auth-bootstrap-flow.ts must not refresh tokens");
@@ -236,7 +247,7 @@ assertIncludes(authSessionGuard, "isDesktopVideoUploadLifecycleActive", "desktop
 const clientApiAuth = read("lib/client-api-auth.ts");
 assertIncludes(clientApiAuth, "isDesktopVideoUploadLifecycleActive", "client-api-auth.ts upload lifecycle guard");
 
-assertIncludes(actionPipeline, "isDesktopVideoUploadLifecycleActive", "desktop-protected-action-pipeline.ts upload lifecycle guard");
+assertNotIncludes(actionPipeline, "isDesktopVideoUploadLifecycleActive", "desktop-protected-action-pipeline.ts no upload lifecycle branch");
 
 const authState = read("lib/desktop-auth-state.tsx");
 assertIncludes(authState, "isDesktopVideoUploadLifecycleActive", "desktop-auth-state.tsx upload lifecycle guard");
@@ -265,6 +276,7 @@ const REQUIRED_PAGE_WIRING = [
   "DesktopAuthProvider",
   "canRenderDesktopApplicationShell",
   "startDesktopAuthSessionBootstrap",
+  "markDesktopAuthSignInPending",
   "authSessionInitialized",
   "getAccountDisplayName",
   "canDeleteDesktopUploadedItem",

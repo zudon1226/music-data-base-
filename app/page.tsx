@@ -9,8 +9,8 @@ import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
 import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
-import { canRenderDesktopApplicationShell, resetDesktopAuthSessionBootstrap, runDesktopRemoteBootstrap, startDesktopAuthSessionBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
-import { canDeleteDesktopUploadedItem, createDesktopActionRuntime, mergeDesktopAuthSessionSources } from "../lib/desktop-action-runtime";
+import { canRenderDesktopApplicationShell, DESKTOP_AUTH_RATE_LIMIT_MESSAGE, markDesktopAuthSignInPending, resetDesktopAuthSessionBootstrap, runDesktopRemoteBootstrap, startDesktopAuthSessionBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
+import { canDeleteDesktopUploadedItem, createDesktopActionRuntime, hasUsableDesktopProtectedActionSession, mergeDesktopAuthSessionSources } from "../lib/desktop-action-runtime";
 import { createDesktopProtectedActionAuthGuard } from "../lib/desktop-protected-action-auth-guard";
 import {
     dispatchDesktopArtistFollow,
@@ -5788,10 +5788,27 @@ function PageContent() {
             return;
         }
         let cancelled = false;
-        void startDesktopAuthSessionBootstrap(desktopProtectedActionConfig, bootstrapUserId)
-            .then((ready) => {
-                if (!cancelled) {
-                    setAuthSessionInitialized(ready);
+        void startDesktopAuthSessionBootstrap(desktopProtectedActionConfig, {
+            userId: bootstrapUserId,
+            sessionHint: authSessionRef.current,
+            waitForSignedInEvent: false,
+        })
+            .then((outcome) => {
+                if (cancelled) {
+                    return;
+                }
+                if (outcome.rateLimited) {
+                    setAuthMessage(outcome.message || DESKTOP_AUTH_RATE_LIMIT_MESSAGE);
+                }
+                const canOpenShell = outcome.ready
+                    || hasUsableDesktopProtectedActionSession(authSessionRef.current);
+                setAuthSessionInitialized(canOpenShell);
+                if (!outcome.ready && !canOpenShell) {
+                    void supabase.auth.getSession().then(({ data: { session } }) => {
+                        if (!session && isAuthenticated) {
+                            setAuthMessage("Your session could not be restored. Please log in again.");
+                        }
+                    });
                 }
             });
         return () => {
@@ -12934,6 +12951,7 @@ function PageContent() {
                 setAuthMessage("Account created. Check your email to confirm your sign up.");
                 return;
             }
+            markDesktopAuthSignInPending();
             const signedInSession = response.data.session;
             const activeSession = await completeDesktopSignIn(supabase, signedInSession);
             if (!activeSession?.user) {
@@ -12942,6 +12960,7 @@ function PageContent() {
             }
 
             completeSignIn(activeSession);
+            setAuthSessionInitialized(hasUsableDesktopProtectedActionSession(activeSession));
             setUserAuthProfile((previous) => ({
                 ...previous,
                 displayName: signupDisplayName,
