@@ -9,7 +9,7 @@ import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
 import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
-import { canRenderDesktopApplicationShell, DESKTOP_AUTH_RATE_LIMIT_MESSAGE, markDesktopAuthSignInPending, resetDesktopAuthSessionBootstrap, runDesktopRemoteBootstrap, startDesktopAuthSessionBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
+import { canRenderDesktopApplicationShell, createDesktopAuthBootstrapWatchdog, DESKTOP_AUTH_RATE_LIMIT_MESSAGE, isDesktopAuthenticatedShellReady, markDesktopAuthSignInPending, resetDesktopAuthSessionBootstrap, runDesktopRemoteBootstrap, startDesktopAuthSessionBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
 import { canDeleteDesktopUploadedItem, createDesktopActionRuntime, hasUsableDesktopProtectedActionSession, mergeDesktopAuthSessionSources } from "../lib/desktop-action-runtime";
 import { createDesktopProtectedActionAuthGuard } from "../lib/desktop-protected-action-auth-guard";
 import {
@@ -5784,8 +5784,10 @@ function PageContent() {
         }
         const bootstrapUserId = String(accountUserId || "").trim();
         if (!bootstrapUserId) {
-            setAuthSessionInitialized(false);
             return;
+        }
+        if (isDesktopAuthenticatedShellReady({ session: authSessionRef.current })) {
+            setAuthSessionInitialized(true);
         }
         let cancelled = false;
         void startDesktopAuthSessionBootstrap(desktopProtectedActionConfig, {
@@ -5800,21 +5802,37 @@ function PageContent() {
                 if (outcome.rateLimited) {
                     setAuthMessage(outcome.message || DESKTOP_AUTH_RATE_LIMIT_MESSAGE);
                 }
-                const canOpenShell = outcome.ready
-                    || hasUsableDesktopProtectedActionSession(authSessionRef.current);
-                setAuthSessionInitialized(canOpenShell);
-                if (!outcome.ready && !canOpenShell) {
-                    void supabase.auth.getSession().then(({ data: { session } }) => {
-                        if (!session && isAuthenticated) {
-                            setAuthMessage("Your session could not be restored. Please log in again.");
-                        }
-                    });
+                if (isDesktopAuthenticatedShellReady({ session: authSessionRef.current })) {
+                    setAuthSessionInitialized(true);
+                    return;
                 }
+                if (outcome.ready) {
+                    setAuthSessionInitialized(true);
+                    return;
+                }
+                void supabase.auth.getSession().then(({ data: { session } }) => {
+                    if (!session && isAuthenticated) {
+                        setAuthMessage("Your session could not be restored. Please log in again.");
+                    }
+                });
             });
         return () => {
             cancelled = true;
         };
     }, [accountUserId, authLoading, authGateTick, desktopProtectedActionConfig, isAuthenticated]);
+    useEffect(() => {
+        if (!isAuthenticated || authSessionInitialized) {
+            return;
+        }
+        return createDesktopAuthBootstrapWatchdog(
+            () => isAuthenticated
+                && hasUsableDesktopProtectedActionSession(authSessionRef.current)
+                && !authSessionInitialized,
+            () => {
+                setAuthSessionInitialized(true);
+            },
+        );
+    }, [authSessionInitialized, authGateTick, isAuthenticated]);
     useEffect(() => {
         if (authLoading || !desktopActionAuthGuard.hasAccess() || !authSessionInitialized)
             return;
@@ -14456,6 +14474,7 @@ function PageContent() {
         isAuthenticated,
         accountUserId,
         localBootstrapReady: hasLoaded,
+        session: authSession,
         authSessionInitialized: !isAuthenticated || authSessionInitialized,
     })) {
         return (<main className="auth-page">

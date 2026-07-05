@@ -195,12 +195,18 @@ assertIncludes(authBootstrapFlow, "DESKTOP_AUTH_RATE_LIMIT_MESSAGE", "desktop-au
 assertIncludes(authBootstrapFlow, "waitForSupabaseSignedInOnce", "desktop-auth-bootstrap-flow.ts waits for SIGNED_IN");
 assertIncludes(authBootstrapFlow, "resolveFreshSignInSession", "desktop-auth-bootstrap-flow.ts fresh login path");
 assertIncludes(authBootstrapFlow, "restoreStoredDesktopSession", "desktop-auth-bootstrap-flow.ts restore path");
-assertIncludes(authBootstrapFlow, "fresh-sign-in-no-bearer", "desktop-auth-bootstrap-flow.ts fresh path never refreshes");
+assertIncludes(authBootstrapFlow, "fresh-sign-in-no-usable-session", "desktop-auth-bootstrap-flow.ts fresh path never refreshes");
 assertNotIncludes(authBootstrapFlow, "setTimeout(resolve, 120)", "desktop-auth-bootstrap-flow.ts must not poll refreshSession");
 assertIncludes(authBootstrapFlow, "supabase.auth.setSession", "desktop-auth-bootstrap-flow.ts seeds GoTrue client");
 assertIncludes(authBootstrapFlow, "supabase.auth.getSession", "desktop-auth-bootstrap-flow.ts verifies live session");
 assertNotIncludes(authBootstrapFlow, "refreshSupabaseSession", "desktop-auth-bootstrap-flow.ts must not refresh tokens");
-assertNotIncludes(authBootstrapFlow, "createDesktopAuthenticatedFetch", "desktop-auth-bootstrap-flow.ts fetch moved to pipeline");
+assertIncludes(authBootstrapFlow, "createDesktopAuthBootstrapWatchdog", "desktop-auth-bootstrap-flow.ts shell watchdog");
+assertIncludes(authBootstrapFlow, "DESKTOP_AUTH_SHELL_WATCHDOG_MS = 10_000", "desktop-auth-bootstrap-flow.ts 10s watchdog");
+assertIncludes(authBootstrapFlow, "forceDesktopAuthBootstrapShellReady", "desktop-auth-bootstrap-flow.ts watchdog force ready");
+assertIncludes(authBootstrapFlow, "isDesktopAuthenticatedShellReady", "desktop-auth-bootstrap-flow.ts immediate shell ready");
+assertIncludes(authBootstrapFlow, "isDesktopAuthSessionBootstrapSettled", "desktop-auth-bootstrap-flow.ts single resolve gate");
+assertNotIncludes(authBootstrapFlow, "authBootstrapLock.complete", "desktop-auth-bootstrap-flow.ts must not gate remote bootstrap on auth lock");
+assertNotIncludes(authBootstrapFlow, "mergeDesktopAuthSessionSources", "desktop-auth-bootstrap-flow.ts must not merge stale sessions in restore");
 
 const client = read("lib/desktop-protected-action-client.ts");
 assertExport(client, "createDesktopProtectedActionClient", "desktop-protected-action-client.ts");

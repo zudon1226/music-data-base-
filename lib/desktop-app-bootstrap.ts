@@ -2,11 +2,17 @@
 
 export {
     canRenderDesktopApplicationShell,
+    createDesktopAuthBootstrapWatchdog,
     DESKTOP_AUTH_RATE_LIMIT_MESSAGE,
+    DESKTOP_AUTH_SHELL_WATCHDOG_MS,
     DESKTOP_BOOTSTRAP_LOG_PREFIX,
     diagnoseDesktopShellGate,
     ensureDesktopAuthenticatedSession,
+    forceDesktopAuthBootstrapShellReady,
+    isDesktopAuthenticatedShellReady,
     isDesktopAuthSessionBootstrapComplete,
+    isDesktopAuthSessionBootstrapSettled,
+    isDesktopAuthShellWatchdogForced,
     markDesktopAuthSignInPending,
     resetDesktopAuthSessionBootstrap,
     runDesktopRemoteBootstrap,
