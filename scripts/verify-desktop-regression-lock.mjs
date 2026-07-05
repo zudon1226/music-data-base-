@@ -127,7 +127,9 @@ const authBootstrapFlow = read("lib/desktop-auth-bootstrap-flow.ts");
 assertIncludes(authBootstrapFlow, "DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS = 494", "desktop-auth-bootstrap-flow.ts 494 handler");
 assertIncludes(authBootstrapFlow, 'headers.set("Authorization"', "desktop-auth-bootstrap-flow.ts bearer header");
 assertIncludes(authBootstrapFlow, '"bearer-preferred"', "desktop-auth-bootstrap-flow.ts bearer-preferred default");
-assertIncludes(authBootstrapFlow, "forceRefresh:", "desktop-auth-bootstrap-flow.ts 401 retry");
+assertIncludes(authBootstrapFlow, 'redirect: "error"', "desktop-auth-bootstrap-flow.ts blocks SSO redirects");
+assertIncludes(authBootstrapFlow, "DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE", "desktop-auth-bootstrap-flow.ts login gate");
+assertIncludes(authBootstrapFlow, "resolveDesktopProtectedBearerCredentials", "desktop-auth-bootstrap-flow.ts bearer-only protected credentials");
 
 const client = read("lib/desktop-protected-action-client.ts");
 assertExport(client, "createDesktopProtectedActionClient", "desktop-protected-action-client.ts");

@@ -7,6 +7,7 @@ import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, 
 import { flushSync } from "react-dom";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
+import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-auth-bootstrap-flow";
 import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
 import { canRenderDesktopApplicationShell, runDesktopRemoteBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
 import { canDeleteDesktopUploadedItem, createDesktopActionRuntime } from "../lib/desktop-action-runtime";
@@ -5403,6 +5404,16 @@ function PageContent() {
             return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
         }
 
+        const preserveCurrentLibrarySnapshot = () => ({
+            songIds: uniqueIds(libraryIds),
+            videoIds: uniqueIds(savedVideoIds),
+            albumIds: uniqueIds(savedAlbumIds),
+            videos: [] as VideoItem[],
+            albums: [] as Album[],
+        });
+        const isProtectedActionAuthError = (error: unknown) => error instanceof Error
+            && (error.message === SESSION_EXPIRED_MESSAGE || error.message === DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+
         const cachedLibrary = readLibraryCache(libraryUserId);
         if (cachedLibrary) {
             applyLibraryCacheToState(cachedLibrary, {
@@ -5420,8 +5431,11 @@ function PageContent() {
             });
         }
         catch (error) {
-            if (!(error instanceof Error && error.message === SESSION_EXPIRED_MESSAGE)) {
+            if (!isProtectedActionAuthError(error)) {
                 console.error("LIBRARY ERROR:", error);
+            }
+            if (error instanceof Error && error.message === DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE) {
+                showToast(error.message, "error");
             }
             if (cachedLibrary) {
                 return {
@@ -5432,7 +5446,7 @@ function PageContent() {
                     albums: [] as Album[],
                 };
             }
-            return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
+            return preserveCurrentLibrarySnapshot();
         }
         const data = (await response.json().catch(() => ({}))) as {
             rows?: unknown[];
@@ -5474,7 +5488,6 @@ function PageContent() {
                     };
                 }
             }
-            setLibraryLoadError(error);
             if (cachedLibrary) {
                 showToast("Saved library could not refresh from Supabase. Showing your last saved library.", "error");
                 return {
@@ -5485,8 +5498,15 @@ function PageContent() {
                     albums: [] as Album[],
                 };
             }
-            showToast(error, "error");
-            return { songIds: [], videoIds: [], albumIds: [], videos: [] as VideoItem[], albums: [] as Album[] };
+            const snapshot = preserveCurrentLibrarySnapshot();
+            if (snapshot.songIds.length === 0 && snapshot.videoIds.length === 0 && snapshot.albumIds.length === 0) {
+                setLibraryLoadError(error);
+                showToast(error, "error");
+            }
+            else {
+                console.warn("LIBRARY RELOAD WARNING:", error);
+            }
+            return snapshot;
         }
         const savedSongRows = data.savedSongs || data.songs || [];
         const savedVideoRows = data.savedVideos || data.videos || [];
@@ -9037,7 +9057,6 @@ function PageContent() {
                     .join(" ");
                 console.error("SAVE INSERT ERROR", message);
                 reportPlatformError("save", `save-${itemType}`, message, { itemId: item.id, itemType });
-                setLibraryLoadError(message);
                 showToast(message, "error");
                 return false;
             }
@@ -9048,7 +9067,6 @@ function PageContent() {
             const message = error instanceof Error ? error.message : String(error);
             console.error("SAVE INSERT ERROR", error);
             reportPlatformError("save", `save-${itemType}`, message, { itemId: item.id, itemType });
-            setLibraryLoadError(message);
             showToast(message, "error");
             return false;
         }

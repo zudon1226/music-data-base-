@@ -22,8 +22,13 @@ export { SESSION_EXPIRED_MESSAGE };
 
 export const DESKTOP_BOOTSTRAP_LOG_PREFIX = "[desktop-bootstrap]";
 export const DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS = 494;
+export const DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE = "Log in to continue.";
 
-const API_AUTH_FAILED_MESSAGE = "API request could not authenticate. Please retry.";
+const PROTECTED_DESKTOP_FETCH_INIT = {
+    mode: "same-origin" as RequestMode,
+    redirect: "error" as RequestRedirect,
+    credentials: "omit" as RequestCredentials,
+};
 const CREDENTIAL_RESOLVE_TIMEOUT_MS = 10_000;
 const SESSION_REFRESH_TIMEOUT_MS = 8_000;
 const API_CREDENTIALS_BOOTSTRAP_WAIT_MS = 8_000;
@@ -163,10 +168,6 @@ function sessionRequiresRefreshHeaderAuth(session: Session | null | undefined) {
 
 function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
-}
-
-function getTokenTail(token: string) {
-    return token ? token.slice(-8) : "";
 }
 
 function sessionScore(session: Session | null | undefined) {
@@ -387,6 +388,97 @@ export async function resolveDesktopAuthenticatedCredentials(
     };
 }
 
+/**
+ * Resolve bearer-only credentials for protected desktop /api requests.
+ * Never uses refresh-header transport (avoids Vercel deployment-protection SSO redirects).
+ */
+async function resolveDesktopProtectedBearerCredentials(
+    config: DesktopAuthBootstrapConfig,
+): Promise<DesktopAuthenticatedCredentials | null> {
+    if (isDesktopAuthRecoveryActive()) {
+        return null;
+    }
+
+    if (isDesktopVideoUploadLifecycleActive()) {
+        const session = config.readAuthSession();
+        const accessToken = readSafeBearerToken(session);
+        const userId = String(session?.user?.id || "").trim() || (accessToken ? readUserIdFromJwt(accessToken) : "");
+        if (!session || !userId || !accessToken) {
+            return null;
+        }
+        return {
+            session,
+            userId,
+            transport: { kind: "bearer", accessToken },
+        };
+    }
+
+    let session = await readMergedDesktopSession(config);
+    if (!session) {
+        return null;
+    }
+
+    let userId = String(session.user?.id || "").trim();
+    if (!userId) {
+        const bearer = readSafeBearerToken(session);
+        userId = bearer ? readUserIdFromJwt(bearer) : "";
+    }
+    if (!userId) {
+        return null;
+    }
+    if (!session.user?.id) {
+        session = {
+            ...session,
+            user: { id: userId } as Session["user"],
+        };
+    }
+
+    const refreshTokenAvailable = Boolean(readRefreshTokenFromSession(session));
+    const needsClientRefresh = Boolean(
+        !readSafeBearerToken(session)
+        || isAccessTokenExpired(session)
+        || sessionRequiresRefreshHeaderAuth(session),
+    );
+
+    if (needsClientRefresh && refreshTokenAvailable) {
+        try {
+            const refreshedSession = await refreshSupabaseSession(config.supabase);
+            if (refreshedSession) {
+                const mergedSession = pickBestDesktopSession(refreshedSession, config.readAuthSession());
+                if (mergedSession) {
+                    session = mergedSession;
+                    noteValidatedDesktopSession(session);
+                }
+            }
+        }
+        catch (error) {
+            console.warn("[desktop-auth-bootstrap] protected bearer refresh failed", error);
+        }
+    }
+
+    const accessToken = readSafeBearerToken(session);
+    if (!accessToken) {
+        return null;
+    }
+
+    noteValidatedDesktopSession(session);
+    return {
+        session,
+        userId,
+        transport: { kind: "bearer", accessToken },
+    };
+}
+
+function isDesktopProtectedFetchBlockedError(error: unknown) {
+    if (!(error instanceof TypeError)) {
+        return false;
+    }
+    const message = error.message.toLowerCase();
+    return message.includes("failed to fetch")
+        || message.includes("redirect")
+        || message.includes("network");
+}
+
 function readUserIdFromJwt(accessToken: string) {
     try {
         const payload = accessToken.split(".")[1];
@@ -531,6 +623,9 @@ function stripSessionTokensFromRelativePath(path: string) {
 
 function buildAuthenticatedApiRequest(path: string, fetchInit: RequestInit, transport: DesktopAuthTransport) {
     const requestPath = stripSessionTokensFromRelativePath(path);
+    if (transport.kind !== "bearer") {
+        throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+    }
     return {
         path: requestPath,
         init: {
@@ -539,22 +634,27 @@ function buildAuthenticatedApiRequest(path: string, fetchInit: RequestInit, tran
             cache: fetchInit.cache,
             signal: fetchInit.signal,
             referrer: fetchInit.referrer,
-            mode: fetchInit.mode,
-            redirect: fetchInit.redirect,
+            ...PROTECTED_DESKTOP_FETCH_INIT,
             headers: buildAuthenticatedRequestHeaders(fetchInit, transport),
-            credentials: "omit" as RequestCredentials,
         },
     };
 }
 
-async function sendAuthenticatedRequest(
-    config: DesktopAuthBootstrapConfig,
+async function sendProtectedDesktopApiRequest(
     path: string,
     fetchInit: RequestInit,
     transport: DesktopAuthTransport,
 ) {
     const request = buildAuthenticatedApiRequest(path, fetchInit, transport);
-    return fetch(request.path, request.init);
+    try {
+        return await fetch(request.path, request.init);
+    }
+    catch (error) {
+        if (isDesktopProtectedFetchBlockedError(error)) {
+            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+        }
+        throw error;
+    }
 }
 
 export function createDesktopAuthenticatedFetch(config: DesktopAuthBootstrapConfig) {
@@ -565,89 +665,41 @@ export function createDesktopAuthenticatedFetch(config: DesktopAuthBootstrapConf
         const { requireAuth = true, ...fetchInit } = init;
         const requestPath = assertDesktopRelativeApiPath(path);
 
+        if (!requireAuth) {
+            try {
+                return await fetch(requestPath, {
+                    ...fetchInit,
+                    ...PROTECTED_DESKTOP_FETCH_INIT,
+                });
+            }
+            catch (error) {
+                if (isDesktopProtectedFetchBlockedError(error)) {
+                    throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+                }
+                throw error;
+            }
+        }
+
         let credentials: DesktopAuthenticatedCredentials | null;
         try {
             credentials = await withTimeout(
-                resolveDesktopAuthenticatedCredentials(config),
+                resolveDesktopProtectedBearerCredentials(config),
                 CREDENTIAL_RESOLVE_TIMEOUT_MS,
-                "resolveDesktopAuthenticatedCredentials",
+                "resolveDesktopProtectedBearerCredentials",
             );
         }
-        catch (error) {
-            if (requireAuth) {
-                throw error instanceof Error ? error : new Error(API_AUTH_FAILED_MESSAGE);
-            }
-            return fetch(requestPath, { ...fetchInit, credentials: "omit" });
+        catch {
+            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
         }
 
-        if (!credentials) {
-            if (requireAuth) {
-                throw new Error(API_AUTH_FAILED_MESSAGE);
-            }
-            return fetch(requestPath, { ...fetchInit, credentials: "omit" });
+        if (!credentials || credentials.transport.kind !== "bearer") {
+            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
         }
 
-        let response = await sendAuthenticatedRequest(config, requestPath, fetchInit, credentials.transport);
+        const response = await sendProtectedDesktopApiRequest(requestPath, fetchInit, credentials.transport);
 
-        if (response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) {
-            const refreshOnlyCredentials = await resolveDesktopAuthenticatedCredentials(config, {
-                authMode: "refresh-header-only",
-            });
-            if (refreshOnlyCredentials) {
-                response = await sendAuthenticatedRequest(config, requestPath, fetchInit, refreshOnlyCredentials.transport);
-            }
-        }
-
-        if (response.status === 401) {
-            if (isDesktopAuthRecoveryActive()) {
-                throw new Error(SESSION_EXPIRED_MESSAGE);
-            }
-
-            const mergedSession = await readMergedDesktopSession(config);
-            const hasRefreshToken = Boolean(readRefreshTokenFromSession(mergedSession));
-            const hasBearerToken = Boolean(readSafeBearerToken(mergedSession));
-            if (!hasBearerToken && !hasRefreshToken) {
-                engageDesktopAuthRecovery();
-                throw new Error(SESSION_EXPIRED_MESSAGE);
-            }
-
-            const retryModes: Array<"bearer-preferred" | "refresh-header-only"> = hasRefreshToken
-                ? ["bearer-preferred", "refresh-header-only"]
-                : ["bearer-preferred"];
-            for (const authMode of retryModes) {
-                const refreshedCredentials = await resolveDesktopAuthenticatedCredentials(config, {
-                    forceRefresh: authMode === "bearer-preferred",
-                    authMode,
-                });
-                if (!refreshedCredentials) {
-                    continue;
-                }
-                console.info("[desktop-auth-bootstrap] Protected API 401 retry", {
-                    path: requestPath,
-                    previousTransport: credentials.transport.kind,
-                    retryTransport: refreshedCredentials.transport.kind,
-                    authMode,
-                    previousTokenTail: credentials.transport.kind === "bearer"
-                        ? getTokenTail(credentials.transport.accessToken)
-                        : getTokenTail(credentials.transport.refreshToken),
-                    retryTokenTail: refreshedCredentials.transport.kind === "bearer"
-                        ? getTokenTail(refreshedCredentials.transport.accessToken)
-                        : getTokenTail(refreshedCredentials.transport.refreshToken),
-                });
-                response = await sendAuthenticatedRequest(config, requestPath, fetchInit, refreshedCredentials.transport);
-                credentials = refreshedCredentials;
-                if (response.status !== 401) {
-                    break;
-                }
-            }
-
-            if (response.status === 401) {
-                engageDesktopAuthRecovery();
-                throw new Error(SESSION_EXPIRED_MESSAGE);
-            }
-        }
-
-        if ((response.status === 401 || response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) && requireAuth) {
+        if (response.status === 401 || response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) {
+            engageDesktopAuthRecovery();
             throw new Error(SESSION_EXPIRED_MESSAGE);
         }
 

@@ -8,6 +8,7 @@ export {
     createDesktopProtectedActionClient,
     DESKTOP_BOOTSTRAP_LOG_PREFIX,
     DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS,
+    DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE,
     diagnoseDesktopShellGate,
     hasValidDesktopSupabaseSession,
     resolveDesktopAuthenticatedCredentials,

@@ -1,6 +1,7 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { getAuthSession } from "./auth-session";
 import {
+    engageDesktopAuthRecovery,
     isCorruptedDesktopAccessToken,
     isDesktopAuthRecoveryActive,
     noteValidatedDesktopSession,
@@ -51,10 +52,6 @@ const PROTECTED_DESKTOP_API_PREFIXES = [
 ];
 
 let sessionRefreshPromise: Promise<Session | null> | null = null;
-
-function getTokenTail(token: string) {
-    return token ? token.slice(-8) : "";
-}
 
 function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
@@ -217,8 +214,8 @@ function buildAuthenticatedRequest(
             cache: fetchInit.cache,
             signal: fetchInit.signal,
             referrer: fetchInit.referrer,
-            mode: fetchInit.mode,
-            redirect: fetchInit.redirect,
+            mode: "same-origin" as RequestMode,
+            redirect: "error" as RequestRedirect,
             headers,
             credentials: "omit" as RequestCredentials,
         },
@@ -347,34 +344,9 @@ export async function authFetch(
 
     const request = buildAuthenticatedRequest(input, fetchInit, accessToken);
     const response = await fetch(request.input, request.init);
-    if (response.status !== 401 || isDesktopAuthRecoveryActive()) {
-        return response;
-    }
-
-    const refreshed = await readSessionAccessToken(supabase, {
-        allowRefresh: true,
-        forceRefresh: true,
-    });
-
-    if (isDesktopAuthRecoveryActive() || !refreshed.accessToken) {
+    if (response.status === 401) {
+        engageDesktopAuthRecovery();
         throw new Error(SESSION_EXPIRED_MESSAGE);
     }
-
-    console.info("[authFetch] Protected API retry token", {
-        previousTokenTail: getTokenTail(accessToken),
-        retryTokenTail: getTokenTail(refreshed.accessToken),
-        tokenChanged: getTokenTail(accessToken) !== getTokenTail(refreshed.accessToken),
-    });
-
-    blockProtectedApiWithoutSession(requestUrl, refreshed.accessToken);
-
-    const retryRequest = buildAuthenticatedRequest(input, fetchInit, refreshed.accessToken);
-    const retryResponse = await fetch(retryRequest.input, retryRequest.init);
-    if (retryResponse.status === 401) {
-        const { session: currentSession } = await getAuthSession(supabase);
-        if (!currentSession) {
-            throw new Error(SESSION_EXPIRED_MESSAGE);
-        }
-    }
-    return retryResponse;
+    return response;
 }

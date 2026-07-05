@@ -112,14 +112,14 @@ export function hasUsableDesktopProtectedActionSession(session: Session | null |
     if (!session) {
         return false;
     }
+    const bearer = readDesktopActionBearerToken(session);
+    if (!bearer) {
+        return false;
+    }
     if (session.user?.id) {
         return true;
     }
-    if (readDesktopActionBearerToken(session)) {
-        return true;
-    }
-    const refreshToken = session.refresh_token;
-    return typeof refreshToken === "string" && refreshToken.trim().length > 0;
+    return Boolean(readUserIdFromAccessToken(bearer));
 }
 
 export function resolveDesktopProfileDisplayName(input: DesktopProfileDisplayInput = {}) {
