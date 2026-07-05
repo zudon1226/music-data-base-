@@ -184,6 +184,10 @@ assertExport(pipeline, "resolveDesktopAuthenticatedCredentials", "desktop-authen
 
 const authBootstrapFlow = read("lib/desktop-auth-bootstrap-flow.ts");
 assertIncludes(authBootstrapFlow, "runDesktopRemoteBootstrap", "desktop-auth-bootstrap-flow.ts remote bootstrap");
+assertIncludes(authBootstrapFlow, "ensureDesktopAuthenticatedSession", "desktop-auth-bootstrap-flow.ts session restore");
+assertIncludes(authBootstrapFlow, "startDesktopAuthSessionBootstrap", "desktop-auth-bootstrap-flow.ts auth init gate");
+assertIncludes(authBootstrapFlow, "supabase.auth.setSession", "desktop-auth-bootstrap-flow.ts seeds GoTrue client");
+assertIncludes(authBootstrapFlow, "supabase.auth.getSession", "desktop-auth-bootstrap-flow.ts verifies live session");
 assertNotIncludes(authBootstrapFlow, "refreshSupabaseSession", "desktop-auth-bootstrap-flow.ts must not refresh tokens");
 assertNotIncludes(authBootstrapFlow, "createDesktopAuthenticatedFetch", "desktop-auth-bootstrap-flow.ts fetch moved to pipeline");
 
@@ -260,6 +264,8 @@ const REQUIRED_PAGE_WIRING = [
   "desktopNavAccess",
   "DesktopAuthProvider",
   "canRenderDesktopApplicationShell",
+  "startDesktopAuthSessionBootstrap",
+  "authSessionInitialized",
   "getAccountDisplayName",
   "canDeleteDesktopUploadedItem",
   "uploadsBlockedForCurrentUser",

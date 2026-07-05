@@ -9,7 +9,7 @@ import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
 import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
-import { canRenderDesktopApplicationShell, runDesktopRemoteBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
+import { canRenderDesktopApplicationShell, resetDesktopAuthSessionBootstrap, runDesktopRemoteBootstrap, startDesktopAuthSessionBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
 import { canDeleteDesktopUploadedItem, createDesktopActionRuntime, mergeDesktopAuthSessionSources } from "../lib/desktop-action-runtime";
 import { createDesktopProtectedActionAuthGuard } from "../lib/desktop-protected-action-auth-guard";
 import {
@@ -3490,6 +3490,7 @@ function PageContent() {
     const [showUpload, setShowUpload] = useState(false);
     const [uploadMode, setUploadMode] = useState<UploadMode>("song");
     const [hasLoaded, setHasLoaded] = useState(false);
+    const [authSessionInitialized, setAuthSessionInitialized] = useState(false);
     const {
         authSession,
         user,
@@ -5776,7 +5777,29 @@ function PageContent() {
         };
     });
     useEffect(() => {
-        if (authLoading || !desktopActionAuthGuard.hasAccess())
+        if (authLoading || !isAuthenticated) {
+            resetDesktopAuthSessionBootstrap();
+            setAuthSessionInitialized(false);
+            return;
+        }
+        const bootstrapUserId = String(accountUserId || "").trim();
+        if (!bootstrapUserId) {
+            setAuthSessionInitialized(false);
+            return;
+        }
+        let cancelled = false;
+        void startDesktopAuthSessionBootstrap(desktopProtectedActionConfig, bootstrapUserId)
+            .then((ready) => {
+                if (!cancelled) {
+                    setAuthSessionInitialized(ready);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [accountUserId, authLoading, authGateTick, desktopProtectedActionConfig, isAuthenticated]);
+    useEffect(() => {
+        if (authLoading || !desktopActionAuthGuard.hasAccess() || !authSessionInitialized)
             return;
         const loadKey = accountUserId;
         if (!loadKey)
@@ -5784,10 +5807,7 @@ function PageContent() {
         if (initialDataLoadedKeyRef.current === loadKey || initialDataLoadInFlightKeyRef.current === loadKey)
             return;
         initialDataLoadInFlightKeyRef.current = loadKey;
-        void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions, {
-            supabase,
-            readAuthSession: () => authSessionRef.current,
-        })
+        void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions, desktopProtectedActionConfig)
             .then((result) => {
                 if (result.deferred) {
                     initialDataLoadInFlightKeyRef.current = "";
@@ -5814,7 +5834,7 @@ function PageContent() {
             if (initialDataLoadInFlightKeyRef.current === loadKey && initialDataLoadedKeyRef.current !== loadKey)
                 initialDataLoadInFlightKeyRef.current = "";
         };
-    }, [accountUserId, authLoading, authGateTick, desktopActionAuthGuard]);
+    }, [accountUserId, authLoading, authGateTick, authSessionInitialized, desktopActionAuthGuard, desktopProtectedActionConfig]);
     useEffect(() => {
         if (!desktopActionAuthGuard.hasAccess()) {
             return;
@@ -14417,6 +14437,7 @@ function PageContent() {
         isAuthenticated,
         accountUserId,
         localBootstrapReady: hasLoaded,
+        authSessionInitialized: !isAuthenticated || authSessionInitialized,
     })) {
         return (<main className="auth-page">
         <section className="auth-panel">
