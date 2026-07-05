@@ -1,14 +1,16 @@
 /** DESKTOP ONLY — live session runtime for protected actions, profile display, and delete access. */
 
 import type { Session, SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js";
+import { readStoredAuthSession } from "./auth-session";
+import { readRefreshTokenFromSession } from "./client-api-auth";
 import {
-    createDesktopAuthBootstrapRuntime,
-    type DesktopAuthBootstrapConfig,
-} from "./desktop-auth-bootstrap-flow";
+    createDesktopProtectedActionPipeline,
+    type DesktopProtectedActionPipelineConfig,
+} from "./desktop-protected-action-pipeline";
 import { readAccessTokenFromSession } from "./desktop-auth-recovery-gate";
 import { isOversizedBearerToken } from "./session-token-limits";
 
-export type DesktopActionRuntimeConfig = DesktopAuthBootstrapConfig;
+export type DesktopActionRuntimeConfig = DesktopProtectedActionPipelineConfig;
 
 export type DesktopProfileDisplayInput = {
     profileDisplayName?: string;
@@ -77,6 +79,40 @@ function readEmailLocalPart(email: string) {
     return trimmed.split("@")[0] || "";
 }
 
+function scoreDesktopAuthSession(session: Session | null | undefined) {
+    if (!session) {
+        return -1;
+    }
+    let score = 0;
+    if (readDesktopActionBearerToken(session)) {
+        score += 8;
+    }
+    if (readRefreshTokenFromSession(session)) {
+        score += 4;
+    }
+    if (session.user?.id) {
+        score += 4;
+    }
+    score += (session.expires_at ?? 0) / 1_000_000_000;
+    return score;
+}
+
+/** Prefer whichever session source has the stronger bearer/refresh credentials. */
+export function mergeDesktopAuthSessionSources(
+    reactSession: Session | null | undefined,
+    storedSession: Session | null | undefined = readStoredAuthSession(),
+): Session | null {
+    if (!reactSession) {
+        return storedSession;
+    }
+    if (!storedSession) {
+        return reactSession;
+    }
+    return scoreDesktopAuthSession(reactSession) >= scoreDesktopAuthSession(storedSession)
+        ? reactSession
+        : storedSession;
+}
+
 export function readDesktopActionBearerToken(session: Session | null | undefined) {
     const gated = readAccessTokenFromSession(session);
     if (gated) {
@@ -93,33 +129,32 @@ export function readDesktopActionBearerToken(session: Session | null | undefined
 }
 
 export function resolveDesktopActionUserId(input: DesktopActionIdentityInput = {}) {
+    const mergedSession = mergeDesktopAuthSessionSources(input.authSession);
+    const bearerUserId = readUserIdFromAccessToken(readDesktopActionBearerToken(mergedSession));
+    if (bearerUserId) {
+        return bearerUserId;
+    }
+
     const direct = String(input.accountUserId || input.user?.id || input.activeUser?.id || "").trim();
     if (direct) {
         return direct;
     }
-    const sessionUserId = String(input.authSession?.user?.id || "").trim();
+    const sessionUserId = String(mergedSession?.user?.id || "").trim();
     if (sessionUserId) {
         return sessionUserId;
-    }
-    const token = readDesktopActionBearerToken(input.authSession);
-    if (token) {
-        return readUserIdFromAccessToken(token);
     }
     return "";
 }
 
 export function hasUsableDesktopProtectedActionSession(session: Session | null | undefined) {
-    if (!session) {
+    const merged = mergeDesktopAuthSessionSources(session);
+    if (!merged) {
         return false;
     }
-    const bearer = readDesktopActionBearerToken(session);
-    if (!bearer) {
-        return false;
-    }
-    if (session.user?.id) {
+    if (readDesktopActionBearerToken(merged)) {
         return true;
     }
-    return Boolean(readUserIdFromAccessToken(bearer));
+    return Boolean(readRefreshTokenFromSession(merged));
 }
 
 export function resolveDesktopProfileDisplayName(input: DesktopProfileDisplayInput = {}) {
@@ -182,21 +217,22 @@ export function canDeleteDesktopUploadedItem(input: DesktopUploadDeleteAccessInp
 }
 
 export function createDesktopActionRuntime(config: DesktopActionRuntimeConfig) {
-    const bootstrapRuntime = createDesktopAuthBootstrapRuntime(config);
+    const bootstrapRuntime = createDesktopProtectedActionPipeline(config);
 
     return {
         fetch: bootstrapRuntime.fetch,
         waitForApiCredentials: bootstrapRuntime.waitForApiCredentials,
         resolveCredentials: bootstrapRuntime.resolveCredentials,
+        resolveLiveUserId: bootstrapRuntime.resolveLiveUserId,
         readAuthSession: config.readAuthSession,
-        readAccessToken: () => readDesktopActionBearerToken(config.readAuthSession()),
+        readAccessToken: () => readDesktopActionBearerToken(config.readAuthSession?.() ?? null),
         resolveUserId: (input: DesktopActionIdentityInput = {}) => resolveDesktopActionUserId({
             ...input,
-            authSession: input.authSession ?? config.readAuthSession(),
+            authSession: input.authSession ?? config.readAuthSession?.() ?? null,
         }),
         resolveDisplayName: (input: DesktopProfileDisplayInput = {}) => resolveDesktopProfileDisplayName(input),
     };
 }
 
 export type DesktopActionRuntime = ReturnType<typeof createDesktopActionRuntime>;
-export type { DesktopAuthenticatedFetch as DesktopProtectedActionFetch } from "./desktop-auth-bootstrap-flow";
+export type { DesktopAuthenticatedFetch as DesktopProtectedActionFetch } from "./desktop-protected-action-pipeline";

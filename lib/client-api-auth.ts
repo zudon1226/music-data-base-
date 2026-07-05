@@ -217,7 +217,7 @@ function buildAuthenticatedRequest(
             mode: "same-origin" as RequestMode,
             redirect: "error" as RequestRedirect,
             headers,
-            credentials: "omit" as RequestCredentials,
+            credentials: "same-origin" as RequestCredentials,
         },
     };
 }

@@ -76,6 +76,11 @@ console.log("Desktop regression lock — static verification\n");
 
 // --- Required desktop module files ---
 const REQUIRED_DESKTOP_MODULES = [
+  "lib/desktop-protected-action-pipeline.ts",
+  "lib/desktop-protected-click-dispatch.ts",
+  "lib/desktop-production-protected-runtime.ts",
+  "lib/desktop-protected-interaction-layer.ts",
+  "lib/desktop-protected-api-pipeline.ts",
   "lib/desktop-authenticated-request-pipeline.ts",
   "lib/desktop-protected-action-auth-guard.ts",
   "lib/desktop-protected-action-client.ts",
@@ -111,29 +116,80 @@ const guard = read("lib/desktop-protected-action-auth-guard.ts");
 assertExport(guard, "createDesktopProtectedActionAuthGuard", "desktop-protected-action-auth-guard.ts");
 assertExport(guard, "evaluateDesktopProtectedActionAuth", "desktop-protected-action-auth-guard.ts");
 assertExport(guard, "hasDesktopProtectedActionAccess", "desktop-protected-action-auth-guard.ts");
+assertIncludes(guard, "requireLiveUserId", "desktop-protected-action-auth-guard.ts live write guard");
+assertIncludes(guard, "resolveLiveDesktopProtectedActionCredentials", "desktop-protected-action-auth-guard.ts live session source");
+
+const clickDispatch = read("lib/desktop-protected-click-dispatch.ts");
+assertExport(clickDispatch, "dispatchDesktopSongLike", "desktop-protected-click-dispatch.ts");
+assertExport(clickDispatch, "dispatchDesktopArtistFollow", "desktop-protected-click-dispatch.ts");
+assertExport(clickDispatch, "dispatchDesktopLibrarySave", "desktop-protected-click-dispatch.ts");
+assertExport(clickDispatch, "dispatchDesktopCreatePlaylist", "desktop-protected-click-dispatch.ts");
+assertExport(clickDispatch, "registerDesktopProductionSessionPublisher", "desktop-protected-click-dispatch.ts");
+assertIncludes(clickDispatch, "getDesktopSupabaseClient", "desktop-protected-click-dispatch.ts module singleton client");
+assertIncludes(clickDispatch, "[desktop-protected-click-dispatch]", "desktop-protected-click-dispatch.ts logging");
+assertIncludes(clickDispatch, 'method: "POST"', "desktop-protected-click-dispatch.ts always POST");
+assertIncludes(clickDispatch, 'headers.set("Authorization"', "desktop-protected-click-dispatch.ts bearer header");
+assertIncludes(clickDispatch, 'headers.set("apikey"', "desktop-protected-click-dispatch.ts apikey header");
+assertIncludes(clickDispatch, "dispatchProtectedWrite", "desktop-protected-click-dispatch.ts single write path");
+
+const productionRuntime = read("lib/desktop-production-protected-runtime.ts");
+assertIncludes(productionRuntime, "desktop-protected-click-dispatch", "desktop-production-protected-runtime.ts re-exports click dispatch");
+
+const interactionLayer = read("lib/desktop-protected-interaction-layer.ts");
+assertExport(interactionLayer, "createDesktopProtectedInteractionLayer", "desktop-protected-interaction-layer.ts");
+assertIncludes(interactionLayer, "postSongLike", "desktop-protected-interaction-layer.ts postSongLike method");
+assertIncludes(interactionLayer, '"/api/song-likes"', "desktop-protected-interaction-layer.ts song-like endpoint");
+assertIncludes(interactionLayer, '"/api/artist-follow"', "desktop-protected-interaction-layer.ts artist-follow endpoint");
+assertIncludes(interactionLayer, '"/api/library/save"', "desktop-protected-interaction-layer.ts library-save endpoint");
+assertIncludes(interactionLayer, '"/api/playlists"', "desktop-protected-interaction-layer.ts playlist endpoint");
+assertIncludes(interactionLayer, "injectAuthenticatedUserId", "desktop-protected-interaction-layer.ts auto user id");
+assertIncludes(interactionLayer, "[desktop-interaction]", "desktop-protected-interaction-layer.ts dispatch logging");
+
+const actionPipeline = read("lib/desktop-protected-action-pipeline.ts");
+assertExport(actionPipeline, "createDesktopProtectedActionFetch", "desktop-protected-action-pipeline.ts");
+assertExport(actionPipeline, "resolveLiveDesktopProtectedActionCredentials", "desktop-protected-action-pipeline.ts");
+assertExport(actionPipeline, "createDesktopProtectedActionPipeline", "desktop-protected-action-pipeline.ts");
+assertIncludes(actionPipeline, 'headers.set("Authorization"', "desktop-protected-action-pipeline.ts bearer header");
+assertIncludes(actionPipeline, 'headers.set("apikey"', "desktop-protected-action-pipeline.ts apikey header");
+assertIncludes(actionPipeline, 'redirect: "error"', "desktop-protected-action-pipeline.ts blocks SSO redirects");
+assertIncludes(actionPipeline, 'credentials: "same-origin"', "desktop-protected-action-pipeline.ts sends deployment cookies");
+assertIncludes(actionPipeline, "supabase.auth.getSession", "desktop-protected-action-pipeline.ts live session source");
+assertIncludes(actionPipeline, "supabase.auth.refreshSession", "desktop-protected-action-pipeline.ts refresh before dispatch");
+assertIncludes(actionPipeline, "buildFreshProtectedApiHeaders", "desktop-protected-action-pipeline.ts fresh headers per request");
+assertIncludes(actionPipeline, "request-dispatched", "desktop-protected-action-pipeline.ts dispatch debug logging");
+assertIncludes(actionPipeline, "sessionExists", "desktop-protected-action-pipeline.ts session debug logging");
+assertIncludes(actionPipeline, "accessTokenPresent", "desktop-protected-action-pipeline.ts token debug logging");
+assertIncludes(actionPipeline, "authorizationAdded", "desktop-protected-action-pipeline.ts authorization debug logging");
+assertIncludes(actionPipeline, "hydrateSupabaseClientFromStorage", "desktop-protected-action-pipeline.ts storage hydration");
+assertIncludes(actionPipeline, "readStoredAuthSession", "desktop-protected-action-pipeline.ts storage hydration source");
+assertIncludes(actionPipeline, "injectAuthenticatedUserId", "desktop-protected-action-pipeline.ts body user id injection");
+
+assertNotIncludes(actionPipeline, "mergeDesktopAuthSessionSources", "desktop-protected-action-pipeline.ts must not merge stale sessions");
+
+const protectedApiPipeline = read("lib/desktop-protected-api-pipeline.ts");
+assertIncludes(protectedApiPipeline, "desktop-protected-action-pipeline", "desktop-protected-api-pipeline.ts re-exports action pipeline");
 
 const runtime = read("lib/desktop-action-runtime.ts");
 assertExport(runtime, "createDesktopActionRuntime", "desktop-action-runtime.ts");
+assertExport(runtime, "mergeDesktopAuthSessionSources", "desktop-action-runtime.ts");
 assertExport(runtime, "resolveDesktopActionUserId", "desktop-action-runtime.ts");
 assertExport(runtime, "hasUsableDesktopProtectedActionSession", "desktop-action-runtime.ts");
 assertExport(runtime, "resolveDesktopProfileDisplayName", "desktop-action-runtime.ts");
 assertExport(runtime, "canDeleteDesktopUploadedItem", "desktop-action-runtime.ts");
+assertIncludes(runtime, "desktop-protected-action-pipeline", "desktop-action-runtime.ts uses action pipeline");
 
 const pipeline = read("lib/desktop-authenticated-request-pipeline.ts");
 assertExport(pipeline, "createDesktopAuthenticatedFetch", "desktop-authenticated-request-pipeline.ts");
 assertExport(pipeline, "resolveDesktopAuthenticatedCredentials", "desktop-authenticated-request-pipeline.ts");
 
 const authBootstrapFlow = read("lib/desktop-auth-bootstrap-flow.ts");
-assertIncludes(authBootstrapFlow, "DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS = 494", "desktop-auth-bootstrap-flow.ts 494 handler");
-assertIncludes(authBootstrapFlow, 'headers.set("Authorization"', "desktop-auth-bootstrap-flow.ts bearer header");
-assertIncludes(authBootstrapFlow, '"bearer-preferred"', "desktop-auth-bootstrap-flow.ts bearer-preferred default");
-assertIncludes(authBootstrapFlow, 'redirect: "error"', "desktop-auth-bootstrap-flow.ts blocks SSO redirects");
-assertIncludes(authBootstrapFlow, "DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE", "desktop-auth-bootstrap-flow.ts login gate");
-assertIncludes(authBootstrapFlow, "resolveDesktopProtectedBearerCredentials", "desktop-auth-bootstrap-flow.ts bearer-only protected credentials");
+assertIncludes(authBootstrapFlow, "runDesktopRemoteBootstrap", "desktop-auth-bootstrap-flow.ts remote bootstrap");
+assertNotIncludes(authBootstrapFlow, "refreshSupabaseSession", "desktop-auth-bootstrap-flow.ts must not refresh tokens");
+assertNotIncludes(authBootstrapFlow, "createDesktopAuthenticatedFetch", "desktop-auth-bootstrap-flow.ts fetch moved to pipeline");
 
 const client = read("lib/desktop-protected-action-client.ts");
 assertExport(client, "createDesktopProtectedActionClient", "desktop-protected-action-client.ts");
-assertIncludes(client, "desktop-auth-bootstrap-flow", "desktop-protected-action-client.ts re-exports bootstrap flow");
+assertIncludes(client, "desktop-protected-action-pipeline", "desktop-protected-action-client.ts re-exports pipeline");
 
 const nav = read("lib/desktop-app-navigation.ts");
 assertExport(nav, "evaluateDesktopNavAccess", "desktop-app-navigation.ts");
@@ -176,8 +232,7 @@ assertIncludes(authSessionGuard, "isDesktopVideoUploadLifecycleActive", "desktop
 const clientApiAuth = read("lib/client-api-auth.ts");
 assertIncludes(clientApiAuth, "isDesktopVideoUploadLifecycleActive", "client-api-auth.ts upload lifecycle guard");
 
-const authBootstrap = read("lib/desktop-auth-bootstrap-flow.ts");
-assertIncludes(authBootstrap, "isDesktopVideoUploadLifecycleActive", "desktop-auth-bootstrap-flow.ts upload lifecycle guard");
+assertIncludes(actionPipeline, "isDesktopVideoUploadLifecycleActive", "desktop-protected-action-pipeline.ts upload lifecycle guard");
 
 const authState = read("lib/desktop-auth-state.tsx");
 assertIncludes(authState, "isDesktopVideoUploadLifecycleActive", "desktop-auth-state.tsx upload lifecycle guard");
@@ -197,7 +252,9 @@ const page = read("app/page.tsx");
 const REQUIRED_PAGE_WIRING = [
   "createDesktopProtectedActionAuthGuard",
   "desktopActionAuthGuard",
-  "requireDesktopActionUserId",
+  "dispatchDesktopSongLike",
+  "registerDesktopProductionSessionPublisher",
+  "requireDesktopUploadUserId",
   "createDesktopActionRuntime",
   "desktopActionFetch",
   "desktopNavAccess",
@@ -249,8 +306,10 @@ for (const view of DESKTOP_NAV_VIEWS) {
 
 // Protected actions must use shared guard, not stale isAuthenticated-only checks in handlers
 const PROTECTED_HANDLER_MARKERS = [
-  ["toggleLike", 'requireDesktopActionUserId("Log in before liking songs.")'],
-  ["toggleArtistFollow", 'requireDesktopActionUserId("Log in before following artists.")'],
+  ["toggleLike", "dispatchDesktopSongLike"],
+  ["toggleArtistFollow", "dispatchDesktopArtistFollow"],
+  ["saveLibraryItem", "dispatchDesktopLibrarySave"],
+  ["createPlaylist", "dispatchDesktopCreatePlaylist"],
   ["saveLibraryItem", "desktopActionAuthGuard.hasAccess()"],
   ["addSongToPlaylist", "desktopActionAuthGuard.hasAccess()"],
 ];

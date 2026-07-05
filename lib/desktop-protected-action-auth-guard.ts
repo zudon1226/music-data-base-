@@ -1,26 +1,115 @@
-/** DESKTOP ONLY — single authentication guard for all protected desktop actions. */
+/** DESKTOP ONLY — live-session guard for protected desktop write actions. */
 
-import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import {
-    hasUsableDesktopProtectedActionSession,
-    resolveDesktopActionUserId,
-    type DesktopActionIdentityInput,
-} from "./desktop-action-runtime";
+    resolveLiveDesktopProtectedActionCredentials,
+    type DesktopProtectedActionPipelineConfig,
+} from "./desktop-protected-action-pipeline";
 
+export type DesktopProtectedActionAuthConfig = DesktopProtectedActionPipelineConfig & {
+    /** UI/read hints only — never used to block protected writes. */
+    readUiUserIdHint?: () => string;
+};
+
+/** @deprecated — sync sources are not used for write authorization. */
 export type DesktopProtectedActionAuthSources = {
     readAuthSession: () => Session | null;
     readAccountUserId: () => string;
-    readUser: () => SupabaseUser | null;
-    readActiveUser: () => SupabaseUser | null;
+    readUser: () => import("@supabase/supabase-js").User | null;
+    readActiveUser: () => import("@supabase/supabase-js").User | null;
 };
 
 export type DesktopProtectedActionAuthDecision =
     | { allowed: true; userId: string }
     | { allowed: false; reason: "no-session" | "user-id-pending" };
 
+export type DesktopProtectedActionAuthGuard = {
+    /** Resolve userId from live getSession()/refresh — use for all protected writes. */
+    requireLiveUserId: (loginMessage: string, onBlocked: (message: string) => void) => Promise<string>;
+    resolveLiveUserId: () => Promise<string>;
+    hasLiveAccess: () => Promise<boolean>;
+    /** @deprecated Sync hint only — never gate protected writes. */
+    evaluate: () => DesktopProtectedActionAuthDecision;
+    /** @deprecated Sync hint only — never gate protected writes. */
+    hasAccess: () => boolean;
+    /** @deprecated Sync hint only — never gate protected writes. */
+    getUserId: () => string;
+    /** @deprecated Use requireLiveUserId for protected writes. */
+    requireUserId: (loginMessage: string, onBlocked: (message: string) => void) => string;
+};
+
+export function createDesktopProtectedActionAuthGuard(
+    config: DesktopProtectedActionAuthConfig,
+): DesktopProtectedActionAuthGuard {
+    return {
+        async requireLiveUserId(loginMessage, onBlocked) {
+            const credentials = await resolveLiveDesktopProtectedActionCredentials(config, {
+                debugLabel: "guard-requireLiveUserId",
+            });
+            if (credentials?.userId) {
+                return credentials.userId;
+            }
+            onBlocked(loginMessage);
+            return "";
+        },
+
+        async resolveLiveUserId() {
+            const credentials = await resolveLiveDesktopProtectedActionCredentials(config, {
+                debugLabel: "guard-resolveLiveUserId",
+            });
+            return credentials?.userId ?? "";
+        },
+
+        async hasLiveAccess() {
+            const credentials = await resolveLiveDesktopProtectedActionCredentials(config, {
+                debugLabel: "guard-hasLiveAccess",
+            });
+            return Boolean(credentials);
+        },
+
+        evaluate() {
+            const userId = String(config.readUiUserIdHint?.() || "").trim();
+            if (userId) {
+                return { allowed: true, userId };
+            }
+            return { allowed: false, reason: "no-session" };
+        },
+
+        hasAccess() {
+            return Boolean(String(config.readUiUserIdHint?.() || "").trim());
+        },
+
+        getUserId() {
+            return String(config.readUiUserIdHint?.() || "").trim();
+        },
+
+        requireUserId(_loginMessage, _onBlocked) {
+            return String(config.readUiUserIdHint?.() || "").trim();
+        },
+    };
+}
+
+/** @deprecated — sync evaluation removed; always defers to live session resolution. */
+export function evaluateDesktopProtectedActionAuth(
+    _sources: DesktopProtectedActionAuthSources,
+): DesktopProtectedActionAuthDecision {
+    return { allowed: false, reason: "no-session" };
+}
+
+/** @deprecated */
+export function hasDesktopProtectedActionAccess(_sources: DesktopProtectedActionAuthSources) {
+    return false;
+}
+
+/** @deprecated */
+export function resolveDesktopProtectedActionUserId(_sources: DesktopProtectedActionAuthSources) {
+    return "";
+}
+
+/** @deprecated */
 export function buildDesktopProtectedActionIdentity(
     sources: DesktopProtectedActionAuthSources,
-): DesktopActionIdentityInput {
+) {
     return {
         accountUserId: sources.readAccountUserId(),
         user: sources.readUser(),
@@ -29,54 +118,4 @@ export function buildDesktopProtectedActionIdentity(
     };
 }
 
-export function evaluateDesktopProtectedActionAuth(
-    sources: DesktopProtectedActionAuthSources,
-): DesktopProtectedActionAuthDecision {
-    const identity = buildDesktopProtectedActionIdentity(sources);
-    const userId = resolveDesktopActionUserId(identity);
-    if (userId) {
-        return { allowed: true, userId };
-    }
-    if (!hasUsableDesktopProtectedActionSession(identity.authSession)) {
-        return { allowed: false, reason: "no-session" };
-    }
-    return { allowed: false, reason: "user-id-pending" };
-}
-
-export function hasDesktopProtectedActionAccess(sources: DesktopProtectedActionAuthSources) {
-    return evaluateDesktopProtectedActionAuth(sources).allowed;
-}
-
-export function resolveDesktopProtectedActionUserId(sources: DesktopProtectedActionAuthSources) {
-    const decision = evaluateDesktopProtectedActionAuth(sources);
-    return decision.allowed ? decision.userId : "";
-}
-
-export type DesktopProtectedActionAuthGuard = {
-    evaluate: () => DesktopProtectedActionAuthDecision;
-    hasAccess: () => boolean;
-    getUserId: () => string;
-    requireUserId: (loginMessage: string, onBlocked: (message: string) => void) => string;
-};
-
-export function createDesktopProtectedActionAuthGuard(
-    sources: DesktopProtectedActionAuthSources,
-): DesktopProtectedActionAuthGuard {
-    return {
-        evaluate: () => evaluateDesktopProtectedActionAuth(sources),
-        hasAccess: () => hasDesktopProtectedActionAccess(sources),
-        getUserId: () => resolveDesktopProtectedActionUserId(sources),
-        requireUserId: (loginMessage, onBlocked) => {
-            const decision = evaluateDesktopProtectedActionAuth(sources);
-            if (decision.allowed) {
-                return decision.userId;
-            }
-            if (decision.reason === "user-id-pending") {
-                onBlocked("Your session is still loading. Try again in a moment.");
-                return "";
-            }
-            onBlocked(loginMessage);
-            return "";
-        },
-    };
-}
+export type { SupabaseClient };

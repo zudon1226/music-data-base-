@@ -359,9 +359,9 @@ export function useDesktopAuthState() {
     return context;
 }
 
-/** Trust signInWithPassword session immediately — no second getSession() gate. */
+/** Trust signInWithPassword session immediately — persist to GoTrue client for protected POSTs. */
 export async function completeDesktopSignIn(
-    _supabase: SupabaseClient,
+    supabase: SupabaseClient,
     signInSession: Session | null | undefined,
     fallbackUser?: SupabaseUser | null,
 ): Promise<Session | null> {
@@ -372,10 +372,17 @@ export async function completeDesktopSignIn(
     if (!hasUsableAuthCredentials(signInSession, resolvedUser)) {
         return null;
     }
-    return {
+    const normalizedSession = {
         ...signInSession,
         user: resolvedUser ?? signInSession.user,
     };
+    if (normalizedSession.access_token && normalizedSession.refresh_token) {
+        await supabase.auth.setSession({
+            access_token: normalizedSession.access_token,
+            refresh_token: normalizedSession.refresh_token,
+        });
+    }
+    return normalizedSession;
 }
 
 /** Apply a successful sign-in response in one step for callers outside the provider tree. */

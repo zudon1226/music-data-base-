@@ -1,10 +1,12 @@
-/** DESKTOP ONLY — protected API pipeline + bootstrap re-exports. */
+/** @deprecated Re-exports — use lib/desktop-protected-action-pipeline.ts */
 
 export {
     assertDesktopRelativeApiPath,
     createDesktopAuthBootstrapRuntime,
     createDesktopAuthenticatedFetch,
     createDesktopProtectedActionClient,
+    createDesktopProtectedActionFetch,
+    createDesktopProtectedActionPipeline,
     createDesktopProtectedApiFetch,
     createDesktopProtectedApiRuntime,
     DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS,
@@ -14,39 +16,22 @@ export {
     hasValidDesktopSupabaseSession,
     resolveDesktopAuthenticatedCredentials,
     resolveDesktopProtectedApiCredentials,
+    resolveLiveDesktopProtectedActionCredentials,
     resolveLiveProtectedApiSession,
     waitForDesktopApiCredentials,
+    type DesktopAuthBootstrapConfig,
     type DesktopAuthenticatedCredentials,
     type DesktopAuthenticatedFetch,
     type DesktopAuthenticatedFetchInit,
-    type DesktopAuthBootstrapConfig,
+    type DesktopAuthenticatedRequestConfig,
     type DesktopAuthTransport,
+    type DesktopProtectedActionClientConfig,
+    type DesktopProtectedActionCredentials,
     type DesktopProtectedActionFetch,
+    type DesktopProtectedActionFetchInit,
+    type DesktopProtectedActionPipelineConfig,
     type DesktopProtectedApiCredentials,
     type DesktopProtectedApiFetch,
     type DesktopProtectedApiFetchInit,
     type DesktopProtectedApiPipelineConfig,
-} from "./desktop-protected-api-pipeline";
-
-export {
-    canRenderDesktopApplicationShell,
-    DESKTOP_BOOTSTRAP_LOG_PREFIX,
-    diagnoseDesktopShellGate,
-    runDesktopRemoteBootstrap,
-    SESSION_EXPIRED_MESSAGE,
-    startDesktopLocalBootstrap,
-    traceBootstrapStep,
-    type DesktopBootstrapStep,
-    type DesktopProtectedActionClientConfig,
-    type DesktopProtectedActionFetchInit,
-    type DesktopRemoteBootstrapActions,
-    type DesktopRemoteBootstrapResult,
-    type DesktopShellGateDecision,
-    type DesktopShellGateInput,
-} from "./desktop-auth-bootstrap-flow";
-
-/** @deprecated alias */
-export type DesktopAuthenticatedRequestConfig = import("./desktop-protected-api-pipeline").DesktopAuthBootstrapConfig;
-
-/** @deprecated alias */
-export type DesktopAuthRequestMode = "bearer-preferred" | "refresh-header-only";
+} from "./desktop-protected-action-pipeline";
