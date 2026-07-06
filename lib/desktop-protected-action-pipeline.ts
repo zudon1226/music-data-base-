@@ -2,6 +2,19 @@
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { readRefreshTokenFromSession } from "./client-api-auth";
+import {
+    createBlockedProtectedResponse,
+    guardDesktopProtectedAction,
+    isDesktopProtectedActionsEnabled,
+} from "./desktop-protected-action-gate";
+import {
+    getDesktopAuthenticatedSession,
+    getDesktopAuthenticatedSessionSnapshot,
+    isDesktopApiReady,
+    isDesktopAuthenticatedSessionReady,
+    publishDesktopApiCredentials,
+    requireDesktopAuthenticatedAccessToken,
+} from "./desktop-authenticated-session";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { isOversizedBearerToken } from "./session-token-limits";
 
@@ -166,8 +179,8 @@ function publishLiveSession(config: DesktopProtectedActionPipelineConfig | undef
 }
 
 /**
- * Acquire credentials immediately before one protected request.
- * Always reads supabase.auth.getSession() — never React/storage caches.
+ * Acquire credentials from the globally published authenticated session.
+ * Protected requests are blocked until auth bootstrap publishes one bearer.
  */
 export async function acquireFreshDesktopProtectedCredentials(
     supabase: SupabaseClient,
@@ -175,15 +188,15 @@ export async function acquireFreshDesktopProtectedCredentials(
 ): Promise<DesktopProtectedActionCredentials> {
     const label = options.debugLabel || "acquire";
 
-    const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-        debugProtectedRequest("getSession-failed", { label, error: sessionError.message });
+    if (!isDesktopApiReady() || !isDesktopAuthenticatedSessionReady()) {
+        debugProtectedRequest("abort-no-session", { label, reason: "auth-bootstrap-not-ready" });
+        throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
     }
 
-    let session = initialSession ?? null;
+    let session = getDesktopAuthenticatedSession();
     let credentials = credentialsFromSession(session);
 
-    debugProtectedRequest("getSession", {
+    debugProtectedRequest("global-session", {
         label,
         sessionExists: Boolean(session),
         accessTokenPresent: Boolean(credentials?.accessToken),
@@ -212,7 +225,8 @@ export async function acquireFreshDesktopProtectedCredentials(
 
         session = refreshed.session;
         credentials = credentialsFromSession(session);
-        if (options.writeAuthSession && session) {
+        if (session && credentials) {
+            publishDesktopApiCredentials(session);
             publishLiveSession({ supabase, writeAuthSession: options.writeAuthSession }, session);
         }
     }
@@ -220,6 +234,18 @@ export async function acquireFreshDesktopProtectedCredentials(
     if (!credentials) {
         debugProtectedRequest("abort-no-session", { label, reason: "missing-bearer-after-refresh" });
         throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+    }
+
+    const accessToken = requireDesktopAuthenticatedAccessToken(label);
+    if (!accessToken || accessToken !== credentials.accessToken) {
+        const snapshot = getDesktopAuthenticatedSessionSnapshot();
+        if (snapshot) {
+            credentials = {
+                session: snapshot.session,
+                userId: snapshot.userId,
+                accessToken: snapshot.accessToken,
+            };
+        }
     }
 
     debugProtectedRequest("session-ready", {
@@ -377,6 +403,12 @@ export async function executeDesktopProtectedRequest(
     init: RequestInit & { injectAuthenticatedUserId?: boolean; writeAuthSession?: (session: Session) => void } = {},
 ): Promise<Response> {
     const requestPath = stripSessionTokensFromRelativePath(path);
+
+    if (!guardDesktopProtectedAction(requestPath)) {
+        debugProtectedRequest("blocked", { path: requestPath, reason: "global-session-not-ready" });
+        return createBlockedProtectedResponse();
+    }
+
     const credentials = await acquireFreshDesktopProtectedCredentials(supabase, {
         debugLabel: requestPath,
         writeAuthSession: init.writeAuthSession,
@@ -454,6 +486,11 @@ export function createDesktopProtectedActionFetch(config: DesktopProtectedAction
             });
         }
 
+        if (!isDesktopProtectedActionsEnabled()) {
+            debugProtectedRequest("blocked", { path: requestPath, reason: "global-session-not-ready" });
+            return createBlockedProtectedResponse();
+        }
+
         let response = await executeDesktopProtectedRequest(config.supabase, requestPath, {
             ...fetchInit,
             injectAuthenticatedUserId,
@@ -461,6 +498,9 @@ export function createDesktopProtectedActionFetch(config: DesktopProtectedAction
         });
 
         if (response.status === 401 || response.status === DESKTOP_PROTECTED_ACTION_HEADER_TOO_LARGE_STATUS) {
+            if (!isDesktopProtectedActionsEnabled()) {
+                return createBlockedProtectedResponse();
+            }
             debugProtectedRequest("401-retry", { path: requestPath, status: response.status });
             response = await executeDesktopProtectedRequest(config.supabase, requestPath, {
                 ...fetchInit,

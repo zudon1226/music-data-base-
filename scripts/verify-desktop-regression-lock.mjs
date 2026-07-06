@@ -130,6 +130,14 @@ assertIncludes(clickDispatch, "desktop-protected-action-pipeline", "desktop-prot
 assertIncludes(clickDispatch, "[desktop-protected-click-dispatch]", "desktop-protected-click-dispatch.ts logging");
 assertIncludes(clickDispatch, 'method: "POST"', "desktop-protected-click-dispatch.ts always POST");
 assertIncludes(clickDispatch, "injectAuthenticatedUserId", "desktop-protected-click-dispatch.ts injects user id");
+assertIncludes(clickDispatch, "guardDesktopProtectedAction", "desktop-protected-click-dispatch.ts blocks without global session");
+assertIncludes(clickDispatch, "desktop-protected-action-gate", "desktop-protected-click-dispatch.ts action gate import");
+
+const actionGate = read("lib/desktop-protected-action-gate.ts");
+assertExport(actionGate, "isDesktopProtectedActionsEnabled", "desktop-protected-action-gate.ts");
+assertExport(actionGate, "guardDesktopProtectedAction", "desktop-protected-action-gate.ts");
+assertExport(actionGate, "createBlockedProtectedResponse", "desktop-protected-action-gate.ts");
+assertExport(actionGate, "subscribeDesktopProtectedActionsReady", "desktop-protected-action-gate.ts");
 
 const productionRuntime = read("lib/desktop-production-protected-runtime.ts");
 assertIncludes(productionRuntime, "desktop-protected-click-dispatch", "desktop-production-protected-runtime.ts re-exports click dispatch");
@@ -156,7 +164,11 @@ assertIncludes(actionPipeline, 'headers.set("Authorization"', "desktop-protected
 assertIncludes(actionPipeline, 'headers.set("apikey"', "desktop-protected-action-pipeline.ts apikey header");
 assertIncludes(actionPipeline, 'redirect: "error"', "desktop-protected-action-pipeline.ts blocks SSO redirects");
 assertIncludes(actionPipeline, 'credentials: "same-origin"', "desktop-protected-action-pipeline.ts sends deployment cookies");
-assertIncludes(actionPipeline, "supabase.auth.getSession", "desktop-protected-action-pipeline.ts live session source");
+assertIncludes(actionPipeline, "isDesktopApiReady", "desktop-protected-action-pipeline.ts api ready gate");
+assertIncludes(actionPipeline, "isDesktopAuthenticatedSessionReady", "desktop-protected-action-pipeline.ts session ready alias");
+assertIncludes(actionPipeline, "auth-bootstrap-not-ready", "desktop-protected-action-pipeline.ts blocks before bootstrap ready");
+assertIncludes(actionPipeline, "global-session", "desktop-protected-action-pipeline.ts global session logging");
+assertNotIncludes(actionPipeline, "supabase.auth.getSession", "desktop-protected-action-pipeline.ts must not read getSession per request");
 assertIncludes(actionPipeline, "supabase.auth.refreshSession", "desktop-protected-action-pipeline.ts refresh before dispatch");
 assertIncludes(actionPipeline, "buildFreshProtectedApiHeaders", "desktop-protected-action-pipeline.ts fresh headers per request");
 assertIncludes(actionPipeline, "request-dispatched", "desktop-protected-action-pipeline.ts dispatch debug logging");
@@ -165,6 +177,8 @@ assertIncludes(actionPipeline, "accessTokenPresent", "desktop-protected-action-p
 assertIncludes(actionPipeline, "authorizationAdded", "desktop-protected-action-pipeline.ts authorization debug logging");
 assertIncludes(actionPipeline, "injectAuthenticatedUserId", "desktop-protected-action-pipeline.ts body user id injection");
 assertIncludes(actionPipeline, "abort-no-session", "desktop-protected-action-pipeline.ts aborts without bearer");
+assertIncludes(actionPipeline, "guardDesktopProtectedAction", "desktop-protected-action-pipeline.ts action gate before dispatch");
+assertIncludes(actionPipeline, "desktop-protected-action-gate", "desktop-protected-action-pipeline.ts action gate import");
 
 assertNotIncludes(actionPipeline, "mergeDesktopAuthSessionSources", "desktop-protected-action-pipeline.ts must not merge stale sessions");
 assertNotIncludes(actionPipeline, "readStoredAuthSession", "desktop-protected-action-pipeline.ts must not read storage cache");
@@ -189,24 +203,46 @@ assertExport(pipeline, "resolveDesktopAuthenticatedCredentials", "desktop-authen
 const authBootstrapFlow = read("lib/desktop-auth-bootstrap-flow.ts");
 assertIncludes(authBootstrapFlow, "runDesktopRemoteBootstrap", "desktop-auth-bootstrap-flow.ts remote bootstrap");
 assertIncludes(authBootstrapFlow, "ensureDesktopAuthenticatedSession", "desktop-auth-bootstrap-flow.ts session restore");
+assertIncludes(authBootstrapFlow, "runDesktopAuthBootstrap", "desktop-auth-bootstrap-flow.ts single auth bootstrap");
 assertIncludes(authBootstrapFlow, "startDesktopAuthSessionBootstrap", "desktop-auth-bootstrap-flow.ts auth init gate");
 assertIncludes(authBootstrapFlow, "markDesktopAuthSignInPending", "desktop-auth-bootstrap-flow.ts sign-in gate");
 assertIncludes(authBootstrapFlow, "DESKTOP_AUTH_RATE_LIMIT_MESSAGE", "desktop-auth-bootstrap-flow.ts rate limit message");
-assertIncludes(authBootstrapFlow, "waitForSupabaseSignedInOnce", "desktop-auth-bootstrap-flow.ts waits for SIGNED_IN");
-assertIncludes(authBootstrapFlow, "resolveFreshSignInSession", "desktop-auth-bootstrap-flow.ts fresh login path");
-assertIncludes(authBootstrapFlow, "restoreStoredDesktopSession", "desktop-auth-bootstrap-flow.ts restore path");
-assertIncludes(authBootstrapFlow, "fresh-sign-in-no-usable-session", "desktop-auth-bootstrap-flow.ts fresh path never refreshes");
+assertIncludes(authBootstrapFlow, "initializeDesktopAuthenticatedSession", "desktop-auth-bootstrap-flow.ts unified auth init");
+assertIncludes(authBootstrapFlow, "dual-auth-no-bearer", "desktop-auth-bootstrap-flow.ts rejects missing bearer");
+assertNotIncludes(authBootstrapFlow, "dual-auth-incomplete", "desktop-auth-bootstrap-flow.ts must not block on missed auth events");
+assertIncludes(authBootstrapFlow, "restore-setSession-once", "desktop-auth-bootstrap-flow.ts single restore pass");
 assertNotIncludes(authBootstrapFlow, "setTimeout(resolve, 120)", "desktop-auth-bootstrap-flow.ts must not poll refreshSession");
 assertIncludes(authBootstrapFlow, "supabase.auth.setSession", "desktop-auth-bootstrap-flow.ts seeds GoTrue client");
 assertIncludes(authBootstrapFlow, "supabase.auth.getSession", "desktop-auth-bootstrap-flow.ts verifies live session");
 assertNotIncludes(authBootstrapFlow, "refreshSupabaseSession", "desktop-auth-bootstrap-flow.ts must not refresh tokens");
-assertIncludes(authBootstrapFlow, "createDesktopAuthBootstrapWatchdog", "desktop-auth-bootstrap-flow.ts shell watchdog");
-assertIncludes(authBootstrapFlow, "DESKTOP_AUTH_SHELL_WATCHDOG_MS = 10_000", "desktop-auth-bootstrap-flow.ts 10s watchdog");
-assertIncludes(authBootstrapFlow, "forceDesktopAuthBootstrapShellReady", "desktop-auth-bootstrap-flow.ts watchdog force ready");
-assertIncludes(authBootstrapFlow, "isDesktopAuthenticatedShellReady", "desktop-auth-bootstrap-flow.ts immediate shell ready");
-assertIncludes(authBootstrapFlow, "isDesktopAuthSessionBootstrapSettled", "desktop-auth-bootstrap-flow.ts single resolve gate");
-assertNotIncludes(authBootstrapFlow, "authBootstrapLock.complete", "desktop-auth-bootstrap-flow.ts must not gate remote bootstrap on auth lock");
-assertNotIncludes(authBootstrapFlow, "mergeDesktopAuthSessionSources", "desktop-auth-bootstrap-flow.ts must not merge stale sessions in restore");
+assertIncludes(authBootstrapFlow, "waitForDualAuthConfirmation", "desktop-auth-bootstrap-flow.ts dual auth wait");
+assertIncludes(authBootstrapFlow, "onAuthStateChange", "desktop-auth-bootstrap-flow.ts waits for auth state change");
+assertIncludes(authBootstrapFlow, "getSession", "desktop-auth-bootstrap-flow.ts waits for getSession");
+assertIncludes(authBootstrapFlow, "publishDesktopApiCredentials", "desktop-auth-bootstrap-flow.ts publishes global API credentials");
+assertIncludes(authBootstrapFlow, "AUTH BOOTSTRAP START", "desktop-auth-bootstrap-flow.ts bootstrap start log");
+assertIncludes(authBootstrapFlow, "SESSION FOUND", "desktop-auth-bootstrap-flow.ts session found log");
+assertIncludes(authBootstrapFlow, "APP SHELL OPEN", "desktop-auth-bootstrap-flow.ts shell open log");
+assertIncludes(authBootstrapFlow, "requiresLoggedInApiCredentials", "desktop-auth-bootstrap-flow.ts logged-in shell gate");
+assertIncludes(authBootstrapFlow, "authSessionInitialized === false", "desktop-auth-bootstrap-flow.ts waits for bootstrap finalize");
+assertIncludes(authBootstrapFlow, "isDesktopApiReady", "desktop-auth-bootstrap-flow.ts API ready gate");
+assertNotIncludes(authBootstrapFlow, "watchdogForcedShell", "desktop-auth-bootstrap-flow.ts must not force shell via watchdog");
+assertNotIncludes(authBootstrapFlow, "publishDesktopAuthenticatedSessionAfterSignIn", "desktop-auth-bootstrap-flow.ts must not bypass bootstrap on sign-in");
+assertNotIncludes(authBootstrapFlow, "AUTH_DUAL_WAIT_MS", "desktop-auth-bootstrap-flow.ts must not block on auth event timeout");
+assertIncludes(authBootstrapFlow, "resolveBootstrapSession", "desktop-auth-bootstrap-flow.ts linear session resolve");
+
+const authenticatedSession = read("lib/desktop-authenticated-session.ts");
+assertExport(authenticatedSession, "publishDesktopApiCredentials", "desktop-authenticated-session.ts");
+assertExport(authenticatedSession, "publishDesktopAuthenticatedSession", "desktop-authenticated-session.ts");
+assertExport(authenticatedSession, "getDesktopAuthenticatedSession", "desktop-authenticated-session.ts");
+assertExport(authenticatedSession, "getDesktopAuthenticatedRefreshToken", "desktop-authenticated-session.ts");
+assertExport(authenticatedSession, "isDesktopApiReady", "desktop-authenticated-session.ts");
+assertExport(authenticatedSession, "isDesktopAuthenticatedSessionReady", "desktop-authenticated-session.ts");
+assertExport(authenticatedSession, "requireDesktopAuthenticatedAccessToken", "desktop-authenticated-session.ts");
+assertIncludes(authenticatedSession, "TOKEN READY FAILED: missing access token", "desktop-authenticated-session.ts token failure log");
+assertIncludes(authenticatedSession, "TOKEN READY FAILED: missing refresh token", "desktop-authenticated-session.ts refresh failure log");
+assertIncludes(authenticatedSession, "TOKEN READY FAILED: missing user id", "desktop-authenticated-session.ts user id failure log");
+assertIncludes(authenticatedSession, "TOKEN READY FAILED: expired session", "desktop-authenticated-session.ts expired failure log");
+assertIncludes(authenticatedSession, "TOKEN READY FAILED: unknown error", "desktop-authenticated-session.ts unknown failure log");
 
 const client = read("lib/desktop-protected-action-client.ts");
 assertExport(client, "createDesktopProtectedActionClient", "desktop-protected-action-client.ts");
@@ -252,6 +288,8 @@ assertIncludes(authSessionGuard, "isDesktopVideoUploadLifecycleActive", "desktop
 
 const clientApiAuth = read("lib/client-api-auth.ts");
 assertIncludes(clientApiAuth, "isDesktopVideoUploadLifecycleActive", "client-api-auth.ts upload lifecycle guard");
+assertNotIncludes(clientApiAuth, 'credentials: "omit"', "client-api-auth.ts must not fallback to Vercel SSO cookies");
+assertIncludes(clientApiAuth, "isSameOriginDesktopApiUrl", "client-api-auth.ts blocks unauthenticated /api calls");
 
 assertNotIncludes(actionPipeline, "isDesktopVideoUploadLifecycleActive", "desktop-protected-action-pipeline.ts no upload lifecycle branch");
 
@@ -283,7 +321,11 @@ const REQUIRED_PAGE_WIRING = [
   "canRenderDesktopApplicationShell",
   "startDesktopAuthSessionBootstrap",
   "markDesktopAuthSignInPending",
+  "isDesktopApiReady",
   "authSessionInitialized",
+  "protectedActionsReady",
+  "guardDesktopProtectedAction",
+  "isDesktopProtectedActionsEnabled",
   "getAccountDisplayName",
   "canDeleteDesktopUploadedItem",
   "uploadsBlockedForCurrentUser",
@@ -330,11 +372,11 @@ for (const view of DESKTOP_NAV_VIEWS) {
 
 // Protected actions must use shared guard, not stale isAuthenticated-only checks in handlers
 const PROTECTED_HANDLER_MARKERS = [
-  ["toggleLike", "dispatchDesktopSongLike"],
-  ["toggleArtistFollow", "dispatchDesktopArtistFollow"],
-  ["saveLibraryItem", "dispatchDesktopLibrarySave"],
-  ["createPlaylist", "dispatchDesktopCreatePlaylist"],
-  ["saveLibraryItem", "desktopActionAuthGuard.hasAccess()"],
+  ["toggleLike", "guardDesktopProtectedAction"],
+  ["toggleArtistFollow", "guardDesktopProtectedAction"],
+  ["saveLibraryItem", "guardDesktopProtectedAction"],
+  ["createPlaylist", "guardDesktopProtectedAction"],
+  ["uploadVideoToSupabase", "guardDesktopProtectedAction"],
   ["addSongToPlaylist", "desktopActionAuthGuard.hasAccess()"],
 ];
 

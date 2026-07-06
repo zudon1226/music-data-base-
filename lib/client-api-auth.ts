@@ -304,8 +304,24 @@ async function readSessionAccessToken(
     };
 }
 
+function isSameOriginDesktopApiUrl(url: string) {
+    if (url.startsWith("/api/")) {
+        return true;
+    }
+    if (typeof window === "undefined") {
+        return false;
+    }
+    try {
+        const parsed = new URL(url, window.location.origin);
+        return parsed.origin === window.location.origin && parsed.pathname.startsWith("/api/");
+    }
+    catch {
+        return false;
+    }
+}
+
 function blockProtectedApiWithoutSession(url: string, accessToken: string) {
-    if (isProtectedDesktopApiUrl(url) && !accessToken) {
+    if ((isProtectedDesktopApiUrl(url) || isSameOriginDesktopApiUrl(url)) && !accessToken) {
         throw new Error(SESSION_EXPIRED_MESSAGE);
     }
 }
@@ -336,10 +352,7 @@ export async function authFetch(
         if (requireSession) {
             throw new Error(session ? API_AUTH_FAILED_MESSAGE : SESSION_EXPIRED_MESSAGE);
         }
-        return fetch(input, {
-            ...fetchInit,
-            credentials: "omit",
-        });
+        throw new Error(SESSION_EXPIRED_MESSAGE);
     }
 
     const request = buildAuthenticatedRequest(input, fetchInit, accessToken);

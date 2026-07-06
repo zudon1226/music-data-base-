@@ -9,8 +9,9 @@ import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
 import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
-import { canRenderDesktopApplicationShell, createDesktopAuthBootstrapWatchdog, DESKTOP_AUTH_RATE_LIMIT_MESSAGE, isDesktopAuthenticatedShellReady, markDesktopAuthSignInPending, resetDesktopAuthSessionBootstrap, runDesktopRemoteBootstrap, startDesktopAuthSessionBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
+import { canRenderDesktopApplicationShell, DESKTOP_AUTH_RATE_LIMIT_MESSAGE, isDesktopApiReady, markDesktopAuthSignInPending, resetDesktopAuthSessionBootstrap, runDesktopRemoteBootstrap, startDesktopAuthSessionBootstrap, startDesktopLocalBootstrap, type DesktopRemoteBootstrapActions } from "../lib/desktop-app-bootstrap";
 import { canDeleteDesktopUploadedItem, createDesktopActionRuntime, hasUsableDesktopProtectedActionSession, mergeDesktopAuthSessionSources } from "../lib/desktop-action-runtime";
+import { createBlockedProtectedResponse, guardDesktopProtectedAction, isDesktopProtectedActionsEnabled, subscribeDesktopProtectedActionsReady } from "../lib/desktop-protected-action-gate";
 import { createDesktopProtectedActionAuthGuard } from "../lib/desktop-protected-action-auth-guard";
 import {
     dispatchDesktopArtistFollow,
@@ -3537,7 +3538,19 @@ function PageContent() {
         [supabase, publishLiveDesktopAuthSession],
     );
     const desktopRuntime = useMemo(() => createDesktopActionRuntime(desktopProtectedActionConfig), [desktopProtectedActionConfig]);
-    const desktopActionFetch = desktopRuntime.fetch;
+    const [protectedActionsReady, setProtectedActionsReady] = useState(false);
+    useEffect(() => {
+        const syncProtectedActionsReady = () => setProtectedActionsReady(isDesktopProtectedActionsEnabled());
+        syncProtectedActionsReady();
+        return subscribeDesktopProtectedActionsReady(syncProtectedActionsReady);
+    }, [authGateTick, authSessionInitialized, isAuthenticated]);
+    const desktopActionFetch = useCallback(async (path: string, init?: Parameters<typeof desktopRuntime.fetch>[1]) => {
+        const requireAuth = init?.requireAuth !== false;
+        if (requireAuth && !isDesktopProtectedActionsEnabled()) {
+            return createBlockedProtectedResponse();
+        }
+        return desktopRuntime.fetch(path, init);
+    }, [desktopRuntime]);
     useEffect(() => {
         registerDesktopProductionSessionPublisher(publishLiveDesktopAuthSession);
         return () => unregisterDesktopProductionSessionPublisher();
@@ -5784,16 +5797,13 @@ function PageContent() {
         }
         const bootstrapUserId = String(accountUserId || "").trim();
         if (!bootstrapUserId) {
+            setAuthSessionInitialized(false);
             return;
-        }
-        if (isDesktopAuthenticatedShellReady({ session: authSessionRef.current })) {
-            setAuthSessionInitialized(true);
         }
         let cancelled = false;
         void startDesktopAuthSessionBootstrap(desktopProtectedActionConfig, {
             userId: bootstrapUserId,
-            sessionHint: authSessionRef.current,
-            waitForSignedInEvent: false,
+            sessionHint: authSessionRef.current ?? authSession,
         })
             .then((outcome) => {
                 if (cancelled) {
@@ -5802,39 +5812,21 @@ function PageContent() {
                 if (outcome.rateLimited) {
                     setAuthMessage(outcome.message || DESKTOP_AUTH_RATE_LIMIT_MESSAGE);
                 }
-                if (isDesktopAuthenticatedShellReady({ session: authSessionRef.current })) {
-                    setAuthSessionInitialized(true);
-                    return;
+                setAuthSessionInitialized(Boolean(outcome.ready && isDesktopApiReady()));
+                if (!outcome.ready) {
+                    void supabase.auth.getSession().then(({ data: { session } }) => {
+                        if (!session && isAuthenticated) {
+                            setAuthMessage("Your session could not be restored. Please log in again.");
+                        }
+                    });
                 }
-                if (outcome.ready) {
-                    setAuthSessionInitialized(true);
-                    return;
-                }
-                void supabase.auth.getSession().then(({ data: { session } }) => {
-                    if (!session && isAuthenticated) {
-                        setAuthMessage("Your session could not be restored. Please log in again.");
-                    }
-                });
             });
         return () => {
             cancelled = true;
         };
     }, [accountUserId, authLoading, authGateTick, desktopProtectedActionConfig, isAuthenticated]);
     useEffect(() => {
-        if (!isAuthenticated || authSessionInitialized) {
-            return;
-        }
-        return createDesktopAuthBootstrapWatchdog(
-            () => isAuthenticated
-                && hasUsableDesktopProtectedActionSession(authSessionRef.current)
-                && !authSessionInitialized,
-            () => {
-                setAuthSessionInitialized(true);
-            },
-        );
-    }, [authSessionInitialized, authGateTick, isAuthenticated]);
-    useEffect(() => {
-        if (authLoading || !desktopActionAuthGuard.hasAccess() || !authSessionInitialized)
+        if (authLoading || !isAuthenticated || !authSessionInitialized || !isDesktopApiReady())
             return;
         const loadKey = accountUserId;
         if (!loadKey)
@@ -5869,7 +5861,7 @@ function PageContent() {
             if (initialDataLoadInFlightKeyRef.current === loadKey && initialDataLoadedKeyRef.current !== loadKey)
                 initialDataLoadInFlightKeyRef.current = "";
         };
-    }, [accountUserId, authLoading, authGateTick, authSessionInitialized, desktopActionAuthGuard, desktopProtectedActionConfig]);
+    }, [accountUserId, authLoading, authGateTick, authSessionInitialized, isAuthenticated, desktopProtectedActionConfig]);
     useEffect(() => {
         if (!desktopActionAuthGuard.hasAccess()) {
             return;
@@ -9105,6 +9097,10 @@ function PageContent() {
         return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
     }
     async function saveLibraryItem(item: Song | VideoItem | Album | ResolvedAlbum, itemType: "song" | "video" | "album") {
+        if (!guardDesktopProtectedAction(`save-${itemType}`)) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
+            return false;
+        }
         try {
             const response = await dispatchDesktopLibrarySave({
                 itemId: item.id,
@@ -9199,6 +9195,9 @@ function PageContent() {
         pushNotification("Video saved", `${normalized.title} was saved to your library.`, "video", normalized.id);
     }
     async function resolveVideoForLibrarySave(video: VideoItem) {
+        if (!guardDesktopProtectedAction("resolve-video-for-library-save")) {
+            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+        }
         if (isUuid(video.id))
             return video;
         const storagePath = video.storagePath || video.storage_path || "";
@@ -9238,6 +9237,10 @@ function PageContent() {
         return resolvedVideo;
     }
     function handleSaveVideo(videoId: string) {
+        if (!guardDesktopProtectedAction("save-video")) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
+            return;
+        }
         const video = videos.find((item) => item.id === videoId);
         console.log("VIDEO SAVE ID", videoId);
         console.log("VIDEO STORAGE PATH", video?.storage_path || video?.storagePath || "");
@@ -9561,6 +9564,10 @@ function PageContent() {
         });
     }
     async function toggleLike(songId: string) {
+        if (!guardDesktopProtectedAction("toggle-like")) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
+            return;
+        }
         const song = songs.find((item) => item.id === songId);
         const wasLiked = likedIds.includes(songId);
         const previousLikedIds = likedIds;
@@ -9613,6 +9620,10 @@ function PageContent() {
         setView("Artist Profile");
     }
     async function toggleArtistFollow(artistId: string, artistName?: string) {
+        if (!guardDesktopProtectedAction("toggle-follow")) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
+            return;
+        }
         const artist = mergedArtistProfiles.find((item) => item.id === artistId);
         const name = artistName || artist?.name || artistId;
         const wasFollowing = followedArtistIds.includes(artistId);
@@ -9691,6 +9702,10 @@ function PageContent() {
         remoteMusicStateSaveSnapshotRef.current = "";
     }
     async function saveQueueAsPlaylist() {
+        if (!guardDesktopProtectedAction("save-queue-playlist")) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
+            return;
+        }
         if (cleanQueue.length === 0) {
             showToast("Queue is empty.", "info");
             return;
@@ -9746,6 +9761,10 @@ function PageContent() {
     }
     async function createPlaylist(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (!guardDesktopProtectedAction("create-playlist")) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
+            return;
+        }
         const name = playlistForm.name.trim();
         if (!name) {
             alert("Name the playlist first.");
@@ -10585,6 +10604,9 @@ function PageContent() {
         return mapSongRowToSong(uploadResult.song);
     }
     async function uploadVideoToSupabase(file: File, videoDetails: Pick<VideoUploadForm, "title" | "creator" | "category" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
+        if (!guardDesktopProtectedAction("upload-video")) {
+            throw new Error(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE);
+        }
         const fileError = getVideoFileError(file);
         if (fileError) {
             throw new Error(fileError);
@@ -12978,7 +13000,6 @@ function PageContent() {
             }
 
             completeSignIn(activeSession);
-            setAuthSessionInitialized(hasUsableDesktopProtectedActionSession(activeSession));
             setUserAuthProfile((previous) => ({
                 ...previous,
                 displayName: signupDisplayName,
@@ -13061,6 +13082,10 @@ function PageContent() {
     function toggleUploadPanel() {
         if (uploadsBlockedForCurrentUser) {
             showToast(UPLOAD_LOCK_MESSAGE, "info");
+            return;
+        }
+        if (!protectedActionsReady) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
             return;
         }
         if (!showUpload) {
@@ -14475,7 +14500,7 @@ function PageContent() {
         accountUserId,
         localBootstrapReady: hasLoaded,
         session: authSession,
-        authSessionInitialized: !isAuthenticated || authSessionInitialized,
+        authSessionInitialized,
     })) {
         return (<main className="auth-page">
         <section className="auth-panel">
@@ -15591,7 +15616,7 @@ function PageContent() {
                         <UserCircle size={16}/>
                         Store
                       </button>
-                      <button className={followedArtistIds.includes(artist.id) ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
+                      <button className={followedArtistIds.includes(artist.id) ? "follow-btn followed" : "follow-btn"} disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
                         <UserPlus size={16}/>
                         {followedArtistIds.includes(artist.id) ? "Following" : "Follow"}
                       </button>
@@ -15797,7 +15822,7 @@ function PageContent() {
                           <UserCircle size={16}/>
                           Profile
                         </button>
-                        <button className={isFollowing ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
+                        <button className={isFollowing ? "follow-btn followed" : "follow-btn"} disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
                           <UserPlus size={16}/>
                           {isFollowing ? "Following" : "Follow"}
                         </button>
@@ -16834,7 +16859,7 @@ function PageContent() {
                   </div>
 
                   <div className="artist-actions">
-                    <button onClick={() => toggleArtistFollow(activeArtist.id)} type="button">
+                    <button disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(activeArtist.id)} type="button">
                       <UserPlus size={16}/>
                       {followedArtistIds.includes(activeArtist.id) ? "Following" : "Follow Artist"}
                     </button>
@@ -16877,7 +16902,7 @@ function PageContent() {
                           <button onClick={() => playSong(song)} title={`Play ${song.title}`} type="button">
                             <Play size={16} fill="currentColor"/>
                           </button>
-                          <button onClick={() => {
+                          <button disabled={!protectedActionsReady} onClick={() => {
                             if (isSaved) {
                                 removeFromLibrary(song.id);
                                 return;
@@ -16886,7 +16911,7 @@ function PageContent() {
                         }} title={isSaved ? "Remove from library" : "Save to library"} type="button">
                             {isSaved ? <Trash2 size={16}/> : <Plus size={16}/>}
                           </button>
-                          <button onClick={() => toggleLike(song.id)} title={isLiked ? "Unlike" : "Like"} type="button">
+                          <button disabled={!protectedActionsReady} onClick={() => toggleLike(song.id)} title={isLiked ? "Unlike" : "Like"} type="button">
                             <Heart size={16} fill={isLiked ? "currentColor" : "none"}/>
                           </button>
                           <button onClick={() => addToQueue(song)} disabled={isQueued} title="Add to queue" type="button">
@@ -17091,7 +17116,7 @@ function PageContent() {
                 <option value="video">Video Playlist</option>
                 <option value="mixed">Mixed Playlist</option>
               </select>
-              <button type="submit">
+              <button disabled={!protectedActionsReady} type="submit">
                 <Plus size={16}/>
                 Create
               </button>
@@ -17467,7 +17492,7 @@ function PageContent() {
                               <UserCircle size={16}/>
                               Profile
                             </button>
-                            <button className="follow-btn followed" onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
+                            <button className="follow-btn followed" disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
                               <UserPlus size={16}/>
                               Following
                             </button>
@@ -17539,7 +17564,7 @@ function PageContent() {
                           <UserCircle size={16}/>
                           Profile
                         </button>
-                        <button className={followedArtistIds.includes(artist.id) ? "follow-btn followed" : "follow-btn"} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
+                        <button className={followedArtistIds.includes(artist.id) ? "follow-btn followed" : "follow-btn"} disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
                           <UserPlus size={16}/>
                           {followedArtistIds.includes(artist.id) ? "Following" : "Follow"}
                         </button>

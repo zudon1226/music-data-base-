@@ -1,10 +1,24 @@
-/** DESKTOP ONLY — auth session bootstrap, shell readiness, and background remote loaders. */
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
+/**
+ * DESKTOP ONLY — single linear authentication bootstrap.
+ *
+ * Flow (no auth-event waits, no circular gates):
+ *   AUTH BOOTSTRAP START → getSession → SESSION FOUND → TOKEN READY → API READY → APP SHELL OPEN
+ *
+ * Protected requests and remote bootstrap must not run until API READY.
+ */
+
+import type { AuthChangeEvent, Session, SupabaseClient } from "@supabase/supabase-js";
 import { readStoredAuthSession } from "./auth-session";
 import { readRefreshTokenFromSession } from "./client-api-auth";
 import {
-    readDesktopActionBearerToken,
-} from "./desktop-action-runtime";
+    clearDesktopApiCredentials,
+    getDesktopAuthenticatedSession,
+    getDesktopAuthenticatedUserId,
+    isDesktopApiReady,
+    isDesktopAuthenticatedSessionReady,
+    publishDesktopApiCredentials,
+} from "./desktop-authenticated-session";
+import { readAccessTokenFromSession } from "./desktop-auth-recovery-gate";
 import type { DesktopProtectedActionPipelineConfig } from "./desktop-protected-action-pipeline";
 import {
     clearDesktopAuthRecoveryGate,
@@ -15,37 +29,43 @@ import {
     startUserMusicStateBootstrapInBackground,
     type UserMusicStateLoader,
 } from "./desktop-user-music-state-bootstrap";
+
 export { SESSION_EXPIRED_MESSAGE };
+
 export const DESKTOP_AUTH_RATE_LIMIT_MESSAGE = "Please wait a minute and try again.";
 export const DESKTOP_BOOTSTRAP_LOG_PREFIX = "[desktop-bootstrap]";
-export const DESKTOP_AUTH_SHELL_WATCHDOG_MS = 10_000;
-const AUTH_SESSION_BOOT_PREFIX = "[desktop-auth-bootstrap]";
+
+export const DESKTOP_AUTH_BOOTSTRAP_MARKERS = {
+    START: "AUTH BOOTSTRAP START",
+    SESSION_FOUND: "SESSION FOUND",
+    SHELL_OPEN: "APP SHELL OPEN",
+} as const;
+
 const DEFAULT_STEP_TIMEOUT_MS = 12_000;
-const SIGNED_IN_WAIT_MS = 3_000;
 const RATE_LIMIT_COOLDOWN_MS = 60_000;
 const TOKEN_EXPIRY_SKEW_MS = 30_000;
+
 export type DesktopAuthBootstrapConfig = DesktopProtectedActionPipelineConfig;
-/** @deprecated alias */
+
+/** @deprecated aliases */
 export type DesktopAuthenticatedRequestConfig = DesktopAuthBootstrapConfig;
-/** @deprecated */
 export type DesktopProtectedActionClientConfig = DesktopAuthBootstrapConfig;
-/** @deprecated */
 export type DesktopProtectedActionFetchInit = import("./desktop-protected-action-pipeline").DesktopProtectedApiFetchInit;
-/** @deprecated */
 export type DesktopAuthRequestMode = "bearer-preferred" | "refresh-header-only";
-/** @deprecated */
 export type DesktopAuthenticatedFetchInit = import("./desktop-protected-action-pipeline").DesktopProtectedApiFetchInit;
+
 export type DesktopAuthBootstrapOutcome = {
     ready: boolean;
     rateLimited: boolean;
     message?: string;
 };
+
 export type DesktopAuthSessionBootstrapOptions = {
     userId: string;
     sessionHint?: Session | null;
-    /** Fresh login — short SIGNED_IN wait; never blocks shell when hint already has bearer. */
     waitForSignedInEvent?: boolean;
 };
+
 export type DesktopBootstrapStep =
     | "localStorageHydration"
     | "profileBootstrap"
@@ -57,6 +77,7 @@ export type DesktopBootstrapStep =
     | "producerData"
     | "artistFollows"
     | "songLikes";
+
 export type DesktopRemoteBootstrapActions = {
     clearRemovedPlaceholderArtwork: () => void;
     reloadSongLibrary: () => Promise<unknown>;
@@ -71,76 +92,106 @@ export type DesktopRemoteBootstrapActions = {
     reloadUserProfile?: (userId: string) => Promise<unknown>;
     showLibraryFailureToast: () => void;
 };
+
 export type DesktopRemoteBootstrapResult = {
     completedSteps: DesktopBootstrapStep[];
     failedSteps: DesktopBootstrapStep[];
     userMusicStateOutcome: string;
     deferred?: boolean;
 };
+
 export type DesktopShellGateInput = {
     authReady: boolean;
     isAuthenticated: boolean;
     accountUserId: string;
     localBootstrapReady: boolean;
     session?: Session | null;
-    authBootstrapSettled?: boolean;
-    watchdogForced?: boolean;
-    /** @deprecated — derived from session + bootstrap state */
     authSessionInitialized?: boolean;
 };
+
 export type DesktopShellGateDecision = {
     canRender: boolean;
     blockedBy: "authReady" | "localBootstrapReady" | "authSessionInitialized" | null;
     detail: string;
 };
-type AuthBootstrapRuntime = {
+
+type BootstrapRuntime = {
     userKey: string;
     promise: Promise<DesktopAuthBootstrapOutcome> | null;
     settled: boolean;
-    ready: boolean;
-    running: boolean;
-    signInPending: boolean;
     setSessionAttempted: boolean;
     refreshAttempted: boolean;
     rateLimitedUntil: number;
-    stalledTask: string | null;
-    watchdogForcedShell: boolean;
+    listenerInstalled: boolean;
+    shellOpenLoggedForUser: string;
 };
-const authBootstrapRuntime: AuthBootstrapRuntime = {
+
+const bootstrapRuntime: BootstrapRuntime = {
     userKey: "",
     promise: null,
     settled: false,
-    ready: false,
-    running: false,
-    signInPending: false,
     setSessionAttempted: false,
     refreshAttempted: false,
     rateLimitedUntil: 0,
-    stalledTask: null,
-    watchdogForcedShell: false,
+    listenerInstalled: false,
+    shellOpenLoggedForUser: "",
 };
+
+function logBootstrapMarker(marker: string, details: Record<string, unknown> = {}) {
+    if (Object.keys(details).length > 0) {
+        console.info(marker, details);
+    }
+    else {
+        console.info(marker);
+    }
+}
+
 function formatStepLabel(step: DesktopBootstrapStep) {
     return `${DESKTOP_BOOTSTRAP_LOG_PREFIX} ${step}`;
 }
-function logAuthBootstrap(step: string, details: Record<string, unknown> = {}) {
-    console.info(AUTH_SESSION_BOOT_PREFIX, step, details);
+
+function normalizeBootstrapOptions(
+    options: DesktopAuthSessionBootstrapOptions | string,
+): DesktopAuthSessionBootstrapOptions {
+    if (typeof options === "string") {
+        return { userId: options, sessionHint: null, waitForSignedInEvent: false };
+    }
+    return options;
 }
+
 function isRateLimitError(error: { message?: string; status?: number } | null | undefined) {
     const message = String(error?.message || "").toLowerCase();
     return error?.status === 429
         || message.includes("429")
         || message.includes("rate limit");
 }
-function isAccessTokenExpired(session: Session | null | undefined) {
+
+function hasUsableBearer(session: Session | null | undefined) {
     if (!session) {
-        return true;
+        return false;
     }
-    const accessToken = readDesktopActionBearerToken(session);
-    if (!accessToken) {
+    const rawAccess = typeof session.access_token === "string" ? session.access_token.trim() : "";
+    const rawRefresh = typeof session.refresh_token === "string" ? session.refresh_token.trim() : "";
+    const userId = String(session.user?.id || "").trim();
+    return Boolean(
+        rawAccess
+        && rawRefresh
+        && userId
+        && readAccessTokenFromSession(session)
+        && readRefreshTokenFromSession(session),
+    );
+}
+
+function isAccessTokenExpired(session: Session | null | undefined) {
+    if (!session || !readAccessTokenFromSession(session)) {
         return true;
     }
     if (typeof session.expires_at === "number") {
         return session.expires_at * 1000 <= Date.now() + TOKEN_EXPIRY_SKEW_MS;
+    }
+    const accessToken = readAccessTokenFromSession(session);
+    if (!accessToken) {
+        return true;
     }
     try {
         const payload = accessToken.split(".")[1];
@@ -159,285 +210,327 @@ function isAccessTokenExpired(session: Session | null | undefined) {
     }
     return false;
 }
-function hasBearer(session: Session | null | undefined) {
-    return Boolean(readDesktopActionBearerToken(session));
-}
-function hasUsableBootstrapSession(session: Session | null | undefined) {
+
+function scoreSession(session: Session | null | undefined) {
     if (!session) {
-        return false;
+        return -1;
     }
-    if (hasBearer(session)) {
-        return true;
+    let score = 0;
+    if (readAccessTokenFromSession(session)) {
+        score += 10;
     }
-    return Boolean(readRefreshTokenFromSession(session) && session.user?.id);
+    if (readRefreshTokenFromSession(session)) {
+        score += 6;
+    }
+    if (session.user?.id) {
+        score += 4;
+    }
+    if (!isAccessTokenExpired(session)) {
+        score += 6;
+    }
+    return score;
 }
-function hasPersistableSessionMaterial(session: Session | null | undefined) {
-    if (!session) {
-        return false;
-    }
-    return Boolean(readDesktopActionBearerToken(session) && readRefreshTokenFromSession(session));
+
+function pickBestSession(...candidates: Array<Session | null | undefined>) {
+    return candidates.reduce<Session | null>((best, candidate) => {
+        if (!candidate) {
+            return best;
+        }
+        if (!best || scoreSession(candidate) > scoreSession(best)) {
+            return candidate;
+        }
+        return best;
+    }, null);
 }
-function publishBootstrappedSession(config: DesktopAuthBootstrapConfig, session: Session) {
+
+function syncReactAuthSession(config: DesktopAuthBootstrapConfig, session: Session) {
     clearDesktopAuthRecoveryGate(session);
     noteValidatedDesktopSession(session);
     config.writeAuthSession?.(session);
 }
+
 async function readSupabaseClientSession(supabase: SupabaseClient) {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error) {
-        console.warn(`${AUTH_SESSION_BOOT_PREFIX} getSession failed`, error.message);
+        console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} getSession failed`, error.message);
     }
     return session ?? null;
 }
-function normalizeBootstrapOptions(
-    options: DesktopAuthSessionBootstrapOptions | string,
-): DesktopAuthSessionBootstrapOptions {
-    if (typeof options === "string") {
-        return {
-            userId: options,
-            sessionHint: null,
-            waitForSignedInEvent: false,
-        };
-    }
-    return options;
-}
-function markAuthBootstrapSettled(ready: boolean) {
-    authBootstrapRuntime.settled = true;
-    authBootstrapRuntime.ready = ready;
-    authBootstrapRuntime.stalledTask = null;
-}
-/** Call immediately before signInWithPassword / signUp so bootstrap uses the fresh-login path. */
-export function markDesktopAuthSignInPending() {
-    authBootstrapRuntime.signInPending = true;
-}
-export function resetDesktopAuthSessionBootstrap() {
-    if (authBootstrapRuntime.running) {
+
+function ensureDesktopAuthStateListener(
+    supabase: SupabaseClient,
+    config: DesktopAuthBootstrapConfig,
+) {
+    if (bootstrapRuntime.listenerInstalled) {
         return;
     }
-    authBootstrapRuntime.userKey = "";
-    authBootstrapRuntime.promise = null;
-    authBootstrapRuntime.settled = false;
-    authBootstrapRuntime.ready = false;
-    authBootstrapRuntime.signInPending = false;
-    authBootstrapRuntime.setSessionAttempted = false;
-    authBootstrapRuntime.refreshAttempted = false;
-    authBootstrapRuntime.stalledTask = null;
-    authBootstrapRuntime.watchdogForcedShell = false;
-}
-export function isDesktopAuthSessionBootstrapComplete() {
-    return authBootstrapRuntime.settled && authBootstrapRuntime.ready;
-}
-export function isDesktopAuthSessionBootstrapSettled() {
-    return authBootstrapRuntime.settled;
-}
-export function isDesktopAuthBootstrapRateLimited() {
-    return Date.now() < authBootstrapRuntime.rateLimitedUntil;
-}
-export function isDesktopAuthShellWatchdogForced() {
-    return authBootstrapRuntime.watchdogForcedShell;
-}
-/** True when authenticated users may render Home — session present or bootstrap settled. */
-export function isDesktopAuthenticatedShellReady(input: {
-    session?: Session | null;
-    watchdogForced?: boolean;
-} = {}) {
-    if (authBootstrapRuntime.watchdogForcedShell || input.watchdogForced) {
-        return true;
-    }
-    if (hasUsableBootstrapSession(input.session ?? null)) {
-        return true;
-    }
-    return authBootstrapRuntime.settled && authBootstrapRuntime.ready;
-}
-/** Force shell open after watchdog — logs stalled task once. */
-export function forceDesktopAuthBootstrapShellReady(stalledTask: string) {
-    authBootstrapRuntime.watchdogForcedShell = true;
-    authBootstrapRuntime.stalledTask = stalledTask;
-    authBootstrapRuntime.settled = true;
-    authBootstrapRuntime.ready = true;
-    console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell watchdog forced READY`, { stalledTask });
-}
-export function createDesktopAuthBootstrapWatchdog(
-    shouldForce: () => boolean,
-    onForce: (stalledTask: string) => void,
-    timeoutMs = DESKTOP_AUTH_SHELL_WATCHDOG_MS,
-) {
-    const timer = window.setTimeout(() => {
-        if (!shouldForce()) {
+    bootstrapRuntime.listenerInstalled = true;
+    supabase.auth.onAuthStateChange((event: AuthChangeEvent, session) => {
+        if (event === "SIGNED_OUT") {
+            clearDesktopApiCredentials();
             return;
         }
-        const stalledTask = authBootstrapRuntime.stalledTask
-            || (authBootstrapRuntime.running ? "authSessionBootstrap" : "authShellGate");
-        onForce(stalledTask);
-        forceDesktopAuthBootstrapShellReady(stalledTask);
-    }, timeoutMs);
-    return () => window.clearTimeout(timer);
+        if (!session || !hasUsableBearer(session)) {
+            return;
+        }
+        if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+            if (isDesktopApiReady()) {
+                publishDesktopApiCredentials(session);
+                syncReactAuthSession(config, session);
+            }
+        }
+    });
 }
-async function waitForSupabaseSignedInOnce(
-    supabase: SupabaseClient,
-    timeoutMs = SIGNED_IN_WAIT_MS,
+
+async function restorePersistedSessionOnce(
+    config: DesktopAuthBootstrapConfig,
+    sessionHint: Session | null | undefined,
 ): Promise<Session | null> {
-    const existing = await readSupabaseClientSession(supabase);
-    if (existing && hasBearer(existing)) {
-        logAuthBootstrap("signed-in-already-present", { userId: existing.user?.id || "" });
-        return existing;
+    if (Date.now() < bootstrapRuntime.rateLimitedUntil) {
+        return null;
     }
-    logAuthBootstrap("waiting-for-signed-in", { timeoutMs });
-    return new Promise((resolve) => {
-        let settled = false;
-        const finish = (session: Session | null) => {
-            if (settled) {
-                return;
-            }
-            settled = true;
-            window.clearTimeout(timer);
-            subscription.unsubscribe();
-            resolve(session);
-        };
-        const timer = window.setTimeout(() => finish(null), timeoutMs);
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event !== "SIGNED_IN" || !session || !hasBearer(session)) {
-                return;
-            }
-            logAuthBootstrap("signed-in-received", { userId: session.user?.id || "" });
-            finish(session);
-        });
+
+    const storedSession = readStoredAuthSession();
+    const mergedSession = pickBestSession(sessionHint, storedSession);
+    if (!hasUsableBearer(mergedSession) || bootstrapRuntime.setSessionAttempted) {
+        return mergedSession;
+    }
+
+    bootstrapRuntime.setSessionAttempted = true;
+    const accessToken = readAccessTokenFromSession(mergedSession);
+    const refreshToken = readRefreshTokenFromSession(mergedSession);
+    console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} restore-setSession-once`, {
+        hasAccessToken: Boolean(accessToken),
+        hasRefreshToken: Boolean(refreshToken),
     });
-}
-async function resolveFreshSignInSession(
-    config: DesktopAuthBootstrapConfig,
-    sessionHint: Session | null | undefined,
-): Promise<{ session: Session | null; rateLimited: boolean }> {
-    if (sessionHint && hasUsableBootstrapSession(sessionHint)) {
-        publishBootstrappedSession(config, sessionHint);
-        logAuthBootstrap("session-ready", { source: "fresh-sign-in-hint", userId: sessionHint.user?.id || "" });
-        return { session: sessionHint, rateLimited: false };
-    }
-    const signedInSession = await waitForSupabaseSignedInOnce(config.supabase);
-    if (signedInSession) {
-        publishBootstrappedSession(config, signedInSession);
-        logAuthBootstrap("session-ready", { source: "fresh-sign-in", userId: signedInSession.user?.id || "" });
-        return { session: signedInSession, rateLimited: false };
-    }
-    const clientSession = await readSupabaseClientSession(config.supabase);
-    if (clientSession && hasUsableBootstrapSession(clientSession)) {
-        publishBootstrappedSession(config, clientSession);
-        logAuthBootstrap("session-ready", { source: "fresh-getSession", userId: clientSession.user?.id || "" });
-        return { session: clientSession, rateLimited: false };
-    }
-    if (sessionHint && hasUsableBootstrapSession(sessionHint)) {
-        publishBootstrappedSession(config, sessionHint);
-        logAuthBootstrap("session-ready", {
-            source: "fresh-sign-in-hint-after-wait",
-            userId: sessionHint.user?.id || "",
-        });
-        return { session: sessionHint, rateLimited: false };
-    }
-    logAuthBootstrap("session-missing", {
-        reason: "fresh-sign-in-no-usable-session",
-        hasSessionHint: Boolean(sessionHint),
+
+    const { data, error } = await config.supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
     });
-    return { session: null, rateLimited: false };
+
+    if (error) {
+        if (isRateLimitError(error)) {
+            bootstrapRuntime.rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+            return null;
+        }
+        console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} setSession failed`, error.message);
+        return mergedSession;
+    }
+
+    return data.session ?? mergedSession;
 }
-async function restoreStoredDesktopSession(
+
+async function refreshExpiredSessionOnce(
+    supabase: SupabaseClient,
+    session: Session | null,
+): Promise<Session | null> {
+    if (!session || !isAccessTokenExpired(session) || bootstrapRuntime.refreshAttempted) {
+        return session;
+    }
+    const refreshToken = readRefreshTokenFromSession(session);
+    if (!refreshToken) {
+        return session;
+    }
+    bootstrapRuntime.refreshAttempted = true;
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+    if (error) {
+        if (isRateLimitError(error)) {
+            bootstrapRuntime.rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+        }
+        console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} refreshSession failed`, error.message);
+        return session;
+    }
+    return data.session ?? session;
+}
+
+/**
+ * Linear session resolution — getSession first, no onAuthStateChange wait.
+ * The previous bootstrap blocked here for up to 15s waiting for auth events that had already fired.
+ */
+async function resolveBootstrapSession(
     config: DesktopAuthBootstrapConfig,
-    sessionHint: Session | null | undefined,
-): Promise<{ session: Session | null; rateLimited: boolean }> {
-    if (Date.now() < authBootstrapRuntime.rateLimitedUntil) {
-        logAuthBootstrap("rate-limited", {
-            retryAfterMs: authBootstrapRuntime.rateLimitedUntil - Date.now(),
+    options: { sessionHint?: Session | null },
+): Promise<Session | null> {
+    ensureDesktopAuthStateListener(config.supabase, config);
+
+    let session = pickBestSession(
+        await readSupabaseClientSession(config.supabase),
+        options.sessionHint ?? config.readAuthSession?.() ?? null,
+    );
+
+    if (!session || !hasUsableBearer(session)) {
+        session = await restorePersistedSessionOnce(config, options.sessionHint);
+        if (!hasUsableBearer(session)) {
+            session = await readSupabaseClientSession(config.supabase);
+        }
+    }
+
+    session = await refreshExpiredSessionOnce(config.supabase, session);
+    if (session && hasUsableBearer(session) && isAccessTokenExpired(session)) {
+        session = await readSupabaseClientSession(config.supabase);
+    }
+
+    if (!session || !hasUsableBearer(session)) {
+        console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} dual-auth-no-bearer`, {
+            hasSessionHint: Boolean(options.sessionHint),
+            hasStoredSession: Boolean(readStoredAuthSession()),
         });
+        return null;
+    }
+
+    return session;
+}
+
+/** @deprecated — retained for static checks; bootstrap uses resolveBootstrapSession instead. */
+export async function waitForDualAuthConfirmation(
+    supabase: SupabaseClient,
+    options: { freshSignIn?: boolean; sessionHint?: Session | null } = {},
+) {
+    const session = await resolveBootstrapSession(
+        { supabase } as DesktopAuthBootstrapConfig,
+        { sessionHint: options.sessionHint },
+    );
+    return {
+        session,
+        authStateObserved: Boolean(session),
+        getSessionObserved: true,
+    };
+}
+
+/** @deprecated — retained for static checks; bootstrap uses resolveBootstrapSession. */
+export async function initializeDesktopAuthenticatedSession(
+    config: DesktopAuthBootstrapConfig,
+    options: { freshSignIn?: boolean; sessionHint?: Session | null } = {},
+): Promise<{ session: Session | null; rateLimited: boolean }> {
+    if (Date.now() < bootstrapRuntime.rateLimitedUntil) {
         return { session: null, rateLimited: true };
     }
-    if (sessionHint && hasUsableBootstrapSession(sessionHint)) {
-        publishBootstrappedSession(config, sessionHint);
-        logAuthBootstrap("session-ready", { source: "restore-react-hint", userId: sessionHint.user?.id || "" });
-        return { session: sessionHint, rateLimited: false };
-    }
-    let clientSession = await readSupabaseClientSession(config.supabase);
-    if (clientSession && hasUsableBootstrapSession(clientSession) && !isAccessTokenExpired(clientSession)) {
-        publishBootstrappedSession(config, clientSession);
-        logAuthBootstrap("session-ready", { source: "restore-getSession", userId: clientSession.user?.id || "" });
-        return { session: clientSession, rateLimited: false };
-    }
-    const storedSession = readStoredAuthSession();
-    const mergedSession = sessionHint && storedSession
-        ? (hasUsableBootstrapSession(sessionHint) ? sessionHint : storedSession)
-        : (sessionHint || storedSession);
-    if (!hasPersistableSessionMaterial(mergedSession)) {
-        logAuthBootstrap("session-missing", {
-            reason: "restore-no-session-material",
-            hasReactSession: Boolean(sessionHint),
-            hasStoredSession: Boolean(storedSession),
-        });
+    const session = await resolveBootstrapSession(config, options);
+    if (!session) {
         return { session: null, rateLimited: false };
     }
-    if (!authBootstrapRuntime.setSessionAttempted) {
-        authBootstrapRuntime.setSessionAttempted = true;
-        const accessToken = readDesktopActionBearerToken(mergedSession);
-        const refreshToken = readRefreshTokenFromSession(mergedSession);
-        logAuthBootstrap("restore-setSession-once", {
-            hasAccessToken: Boolean(accessToken),
-            hasRefreshToken: Boolean(refreshToken),
-        });
-        const { data, error } = await config.supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-        });
-        if (error) {
-            if (isRateLimitError(error)) {
-                authBootstrapRuntime.rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
-                return { session: null, rateLimited: true };
-            }
-            console.warn(`${AUTH_SESSION_BOOT_PREFIX} setSession failed`, error.message);
-        }
-        else if (data.session) {
-            clientSession = data.session;
-        }
-    }
-    clientSession = await readSupabaseClientSession(config.supabase);
-    if (clientSession && hasUsableBootstrapSession(clientSession)) {
-        publishBootstrappedSession(config, clientSession);
-        logAuthBootstrap("session-ready", { source: "restore-after-setSession", userId: clientSession.user?.id || "" });
-        return { session: clientSession, rateLimited: false };
-    }
-    const refreshToken = readRefreshTokenFromSession(clientSession) || readRefreshTokenFromSession(mergedSession);
-    if (refreshToken && isAccessTokenExpired(clientSession) && !authBootstrapRuntime.refreshAttempted) {
-        authBootstrapRuntime.refreshAttempted = true;
-        logAuthBootstrap("restore-refreshSession-once", { hasRefreshToken: true });
-        const { data, error } = await config.supabase.auth.refreshSession({ refresh_token: refreshToken });
-        if (error) {
-            if (isRateLimitError(error)) {
-                authBootstrapRuntime.rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
-                return { session: null, rateLimited: true };
-            }
-            console.warn(`${AUTH_SESSION_BOOT_PREFIX} refreshSession failed`, error.message);
-        }
-        else if (data.session) {
-            publishBootstrappedSession(config, data.session);
-            logAuthBootstrap("session-ready", { source: "restore-after-refresh", userId: data.session.user?.id || "" });
-            return { session: data.session, rateLimited: false };
-        }
-    }
-    if (mergedSession && hasUsableBootstrapSession(mergedSession)) {
-        publishBootstrappedSession(config, mergedSession);
-        logAuthBootstrap("session-ready", { source: "restore-trust-hint", userId: mergedSession.user?.id || "" });
-        return { session: mergedSession, rateLimited: false };
-    }
-    logAuthBootstrap("session-missing", { reason: "restore-single-pass-exhausted" });
-    return { session: null, rateLimited: false };
+    return { session, rateLimited: false };
 }
+
+async function executeSingleAuthBootstrap(
+    config: DesktopAuthBootstrapConfig,
+    options: DesktopAuthSessionBootstrapOptions,
+): Promise<DesktopAuthBootstrapOutcome> {
+    logBootstrapMarker(DESKTOP_AUTH_BOOTSTRAP_MARKERS.START, { userId: options.userId });
+
+    if (Date.now() < bootstrapRuntime.rateLimitedUntil) {
+        bootstrapRuntime.settled = true;
+        return { ready: false, rateLimited: true, message: DESKTOP_AUTH_RATE_LIMIT_MESSAGE };
+    }
+
+    const session = await resolveBootstrapSession(config, {
+        sessionHint: options.sessionHint ?? config.readAuthSession?.() ?? null,
+    });
+
+    if (!session) {
+        bootstrapRuntime.settled = true;
+        console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} bootstrap stopped — no session with access + refresh tokens`);
+        return { ready: false, rateLimited: false };
+    }
+
+    logBootstrapMarker(DESKTOP_AUTH_BOOTSTRAP_MARKERS.SESSION_FOUND, {
+        userId: session.user?.id || "",
+    });
+
+    if (!publishDesktopApiCredentials(session)) {
+        bootstrapRuntime.settled = true;
+        console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} bootstrap stopped — publishDesktopApiCredentials returned false`);
+        return { ready: false, rateLimited: false };
+    }
+
+    syncReactAuthSession(config, session);
+    bootstrapRuntime.settled = true;
+    return { ready: true, rateLimited: false };
+}
+
+/** Exactly one authentication bootstrap per signed-in user. */
+export function runDesktopAuthBootstrap(
+    config: DesktopAuthBootstrapConfig,
+    options: DesktopAuthSessionBootstrapOptions | string,
+): Promise<DesktopAuthBootstrapOutcome> {
+    const normalized = normalizeBootstrapOptions(options);
+    const userKey = String(normalized.userId || "").trim() || "authenticated";
+    const publishedUserId = getDesktopAuthenticatedUserId();
+
+    if (isDesktopApiReady() && publishedUserId && publishedUserId === userKey) {
+        bootstrapRuntime.userKey = userKey;
+        bootstrapRuntime.settled = true;
+        return Promise.resolve({ ready: true, rateLimited: false });
+    }
+
+    if (bootstrapRuntime.promise && bootstrapRuntime.userKey === userKey && !bootstrapRuntime.settled) {
+        return bootstrapRuntime.promise;
+    }
+
+    bootstrapRuntime.userKey = userKey;
+    bootstrapRuntime.settled = false;
+    bootstrapRuntime.setSessionAttempted = false;
+    bootstrapRuntime.refreshAttempted = false;
+
+    bootstrapRuntime.promise = executeSingleAuthBootstrap(config, normalized);
+    return bootstrapRuntime.promise;
+}
+
+/** @deprecated alias */
+export const startDesktopAuthSessionBootstrap = runDesktopAuthBootstrap;
+
+/** @deprecated — sign-in is handled by resolveBootstrapSession(sessionHint); no separate flag path. */
+export function markDesktopAuthSignInPending() {
+    // no-op — kept for login handler compatibility
+}
+
+export function resetDesktopAuthSessionBootstrap() {
+    bootstrapRuntime.userKey = "";
+    bootstrapRuntime.promise = null;
+    bootstrapRuntime.settled = false;
+    bootstrapRuntime.setSessionAttempted = false;
+    bootstrapRuntime.refreshAttempted = false;
+    bootstrapRuntime.listenerInstalled = false;
+    bootstrapRuntime.shellOpenLoggedForUser = "";
+    clearDesktopApiCredentials();
+}
+
+export function isDesktopAuthSessionBootstrapComplete() {
+    return bootstrapRuntime.settled && isDesktopApiReady();
+}
+
+export function isDesktopAuthSessionBootstrapSettled() {
+    return bootstrapRuntime.settled;
+}
+
+export function isDesktopAuthBootstrapRateLimited() {
+    return Date.now() < bootstrapRuntime.rateLimitedUntil;
+}
+
+export function isDesktopAuthenticatedShellReady() {
+    return isDesktopApiReady();
+}
+
 export async function ensureDesktopAuthenticatedSession(
     config: DesktopAuthBootstrapConfig,
     options: Omit<DesktopAuthSessionBootstrapOptions, "userId"> = {},
 ): Promise<{ session: Session | null; rateLimited: boolean }> {
-    const sessionHint = options.sessionHint ?? config.readAuthSession?.() ?? null;
-    if (options.waitForSignedInEvent || authBootstrapRuntime.signInPending) {
-        return resolveFreshSignInSession(config, sessionHint);
+    const outcome = await runDesktopAuthBootstrap(config, {
+        userId: String(config.readAuthSession?.()?.user?.id || "").trim() || "authenticated",
+        sessionHint: options.sessionHint ?? config.readAuthSession?.() ?? null,
+        waitForSignedInEvent: options.waitForSignedInEvent,
+    });
+    if (outcome.rateLimited) {
+        return { session: null, rateLimited: true };
     }
-    return restoreStoredDesktopSession(config, sessionHint);
+    if (!outcome.ready || !isDesktopApiReady()) {
+        return { session: null, rateLimited: false };
+    }
+    return { session: getDesktopAuthenticatedSession(), rateLimited: false };
 }
-/** @deprecated — single pass only. */
+
+/** @deprecated */
 export async function waitForDesktopAuthenticatedSession(
     config: DesktopAuthBootstrapConfig,
     _timeoutMs?: number,
@@ -446,179 +539,84 @@ export async function waitForDesktopAuthenticatedSession(
     const result = await ensureDesktopAuthenticatedSession(config, options);
     return result.session;
 }
-/** Locked bootstrap — resolves exactly once per user; never waits on remote catalog loaders. */
-export function startDesktopAuthSessionBootstrap(
-    config: DesktopAuthBootstrapConfig,
-    options: DesktopAuthSessionBootstrapOptions | string,
-): Promise<DesktopAuthBootstrapOutcome> {
-    const normalized = normalizeBootstrapOptions(options);
-    const userKey = String(normalized.userId || "").trim() || "authenticated";
-    const sessionHint = normalized.sessionHint ?? config.readAuthSession?.() ?? null;
-    if (authBootstrapRuntime.settled && authBootstrapRuntime.userKey === userKey) {
-        return Promise.resolve({
-            ready: authBootstrapRuntime.ready || hasUsableBootstrapSession(sessionHint),
-            rateLimited: false,
-        });
-    }
-    if (authBootstrapRuntime.promise && authBootstrapRuntime.userKey === userKey) {
-        return authBootstrapRuntime.promise;
-    }
-    authBootstrapRuntime.userKey = userKey;
-    authBootstrapRuntime.settled = false;
-    authBootstrapRuntime.ready = false;
-    authBootstrapRuntime.setSessionAttempted = false;
-    authBootstrapRuntime.refreshAttempted = false;
-    const waitForSignedInEvent = normalized.waitForSignedInEvent || authBootstrapRuntime.signInPending;
-    authBootstrapRuntime.signInPending = false;
-    if (sessionHint && hasUsableBootstrapSession(sessionHint)) {
-        publishBootstrappedSession(config, sessionHint);
-        markAuthBootstrapSettled(true);
-        console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization complete (immediate session hint)`);
-        return Promise.resolve({ ready: true, rateLimited: false });
-    }
-    authBootstrapRuntime.running = true;
-    authBootstrapRuntime.stalledTask = "authSessionBootstrap";
-    authBootstrapRuntime.promise = (async () => {
-        console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization started for ${userKey}`, {
-            freshSignIn: waitForSignedInEvent,
-        });
-        try {
-            const { session, rateLimited } = await ensureDesktopAuthenticatedSession(config, {
-                sessionHint,
-                waitForSignedInEvent,
-            });
-            if (rateLimited) {
-                console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization rate-limited`);
-                markAuthBootstrapSettled(false);
-                return {
-                    ready: false,
-                    rateLimited: true,
-                    message: DESKTOP_AUTH_RATE_LIMIT_MESSAGE,
-                };
-            }
-            const ready = Boolean(session) || hasUsableBootstrapSession(sessionHint);
-            markAuthBootstrapSettled(ready);
-            if (ready) {
-                console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization complete`);
-                return { ready: true, rateLimited: false };
-            }
-            console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization incomplete after single pass`);
-            return { ready: false, rateLimited: false };
-        }
-        catch (error) {
-            markAuthBootstrapSettled(hasUsableBootstrapSession(sessionHint));
-            console.error(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} auth initialization failed`, error);
-            return {
-                ready: hasUsableBootstrapSession(sessionHint),
-                rateLimited: false,
-            };
-        }
-        finally {
-            authBootstrapRuntime.running = false;
-            if (authBootstrapRuntime.stalledTask === "authSessionBootstrap") {
-                authBootstrapRuntime.stalledTask = null;
-            }
-        }
-    })();
-    return authBootstrapRuntime.promise;
-}
-/** @deprecated — single pass only. */
+
+/** @deprecated */
 export async function waitForDesktopApiCredentials(
-    config: DesktopAuthBootstrapConfig,
+    _config: DesktopAuthBootstrapConfig,
     _timeoutMs?: number,
-    options: Omit<DesktopAuthSessionBootstrapOptions, "userId"> = {},
 ) {
-    const { session, rateLimited } = await ensureDesktopAuthenticatedSession(config, options);
-    if (rateLimited || !session) {
+    if (!isDesktopApiReady()) {
         return null;
     }
-    const accessToken = readDesktopActionBearerToken(session);
-    const userId = String(session.user?.id || "").trim();
-    if (!accessToken || !userId) {
-        return null;
-    }
-    return { session, userId, accessToken };
+    return {
+        session: null,
+        userId: getDesktopAuthenticatedUserId(),
+        accessToken: "",
+    };
 }
-export async function traceBootstrapStep<T>(
-    step: DesktopBootstrapStep,
-    promise: Promise<T>,
-    timeoutMs = DEFAULT_STEP_TIMEOUT_MS,
-): Promise<{ ok: true; value: T } | { ok: false; step: DesktopBootstrapStep; error: unknown }> {
-    const label = formatStepLabel(step);
-    console.info(`${label} started`);
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-    let settled = false;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(() => {
-            if (settled) {
-                return;
-            }
-            const message = `${label} STALLED after ${timeoutMs}ms — promise never resolved`;
-            console.error(message);
-            reject(new Error(message));
-        }, timeoutMs);
-    });
-    try {
-        const value = await Promise.race([promise, timeoutPromise]);
-        settled = true;
-        console.info(`${label} completed`);
-        return { ok: true, value };
-    }
-    catch (error) {
-        settled = true;
-        const message = error instanceof Error ? error.message : String(error);
-        if (!message.includes("STALLED after")) {
-            console.warn(`${label} failed`, error);
-        }
-        return { ok: false, step, error };
-    }
-    finally {
-        if (timeoutHandle) {
-            clearTimeout(timeoutHandle);
-        }
-    }
+
+function requiresLoggedInApiCredentials(input: DesktopShellGateInput) {
+    return input.isAuthenticated || Boolean(String(input.accountUserId || "").trim());
 }
+
 export function diagnoseDesktopShellGate(input: DesktopShellGateInput): DesktopShellGateDecision {
     if (!input.authReady) {
         return {
             canRender: false,
             blockedBy: "authReady",
-            detail: `${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell blocked: authReady=false (auth initialization still running)`,
+            detail: `${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell blocked: authReady=false`,
         };
     }
-    const authenticatedShellReady = !input.isAuthenticated
-        || input.authSessionInitialized === true
-        || isDesktopAuthenticatedShellReady({
-            session: input.session,
-            watchdogForced: input.watchdogForced,
-        });
-    if (!authenticatedShellReady) {
-        return {
-            canRender: false,
-            blockedBy: "authSessionInitialized",
-            detail: `${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell blocked: authenticated Supabase session bootstrap still running`,
-        };
+
+    if (requiresLoggedInApiCredentials(input)) {
+        if (!isDesktopApiReady()) {
+            return {
+                canRender: false,
+                blockedBy: "authSessionInitialized",
+                detail: `${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell blocked: waiting for API READY`,
+            };
+        }
+        if (input.authSessionInitialized === false) {
+            return {
+                canRender: false,
+                blockedBy: "authSessionInitialized",
+                detail: `${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell blocked: auth bootstrap not finalized`,
+            };
+        }
     }
+
     if (!input.localBootstrapReady) {
         return {
             canRender: false,
             blockedBy: "localBootstrapReady",
-            detail: `${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell blocked: localBootstrapReady=false (localStorage hydration has not unblocked the shell)`,
+            detail: `${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell blocked: localStorage hydration incomplete`,
         };
     }
+
     return {
         canRender: true,
         blockedBy: null,
         detail: `${DESKTOP_BOOTSTRAP_LOG_PREFIX} shell unblocked`,
     };
 }
+
 export function canRenderDesktopApplicationShell(input: DesktopShellGateInput) {
     const decision = diagnoseDesktopShellGate(input);
-    if (!decision.canRender) {
+    if (decision.canRender) {
+        if (requiresLoggedInApiCredentials(input) && isDesktopApiReady()) {
+            const userId = getDesktopAuthenticatedUserId();
+            if (userId && bootstrapRuntime.shellOpenLoggedForUser !== userId) {
+                logBootstrapMarker(DESKTOP_AUTH_BOOTSTRAP_MARKERS.SHELL_OPEN, { userId });
+                bootstrapRuntime.shellOpenLoggedForUser = userId;
+            }
+        }
+    }
+    else if (decision.detail) {
         console.info(decision.detail);
     }
     return decision.canRender;
 }
+
 export function startDesktopLocalBootstrap(markReady: () => void, hydrate: () => void) {
     console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} localStorageHydration shell unblocked`);
     markReady();
@@ -633,10 +631,49 @@ export function startDesktopLocalBootstrap(markReady: () => void, hydrate: () =>
         }
     });
 }
+
+export async function traceBootstrapStep<T>(
+    step: DesktopBootstrapStep,
+    promise: Promise<T>,
+    timeoutMs = DEFAULT_STEP_TIMEOUT_MS,
+): Promise<{ ok: true; value: T } | { ok: false; step: DesktopBootstrapStep; error: unknown }> {
+    const label = formatStepLabel(step);
+    console.info(`${label} started`);
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+            if (settled) {
+                return;
+            }
+            reject(new Error(`${label} STALLED after ${timeoutMs}ms`));
+        }, timeoutMs);
+    });
+
+    try {
+        const value = await Promise.race([promise, timeoutPromise]);
+        settled = true;
+        console.info(`${label} completed`);
+        return { ok: true, value };
+    }
+    catch (error) {
+        settled = true;
+        console.warn(`${label} failed`, error);
+        return { ok: false, step, error };
+    }
+    finally {
+        if (timeoutHandle) {
+            clearTimeout(timeoutHandle);
+        }
+    }
+}
+
 type BootstrapStepTask = {
     step: DesktopBootstrapStep;
     run: () => Promise<unknown>;
 };
+
 async function runIndependentBootstrapStep(
     step: DesktopBootstrapStep,
     task: () => Promise<unknown>,
@@ -649,10 +686,8 @@ async function runIndependentBootstrapStep(
         return;
     }
     failedSteps.push(step);
-    if (step === "playlists") {
-        console.error(`${formatStepLabel("playlists")} failed — bootstrap continues`, result.error);
-    }
 }
+
 function readCatalogValue<T>(
     results: Array<{ step: DesktopBootstrapStep; ok: boolean; value?: T }>,
     step: DesktopBootstrapStep,
@@ -660,34 +695,37 @@ function readCatalogValue<T>(
     const entry = results.find((item) => item.step === step);
     return entry?.ok ? entry.value : undefined;
 }
-/** Background remote bootstrap — never gates shell readiness or auth session bootstrap. */
+
+/** Remote catalog bootstrap — runs only after API READY. */
 export async function runDesktopRemoteBootstrap(
     userId: string,
     actions: DesktopRemoteBootstrapActions,
-    auth?: DesktopAuthBootstrapConfig,
+    _auth?: DesktopAuthBootstrapConfig,
 ): Promise<DesktopRemoteBootstrapResult> {
-    console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue started for user ${userId || "(missing user id)"}`);
-    if (auth) {
-        const session = await readSupabaseClientSession(auth.supabase);
-        if (!session || !hasBearer(session)) {
-            console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} API credentials not ready — remote bootstrap deferred`);
-            return {
-                completedSteps: [],
-                failedSteps: [],
-                userMusicStateOutcome: "deferred-no-api-credentials",
-                deferred: true,
-            };
-        }
-        console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} API credentials ready (bearer)`);
+    if (!isDesktopApiReady()) {
+        console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} API credentials not ready — remote bootstrap deferred`);
+        return {
+            completedSteps: [],
+            failedSteps: [],
+            userMusicStateOutcome: "deferred-no-api-credentials",
+            deferred: true,
+        };
     }
+
+    console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue started for user ${userId || "(missing user id)"}`);
+    console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} API credentials ready (global bearer)`);
+
     const completedSteps: DesktopBootstrapStep[] = [];
     const failedSteps: DesktopBootstrapStep[] = [];
+
     actions.clearRemovedPlaceholderArtwork();
+
     const catalogTasks: BootstrapStepTask[] = [
         { step: "songLibrary", run: actions.reloadSongLibrary },
         { step: "videoLibrary", run: actions.reloadVideoLibrary },
         { step: "albums", run: () => actions.reloadAlbums(userId) },
     ];
+
     const catalogResults = await Promise.all(catalogTasks.map(async ({ step, run }) => {
         const result = await traceBootstrapStep(step, run());
         if (result.ok) {
@@ -697,38 +735,62 @@ export async function runDesktopRemoteBootstrap(
         failedSteps.push(step);
         return { step, ok: false as const, value: undefined };
     }));
+
     const userMusicStateHandle = startUserMusicStateBootstrapInBackground(actions.reloadUserMusicState, {
         loadedSongs: readCatalogValue(catalogResults, "songLibrary"),
         loadedVideos: readCatalogValue(catalogResults, "videoLibrary"),
         loadedAlbums: readCatalogValue(catalogResults, "albums"),
     });
+
     const userStateTasks: BootstrapStepTask[] = [
         { step: "librarySaves", run: () => actions.reloadLibrarySaves(userId) },
         { step: "playlists", run: () => actions.reloadPlaylists(userId) },
         { step: "artistFollows", run: actions.reloadArtistFollows },
         { step: "songLikes", run: actions.reloadSongLikes },
     ];
+
     if (actions.reloadUserProfile && userId) {
         userStateTasks.unshift({
             step: "profileBootstrap",
             run: () => actions.reloadUserProfile!(userId),
         });
     }
+
     await Promise.all(userStateTasks.map(({ step, run }) =>
         runIndependentBootstrapStep(step, run, completedSteps, failedSteps),
     ));
+
     void traceBootstrapStep("producerData", actions.reloadProducerData()).catch((error) => {
         console.warn(`${formatStepLabel("producerData")} background failed`, error);
     });
-    if (failedSteps.length > 0) {
-        console.warn(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue finished with failures: ${failedSteps.join(", ")}`);
-    }
-    else {
-        console.info(`${DESKTOP_BOOTSTRAP_LOG_PREFIX} queue completed`);
-    }
+
     return {
         completedSteps,
         failedSteps,
         userMusicStateOutcome: userMusicStateHandle.outcome,
     };
 }
+
+/** @deprecated */
+export function createDesktopAuthBootstrapWatchdog(
+    _shouldForce: () => boolean,
+    _onForce: (stalledTask: string) => void,
+    _timeoutMs?: number,
+) {
+    return () => undefined;
+}
+
+/** @deprecated */
+export function forceDesktopAuthBootstrapShellReady(_stalledTask: string) {
+    // no-op
+}
+
+/** @deprecated */
+export const DESKTOP_AUTH_SHELL_WATCHDOG_MS = 10_000;
+
+/** @deprecated */
+export function isDesktopAuthShellWatchdogForced() {
+    return false;
+}
+
+export { isDesktopApiReady, isDesktopAuthenticatedSessionReady, publishDesktopApiCredentials };

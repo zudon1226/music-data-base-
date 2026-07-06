@@ -2,6 +2,11 @@
 
 import type { Session } from "@supabase/supabase-js";
 import {
+    createBlockedProtectedResponse,
+    guardDesktopProtectedAction,
+    isDesktopProtectedActionsEnabled,
+} from "./desktop-protected-action-gate";
+import {
     DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE,
     executeDesktopProtectedRequest,
 } from "./desktop-protected-action-pipeline";
@@ -22,6 +27,11 @@ function logDispatch(step: string, details: Record<string, unknown> = {}) {
 }
 
 async function dispatchProtectedWrite(path: ProtectedWritePath, body: Record<string, unknown>) {
+    if (!guardDesktopProtectedAction(path)) {
+        logDispatch("blocked", { path, reason: "global-session-not-ready" });
+        return createBlockedProtectedResponse();
+    }
+
     logDispatch("click", { path, bodyKeys: Object.keys(body) });
 
     const supabase = getDesktopSupabaseClient();
@@ -34,6 +44,9 @@ async function dispatchProtectedWrite(path: ProtectedWritePath, body: Record<str
     });
 
     if (response.status === 401 || response.status === 494) {
+        if (!isDesktopProtectedActionsEnabled()) {
+            return createBlockedProtectedResponse();
+        }
         logDispatch("401-retry", { path, status: response.status });
         const retry = await executeDesktopProtectedRequest(supabase, path, {
             method: "POST",
@@ -105,7 +118,7 @@ export function dispatchDesktopCreatePlaylist(request: DesktopProductionCreatePl
     return dispatchProtectedWrite("/api/playlists", request);
 }
 
-/** @deprecated — no stale storage hints; pipeline uses live getSession. */
+/** @deprecated — no stale storage hints; pipeline uses global session. */
 export function readDesktopProductionStoredSessionHint() {
     return null;
 }
