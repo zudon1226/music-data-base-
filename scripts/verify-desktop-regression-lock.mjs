@@ -229,6 +229,11 @@ assertNotIncludes(authBootstrapFlow, "watchdogForcedShell", "desktop-auth-bootst
 assertNotIncludes(authBootstrapFlow, "publishDesktopAuthenticatedSessionAfterSignIn", "desktop-auth-bootstrap-flow.ts must not bypass bootstrap on sign-in");
 assertNotIncludes(authBootstrapFlow, "AUTH_DUAL_WAIT_MS", "desktop-auth-bootstrap-flow.ts must not block on auth event timeout");
 assertIncludes(authBootstrapFlow, "resolveBootstrapSession", "desktop-auth-bootstrap-flow.ts linear session resolve");
+assertIncludes(authBootstrapFlow, "refreshSession-once", "desktop-auth-bootstrap-flow.ts single refreshSession");
+assertIncludes(authBootstrapFlow, "bootstrapRuntime.refreshSessionCalled", "desktop-auth-bootstrap-flow.ts refresh once gate");
+assertIncludes(authBootstrapFlow, 'phase === "rate_limited"', "desktop-auth-bootstrap-flow.ts rate-limit stop");
+assertIncludes(authBootstrapFlow, "listenerAttached", "desktop-auth-bootstrap-flow.ts single auth listener");
+assertNotIncludes(authBootstrapFlow, "bootstrapRuntime.settled = false;\n    bootstrapRuntime.setSessionAttempted = false;\n    bootstrapRuntime.refreshAttempted = false;", "desktop-auth-bootstrap-flow.ts must not reset refresh gates on re-entry");
 
 const authenticatedSession = read("lib/desktop-authenticated-session.ts");
 assertExport(authenticatedSession, "publishDesktopApiCredentials", "desktop-authenticated-session.ts");

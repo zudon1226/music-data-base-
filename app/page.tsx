@@ -3512,6 +3512,7 @@ function PageContent() {
     const accountUserIdRef = useRef(accountUserId);
     const userRef = useRef(user);
     const activeUserRef = useRef(activeUser);
+    const authBootstrapOutcomeKeyRef = useRef("");
     authSessionRef.current = authSession;
     accountUserIdRef.current = accountUserId;
     userRef.current = user;
@@ -4888,6 +4889,8 @@ function PageContent() {
         void addUploadedVideo(retryEvent);
     }
     function clearLocalSessionState() {
+        resetDesktopAuthSessionBootstrap();
+        setAuthSessionInitialized(false);
         audioRef.current?.pause();
         mainVideoRef.current?.pause();
         albumUploadUserRef.current = null;
@@ -5789,10 +5792,18 @@ function PageContent() {
             showLibraryFailureToast: () => showToast("Saved library could not load from Supabase.", "error"),
         };
     });
+    const desktopProtectedActionConfigRef = useRef(desktopProtectedActionConfig);
+    desktopProtectedActionConfigRef.current = desktopProtectedActionConfig;
     useEffect(() => {
-        if (authLoading || !isAuthenticated) {
-            resetDesktopAuthSessionBootstrap();
-            setAuthSessionInitialized(false);
+        if (authLoading) {
+            return;
+        }
+        if (!isAuthenticated) {
+            if (authSessionInitialized || isDesktopApiReady()) {
+                resetDesktopAuthSessionBootstrap();
+                setAuthSessionInitialized(false);
+            }
+            authBootstrapOutcomeKeyRef.current = "";
             return;
         }
         const bootstrapUserId = String(accountUserId || "").trim();
@@ -5801,30 +5812,44 @@ function PageContent() {
             return;
         }
         let cancelled = false;
-        void startDesktopAuthSessionBootstrap(desktopProtectedActionConfig, {
+        void startDesktopAuthSessionBootstrap(desktopProtectedActionConfigRef.current, {
             userId: bootstrapUserId,
-            sessionHint: authSessionRef.current ?? authSession,
+            sessionHint: authSessionRef.current,
         })
-            .then((outcome) => {
+            .then(async (outcome) => {
                 if (cancelled) {
                     return;
                 }
-                if (outcome.rateLimited) {
-                    setAuthMessage(outcome.message || DESKTOP_AUTH_RATE_LIMIT_MESSAGE);
+                if (outcome.ready && isDesktopApiReady()) {
+                    authBootstrapOutcomeKeyRef.current = `ready:${bootstrapUserId}`;
+                    setAuthSessionInitialized(true);
+                    return;
                 }
-                setAuthSessionInitialized(Boolean(outcome.ready && isDesktopApiReady()));
-                if (!outcome.ready) {
-                    void supabase.auth.getSession().then(({ data: { session } }) => {
-                        if (!session && isAuthenticated) {
-                            setAuthMessage("Your session could not be restored. Please log in again.");
-                        }
-                    });
+                setAuthSessionInitialized(false);
+                const failKey = `fail:${bootstrapUserId}:${outcome.rateLimited ? "rate" : "session"}`;
+                if (authBootstrapOutcomeKeyRef.current === failKey) {
+                    return;
+                }
+                authBootstrapOutcomeKeyRef.current = failKey;
+                const message = outcome.rateLimited
+                    ? (outcome.message || DESKTOP_AUTH_RATE_LIMIT_MESSAGE)
+                    : "Your session could not be restored. Please log in again.";
+                setAuthMessage(message);
+                if (outcome.showLogin) {
+                    try {
+                        await signOutFromAuthState();
+                    }
+                    catch {
+                        // Login screen is enough if network sign-out is rate-limited.
+                    }
+                    clearLocalSessionState();
+                    setAuthMessage(message);
                 }
             });
         return () => {
             cancelled = true;
         };
-    }, [accountUserId, authLoading, authGateTick, desktopProtectedActionConfig, isAuthenticated]);
+    }, [accountUserId, authLoading, isAuthenticated, signOutFromAuthState]);
     useEffect(() => {
         if (authLoading || !isAuthenticated || !authSessionInitialized || !isDesktopApiReady())
             return;
@@ -5834,7 +5859,7 @@ function PageContent() {
         if (initialDataLoadedKeyRef.current === loadKey || initialDataLoadInFlightKeyRef.current === loadKey)
             return;
         initialDataLoadInFlightKeyRef.current = loadKey;
-        void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions, desktopProtectedActionConfig)
+        void runDesktopRemoteBootstrap(loadKey, initialDataReloadRef.current as DesktopRemoteBootstrapActions, desktopProtectedActionConfigRef.current)
             .then((result) => {
                 if (result.deferred) {
                     initialDataLoadInFlightKeyRef.current = "";
@@ -5861,7 +5886,7 @@ function PageContent() {
             if (initialDataLoadInFlightKeyRef.current === loadKey && initialDataLoadedKeyRef.current !== loadKey)
                 initialDataLoadInFlightKeyRef.current = "";
         };
-    }, [accountUserId, authLoading, authGateTick, authSessionInitialized, isAuthenticated, desktopProtectedActionConfig]);
+    }, [accountUserId, authLoading, authSessionInitialized, isAuthenticated]);
     useEffect(() => {
         if (!desktopActionAuthGuard.hasAccess()) {
             return;
@@ -12992,6 +13017,7 @@ function PageContent() {
                 return;
             }
             markDesktopAuthSignInPending();
+            authBootstrapOutcomeKeyRef.current = "";
             const signedInSession = response.data.session;
             const activeSession = await completeDesktopSignIn(supabase, signedInSession);
             if (!activeSession?.user) {

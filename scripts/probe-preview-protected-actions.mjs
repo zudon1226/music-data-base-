@@ -264,6 +264,58 @@ const firstWriteFailure = writeFailures[0] || protectedCalls.find((item) =>
         || item.httpStatus >= 400),
 );
 
+const authErrorLines = consoleLogs.filter((line) =>
+    /authorization|auth token|missing.*token|invalid.*token|credentials not ready|Log in before|login required/i.test(line),
+);
+const ssoCorsLines = consoleLogs.filter((line) =>
+    /CORS|vercel.*sso|sso.*vercel|Access-Control|abort-no-session/i.test(line),
+);
+const loginFormVisible = await page.locator('input[name="email"]').count();
+const currentUrl = page.url();
+
+console.log("\n=== PRODUCTION CONFIRMATION ===");
+console.log(JSON.stringify({
+    targetUrl: PREVIEW_URL,
+    loginStaysInApp: shellVisible > 0 && loginFormVisible === 0,
+    currentUrl,
+    authErrorLines,
+    ssoCorsLines,
+    actions: {
+        like: actionResults.find((item) => item.action === "Like"),
+        save: actionResults.find((item) => item.action === "Save"),
+        follow: actionResults.find((item) => item.action === "Follow"),
+        playlist: actionResults.find((item) => item.action === "Playlist"),
+        library: actionResults.find((item) => item.action === "Library"),
+    },
+}, null, 2));
+
+if (loginFormVisible > 0 || shellVisible === 0) {
+    console.log("\nLOGIN_DID_NOT_STAY_IN_APP");
+    process.exit(3);
+}
+if (authErrorLines.length > 0 || ssoCorsLines.length > 0) {
+    console.log("\nAUTH_OR_SSO_CORS_ERRORS_DETECTED");
+    process.exit(4);
+}
+
+const requiredWrites = ["Like", "Save", "Follow", "Playlist"];
+const missingWrites = requiredWrites.filter((name) => {
+    const item = actionResults.find((row) => row.action === name);
+    return !item?.requestUrl || item.httpStatus >= 400;
+});
+if (missingWrites.length > 0) {
+    console.log("\nMISSING_WRITE_PROOF", missingWrites);
+    process.exit(5);
+}
+
+const libraryLoad = protectedCalls.find((item) =>
+    /library-saves/.test(item.url) && item.method === "GET" && item.httpStatus === 200,
+);
+if (!libraryLoad) {
+    console.log("\nLIBRARY_LOAD_FAILED");
+    process.exit(6);
+}
+
 if (firstWriteFailure) {
     console.log("\nFIRST_PROTECTED_ACTION_FAILURE");
     console.log(JSON.stringify(firstWriteFailure, null, 2));
