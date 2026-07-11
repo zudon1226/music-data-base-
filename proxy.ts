@@ -1,7 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-/** DESKTOP ONLY — edge proxy excludes API/auth/static routes from all auth handling. */
+/** DESKTOP ONLY — edge proxy runs ONLY on repair-metadata routes.
+ * Supabase Auth (/auth/v1/*) is never proxied; browser talks to *.supabase.co directly.
+ * App API routes under /api/* (except the two matchers below) are also excluded.
+ */
 const REPAIR_METADATA_PATHS = new Set([
     "/api/auth/repair-metadata",
     "/api/platform/repair-auth-metadata",

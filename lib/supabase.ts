@@ -15,6 +15,7 @@ type DesktopSupabaseClientGlobal = typeof globalThis & {
 /**
  * Returns the single desktop Supabase auth client.
  * Browser: one GoTrueClient on globalThis. Server: ephemeral stub per call.
+ * Auth traffic always uses the locked *.supabase.co project URL from createDesktopSupabaseAuthClient.
  */
 export function getDesktopSupabaseClient(): SupabaseClient {
     if (typeof window === "undefined") {
@@ -35,7 +36,9 @@ export const supabase: SupabaseClient = typeof window === "undefined"
         get(_target, prop) {
             const client = getDesktopSupabaseClient();
             const value = Reflect.get(client, prop, client) as unknown;
-            return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(client) : value;
+            return typeof value === "function"
+                ? (value as (...args: unknown[]) => unknown).bind(client)
+                : value;
         },
     });
 

@@ -301,6 +301,30 @@ assertNotIncludes(actionPipeline, "isDesktopVideoUploadLifecycleActive", "deskto
 const authState = read("lib/desktop-auth-state.tsx");
 assertIncludes(authState, "isDesktopVideoUploadLifecycleActive", "desktop-auth-state.tsx upload lifecycle guard");
 
+const supabaseAuthClient = read("lib/supabase-auth-client.ts");
+assertExport(supabaseAuthClient, "createDesktopSupabaseAuthClient", "supabase-auth-client.ts");
+assertExport(supabaseAuthClient, "createDesktopSupabaseServerStubClient", "supabase-auth-client.ts");
+assertIncludes(supabaseAuthClient, "assertDirectSupabaseAuthUrl", "supabase-auth-client.ts direct host guard");
+assertIncludes(supabaseAuthClient, "*.supabase.co", "supabase-auth-client.ts requires supabase.co host");
+assertNotIncludes(supabaseAuthClient, "createSupabaseAuthFetch", "supabase-auth-client.ts must not wrap auth fetch");
+assertNotIncludes(supabaseAuthClient, "fetch: authFetch", "supabase-auth-client.ts must not inject custom fetch");
+assertNotIncludes(supabaseAuthClient, "globalThis.fetch", "supabase-auth-client.ts must not patch global fetch");
+assertIncludes(supabaseAuthClient, "DESKTOP_BROWSER_CLIENT_KEY", "supabase-auth-client.ts single browser client key");
+
+const supabaseBarrel = read("lib/supabase.ts");
+assertExport(supabaseBarrel, "getDesktopSupabaseClient", "supabase.ts");
+assertIncludes(supabaseBarrel, "__mdb_desktop_supabase_client__", "supabase.ts shares single client key");
+
+const supabaseConfig = read("lib/supabase-config.ts");
+assertIncludes(supabaseConfig, "SUPABASE_PROJECT_URL", "supabase-config.ts locked project URL");
+assertIncludes(supabaseConfig, "vercel.app", "supabase-config.ts rejects Vercel site URL for auth");
+assertIncludes(supabaseConfig, "return SUPABASE_PROJECT_URL", "supabase-config.ts pins login URL to project host");
+
+const edgeProxy = read("proxy.ts");
+assertIncludes(edgeProxy, "/api/auth/repair-metadata", "proxy.ts only matches repair routes");
+assertNotIncludes(edgeProxy, '"/auth"', "proxy.ts must not match /auth");
+assertIncludes(edgeProxy, "never proxied", "proxy.ts documents direct Supabase auth");
+
 const scrollCss = read("lib/desktop-content-scroll.ts");
 assertIncludes(scrollCss, "overflow-y: auto", "desktop-content-scroll.ts vertical scroll");
 assertIncludes(scrollCss, "overflow-x: auto", "desktop-content-scroll.ts horizontal scroll");

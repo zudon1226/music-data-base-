@@ -183,7 +183,7 @@ function hasSupabaseProjectHost(url: string) {
     }
 }
 
-/** Browser login client URL — normalizes env and falls back to project ref from anon JWT. */
+/** Browser login client URL — always the locked Supabase project host, never the app/Vercel URL. */
 export function resolveSupabaseLoginUrl() {
     const rawUrl = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
     const anonKey = stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
@@ -197,9 +197,10 @@ export function resolveSupabaseLoginUrl() {
     }
 
     if (!url) {
-        throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing.");
+        // Locked single-project app: fall back to the known project host.
+        return SUPABASE_PROJECT_URL;
     }
-    if (url.includes("digitalmusicdatabase.com")) {
+    if (url.includes("digitalmusicdatabase.com") || url.includes("vercel.app") || url.includes("localhost")) {
         throw new Error(
             `NEXT_PUBLIC_SUPABASE_URL must be your Supabase project URL (*.supabase.co), not the site URL. Current value: ${rawUrl}`,
         );
@@ -209,7 +210,19 @@ export function resolveSupabaseLoginUrl() {
             `NEXT_PUBLIC_SUPABASE_URL must be a Supabase project URL (*.supabase.co). Current value: ${rawUrl}`,
         );
     }
-    return url;
+
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        if (hostname === `${SUPABASE_PROJECT_REF}.supabase.co`) {
+            return SUPABASE_PROJECT_URL;
+        }
+    }
+    catch {
+        return SUPABASE_PROJECT_URL;
+    }
+
+    // Prefer the locked project for this app so auth never targets a wrong/misconfigured host.
+    return SUPABASE_PROJECT_URL;
 }
 
 export function readSupabaseProjectUrl() {
