@@ -5,3 +5,5 @@ node_modules/
 .vercel/
 .next-dev.err.log
 .next-dev.out.log
+.local-secrets/
+backups/owner-user-metadata*

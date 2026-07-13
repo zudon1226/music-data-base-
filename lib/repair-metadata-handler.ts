@@ -7,61 +7,35 @@ import {
 } from "@/lib/server-supabase";
 import { repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
 
-export async function handleRepairMetadataPost(body: Record<string, unknown> = {}) {
-    const email = String(body.email || PLATFORM_OWNER_EMAIL).trim().toLowerCase();
-
-    if (email !== PLATFORM_OWNER_EMAIL) {
-        return {
-            status: 403,
-            body: { error: "Auth metadata repair is limited to the platform owner account." },
-        };
-    }
-
-    const supabase = getSupabaseServerClient();
-    const authUser = await findAdminUserByEmail(supabase, email);
-    if (!authUser?.id) {
-        return {
-            status: 404,
-            body: { error: "Owner account not found." },
-        };
-    }
-
-    const userId = authUser.id;
-    const currentMetadata = (authUser.user_metadata || {}) as Record<string, unknown>;
-    if (!authMetadataNeedsRepair(currentMetadata)) {
-        return {
-            status: 200,
-            body: {
-                ok: true,
-                repaired: false,
-                metadataChanged: false,
-                userId,
-                userMetadata: currentMetadata,
-            },
-        };
-    }
-
-    const repairResult = await repairAuthUserMetadata(supabase, userId);
+/**
+ * Public unauthenticated repair endpoints are permanently disabled.
+ * Oversized Auth metadata must be repaired with the local Admin script:
+ *   node scripts/repair-owner-auth-metadata.mjs
+ *
+ * Authenticated profile updates still go through /api/user-profile and always
+ * write minimal sanitized user_metadata only.
+ */
+export async function handleRepairMetadataPost(_body: Record<string, unknown> = {}) {
     return {
-        status: 200,
+        status: 410,
         body: {
-            ok: true,
-            repaired: repairResult.repaired,
-            metadataChanged: repairResult.metadataChanged,
-            userId,
-            userMetadata: repairResult.userMetadata,
+            ok: false,
+            error: "Public Auth metadata repair endpoints are disabled. Use the local server-only repair script.",
+            script: "scripts/repair-owner-auth-metadata.mjs",
         },
     };
 }
 
 export function handleRepairMetadataGet() {
     return {
-        status: 200,
+        status: 410,
         body: {
-            ok: true,
+            ok: false,
             route: "/api/auth/repair-metadata",
-            methods: ["POST"],
+            methods: [],
+            disabled: true,
             ownerEmail: PLATFORM_OWNER_EMAIL,
+            script: "scripts/repair-owner-auth-metadata.mjs",
         },
     };
 }
@@ -71,5 +45,34 @@ export function handleRepairMetadataError(error: unknown) {
     return {
         status: 500,
         body: { error: getErrorMessage(error) },
+    };
+}
+
+/** Kept for authenticated/internal callers that already hold a service client. */
+export async function repairOwnerAuthMetadataIfNeeded(email = PLATFORM_OWNER_EMAIL) {
+    const normalized = String(email || "").trim().toLowerCase();
+    if (normalized !== PLATFORM_OWNER_EMAIL) {
+        throw new Error("Auth metadata repair is limited to the platform owner account.");
+    }
+    const supabase = getSupabaseServerClient();
+    const authUser = await findAdminUserByEmail(supabase, normalized);
+    if (!authUser?.id) {
+        throw new Error("Owner account not found.");
+    }
+    const currentMetadata = (authUser.user_metadata || {}) as Record<string, unknown>;
+    if (!authMetadataNeedsRepair(currentMetadata)) {
+        return {
+            repaired: false,
+            metadataChanged: false,
+            userId: authUser.id,
+            userMetadata: currentMetadata,
+        };
+    }
+    const repairResult = await repairAuthUserMetadata(supabase, authUser.id);
+    return {
+        repaired: repairResult.repaired,
+        metadataChanged: repairResult.metadataChanged,
+        userId: authUser.id,
+        userMetadata: repairResult.userMetadata,
     };
 }

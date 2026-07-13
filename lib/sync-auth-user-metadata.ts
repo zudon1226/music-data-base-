@@ -1,5 +1,7 @@
 import {
+    assertSafeAuthUserMetadata,
     authMetadataNeedsRepair,
+    buildAuthUserMetadataAdminPatch,
     sanitizeAuthUserMetadata,
 } from "@/lib/auth-user-metadata";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -64,14 +66,15 @@ export async function repairAuthUserMetadata(
     const userResult = await supabase.auth.admin.getUserById(userId);
     const currentMetadata = (userResult.data.user?.user_metadata || {}) as Record<string, unknown>;
     const profileFields = await ensureProfileRow(supabase, userId, patch);
-    const nextMetadata = sanitizeAuthUserMetadata({
+    const nextMetadata = assertSafeAuthUserMetadata({
         displayName: patch.displayName || profileFields.displayName,
         role: patch.role || profileFields.role,
         avatarUrl: patch.avatarUrl || profileFields.avatarUrl,
     });
 
+    const comparableCurrent = sanitizeAuthUserMetadata(currentMetadata);
     const metadataChanged = authMetadataNeedsRepair(currentMetadata)
-        || JSON.stringify(currentMetadata) !== JSON.stringify(nextMetadata);
+        || JSON.stringify(comparableCurrent) !== JSON.stringify(nextMetadata);
 
     if (!metadataChanged) {
         return {
@@ -81,8 +84,9 @@ export async function repairAuthUserMetadata(
         };
     }
 
+    const adminPatch = buildAuthUserMetadataAdminPatch(currentMetadata, nextMetadata);
     const { error } = await supabase.auth.admin.updateUserById(userId, {
-        user_metadata: nextMetadata,
+        user_metadata: adminPatch,
     });
     if (error) {
         throw error;

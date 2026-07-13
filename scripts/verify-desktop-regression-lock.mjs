@@ -320,6 +320,21 @@ assertIncludes(supabaseConfig, "SUPABASE_PROJECT_URL", "supabase-config.ts locke
 assertIncludes(supabaseConfig, "vercel.app", "supabase-config.ts rejects Vercel site URL for auth");
 assertIncludes(supabaseConfig, "return SUPABASE_PROJECT_URL", "supabase-config.ts pins login URL to project host");
 
+const authUserMetadata = read("lib/auth-user-metadata.ts");
+assertIncludes(authUserMetadata, "musicData", "auth-user-metadata.ts forbids musicData");
+assertIncludes(authUserMetadata, "buildAuthUserMetadataAdminPatch", "auth-user-metadata.ts admin null-patch");
+assertIncludes(authUserMetadata, "ALLOWED_AUTH_USER_METADATA_KEYS", "auth-user-metadata.ts allowlist");
+assertExport(authUserMetadata, "buildSignupUserMetadata", "auth-user-metadata.ts");
+assertExport(authUserMetadata, "assertSafeAuthUserMetadata", "auth-user-metadata.ts");
+
+const syncAuthMetadata = read("lib/sync-auth-user-metadata.ts");
+assertIncludes(syncAuthMetadata, "buildAuthUserMetadataAdminPatch", "sync-auth-user-metadata.ts nulls legacy keys");
+assertIncludes(syncAuthMetadata, "assertSafeAuthUserMetadata", "sync-auth-user-metadata.ts size/safe guard");
+
+const repairMetadataHandler = read("lib/repair-metadata-handler.ts");
+assertIncludes(repairMetadataHandler, "status: 410", "repair-metadata-handler.ts public repair disabled");
+assertIncludes(repairMetadataHandler, "scripts/repair-owner-auth-metadata.mjs", "repair-metadata-handler.ts points to local script");
+
 const edgeProxy = read("proxy.ts");
 assertIncludes(edgeProxy, "/api/auth/repair-metadata", "proxy.ts only matches repair routes");
 assertNotIncludes(edgeProxy, '"/auth"', "proxy.ts must not match /auth");
