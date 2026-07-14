@@ -4,6 +4,7 @@
  */
 
 import {
+    describeVideoUploadCompatibilityDebug,
     inspectVideoFileForUploadCompatibility,
     VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE,
     type VideoPublicationCompatibilityStatus,
@@ -57,4 +58,21 @@ export function getDesktopVideoUploadCompatibilityError(codecInfo: DesktopVideoC
     return codecInfo.publicationError || VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE;
 }
 
-export { VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE };
+export function getDesktopVideoUploadCompatibilityDebug(codecInfo: DesktopVideoCodecInfo) {
+    return describeVideoUploadCompatibilityDebug({
+        videoCodecRaw: codecInfo.videoCodecRaw,
+        audioCodecRaw: codecInfo.audioCodecRaw,
+        codecTags: codecInfo.codecTags,
+        container: codecInfo.container,
+        mimeType: codecInfo.mimeType,
+        videoCodec: codecInfo.videoCodec,
+        audioCodec: codecInfo.audioCodec,
+        mobileCompatible: codecInfo.mobileCompatible,
+        compatibilityStatus: codecInfo.compatibilityStatus,
+        compatibilityReason: codecInfo.compatibilityReason,
+        canPublish: codecInfo.canPublish,
+        publicationError: codecInfo.publicationError,
+    });
+}
+
+export { VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE, describeVideoUploadCompatibilityDebug };

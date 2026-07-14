@@ -47,6 +47,7 @@ async function main() {
         classifyVideoUploadForPublication,
         VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE,
         buildCompatibleVideoPublishMetadata,
+        describeVideoUploadCompatibilityDebug,
     } = load();
 
     const h264 = inspectVideoBytesForUploadCompatibility(
@@ -70,10 +71,19 @@ async function main() {
         buildFakeMp4Bytes({ videoTag: "av01", audioTag: "mp4a", withFtyp: true }),
         { mimeType: "video/mp4", fileName: "bad.mp4" },
     );
-    if (!av1.canPublish && av1.mobileCompatible === false && av1.publicationError === VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE) {
+    if (!av1.canPublish && av1.mobileCompatible === false && av1.publicationError === VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE
+        && VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE.includes("unsupported internal codec")) {
         pass("AV1 MP4 rejected with exact user message");
     }
     else fail("AV1 MP4 rejected with exact user message", JSON.stringify(av1));
+
+    if (typeof describeVideoUploadCompatibilityDebug === "function") {
+        const debug = describeVideoUploadCompatibilityDebug(av1);
+        if (debug.compatible === "No" && debug.videoCodec && debug.rejectionReason) {
+            pass("Debug descriptor exposes codecs + rejection reason");
+        }
+        else fail("Debug descriptor exposes codecs + rejection reason", JSON.stringify(debug));
+    }
 
     const unknown = inspectVideoBytesForUploadCompatibility(
         buildFakeMp4Bytes({ videoTag: "", audioTag: "", withFtyp: false }),

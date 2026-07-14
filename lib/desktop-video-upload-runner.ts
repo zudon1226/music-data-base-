@@ -1,7 +1,7 @@
 /** DESKTOP ONLY — orchestrated desktop video upload with real progress + stall timeout. */
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { inspectDesktopVideoFileCodecInfo, getDesktopVideoUploadCompatibilityError } from "./desktop-video-upload-codec";
+import { inspectDesktopVideoFileCodecInfo, getDesktopVideoUploadCompatibilityError, type DesktopVideoCodecInfo } from "./desktop-video-upload-codec";
 import { saveDesktopVideoMetadataWithTransaction } from "./desktop-video-upload-completion";
 import {
     createDesktopVideoUploadProgressController,
@@ -209,6 +209,7 @@ export async function runDesktopVideoUpload(options: {
     pinnedSession?: Session | null;
     videoDetails: DesktopVideoUploadDetails;
     onProgress: (update: DesktopVideoUploadProgressUpdate) => void;
+    onCodecInspected?: (codecInfo: DesktopVideoCodecInfo) => void;
 }): Promise<DesktopVideoUploadRunnerResult> {
     const progress = createDesktopVideoUploadProgressController({
         onUpdate: options.onProgress,
@@ -242,6 +243,7 @@ export async function runDesktopVideoUpload(options: {
             }),
             progress.signal,
         );
+        options.onCodecInspected?.(codecInfo);
         const compatibilityError = getDesktopVideoUploadCompatibilityError(codecInfo);
         if (compatibilityError) {
             throw new Error(compatibilityError);

@@ -53,6 +53,7 @@ import { DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE } from "../lib/desktop-video-u
 import { UPLOAD_REAUTH_MESSAGE } from "../lib/desktop-video-upload-transaction";
 import { isDesktopVideoUploadLifecycleActive } from "../lib/desktop-video-upload-lifecycle";
 import { runDesktopVideoUpload } from "../lib/desktop-video-upload-runner";
+import { getDesktopVideoUploadCompatibilityDebug } from "../lib/desktop-video-upload-codec";
 import { refreshDesktopSupabaseSessionWhenSafe } from "../lib/desktop-upload-auth-session-guard";
 import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
 import { applyLibraryCacheToState, clearLibraryCache, readLibraryCache, serializeLibraryCache, writeLibraryCache } from "../lib/library-storage";
@@ -240,6 +241,11 @@ type VideoUploadDebugInfo = {
     fullInsertPayload: string;
     sourceLocation: string;
     lastUpdated: string;
+    detectedContainer: string;
+    detectedVideoCodec: string;
+    detectedAudioCodec: string;
+    detectedCompatible: string;
+    detectedRejectionReason: string;
 };
 type EditSongForm = Pick<Song, "title" | "artist" | "category" | "type" | "time" | "cover">;
 type EditVideoForm = Pick<VideoUploadForm, "title" | "creator" | "category" | "cover">;
@@ -3719,6 +3725,11 @@ function PageContent() {
         fullInsertPayload: "",
         sourceLocation: "",
         lastUpdated: "",
+        detectedContainer: "",
+        detectedVideoCodec: "",
+        detectedAudioCodec: "",
+        detectedCompatible: "",
+        detectedRejectionReason: "",
     });
     const [albumForm, setAlbumForm] = useState<AlbumUploadForm>({
         title: "",
@@ -3765,6 +3776,11 @@ function PageContent() {
             requestBodyType: "",
             requestBodySize: "",
             sourceLocation: "",
+            detectedContainer: "",
+            detectedVideoCodec: "",
+            detectedAudioCodec: "",
+            detectedCompatible: "",
+            detectedRejectionReason: "",
         });
     }
     function rememberSelectedVideoFile(file: File | null, sourceLocation: string) {
@@ -3881,6 +3897,26 @@ function PageContent() {
                 <strong>{videoUploadDebug.lastError || videoUploadError || "None"}</strong>
               </div>
               <div>
+                <span>CONTAINER:</span>
+                <strong>{videoUploadDebug.detectedContainer || "Not inspected yet"}</strong>
+              </div>
+              <div>
+                <span>VIDEO CODEC:</span>
+                <strong>{videoUploadDebug.detectedVideoCodec || "Not inspected yet"}</strong>
+              </div>
+              <div>
+                <span>AUDIO CODEC:</span>
+                <strong>{videoUploadDebug.detectedAudioCodec || "Not inspected yet"}</strong>
+              </div>
+              <div>
+                <span>COMPATIBLE:</span>
+                <strong>{videoUploadDebug.detectedCompatible || "Not inspected yet"}</strong>
+              </div>
+              <div>
+                <span>REJECTION REASON:</span>
+                <strong>{videoUploadDebug.detectedRejectionReason || "None"}</strong>
+              </div>
+              <div>
                 <span>INSERT USER ID:</span>
                 <strong>{videoUploadDebug.insertUserId || "Not attempted yet"}</strong>
               </div>
@@ -3933,6 +3969,26 @@ function PageContent() {
               <div>
                 <dt>Looks like Vercel function</dt>
                 <dd>{videoUploadDebug.requestLooksLikeVercelFunction ? "Yes" : "No"}</dd>
+              </div>
+              <div>
+                <dt>Container</dt>
+                <dd>{videoUploadDebug.detectedContainer || "Not inspected yet"}</dd>
+              </div>
+              <div>
+                <dt>Video codec</dt>
+                <dd>{videoUploadDebug.detectedVideoCodec || "Not inspected yet"}</dd>
+              </div>
+              <div>
+                <dt>Audio codec</dt>
+                <dd>{videoUploadDebug.detectedAudioCodec || "Not inspected yet"}</dd>
+              </div>
+              <div>
+                <dt>Compatible</dt>
+                <dd>{videoUploadDebug.detectedCompatible || "Not inspected yet"}</dd>
+              </div>
+              <div>
+                <dt>Exact rejection reason</dt>
+                <dd>{videoUploadDebug.detectedRejectionReason || "None"}</dd>
               </div>
               <div>
                 <dt>Source code location</dt>
@@ -10909,6 +10965,18 @@ function PageContent() {
             },
             onProgress: (update) => {
                 applyVideoUploadProgressUpdate(update.status, update.percent);
+            },
+            onCodecInspected: (codecInfo) => {
+                const debug = getDesktopVideoUploadCompatibilityDebug(codecInfo);
+                updateVideoUploadDebug({
+                    currentStep: codecInfo.canPublish ? "Codec inspection passed" : "Codec inspection rejected upload",
+                    detectedContainer: debug.container,
+                    detectedVideoCodec: debug.videoCodec,
+                    detectedAudioCodec: debug.audioCodec,
+                    detectedCompatible: debug.compatible,
+                    detectedRejectionReason: debug.rejectionReason || "",
+                    lastError: codecInfo.canPublish ? "" : (codecInfo.publicationError || debug.rejectionReason),
+                });
             },
         });
         updateVideoUploadDebug({

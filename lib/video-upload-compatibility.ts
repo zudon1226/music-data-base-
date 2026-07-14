@@ -16,7 +16,7 @@ export type VideoPublicationCompatibilityStatus =
     | "unknown";
 
 export const VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE =
-    "This video cannot be published yet because it is not compatible with all supported devices. Upload an MP4 encoded with H.264 video and AAC audio.";
+    "This MP4 file uses an unsupported internal codec. Files downloaded from the same platform may still use different codecs. Convert this video to H.264 video with AAC audio, then upload it again.";
 
 const VIDEO_CODEC_TAGS = ["avc1", "avc2", "avc3", "hvc1", "hev1", "av01", "vp09", "vp08", "mp4v"] as const;
 const AUDIO_CODEC_TAGS = ["mp4a", "ac-3", "ec-3", "Opus", "fLaC"] as const;
@@ -112,6 +112,15 @@ export function classifyVideoUploadForPublication(input: {
     const positivelyBadAudio = ["ac-3", "ec-3", "opus", "flac", "vorbis"].includes(audioCanon);
 
     if (positivelyBadVideo || positivelyBadAudio) {
+        const reason = videoCanon === "av1"
+            ? "Video stream is AV1 (av01); only H.264/AVC (avc1) is accepted."
+            : videoCanon === "hevc"
+                ? "Video stream is HEVC/H.265; only H.264/AVC (avc1) is accepted."
+                : videoCanon === "vp9" || videoCanon === "vp8"
+                    ? `Video stream is ${videoCanon.toUpperCase()}; only H.264/AVC (avc1) is accepted.`
+                    : positivelyBadAudio
+                        ? `Audio stream is ${audioCanon || audioCodecRaw || "unsupported"}; only AAC (mp4a) is accepted.`
+                        : `Detected codecs ${[videoCanon || videoCodecRaw, audioCanon || audioCodecRaw].filter(Boolean).join(" / ")} are not H.264/AAC.`;
         return {
             videoCodecRaw,
             audioCodecRaw,
@@ -122,7 +131,7 @@ export function classifyVideoUploadForPublication(input: {
             audioCodec: audioCanon || audioCodecRaw || "unknown",
             mobileCompatible: false,
             compatibilityStatus: "conversion_required",
-            compatibilityReason: `Detected codecs ${[videoCanon || videoCodecRaw, audioCanon || audioCodecRaw].filter(Boolean).join(" / ")} are not H.264/AAC.`,
+            compatibilityReason: reason,
             canPublish: false,
             publicationError: VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE,
         };
@@ -254,4 +263,17 @@ export function assertInspectionCanPublish(inspection: VideoUploadCompatibilityI
     if (!inspection.canPublish || inspection.compatibilityStatus !== "compatible" || inspection.mobileCompatible !== true) {
         throw new Error(inspection.publicationError || VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE);
     }
+}
+
+/** Debug panel fields for upload UI — always from byte inspection, never extension alone. */
+export function describeVideoUploadCompatibilityDebug(inspection: VideoUploadCompatibilityInspection) {
+    return {
+        container: inspection.container || "unknown",
+        videoCodec: inspection.videoCodecRaw || inspection.videoCodec || "unknown",
+        audioCodec: inspection.audioCodecRaw || inspection.audioCodec || "unknown",
+        compatible: inspection.canPublish ? "Yes" : "No",
+        rejectionReason: inspection.canPublish
+            ? ""
+            : (inspection.compatibilityReason || VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE),
+    };
 }

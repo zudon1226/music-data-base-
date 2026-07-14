@@ -1,5 +1,5 @@
 {
-  "passed": 7,
+  "passed": 8,
   "failed": 0,
   "results": [
     {
@@ -14,6 +14,11 @@
     },
     {
       "name": "AV1 MP4 rejected with exact user message",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Debug descriptor exposes codecs + rejection reason",
       "ok": true,
       "detail": ""
     },

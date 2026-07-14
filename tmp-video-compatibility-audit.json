@@ -1,10 +1,28 @@
 {
-  "total": 5,
+  "total": 6,
   "compatible": 1,
   "unknown": 1,
-  "unsupported": 3,
+  "unsupported": 4,
   "missingStoragePath": 0,
   "reencodeRequired": [
+    {
+      "id": "a360199c-741f-4254-a6f6-cf3f3294945f",
+      "title": "Big Business",
+      "storagePathPresent": true,
+      "storagePath": "33564e29-6f65-4efd-8a27-6b58bc45a455/1784041002361-big-business.mp4",
+      "playableUrlObtainable": true,
+      "mimeType": "video/mp4",
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "mobileCompatibleDb": true,
+      "desktopCompatible": false,
+      "androidCompatible": false,
+      "iphoneCompatible": false,
+      "reencodeRequired": true,
+      "reason": "Stored codecs h264/aac are not H.264/AAC.",
+      "playableUrlPreview": "https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4efd-8a27-6b58bc45a455/1784041002"
+    },
     {
       "id": "10b58f50-e104-4314-8b8c-72b1198296a5",
       "title": "Tyrant",
@@ -62,6 +80,24 @@
   ],
   "labeledAv1WithoutEvidence": [],
   "rows": [
+    {
+      "id": "a360199c-741f-4254-a6f6-cf3f3294945f",
+      "title": "Big Business",
+      "storagePathPresent": true,
+      "storagePath": "33564e29-6f65-4efd-8a27-6b58bc45a455/1784041002361-big-business.mp4",
+      "playableUrlObtainable": true,
+      "mimeType": "video/mp4",
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "mobileCompatibleDb": true,
+      "desktopCompatible": false,
+      "androidCompatible": false,
+      "iphoneCompatible": false,
+      "reencodeRequired": true,
+      "reason": "Stored codecs h264/aac are not H.264/AAC.",
+      "playableUrlPreview": "https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4efd-8a27-6b58bc45a455/1784041002"
+    },
     {
       "id": "77a7703b-8b03-4ef7-8766-dcf41bae749d",
       "title": "They don't know",
