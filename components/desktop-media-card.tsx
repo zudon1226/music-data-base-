@@ -311,7 +311,7 @@ export function DesktopVideoMediaCard({
                     <Film size={34} />
                 </button>
                 {state.mobileIncompatible ? (
-                    <span className="video-compat-badge">Mobile unsupported</span>
+                    <span className="video-compat-badge">Conversion required</span>
                 ) : null}
             </div>
 

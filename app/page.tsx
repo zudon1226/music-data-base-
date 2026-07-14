@@ -31,6 +31,20 @@ import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-ap
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { isSongQueueItem, isVideoQueueItem, normalizeSongToQueueItem, normalizeVideoToQueueItem, songToQueueMedia, videoToQueueMedia, type QueueMediaItem } from "../lib/desktop-media-queue";
 import { useDesktopMediaQueue } from "../lib/use-desktop-media-queue";
+import {
+    buildSharedVideoPlayerConfig,
+    getVideoPlaybackUrl as getCanonicalVideoPlaybackUrl,
+    normalizeCanonicalVideo,
+    probeBrowserMp4H264AacSupport,
+    assessUploadCompatibility,
+    classifyVideoPlaybackFailure,
+    AV1_DEVICE_UNSUPPORTED_MESSAGE,
+    MISSING_VIDEO_URL_MESSAGE,
+    VIDEO_UNKNOWN_PLAYBACK_ERROR_MESSAGE,
+    isAv1Codec,
+    isPositivelyBrowserUnsupportedVideoCodec,
+    type VideoPlaybackFailure,
+} from "../lib/canonical-video";
 import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { describeStorageUploadAuth } from "../lib/supabase-storage-upload";
@@ -115,6 +129,13 @@ type VideoItem = {
     audio_codec?: string;
     mobileCompatible?: boolean | null;
     mobile_compatible?: boolean | null;
+    mimeType?: string;
+    container?: string;
+    playableUrl?: string;
+    compatibilityReason?: string;
+    mediaType?: "video";
+    creatorName?: string;
+    duration?: number | null;
     thumbnail_url?: string;
     uploaded: string;
     views: number;
@@ -1060,7 +1081,7 @@ const SONGS_STORAGE_BUCKET = "songs";
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
 const MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE = "Mobile compatible video required: MP4 H.264 video with AAC audio.";
-const AV1_MOBILE_VIDEO_WARNING_MESSAGE = "This video uses AV1 codec and may not play on iPhone. Re-upload as MP4 H.264 video with AAC audio.";
+const AV1_MOBILE_VIDEO_WARNING_MESSAGE = AV1_DEVICE_UNSUPPORTED_MESSAGE;
 const VIDEO_UPLOAD_CODEC_GUIDANCE = "MP4 required. For iPhone/mobile playback, use H.264 video with AAC audio. Some downloaded MP4 files may need conversion before upload. MP4 alone does not guarantee mobile playback. Some MP4 files use AV1 codec, which may play on desktop but fail on iPhone. Use H.264/AAC.";
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
@@ -1957,11 +1978,16 @@ const MOBILE_H264_AAC_CANPLAY_CANDIDATES = [
     'video/mp4; codecs="avc1, mp4a"',
 ];
 function isMobileCompatibleCodec(videoCodec: string, audioCodec: string) {
-    const normalizedVideo = videoCodec.trim().toLowerCase();
-    const normalizedAudio = audioCodec.trim().toLowerCase();
-    const videoCompatible = !normalizedVideo || ["avc1", "avc2", "avc3"].includes(normalizedVideo);
-    const audioCompatible = !normalizedAudio || normalizedAudio === "mp4a";
-    return videoCompatible && audioCompatible;
+    if (!videoCodec.trim() && !audioCodec.trim()) {
+        // No positive codec evidence — treat as not proven incompatible.
+        return true;
+    }
+    return assessUploadCompatibility({
+        mimeType: "video/mp4",
+        container: "mp4",
+        videoCodec,
+        audioCodec,
+    }).status !== "unsupported";
 }
 function isMobileVideoUrlLikelyIncompatible(url: string) {
     const extension = getVideoUrlExtension(url);
@@ -2070,27 +2096,36 @@ function shouldBlockMobileVideoPlayback(url: string, video?: Partial<VideoItem> 
     if (!isMobilePlaybackEnvironment() || !url)
         return false;
     const assessment = assessMobileVideoCompatibility(video, url);
-    if (assessment.compatible === false)
+    // Only block when codecs were positively detected as incompatible.
+    if (assessment.compatible === false && assessment.reason === "codec")
+        return true;
+    if (assessment.compatible === false && assessment.reason === "stored")
         return true;
     if (assessment.compatible === true)
         return false;
-    return !canBrowserPlayVideoUrl(url, video, videoElement);
+    // Unknown / delayed Safari metadata must not permanently block playback.
+    const support = probeBrowserVideoCanPlayType(url, video, videoElement)
+        || probeBrowserMp4H264AacSupport(videoElement);
+    if (support === "") {
+        return false;
+    }
+    return false;
 }
 function getMobileVideoPlaybackDiagnosticMessage(video: Partial<VideoItem> | null | undefined, playbackUrl: string, errorCode?: number | null) {
-    const assessment = assessMobileVideoCompatibility(video, playbackUrl);
-    if (assessment.compatible === false) {
-        return getMobileVideoCompatibilityWarningText(video, playbackUrl);
+    const classified = classifyVideoPlaybackFailure({
+        playableUrl: playbackUrl,
+        videoUrl: video?.videoUrl || video?.video_url || "",
+        storagePath: video?.storagePath || video?.storage_path || "",
+        videoCodec: video?.videoCodec || video?.video_codec || "",
+        audioCodec: video?.audioCodec || video?.audio_codec || "",
+        mediaErrorCode: errorCode ?? null,
+        canPlayType: playbackUrl ? probeBrowserVideoCanPlayType(playbackUrl, video) : "",
+        sourceAssigned: Boolean(playbackUrl),
+    });
+    if (classified) {
+        return classified.message;
     }
-    const canPlaySupport = probeBrowserVideoCanPlayType(playbackUrl, video);
-    if (canPlaySupport === "") {
-        return "This video format is not supported on this mobile browser. Re-upload as MP4 H.264/AAC if needed.";
-    }
-    if (errorCode === 4) {
-        return isVideoMarkedMobileIncompatible(video)
-            ? getMobileVideoCompatibilityWarningText(video, playbackUrl)
-            : "This video could not be decoded on this device.";
-    }
-    return "Video playback could not start. Check console diagnostics.";
+    return VIDEO_UNKNOWN_PLAYBACK_ERROR_MESSAGE;
 }
 function findAsciiTagsInBytes(bytes: Uint8Array, tags: string[]) {
     const found = new Set<string>();
@@ -2302,35 +2337,27 @@ async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>,
     return primaryProbe;
 }
 function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown> | null) {
-    if (!video)
-        return "";
-    const record = video as Record<string, unknown>;
-    const directUrl = ["playableUrl", "video_url", "file_url", "url", "public_url", "videoUrl"]
-        .map((key) => record[key])
-        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
-    const storagePath = ["storage_path", "storagePath"]
-        .map((key) => record[key])
-        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
-    if (directUrl) {
-        const cleanUrl = directUrl.trim();
-        if (isPublicSupabaseVideoUrl(cleanUrl)) {
-            const publicUrlStoragePath = getVideoStoragePathFromPublicUrl(cleanUrl);
-            const cleanStoragePath = normalizeVideoStoragePath(storagePath || publicUrlStoragePath);
-            return cleanStoragePath ? getVideoPublicUrlFromStoragePath(cleanStoragePath) : cleanUrl;
-        }
-        if (isLikelyStoragePath(cleanUrl))
-            return getVideoPublicUrlFromStoragePath(cleanUrl);
-        if (!isBlockedVideoPlaybackUrl(cleanUrl))
-            return cleanUrl;
-        if (storagePath)
-            return getVideoPublicUrlFromStoragePath(storagePath);
-        // Queue may still carry a signed/direct URL that should not be discarded when no storage path exists.
-        if (/^https?:\/\//i.test(cleanUrl) && !cleanUrl.includes("/api/video-upload") && !cleanUrl.includes("/api/upload-video"))
-            return cleanUrl;
+    return getCanonicalVideoPlaybackUrl(video);
+}
+/** Keep one shared <video>/<source> pair in sync without clobbering an identical loading/playing URL. */
+function syncSharedVideoElementSource(video: HTMLVideoElement, nextUrl: string) {
+    const cleanUrl = String(nextUrl || "").trim();
+    if (!cleanUrl)
+        return false;
+    const source = video.querySelector("source");
+    const current = (source?.getAttribute("src") || video.currentSrc || video.getAttribute("src") || "").trim();
+    if (current && current.split("?")[0] === cleanUrl.split("?")[0]) {
+        return false;
     }
-    if (!storagePath)
-        return "";
-    return getVideoPublicUrlFromStoragePath(storagePath);
+    if (source) {
+        source.setAttribute("src", cleanUrl);
+        video.removeAttribute("src");
+    }
+    else {
+        video.src = cleanUrl;
+    }
+    video.load();
+    return true;
 }
 function getStringField(record: Record<string, unknown>, keys: string[]) {
     for (const key of keys) {
@@ -2357,33 +2384,25 @@ function isUuid(value: string) {
 }
 function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
     const record = video as Record<string, unknown>;
-    const title = getStringField(record, ["title", "name"]) || "Untitled video";
-    const artist = getStringField(record, ["artist", "artist_name", "producer_name", "creator", "description", "producer"]) ||
-        "Unknown creator";
-    const producerName = getStringField(record, ["producer_name", "producer"]);
-    const rawVideoUrl = getStringField(record, ["playableUrl", "video_url", "file_url", "url", "public_url", "videoUrl"]);
-    const coverUrl = getArtworkUrl(getStringField(record, ["cover_url", "cover_image_url", "thumbnail_url", "cover", "poster"]));
-    const storagePath = getStringField(record, ["storagePath", "storage_path"]);
-    const videoCodec = getStringField(record, ["videoCodec", "video_codec"]);
-    const audioCodec = getStringField(record, ["audioCodec", "audio_codec"]);
-    const rawMobileCompatible = record.mobileCompatible ?? record.mobile_compatible;
-    const mobileCompatible = typeof rawMobileCompatible === "boolean" ? rawMobileCompatible : null;
-    const videoUrl = getVideoPlaybackUrl({ playableUrl: rawVideoUrl, video_url: rawVideoUrl, storage_path: storagePath });
-    if (!videoUrl) {
+    const canonical = normalizeCanonicalVideo(record, { previous: record });
+    const producerName = getStringField(record, ["producer_name", "producer"]) || "";
+    const artist = canonical.creatorName;
+    if (!canonical.playableUrl && !canonical.videoUrl) {
         console.warn("[video normalize] no playable URL", {
-            id: getStringField(record, ["id"]),
-            title,
-            video_url: rawVideoUrl,
-            storage_path: storagePath,
+            id: canonical.id,
+            title: canonical.title,
+            video_url: getStringField(record, ["video_url", "videoUrl", "playableUrl"]),
+            storage_path: canonical.storagePath,
         });
     }
-    const id = getStringField(record, ["id"]) || videoUrl || storagePath || createId(title);
     return {
         ...video,
-        id,
-        title,
+        id: canonical.id,
+        title: canonical.title,
         creator: artist,
+        creatorName: artist,
         artistName: artist,
+        mediaType: "video",
         artistId: getStringField(record, ["artistId", "artist_id", "user_id", "ownerId"]),
         producer: producerName,
         producerName,
@@ -2392,23 +2411,28 @@ function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
         beatId: getStringField(record, ["beatId", "beat_id"]),
         category: getStringField(record, ["category", "type"]) || "Music Video",
         description: getStringField(record, ["description", "artist", "artist_name", "producer_name"]) || artist,
-        cover: coverUrl,
-        cover_url: coverUrl,
-        thumbnail_url: coverUrl,
-        videoUrl,
-        video_url: videoUrl,
-        url: getStringField(record, ["url"]) || videoUrl,
-        file_url: getStringField(record, ["file_url"]) || videoUrl,
-        public_url: getStringField(record, ["public_url"]) || videoUrl,
-        storagePath,
-        storage_path: storagePath,
+        cover: canonical.coverUrl,
+        cover_url: canonical.coverUrl,
+        thumbnail_url: canonical.coverUrl,
+        videoUrl: canonical.videoUrl || canonical.playableUrl,
+        video_url: canonical.videoUrl || canonical.playableUrl,
+        playableUrl: canonical.playableUrl || canonical.videoUrl,
+        url: getStringField(record, ["url"]) || canonical.playableUrl || canonical.videoUrl,
+        file_url: getStringField(record, ["file_url"]) || canonical.playableUrl || canonical.videoUrl,
+        public_url: getStringField(record, ["public_url"]) || canonical.videoUrl || canonical.playableUrl,
+        storagePath: canonical.storagePath,
+        storage_path: canonical.storagePath,
         uploaded: getStringField(record, ["uploaded"]) || formatVideoCreatedAt(getStringField(record, ["created_at"])),
-        videoCodec,
-        video_codec: videoCodec,
-        audioCodec,
-        audio_codec: audioCodec,
-        mobileCompatible,
-        mobile_compatible: mobileCompatible,
+        videoCodec: canonical.videoCodec,
+        video_codec: canonical.videoCodec,
+        audioCodec: canonical.audioCodec,
+        audio_codec: canonical.audioCodec,
+        mimeType: canonical.mimeType,
+        container: canonical.container,
+        mobileCompatible: canonical.mobileCompatible,
+        mobile_compatible: canonical.mobileCompatible,
+        compatibilityReason: canonical.compatibilityReason,
+        duration: canonical.duration,
         views: getNumberField(record, ["views", "plays"]),
         likes: getNumberField(record, ["likes"]),
         likedByUser: Boolean(record.likedByUser || record.liked_by_user),
@@ -2419,9 +2443,14 @@ function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
 function normalizeVideoForPlayback(video: VideoItem | Record<string, unknown>) {
     return normalizeVideo(video);
 }
-function isVideoMarkedMobileIncompatible(_video: Partial<VideoItem> | null | undefined) {
-    // Cards must not show MOBILE UNSUPPORTED from stored/probed state.
-    return false;
+function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | undefined) {
+    if (!video) return false;
+    const codec = String(video.videoCodec || video.video_codec || "").trim();
+    if (isAv1Codec(codec) || isPositivelyBrowserUnsupportedVideoCodec(codec)) {
+        return true;
+    }
+    const stored = video.mobileCompatible ?? video.mobile_compatible;
+    return stored === false;
 }
 function getStoredMobileCompatibility(video: Partial<VideoItem> | null | undefined) {
     return video?.mobileCompatible ?? video?.mobile_compatible ?? null;
@@ -2853,15 +2882,27 @@ function getAudioFileError(file: File | null) {
 }
 function getVideoFileError(file: File | null) {
     if (!file)
-        return "Choose a video file.";
+        return "Choose an MP4 video file (H.264 + AAC).";
     const extension = getFileExtension(file.name);
-    const hasAllowedType = file.type ? file.type.toLowerCase().startsWith("video/") : false;
+    const mime = (file.type || "").toLowerCase();
+    const hasAllowedType = mime ? mime.startsWith("video/") : false;
     const hasAllowedExtension = ACCEPTED_VIDEO_EXTENSIONS.has(extension);
     if (!hasAllowedType && !hasAllowedExtension) {
-        return "Only video files can be uploaded.";
+        return "Only video files can be uploaded. Prefer MP4 (H.264 + AAC) for iPhone/Android.";
     }
     if (file.size > MAX_VIDEO_SIZE) {
         return VIDEO_UPLOAD_LIMIT_MESSAGE;
+    }
+    // Extension alone is never treated as fully compatible — codec sniff runs before upload.
+    if (extension && extension !== "mp4" && extension !== "m4v") {
+        const assessed = assessUploadCompatibility({
+            mimeType: mime,
+            fileName: file.name,
+            container: extension,
+        });
+        if (assessed.status === "unsupported") {
+            return assessed.reason;
+        }
     }
     return "";
 }
@@ -4085,6 +4126,7 @@ function PageContent() {
     const [forcedQueuePlayableUrl, setForcedQueuePlayableUrl] = useState("");
     const [videoAutoplayRequestId, setVideoAutoplayRequestId] = useState("");
     const [videoPlaying, setVideoPlaying] = useState(false);
+    const [videoPlaybackUiFailure, setVideoPlaybackUiFailure] = useState<VideoPlaybackFailure | null>(null);
     const [videoProgress, setVideoProgress] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
     const [videoVolume, setVideoVolume] = useState(1);
@@ -6615,6 +6657,9 @@ function PageContent() {
         && Boolean(activeVideoPlaybackUrl)
         && shouldBlockMobileVideoPlayback(activeVideoPlaybackUrl, activeVideo);
     useEffect(() => {
+        setVideoPlaybackUiFailure(null);
+    }, [activeVideo?.id, activeVideoPlaybackUrl]);
+    useEffect(() => {
         let cancelled = false;
         let snapshotTimeout: ReturnType<typeof setTimeout> | null = null;
         function queueMobileDebugSnapshot(nextDebug: MobileVideoDebugState) {
@@ -6736,11 +6781,9 @@ function PageContent() {
             return;
         if (videoAutoplayRequestId === activeVideo.id)
             return;
-        if (mainVideo.getAttribute("src") !== activeVideoPlaybackUrl) {
+        if (mainVideo.getAttribute("src") !== activeVideoPlaybackUrl && mainVideo.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
             mainVideo.pause();
-            mainVideo.removeAttribute("src");
-            mainVideo.src = activeVideoPlaybackUrl;
-            mainVideo.load();
+            syncSharedVideoElementSource(mainVideo, activeVideoPlaybackUrl);
         }
         mainVideo.autoplay = false;
         logVideoElementState("active video source sync", mainVideo);
@@ -6754,10 +6797,8 @@ function PageContent() {
         if (audioRef.current && !audioRef.current.paused) {
             audioRef.current.pause();
         }
-        if (video.getAttribute("src") !== activeVideoPlaybackUrl) {
-            video.removeAttribute("src");
-            video.src = activeVideoPlaybackUrl;
-            video.load();
+        if (video.getAttribute("src") !== activeVideoPlaybackUrl && video.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
+            syncSharedVideoElementSource(video, activeVideoPlaybackUrl);
         }
         video.muted = false;
         video.autoplay = false;
@@ -9000,9 +9041,8 @@ function PageContent() {
         }
         setActiveMediaType("video");
         setActiveMedia({ type: "video", item: activeVideo });
-        if (video.getAttribute("src") !== activeVideoPlaybackUrl) {
-            video.src = activeVideoPlaybackUrl;
-            video.load();
+        if (video.getAttribute("src") !== activeVideoPlaybackUrl && video.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
+            syncSharedVideoElementSource(video, activeVideoPlaybackUrl);
         }
         video.setAttribute("playsinline", "");
         video.setAttribute("webkit-playsinline", "");
@@ -9171,10 +9211,9 @@ function PageContent() {
         setIsPlaying(false);
         setActiveMediaType("video");
         setActiveMedia({ type: "video", item: activeVideo });
-        if (video.getAttribute("src") !== activeVideoPlaybackUrl) {
+        if (video.getAttribute("src") !== activeVideoPlaybackUrl && video.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
             video.pause();
-            video.src = activeVideoPlaybackUrl;
-            video.load();
+            syncSharedVideoElementSource(video, activeVideoPlaybackUrl);
         }
         video.setAttribute("playsinline", "");
         video.setAttribute("webkit-playsinline", "");
@@ -14425,65 +14464,191 @@ function PageContent() {
     function renderSharedVideoPlayer() {
         if (!activeVideo)
             return null;
-        const showMobileIncompatibleFallback = shouldBlockActiveMobileVideoPlayback;
-        const showMobileCompatibilityWarning = isVideoMarkedMobileIncompatible(activeVideo);
-        const mobileCompatibilityMessage = getMobileVideoCompatibilityWarningText(activeVideo, activeVideoPlaybackUrl || "");
+        const videoCodec = String(activeVideo.videoCodec || activeVideo.video_codec || "").trim();
+        const videoUrl = String(activeVideo.videoUrl || activeVideo.video_url || "").trim();
+        const storagePath = String(activeVideo.storagePath || activeVideo.storage_path || "").trim();
+        const hasAssignableUrl = Boolean(activeVideoPlaybackUrl || videoUrl || storagePath);
+        const preflightFailure = classifyVideoPlaybackFailure({
+            playableUrl: activeVideoPlaybackUrl,
+            videoUrl,
+            storagePath,
+            videoCodec,
+            audioCodec: activeVideo.audioCodec || activeVideo.audio_codec || "",
+            canPlayType: typeof document !== "undefined"
+                ? probeBrowserVideoCanPlayType(activeVideoPlaybackUrl, activeVideo)
+                : "",
+            sourceAssigned: hasAssignableUrl,
+        });
+        const playbackFailure: VideoPlaybackFailure | null = (() => {
+            if (videoPlaybackUiFailure) {
+                // Never allow a temporary probe to reclassify a present URL as missing-url.
+                if (videoPlaybackUiFailure.kind === "missing-url" && hasAssignableUrl) {
+                    return classifyVideoPlaybackFailure({
+                        playableUrl: activeVideoPlaybackUrl,
+                        videoUrl,
+                        storagePath,
+                        videoCodec,
+                        mediaErrorCode: 4,
+                        sourceAssigned: true,
+                    }) || {
+                        kind: "unsupported-codec" as const,
+                        message: isAv1Codec(videoCodec) ? AV1_DEVICE_UNSUPPORTED_MESSAGE : AV1_MOBILE_VIDEO_WARNING_MESSAGE,
+                        hasAssignableUrl: true,
+                    };
+                }
+                return videoPlaybackUiFailure;
+            }
+            if (!hasAssignableUrl || !activeVideoPlaybackUrl) {
+                return preflightFailure?.kind === "missing-url"
+                    ? preflightFailure
+                    : { kind: "missing-url" as const, message: MISSING_VIDEO_URL_MESSAGE, hasAssignableUrl: false };
+            }
+            if (shouldBlockActiveMobileVideoPlayback || (preflightFailure?.kind === "unsupported-codec" && mobilePlaybackEnvironment)) {
+                if (preflightFailure?.kind === "unsupported-codec") {
+                    return preflightFailure;
+                }
+                return {
+                    kind: "unsupported-codec" as const,
+                    message: getMobileVideoCompatibilityWarningText(activeVideo, activeVideoPlaybackUrl),
+                    hasAssignableUrl: true,
+                };
+            }
+            return null;
+        })();
+
+        const showMissingUrl = playbackFailure?.kind === "missing-url";
+        const showUnsupportedCodec = playbackFailure?.kind === "unsupported-codec";
+        const showNetworkError = playbackFailure?.kind === "network-error";
+        const showUnknownError = playbackFailure?.kind === "unknown-playback-error";
+        const showVideoElement = Boolean(activeVideoPlaybackUrl) && !showMissingUrl && !showUnsupportedCodec;
+
         return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
-        {showMobileIncompatibleFallback ? (<div className="video-mobile-incompatible-panel">
+        {showUnsupportedCodec ? (<div className="video-mobile-incompatible-panel" data-playback-failure="unsupported-codec">
             <Film size={42}/>
-            <strong>Mobile incompatible video</strong>
-            <span>{mobileCompatibilityMessage}</span>
+            <strong>Unsupported codec on this device</strong>
+            <span>{playbackFailure?.message || AV1_DEVICE_UNSUPPORTED_MESSAGE}</span>
+            <small>URL and storage path are still saved. Conversion to H.264/AAC MP4 is required for iPhone playback.</small>
             {renderVideoPlaybackDebugSection()}
           </div>) : null}
-        {activeVideoPlaybackUrl && !showMobileIncompatibleFallback ? (<video key={activeVideo.id || activeVideoPlaybackUrl} ref={mainVideoRef} controls src={activeVideoPlaybackUrl} muted={false} autoPlay={false} playsInline preload="metadata" poster={activeVideo.cover} onClick={() => void handleNativeVideoTap()} onLoadedMetadata={(event) => {
-                updateVideoDuration(event);
-                logVideoElementState("loadedmetadata event", event.currentTarget);
-            }} onDurationChange={(event) => {
-                updateVideoDuration(event);
-                logVideoElementState("durationchange event", event.currentTarget);
-            }} onCanPlay={(event) => {
-                logVideoElementState("canplay event", event.currentTarget);
-                handleVideoCanPlay();
-            }} onCanPlayThrough={(event) => {
-                logVideoElementState("canplaythrough event", event.currentTarget);
-            }} onPlaying={(event) => {
-                logVideoElementState("playing event", event.currentTarget);
-            }} onStalled={(event) => {
-                logVideoElementState("stalled event", event.currentTarget);
-            }} onWaiting={(event) => {
-                logVideoElementState("waiting event", event.currentTarget);
-            }} onTimeUpdate={updateVideoProgress} onPlay={handleVideoPlay} onPause={(event) => {
-                logVideoElementState("pause listener event", event.currentTarget);
-                handleVideoPause();
-            }} onEnded={handleVideoEnded} onError={(event) => {
-                logVideoElementState("error event", event.currentTarget, {
-                    exactError: event.currentTarget.error?.message || "",
-                });
-                console.log("MEDIA ERROR", event.currentTarget.error);
-                console.log("MEDIA CODE", event.currentTarget.error?.code);
-                console.log("MEDIA MESSAGE", event.currentTarget.error?.message);
-                if (mobilePlaybackEnvironment && event.currentTarget.error?.code === 4) {
+        {showNetworkError ? (<div className="video-mobile-incompatible-panel" data-playback-failure="network-error">
+            <Film size={42}/>
+            <strong>Network / storage error</strong>
+            <span>{playbackFailure?.message}</span>
+            {renderVideoPlaybackDebugSection()}
+          </div>) : null}
+        {showUnknownError ? (<div className="video-mobile-incompatible-panel" data-playback-failure="unknown-playback-error">
+            <Film size={42}/>
+            <strong>Playback error</strong>
+            <span>{playbackFailure?.message}</span>
+            {renderVideoPlaybackDebugSection()}
+          </div>) : null}
+        {showVideoElement ? (() => {
+            const playerConfig = buildSharedVideoPlayerConfig({
+                poster: activeVideo.cover || activeVideo.cover_url || "",
+                mimeType: activeVideo.mimeType || "video/mp4",
+                requireCrossOrigin: false,
+            });
+            return (<video
+                key={activeVideo.id || activeVideoPlaybackUrl}
+                ref={mainVideoRef}
+                controls={playerConfig.controls}
+                muted={playerConfig.muted}
+                autoPlay={playerConfig.autoPlay}
+                playsInline={playerConfig.playsInline}
+                preload={playerConfig.preload}
+                poster={playerConfig.poster}
+                crossOrigin={playerConfig.crossOrigin}
+                onClick={() => void handleNativeVideoTap()}
+                onLoadedMetadata={(event) => {
+                    updateVideoDuration(event);
+                    logVideoElementState("loadedmetadata event", event.currentTarget);
+                }}
+                onDurationChange={(event) => {
+                    updateVideoDuration(event);
+                    logVideoElementState("durationchange event", event.currentTarget);
+                }}
+                onCanPlay={(event) => {
+                    logVideoElementState("canplay event", event.currentTarget);
+                    handleVideoCanPlay();
+                }}
+                onCanPlayThrough={(event) => {
+                    logVideoElementState("canplaythrough event", event.currentTarget);
+                }}
+                onPlaying={(event) => {
+                    logVideoElementState("playing event", event.currentTarget);
+                }}
+                onStalled={(event) => {
+                    logVideoElementState("stalled event", event.currentTarget);
+                }}
+                onWaiting={(event) => {
+                    logVideoElementState("waiting event", event.currentTarget);
+                }}
+                onTimeUpdate={updateVideoProgress}
+                onPlay={handleVideoPlay}
+                onPause={(event) => {
+                    logVideoElementState("pause listener event", event.currentTarget);
+                    handleVideoPause();
+                }}
+                onEnded={handleVideoEnded}
+                onError={(event) => {
+                    const media = event.currentTarget;
+                    const errorCode = media.error?.code ?? null;
+                    const canPlayType = probeBrowserVideoCanPlayType(activeVideoPlaybackUrl, activeVideo, media);
+                    const classified = classifyVideoPlaybackFailure({
+                        playableUrl: activeVideoPlaybackUrl,
+                        videoUrl,
+                        storagePath,
+                        videoCodec,
+                        audioCodec: activeVideo.audioCodec || activeVideo.audio_codec || "",
+                        mediaErrorCode: errorCode,
+                        canPlayType,
+                        sourceAssigned: Boolean(media.currentSrc || media.getAttribute("src") || media.querySelector("source")?.getAttribute("src") || activeVideoPlaybackUrl),
+                    });
+                    logVideoElementState("error event", media, {
+                        exactError: media.error?.message || "",
+                    });
+                    console.log("MEDIA ERROR", media.error);
+                    console.log("MEDIA CODE", errorCode);
+                    console.log("MEDIA MESSAGE", media.error?.message);
+                    // Temporary UI only — never write unsupported into the database from a browser probe/error.
+                    if (classified) {
+                        setVideoPlaybackUiFailure(classified);
+                    }
                     setVideoPlaying(false);
-                    showToast(getMobileVideoPlaybackDiagnosticMessage(activeVideo, activeVideoPlaybackUrl, event.currentTarget.error?.code), "error");
-                }
-                console.error("[mobile video] exact media error", {
-                    selectedVideoId: activeVideo.id,
-                    title: activeVideo.title,
-                    finalVideoUrl: activeVideoPlaybackUrl,
-                    src: event.currentTarget.src,
-                    currentSrc: event.currentTarget.currentSrc,
-                    readyState: event.currentTarget.readyState,
-                    networkState: event.currentTarget.networkState,
-                    errorCode: event.currentTarget.error?.code || null,
-                    errorMessage: event.currentTarget.error?.message || "",
-                });
-            }}/>) : (<div className="video-missing-source">This video is missing a playable URL.</div>)}
+                    if (classified) {
+                        showToast(classified.message, "error");
+                    }
+                    console.error("[mobile video] exact media error", {
+                        selectedVideoId: activeVideo.id,
+                        title: activeVideo.title,
+                        finalVideoUrl: activeVideoPlaybackUrl,
+                        videoUrl,
+                        storagePath,
+                        videoCodec,
+                        classification: classified?.kind || "none",
+                        src: media.currentSrc || media.src,
+                        currentSrc: media.currentSrc,
+                        readyState: media.readyState,
+                        networkState: media.networkState,
+                        errorCode,
+                        errorMessage: media.error?.message || "",
+                        canPlayType,
+                    });
+                }}
+            >
+                <source src={activeVideoPlaybackUrl} type="video/mp4"/>
+            </video>);
+        })() : null}
+        {showMissingUrl ? (<div className="video-missing-source" data-playback-failure="missing-url">{MISSING_VIDEO_URL_MESSAGE}</div>) : null}
         <div className="video-player-copy">
           <span>{activeVideo.category}</span>
           <h3>{activeVideo.title}</h3>
           <p>{activeVideo.creator}</p>
-          {showMobileCompatibilityWarning ? (<p className="mobile-video-incompatible">{mobileCompatibilityMessage}</p>) : null}
-          {!showMobileIncompatibleFallback ? renderVideoPlaybackDebugSection() : null}
+          {showUnsupportedCodec ? (<p className="mobile-video-incompatible">{playbackFailure?.message}</p>) : null}
+          {isVideoMarkedMobileIncompatible(activeVideo) && !showUnsupportedCodec ? (
+            <p className="mobile-video-incompatible">{getMobileVideoCompatibilityWarningText(activeVideo, activeVideoPlaybackUrl || "")}</p>
+          ) : null}
+          {!showUnsupportedCodec && !showNetworkError && !showUnknownError ? renderVideoPlaybackDebugSection() : null}
           <div className="video-player-actions">
             <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}>
               <SkipBack size={16} fill="currentColor"/>
