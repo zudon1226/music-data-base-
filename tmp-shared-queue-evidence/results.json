@@ -1,0 +1,75 @@
+{
+  "baseUrl": "http://127.0.0.1:3010",
+  "results": [
+    {
+      "name": "probe login",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Resolved session userId",
+      "ok": true,
+      "detail": "a065650c-1bc1-4c05-be6d-6a8db8455f59"
+    },
+    {
+      "name": "Queue hydrate GET observed",
+      "ok": true,
+      "detail": "gets=1"
+    },
+    {
+      "name": "Clear queue",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Add song to queue",
+      "ok": true,
+      "detail": "Studio Waves"
+    },
+    {
+      "name": "Video Add to Queue persists playableUrl",
+      "ok": true,
+      "detail": "url=https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4ef"
+    },
+    {
+      "name": "Queue page shows song + video",
+      "ok": true,
+      "detail": "song=Studio Waves video=big business"
+    },
+    {
+      "name": "Player does not report missing URL for queued video",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Server queue video playableUrl non-empty",
+      "ok": true,
+      "detail": "storage user=a065650c https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4ef"
+    },
+    {
+      "name": "Queue survives refresh",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Queue survives browser restart",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Logout does not delete server queue",
+      "ok": true,
+      "detail": "before=2 afterLogout=2"
+    },
+    {
+      "name": "Queue survives logout/login",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Relogin restores video playableUrl",
+      "ok": true,
+      "detail": "https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4efd-8a27-6b5"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+ 9660|    function addToQueue(song: Song) {
+ 9661|        const normalized = normalizeSongToQueueItem({
+ 9662|            ...song,
+ 9663|            id: song.id,
+ 9664|            title: song.title,
+ 9665|            artist: song.artist,
+ 9666|            artistName: song.artist,
+ 9667|            audio: song.audio,
+ 9668|            audioUrl: song.audio,
+ 9669|            playableUrl: song.audio,
+ 9670|            storagePath: song.audioPath || "",
+ 9671|            audioPath: song.audioPath || "",
+ 9672|            cover: song.cover,
+ 9673|            artworkUrl: song.cover,
+ 9674|            thumbnail: song.cover,
+ 9675|            duration: song.time,
+ 9676|            ownerId: song.ownerId || "",
+ 9677|        } as unknown as Record<string, unknown>);
+ 9678|        if (!normalized.item) {
+ 9679|            showToast(normalized.error || "Song could not be queued.", "error");
+ 9680|            return;
+ 9681|        }
+ 9682|        const result = addQueueItem(normalized.item);
+ 9683|        showToast(result.message, result.toastKind);
+ 9684|    }
+ 9685|    function addVideoToQueue(video: VideoItem) {

@@ -1,0 +1,1 @@
+https://aehuszoadgqtbkxsliyy.supabase.co/auth/v1/verify?token=8fb96d7fd57156e1a352c5e691186ab9c97f39e015e30e165e0eef03&type=magiclink&redirect_to=http://127.0.0.1:3010

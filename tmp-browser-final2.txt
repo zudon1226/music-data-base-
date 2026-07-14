@@ -1,0 +1,13 @@
+﻿PASS probe login
+PASS Refresh does not mark videos unsupported (badges) ΓÇö badges=0
+PASS Video Library Add to Queue ΓÇö count=1
+PASS Queue page displays videos ΓÇö title=big business
+PASS Song queue ΓÇö count=2 song=Studio Waves
+PASS Mixed queue
+PASS Existing uploaded videos remain playable ΓÇö queue Play invoked without crash
+PASS Queue survives refresh
+PASS Refresh does not mark videos unsupported ΓÇö queueBadges=0 videoBadges=0
+PASS Queue survives browser restart
+PASS Queue survives logout/login ΓÇö storage restored
+PASS Recently Played Add to Queue ΓÇö w=148 label=Queued
+BROWSER_EXIT:0

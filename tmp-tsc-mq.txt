@@ -1,0 +1,35 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+app/page.tsx(6110,46): error TS2339: Property 'id' does not exist on type 'never'.
+app/page.tsx(6114,26): error TS2339: Property 'id' does not exist on type 'never'.
+app/page.tsx(6115,29): error TS2339: Property 'title' does not exist on type 'never'.
+app/page.tsx(6116,30): error TS2339: Property 'artistName' does not exist on type 'never'.
+app/page.tsx(6119,48): error TS2339: Property 'duration' does not exist on type 'never'.
+app/page.tsx(6122,32): error TS2339: Property 'createdAt' does not exist on type 'never'.
+app/page.tsx(6123,29): error TS2339: Property 'artworkUrl' does not exist on type 'never'.
+app/page.tsx(6124,30): error TS2339: Property 'artworkUrl' does not exist on type 'never'.
+app/page.tsx(6125,29): error TS2339: Property 'playableUrl' does not exist on type 'never'.
+app/page.tsx(6126,33): error TS2339: Property 'storagePath' does not exist on type 'never'.
+app/page.tsx(6127,31): error TS2339: Property 'ownerId' does not exist on type 'never'.
+app/page.tsx(6136,47): error TS2339: Property 'id' does not exist on type 'never'.
+app/page.tsx(6138,26): error TS2339: Property 'id' does not exist on type 'never'.
+app/page.tsx(6139,29): error TS2339: Property 'title' does not exist on type 'never'.
+app/page.tsx(6140,31): error TS2339: Property 'artistName' does not exist on type 'never'.
+app/page.tsx(6141,34): error TS2339: Property 'artistName' does not exist on type 'never'.
+app/page.tsx(6143,29): error TS2339: Property 'artworkUrl' does not exist on type 'never'.
+app/page.tsx(6144,32): error TS2339: Property 'playableUrl' does not exist on type 'never'.
+app/page.tsx(6145,33): error TS2339: Property 'playableUrl' does not exist on type 'never'.
+app/page.tsx(6146,35): error TS2339: Property 'storagePath' does not exist on type 'never'.
+app/page.tsx(6147,37): error TS2339: Property 'artworkUrl' does not exist on type 'never'.
+app/page.tsx(6148,32): error TS2339: Property 'createdAt' does not exist on type 'never'.
+app/page.tsx(6150,31): error TS2339: Property 'ownerId' does not exist on type 'never'.
+app/page.tsx(6156,36): error TS2339: Property 'playableUrl' does not exist on type 'never'.
+app/page.tsx(6157,37): error TS2339: Property 'playableUrl' does not exist on type 'never'.
+app/page.tsx(6158,39): error TS2339: Property 'storagePath' does not exist on type 'never'.
+TSC:2

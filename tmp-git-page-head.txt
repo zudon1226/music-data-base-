@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 /* eslint-disable @next/next/no-img-element */
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -29,8 +29,6 @@ import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail"
 import { DesktopSongMediaCard, DesktopVideoMediaCard } from "../components/desktop-media-card";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
-import { isSongQueueItem, isVideoQueueItem, normalizeSongToQueueItem, normalizeVideoToQueueItem, songToQueueMedia, videoToQueueMedia, type QueueMediaItem } from "../lib/desktop-media-queue";
-import { useDesktopMediaQueue } from "../lib/use-desktop-media-queue";
 import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { describeStorageUploadAuth } from "../lib/supabase-storage-upload";
@@ -1053,7 +1051,7 @@ const REMOVED_PLACEHOLDER_IMAGES = [
 const DEFAULT_COVER = BRAND_LOGO;
 const DEFAULT_PLAYLIST_COVER = BRAND_LOGO;
 const DEFAULT_ARTIST_BANNER = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1600&q=80";
-const BRAND_TAGLINE = "STREAM • DISCOVER • CREATE";
+const BRAND_TAGLINE = "STREAM ΓÇó DISCOVER ΓÇó CREATE";
 const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
 const VIDEOS_STORAGE_BUCKET = "videos";
 const SONGS_STORAGE_BUCKET = "songs";
@@ -2305,7 +2303,7 @@ function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown>
     if (!video)
         return "";
     const record = video as Record<string, unknown>;
-    const directUrl = ["playableUrl", "video_url", "file_url", "url", "public_url", "videoUrl"]
+    const directUrl = ["video_url", "file_url", "url", "public_url", "videoUrl"]
         .map((key) => record[key])
         .find((value): value is string => typeof value === "string" && value.trim().length > 0);
     const storagePath = ["storage_path", "storagePath"]
@@ -2324,9 +2322,6 @@ function getVideoPlaybackUrl(video: Partial<VideoItem> | Record<string, unknown>
             return cleanUrl;
         if (storagePath)
             return getVideoPublicUrlFromStoragePath(storagePath);
-        // Queue may still carry a signed/direct URL that should not be discarded when no storage path exists.
-        if (/^https?:\/\//i.test(cleanUrl) && !cleanUrl.includes("/api/video-upload") && !cleanUrl.includes("/api/upload-video"))
-            return cleanUrl;
     }
     if (!storagePath)
         return "";
@@ -2361,14 +2356,14 @@ function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
     const artist = getStringField(record, ["artist", "artist_name", "producer_name", "creator", "description", "producer"]) ||
         "Unknown creator";
     const producerName = getStringField(record, ["producer_name", "producer"]);
-    const rawVideoUrl = getStringField(record, ["playableUrl", "video_url", "file_url", "url", "public_url", "videoUrl"]);
+    const rawVideoUrl = getStringField(record, ["video_url", "file_url", "url", "public_url", "videoUrl"]);
     const coverUrl = getArtworkUrl(getStringField(record, ["cover_url", "cover_image_url", "thumbnail_url", "cover", "poster"]));
     const storagePath = getStringField(record, ["storagePath", "storage_path"]);
     const videoCodec = getStringField(record, ["videoCodec", "video_codec"]);
     const audioCodec = getStringField(record, ["audioCodec", "audio_codec"]);
     const rawMobileCompatible = record.mobileCompatible ?? record.mobile_compatible;
     const mobileCompatible = typeof rawMobileCompatible === "boolean" ? rawMobileCompatible : null;
-    const videoUrl = getVideoPlaybackUrl({ playableUrl: rawVideoUrl, video_url: rawVideoUrl, storage_path: storagePath });
+    const videoUrl = getVideoPlaybackUrl({ video_url: rawVideoUrl, storage_path: storagePath });
     if (!videoUrl) {
         console.warn("[video normalize] no playable URL", {
             id: getStringField(record, ["id"]),
@@ -2419,9 +2414,8 @@ function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
 function normalizeVideoForPlayback(video: VideoItem | Record<string, unknown>) {
     return normalizeVideo(video);
 }
-function isVideoMarkedMobileIncompatible(_video: Partial<VideoItem> | null | undefined) {
-    // Cards must not show MOBILE UNSUPPORTED from stored/probed state.
-    return false;
+function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | undefined) {
+    return assessMobileVideoCompatibility(video).compatible === false;
 }
 function getStoredMobileCompatibility(video: Partial<VideoItem> | null | undefined) {
     return video?.mobileCompatible ?? video?.mobile_compatible ?? null;
@@ -2463,10 +2457,10 @@ function normalizePlaylistMediaByType(playlist: Playlist): Playlist {
 function getPlaylistSummary(playlist: Playlist) {
     const songLabel = `${playlist.songIds.length} Song${playlist.songIds.length === 1 ? "" : "s"}`;
     const videoLabel = `${playlist.videoIds.length} Video${playlist.videoIds.length === 1 ? "" : "s"}`;
-    return `${songLabel} • ${videoLabel}`;
+    return `${songLabel} ΓÇó ${videoLabel}`;
 }
 function getLegacyPlaylistSummary(playlist: Playlist) {
-    return `${playlist.songIds.length} Songs • ${playlist.videoIds.length} Videos`;
+    return `${playlist.songIds.length} Songs ΓÇó ${playlist.videoIds.length} Videos`;
 }
 function normalizeAlbumRecord(album: Partial<Album> | Record<string, unknown>): Album {
     const record = album as Record<string, unknown>;
@@ -2521,7 +2515,7 @@ function getAlbumMediaSummary(album: ResolvedAlbum) {
     const videoCount = getAlbumVideoCount(album);
     const songLabel = `${songCount} Song${songCount === 1 ? "" : "s"}`;
     const videoLabel = `${videoCount} Video${videoCount === 1 ? "" : "s"}`;
-    return `${songLabel} â€¢ ${videoLabel}`;
+    return `${songLabel} ├óΓé¼┬ó ${videoLabel}`;
 }
 function uniqueIds(value: unknown): string[] {
     if (!Array.isArray(value))
@@ -2564,9 +2558,6 @@ function clearOversizedMediaStorageKeys() {
             const key = localStorage.key(index);
             if (!key)
                 continue;
-            // Never delete or touch the canonical shared media queue.
-            if (key.startsWith("music-data-base:media-queue:"))
-                continue;
             const value = localStorage.getItem(key) || "";
             const lowerValue = value.slice(0, 400).toLowerCase();
             const looksLikeMediaPayload = value.length > 250000 ||
@@ -2589,10 +2580,6 @@ function clearRemovedPlaceholderArtworkFromLocalStorage() {
             if (!key)
                 continue;
             if (key.includes("-auth-token") || key.startsWith("sb-")) {
-                continue;
-            }
-            // Never rewrite the canonical shared media queue payload.
-            if (key.startsWith("music-data-base:media-queue:")) {
                 continue;
             }
             const value = localStorage.getItem(key);
@@ -3473,6 +3460,7 @@ function PageContent() {
         const savedMode = window.localStorage.getItem(STORAGE_KEYS.displayMode);
         return savedMode === "list" ? "list" : "grid";
     });
+    const [queue, setQueue] = useState<Song[]>([]);
     const [recentlyPlayed, setRecentlyPlayed] = useState<RecentPlay[]>([]);
     const [recentTab, setRecentTab] = useState<RecentTab>("Songs");
     const [libraryIds, setLibraryIds] = useState<string[]>([]);
@@ -3564,32 +3552,6 @@ function PageContent() {
         }
         return desktopRuntime.fetch(path, init);
     }, [desktopRuntime]);
-    const {
-        mediaQueueItems,
-        mediaQueueActiveIndex,
-        upNextQueueItems,
-        queueHydrated: _queueHydrated,
-        queueCount,
-        isMediaQueued,
-        addItem: addQueueItem,
-        addSongRecordToQueue,
-        addVideoRecordToQueue,
-        removeMediaFromQueue,
-        clearQueue: clearSharedMediaQueue,
-        playQueueItem: selectSharedQueueItem,
-        playNextQueueItem: advanceSharedQueueNext,
-        playPreviousQueueItem: advanceSharedQueuePrevious,
-        replaceQueue: replaceSharedMediaQueue,
-        moveItem: moveSharedQueueItem,
-        moveItemTo: moveSharedQueueItemTo,
-        resetQueueOnLogout,
-    } = useDesktopMediaQueue({
-        accountUserId,
-        // Hydrate as soon as Supabase auth is ready and the authenticated user id exists.
-        // Do not wait for desktop API session bootstrap (authSessionInitialized).
-        authResolved: !authLoading && Boolean(String(accountUserId || "").trim()),
-        authenticatedFetch: desktopActionFetch,
-    });
     useEffect(() => {
         registerDesktopProductionSessionPublisher(publishLiveDesktopAuthSession);
         return () => unregisterDesktopProductionSessionPublisher();
@@ -4082,7 +4044,6 @@ function PageContent() {
     const [videoLibraryError, setVideoLibraryError] = useState("");
     const [selectedVideoId, setSelectedVideoId] = useState("");
     const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
-    const [forcedQueuePlayableUrl, setForcedQueuePlayableUrl] = useState("");
     const [videoAutoplayRequestId, setVideoAutoplayRequestId] = useState("");
     const [videoPlaying, setVideoPlaying] = useState(false);
     const [videoProgress, setVideoProgress] = useState(0);
@@ -4090,6 +4051,7 @@ function PageContent() {
     const [videoVolume, setVideoVolume] = useState(1);
     const [videoRepeat, setVideoRepeat] = useState(false);
     const [mobilePlaybackEnvironment, setMobilePlaybackEnvironment] = useState(false);
+    const [videoPlaybackQueue, setVideoPlaybackQueue] = useState<VideoItem[]>([]);
     const [showQueueDrawer, setShowQueueDrawer] = useState(false);
     const [draggedQueueItem, setDraggedQueueItem] = useState<AlbumTrackPointer | null>(null);
     const [activeAlbumPlayback, setActiveAlbumPlayback] = useState<ActiveAlbumPlayback | null>(null);
@@ -4492,7 +4454,7 @@ function PageContent() {
     function renderVerifiedBadge(isVerified: boolean, label: string) {
         if (!isVerified)
             return null;
-        return <span className="verified-badge" title={label}>✓</span>;
+        return <span className="verified-badge" title={label}>Γ£ô</span>;
     }
     function toggleVerification(kind: "artist" | "producer", id: string) {
         if (!id)
@@ -5006,7 +4968,10 @@ function PageContent() {
             const songMap = new Map(loadedSongs.map((song) => [song.id, song]));
             const savedArtists = readJson<ArtistProfile[] | null>(STORAGE_KEYS.artists, null);
             const cleanArtists = buildArtistProfiles(loadedSongs, Array.isArray(savedArtists) ? savedArtists : []);
-            // Legacy zml_queue bootstrap removed — shared media queue hydrates per user via useDesktopMediaQueue.
+            const savedQueueIds = readJson<unknown>(STORAGE_KEYS.queue, []);
+            const cleanQueue = uniqueIds(savedQueueIds)
+                .map((id) => songMap.get(id))
+                .filter((song): song is Song => Boolean(song));
             const savedRecent = readJson<RecentPlay[] | null>(STORAGE_KEYS.recent, null);
             const legacyHistoryIds = readJson<unknown>(STORAGE_KEYS.legacyHistory, []);
             const cleanRecent = Array.isArray(savedRecent) && savedRecent.length > 0
@@ -5058,8 +5023,7 @@ function PageContent() {
                 }))
                 : [];
             setSongs(loadedSongs);
-            // Never wipe a successfully loaded remote video catalog with the empty local seed.
-            setVideos((previous) => (previous.length > 0 ? previous : loadedVideos));
+            setVideos(loadedVideos);
             setLibraryIds([]);
             setSavedVideoIds([]);
             setSavedAlbumIds([]);
@@ -5069,6 +5033,7 @@ function PageContent() {
             setLikedIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.liked, [])).filter((id) => songMap.has(id)));
             setFollowedIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.followed, [])).filter((id) => songMap.has(id)));
             setFollowedArtistIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.followedArtists, [])).filter((id) => cleanArtists.some((artist) => artist.id === id)));
+            setQueue(cleanQueue);
             setRecentlyPlayed(cleanRecent);
             setPlaylists(cleanPlaylists);
             setArtistProfiles(cleanArtists);
@@ -5303,27 +5268,7 @@ function PageContent() {
     }
     async function reloadVideoLibraryFromSupabase() {
         const userIdQuery = user?.id ? `?userId=${encodeURIComponent(user.id)}` : "";
-        const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-        const timeoutId = controller
-            ? window.setTimeout(() => controller.abort(), 15_000)
-            : 0;
-        let response: Response;
-        try {
-            response = await fetch(`/api/videos${userIdQuery}`, {
-                cache: "no-store",
-                signal: controller?.signal,
-            });
-        }
-        catch (error) {
-            if (timeoutId) window.clearTimeout(timeoutId);
-            const message = error instanceof Error && error.name === "AbortError"
-                ? "Video Library request timed out."
-                : (error instanceof Error ? error.message : "Could not load videos from Supabase.");
-            console.error("[video library] LOAD FAILED:", message);
-            setVideoLibraryError(message);
-            throw new Error(message);
-        }
-        if (timeoutId) window.clearTimeout(timeoutId);
+        const response = await fetch(`/api/videos${userIdQuery}`, { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             videos?: VideoTableRow[];
             error?: string;
@@ -5897,7 +5842,6 @@ function PageContent() {
                     catch {
                         // Login screen is enough if network sign-out is rate-limited.
                     }
-                    resetQueueOnLogout();
                     clearLocalSessionState();
                     setAuthMessage(message);
                 }
@@ -5905,7 +5849,7 @@ function PageContent() {
         return () => {
             cancelled = true;
         };
-    }, [accountUserId, authLoading, isAuthenticated, resetQueueOnLogout, signOutFromAuthState]);
+    }, [accountUserId, authLoading, isAuthenticated, signOutFromAuthState]);
     useEffect(() => {
         if (authLoading || !isAuthenticated || !authSessionInitialized || !isDesktopApiReady())
             return;
@@ -5923,12 +5867,6 @@ function PageContent() {
                 }
                 if (result.failedSteps.length > 0) {
                     console.warn(`[desktop-bootstrap] steps with failures: ${result.failedSteps.join(", ")}`);
-                }
-                if (result.failedSteps.includes("videoLibrary")) {
-                    // Video catalog is required for Video Library; retry independently after a failed bootstrap step.
-                    void initialDataReloadRef.current.reloadVideoLibrary().catch((error) => {
-                        console.error("[video library] bootstrap retry failed:", error);
-                    });
                 }
                 if (result.userMusicStateOutcome) {
                     console.info(`[desktop-bootstrap] userMusicState outcome: ${result.userMusicStateOutcome}`);
@@ -5949,32 +5887,6 @@ function PageContent() {
                 initialDataLoadInFlightKeyRef.current = "";
         };
     }, [accountUserId, authLoading, authSessionInitialized, isAuthenticated]);
-    useEffect(() => {
-        // Video Library recovery: if the Videos page is open and the catalog is still empty, force a reload.
-        if (view !== "Videos")
-            return;
-        if (authLoading || !isAuthenticated || !authSessionInitialized)
-            return;
-        if (videos.length > 0)
-            return;
-        let cancelled = false;
-        void reloadVideoLibraryFromSupabase()
-            .then((loaded) => {
-                if (cancelled)
-                    return;
-                if (!loaded.length) {
-                    console.warn("[video library] Videos view reload returned 0 rows");
-                }
-            })
-            .catch((error) => {
-                if (!cancelled) {
-                    console.error("[video library] Videos view reload failed:", error);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [view, authLoading, isAuthenticated, authSessionInitialized, videos.length, user?.id]);
     useEffect(() => {
         if (!desktopActionAuthGuard.hasAccess()) {
             return;
@@ -6008,6 +5920,7 @@ function PageContent() {
     const likedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(likedIds)), [likedIds]);
     const followedStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedIds)), [followedIds]);
     const followedArtistsStorageSnapshot = useMemo(() => JSON.stringify(uniqueIds(followedArtistIds)), [followedArtistIds]);
+    const queueStorageSnapshot = useMemo(() => JSON.stringify(uniqueSongs(queue).map((song) => song.id)), [queue]);
     const recentStorageSnapshot = useMemo(() => JSON.stringify(serializeRecentPlaysForStorage(recentlyPlayed)), [recentlyPlayed]);
     const searchStorageSnapshot = useMemo(() => searchInput.trim(), [searchInput]);
     const playlistStorageSnapshot = useMemo(() => JSON.stringify(playlists), [playlists]);
@@ -6040,6 +5953,7 @@ function PageContent() {
         saveLocalStorageSnapshot(STORAGE_KEYS.liked, likedStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.followed, followedStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.followedArtists, followedArtistsStorageSnapshot);
+        saveLocalStorageSnapshot(STORAGE_KEYS.queue, queueStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.recent, recentStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.playlists, playlistStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.artists, artistStorageSnapshot);
@@ -6083,6 +5997,7 @@ function PageContent() {
         platformIncidentStorageSnapshot,
         playlistStorageSnapshot,
         purchaseHistoryStorageSnapshot,
+        queueStorageSnapshot,
         recentStorageSnapshot,
         releaseNoteStorageSnapshot,
         salesCartStorageSnapshot,
@@ -6168,65 +6083,7 @@ function PageContent() {
             audioRef.current.volume = volume;
         }
     }, [volume]);
-    const cleanQueue = useMemo(() => {
-        const songMap = new Map(songs.map((song) => [song.id, song]));
-        return mediaQueueItems
-            .filter(isSongQueueItem)
-            .map((item) => {
-            const catalog = songMap.get(item.id);
-            if (catalog && !isVideoSong(catalog))
-                return catalog;
-            return {
-                id: item.id,
-                title: item.title,
-                artist: item.artistName,
-                category: "Queue",
-                type: "Songs",
-                time: formatDurationLabel(item.duration),
-                plays: 0,
-                likes: 0,
-                uploaded: item.createdAt || "",
-                cover: item.artworkUrl || BRAND_LOGO,
-                avatar: item.artworkUrl || BRAND_LOGO,
-                audio: item.playableUrl || "",
-                audioPath: item.storagePath || undefined,
-                ownerId: item.ownerId || undefined,
-            } satisfies Song;
-        }).filter((song) => !isVideoSong(song));
-    }, [mediaQueueItems, songs]);
-    const queuedVideos = useMemo(() => {
-        const videoMap = new Map(videos.map((video) => [video.id, video]));
-        return uniqueVideos(mediaQueueItems
-            .filter(isVideoQueueItem)
-            .map((item) => {
-            const catalog = videoMap.get(item.id);
-            const fromQueue = {
-                id: item.id,
-                title: item.title,
-                creator: item.artistName,
-                artistName: item.artistName,
-                category: "Music Video",
-                cover: item.artworkUrl || BRAND_LOGO,
-                videoUrl: item.playableUrl || "",
-                video_url: item.playableUrl || "",
-                storagePath: item.storagePath || "",
-                thumbnail_url: item.artworkUrl || undefined,
-                uploaded: item.createdAt || "",
-                views: 0,
-                ownerId: item.ownerId || undefined,
-            };
-            if (catalog) {
-                return normalizeVideoForPlayback({
-                    ...catalog,
-                    ...fromQueue,
-                    videoUrl: item.playableUrl || catalog.videoUrl || (catalog as { video_url?: string }).video_url || "",
-                    video_url: item.playableUrl || (catalog as { video_url?: string }).video_url || catalog.videoUrl || "",
-                    storagePath: item.storagePath || catalog.storagePath || (catalog as { storage_path?: string }).storage_path || "",
-                });
-            }
-            return normalizeVideoForPlayback(fromQueue);
-        }));
-    }, [mediaQueueItems, videos]);
+    const cleanQueue = useMemo(() => uniqueSongs(queue).filter((song) => !isVideoSong(song)), [queue]);
     const audioSongs = useMemo(() => songs.filter((song) => !isVideoSong(song)), [songs]);
     const librarySongs = useMemo(() => audioSongs.filter((song) => libraryIds.includes(song.id)), [audioSongs, libraryIds]);
     const libraryVideos = useMemo(() => {
@@ -6610,7 +6467,7 @@ function PageContent() {
     const sponsoredTitle = sponsoredVideo?.title || currentSong?.title || "Music Data Base";
     const sponsoredCreator = sponsoredVideo?.creator || currentSong?.artist || "Music Data Base";
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
-    const activeVideoPlaybackUrl = forcedQueuePlayableUrl || getVideoPlaybackUrl(activeVideo);
+    const activeVideoPlaybackUrl = getVideoPlaybackUrl(activeVideo);
     const shouldBlockActiveMobileVideoPlayback = mobilePlaybackEnvironment
         && Boolean(activeVideoPlaybackUrl)
         && shouldBlockMobileVideoPlayback(activeVideoPlaybackUrl, activeVideo);
@@ -6708,8 +6565,97 @@ function PageContent() {
         };
     }, []);
     useEffect(() => {
-        // Compatibility background scan intentionally disabled.
-        // Do not probe/PATCH mobile_compatible or codec metadata onto video records.
+        if (typeof window === "undefined" || videos.length === 0)
+            return;
+        let cancelled = false;
+        const candidates = uniqueVideos(videos).filter((video) => {
+            const playbackUrl = getVideoPlaybackUrl(video);
+            if (!playbackUrl || !video.id)
+                return false;
+            const scanKey = `${video.id}:${playbackUrl}`;
+            if (videoCompatibilityScanRef.current.has(scanKey))
+                return false;
+            const storedCompatibility = getStoredMobileCompatibility(video);
+            return storedCompatibility === null || !(video.videoCodec || video.video_codec);
+        });
+        if (candidates.length === 0)
+            return;
+        async function scanVideoCompatibility() {
+            for (const video of candidates) {
+                if (cancelled)
+                    return;
+                const playbackUrl = getVideoPlaybackUrl(video);
+                const scanKey = `${video.id}:${playbackUrl}`;
+                videoCompatibilityScanRef.current.add(scanKey);
+                const probe = await probeVideoPlaybackUrl(playbackUrl);
+                if (cancelled)
+                    return;
+                const probedVideo = {
+                    ...video,
+                    videoCodec: probe.videoCodec,
+                    video_codec: probe.videoCodec,
+                    audioCodec: probe.audioCodec,
+                    audio_codec: probe.audioCodec,
+                };
+                let mobileCompatible = getDetectedMobileCompatibility(probe.videoCodec, probe.audioCodec);
+                if (playbackUrl) {
+                    if (isMobileVideoUrlLikelyIncompatible(playbackUrl)) {
+                        mobileCompatible = false;
+                    }
+                    else if (mobileCompatible === false) {
+                        // Keep incompatible codec detection from the probe.
+                    }
+                    else if (mobileCompatible === true) {
+                        if (!canBrowserPlayVideoUrl(playbackUrl, probedVideo)) {
+                            mobileCompatible = false;
+                        }
+                    }
+                    else if (mobileCompatible === null) {
+                        if (probeBrowserVideoCanPlayType(playbackUrl, probedVideo) === "") {
+                            mobileCompatible = false;
+                        }
+                        else if (canBrowserPlayVideoUrl(playbackUrl, probedVideo)) {
+                            mobileCompatible = true;
+                        }
+                    }
+                }
+                setVideos((previous) => previous.map((item) => item.id === video.id
+                    ? normalizeVideoForPlayback({
+                        ...item,
+                        videoCodec: probe.videoCodec,
+                        video_codec: probe.videoCodec,
+                        audioCodec: probe.audioCodec,
+                        audio_codec: probe.audioCodec,
+                        mobileCompatible,
+                        mobile_compatible: mobileCompatible,
+                    })
+                    : item));
+                if (mobileCompatible === false) {
+                    console.warn("[video compatibility] mobile incompatible video detected", {
+                        id: video.id,
+                        title: video.title,
+                        videoCodec: probe.videoCodec,
+                        audioCodec: probe.audioCodec,
+                        playbackUrl,
+                    });
+                }
+                if (isDatabaseUuid(video.id)) {
+                    void fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            video_codec: probe.videoCodec || null,
+                            audio_codec: probe.audioCodec || null,
+                            mobile_compatible: mobileCompatible,
+                        }),
+                    }).catch((error) => console.warn("[video compatibility] save failed", video.id, error));
+                }
+            }
+        }
+        void scanVideoCompatibility();
+        return () => {
+            cancelled = true;
+        };
     }, [videos]);
     useEffect(() => {
         const video = mainVideoRef.current;
@@ -8650,7 +8596,6 @@ function PageContent() {
     }
     function playSong(song: Song, options: { preserveAlbumPlayback?: boolean } = {}) {
         stopAllMedia();
-        setForcedQueuePlayableUrl("");
         setActiveMediaType("song");
         setActiveMedia({ type: "song", item: song });
         setActiveVideo(null);
@@ -8668,105 +8613,19 @@ function PageContent() {
         const cleanList = uniqueSongs(list);
         if (cleanList.length === 0)
             return;
-        const queueItems = cleanList
-            .map((song) => songToQueueMedia(song as unknown as Record<string, unknown>))
-            .filter((item): item is NonNullable<typeof item> => Boolean(item));
-        const firstItem = replaceSharedMediaQueue(queueItems, 0);
-        if (firstItem) {
-            playQueuedMediaItem(firstItem, options);
-        }
+        const [firstSong, ...remainingSongs] = cleanList;
+        setQueue(remainingSongs);
+        playSong(firstSong, options);
     }
     function playVideoList(list: VideoItem[], startVideo?: VideoItem, sourceSection = "Playlist Videos") {
         const cleanList = uniqueVideos(list.map((video) => normalizeVideoForPlayback(video)));
-        if (cleanList.length === 0)
+        const firstVideo = startVideo
+            ? cleanList.find((video) => video.id === startVideo.id) || normalizeVideoForPlayback(startVideo)
+            : cleanList[0];
+        if (!firstVideo)
             return;
-        const startIndex = startVideo
-            ? Math.max(0, cleanList.findIndex((video) => video.id === startVideo.id))
-            : 0;
-        const queueItems = cleanList
-            .map((video) => videoToQueueMedia(video as unknown as Record<string, unknown>))
-            .filter((item): item is NonNullable<typeof item> => Boolean(item));
-        const firstItem = replaceSharedMediaQueue(queueItems, startIndex);
-        if (firstItem) {
-            playQueuedMediaItem(firstItem);
-        }
-        else if (startVideo || cleanList[0]) {
-            playVideo(startVideo || cleanList[0], sourceSection);
-        }
-    }
-    function playQueuedMediaItem(item: QueueMediaItem, options: { preserveAlbumPlayback?: boolean } = {}) {
-        selectSharedQueueItem(item.mediaType, item.id);
-        if (item.mediaType === "song") {
-            setForcedQueuePlayableUrl("");
-            const catalog = songs.find((song) => song.id === item.id);
-            const song = catalog && !isVideoSong(catalog)
-                ? {
-                    ...catalog,
-                    audio: item.playableUrl || catalog.audio,
-                    audioPath: item.storagePath || catalog.audioPath || undefined,
-                    artist: item.artistName || catalog.artist,
-                    cover: item.artworkUrl || catalog.cover || "",
-                }
-                : {
-                    id: item.id,
-                    title: item.title,
-                    artist: item.artistName,
-                    category: "Queue",
-                    type: "Songs",
-                    time: formatDurationLabel(item.duration),
-                    plays: 0,
-                    likes: 0,
-                    uploaded: item.createdAt || "",
-                    cover: item.artworkUrl || "",
-                    avatar: item.artworkUrl || "",
-                    audio: item.playableUrl || "",
-                    audioPath: item.storagePath || undefined,
-                    ownerId: item.ownerId || undefined,
-                } satisfies Song;
-            playSong(song, options);
-            return;
-        }
-        const catalog = videos.find((video) => video.id === item.id);
-        const fromQueue = {
-            id: item.id,
-            title: item.title,
-            creator: item.artistName,
-            artistName: item.artistName,
-            category: "Music Video",
-            cover: item.artworkUrl || BRAND_LOGO,
-            videoUrl: item.playableUrl,
-            video_url: item.playableUrl,
-            storagePath: item.storagePath || "",
-            thumbnail_url: item.artworkUrl || undefined,
-            uploaded: item.createdAt || "",
-            views: 0,
-            ownerId: item.ownerId || undefined,
-        };
-        const normalized = catalog
-            ? normalizeVideoForPlayback({
-                ...catalog,
-                ...fromQueue,
-                videoUrl: item.playableUrl,
-                video_url: item.playableUrl,
-                storagePath: item.storagePath || catalog.storagePath || (catalog as { storage_path?: string }).storage_path || "",
-                creator: item.artistName,
-                artistName: item.artistName,
-                cover: item.artworkUrl || catalog.cover || BRAND_LOGO,
-            })
-            : normalizeVideoForPlayback(fromQueue);
-        // Queue wins for playback URLs even if catalog/normalize drops them.
-        const video = {
-            ...normalized,
-            videoUrl: item.playableUrl || normalized.videoUrl || "",
-            video_url: item.playableUrl || normalized.video_url || "",
-            storagePath: item.storagePath || normalized.storagePath || "",
-            storage_path: item.storagePath || normalized.storage_path || "",
-            creator: item.artistName || normalized.creator,
-            artistName: item.artistName || normalized.artistName,
-            cover: item.artworkUrl || normalized.cover || BRAND_LOGO,
-        };
-        setForcedQueuePlayableUrl(item.playableUrl || "");
-        playVideo(video, "Shared Queue");
+        setVideoPlaybackQueue(cleanList);
+        playVideo(firstVideo, sourceSection);
     }
     function getPlaybackList() {
         const playbackList = view === "Playlists" && activePlaylistSongs.length > 0
@@ -8777,11 +8636,8 @@ function PageContent() {
         return uniqueSongs(playbackList);
     }
     function getVideoPlaybackList() {
-        if (mediaQueueItems.length > 0 && activeVideo
-            && mediaQueueItems.some((item) => item.mediaType === "video" && item.id === activeVideo.id)) {
-            return queuedVideos;
-        }
-        if (queuedVideos.length > 0 && activeVideo && queuedVideos.some((video) => video.id === activeVideo.id)) {
+        const queuedVideos = uniqueVideos(videoPlaybackQueue);
+        if (activeVideo && queuedVideos.some((video) => video.id === activeVideo.id)) {
             return queuedVideos;
         }
         return uniqueVideos(visibleVideos);
@@ -8855,12 +8711,11 @@ function PageContent() {
         }
     }
     function nextSong() {
-        if (mediaQueueItems.length > 0) {
-            const nextItem = advanceSharedQueueNext();
-            if (nextItem) {
-                playQueuedMediaItem(nextItem);
-                return;
-            }
+        if (cleanQueue.length > 0) {
+            const [nextQueuedSong, ...remainingQueue] = cleanQueue;
+            setQueue(remainingQueue);
+            playSong(nextQueuedSong);
+            return;
         }
         const playbackList = getPlaybackList();
         if (playbackList.length === 0)
@@ -8876,13 +8731,6 @@ function PageContent() {
         playSong(playbackList[nextIndex]);
     }
     function previousSong() {
-        if (mediaQueueItems.length > 0) {
-            const previousItem = advanceSharedQueuePrevious();
-            if (previousItem) {
-                playQueuedMediaItem(previousItem);
-                return;
-            }
-        }
         const playbackList = getPlaybackList();
         if (playbackList.length === 0)
             return;
@@ -8896,12 +8744,9 @@ function PageContent() {
             audioRef.current.play().catch(() => setIsPlaying(false));
             return;
         }
-        if (mediaQueueItems.length > 0) {
-            const nextItem = advanceSharedQueueNext();
-            if (nextItem) {
-                playQueuedMediaItem(nextItem);
-                return;
-            }
+        if (cleanQueue.length > 0) {
+            nextSong();
+            return;
         }
         if (activeAlbumPlayback && currentSong) {
             const currentAlbumIndex = activeAlbumPlayback.tracks.findIndex((track) => track.type === "song" && track.id === currentSong.id);
@@ -9149,7 +8994,7 @@ function PageContent() {
                 canPlayFired: previous.canPlayFired || label.includes("canplay"),
                 errorFired: previous.errorFired || label.includes("error"),
                 eventLogs: tracksPlaybackEvent
-                    ? [...previous.eventLogs.slice(-49), `${new Date().toISOString()} — ${label}${video?.error?.code != null ? ` | code ${video.error.code}` : ""}${video?.error?.message ? ` | ${video.error.message}` : ""}`]
+                    ? [...previous.eventLogs.slice(-49), `${new Date().toISOString()} ΓÇö ${label}${video?.error?.code != null ? ` | code ${video.error.code}` : ""}${video?.error?.message ? ` | ${video.error.message}` : ""}`]
                     : previous.eventLogs,
             }));
         }
@@ -9257,16 +9102,6 @@ function PageContent() {
                 setVideoPlaying(false);
                 showToast("Video repeat could not restart playback.", "error");
             });
-            return;
-        }
-        if (mediaQueueItems.length > 0) {
-            const nextItem = advanceSharedQueueNext();
-            if (nextItem) {
-                playQueuedMediaItem(nextItem);
-                return;
-            }
-            setVideoPlaying(false);
-            setVideoProgress(0);
             return;
         }
         const list = getVideoPlaybackList();
@@ -9552,7 +9387,7 @@ function PageContent() {
         setLibraryIds((previous) => previous.filter((id) => id !== songId));
         setLikedIds((previous) => previous.filter((id) => id !== songId));
         setFollowedIds((previous) => previous.filter((id) => id !== songId));
-        removeMediaFromQueue("song", songId);
+        setQueue((previous) => previous.filter((item) => item.id !== songId));
         setRecentlyPlayed((previous) => previous.filter((entry) => entry.songId !== songId));
         setPlaylists((previous) => previous.map((playlist) => ({
             ...playlist,
@@ -9571,7 +9406,6 @@ function PageContent() {
         setVideos((previous) => previous.filter((item) => item.id !== videoId));
         setLibraryIds((previous) => previous.filter((id) => id !== videoId));
         setSavedVideoIds((previous) => previous.filter((id) => id !== videoId));
-        removeMediaFromQueue("video", videoId);
         setPlaylists((previous) => previous.map((playlist) => ({
             ...playlist,
             videoIds: playlist.videoIds.filter((id) => id !== videoId),
@@ -9593,6 +9427,7 @@ function PageContent() {
         }
         localStorage.setItem(STORAGE_KEYS.liked, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.liked, [])).filter((id) => id !== songId)));
         localStorage.setItem(STORAGE_KEYS.followed, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.followed, [])).filter((id) => id !== songId)));
+        localStorage.setItem(STORAGE_KEYS.queue, JSON.stringify(uniqueIds(readJson<unknown>(STORAGE_KEYS.queue, [])).filter((id) => id !== songId)));
         localStorage.setItem(STORAGE_KEYS.recent, JSON.stringify(readJson<RecentPlay[]>(STORAGE_KEYS.recent, []).filter((entry) => entry.songId !== songId)));
         localStorage.setItem(STORAGE_KEYS.playlists, JSON.stringify(readJson<Playlist[]>(STORAGE_KEYS.playlists, []).map((playlist) => ({
             ...playlist,
@@ -9621,7 +9456,7 @@ function PageContent() {
         libraryIds: string[];
         likedIds: string[];
         followedIds: string[];
-        queue: QueueMediaItem[];
+        queue: Song[];
         recentlyPlayed: RecentPlay[];
         playlists: Playlist[];
         currentSong: Song | null;
@@ -9636,6 +9471,7 @@ function PageContent() {
         }
         localStorage.setItem(STORAGE_KEYS.liked, JSON.stringify(uniqueIds(snapshot.likedIds)));
         localStorage.setItem(STORAGE_KEYS.followed, JSON.stringify(uniqueIds(snapshot.followedIds)));
+        localStorage.setItem(STORAGE_KEYS.queue, JSON.stringify(uniqueSongs(snapshot.queue).map((song) => song.id)));
         localStorage.setItem(STORAGE_KEYS.recent, JSON.stringify(snapshot.recentlyPlayed));
         localStorage.setItem(STORAGE_KEYS.playlists, JSON.stringify(snapshot.playlists));
         if (snapshot.currentSong?.id) {
@@ -9658,81 +9494,25 @@ function PageContent() {
         }
     }
     function addToQueue(song: Song) {
-        const normalized = normalizeSongToQueueItem({
-            ...song,
-            id: song.id,
-            title: song.title,
-            artist: song.artist,
-            artistName: song.artist,
-            audio: song.audio,
-            audioUrl: song.audio,
-            playableUrl: song.audio,
-            storagePath: song.audioPath || "",
-            audioPath: song.audioPath || "",
-            cover: song.cover,
-            artworkUrl: song.cover,
-            thumbnail: song.cover,
-            duration: song.time,
-            ownerId: song.ownerId || "",
-        } as unknown as Record<string, unknown>);
-        if (!normalized.item) {
-            showToast(normalized.error || "Song could not be queued.", "error");
-            return;
-        }
-        const result = addQueueItem(normalized.item);
-        showToast(result.message, result.toastKind);
+        const alreadyQueued = cleanQueue.some((item) => item.id === song.id);
+        setQueue((previous) => {
+            const cleanPrevious = uniqueSongs(previous);
+            if (cleanPrevious.some((item) => item.id === song.id))
+                return cleanPrevious;
+            return [...cleanPrevious, song];
+        });
+        showToast(alreadyQueued ? "Already in queue." : "Added to queue.", alreadyQueued ? "info" : "success");
     }
     function addVideoToQueue(video: VideoItem) {
-        // MUST use the same addQueueItem() as songs — no separate video queue state.
-        const catalog = videos.find((item) => item.id === video.id) || video;
-        const resolvedPlayableUrl = String(
-            getVideoPlaybackUrl(catalog)
-            || getVideoPlaybackUrl(video)
-            || (catalog as { videoUrl?: string }).videoUrl
-            || (catalog as { video_url?: string }).video_url
-            || (catalog as { playableUrl?: string }).playableUrl
-            || (video as { videoUrl?: string }).videoUrl
-            || (video as { video_url?: string }).video_url
-            || (video as { playableUrl?: string }).playableUrl
-            || "",
-        ).trim();
-        const rawStoragePath = String(
-            (catalog as { storagePath?: string }).storagePath
-            || (catalog as { storage_path?: string }).storage_path
-            || (video as { storagePath?: string }).storagePath
-            || (video as { storage_path?: string }).storage_path
-            || "",
-        ).trim();
-        const thumbnail = catalog.cover || video.cover || catalog.thumbnail_url || video.thumbnail_url || "";
-        const artist = catalog.creator || video.creator || catalog.artistName || video.artistName || "";
-        const normalized = normalizeVideoToQueueItem({
-            ...catalog,
-            ...video,
-            id: catalog.id || video.id,
-            title: catalog.title || video.title,
-            artist,
-            artistName: artist,
-            creator: artist,
-            playableUrl: resolvedPlayableUrl,
-            videoUrl: resolvedPlayableUrl,
-            video_url: resolvedPlayableUrl,
-            storagePath: rawStoragePath,
-            storage_path: rawStoragePath,
-            cover: thumbnail,
-            artworkUrl: thumbnail,
-            thumbnail,
-            thumbnail_url: thumbnail,
-            ownerId: catalog.ownerId || video.ownerId || "",
-            duration: (catalog as { duration?: number | string }).duration
-                ?? (video as { duration?: number | string }).duration
-                ?? null,
-        } as unknown as Record<string, unknown>);
-        if (!normalized.item) {
-            showToast(normalized.error || "Video could not be queued.", "error");
-            return;
-        }
-        const result = addQueueItem(normalized.item);
-        showToast(result.message, result.toastKind);
+        const cleanVideo = normalizeVideoForPlayback(video);
+        const alreadyQueued = uniqueVideos(videoPlaybackQueue).some((item) => item.id === cleanVideo.id);
+        setVideoPlaybackQueue((previous) => {
+            const cleanPrevious = uniqueVideos(previous);
+            if (cleanPrevious.some((item) => item.id === cleanVideo.id))
+                return cleanPrevious;
+            return [...cleanPrevious, cleanVideo];
+        });
+        showToast(alreadyQueued ? "Already in queue." : "Added to queue.", alreadyQueued ? "info" : "success");
     }
     function addAlbumToQueue(album: Album | ResolvedAlbum) {
         const resolvedAlbum = resolvedAlbums.find((item) => item.id === album.id) || resolveAlbumTracksFromPools(album);
@@ -9742,34 +9522,71 @@ function PageContent() {
             showToast("This album has no queueable tracks.", "info");
             return;
         }
-        let addedAny = false;
-        for (const song of albumSongs) {
-            const result = addSongRecordToQueue(song as unknown as Record<string, unknown>);
-            if (result.added)
-                addedAny = true;
+        if (albumSongs.length > 0) {
+            setQueue((previous) => uniqueSongs([...previous, ...albumSongs]));
         }
-        for (const video of albumVideos) {
-            const rawVideoUrl = String(video.videoUrl || (video as { video_url?: string }).video_url || "").trim();
-            const rawStoragePath = String(video.storagePath || (video as { storage_path?: string }).storage_path || "").trim();
-            const result = addVideoRecordToQueue({
-                ...video,
-                id: video.id,
-                title: video.title,
-                artist: video.creator || video.artistName || "",
-                artistName: video.artistName || video.creator || "",
-                creator: video.creator || video.artistName || "",
-                playableUrl: rawVideoUrl,
-                videoUrl: rawVideoUrl,
-                video_url: rawVideoUrl,
-                storagePath: rawStoragePath,
-                storage_path: rawStoragePath,
-                cover: video.cover,
-                artworkUrl: video.cover || "",
-            } as unknown as Record<string, unknown>);
-            if (result.added)
-                addedAny = true;
+        if (albumVideos.length > 0) {
+            setVideoPlaybackQueue((previous) => uniqueVideos([...previous, ...albumVideos]));
         }
-        showToast(addedAny ? "Added to queue." : "Already in queue.", addedAny ? "success" : "info");
+        showToast("Added to queue.", "success");
+    }
+    function removeFromQueue(songId: string) {
+        setQueue((previous) => previous.filter((song) => song.id !== songId));
+    }
+    function moveQueueItem(songId: string, direction: -1 | 1) {
+        setQueue((previous) => {
+            const nextQueue = uniqueSongs(previous);
+            const currentIndex = nextQueue.findIndex((song) => song.id === songId);
+            const nextIndex = currentIndex + direction;
+            if (currentIndex < 0 || nextIndex < 0 || nextIndex >= nextQueue.length)
+                return nextQueue;
+            const [item] = nextQueue.splice(currentIndex, 1);
+            nextQueue.splice(nextIndex, 0, item);
+            return nextQueue;
+        });
+    }
+    function moveQueueItemTo(songId: string, targetSongId: string) {
+        if (songId === targetSongId)
+            return;
+        setQueue((previous) => {
+            const nextQueue = uniqueSongs(previous);
+            const currentIndex = nextQueue.findIndex((song) => song.id === songId);
+            const targetIndex = nextQueue.findIndex((song) => song.id === targetSongId);
+            if (currentIndex < 0 || targetIndex < 0)
+                return nextQueue;
+            const [item] = nextQueue.splice(currentIndex, 1);
+            nextQueue.splice(targetIndex, 0, item);
+            return nextQueue;
+        });
+    }
+    function removeVideoFromQueue(videoId: string) {
+        setVideoPlaybackQueue((previous) => uniqueVideos(previous).filter((video) => video.id !== videoId));
+    }
+    function moveVideoQueueItem(videoId: string, direction: -1 | 1) {
+        setVideoPlaybackQueue((previous) => {
+            const nextQueue = uniqueVideos(previous);
+            const currentIndex = nextQueue.findIndex((video) => video.id === videoId);
+            const nextIndex = currentIndex + direction;
+            if (currentIndex < 0 || nextIndex < 0 || nextIndex >= nextQueue.length)
+                return nextQueue;
+            const [item] = nextQueue.splice(currentIndex, 1);
+            nextQueue.splice(nextIndex, 0, item);
+            return nextQueue;
+        });
+    }
+    function moveVideoQueueItemTo(videoId: string, targetVideoId: string) {
+        if (videoId === targetVideoId)
+            return;
+        setVideoPlaybackQueue((previous) => {
+            const nextQueue = uniqueVideos(previous);
+            const currentIndex = nextQueue.findIndex((video) => video.id === videoId);
+            const targetIndex = nextQueue.findIndex((video) => video.id === targetVideoId);
+            if (currentIndex < 0 || targetIndex < 0)
+                return nextQueue;
+            const [item] = nextQueue.splice(currentIndex, 1);
+            nextQueue.splice(targetIndex, 0, item);
+            return nextQueue;
+        });
     }
     async function toggleLike(songId: string) {
         if (!guardDesktopProtectedAction("toggle-like")) {
@@ -9901,7 +9718,8 @@ function PageContent() {
         }
     }
     function clearQueue() {
-        clearSharedMediaQueue();
+        setQueue([]);
+        setVideoPlaybackQueue((previous) => activeVideo ? previous.filter((video) => video.id === activeVideo.id) : []);
         setActiveAlbumPlayback(null);
     }
     function clearRecentlyPlayed() {
@@ -9911,14 +9729,6 @@ function PageContent() {
     async function saveQueueAsPlaylist() {
         if (!guardDesktopProtectedAction("save-queue-playlist")) {
             showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
-            return;
-        }
-        if (queueCount === 0) {
-            showToast("Queue is empty.", "info");
-            return;
-        }
-        if (mediaQueueItems.some((item) => item.mediaType === "video")) {
-            showToast("Save Queue as Playlist is unavailable while videos are in the queue.", "info");
             return;
         }
         if (cleanQueue.length === 0) {
@@ -10134,21 +9944,21 @@ function PageContent() {
       </button>);
     }
     function renderMobileSongQueueButton(song: Song) {
-        const isQueued = isMediaQueued("song", song.id);
-        return (<button className="mobile-queue-btn recent-queue-btn" onClick={() => addToQueue(song)} disabled={isQueued} title={isQueued ? "Already in queue" : "Add to queue"} type="button">
+        const isQueued = cleanQueue.some((item) => item.id === song.id);
+        return (<button className="mobile-queue-btn" onClick={() => addToQueue(song)} disabled={isQueued} title={isQueued ? "Already in queue" : "Add to queue"} type="button">
         <ListMusic size={15}/>
         <span>{isQueued ? "Queued" : "Add to Queue"}</span>
       </button>);
     }
     function renderMobileVideoQueueButton(video: VideoItem) {
-        const isQueued = isMediaQueued("video", video.id);
-        return (<button className="mobile-queue-btn recent-queue-btn" onClick={() => addVideoToQueue(video)} disabled={isQueued} title={isQueued ? "Already in queue" : "Add to queue"} type="button">
+        const isQueued = uniqueVideos(videoPlaybackQueue).some((item) => item.id === video.id);
+        return (<button className="mobile-queue-btn" onClick={() => addVideoToQueue(video)} disabled={isQueued} title={isQueued ? "Already in queue" : "Add to queue"} type="button">
         <ListMusic size={15}/>
         <span>{isQueued ? "Queued" : "Add to Queue"}</span>
       </button>);
     }
     function renderMobileAlbumQueueButton(album: Album | ResolvedAlbum) {
-        return (<button className="mobile-queue-btn recent-queue-btn" onClick={() => addAlbumToQueue(album)} title="Add album to queue" type="button">
+        return (<button className="mobile-queue-btn" onClick={() => addAlbumToQueue(album)} title="Add album to queue" type="button">
         <ListMusic size={15}/>
         <span>Add to Queue</span>
       </button>);
@@ -10164,7 +9974,7 @@ function PageContent() {
         const isLiked = likedIds.includes(song.id);
         const artistId = createArtistId(song.artist);
         const isFollowed = followedArtistIds.includes(artistId);
-        const isQueued = isMediaQueued("song", song.id);
+        const isQueued = cleanQueue.some((item) => item.id === song.id);
         const producerCredit = getProducerCreditForSong(song);
         const canDeleteTrack = canDeleteUploadedSong(song);
         return (<DesktopSongMediaCard
@@ -10209,7 +10019,7 @@ function PageContent() {
         const isFollowing = followedArtistIds.includes(artistId);
         const isLiked = Boolean(video.likedByUser);
         const isSaved = savedVideoIds.includes(video.id);
-        const isQueued = isMediaQueued("video", video.id);
+        const isQueued = uniqueVideos(videoPlaybackQueue).some((item) => item.id === video.id);
         const canDeleteVideo = canDeleteUploadedVideo(video);
         const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
         return (<DesktopVideoMediaCard
@@ -11708,19 +11518,8 @@ function PageContent() {
         }
     }
     function playVideo(video: VideoItem | Record<string, unknown>, sourceSection = "Video Card") {
-        if (sourceSection !== "Shared Queue") {
-            setForcedQueuePlayableUrl("");
-        }
         const playableVideo = normalizeVideo(video);
-        const incomingPlayableUrl = sourceSection === "Shared Queue"
-            ? String(
-                (video as { playableUrl?: string }).playableUrl
-                || (video as { videoUrl?: string }).videoUrl
-                || (video as { video_url?: string }).video_url
-                || "",
-            ).trim()
-            : "";
-        const videoUrl = getVideoPlaybackUrl(playableVideo) || incomingPlayableUrl;
+        const videoUrl = getVideoPlaybackUrl(playableVideo);
         if (!videoUrl) {
             console.error("[video play] missing playable URL:", sourceSection, playableVideo.id, playableVideo.title);
             reportPlatformError("media_url", "play-video-missing-url", "Video file URL missing", {
@@ -11738,12 +11537,7 @@ function PageContent() {
             return;
         }
         const nextViews = (playableVideo.views || 0) + 1;
-        const nextActiveVideo = {
-            ...playableVideo,
-            views: nextViews,
-            videoUrl: videoUrl || playableVideo.videoUrl || "",
-            video_url: videoUrl || playableVideo.video_url || "",
-        };
+        const nextActiveVideo = { ...playableVideo, views: nextViews };
         console.log("[video selected]", {
             sourceSection,
             selectedVideoId: playableVideo.id,
@@ -11867,6 +11661,13 @@ function PageContent() {
             setVideoAutoplayRequestId(playableVideo.id);
         }
         saveVideoPlay(nextActiveVideo);
+        const preserveVideoQueue = sourceSection.includes("Playlist") ||
+            sourceSection.includes("Album") ||
+            sourceSection.includes("Video Player") ||
+            sourceSection.includes("Auto Next");
+        if (!preserveVideoQueue) {
+            setVideoPlaybackQueue([]);
+        }
         if (!sourceSection.includes("Album") && !isActiveAlbumTrack("video", playableVideo.id)) {
             setActiveAlbumPlayback(null);
         }
@@ -11899,13 +11700,6 @@ function PageContent() {
         });
     }
     function playAdjacentVideo(direction: "previous" | "next") {
-        if (mediaQueueItems.length > 0) {
-            const nextItem = direction === "next" ? advanceSharedQueueNext() : advanceSharedQueuePrevious();
-            if (nextItem) {
-                playQueuedMediaItem(nextItem);
-                return;
-            }
-        }
         const list = getVideoPlaybackList();
         if (list.length === 0)
             return;
@@ -12184,7 +11978,7 @@ function PageContent() {
             libraryIds,
             likedIds,
             followedIds,
-            queue: mediaQueueItems,
+            queue,
             recentlyPlayed,
             playlists,
             producerBeats,
@@ -12218,7 +12012,7 @@ function PageContent() {
             setLibraryIds(previousState.libraryIds);
             setLikedIds(previousState.likedIds);
             setFollowedIds(previousState.followedIds);
-            replaceSharedMediaQueue(previousState.queue, previousState.queue.findIndex((item) => item.mediaType === "song" && item.id === previousState.currentSong?.id));
+            setQueue(previousState.queue);
             setRecentlyPlayed(previousState.recentlyPlayed);
             setPlaylists(previousState.playlists);
             setProducerBeats(previousState.producerBeats);
@@ -12646,21 +12440,7 @@ function PageContent() {
             cover: getAlbumDisplayCover(resolvedAlbum),
             tracks: getAlbumTrackPointers(resolvedAlbum),
         });
-        const albumQueueItems = [
-            ...resolvedAlbum.songs
-                .map((song) => songToQueueMedia(song as unknown as Record<string, unknown>))
-                .filter((item): item is NonNullable<typeof item> => Boolean(item)),
-            ...resolvedAlbum.videos
-                .map((video) => videoToQueueMedia(normalizeVideoForPlayback(video) as unknown as Record<string, unknown>))
-                .filter((item): item is NonNullable<typeof item> => Boolean(item)),
-        ];
-        if (albumQueueItems.length > 0) {
-            const firstItem = replaceSharedMediaQueue(albumQueueItems, 0);
-            if (firstItem) {
-                playQueuedMediaItem(firstItem, { preserveAlbumPlayback: true });
-                return;
-            }
-        }
+        setVideoPlaybackQueue(resolvedAlbum.videos);
         if (resolvedAlbum.songs.length > 0) {
             playSongList(resolvedAlbum.songs, { preserveAlbumPlayback: true });
             return;
@@ -13279,7 +13059,6 @@ function PageContent() {
             console.error("Logout failed:", error);
         }
         finally {
-            resetQueueOnLogout();
             clearLocalSessionState();
         }
     }
@@ -13402,7 +13181,7 @@ function PageContent() {
         if (view === "Recently Played")
             return "Every play is saved here, including repeat listens.";
         if (view === "Queue")
-            return "Songs and videos lined up for the player.";
+            return "Songs lined up for the player.";
         if (view === "Liked")
             return "Songs, videos, and artists you liked.";
         if (view === "Playlists")
@@ -14316,17 +14095,17 @@ function PageContent() {
             "Mobile Video Playback Debug Report",
             `Generated: ${new Date().toISOString()}`,
             "",
-            `Video title: ${debug.title || "—"}`,
-            `Video id: ${debug.selectedVideoId || "—"}`,
-            `finalVideoUrl: ${debug.finalVideoUrl || "—"}`,
-            `videoUrl: ${debug.videoUrl || "—"}`,
-            `storagePath: ${debug.storagePath || "—"}`,
-            `mobile_compatible: ${debug.mobileCompatible || "—"}`,
-            `video_codec: ${debug.detectedVideoCodec || "—"}`,
-            `audio_codec: ${debug.detectedAudioCodec || "—"}`,
-            `Media error code: ${debug.errorCode || "—"}`,
-            `Media error message: ${debug.errorMessage || "—"}`,
-            `User agent: ${userAgent || "—"}`,
+            `Video title: ${debug.title || "ΓÇö"}`,
+            `Video id: ${debug.selectedVideoId || "ΓÇö"}`,
+            `finalVideoUrl: ${debug.finalVideoUrl || "ΓÇö"}`,
+            `videoUrl: ${debug.videoUrl || "ΓÇö"}`,
+            `storagePath: ${debug.storagePath || "ΓÇö"}`,
+            `mobile_compatible: ${debug.mobileCompatible || "ΓÇö"}`,
+            `video_codec: ${debug.detectedVideoCodec || "ΓÇö"}`,
+            `audio_codec: ${debug.detectedAudioCodec || "ΓÇö"}`,
+            `Media error code: ${debug.errorCode || "ΓÇö"}`,
+            `Media error message: ${debug.errorMessage || "ΓÇö"}`,
+            `User agent: ${userAgent || "ΓÇö"}`,
             "",
             "Media event logs:",
             eventLogText,
@@ -14370,47 +14149,47 @@ function PageContent() {
             <dl>
               <div>
                 <dt>Video title</dt>
-                <dd>{debug.title || "—"}</dd>
+                <dd>{debug.title || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>Video id</dt>
-                <dd>{debug.selectedVideoId || "—"}</dd>
+                <dd>{debug.selectedVideoId || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>finalVideoUrl</dt>
-                <dd>{debug.finalVideoUrl || "—"}</dd>
+                <dd>{debug.finalVideoUrl || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>videoUrl</dt>
-                <dd>{debug.videoUrl || "—"}</dd>
+                <dd>{debug.videoUrl || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>storagePath</dt>
-                <dd>{debug.storagePath || "—"}</dd>
+                <dd>{debug.storagePath || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>mobile_compatible</dt>
-                <dd>{debug.mobileCompatible || "—"}</dd>
+                <dd>{debug.mobileCompatible || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>video_codec</dt>
-                <dd>{debug.detectedVideoCodec || "—"}</dd>
+                <dd>{debug.detectedVideoCodec || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>audio_codec</dt>
-                <dd>{debug.detectedAudioCodec || "—"}</dd>
+                <dd>{debug.detectedAudioCodec || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>Media error code</dt>
-                <dd>{debug.errorCode || "—"}</dd>
+                <dd>{debug.errorCode || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>Media error message</dt>
-                <dd>{debug.errorMessage || "—"}</dd>
+                <dd>{debug.errorMessage || "ΓÇö"}</dd>
               </div>
               <div>
                 <dt>User agent</dt>
-                <dd>{userAgent || "—"}</dd>
+                <dd>{userAgent || "ΓÇö"}</dd>
               </div>
             </dl>
             <div className="video-playback-debug-event-logs">
@@ -14485,11 +14264,11 @@ function PageContent() {
           {showMobileCompatibilityWarning ? (<p className="mobile-video-incompatible">{mobileCompatibilityMessage}</p>) : null}
           {!showMobileIncompatibleFallback ? renderVideoPlaybackDebugSection() : null}
           <div className="video-player-actions">
-            <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}>
+            <button onClick={() => playAdjacentVideo("previous")} type="button" disabled={getVideoPlaybackList().length < 2}>
               <SkipBack size={16} fill="currentColor"/>
               Previous Video
             </button>
-            <button onClick={() => playAdjacentVideo("next")} type="button" disabled={mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}>
+            <button onClick={() => playAdjacentVideo("next")} type="button" disabled={getVideoPlaybackList().length < 2}>
               <SkipForward size={16} fill="currentColor"/>
               Next Video
             </button>
@@ -14798,7 +14577,9 @@ function PageContent() {
         : "Not scanned";
     const launchStatusLastChecked = launchStatus?.checkedAt ? formatVideoCreatedAt(launchStatus.checkedAt) : "Not scanned";
     const unreadNotifications = notifications.filter((notification) => !notification.read).length;
-    const totalUpNextCount = upNextQueueItems.length;
+    const queuedVideos = uniqueVideos(videoPlaybackQueue);
+    const upNextVideos = activeVideo ? queuedVideos.filter((video) => video.id !== activeVideo.id) : queuedVideos;
+    const totalUpNextCount = cleanQueue.length + upNextVideos.length;
     const activeAlbumTrackInfo = getActiveAlbumTrackInfo();
     return (<main className={`zml-app view-${displayMode}`}>
       <aside className="sidebar">
@@ -14841,31 +14622,28 @@ function PageContent() {
         <section className="queue-panel">
           <div className="panel-title-row">
             <h2>Queue</h2>
-            {queueCount > 0 && (<button className="small-action" onClick={clearQueue} title="Clear queue">
+            {cleanQueue.length > 0 && (<button className="small-action" onClick={clearQueue} title="Clear queue">
                 Clear
               </button>)}
           </div>
-          <p className="empty-small queue-panel-summary">{queueCount} media queued</p>
 
-          {queueCount === 0 ? null : (<div className="queue-list">
-              {mediaQueueItems.slice(0, 5).map((item) => (<div className="queue-item" key={`${item.mediaType}-${item.id}`}>
+          {cleanQueue.length === 0 ? (<p className="empty-small">No songs queued.</p>) : (<div className="queue-list">
+              {cleanQueue.slice(0, 5).map((song) => (<div className="queue-item" key={song.id}>
                   <div className="queue-main">
-                    <button className="queue-thumb" onClick={() => playQueuedMediaItem(item)} title={`Play ${item.title}`} type="button">
-                      <img src={item.thumbnail || item.artworkUrl || BRAND_LOGO} alt=""/>
+                    <button className="queue-thumb" onClick={() => playSong(song)} title={`Play ${song.title}`} type="button">
+                      <img src={song.cover} alt=""/>
                     </button>
                     <span>
-                      <button className="queue-title" onClick={() => playQueuedMediaItem(item)} title={`Play ${item.title}`} type="button">
-                        {item.title}
+                      <button className="queue-title" onClick={() => playSong(song)} title={`Play ${song.title}`} type="button">
+                        {song.title}
                       </button>
                       <small>
-                        {item.mediaType === "song"
-                ? <ArtistNameButton name={item.artist || item.artistName} onOpen={openArtistProfile}/>
-                : `${item.artist || item.artistName} | Video`}
+                        <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
                       </small>
                     </span>
                   </div>
 
-                  <button className="icon-action" onClick={() => removeMediaFromQueue(item.mediaType, item.id)} title="Remove">
+                  <button className="icon-action" onClick={() => removeFromQueue(song.id)} title="Remove">
                     <X size={14}/>
                   </button>
                 </div>))}
@@ -14897,11 +14675,11 @@ function PageContent() {
 
           <div className="view-toggle" role="group" aria-label="Card view mode">
             <button className={displayMode === "grid" ? "active" : ""} onClick={() => setDisplayMode("grid")} type="button">
-              <span aria-hidden="true">□</span>
+              <span aria-hidden="true">Γûí</span>
               Grid View
             </button>
             <button className={displayMode === "list" ? "active" : ""} onClick={() => setDisplayMode("list")} type="button">
-              <span aria-hidden="true">☰</span>
+              <span aria-hidden="true">Γÿ░</span>
               List View
             </button>
           </div>
@@ -17137,7 +16915,7 @@ function PageContent() {
                     {activeArtistSongs.map((song, index) => {
                     const isSaved = libraryIds.includes(song.id);
                     const isLiked = likedIds.includes(song.id);
-                    const isQueued = isMediaQueued("song", song.id);
+                    const isQueued = cleanQueue.some((item) => item.id === song.id);
                     const canDeleteTrack = canDeleteUploadedSong(song);
                     return (<article className="artist-song-row" key={song.id}>
                           <span className="recent-number">{index + 1}</span>
@@ -17559,68 +17337,46 @@ function PageContent() {
                     </div>)}
                   </section>)}
               </div>)}
-          </section>) : view === "Queue" && !search.trim() ? (() => {
-            const queuedSongs = mediaQueueItems.filter((item) => item.mediaType === "song");
-            const queuedVideos = mediaQueueItems.filter((item) => item.mediaType === "video");
-            const renderQueueManageRow = (item: (typeof mediaQueueItems)[number]) => {
-                const index = mediaQueueItems.findIndex((entry) => entry.mediaType === item.mediaType && entry.id === item.id);
-                const thumbnail = item.thumbnail || item.artworkUrl || BRAND_LOGO;
-                const artist = item.artist || item.artistName;
-                return (<article className="queue-manage-row" key={`${item.mediaType}-${item.id}`}>
-                    <span className="recent-number">{index + 1}</span>
-                    <img src={thumbnail} alt=""/>
-                    <div className="recent-copy">
-                      <h3>{item.title}</h3>
-                      <p>{artist}</p>
-                      <small>{item.mediaType === "song" ? "Song" : "Video"}{item.duration != null ? ` | ${formatDurationLabel(item.duration)}` : ""}</small>
-                    </div>
-                    <button onClick={() => playQueuedMediaItem(item)} type="button" title={`Play ${item.title}`}>
-                      <Play size={16} fill="currentColor"/>
-                      Play
-                    </button>
-                    <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, -1)} disabled={index <= 0} type="button" title="Move up">
-                      Up
-                    </button>
-                    <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, 1)} disabled={index < 0 || index >= mediaQueueItems.length - 1} type="button" title="Move down">
-                      Down
-                    </button>
-                    <button onClick={() => removeMediaFromQueue(item.mediaType, item.id)} type="button" title="Remove">
-                      <X size={16}/>
-                      Remove
-                    </button>
-                  </article>);
-            };
-            return (<section className="queue-page">
+          </section>) : view === "Queue" && !search.trim() ? (<section className="queue-page">
             <div className="queue-toolbar">
-              <button onClick={clearQueue} disabled={queueCount === 0} type="button">
+              <button onClick={clearQueue} disabled={cleanQueue.length === 0} type="button">
                 <Trash2 size={15}/>
                 Clear Queue
               </button>
-              <button onClick={saveQueueAsPlaylist} disabled={queueCount === 0 || queuedVideos.length > 0} type="button" title={queuedVideos.length > 0 ? "Unavailable while videos are in the queue" : "Save queue as playlist"}>
+              <button onClick={saveQueueAsPlaylist} disabled={cleanQueue.length === 0} type="button">
                 <ListMusic size={15}/>
                 Save Queue as Playlist
               </button>
             </div>
 
-            {queueCount === 0 ? (<div className="empty-state">
-                <h2>No media queued</h2>
-                <p>Add songs or videos to the queue from any card.</p>
-              </div>) : (<div className="queue-manage-sections">
-                <section className="queue-manage-section" aria-label="Queued songs">
-                  <h2 className="queue-section-title">Songs</h2>
-                  {queuedSongs.length === 0 ? (<p className="empty-small">No songs in queue.</p>) : (<section className="queue-manage-list">
-                      {queuedSongs.map((item) => renderQueueManageRow(item))}
-                    </section>)}
-                </section>
-                <section className="queue-manage-section" aria-label="Queued videos">
-                  <h2 className="queue-section-title">Videos</h2>
-                  {queuedVideos.length === 0 ? (<p className="empty-small">No videos in queue.</p>) : (<section className="queue-manage-list">
-                      {queuedVideos.map((item) => renderQueueManageRow(item))}
-                    </section>)}
-                </section>
-              </div>)}
-          </section>);
-          })() : view === "Recently Played" && !search.trim() ? (recentlyPlayed.length === 0 ? (<div className="empty-state">
+            {cleanQueue.length === 0 ? (<div className="empty-state">
+                <h2>No songs queued</h2>
+                <p>Add songs to the queue from any card.</p>
+              </div>) : (<section className="queue-manage-list">
+                {cleanQueue.map((song, index) => (<article className="queue-manage-row" key={song.id}>
+                    <span className="recent-number">{index + 1}</span>
+                    <img src={song.cover} alt=""/>
+                    <div className="recent-copy">
+                      <h3>{song.title}</h3>
+                      <p>{song.artist}</p>
+                      <small>{song.producer ? `Produced by ${song.producer}` : "No producer assigned."} | {song.time} | {formatCount(song.plays)} plays | {formatCount(song.likes)} likes</small>
+                    </div>
+                    <button onClick={() => playSong(song)} type="button" title={`Play ${song.title}`}>
+                      <Play size={16} fill="currentColor"/>
+                      Play
+                    </button>
+                    <button onClick={() => moveQueueItem(song.id, -1)} disabled={index === 0} type="button" title="Move up">
+                      Up
+                    </button>
+                    <button onClick={() => moveQueueItem(song.id, 1)} disabled={index === cleanQueue.length - 1} type="button" title="Move down">
+                      Down
+                    </button>
+                    <button onClick={() => removeFromQueue(song.id)} type="button" title="Remove item">
+                      <X size={16}/>
+                    </button>
+                  </article>))}
+              </section>)}
+          </section>) : view === "Recently Played" && !search.trim() ? (recentlyPlayed.length === 0 ? (<div className="empty-state">
               <h2>No plays saved yet</h2>
               <p>Play any song, video, or album and it will appear here right away.</p>
             </div>) : (<section className="recent-panel">
@@ -18010,7 +17766,7 @@ function PageContent() {
                             : playlist.songIds.includes(playlistTarget.item.id);
                     const songCount = playlist.songIds.length;
                     const videoCount = playlist.videoIds.length;
-                    const countLabel = `${songCount} song${songCount === 1 ? "" : "s"} • ${videoCount} video${videoCount === 1 ? "" : "s"}`;
+                    const countLabel = `${songCount} song${songCount === 1 ? "" : "s"} ΓÇó ${videoCount} video${videoCount === 1 ? "" : "s"}`;
                     return (<button className={alreadyAdded ? "already-added" : ""} disabled={playlistTarget.type === "album" && !hasCompatibleAlbumItems} key={playlist.id} onClick={() => addPlaylistTargetToPlaylist(playlist.id, playlistTarget)} type="button">
                       <img src={playlist.cover || DEFAULT_PLAYLIST_COVER} alt=""/>
                       <span>
@@ -18058,31 +17814,56 @@ function PageContent() {
           <section className="queue-drawer-section">
             <div className="queue-drawer-title">
               <strong>Up Next</strong>
-              <button onClick={clearQueue} disabled={queueCount === 0} type="button">Clear Queue</button>
+              <button onClick={clearQueue} disabled={totalUpNextCount === 0} type="button">Clear Queue</button>
             </div>
             <small className="queue-drag-hint">Drag items to reorder.</small>
 
             {totalUpNextCount === 0 ? (<p className="empty-small">No upcoming tracks yet.</p>) : (<div className="queue-drawer-list">
-                {upNextQueueItems.map((item, index) => (<article className="drawer-media-row" draggable key={`drawer-${item.mediaType}-${item.id}`} onDragStart={() => setDraggedQueueItem({ type: item.mediaType, id: item.id })} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
+                {cleanQueue.map((song, index) => (<article className="drawer-media-row" draggable key={`drawer-song-${song.id}`} onDragStart={() => setDraggedQueueItem({ type: "song", id: song.id })} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
                         event.preventDefault();
-                        if (draggedQueueItem) {
-                            moveSharedQueueItemTo(draggedQueueItem.type, draggedQueueItem.id, item.mediaType, item.id);
+                        if (draggedQueueItem?.type === "song") {
+                            moveQueueItemTo(draggedQueueItem.id, song.id);
                         }
                         setDraggedQueueItem(null);
                     }}>
-                    <img src={item.artworkUrl || BRAND_LOGO} alt=""/>
+                    <img src={song.cover} alt=""/>
                     <span>
-                      <strong>{item.title}</strong>
-                      <small>{item.artistName} | {item.mediaType === "song" ? "Song" : "Video"}</small>
+                      <strong>{song.title}</strong>
+                      <small>{song.artist} | Song</small>
                     </span>
                     <div className="drawer-row-actions">
-                      <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, -1)} disabled={index === 0 && mediaQueueActiveIndex < 0} title="Move up" type="button">↑</button>
-                      <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, 1)} disabled={index === upNextQueueItems.length - 1} title="Move down" type="button">↓</button>
-                      <button onClick={() => removeMediaFromQueue(item.mediaType, item.id)} title="Remove" type="button">
+                      <button onClick={() => moveQueueItem(song.id, -1)} disabled={index === 0} title="Move up" type="button">Γåæ</button>
+                      <button onClick={() => moveQueueItem(song.id, 1)} disabled={index === cleanQueue.length - 1} title="Move down" type="button">Γåô</button>
+                      <button onClick={() => removeFromQueue(song.id)} title="Remove" type="button">
                         <Trash2 size={14}/>
                       </button>
                     </div>
                   </article>))}
+
+                {upNextVideos.map((video) => {
+                    const queueIndex = queuedVideos.findIndex((item) => item.id === video.id);
+                    const firstMovableVideoIndex = activeVideo && queuedVideos.some((item) => item.id === activeVideo.id) ? 1 : 0;
+                    return (<article className="drawer-media-row" draggable key={`drawer-video-${video.id}`} onDragStart={() => setDraggedQueueItem({ type: "video", id: video.id })} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
+                            event.preventDefault();
+                            if (draggedQueueItem?.type === "video") {
+                                moveVideoQueueItemTo(draggedQueueItem.id, video.id);
+                            }
+                            setDraggedQueueItem(null);
+                        }}>
+                        <img src={video.cover} alt=""/>
+                        <span>
+                          <strong>{video.title}</strong>
+                          <small>{video.creator} | Video</small>
+                        </span>
+                        <div className="drawer-row-actions">
+                          <button onClick={() => moveVideoQueueItem(video.id, -1)} disabled={queueIndex <= firstMovableVideoIndex} title="Move up" type="button">Γåæ</button>
+                          <button onClick={() => moveVideoQueueItem(video.id, 1)} disabled={queueIndex === queuedVideos.length - 1} title="Move down" type="button">Γåô</button>
+                          <button onClick={() => removeVideoFromQueue(video.id)} title="Remove" type="button">
+                            <Trash2 size={14}/>
+                          </button>
+                        </div>
+                      </article>);
+                })}
               </div>)}
           </section>
         </aside>)}
@@ -18099,7 +17880,7 @@ function PageContent() {
 
           <div className="video-player-center">
             <div className="video-player-controls">
-              <button onClick={() => playAdjacentVideo("previous")} title="Previous video" type="button" disabled={mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}>
+              <button onClick={() => playAdjacentVideo("previous")} title="Previous video" type="button" disabled={getVideoPlaybackList().length < 2}>
                 <SkipBack size={17} fill="currentColor"/>
               </button>
 
@@ -18107,7 +17888,7 @@ function PageContent() {
                 {videoPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
               </button>
 
-              <button onClick={() => playAdjacentVideo("next")} title="Next video" type="button" disabled={mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}>
+              <button onClick={() => playAdjacentVideo("next")} title="Next video" type="button" disabled={getVideoPlaybackList().length < 2}>
                 <SkipForward size={17} fill="currentColor"/>
               </button>
 
@@ -18130,7 +17911,7 @@ function PageContent() {
 
           <div className="video-player-side">
             <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
-              Queue {queueCount}
+              Queue {totalUpNextCount}
             </button>
             <label className="volume video-volume">
               <Volume2 size={18}/>
@@ -18188,7 +17969,7 @@ function PageContent() {
 
           <div className="player-side">
             <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
-              Queue {queueCount}
+              Queue {totalUpNextCount}
             </button>
             <label className="volume">
               <Volume2 size={18}/>
@@ -19672,7 +19453,7 @@ function PageContent() {
           }
 
           .video-library-stats span + span::before {
-            content: "•";
+            content: "ΓÇó";
             color: #fbbf24;
             font-weight: 900;
           }
@@ -20960,26 +20741,6 @@ function PageContent() {
             max-width: 1100px;
           }
 
-          .queue-manage-sections {
-            display: grid;
-            gap: 20px;
-          }
-
-          .queue-manage-section {
-            display: grid;
-            gap: 10px;
-          }
-
-          .queue-section-title {
-            margin: 0;
-            color: white;
-            font-size: 18px;
-          }
-
-          .queue-panel-summary {
-            margin: 0 0 8px;
-          }
-
           .queue-toolbar {
             display: flex;
             flex-wrap: wrap;
@@ -21037,8 +20798,8 @@ function PageContent() {
           }
 
           .recent-row {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: 44px 58px 1fr 150px minmax(96px, auto);
             align-items: center;
             gap: 12px;
             background: #10204a;
@@ -21052,7 +20813,6 @@ function PageContent() {
             font-size: 13px;
             font-weight: 900;
             text-align: center;
-            min-width: 44px;
           }
 
           .recent-row img {
@@ -21060,12 +20820,10 @@ function PageContent() {
             height: 58px;
             border-radius: 8px;
             object-fit: cover;
-            flex: 0 0 58px;
           }
 
           .recent-copy {
             min-width: 0;
-            flex: 1 1 180px;
           }
 
           .recent-copy h3,
@@ -21109,25 +20867,8 @@ function PageContent() {
             white-space: nowrap;
           }
 
-          .recent-row .recent-queue-btn {
-            min-width: 148px;
-            display: inline-flex !important;
-            visibility: visible;
-            opacity: 1;
-            overflow: visible;
-            text-overflow: clip;
-            white-space: nowrap;
-            max-width: none;
-            width: auto;
-            padding: 0 12px;
-          }
-
           .mobile-queue-btn {
             display: none;
-          }
-
-          .recent-row .mobile-queue-btn.recent-queue-btn {
-            display: inline-flex !important;
           }
 
           .empty-state {
@@ -26141,18 +25882,11 @@ function PageContent() {
             }
 
             .recent-row {
-              display: flex;
-              flex-wrap: wrap;
-              align-items: center;
-              gap: 10px;
+              grid-template-columns: 32px 50px 1fr 38px;
             }
 
             .recent-time {
-              flex: 1 1 100%;
-            }
-
-            .recent-row .recent-queue-btn {
-              min-width: 148px;
+              grid-column: 3 / 5;
             }
 
             .playlist-song-row {

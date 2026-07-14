@@ -1,0 +1,75 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+> music-data-base@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.2.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 10.1s
+  Running TypeScript ...
+  Finished TypeScript in 26.0s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/4) ...
+  Generating static pages using 7 workers (1/4) 
+  Generating static pages using 7 workers (2/4) 
+  Generating static pages using 7 workers (3/4) 
+Γ£ô Generating static pages using 7 workers (4/4) in 616ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ ╞Æ /api/albums
+Γö£ ╞Æ /api/albums/create
+Γö£ ╞Æ /api/albums/items
+Γö£ ╞Æ /api/artist-follow
+Γö£ ╞Æ /api/artist-follows
+Γö£ ╞Æ /api/audio
+Γö£ ╞Æ /api/auth/repair-metadata
+Γö£ ╞Æ /api/discovery
+Γö£ ╞Æ /api/launch/admin
+Γö£ ╞Æ /api/launch/checklist
+Γö£ ╞Æ /api/launch/status
+Γö£ ╞Æ /api/library-saves
+Γö£ ╞Æ /api/library/save
+Γö£ ╞Æ /api/licenses
+Γö£ ╞Æ /api/platform/backup
+Γö£ ╞Æ /api/platform/errors
+Γö£ ╞Æ /api/platform/repair-auth-metadata
+Γö£ ╞Æ /api/platform/storage-cleanup
+Γö£ ╞Æ /api/playlist-items
+Γö£ ╞Æ /api/playlist-songs
+Γö£ ╞Æ /api/playlists
+Γö£ ╞Æ /api/producers
+Γö£ ╞Æ /api/recommendation
+Γö£ ╞Æ /api/recommendations
+Γö£ ╞Æ /api/sales
+Γö£ ╞Æ /api/song-likes
+Γö£ ╞Æ /api/songs
+Γö£ ╞Æ /api/songs/[id]
+Γö£ ╞Æ /api/upload-audio
+Γö£ ╞Æ /api/upload-video
+Γö£ ╞Æ /api/user-music-state
+Γö£ ╞Æ /api/user-profile
+Γö£ ╞Æ /api/video-upload
+Γö£ ╞Æ /api/videos
+Γö£ ╞Æ /api/videos/[id]
+Γö£ ╞Æ /api/videos/repair-urls
+Γö£ ╞Æ /artist/[id]
+Γöö ╞Æ /producer/[id]
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
