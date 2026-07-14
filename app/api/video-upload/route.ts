@@ -9,6 +9,11 @@ import {
     readSupabaseLibraryKeySource,
     SUPABASE_PROJECT_URL,
 } from "@/lib/supabase-config";
+import {
+    buildCompatibleVideoPublishMetadata,
+    inspectVideoBytesForUploadCompatibility,
+    VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE,
+} from "@/lib/video-upload-compatibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -694,6 +699,10 @@ const OPTIONAL_VIDEO_INSERT_COLUMNS = [
     "video_codec",
     "audio_codec",
     "mobile_compatible",
+    "mime_type",
+    "container",
+    "compatibility_status",
+    "compatibility_reason",
     "views",
     "likes",
     "created_at",
@@ -830,13 +839,40 @@ function assertSavedVideoRow(video: Record<string, unknown>, storagePath: string
     }
 }
 
+async function inspectStoredObjectCompatibility(
+    supabase: ReturnType<typeof getSupabaseLibraryClient>,
+    storagePath: string,
+    fileName: string,
+) {
+    const download = await supabase.storage.from(VIDEOS_BUCKET).download(storagePath);
+    if (download.error || !download.data) {
+        throw new Error(`Uploaded video object could not be read from storage: ${getErrorMessage(download.error)}`);
+    }
+    const full = new Uint8Array(await download.data.arrayBuffer());
+    const sampleSize = Math.min(256 * 1024, full.byteLength);
+    const parts: Uint8Array[] = [full.slice(0, sampleSize)];
+    if (full.byteLength > sampleSize) {
+        parts.push(full.slice(Math.max(0, full.byteLength - sampleSize)));
+    }
+    const merged = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0));
+    let offset = 0;
+    for (const part of parts) {
+        merged.set(part, offset);
+        offset += part.byteLength;
+    }
+    return inspectVideoBytesForUploadCompatibility(merged, {
+        mimeType: "video/mp4",
+        fileName,
+    });
+}
+
 async function saveVideoMetadata(request: Request, body: Record<string, unknown>, authUserId: string) {
     const supabase = getSupabaseLibraryClient();
     const providedPublicUrl = getRecordString(body, ["publicUrl", "video_url", "videoUrl"]);
     const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
     const fileName = getRecordString(body, ["fileName", "file_name"], storagePath.split("/").pop() || "video.mp4");
     const fileSize = getRecordNumber(body, ["fileSize", "file_size"]);
-    const cleanupOnFailure = body.cleanupOnFailure === true;
+    const cleanupOnFailure = body.cleanupOnFailure !== false;
 
     if (!providedPublicUrl || !storagePath) {
         return jsonResponse({
@@ -878,6 +914,41 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
         }, 500);
     }
 
+    let inspection;
+    try {
+        inspection = await inspectStoredObjectCompatibility(supabase, storagePath, fileName);
+    }
+    catch (inspectError) {
+        const cleanupError = cleanupOnFailure ? await cleanupUploadedVideoObject(supabase, storagePath) : null;
+        return jsonResponse({
+            error: VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE,
+            details: {
+                reason: getErrorMessage(inspectError),
+                storagePath,
+                cleanupOnFailure,
+                cleanupError,
+                compatibilityStatus: "unknown",
+            },
+        }, 400);
+    }
+
+    if (!inspection.canPublish) {
+        const cleanupError = await cleanupUploadedVideoObject(supabase, storagePath);
+        return jsonResponse({
+            error: VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE,
+            details: {
+                storagePath,
+                compatibilityStatus: inspection.compatibilityStatus,
+                compatibilityReason: inspection.compatibilityReason,
+                videoCodec: inspection.videoCodec,
+                audioCodec: inspection.audioCodec,
+                container: inspection.container,
+                cleanupError,
+            },
+        }, 400);
+    }
+
+    const publishMeta = buildCompatibleVideoPublishMetadata(inspection);
     const createdAt = new Date().toISOString();
     const videoTitle = getRecordString(body, ["title"], fileName.replace(/\.[^/.]+$/, "") || "Untitled video");
     const artistName = getRecordString(body, ["artist_name", "artistName", "creator", "description"], "Unknown creator");
@@ -905,6 +976,13 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
         storage_path: storagePath,
         file_name: fileName,
         file_size: fileSize,
+        video_codec: publishMeta.video_codec,
+        audio_codec: publishMeta.audio_codec,
+        mobile_compatible: publishMeta.mobile_compatible,
+        mime_type: publishMeta.mime_type,
+        container: publishMeta.container,
+        compatibility_status: publishMeta.compatibility_status,
+        compatibility_reason: publishMeta.compatibility_reason,
         views: 0,
         likes: 0,
         created_at: createdAt,
@@ -915,6 +993,7 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
         bucket: VIDEOS_BUCKET,
         storagePath,
         publicUrl,
+        compatibility: publishMeta,
         videoRow,
     });
 
@@ -958,7 +1037,8 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
         storagePath,
         fileName,
         fileSize,
-        contentType: publicProbe.contentType || getRecordString(body, ["contentType", "content_type"]),
+        contentType: publicProbe.contentType || "video/mp4",
+        compatibility: publishMeta,
         verification: {
             storageObjectExists: true,
             publicUrlStatus: publicProbe.status,
@@ -967,6 +1047,7 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
             rowHasRealUuid: true,
             storagePathMatches: true,
             videoUrlMatches: true,
+            codecsVerified: true,
         },
         video: videoInsert.data,
     });

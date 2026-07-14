@@ -1,4 +1,5 @@
 import { SUPABASE_PROJECT_URL } from "./supabase-config";
+import { resolveVideoPlaybackUrl as resolveCanonicalPlaybackUrl } from "./canonical-video";
 
 export type MediaQueueType = "song" | "video";
 
@@ -143,9 +144,9 @@ function isHttpUrl(url: string) {
 }
 
 /**
- * Resolve a durable video playable URL.
+ * Resolve a durable video playable URL via the canonical resolver.
  * Prefer public storage rebuild when storagePath is known so signed URLs are not required.
- * Never drop a valid source videoUrl.
+ * Never drop a valid source videoUrl when no storage path rebuild is possible.
  */
 export function resolveVideoPlayableUrl(input: Record<string, unknown>): {
     playableUrl: string;
@@ -170,12 +171,26 @@ export function resolveVideoPlayableUrl(input: Record<string, unknown>): {
     const rawStorage = firstNonEmpty(input, ["storagePath", "storage_path"]);
     let storagePath = rawStorage ? normalizeStoragePath(rawStorage, VIDEOS_BUCKET) : "";
 
-    const orderedCandidates = urlKeys
-        .map((key) => clean(input[key]))
-        .filter(Boolean);
+    const resolved = resolveCanonicalPlaybackUrl({
+        ...input,
+        storagePath,
+        storage_path: storagePath,
+    });
 
-    // Prefer an explicit playable/video URL from the source record first so enqueue never drops a valid videoUrl.
-    for (const candidate of orderedCandidates) {
+    if (resolved.ok) {
+        if (!storagePath) {
+            const fromPublic = extractStoragePathFromPublicUrl(resolved.playableUrl, VIDEOS_BUCKET);
+            if (fromPublic) storagePath = normalizeStoragePath(fromPublic, VIDEOS_BUCKET);
+        }
+        return {
+            playableUrl: resolved.playableUrl,
+            storagePath: storagePath || null,
+            sourceUrls,
+        };
+    }
+
+    // Fallback: keep any durable non-blocked HTTP URL so enqueue never loses a valid videoUrl.
+    for (const candidate of urlKeys.map((key) => clean(input[key])).filter(Boolean)) {
         if (isUploadApiUrl(candidate) || candidate.startsWith("blob:") || candidate.startsWith("data:")) {
             continue;
         }
@@ -192,24 +207,10 @@ export function resolveVideoPlayableUrl(input: Record<string, unknown>): {
         }
     }
 
-    // Then rebuild a public URL from storage path when no direct URL was present.
     if (storagePath) {
         const publicUrl = publicUrlFromStoragePath(storagePath, VIDEOS_BUCKET);
         if (publicUrl) {
             return { playableUrl: publicUrl, storagePath, sourceUrls };
-        }
-    }
-
-    for (const candidate of orderedCandidates) {
-        if (isUploadApiUrl(candidate) || candidate.startsWith("blob:") || candidate.startsWith("data:")) {
-            continue;
-        }
-        if (!/^https?:\/\//i.test(candidate)) {
-            const asPath = normalizeStoragePath(candidate, VIDEOS_BUCKET);
-            const rebuilt = publicUrlFromStoragePath(asPath, VIDEOS_BUCKET);
-            if (rebuilt) {
-                return { playableUrl: rebuilt, storagePath: asPath, sourceUrls };
-            }
         }
     }
 

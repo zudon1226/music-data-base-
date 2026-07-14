@@ -2,12 +2,8 @@
   "cookies": [],
   "origins": [
     {
-      "origin": "http://127.0.0.1:3010",
+      "origin": "http://127.0.0.1:3001",
       "localStorage": [
-        {
-          "name": "zml_platform_incidents",
-          "value": "[]"
-        },
         {
           "name": "zml_notifications",
           "value": "[]"
@@ -18,7 +14,7 @@
         },
         {
           "name": "zml_recently_played",
-          "value": "[{\"playId\":\"a782a1bb-1c62-44fb-906f-a3264f071962-2026-07-13T23:56:58.660Z\",\"songId\":\"\",\"itemId\":\"a782a1bb-1c62-44fb-906f-a3264f071962\",\"itemType\":\"video\",\"playedAt\":\"2026-07-13T23:56:58.660Z\",\"position\":0,\"duration\":252.710792},{\"playId\":\"studio-waves-2026-07-13T23:56:57.041Z\",\"songId\":\"studio-waves\",\"itemId\":\"studio-waves\",\"itemType\":\"song\",\"playedAt\":\"2026-07-13T23:56:57.041Z\",\"position\":0,\"duration\":251}]"
+          "value": "[{\"playId\":\"a782a1bb-1c62-44fb-906f-a3264f071962-2026-07-14T14:21:10.313Z\",\"songId\":\"\",\"itemId\":\"a782a1bb-1c62-44fb-906f-a3264f071962\",\"itemType\":\"video\",\"playedAt\":\"2026-07-14T14:21:10.313Z\",\"position\":0,\"duration\":180.140408},{\"playId\":\"studio-waves-2026-07-14T14:21:08.688Z\",\"songId\":\"studio-waves\",\"itemId\":\"studio-waves\",\"itemType\":\"song\",\"playedAt\":\"2026-07-14T14:21:08.688Z\",\"position\":0,\"duration\":251}]"
         },
         {
           "name": "zml_monetization_transactions",
@@ -29,23 +25,7 @@
           "value": "studio-waves"
         },
         {
-          "name": "zml_sales_cart",
-          "value": "[]"
-        },
-        {
-          "name": "zml_followed_artists",
-          "value": "[]"
-        },
-        {
-          "name": "zml_active_subscription_plan",
-          "value": "creator-free"
-        },
-        {
           "name": "zml_download_vault",
-          "value": "[]"
-        },
-        {
-          "name": "zml_payout_requests",
           "value": "[]"
         },
         {
@@ -61,8 +41,56 @@
           "value": "[]"
         },
         {
+          "name": "zml_purchase_history",
+          "value": "[]"
+        },
+        {
+          "name": "zml_library",
+          "value": "{\"userId\":\"a7a96330-1e7e-4217-809c-91b395408c56\",\"songIds\":[],\"videoIds\":[],\"albumIds\":[]}"
+        },
+        {
+          "name": "zml_user_feedback",
+          "value": "[]"
+        },
+        {
+          "name": "sb-aehuszoadgqtbkxsliyy-auth-token",
+          "value": "{\"access_token\":\"eyJhbGciOiJFUzI1NiIsImtpZCI6IjdjYTY0MzlhLTQxZTMtNDBhMS1hYjY2LTkwNTU4YjVjZTM0NCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FlaHVzem9hZGdxdGJreHNsaXl5LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJhN2E5NjMzMC0xZTdlLTQyMTctODA5Yy05MWIzOTU0MDhjNTYiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzg0MDQyNDg0LCJpYXQiOjE3ODQwMzg4ODQsImVtYWlsIjoic2hhcmVkLXF1ZXVlLTE3ODQwMzg4NDg0OTlAcHJvYmUubG9jYWwiLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImRpc3BsYXlfbmFtZSI6IlF1ZXVlIFByb2JlIiwiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzg0MDM4ODg0fV0sInNlc3Npb25faWQiOiJhZGFkMGMyYi02MzQ5LTRjYzctYjFhZi1jYzE5YWY5MGYwOTciLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.nRL0bcrd3GGaX2DMybR-o9siovmrRSFKvpuKUVSu_8Ox6RpLHy7gGaeVNZx5QcRwojsE8nYe7JbVg-VGTbazOA\",\"refresh_token\":\"3ze6sjslbhcw\",\"user\":{\"id\":\"a7a96330-1e7e-4217-809c-91b395408c56\",\"aud\":\"authenticated\",\"role\":\"authenticated\",\"email\":\"shared-queue-1784038848499@probe.local\",\"email_confirmed_at\":\"2026-07-14T14:21:20.099638Z\",\"phone\":\"\",\"confirmed_at\":\"2026-07-14T14:21:20.099638Z\",\"last_sign_in_at\":\"2026-07-14T14:21:24.228339Z\",\"app_metadata\":{\"provider\":\"email\",\"providers\":[\"email\"]},\"user_metadata\":{\"display_name\":\"Queue Probe\",\"email_verified\":true},\"identities\":[{\"identity_id\":\"7149f0f4-9a96-48fb-aaab-327b8c70ee93\",\"id\":\"a7a96330-1e7e-4217-809c-91b395408c56\",\"user_id\":\"a7a96330-1e7e-4217-809c-91b395408c56\",\"identity_data\":{\"email\":\"shared-queue-1784038848499@probe.local\",\"email_verified\":false,\"phone_verified\":false,\"sub\":\"a7a96330-1e7e-4217-809c-91b395408c56\"},\"provider\":\"email\",\"last_sign_in_at\":\"2026-07-14T14:21:20.094887Z\",\"created_at\":\"2026-07-14T14:21:20.094963Z\",\"updated_at\":\"2026-07-14T14:21:20.094963Z\",\"email\":\"shared-queue-1784038848499@probe.local\"}],\"created_at\":\"2026-07-14T14:21:20.093556Z\",\"updated_at\":\"2026-07-14T14:21:24.23908Z\",\"is_anonymous\":false},\"token_type\":\"bearer\",\"expires_in\":3630.5,\"expires_at\":1784042484}"
+        },
+        {
+          "name": "music-data-base:media-queue:a7a96330-1e7e-4217-809c-91b395408c56",
+          "value": "{\"userId\":\"a7a96330-1e7e-4217-809c-91b395408c56\",\"items\":[{\"id\":\"studio-waves\",\"mediaType\":\"song\",\"title\":\"Studio Waves\",\"artistName\":\"Wave Creator\",\"artist\":\"Wave Creator\",\"artworkUrl\":\"https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80\",\"thumbnail\":\"https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80\",\"playableUrl\":\"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3\",\"storagePath\":null,\"ownerId\":null,\"albumId\":null,\"duration\":251,\"createdAt\":\"2 hours ago\"},{\"id\":\"a782a1bb-1c62-44fb-906f-a3264f071962\",\"mediaType\":\"video\",\"title\":\"big business\",\"artistName\":\"Recovered Upload\",\"artist\":\"Recovered Upload\",\"artworkUrl\":\"/music-data-base-logo.png\",\"thumbnail\":\"/music-data-base-logo.png\",\"playableUrl\":\"https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4efd-8a27-6b58bc45a455/1781748295612-big-business.mp4\",\"storagePath\":\"33564e29-6f65-4efd-8a27-6b58bc45a455/1781748295612-big-business.mp4\",\"ownerId\":\"33564e29-6f65-4efd-8a27-6b58bc45a455\",\"albumId\":null,\"duration\":null,\"createdAt\":\"2026-06-17T00:53:43.928+00:00\"}],\"activeIndex\":1,\"updatedAt\":\"2026-07-14T14:21:10.200Z\"}"
+        },
+        {
+          "name": "zml_blocked_users",
+          "value": "[]"
+        },
+        {
+          "name": "zml_moderation_reports",
+          "value": "[]"
+        },
+        {
+          "name": "zml_display_mode",
+          "value": "grid"
+        },
+        {
+          "name": "zml_sales_cart",
+          "value": "[]"
+        },
+        {
+          "name": "zml_followed_artists",
+          "value": "[]"
+        },
+        {
+          "name": "zml_active_subscription_plan",
+          "value": "creator-free"
+        },
+        {
+          "name": "zml_payout_requests",
+          "value": "[]"
+        },
+        {
           "name": "zml_artists",
-          "value": "[{\"id\":\"leroy-gibbons\",\"name\":\"Leroy Gibbons\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Leroy Gibbons is building a catalog on Z Music with 1 track across Reggae.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"beenie-man\",\"name\":\"Beenie Man\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Beenie Man is building a catalog on Z Music with 1 track across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"louie-cultrue\",\"name\":\"Louie Cultrue\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Louie Cultrue is building a catalog on Z Music with 2 tracks across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":8600,\"followers\":1548,\"totalPlays\":0},{\"id\":\"terror-fabulous\",\"name\":\"Terror Fabulous\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Terror Fabulous is building a catalog on Z Music with 1 track across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"bounty-killer\",\"name\":\"Bounty Killer\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Bounty Killer is building a catalog on Z Music with 2 tracks across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":8600,\"followers\":1548,\"totalPlays\":0},{\"id\":\"wayne-wonder\",\"name\":\"Wayne Wonder\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Wayne Wonder is building a catalog on Z Music with 1 track across Reggae.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"beres-hammond\",\"name\":\"Beres Hammond\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Beres Hammond is building a catalog on Z Music with 2 tracks across Beats, Producers.\",\"socialLinks\":\"\",\"monthlyListeners\":8600,\"followers\":1548,\"totalPlays\":0},{\"id\":\"ovarall\",\"name\":\"Ovarall\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Ovarall is building a catalog on Z Music with 3 tracks across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":12900,\"followers\":2322,\"totalPlays\":0},{\"id\":\"spragga-benz\",\"name\":\"Spragga Benz\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Spragga Benz is building a catalog on Z Music with 1 track across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"various\",\"name\":\"Various\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Various is building a catalog on Z Music with 23 tracks across Album.\",\"socialLinks\":\"\",\"monthlyListeners\":98900,\"followers\":17802,\"totalPlays\":0},{\"id\":\"rick-ross-x-nicki-minaj\",\"name\":\"Rick Ross X Nicki Minaj\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Rick Ross X Nicki Minaj is building a catalog on Z Music with 1 track across Hip Hop.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"garnet-silk\",\"name\":\"Garnet Silk\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Garnet Silk is building a catalog on Z Music with 4 tracks across Album.\",\"socialLinks\":\"\",\"monthlyListeners\":17200,\"followers\":3096,\"totalPlays\":0},{\"id\":\"busy-signal\",\"name\":\"Busy Signal\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Busy Signal is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"aidonia\",\"name\":\"Aidonia\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Aidonia is building a catalog on Z Music with 2 tracks across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":8600,\"followers\":1548,\"totalPlays\":0},{\"id\":\"potential-kidd\",\"name\":\"Potential Kidd\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Potential Kidd is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"konshens\",\"name\":\"Konshens\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Konshens is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"di-genius\",\"name\":\"Di Genius\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Di Genius is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"vybz-kartel\",\"name\":\"Vybz Kartel\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Vybz Kartel is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"z-artist\",\"name\":\"Z Artist\",\"banner\":\"https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=900&q=80\",\"avatar\":\"https://images.unsplash.com/photo-1492447166138-50c3889fccb1?auto=format&fit=crop&w=200&q=80\",\"bio\":\"Z Artist is building a catalog on Z Music with 1 track across Artists.\",\"socialLinks\":\"\",\"monthlyListeners\":73652,\"followers\":13257,\"totalPlays\":8669},{\"id\":\"dj-neon\",\"name\":\"DJ Neon\",\"banner\":\"https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80\",\"avatar\":\"https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80\",\"bio\":\"DJ Neon is building a catalog on Z Music with 1 track across Hip Hop.\",\"socialLinks\":\"\",\"monthlyListeners\":30868,\"followers\":5556,\"totalPlays\":3321},{\"id\":\"wave-creator\",\"name\":\"Wave Creator\",\"banner\":\"https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80\",\"avatar\":\"https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=200&q=80\",\"bio\":\"Wave Creator is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":77284,\"followers\":13911,\"totalPlays\":9123},{\"id\":\"masicka\",\"name\":\"Masicka\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Masicka is sharing music videos on Music Data Base.\",\"socialLinks\":\"\",\"monthlyListeners\":0,\"followers\":0,\"totalPlays\":2},{\"id\":\"recovered-upload\",\"name\":\"Recovered Upload\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Recovered Upload is sharing music videos on Music Data Base.\",\"socialLinks\":\"\",\"monthlyListeners\":0,\"followers\":0,\"totalPlays\":1}]"
+          "value": "[{\"id\":\"leroy-gibbons\",\"name\":\"Leroy Gibbons\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Leroy Gibbons is building a catalog on Z Music with 1 track across Reggae.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"beenie-man\",\"name\":\"Beenie Man\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Beenie Man is building a catalog on Z Music with 1 track across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"louie-cultrue\",\"name\":\"Louie Cultrue\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Louie Cultrue is building a catalog on Z Music with 2 tracks across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":8600,\"followers\":1548,\"totalPlays\":0},{\"id\":\"terror-fabulous\",\"name\":\"Terror Fabulous\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Terror Fabulous is building a catalog on Z Music with 1 track across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"bounty-killer\",\"name\":\"Bounty Killer\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Bounty Killer is building a catalog on Z Music with 2 tracks across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":8600,\"followers\":1548,\"totalPlays\":0},{\"id\":\"wayne-wonder\",\"name\":\"Wayne Wonder\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Wayne Wonder is building a catalog on Z Music with 1 track across Reggae.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"beres-hammond\",\"name\":\"Beres Hammond\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Beres Hammond is building a catalog on Z Music with 2 tracks across Beats, Producers.\",\"socialLinks\":\"\",\"monthlyListeners\":8600,\"followers\":1548,\"totalPlays\":0},{\"id\":\"ovarall\",\"name\":\"Ovarall\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Ovarall is building a catalog on Z Music with 3 tracks across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":12900,\"followers\":2322,\"totalPlays\":0},{\"id\":\"spragga-benz\",\"name\":\"Spragga Benz\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Spragga Benz is building a catalog on Z Music with 1 track across Dancehall.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"various\",\"name\":\"Various\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Various is building a catalog on Z Music with 23 tracks across Album.\",\"socialLinks\":\"\",\"monthlyListeners\":98900,\"followers\":17802,\"totalPlays\":0},{\"id\":\"rick-ross-x-nicki-minaj\",\"name\":\"Rick Ross X Nicki Minaj\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Rick Ross X Nicki Minaj is building a catalog on Z Music with 1 track across Hip Hop.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"garnet-silk\",\"name\":\"Garnet Silk\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Garnet Silk is building a catalog on Z Music with 4 tracks across Album.\",\"socialLinks\":\"\",\"monthlyListeners\":17200,\"followers\":3096,\"totalPlays\":0},{\"id\":\"busy-signal\",\"name\":\"Busy Signal\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Busy Signal is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"aidonia\",\"name\":\"Aidonia\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Aidonia is building a catalog on Z Music with 2 tracks across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":8600,\"followers\":1548,\"totalPlays\":0},{\"id\":\"potential-kidd\",\"name\":\"Potential Kidd\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Potential Kidd is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"konshens\",\"name\":\"Konshens\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Konshens is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"di-genius\",\"name\":\"Di Genius\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Di Genius is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"vybz-kartel\",\"name\":\"Vybz Kartel\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Vybz Kartel is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":4300,\"followers\":774,\"totalPlays\":0},{\"id\":\"z-artist\",\"name\":\"Z Artist\",\"banner\":\"https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=900&q=80\",\"avatar\":\"https://images.unsplash.com/photo-1492447166138-50c3889fccb1?auto=format&fit=crop&w=200&q=80\",\"bio\":\"Z Artist is building a catalog on Z Music with 1 track across Artists.\",\"socialLinks\":\"\",\"monthlyListeners\":73652,\"followers\":13257,\"totalPlays\":8669},{\"id\":\"dj-neon\",\"name\":\"DJ Neon\",\"banner\":\"https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80\",\"avatar\":\"https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80\",\"bio\":\"DJ Neon is building a catalog on Z Music with 1 track across Hip Hop.\",\"socialLinks\":\"\",\"monthlyListeners\":30868,\"followers\":5556,\"totalPlays\":3321},{\"id\":\"wave-creator\",\"name\":\"Wave Creator\",\"banner\":\"https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80\",\"avatar\":\"https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=200&q=80\",\"bio\":\"Wave Creator is building a catalog on Z Music with 1 track across Beats.\",\"socialLinks\":\"\",\"monthlyListeners\":77284,\"followers\":13911,\"totalPlays\":9123},{\"id\":\"masicka\",\"name\":\"Masicka\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Masicka is sharing music videos on Music Data Base.\",\"socialLinks\":\"\",\"monthlyListeners\":0,\"followers\":0,\"totalPlays\":3},{\"id\":\"recovered-upload\",\"name\":\"Recovered Upload\",\"banner\":\"/music-data-base-logo.png\",\"avatar\":\"/music-data-base-logo.png\",\"bio\":\"Recovered Upload is sharing music videos on Music Data Base.\",\"socialLinks\":\"\",\"monthlyListeners\":0,\"followers\":0,\"totalPlays\":1}]"
         },
         {
           "name": "zml_playlists",
@@ -89,27 +117,7 @@
           "value": "[]"
         },
         {
-          "name": "zml_library",
-          "value": "{\"userId\":\"a065650c-1bc1-4c05-be6d-6a8db8455f59\",\"songIds\":[],\"videoIds\":[],\"albumIds\":[]}"
-        },
-        {
-          "name": "zml_purchase_history",
-          "value": "[]"
-        },
-        {
-          "name": "zml_user_feedback",
-          "value": "[]"
-        },
-        {
-          "name": "sb-aehuszoadgqtbkxsliyy-auth-token",
-          "value": "{\"access_token\":\"eyJhbGciOiJFUzI1NiIsImtpZCI6IjdjYTY0MzlhLTQxZTMtNDBhMS1hYjY2LTkwNTU4YjVjZTM0NCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FlaHVzem9hZGdxdGJreHNsaXl5LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJhMDY1NjUwYy0xYmMxLTRjMDUtYmU2ZC02YThkYjg0NTVmNTkiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzgzOTkwNjI2LCJpYXQiOjE3ODM5ODcwMjYsImVtYWlsIjoic2hhcmVkLXF1ZXVlLTE3ODM5ODY5OTM3NTVAcHJvYmUubG9jYWwiLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoic2hhcmVkLXF1ZXVlLTE3ODM5ODY5OTM3NTVAcHJvYmUubG9jYWwiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGhvbmVfdmVyaWZpZWQiOmZhbHNlLCJzdWIiOiJhMDY1NjUwYy0xYmMxLTRjMDUtYmU2ZC02YThkYjg0NTVmNTkifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc4Mzk4NzAyNn1dLCJzZXNzaW9uX2lkIjoiYjVkZTlkMzctODE1ZC00MmQ3LTkwZDQtYmVjZjViYzFjMGE4IiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.DIFxVjgwRQfVJQvljZktm_OLLOMBaD7EKPv8vOckoOddjOm43Z6M1FgBbl0wibT197rRkKG586JX_5dxlVoUPw\",\"refresh_token\":\"vzxjjh5dg2un\",\"user\":{\"id\":\"a065650c-1bc1-4c05-be6d-6a8db8455f59\",\"aud\":\"authenticated\",\"role\":\"authenticated\",\"email\":\"shared-queue-1783986993755@probe.local\",\"email_confirmed_at\":\"2026-07-13T23:57:03.945529Z\",\"phone\":\"\",\"confirmed_at\":\"2026-07-13T23:57:03.945529Z\",\"last_sign_in_at\":\"2026-07-13T23:57:06.498769Z\",\"app_metadata\":{\"provider\":\"email\",\"providers\":[\"email\"]},\"user_metadata\":{\"email\":\"shared-queue-1783986993755@probe.local\",\"email_verified\":true,\"phone_verified\":false,\"sub\":\"a065650c-1bc1-4c05-be6d-6a8db8455f59\"},\"identities\":[{\"identity_id\":\"f7dd5791-15c8-4c96-87aa-f4af120340c5\",\"id\":\"a065650c-1bc1-4c05-be6d-6a8db8455f59\",\"user_id\":\"a065650c-1bc1-4c05-be6d-6a8db8455f59\",\"identity_data\":{\"email\":\"shared-queue-1783986993755@probe.local\",\"email_verified\":false,\"phone_verified\":false,\"sub\":\"a065650c-1bc1-4c05-be6d-6a8db8455f59\"},\"provider\":\"email\",\"last_sign_in_at\":\"2026-07-13T23:57:03.933549Z\",\"created_at\":\"2026-07-13T23:57:03.933601Z\",\"updated_at\":\"2026-07-13T23:57:03.933601Z\",\"email\":\"shared-queue-1783986993755@probe.local\"}],\"created_at\":\"2026-07-13T23:57:03.909919Z\",\"updated_at\":\"2026-07-13T23:57:06.502643Z\",\"is_anonymous\":false},\"token_type\":\"bearer\",\"expires_in\":3629.111999988556,\"expires_at\":1783990626}"
-        },
-        {
           "name": "zml_liked",
-          "value": "[]"
-        },
-        {
-          "name": "zml_blocked_users",
           "value": "[]"
         },
         {
@@ -117,12 +125,8 @@
           "value": "[]"
         },
         {
-          "name": "zml_moderation_reports",
+          "name": "zml_platform_incidents",
           "value": "[]"
-        },
-        {
-          "name": "zml_display_mode",
-          "value": "grid"
         }
       ]
     }

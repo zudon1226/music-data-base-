@@ -1,0 +1,373 @@
+{
+  "baseUrl": "https://www.digitalmusicdatabase.com",
+  "checklist": [
+    {
+      "platform": "Production",
+      "item": "future uploads validate codec before upload",
+      "status": "PASS",
+      "detail": "av1=unsupported h264=compatible"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "favorites like",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "follow",
+      "status": "PASS",
+      "detail": "✓\nFollowing"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "library save",
+      "status": "PASS",
+      "detail": "+ Save -> ✓ Saved"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "library persists (saved video visible)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "compatible H.264/AAC playback",
+      "status": "PASS",
+      "detail": "readyState=4"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "AV1 Conversion Required badge",
+      "status": "PASS",
+      "detail": "CONVERSION REQUIRED"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "AV1 never missing playable URL",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "AV1 Conversion Required (no playback)",
+      "status": "PASS",
+      "detail": "badge required; desktop may decode AV1 (prod behavior)"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue mixed song+video stored",
+      "status": "PASS",
+      "detail": "items=2"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue persists after refresh",
+      "status": "PASS",
+      "detail": "items=2"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "songs persist after refresh (queue)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "videos persist after refresh (queue)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "library persists (view loads after refresh)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "favorites persist (Liked loads)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "playlists persist (view loads)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "Recently Played persists",
+      "status": "PASS",
+      "detail": "rows=2"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue survives logout (localStorage retained)",
+      "status": "PASS",
+      "detail": "before=2 after=2"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue persists after logout/login",
+      "status": "PASS",
+      "detail": "items=2"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "songs persist after logout/login (queue)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "videos persist after logout/login (queue)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "library persists after logout/login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "favorites persist after logout/login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "playlists persist after logout/login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "favorites like",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "follow",
+      "status": "PASS",
+      "detail": "✓\nFollowing"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "library save",
+      "status": "PASS",
+      "detail": "+ Save -> ✓ Saved"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "library persists (saved video visible)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "compatible H.264/AAC playback",
+      "status": "PASS",
+      "detail": "readyState=4"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "AV1 Conversion Required badge",
+      "status": "PASS",
+      "detail": "CONVERSION REQUIRED"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "AV1 never missing playable URL",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "AV1 Conversion Required (no playback)",
+      "status": "PASS",
+      "detail": "badge required; desktop may decode AV1 (prod behavior)"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "queue mixed song+video stored",
+      "status": "PASS",
+      "detail": "items=2"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "queue persists after refresh",
+      "status": "PASS",
+      "detail": "items=2"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "songs persist after refresh (queue)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "videos persist after refresh (queue)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "library persists (view loads after refresh)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "favorites persist (Liked loads)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "playlists persist (view loads)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "Recently Played persists",
+      "status": "PASS",
+      "detail": "rows=2"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "queue survives logout (localStorage retained)",
+      "status": "PASS",
+      "detail": "before=2 after=2"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "queue persists after logout/login",
+      "status": "PASS",
+      "detail": "items=2"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "songs persist after logout/login (queue)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "videos persist after logout/login (queue)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "library persists after logout/login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "favorites persist after logout/login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "playlists persist after logout/login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "compatible H.264/AAC playback",
+      "status": "PASS",
+      "detail": "readyState=4"
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "AV1 Conversion Required badge",
+      "status": "PASS",
+      "detail": "CONVERSION REQUIRED"
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "AV1 never missing playable URL",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "AV1 Conversion Required (no playback)",
+      "status": "PASS",
+      "detail": "videoPlaying=false hasExactMsg=true"
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "queue persists after refresh",
+      "status": "PASS",
+      "detail": "before=2 after=2"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "compatible H.264/AAC playback",
+      "status": "PASS",
+      "detail": "readyState=4"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "AV1 Conversion Required badge",
+      "status": "PASS",
+      "detail": "CONVERSION REQUIRED"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "AV1 never missing playable URL",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "AV1 Conversion Required (no playback)",
+      "status": "PASS",
+      "detail": "videoPlaying=false hasExactMsg=true"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "queue persists after refresh",
+      "status": "PASS",
+      "detail": "before=2 after=2"
+    }
+  ],
+  "fails": [],
+  "criticalUnverified": []
+}

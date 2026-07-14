@@ -1,0 +1,357 @@
+{
+  "checklist": [
+    {
+      "platform": "Android Chrome",
+      "item": "compatible video playback",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device"
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "queue persistence",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device"
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "library / favorites / playlists",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "compatible H.264/AAC playback",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "AV1 Conversion required + message",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device (see UA sim)"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "never missing playable URL",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device (see UA sim)"
+    },
+    {
+      "platform": "Automated",
+      "item": "unit: video playback regression",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Automated",
+      "item": "unit: video upload compatibility",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: probe login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Resolved session userId",
+      "status": "PASS",
+      "detail": "a7a96330-1e7e-4217-809c-91b395408c56"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Queue storage key namespace ready",
+      "status": "PASS",
+      "detail": "key=music-data-base:media-queue:a7a96330… priorItems=0"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Clear queue",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Add song to queue",
+      "status": "PASS",
+      "detail": "Studio Waves"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: localStorage has mixed song + video",
+      "status": "PASS",
+      "detail": "items=2 song=Studio Waves video=big business"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Stored video playableUrl non-empty",
+      "status": "PASS",
+      "detail": "url=https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4ef"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Persist debug logs observed",
+      "status": "PASS",
+      "detail": "logs=4"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Queue page shows song + video",
+      "status": "PASS",
+      "detail": "song=Studio Waves video=big business"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Player does not report missing URL for queued video",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Queue survives refresh (UI)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Queue survives refresh (localStorage)",
+      "status": "PASS",
+      "detail": "items=2"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Queue survives browser restart",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Logout does not delete localStorage queue",
+      "status": "PASS",
+      "detail": "before=2 afterLogout=2"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Queue survives logout/login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue: Relogin restores video playableUrl",
+      "status": "PASS",
+      "detail": "https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4efd-8a27-6b5"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "compatible card has no Conversion required badge",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "compatible video never missing playable URL",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "compatible video playback (big business)",
+      "status": "PASS",
+      "detail": "videoVisible=true readyState=4 av1InPlayer=false"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "AV1 Conversion required badge",
+      "status": "PASS",
+      "detail": "title=Tyrant badge=CONVERSION REQUIRED"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "AV1 never missing playable URL",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "AV1 player message (desktop may still play AV1)",
+      "status": "NOT VERIFIED",
+      "detail": "Chrome may decode AV1; badge still required"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "Recently Played view loads",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "Recently Played shows entries after play",
+      "status": "PASS",
+      "detail": "rows=2"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "Library tab Songs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "Library tab Videos",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "Library tab Albums",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "favorites (Liked) view loads",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "playlists view loads",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "favorites like toggle",
+      "status": "PASS",
+      "detail": "class like-btn -> like-btn liked"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "follow toggle",
+      "status": "PASS",
+      "detail": "✓\nFollowing"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "library save toggle",
+      "status": "PASS",
+      "detail": "✓\nSaved"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "library songs after save",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "delete control present",
+      "status": "PASS",
+      "detail": "Delete button visible (not clicked — destructive)"
+    },
+    {
+      "platform": "Desktop Chrome",
+      "item": "queue localStorage key readable",
+      "status": "PASS",
+      "detail": "items=0"
+    },
+    {
+      "platform": "iPhone Safari (UA sim)",
+      "item": "login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "iPhone Safari (UA sim)",
+      "item": "AV1 Conversion required badge",
+      "status": "PASS",
+      "detail": "CONVERSION REQUIRED"
+    },
+    {
+      "platform": "iPhone Safari (UA sim)",
+      "item": "AV1 never missing playable URL",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "iPhone Safari (UA sim)",
+      "item": "AV1 player message",
+      "status": "PASS",
+      "detail": "exact AV1 message"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "login",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "compatible video playback",
+      "status": "PASS",
+      "detail": "readyState=4"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "AV1 Conversion required badge",
+      "status": "PASS",
+      "detail": "CONVERSION REQUIRED"
+    },
+    {
+      "platform": "Desktop Edge",
+      "item": "AV1 never missing playable URL",
+      "status": "PASS",
+      "detail": ""
+    }
+  ],
+  "blockers": [],
+  "fails": [],
+  "criticalUnverified": [],
+  "mobileCritical": [
+    {
+      "platform": "Android Chrome",
+      "item": "compatible video playback",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device"
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "queue persistence",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device"
+    },
+    {
+      "platform": "Android Chrome",
+      "item": "library / favorites / playlists",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "compatible H.264/AAC playback",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "AV1 Conversion required + message",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device (see UA sim)"
+    },
+    {
+      "platform": "iPhone Safari",
+      "item": "never missing playable URL",
+      "status": "NOT VERIFIED",
+      "detail": "no physical device (see UA sim)"
+    }
+  ]
+}

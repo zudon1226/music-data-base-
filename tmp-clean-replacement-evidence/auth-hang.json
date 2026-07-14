@@ -1,0 +1,13 @@
+{
+  "logs": [
+    "[info] [media-queue:persist] layout hydrate effect {authResolved: false, accountUserId: }",
+    "[info] [media-queue:persist] layout hydrate EARLY RETURN — authResolved=false",
+    "[log] [desktop-protected-click-dispatch] session-publisher-registered {}",
+    "[info] [desktop-bootstrap] localStorageHydration shell unblocked",
+    "[info] [desktop-user-music-state-bootstrap] bootstrap resolved after localStorageHydration (default empty state until remote fetch applies)",
+    "[info] [desktop-bootstrap] localStorageHydration started",
+    "[info] [desktop-bootstrap] localStorageHydration completed"
+  ],
+  "pageErrors": [],
+  "failed": []
+}

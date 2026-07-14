@@ -1,0 +1,70 @@
+{
+  "baseUrl": "http://127.0.0.1:3000",
+  "results": [
+    {
+      "name": "A: H.264/AAC MP4 classified compatible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B: AV1 MP4 classified unsupported",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C: H.264 with no audio classified compatible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D: Missing storagePath yields empty playback URL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E: Expired/signed URL regenerates public URL from storagePath",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Probe failure does not overwrite compatible=true",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Extension .mp4 alone is not fully compatible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "They don't know: AV1 + URL => unsupported-codec, not missing-url",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Actual missing URL => missing-url",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Inaccessible URL => network-error",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Bundle includes canonical video helpers",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Bundle references video/mp4 source typing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Mixed-media queue instrumentation still present",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "baseUrl": "http://127.0.0.1:3010",
+  "baseUrl": "http://127.0.0.1:3001",
   "results": [
     {
       "name": "probe login",
@@ -9,12 +9,12 @@
     {
       "name": "Resolved session userId",
       "ok": true,
-      "detail": "a065650c-1bc1-4c05-be6d-6a8db8455f59"
+      "detail": "a7a96330-1e7e-4217-809c-91b395408c56"
     },
     {
-      "name": "Queue hydrate GET observed",
+      "name": "Queue storage key namespace ready",
       "ok": true,
-      "detail": "gets=1"
+      "detail": "key=music-data-base:media-queue:a7a96330… priorItems=0"
     },
     {
       "name": "Clear queue",
@@ -27,9 +27,19 @@
       "detail": "Studio Waves"
     },
     {
-      "name": "Video Add to Queue persists playableUrl",
+      "name": "localStorage has mixed song + video",
+      "ok": true,
+      "detail": "items=2 song=Studio Waves video=big business"
+    },
+    {
+      "name": "Stored video playableUrl non-empty",
       "ok": true,
       "detail": "url=https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4ef"
+    },
+    {
+      "name": "Persist debug logs observed",
+      "ok": true,
+      "detail": "logs=4"
     },
     {
       "name": "Queue page shows song + video",
@@ -42,14 +52,14 @@
       "detail": ""
     },
     {
-      "name": "Server queue video playableUrl non-empty",
-      "ok": true,
-      "detail": "storage user=a065650c https://aehuszoadgqtbkxsliyy.supabase.co/storage/v1/object/public/videos/33564e29-6f65-4ef"
-    },
-    {
-      "name": "Queue survives refresh",
+      "name": "Queue survives refresh (UI)",
       "ok": true,
       "detail": ""
+    },
+    {
+      "name": "Queue survives refresh (localStorage)",
+      "ok": true,
+      "detail": "items=2"
     },
     {
       "name": "Queue survives browser restart",
@@ -57,7 +67,7 @@
       "detail": ""
     },
     {
-      "name": "Logout does not delete server queue",
+      "name": "Logout does not delete localStorage queue",
       "ok": true,
       "detail": "before=2 afterLogout=2"
     },

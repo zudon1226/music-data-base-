@@ -1,0 +1,41 @@
+{
+  "passed": 7,
+  "failed": 0,
+  "results": [
+    {
+      "name": "H.264+AAC+MP4 can publish with canonical codecs",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Compatible publish metadata canonical fields",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "AV1 MP4 rejected with exact user message",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Unverified .mp4 bytes cannot publish",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H.264 without verified AAC cannot publish",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Filename/MIME alone cannot publish",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Existing AV1 playback still unsupported-codec not missing-url",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

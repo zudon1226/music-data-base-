@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { NextResponse } from "next/server";
+import { inspectVideoBytesForUploadCompatibility, VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE } from "@/lib/video-upload-compatibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -146,14 +147,41 @@ export async function POST(request: Request) {
             return jsonResponse({ error: "Only video files can be uploaded.", details: { contentType } }, 400);
         }
 
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const sampleSize = Math.min(256 * 1024, buffer.byteLength);
+        const sampleParts: Uint8Array[] = [new Uint8Array(buffer.subarray(0, sampleSize))];
+        if (buffer.byteLength > sampleSize) {
+            sampleParts.push(new Uint8Array(buffer.subarray(Math.max(0, buffer.byteLength - sampleSize))));
+        }
+        const merged = new Uint8Array(sampleParts.reduce((sum, part) => sum + part.byteLength, 0));
+        let offset = 0;
+        for (const part of sampleParts) {
+            merged.set(part, offset);
+            offset += part.byteLength;
+        }
+        const inspection = inspectVideoBytesForUploadCompatibility(merged, {
+            mimeType: contentType,
+            fileName: file.name,
+        });
+        if (!inspection.canPublish) {
+            return jsonResponse({
+                error: VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE,
+                details: {
+                    compatibilityStatus: inspection.compatibilityStatus,
+                    compatibilityReason: inspection.compatibilityReason,
+                    videoCodec: inspection.videoCodec,
+                    audioCodec: inspection.audioCodec,
+                },
+            }, 400);
+        }
+
         const cleanFileName = cleanStorageFileName(file.name || "video.mp4");
         const storagePath = `${authUserId}/${Date.now()}-${crypto.randomUUID()}-${cleanFileName}`;
-        const buffer = Buffer.from(await file.arrayBuffer());
         const supabase = getSupabaseServerClient();
 
         const { error: uploadError } = await supabase.storage.from(VIDEOS_BUCKET).upload(storagePath, buffer, {
             cacheControl: "3600",
-            contentType,
+            contentType: "video/mp4",
             upsert: true,
         });
         if (uploadError) {
@@ -171,7 +199,13 @@ export async function POST(request: Request) {
             storagePath,
             fileName: file.name || cleanFileName,
             fileSize: file.size,
-            contentType,
+            contentType: "video/mp4",
+            compatibility: {
+                video_codec: "h264",
+                audio_codec: "aac",
+                mobile_compatible: true,
+                compatibility_status: "compatible",
+            },
         });
     }
     catch (error) {

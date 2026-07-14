@@ -48,10 +48,11 @@ import {
 import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import { describeStorageUploadAuth } from "../lib/supabase-storage-upload";
-import { runDesktopVideoUpload } from "../lib/desktop-video-upload-runner";
+import { VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE as SHARED_VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE } from "../lib/video-upload-compatibility";
 import { DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE } from "../lib/desktop-video-upload-progress";
 import { UPLOAD_REAUTH_MESSAGE } from "../lib/desktop-video-upload-transaction";
 import { isDesktopVideoUploadLifecycleActive } from "../lib/desktop-video-upload-lifecycle";
+import { runDesktopVideoUpload } from "../lib/desktop-video-upload-runner";
 import { refreshDesktopSupabaseSessionWhenSafe } from "../lib/desktop-upload-auth-session-guard";
 import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
 import { applyLibraryCacheToState, clearLibraryCache, readLibraryCache, serializeLibraryCache, writeLibraryCache } from "../lib/library-storage";
@@ -1082,7 +1083,8 @@ const MAX_VIDEO_SIZE = 500 * 1024 * 1024;
 const VIDEO_UPLOAD_LIMIT_MESSAGE = "Video is too large. Please test with a video under 500 MB or upgrade Supabase storage limits.";
 const MOBILE_COMPATIBLE_VIDEO_REQUIRED_MESSAGE = "Mobile compatible video required: MP4 H.264 video with AAC audio.";
 const AV1_MOBILE_VIDEO_WARNING_MESSAGE = AV1_DEVICE_UNSUPPORTED_MESSAGE;
-const VIDEO_UPLOAD_CODEC_GUIDANCE = "MP4 required. For iPhone/mobile playback, use H.264 video with AAC audio. Some downloaded MP4 files may need conversion before upload. MP4 alone does not guarantee mobile playback. Some MP4 files use AV1 codec, which may play on desktop but fail on iPhone. Use H.264/AAC.";
+const VIDEO_UPLOAD_CODEC_GUIDANCE = "Only MP4 files encoded with H.264 video and AAC audio can be published. An .mp4 extension alone is not enough — AV1 and other codecs will be rejected.";
+const VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE = SHARED_VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE;
 function normalizeSalesItemType(value: unknown): SalesItemType {
     return value === "album" || value === "beat" ? value : "song";
 }
@@ -2449,6 +2451,12 @@ function isVideoMarkedMobileIncompatible(video: Partial<VideoItem> | null | unde
     if (isAv1Codec(codec) || isPositivelyBrowserUnsupportedVideoCodec(codec)) {
         return true;
     }
+    const status = String((video as { compatibilityStatus?: string; compatibility_status?: string }).compatibilityStatus
+        || (video as { compatibility_status?: string }).compatibility_status
+        || "").trim().toLowerCase();
+    if (status === "conversion_required" || status === "conversion_failed") {
+        return true;
+    }
     const stored = video.mobileCompatible ?? video.mobile_compatible;
     return stored === false;
 }
@@ -2882,27 +2890,19 @@ function getAudioFileError(file: File | null) {
 }
 function getVideoFileError(file: File | null) {
     if (!file)
-        return "Choose an MP4 video file (H.264 + AAC).";
+        return "Choose an MP4 video file encoded with H.264 video and AAC audio.";
     const extension = getFileExtension(file.name);
     const mime = (file.type || "").toLowerCase();
     const hasAllowedType = mime ? mime.startsWith("video/") : false;
     const hasAllowedExtension = ACCEPTED_VIDEO_EXTENSIONS.has(extension);
     if (!hasAllowedType && !hasAllowedExtension) {
-        return "Only video files can be uploaded. Prefer MP4 (H.264 + AAC) for iPhone/Android.";
+        return VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE;
     }
     if (file.size > MAX_VIDEO_SIZE) {
         return VIDEO_UPLOAD_LIMIT_MESSAGE;
     }
-    // Extension alone is never treated as fully compatible — codec sniff runs before upload.
     if (extension && extension !== "mp4" && extension !== "m4v") {
-        const assessed = assessUploadCompatibility({
-            mimeType: mime,
-            fileName: file.name,
-            container: extension,
-        });
-        if (assessed.status === "unsupported") {
-            return assessed.reason;
-        }
+        return VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE;
     }
     return "";
 }

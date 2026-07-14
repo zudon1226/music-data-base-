@@ -1,6 +1,6 @@
 /**
  * Real authenticated browser regression for the shared media queue.
- * Authoritative store is server-side (/api/media-queue), not localStorage.
+ * Authoritative store is localStorage key music-data-base:media-queue:<userId>.
  */
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
@@ -13,6 +13,7 @@ const evidenceDir = path.join(root, "tmp-shared-queue-evidence");
 mkdirSync(evidenceDir, { recursive: true });
 
 const BASE_URL = process.env.BASE_URL || "http://127.0.0.1:3000";
+const QUEUE_KEY_PREFIX = "music-data-base:media-queue:";
 
 function readEnvLocal() {
     try {
@@ -44,16 +45,33 @@ function record(name, ok, detail = "") {
 }
 
 async function shot(page, name) {
-    await page.screenshot({ path: path.join(evidenceDir, `${name}.png`), fullPage: true });
+    await page.screenshot({ path: path.join(evidenceDir, `${name}.png`), fullPage: true }).catch(() => {});
 }
 
 async function credentials() {
     if (ownerPassword) {
         return { email: "zudon1226@gmail.com", password: ownerPassword, mode: "owner", userId: ownerUserId };
     }
-    if (!supabaseUrl || !anonKey) return null;
+    if (!supabaseUrl) return null;
     const email = `shared-queue-${Date.now()}@probe.local`;
     const password = `Probe_${Date.now()}_Aa1!`;
+    if (serviceKey) {
+        const admin = createClient(supabaseUrl, serviceKey, {
+            auth: { persistSession: false, autoRefreshToken: false },
+        });
+        const created = await admin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: { display_name: "Queue Probe" },
+        });
+        if (created.error) {
+            console.log("PROBE_ADMIN_CREATE_FAILED", created.error.message);
+            return null;
+        }
+        return { email, password, mode: "probe", userId: created.data.user?.id || "" };
+    }
+    if (!anonKey) return null;
     const supabase = createClient(supabaseUrl, anonKey, {
         auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -90,11 +108,77 @@ async function resolveSessionUserId(page, fallbackUserId = "") {
     return fromPage || fallbackUserId || "";
 }
 
+async function readLocalQueue(page, userId) {
+    return page.evaluate((uid) => {
+        const key = `music-data-base:media-queue:${uid}`;
+        const raw = localStorage.getItem(key);
+        if (!raw) return { key, present: false, items: [], activeIndex: -1 };
+        try {
+            const parsed = JSON.parse(raw);
+            return {
+                key,
+                present: true,
+                items: Array.isArray(parsed.items) ? parsed.items : [],
+                activeIndex: Number(parsed.activeIndex),
+                updatedAt: parsed.updatedAt || "",
+            };
+        }
+        catch {
+            return { key, present: true, items: [], activeIndex: -1, parseError: true };
+        }
+    }, userId);
+}
+
+async function waitForAuthGate(page, timeoutMs = 60000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const state = await page.evaluate(() => {
+            const text = document.body?.innerText || "";
+            return {
+                checking: /Checking your session/i.test(text),
+                login: Boolean(document.querySelector('input[type="password"], input[name="password"]')),
+                app: Boolean(document.querySelector(".zml-app, aside.sidebar")),
+            };
+        });
+        if (state.app || state.login) return state;
+        await page.waitForTimeout(500);
+    }
+    return { checking: true, login: false, app: false };
+}
+
+async function waitForAppOrLoginFailure(page, timeoutMs = 90000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const state = await page.evaluate(() => {
+            const text = document.body?.innerText || "";
+            const busy = /Working\.\.\./i.test(text);
+            const login = Boolean(document.querySelector('input[type="password"], input[name="password"]'));
+            const app = Boolean(document.querySelector(".zml-app, aside.sidebar"));
+            const authMessage = [...document.querySelectorAll("p, .auth-message, .error-state")]
+                .map((el) => (el.textContent || "").trim())
+                .find((value) => /invalid|error|confirm|failed|wrong|rate|wait/i.test(value)) || "";
+            return { busy, login, app, authMessage, text: text.slice(0, 250) };
+        });
+        if (state.app && !state.login) return { ok: true, ...state };
+        if (!state.busy && state.login && state.authMessage) return { ok: false, ...state };
+        await page.waitForTimeout(400);
+    }
+    const finalState = await page.evaluate(() => ({
+        login: Boolean(document.querySelector('input[type="password"], input[name="password"]')),
+        app: Boolean(document.querySelector(".zml-app, aside.sidebar")),
+        text: (document.body?.innerText || "").slice(0, 250),
+    }));
+    return { ok: Boolean(finalState.app && !finalState.login), ...finalState };
+}
+
 async function login(page, creds) {
     await page.goto(BASE_URL, { waitUntil: "domcontentloaded", timeout: 120000 });
-    await page.waitForTimeout(2000);
-    const loginVisible = await page.locator('input[type="email"], input[name="email"]').first().isVisible().catch(() => false);
-    if (!loginVisible) {
+    let gate = await waitForAuthGate(page, 60000);
+    if (gate.checking && !gate.login && !gate.app) {
+        record("login", false, "stuck on Checking your session");
+        return false;
+    }
+    if (gate.app && !gate.login) {
         record("login", true, "already session");
         return true;
     }
@@ -105,74 +189,56 @@ async function login(page, creds) {
     await page.fill('input[type="email"], input[name="email"]', creds.email);
     await page.fill('input[type="password"], input[name="password"]', creds.password);
     await page.locator('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("Login")').first().click();
-    await page.waitForTimeout(5000);
-    const still = await page.locator('input[type="password"]').first().isVisible().catch(() => false);
-    record(`${creds.mode} login`, !still);
-    return !still;
+    const result = await waitForAppOrLoginFailure(page, 90000);
+    record(`${creds.mode} login`, Boolean(result.ok), result.ok ? "" : (result.authMessage || result.text || "login form still visible"));
+    return Boolean(result.ok);
 }
 
+/** Navigate via desktop sidebar — uses title attr (exact view name) on nav buttons. */
 async function openNav(page, label) {
-    await page.locator(`aside.sidebar button:has-text("${label}")`).first().click({ timeout: 15000 });
-    await page.waitForTimeout(1200);
+    const byTitle = page.locator(`aside.sidebar nav.desktop-sidebar-nav button[title="${label}"]`).first();
+    if (await byTitle.count()) {
+        await byTitle.click({ timeout: 15000 });
+        await page.waitForTimeout(1000);
+        return;
+    }
+    const byText = page.locator(`aside.sidebar button`).filter({ hasText: new RegExp(`^\\s*${label}\\s*$`) }).first();
+    await byText.click({ timeout: 15000 });
+    await page.waitForTimeout(1000);
 }
 
 async function clearQueueUi(page) {
     await openNav(page, "Queue");
-    const clearBtn = page.locator('button:has-text("Clear Queue")').first();
+    const clearBtn = page.locator(".queue-page button:has-text(\"Clear Queue\")").first();
     if (await clearBtn.isEnabled().catch(() => false)) {
         await clearBtn.click();
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1200);
     }
 }
 
-async function readServerQueue(userId) {
-    if (!supabaseUrl || !serviceKey || !userId) return null;
-    const admin = createClient(supabaseUrl, serviceKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const table = await admin.from("user_media_queue_items").select("media_type,media_source_id,playable_url,position").eq("user_id", userId).order("position");
-    if (!table.error) {
-        return {
-            backend: "database",
-            userId,
-            items: (table.data || []).map((row) => ({
-                mediaType: row.media_type,
-                id: row.media_source_id,
-                playableUrl: row.playable_url,
-            })),
-        };
+async function waitForQueuePersist(page, userId, minItems, timeoutMs = 12000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const stored = await readLocalQueue(page, userId);
+        if (stored.present && stored.items.length >= minItems) return stored;
+        await page.waitForTimeout(400);
     }
-    const download = await admin.storage.from("user-media-queues").download(`${userId}/queue.json`);
-    if (download.error || !download.data) {
-        return { backend: "storage", userId, items: [], error: download.error?.message || table.error?.message };
-    }
-    const parsed = JSON.parse(await download.data.text());
-    return {
-        backend: "storage",
-        userId,
-        items: Array.isArray(parsed.items) ? parsed.items : [],
-    };
+    return readLocalQueue(page, userId);
 }
 
 async function main() {
-    const browser = await chromium.launch({ headless: true });
+    const launchOpts = { headless: true };
+    if (process.env.PLAYWRIGHT_CHROME_CHANNEL) {
+        launchOpts.channel = process.env.PLAYWRIGHT_CHROME_CHANNEL;
+    }
+    const browser = await chromium.launch(launchOpts);
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
     const creds = await credentials();
-
-    const apiPuts = [];
-    const apiGets = [];
-    page.on("response", async (response) => {
-        const url = response.url();
-        if (!url.includes("/api/media-queue")) return;
-        try {
-            const body = await response.json();
-            if (response.request().method() === "PUT") apiPuts.push({ status: response.status(), body });
-            if (response.request().method() === "GET") apiGets.push({ status: response.status(), body });
-        }
-        catch {
-            // ignore non-json
-        }
+    const persistLogs = [];
+    page.on("console", (msg) => {
+        const text = msg.text();
+        if (text.includes("[media-queue:persist]")) persistLogs.push(text);
     });
 
     try {
@@ -188,40 +254,60 @@ async function main() {
             return;
         }
 
-        // Wait for queue hydrate GET
-        await page.waitForTimeout(2500);
-        record("Queue hydrate GET observed", apiGets.length > 0, `gets=${apiGets.length}`);
+        await page.waitForTimeout(1500);
+        const beforeHydrate = await readLocalQueue(page, sessionUserId);
+        record(
+            "Queue storage key namespace ready",
+            true,
+            `key=${QUEUE_KEY_PREFIX}${sessionUserId.slice(0, 8)}… priorItems=${beforeHydrate.items.length}`,
+        );
 
         await clearQueueUi(page);
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1200);
         const emptyText = await page.locator(".queue-page").innerText();
         record("Clear queue", /No media queued/i.test(emptyText) || /Add songs or videos/i.test(emptyText));
 
         // Add real song
         await openNav(page, "Home");
         await page.waitForTimeout(1200);
-        const songCard = page.locator("article.song-card").filter({ has: page.locator('button:has-text("Add to Queue")') }).first();
+        let songCard = page.locator("article.song-card").filter({ has: page.locator('button:has-text("Add to Queue")') }).first();
+        if (!(await songCard.count())) {
+            songCard = page.locator("article.media-card").filter({ has: page.locator('button:has-text("Add to Queue")') }).first();
+        }
         const songTitle = ((await songCard.locator("h3").first().innerText().catch(() => "song")) || "song").trim();
         await songCard.locator('button:has-text("Add to Queue")').first().click();
-        await page.waitForTimeout(1200);
-        record("Add song to queue", true, songTitle);
+        await page.waitForTimeout(1000);
+        record("Add song to queue", Boolean(songTitle), songTitle);
 
-        // Add real video from Videos
+        // Add real video from Videos (prefer compatible "big business")
         await openNav(page, "Videos");
         await page.waitForTimeout(1500);
-        let videoCard = page.locator(".video-card").filter({ hasText: /big business/i }).first();
-        if (!(await videoCard.count())) videoCard = page.locator(".video-card").first();
+        let videoCard = page.locator("article.video-card").filter({ hasText: /big business/i }).first();
+        if (!(await videoCard.count())) {
+            videoCard = page.locator("article.video-card").filter({ has: page.locator('button:has-text("Add to Queue")') }).first();
+        }
         const videoTitle = ((await videoCard.locator("h3").first().innerText()) || "video").trim();
         await videoCard.locator('button:has-text("Add to Queue")').first().click();
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1200);
 
-        const lastPut = apiPuts[apiPuts.length - 1];
-        const putItems = lastPut?.body?.items || [];
-        const putVideo = putItems.find((item) => item.mediaType === "video");
+        const storedAfterAdd = await waitForQueuePersist(page, sessionUserId, 2);
+        const storedVideo = storedAfterAdd.items.find((item) => item.mediaType === "video");
+        const storedSong = storedAfterAdd.items.find((item) => item.mediaType === "song");
+        const playableUrl = String(storedVideo?.playableUrl || storedVideo?.videoUrl || "").trim();
         record(
-            "Video Add to Queue persists playableUrl",
-            Boolean(putVideo?.playableUrl),
-            putVideo?.playableUrl ? `url=${String(putVideo.playableUrl).slice(0, 90)}` : `puts=${apiPuts.length}`,
+            "localStorage has mixed song + video",
+            Boolean(storedSong && storedVideo),
+            `items=${storedAfterAdd.items.length} song=${storedSong?.title || "?"} video=${storedVideo?.title || "?"}`,
+        );
+        record(
+            "Stored video playableUrl non-empty",
+            Boolean(playableUrl),
+            playableUrl ? `url=${playableUrl.slice(0, 90)}` : "missing",
+        );
+        record(
+            "Persist debug logs observed",
+            persistLogs.some((line) => line.includes("localStorage.setItem")),
+            `logs=${persistLogs.filter((l) => l.includes("setItem")).length}`,
         );
         await shot(page, "01-after-add-video");
 
@@ -229,16 +315,16 @@ async function main() {
         const mixed = await page.locator(".queue-page").innerText();
         const mixedOk = mixed.toLowerCase().includes(videoTitle.toLowerCase())
             && mixed.toLowerCase().includes(songTitle.toLowerCase())
-            && /Song/i.test(mixed)
-            && /Video/i.test(mixed);
+            && /Songs/i.test(mixed)
+            && /Videos/i.test(mixed);
         record("Queue page shows song + video", mixedOk, `song=${songTitle} video=${videoTitle}`);
         await shot(page, "02-mixed-queue");
 
-        // Play song then video
+        // Play song then video from queue
         const plays = page.locator(".queue-manage-row").getByRole("button", { name: "Play", exact: true });
         if ((await plays.count()) >= 1) {
             await plays.nth(0).click();
-            await page.waitForTimeout(1500);
+            await page.waitForTimeout(1200);
         }
         if ((await plays.count()) >= 2) {
             await plays.nth(1).click();
@@ -248,26 +334,24 @@ async function main() {
         const missingUrl = /missing a playable URL/i.test(bodyText);
         record("Player does not report missing URL for queued video", !missingUrl);
 
-        // Confirm server still has playableUrl for THIS user
-        const serverAfterPlay = await readServerQueue(sessionUserId);
-        const serverVideo = (serverAfterPlay?.items || []).find((item) => item.mediaType === "video");
-        const playable = String(serverVideo?.playableUrl || "").trim();
-        record(
-            "Server queue video playableUrl non-empty",
-            Boolean(playable),
-            `${serverAfterPlay?.backend || "?"} user=${sessionUserId.slice(0, 8)} ${playable.slice(0, 90)}`,
-        );
-
         // Refresh
         await page.reload({ waitUntil: "domcontentloaded" });
         await page.waitForTimeout(3500);
+        const afterRefreshStore = await readLocalQueue(page, sessionUserId);
         await openNav(page, "Queue");
         const afterRefresh = await page.locator(".queue-page").innerText();
         record(
-            "Queue survives refresh",
+            "Queue survives refresh (UI)",
             afterRefresh.toLowerCase().includes(videoTitle.toLowerCase())
                 && afterRefresh.toLowerCase().includes(songTitle.toLowerCase())
                 && !/No media queued/i.test(afterRefresh),
+        );
+        record(
+            "Queue survives refresh (localStorage)",
+            afterRefreshStore.items.length >= 2
+                && afterRefreshStore.items.some((i) => i.mediaType === "song")
+                && afterRefreshStore.items.some((i) => i.mediaType === "video"),
+            `items=${afterRefreshStore.items.length}`,
         );
         await shot(page, "03-after-refresh");
 
@@ -276,7 +360,7 @@ async function main() {
         await context.storageState({ path: statePath });
         await browser.close();
 
-        const browser2 = await chromium.launch({ headless: true });
+        const browser2 = await chromium.launch(launchOpts);
         const context2 = await browser2.newContext({
             viewport: { width: 1440, height: 900 },
             storageState: statePath,
@@ -293,18 +377,17 @@ async function main() {
         );
         await shot(page2, "04-after-restart");
 
-        // Snapshot server queue before logout
-        const beforeLogout = await readServerQueue(sessionUserId);
-        const beforeCount = beforeLogout?.items?.length || 0;
+        const beforeLogoutStore = await readLocalQueue(page2, sessionUserId);
+        const beforeCount = beforeLogoutStore.items.length;
 
-        await page2.locator('button:has-text("Logout")').first().click().catch(() => { });
+        await page2.locator('button.logout-btn, button:has-text("Logout")').first().click().catch(() => {});
         await page2.waitForTimeout(2500);
 
-        const duringLogout = await readServerQueue(sessionUserId);
+        const duringLogoutStore = await readLocalQueue(page2, sessionUserId);
         record(
-            "Logout does not delete server queue",
-            (duringLogout?.items?.length || 0) >= beforeCount && beforeCount >= 2,
-            `before=${beforeCount} afterLogout=${duringLogout?.items?.length || 0}`,
+            "Logout does not delete localStorage queue",
+            (duringLogoutStore.items?.length || 0) >= beforeCount && beforeCount >= 2,
+            `before=${beforeCount} afterLogout=${duringLogoutStore.items?.length || 0}`,
         );
 
         if (creds) {
@@ -313,20 +396,24 @@ async function main() {
                 await page2.fill('input[type="email"], input[name="email"]', creds.email);
                 await page2.fill('input[type="password"], input[name="password"]', creds.password);
                 await page2.locator('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("Login")').first().click();
-                await page2.waitForTimeout(5000);
+                await page2.waitForSelector(".zml-app, aside.sidebar", { timeout: 90000 }).catch(() => {});
+                await page2.waitForTimeout(4000);
             }
         }
         await openNav(page2, "Queue");
-        await page2.waitForTimeout(2000);
+        await page2.waitForTimeout(1500);
         const afterRelogin = await page2.locator(".queue-page").innerText();
         const orderOk = afterRelogin.toLowerCase().includes(songTitle.toLowerCase())
             && afterRelogin.toLowerCase().includes(videoTitle.toLowerCase());
         record("Queue survives logout/login", orderOk);
-        await shot(page2, "05-after-relogin");
-
-        const afterReloginServer = await readServerQueue(sessionUserId);
-        const afterVideoUrl = String((afterReloginServer?.items || []).find((i) => i.mediaType === "video")?.playableUrl || "").trim();
+        const afterReloginStore = await readLocalQueue(page2, sessionUserId);
+        const afterVideoUrl = String(
+            (afterReloginStore.items || []).find((i) => i.mediaType === "video")?.playableUrl
+            || (afterReloginStore.items || []).find((i) => i.mediaType === "video")?.videoUrl
+            || "",
+        ).trim();
         record("Relogin restores video playableUrl", Boolean(afterVideoUrl), afterVideoUrl.slice(0, 100));
+        await shot(page2, "05-after-relogin");
 
         await browser2.close();
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
+import { getVideoPlaybackUrl } from "@/lib/canonical-video";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,23 +95,13 @@ function isBlockedVideoPlaybackUrl(value: string) {
 }
 
 function normalizeVideoUrl(row: Record<string, unknown>) {
-    const videoUrl = typeof row.video_url === "string" ? row.video_url.trim() : "";
-    const storagePath = typeof row.storage_path === "string" ? row.storage_path.trim() : "";
-    if (videoUrl) {
-        if (isPublicSupabaseVideoUrl(videoUrl)) {
-            return getSupabaseVideoPublicUrl(storagePath || videoUrl);
-        }
-        if (isLikelyStoragePath(videoUrl)) {
-            return getSupabaseVideoPublicUrl(videoUrl);
-        }
-        if (!isBlockedVideoPlaybackUrl(videoUrl)) {
-            return videoUrl;
-        }
-    }
-    if (storagePath) {
-        return getSupabaseVideoPublicUrl(storagePath);
-    }
-    return videoUrl;
+    return getVideoPlaybackUrl({
+        video_url: row.video_url,
+        videoUrl: row.video_url,
+        storage_path: row.storage_path,
+        storagePath: row.storage_path,
+        playableUrl: row.playableUrl || row.video_url,
+    });
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {

@@ -3,7 +3,7 @@
  * One normalize path and one getVideoPlaybackUrl used across upload, library, player, and queue wiring.
  */
 
-import { buildVideoPublicStorageUrl } from "@/lib/supabase-storage-upload";
+import { buildVideoPublicStorageUrl } from "./supabase-storage-upload";
 
 export const VIDEOS_STORAGE_BUCKET = "videos";
 

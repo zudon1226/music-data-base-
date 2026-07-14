@@ -23,6 +23,11 @@ export type DesktopVideoMetadataSaveInput = {
     videoCodec: string;
     audioCodec: string;
     mobileCompatible: boolean;
+    compatibilityStatus: string;
+    compatibilityReason?: string;
+    container?: string;
+    mimeType?: string;
+    cleanupOnFailure?: boolean;
 };
 
 export type DesktopVideoUploadCompletionResult = {
@@ -96,7 +101,11 @@ export async function saveDesktopVideoMetadataWithTransaction(
         videoCodec: input.videoCodec,
         audioCodec: input.audioCodec,
         mobileCompatible: input.mobileCompatible,
-        cleanupOnFailure: false,
+        compatibilityStatus: input.compatibilityStatus,
+        compatibilityReason: input.compatibilityReason || "",
+        container: input.container || "mp4",
+        mimeType: input.mimeType || input.contentType || "video/mp4",
+        cleanupOnFailure: input.cleanupOnFailure !== false,
     };
 
     let lastResponse: Response | null = null;

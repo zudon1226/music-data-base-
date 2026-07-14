@@ -1,7 +1,7 @@
 /** DESKTOP ONLY — orchestrated desktop video upload with real progress + stall timeout. */
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { inspectDesktopVideoFileCodecInfo } from "./desktop-video-upload-codec";
+import { inspectDesktopVideoFileCodecInfo, getDesktopVideoUploadCompatibilityError } from "./desktop-video-upload-codec";
 import { saveDesktopVideoMetadataWithTransaction } from "./desktop-video-upload-completion";
 import {
     createDesktopVideoUploadProgressController,
@@ -234,9 +234,22 @@ export async function runDesktopVideoUpload(options: {
         }
 
         const storagePath = buildVideoStoragePath(sessionUserId, options.file);
-        const contentType = getVideoUploadContentType(options.file);
 
-        progress.reportPhase("Requesting signed upload URL...", 9);
+        progress.reportPhase("Analyzing video codec...", 8);
+        const codecInfo = await runDesktopVideoUploadWithAbortSignal(
+            inspectDesktopVideoFileCodecInfo(options.file, (loaded, total) => {
+                progress.reportBytes(loaded, total, "Analyzing video codec...", [8, 10]);
+            }),
+            progress.signal,
+        );
+        const compatibilityError = getDesktopVideoUploadCompatibilityError(codecInfo);
+        if (compatibilityError) {
+            throw new Error(compatibilityError);
+        }
+
+        const contentType = "video/mp4";
+
+        progress.reportPhase("Requesting signed upload URL...", 11);
         const prepare = await prepareDesktopVideoStorageUpload(
             uploadTransaction,
             {
@@ -246,18 +259,24 @@ export async function runDesktopVideoUpload(options: {
             },
             progress.signal,
         );
-        progress.reportPhase("Upload URL ready.", 11);
+        progress.reportPhase("Upload URL ready.", 12);
         progress.throwIfAborted();
 
-        const storageResult = await uploadVideoBytesWithProgress(
-            uploadTransaction,
-            options.file,
-            sessionUserId,
-            storagePath,
-            contentType,
-            prepare,
-            progress,
-        );
+        let storageResult: Awaited<ReturnType<typeof uploadVideoBytesWithProgress>>;
+        try {
+            storageResult = await uploadVideoBytesWithProgress(
+                uploadTransaction,
+                options.file,
+                sessionUserId,
+                storagePath,
+                contentType,
+                prepare,
+                progress,
+            );
+        }
+        catch (uploadError) {
+            throw uploadError;
+        }
 
         if (!storageResult.publicUrl) {
             throw new Error("Supabase did not return a public URL for the uploaded video.");
@@ -265,44 +284,47 @@ export async function runDesktopVideoUpload(options: {
 
         progress.reportPhase("Video file uploaded.", 85);
 
-        progress.reportPhase("Analyzing video codec...", 86);
-        const codecInfo = await runDesktopVideoUploadWithAbortSignal(
-            inspectDesktopVideoFileCodecInfo(options.file, (loaded, total) => {
-                progress.reportBytes(loaded, total, "Analyzing video codec...", [86, 87]);
-            }),
-            progress.signal,
-        );
-
         progress.reportPhase("Saving video metadata...", 88);
-        const metadataResult = await saveDesktopVideoMetadataWithTransaction(uploadTransaction, {
-            storagePath: storageResult.savedStoragePath,
-            fileName: options.file.name || "video.mp4",
-            fileSize: options.file.size,
-            contentType,
-            title: options.videoDetails.title,
-            description: options.videoDetails.creator,
-            artistName: options.videoDetails.creator,
-            category: options.videoDetails.category,
-            coverUrl: options.videoDetails.cover,
-            producerName: options.videoDetails.producerName || "",
-            producerId: options.videoDetails.producerId || "",
-            albumId: options.videoDetails.albumId || "",
-            videoCodec: codecInfo.videoCodec || "",
-            audioCodec: codecInfo.audioCodec || "",
-            mobileCompatible: Boolean(codecInfo.mobileCompatible),
-        }, progress.signal);
+        try {
+            const metadataResult = await saveDesktopVideoMetadataWithTransaction(uploadTransaction, {
+                storagePath: storageResult.savedStoragePath,
+                fileName: options.file.name || "video.mp4",
+                fileSize: options.file.size,
+                contentType,
+                title: options.videoDetails.title,
+                description: options.videoDetails.creator,
+                artistName: options.videoDetails.creator,
+                category: options.videoDetails.category,
+                coverUrl: options.videoDetails.cover,
+                producerName: options.videoDetails.producerName || "",
+                producerId: options.videoDetails.producerId || "",
+                albumId: options.videoDetails.albumId || "",
+                videoCodec: codecInfo.videoCodec,
+                audioCodec: codecInfo.audioCodec,
+                mobileCompatible: true,
+                compatibilityStatus: "compatible",
+                compatibilityReason: codecInfo.compatibilityReason,
+                container: "mp4",
+                mimeType: "video/mp4",
+                cleanupOnFailure: true,
+            }, progress.signal);
 
-        progress.reportPhase("Finishing upload...", 96);
-        publishDesktopVideoUploadSession(uploadTransaction.session);
-        progress.reportPhase("Video upload complete.", 100);
+            progress.reportPhase("Finishing upload...", 96);
+            publishDesktopVideoUploadSession(uploadTransaction.session);
+            progress.reportPhase("Video upload complete.", 100);
 
-        return {
-            publicUrl: metadataResult.publicUrl,
-            storagePath: metadataResult.storagePath,
-            uploadMethod: storageResult.uploadMethod,
-            video: metadataResult.video,
-            session: uploadTransaction.session,
-        };
+            return {
+                publicUrl: metadataResult.publicUrl,
+                storagePath: metadataResult.storagePath,
+                uploadMethod: storageResult.uploadMethod,
+                video: metadataResult.video,
+                session: uploadTransaction.session,
+            };
+        }
+        catch (metadataError) {
+            // Storage object cleanup is requested via cleanupOnFailure on the API.
+            throw metadataError;
+        }
     }
     finally {
         progress.dispose();
