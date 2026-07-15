@@ -3577,6 +3577,7 @@ function PageContent() {
     accountUserIdRef.current = accountUserId;
     userRef.current = user;
     activeUserRef.current = activeUser;
+    const canViewVideoUploadDebug = isPlatformOwnerEmail(activeUser?.email);
     const readLiveDesktopAuthSession = useCallback(
         () => mergeDesktopAuthSessionSources(authSessionRef.current),
         [],
@@ -3701,6 +3702,12 @@ function PageContent() {
     const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
     const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
     const [showVideoUploadDebugAdvanced, setShowVideoUploadDebugAdvanced] = useState(false);
+    useEffect(() => {
+        if (!canViewVideoUploadDebug) {
+            setShowVideoUploadDebug(false);
+            setShowVideoUploadDebugAdvanced(false);
+        }
+    }, [canViewVideoUploadDebug]);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
         uploadMethod: "",
         supabaseUrl: "",
@@ -3749,6 +3756,9 @@ function PageContent() {
     const [platformErrors, setPlatformErrors] = useState<PlatformErrorRow[]>([]);
     const [storageReport, setStorageReport] = useState<StorageCleanupReport | null>(null);
     function updateVideoUploadDebug(next: Partial<VideoUploadDebugInfo>) {
+        if (!canViewVideoUploadDebug) {
+            return;
+        }
         setVideoUploadDebug((previous) => ({
             ...previous,
             ...next,
@@ -3788,6 +3798,9 @@ function PageContent() {
     function rememberSelectedVideoFile(file: File | null, sourceLocation: string) {
         selectedVideoFileRef.current = file;
         setVideoFile(file);
+        if (!canViewVideoUploadDebug) {
+            return;
+        }
         setVideoUploadDebugFile(file);
         setShowVideoUploadDebugAdvanced(false);
         updateVideoUploadDebug({
@@ -3889,6 +3902,9 @@ function PageContent() {
         });
     }
     function renderVideoUploadDebugPanel() {
+        if (!canViewVideoUploadDebug) {
+            return null;
+        }
         const inspected = Boolean(videoUploadDebug.detectedCompatible);
         const canPublish = videoUploadDebug.detectedCompatible === "Yes";
         const panelView = buildVideoUploadDebugPanelView({
@@ -11475,7 +11491,9 @@ function PageContent() {
             return;
         }
         const submitForm = event.currentTarget;
-        const stopUploadNetworkTrace = installVideoUploadNetworkTrace("app/page.tsx addUploadedVideo full Save Video flow", updateVideoUploadDebug);
+        const stopUploadNetworkTrace = canViewVideoUploadDebug
+            ? installVideoUploadNetworkTrace("app/page.tsx addUploadedVideo full Save Video flow", updateVideoUploadDebug)
+            : () => undefined;
         setHasAttemptedVideoUpload(true);
         setVideoUploadError("");
         const mode = uploadMode;
@@ -15441,7 +15459,7 @@ function PageContent() {
                     <progress max="100" value={videoUploadProgress}/>
                   </div>)}
 
-                {activeMediaType !== "video" ? renderVideoUploadDebugPanel() : null}
+                {canViewVideoUploadDebug && activeMediaType !== "video" ? renderVideoUploadDebugPanel() : null}
 
                 {hasAttemptedVideoUpload && videoUploadError && (<div className="upload-error">
                     <p>{videoUploadError}</p>
@@ -16316,7 +16334,7 @@ function PageContent() {
                   <progress max="100" value={videoUploadProgress}/>
                 </div>)}
 
-              {activeMediaType !== "video" ? renderVideoUploadDebugPanel() : null}
+              {canViewVideoUploadDebug && activeMediaType !== "video" ? renderVideoUploadDebugPanel() : null}
 
               {hasAttemptedVideoUpload && videoUploadError && (<div className="upload-error">
                   <p>{videoUploadError}</p>
