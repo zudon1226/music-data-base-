@@ -59,7 +59,7 @@ export function resolveFoundingAccess(
             ...DEFAULT_ACCESS,
             canAccessApp: true,
             canUpload: true,
-            dashboardView: "Platform Stability",
+            dashboardView: "Platform Control Center",
         };
     }
 

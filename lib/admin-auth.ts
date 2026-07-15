@@ -32,6 +32,13 @@ export async function requireAdminUserId(userId: string) {
     return { ok: true as const, userId };
 }
 
+export async function requirePlatformOwnerUserId(userId: string) {
+    if (!(await isPlatformOwnerUserId(userId))) {
+        return { ok: false as const, status: 403, error: "Platform owner permission is required." };
+    }
+    return { ok: true as const, userId };
+}
+
 export function isMissingFoundingSetup(error: unknown) {
     const message = getErrorMessage(error).toLowerCase();
     return message.includes("founding_invites")

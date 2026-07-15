@@ -7,7 +7,7 @@ import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, 
 import { flushSync } from "react-dom";
 import { FoundingMemberGate } from "../components/founding-member-gate";
 import { FoundingMemberProfileCard } from "../components/founding-member-profile-card";
-import { FoundingOnboardingAdminPanel } from "../components/founding-onboarding-admin-panel";
+import { PlatformControlCenter } from "../components/platform-control-center";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
@@ -747,7 +747,7 @@ type DownloadVaultItem = {
     licenseId?: string;
     licensePdfFileName?: string;
 };
-type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "Platform Stability";
+type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "Platform Control Center";
 type PlatformErrorRow = {
     id: string;
     user_id: string | null;
@@ -13599,7 +13599,7 @@ function PageContent() {
         if (nextView === "Producer Dashboard") {
             setUploadMode("beat");
         }
-        if (nextView === "Platform Stability") {
+        if (nextView === "Platform Control Center") {
             window.setTimeout(() => {
                 void loadLaunchStatus();
                 void loadPlatformStabilityReport();
@@ -13709,7 +13709,7 @@ function PageContent() {
             return "Manage artist profiles, uploaded songs, and creator analytics.";
         if (view === "Producer Dashboard")
             return "Manage beats, licenses, credits, leases, downloads, and payouts.";
-        if (view === "Platform Stability")
+        if (view === "Platform Control Center")
             return "Monitor upload failures, media files, cleanup, and backups.";
         if (view === "Artists")
             return "Browse artist profiles, songs, videos, and follow creators.";
@@ -16619,7 +16619,7 @@ function PageContent() {
                 <button onClick={() => handleNav("Producer Dashboard")} type="button">
                   Producer Dashboard
                 </button>
-                <button onClick={() => handleNav("Platform Stability")} type="button">
+                <button onClick={() => handleNav("Platform Control Center")} type="button">
                   Admin Tools
                 </button>
               </div>
@@ -16685,12 +16685,19 @@ function PageContent() {
                 </div>
               </div>
             </div>)}
-          </section>) : view === "Platform Stability" && isPlatformOwner && !search.trim() ? (<section className="dashboard-page stability-page">
+          </section>) : view === "Platform Control Center" && isPlatformOwner && !search.trim() ? (<>
+            <PlatformControlCenter
+                userId={accountUserId}
+                accessToken={authSession?.access_token || ""}
+                refreshToken={authSession?.refresh_token || ""}
+                revenueSection={renderAdminRevenueDashboard()}
+            />
+            <section className="dashboard-page stability-page">
             <div className="dashboard-brand stability-brand">
               <img src={BRAND_LOGO} alt="Music Data Base"/>
               <div>
                 <span>{BRAND_TAGLINE}</span>
-                <h2>Platform Stability</h2>
+                <h2>Advanced Owner Tools</h2>
                 <small>Last scan: {stabilityGeneratedAt}</small>
               </div>
               <div className="stability-actions">
@@ -16776,12 +16783,6 @@ function PageContent() {
                 </article>
               </div>
             </section>
-
-            <FoundingOnboardingAdminPanel
-                userId={accountUserId}
-                accessToken={authSession?.access_token || ""}
-                refreshToken={authSession?.refresh_token || ""}
-            />
 
             <section className="stability-panel launch-checklist-panel">
               <div className="panel-title-row">
@@ -17021,7 +17022,6 @@ function PageContent() {
             </section>
 
             {renderSubscriptionManagement()}
-            {renderAdminRevenueDashboard()}
             {renderPremiumContentFoundation(premiumContentItems)}
             {renderPayoutAdminReview()}
           </section>) : view === "Producer Dashboard" ? (<section className="dashboard-page producer-dashboard">
@@ -17556,7 +17556,7 @@ function PageContent() {
                   <p>Try a different search, or upload a video to build this section.</p>
                 </div>) : (<div className="dashboard-song-list">{filteredDashboardVideos.map((video) => renderDashboardVideoRow(video, "All Uploaded Videos"))}</div>)}
             </section>
-          </section>) : view === "Artist Profile" && !search.trim() ? (!activeArtist ? (<div className="empty-state">
+          </section></>) : view === "Artist Profile" && !search.trim() ? (!activeArtist ? (<div className="empty-state">
               <h2>Artist not found</h2>
               <p>Choose an artist name from any song to open their profile.</p>
             </div>) : (<section className="artist-profile">
@@ -23670,6 +23670,132 @@ function PageContent() {
           .trend-period-tabs button:hover {
             background: #22d3ee;
             color: #020617;
+          }
+
+          .platform-control-center {
+            width: min(1160px, 100%);
+            display: grid;
+            gap: 16px;
+            margin-bottom: 18px;
+          }
+
+          .control-center-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 18px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(8, 47, 73, 0.95), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(34, 211, 238, 0.18);
+          }
+
+          .control-center-kicker {
+            color: #67e8f9;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+
+          .control-center-header h2 {
+            margin: 6px 0 4px;
+          }
+
+          .control-center-header p,
+          .control-center-header small {
+            color: #9bdcf0;
+          }
+
+          .control-center-panel {
+            margin-top: 0;
+          }
+
+          .control-overview-grid,
+          .control-health-grid,
+          .control-activity-grid {
+            display: grid;
+            gap: 12px;
+          }
+
+          .control-overview-grid {
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          }
+
+          .control-health-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          }
+
+          .control-activity-grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          }
+
+          .control-overview-card,
+          .control-center-card,
+          .control-health-card {
+            padding: 14px;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+          }
+
+          .control-overview-card strong,
+          .control-health-card strong {
+            display: block;
+            font-size: 24px;
+            margin-bottom: 4px;
+          }
+
+          .control-health-card-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 8px;
+          }
+
+          .control-health-badge {
+            display: inline-flex;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+          }
+
+          .control-health-healthy {
+            background: rgba(34, 197, 94, 0.18);
+            color: #86efac;
+          }
+
+          .control-health-warning {
+            background: rgba(250, 204, 21, 0.18);
+            color: #fde047;
+          }
+
+          .control-health-attention {
+            background: rgba(248, 113, 113, 0.18);
+            color: #fca5a5;
+          }
+
+          .control-activity-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 10px;
+          }
+
+          .control-activity-list li {
+            display: grid;
+            gap: 2px;
+          }
+
+          .control-activity-list span,
+          .control-activity-list small,
+          .control-center-empty,
+          .control-health-card p {
+            color: #9bdcf0;
           }
 
           .stability-page {

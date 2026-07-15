@@ -22,7 +22,7 @@ export type DesktopNavView =
     | "Artist Profile"
     | "Producer Dashboard"
     | "Producer Profile"
-    | "Platform Stability";
+    | "Platform Control Center";
 
 /** Sidebar routing context — owner flag only; do not gate navigation on auth here. */
 export type DesktopNavAccessContext = {
@@ -54,7 +54,7 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Playlists", requiresOwner: false },
     { view: "Artist Dashboard", requiresOwner: false },
     { view: "Producer Dashboard", requiresOwner: false },
-    { view: "Platform Stability", requiresOwner: true },
+    { view: "Platform Control Center", requiresOwner: true },
     { view: "Recently Played", requiresOwner: false },
     { view: "Queue", requiresOwner: false },
     { view: "Profile", requiresOwner: false },
@@ -62,7 +62,7 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
 
 /**
  * Sidebar navigation must always route to the target view.
- * Only Platform Stability is owner-gated.
+ * Only Platform Control Center is owner-gated.
  */
 export function evaluateDesktopNavAccess(
     nextView: DesktopNavView,
