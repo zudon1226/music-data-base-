@@ -53,7 +53,8 @@ import { DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE } from "../lib/desktop-video-u
 import { UPLOAD_REAUTH_MESSAGE } from "../lib/desktop-video-upload-transaction";
 import { isDesktopVideoUploadLifecycleActive } from "../lib/desktop-video-upload-lifecycle";
 import { runDesktopVideoUpload } from "../lib/desktop-video-upload-runner";
-import { getDesktopVideoUploadCompatibilityDebug } from "../lib/desktop-video-upload-codec";
+import { getDesktopVideoUploadCompatibilityDebug, inspectDesktopVideoFileCodecInfo } from "../lib/desktop-video-upload-codec";
+import { buildVideoUploadDebugPanelView } from "../lib/video-upload-debug-panel";
 import { refreshDesktopSupabaseSessionWhenSafe } from "../lib/desktop-upload-auth-session-guard";
 import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
 import { applyLibraryCacheToState, clearLibraryCache, readLibraryCache, serializeLibraryCache, writeLibraryCache } from "../lib/library-storage";
@@ -3699,6 +3700,7 @@ function PageContent() {
     const [showVideoPlaybackDebug, setShowVideoPlaybackDebug] = useState(false);
     const [hasAttemptedVideoUpload, setHasAttemptedVideoUpload] = useState(false);
     const [showVideoUploadDebug, setShowVideoUploadDebug] = useState(false);
+    const [showVideoUploadDebugAdvanced, setShowVideoUploadDebugAdvanced] = useState(false);
     const [videoUploadDebug, setVideoUploadDebug] = useState<VideoUploadDebugInfo>({
         uploadMethod: "",
         supabaseUrl: "",
@@ -3787,10 +3789,41 @@ function PageContent() {
         selectedVideoFileRef.current = file;
         setVideoFile(file);
         setVideoUploadDebugFile(file);
+        setShowVideoUploadDebugAdvanced(false);
         updateVideoUploadDebug({
             sourceLocation,
             currentStep: file ? "Choose File complete" : "No file selected",
             lastError: file ? "" : "No file selected",
+        });
+        if (!file) {
+            return;
+        }
+        // Display-only probe for the debug panel — does not start an upload.
+        void inspectDesktopVideoFileCodecInfo(file).then((codecInfo) => {
+            if (selectedVideoFileRef.current !== file) {
+                return;
+            }
+            const debug = getDesktopVideoUploadCompatibilityDebug(codecInfo);
+            updateVideoUploadDebug({
+                currentStep: codecInfo.canPublish ? "Codec inspection passed" : "Codec inspection rejected upload",
+                detectedContainer: debug.container,
+                detectedVideoCodec: debug.videoCodec,
+                detectedAudioCodec: debug.audioCodec,
+                detectedCompatible: debug.compatible,
+                detectedRejectionReason: debug.rejectionReason || "",
+                lastError: codecInfo.canPublish ? "" : (codecInfo.publicationError || debug.rejectionReason),
+                requestBodyType: file.type || "video/mp4",
+            });
+        }).catch((error) => {
+            if (selectedVideoFileRef.current !== file) {
+                return;
+            }
+            updateVideoUploadDebug({
+                currentStep: "Codec inspection failed",
+                detectedCompatible: "No",
+                detectedRejectionReason: error instanceof Error ? error.message : String(error),
+                lastError: error instanceof Error ? error.message : String(error),
+            });
         });
     }
     function getVideoFileFromSubmitForm(form: HTMLFormElement | null) {
@@ -3824,6 +3857,7 @@ function PageContent() {
         setVideoUploadBusy(false);
         setHasAttemptedVideoUpload(false);
         setShowVideoUploadDebug(false);
+        setShowVideoUploadDebugAdvanced(false);
         updateVideoUploadDebug({
             uploadMethod: "",
             uploadTargetUrl: "",
@@ -3847,173 +3881,218 @@ function PageContent() {
             insertUserMatchesAuth: "",
             fullInsertPayload: "",
             sourceLocation: "",
+            detectedContainer: "",
+            detectedVideoCodec: "",
+            detectedAudioCodec: "",
+            detectedCompatible: "",
+            detectedRejectionReason: "",
         });
     }
     function renderVideoUploadDebugPanel() {
+        const inspected = Boolean(videoUploadDebug.detectedCompatible);
+        const canPublish = videoUploadDebug.detectedCompatible === "Yes";
+        const panelView = buildVideoUploadDebugPanelView({
+            fileName: videoUploadDebug.selectedFileName || videoFile?.name || "",
+            fileSizeLabel: videoFile
+                ? formatFileSize(videoFile.size)
+                : (videoUploadDebug.selectedFileSize
+                    ? formatFileSize(Number(videoUploadDebug.selectedFileSize) || 0)
+                    : ""),
+            container: videoUploadDebug.detectedContainer,
+            videoCodecRaw: videoUploadDebug.detectedVideoCodec,
+            audioCodecRaw: videoUploadDebug.detectedAudioCodec,
+            canPublish,
+            inspected,
+            compatibilityReason: videoUploadDebug.detectedRejectionReason,
+        });
+        const requestBodySummary = [
+            videoUploadDebug.requestMethod,
+            videoUploadDebug.requestBodyType,
+            videoUploadDebug.requestBodySize && `${videoUploadDebug.requestBodySize} bytes`,
+        ].filter(Boolean).join(" | ") || "Waiting for request";
+
         return (<section className={`video-upload-debug${showVideoUploadDebug ? " is-open" : " is-collapsed"}`} aria-label="Video upload debug">
             <div className="video-upload-debug-head">
               <strong>Video upload debug</strong>
-              <button type="button" onClick={() => setShowVideoUploadDebug((value) => !value)}>
+              <button type="button" onClick={() => {
+                    setShowVideoUploadDebug((value) => {
+                        const next = !value;
+                        if (!next) {
+                            setShowVideoUploadDebugAdvanced(false);
+                        }
+                        return next;
+                    });
+                }}>
                 {showVideoUploadDebug ? "Hide Upload Debug" : "Show Upload Debug"}
               </button>
               {videoUploadDebug.lastUpdated && <span>{videoUploadDebug.lastUpdated}</span>}
             </div>
             {showVideoUploadDebug && (<>
-            <div className="video-upload-debug-summary">
-              <div>
-                <span>UPLOAD METHOD:</span>
-                <strong>{videoUploadDebug.uploadMethod || "Waiting for Save Video"}</strong>
+            <section className={`video-upload-debug-summary-card video-upload-debug-status-${panelView.statusTone}`} aria-label="Compatibility summary">
+              <h3>Summary</h3>
+              <div className="video-upload-debug-compatible-row">
+                <span>Compatible:</span>
+                <strong className={`video-upload-debug-compatible-value is-${panelView.statusTone}`}>
+                  {panelView.compatibleYesNo === "YES" ? "🟢 YES" : panelView.compatibleYesNo === "NO" ? "🔴 NO" : "—"}
+                </strong>
               </div>
-              <div>
-                <span>UPLOAD URL:</span>
-                <strong>{videoUploadDebug.uploadTargetUrl || "Waiting for upload request"}</strong>
+              <div className="video-upload-debug-format-block">
+                <h4>Detected Format</h4>
+                <dl className="video-upload-debug-rows">
+                  <div>
+                    <dt>Container</dt>
+                    <dd>{panelView.container}</dd>
+                  </div>
+                  <div>
+                    <dt>Video Codec</dt>
+                    <dd>{panelView.videoCodec}</dd>
+                  </div>
+                  <div>
+                    <dt>Audio Codec</dt>
+                    <dd>{panelView.audioCodec}</dd>
+                  </div>
+                </dl>
               </div>
-              <div>
-                <span>SUPABASE URL:</span>
-                <strong>{videoUploadDebug.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || "Not set"}</strong>
+              <div className="video-upload-debug-reason-block">
+                {panelView.humanReason.split("\n").map((line, index) => (<p key={`${index}-${line.slice(0, 24)}`}>{line}</p>))}
               </div>
-              <div>
-                <span>FILE SIZE:</span>
-                <strong>{videoUploadDebug.fileSize || (videoFile ? String(videoFile.size) : "No file selected")}</strong>
-              </div>
-              <div>
-                <span>SELECTED FILE NAME:</span>
-                <strong>{videoUploadDebug.selectedFileName || videoFile?.name || "No file selected"}</strong>
-              </div>
-              <div>
-                <span>SELECTED FILE SIZE:</span>
-                <strong>{videoUploadDebug.selectedFileSize || (videoFile ? String(videoFile.size) : "No file selected")}</strong>
-              </div>
-              <div>
-                <span>HAS FILE OBJECT:</span>
-                <strong>{videoUploadDebug.hasFileObject || Boolean(videoFile) ? "true" : "false"}</strong>
-              </div>
-              <div>
-                <span>CURRENT STEP:</span>
-                <strong>{videoUploadDebug.currentStep || videoUploadStatus || "Waiting"}</strong>
-              </div>
-              <div>
-                <span>LAST ERROR:</span>
-                <strong>{videoUploadDebug.lastError || videoUploadError || "None"}</strong>
-              </div>
-              <div>
-                <span>CONTAINER:</span>
-                <strong>{videoUploadDebug.detectedContainer || "Not inspected yet"}</strong>
-              </div>
-              <div>
-                <span>VIDEO CODEC:</span>
-                <strong>{videoUploadDebug.detectedVideoCodec || "Not inspected yet"}</strong>
-              </div>
-              <div>
-                <span>AUDIO CODEC:</span>
-                <strong>{videoUploadDebug.detectedAudioCodec || "Not inspected yet"}</strong>
-              </div>
-              <div>
-                <span>COMPATIBLE:</span>
-                <strong>{videoUploadDebug.detectedCompatible || "Not inspected yet"}</strong>
-              </div>
-              <div>
-                <span>REJECTION REASON:</span>
-                <strong>{videoUploadDebug.detectedRejectionReason || "None"}</strong>
-              </div>
-              <div>
-                <span>INSERT USER ID:</span>
-                <strong>{videoUploadDebug.insertUserId || "Not attempted yet"}</strong>
-              </div>
-              <div>
-                <span>AUTH USER ID:</span>
-                <strong>{videoUploadDebug.authUserId || "Not attempted yet"}</strong>
-              </div>
-              <div>
-                <span>USER ID MATCH:</span>
-                <strong>{videoUploadDebug.insertUserMatchesAuth || "Not attempted yet"}</strong>
-              </div>
-            </div>
-            <dl>
-              <div>
-                <dt>Upload target URL</dt>
-                <dd>{videoUploadDebug.uploadTargetUrl || "Waiting for upload request"}</dd>
-              </div>
-              <div>
-                <dt>Supabase URL</dt>
-                <dd>{videoUploadDebug.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || "Not set"}</dd>
-              </div>
-              <div>
-                <dt>Supabase storage bucket</dt>
-                <dd>{videoUploadDebug.bucket || VIDEOS_STORAGE_BUCKET}</dd>
-              </div>
-              <div>
-                <dt>File name</dt>
-                <dd>{videoUploadDebug.fileName || videoFile?.name || "No file selected"}</dd>
-              </div>
-              <div>
-                <dt>File size</dt>
-                <dd>{videoUploadDebug.fileSize || (videoFile ? String(videoFile.size) : "No file selected")}</dd>
-              </div>
-              <div>
-                <dt>Request body</dt>
-                <dd>{[videoUploadDebug.requestMethod, videoUploadDebug.requestBodyType, videoUploadDebug.requestBodySize && `${videoUploadDebug.requestBodySize} bytes`].filter(Boolean).join(" | ") || "Waiting for request"}</dd>
-              </div>
-              <div>
-                <dt>Contains digitalmusicdatabase.com</dt>
-                <dd>{videoUploadDebug.requestContainsDigitalMusicDatabase ? "Yes" : "No"}</dd>
-              </div>
-              <div>
-                <dt>Contains supabase.co</dt>
-                <dd>{videoUploadDebug.requestContainsSupabaseCo ? "Yes" : "No"}</dd>
-              </div>
-              <div>
-                <dt>Looks like app server</dt>
-                <dd>{videoUploadDebug.requestLooksLikeAppServer ? "Yes" : "No"}</dd>
-              </div>
-              <div>
-                <dt>Looks like Vercel function</dt>
-                <dd>{videoUploadDebug.requestLooksLikeVercelFunction ? "Yes" : "No"}</dd>
-              </div>
-              <div>
-                <dt>Container</dt>
-                <dd>{videoUploadDebug.detectedContainer || "Not inspected yet"}</dd>
-              </div>
-              <div>
-                <dt>Video codec</dt>
-                <dd>{videoUploadDebug.detectedVideoCodec || "Not inspected yet"}</dd>
-              </div>
-              <div>
-                <dt>Audio codec</dt>
-                <dd>{videoUploadDebug.detectedAudioCodec || "Not inspected yet"}</dd>
-              </div>
-              <div>
-                <dt>Compatible</dt>
-                <dd>{videoUploadDebug.detectedCompatible || "Not inspected yet"}</dd>
-              </div>
-              <div>
-                <dt>Exact rejection reason</dt>
-                <dd>{videoUploadDebug.detectedRejectionReason || "None"}</dd>
-              </div>
-              <div>
-                <dt>Source code location</dt>
-                <dd>{videoUploadDebug.sourceLocation || "app/page.tsx uploadVideoToSupabase"}</dd>
-              </div>
-              <div>
-                <dt>Insert user id</dt>
-                <dd>{videoUploadDebug.insertUserId || "Not attempted yet"}</dd>
-              </div>
-              <div>
-                <dt>Auth user id</dt>
-                <dd>{videoUploadDebug.authUserId || "Not attempted yet"}</dd>
-              </div>
-              <div>
-                <dt>User id match</dt>
-                <dd>{videoUploadDebug.insertUserMatchesAuth || "Not attempted yet"}</dd>
-              </div>
-            </dl>
-            <div>
-              <span>Full insert payload</span>
-              <pre>{videoUploadDebug.fullInsertPayload || "No insert payload captured yet."}</pre>
-            </div>
-            <div>
-              <span>Full error JSON</span>
-              <pre>{videoUploadDebug.fullErrorJson || "No upload error captured yet."}</pre>
+            </section>
+
+            <section className="video-upload-debug-fix-card" aria-label="Recommended fix">
+              <h3>Recommended Fix</h3>
+              <p>{panelView.recommendedFix}</p>
+            </section>
+
+            <div className="video-upload-debug-advanced">
+              <button type="button" className="video-upload-debug-advanced-toggle" onClick={() => setShowVideoUploadDebugAdvanced((value) => !value)} aria-expanded={showVideoUploadDebugAdvanced}>
+                {showVideoUploadDebugAdvanced ? "Hide Advanced Technical Details" : "Advanced Technical Details"}
+              </button>
+              {showVideoUploadDebugAdvanced && (<>
+                <dl className="video-upload-debug-rows video-upload-debug-rows-advanced">
+                  <div>
+                    <dt>Upload URL</dt>
+                    <dd>{videoUploadDebug.uploadTargetUrl || "Waiting for upload request"}</dd>
+                  </div>
+                  <div>
+                    <dt>Supabase URL</dt>
+                    <dd>{videoUploadDebug.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || "Not set"}</dd>
+                  </div>
+                  <div>
+                    <dt>Request Body</dt>
+                    <dd>{requestBodySummary}</dd>
+                  </div>
+                  <div>
+                    <dt>Source Code Location</dt>
+                    <dd>{videoUploadDebug.sourceLocation || "app/page.tsx uploadVideoToSupabase"}</dd>
+                  </div>
+                  <div>
+                    <dt>Internal IDs</dt>
+                    <dd>
+                      insertUserId={videoUploadDebug.insertUserId || "Not attempted yet"}; authUserId={videoUploadDebug.authUserId || "Not attempted yet"}; match={videoUploadDebug.insertUserMatchesAuth || "Not attempted yet"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>File name</dt>
+                    <dd>{panelView.fileName}</dd>
+                  </div>
+                  <div>
+                    <dt>File size</dt>
+                    <dd>{panelView.fileSize || videoUploadDebug.fileSize || videoUploadDebug.selectedFileSize || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Upload method</dt>
+                    <dd>{videoUploadDebug.uploadMethod || "Waiting for Save Video"}</dd>
+                  </div>
+                  <div>
+                    <dt>Supabase storage bucket</dt>
+                    <dd>{videoUploadDebug.bucket || VIDEOS_STORAGE_BUCKET}</dd>
+                  </div>
+                  <div>
+                    <dt>Has file object</dt>
+                    <dd>{videoUploadDebug.hasFileObject || Boolean(videoFile) ? "true" : "false"}</dd>
+                  </div>
+                  <div>
+                    <dt>Current step</dt>
+                    <dd>{videoUploadDebug.currentStep || videoUploadStatus || "Waiting"}</dd>
+                  </div>
+                  <div>
+                    <dt>MIME type</dt>
+                    <dd>{videoUploadDebug.requestBodyType || videoFile?.type || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Detected container (raw)</dt>
+                    <dd>{videoUploadDebug.detectedContainer || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Raw codec identifiers</dt>
+                    <dd>video={videoUploadDebug.detectedVideoCodec || "—"}; audio={videoUploadDebug.detectedAudioCodec || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Detected compatible (raw)</dt>
+                    <dd>{videoUploadDebug.detectedCompatible || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Detected rejection reason (raw)</dt>
+                    <dd>{videoUploadDebug.detectedRejectionReason || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Contains digitalmusicdatabase.com</dt>
+                    <dd>{videoUploadDebug.requestContainsDigitalMusicDatabase ? "Yes" : "No"}</dd>
+                  </div>
+                  <div>
+                    <dt>Contains supabase.co</dt>
+                    <dd>{videoUploadDebug.requestContainsSupabaseCo ? "Yes" : "No"}</dd>
+                  </div>
+                  <div>
+                    <dt>Looks like app server</dt>
+                    <dd>{videoUploadDebug.requestLooksLikeAppServer ? "Yes" : "No"}</dd>
+                  </div>
+                  <div>
+                    <dt>Looks like Vercel function</dt>
+                    <dd>{videoUploadDebug.requestLooksLikeVercelFunction ? "Yes" : "No"}</dd>
+                  </div>
+                  <div>
+                    <dt>Insert user ID</dt>
+                    <dd>{videoUploadDebug.insertUserId || "Not attempted yet"}</dd>
+                  </div>
+                  <div>
+                    <dt>Auth user ID</dt>
+                    <dd>{videoUploadDebug.authUserId || "Not attempted yet"}</dd>
+                  </div>
+                  <div>
+                    <dt>User ID match</dt>
+                    <dd>{videoUploadDebug.insertUserMatchesAuth || "Not attempted yet"}</dd>
+                  </div>
+                  <div>
+                    <dt>Last error</dt>
+                    <dd>{videoUploadDebug.lastError || videoUploadError || "None"}</dd>
+                  </div>
+                  <div>
+                    <dt>Last updated</dt>
+                    <dd>{videoUploadDebug.lastUpdated || "—"}</dd>
+                  </div>
+                </dl>
+                <div className="video-upload-debug-pre-block">
+                  <span>Payload</span>
+                  <pre>{videoUploadDebug.fullInsertPayload || "No insert payload captured yet."}</pre>
+                </div>
+                <div className="video-upload-debug-pre-block">
+                  <span>Error JSON</span>
+                  <pre>{videoUploadDebug.fullErrorJson || "No upload error captured yet."}</pre>
+                </div>
+                <div className="video-upload-debug-pre-block">
+                  <span>Stack Trace</span>
+                  <pre>{(() => {
+                    try {
+                        const parsed = videoUploadDebug.fullErrorJson ? JSON.parse(videoUploadDebug.fullErrorJson) : null;
+                        return String(parsed?.stack || parsed?.error?.stack || "No stack trace captured yet.");
+                    }
+                    catch {
+                        return videoUploadDebug.fullErrorJson || "No stack trace captured yet.";
+                    }
+                  })()}</pre>
+                </div>
+              </>)}
             </div>
             </>)}
           </section>);
@@ -19306,7 +19385,7 @@ function PageContent() {
 
           .video-upload-debug {
             display: grid;
-            gap: 10px;
+            gap: 12px;
             border: 1px solid rgba(34, 211, 238, 0.45);
             border-radius: 8px;
             background: rgba(2, 6, 23, 0.75);
@@ -19314,6 +19393,7 @@ function PageContent() {
             padding: 12px;
             margin: 12px 0;
             overflow: hidden;
+            max-width: 100%;
           }
 
           .video-upload-debug-head {
@@ -19324,8 +19404,7 @@ function PageContent() {
             flex-wrap: wrap;
           }
 
-          .video-upload-debug-head strong,
-          .video-upload-debug span {
+          .video-upload-debug-head strong {
             color: #22d3ee;
             font-size: 12px;
             font-weight: 900;
@@ -19335,9 +19414,12 @@ function PageContent() {
           .video-upload-debug-head span {
             color: #93c5fd;
             font-size: 11px;
+            font-weight: 700;
+            text-transform: none;
           }
 
-          .video-upload-debug-head button {
+          .video-upload-debug-head button,
+          .video-upload-debug-advanced-toggle {
             border: 1px solid rgba(34, 211, 238, 0.4);
             border-radius: 7px;
             background: rgba(8, 47, 73, 0.75);
@@ -19351,62 +19433,165 @@ function PageContent() {
             padding-bottom: 10px;
           }
 
-          .video-upload-debug-summary {
+          .video-upload-debug-summary-card,
+          .video-upload-debug-fix-card {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-          }
-
-          .video-upload-debug-summary div {
+            gap: 10px;
+            border-radius: 8px;
+            padding: 12px;
             min-width: 0;
-            border: 1px solid rgba(34, 211, 238, 0.32);
-            border-radius: 6px;
+          }
+
+          .video-upload-debug-summary-card h3,
+          .video-upload-debug-fix-card h3,
+          .video-upload-debug-format-block h4 {
+            margin: 0;
+            color: #67e8f9;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+          }
+
+          .video-upload-debug-status-ok {
+            border: 1px solid rgba(52, 211, 153, 0.55);
+            background: rgba(6, 78, 59, 0.35);
+          }
+
+          .video-upload-debug-status-warn {
+            border: 1px solid rgba(248, 113, 113, 0.55);
+            background: rgba(127, 29, 29, 0.32);
+          }
+
+          .video-upload-debug-status-idle {
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            background: rgba(30, 41, 59, 0.55);
+          }
+
+          .video-upload-debug-fix-card {
+            border: 1px solid rgba(34, 211, 238, 0.35);
             background: rgba(8, 47, 73, 0.45);
-            padding: 8px;
           }
 
-          .video-upload-debug-summary span {
-            display: block;
-            margin-bottom: 4px;
-          }
-
-          .video-upload-debug-summary strong {
-            display: block;
+          .video-upload-debug-fix-card p,
+          .video-upload-debug-reason-block p {
+            margin: 0;
             color: #f8fafc;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.45;
             overflow-wrap: anywhere;
             word-break: break-word;
           }
 
-          .video-upload-debug dl {
+          .video-upload-debug-compatible-row {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            flex-wrap: wrap;
+            color: #e0f2fe;
+            font-size: 13px;
+            font-weight: 700;
+          }
+
+          .video-upload-debug-compatible-value {
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 0.02em;
+          }
+
+          .video-upload-debug-compatible-value.is-ok {
+            color: #6ee7b7;
+          }
+
+          .video-upload-debug-compatible-value.is-warn {
+            color: #fca5a5;
+          }
+
+          .video-upload-debug-compatible-value.is-idle {
+            color: #cbd5e1;
+          }
+
+          .video-upload-debug-format-block {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .video-upload-debug-reason-block {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+          }
+
+          .video-upload-debug-pre-block {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+          }
+
+          .video-upload-debug-pre-block span {
+            color: #67e8f9;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+          }
+
+          .video-upload-debug-rows {
+            display: grid;
+            grid-template-columns: 1fr;
             gap: 8px;
             margin: 0;
           }
 
-          .video-upload-debug dl div {
+          .video-upload-debug-rows div {
             min-width: 0;
-            border: 1px solid rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(34, 211, 238, 0.28);
             border-radius: 6px;
             background: rgba(15, 23, 42, 0.72);
-            padding: 8px;
+            padding: 8px 10px;
           }
 
-          .video-upload-debug dt {
+          .video-upload-debug-rows dt {
             color: #67e8f9;
             font-size: 10px;
             font-weight: 900;
             text-transform: uppercase;
+            letter-spacing: 0.03em;
           }
 
-          .video-upload-debug dd {
+          .video-upload-debug-rows dd {
             margin: 4px 0 0;
             color: #f8fafc;
-            font-size: 12px;
-            font-weight: 800;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.4;
             overflow-wrap: anywhere;
             word-break: break-word;
+          }
+
+          .video-upload-debug-advanced {
+            display: grid;
+            gap: 8px;
+            min-width: 0;
+          }
+
+          .video-upload-debug-advanced-toggle {
+            width: fit-content;
+            max-width: 100%;
+          }
+
+          .video-upload-debug-rows-advanced div {
+            border-color: rgba(148, 163, 184, 0.35);
+            background: rgba(15, 23, 42, 0.88);
+          }
+
+          .video-upload-debug-summary {
+            display: none;
+          }
+
+          .video-upload-debug dl {
+            margin: 0;
           }
 
           .video-upload-debug pre {
@@ -19424,9 +19609,15 @@ function PageContent() {
           }
 
           @media (max-width: 720px) {
-            .video-upload-debug-summary,
-            .video-upload-debug dl {
-              grid-template-columns: 1fr;
+            .video-upload-debug {
+              padding: 10px;
+              margin: 10px 0;
+            }
+
+            .video-upload-debug-fix-card p,
+            .video-upload-debug-reason-block p,
+            .video-upload-debug-rows dd {
+              font-size: 12px;
             }
           }
 
