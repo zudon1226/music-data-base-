@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Activity, BarChart3, RefreshCw, ShieldAlert, Users } from "lucide-react";
+import { Activity, BarChart3, RefreshCw, ShieldAlert, Trash2, Users } from "lucide-react";
 import { FoundingOnboardingAdminPanel } from "./founding-onboarding-admin-panel";
+import { TestAccountCleanupCenter } from "./test-account-cleanup-center";
 import type { PlatformControlCenterSnapshot, PlatformHealthLabel } from "../lib/platform-control-center";
 import { healthLabelClass } from "../lib/platform-control-center";
 
@@ -164,6 +165,18 @@ export function PlatformControlCenter({
                     <ActivityList title="Recent storage errors" items={snapshot?.activity.recentStorageErrors || []}/>
                     <ActivityList title="Recent owner actions" items={snapshot?.activity.recentOwnerActions || []}/>
                 </div>
+            </section>
+
+            <section className="stability-panel control-center-panel" id="test-account-cleanup-center">
+                <div className="panel-title-row">
+                    <h3><Trash2 size={16}/> Test Account Cleanup Center</h3>
+                    <span>Owner-only review and safe deletion of disposable test accounts</span>
+                </div>
+                <TestAccountCleanupCenter
+                    userId={userId}
+                    accessToken={accessToken}
+                    refreshToken={refreshToken}
+                />
             </section>
 
             <section className="stability-panel control-center-panel" id="founding-onboarding-controls">
