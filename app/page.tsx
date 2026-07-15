@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
+import { FoundingMemberGate } from "../components/founding-member-gate";
+import { FoundingMemberProfileCard } from "../components/founding-member-profile-card";
+import { FoundingOnboardingAdminPanel } from "../components/founding-onboarding-admin-panel";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
@@ -47,6 +50,13 @@ import {
 } from "../lib/canonical-video";
 import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
+import type { FoundingAccessState } from "../lib/founding-access";
+import {
+    FOUNDING_INVITE_REQUIRED_MESSAGE,
+    FOUNDING_ROLE_LOCKED_MESSAGE,
+    isFoundingBetaLocked,
+    foundingRoleLabel,
+} from "../lib/founding-onboarding";
 import { describeStorageUploadAuth } from "../lib/supabase-storage-upload";
 import { VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE as SHARED_VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE } from "../lib/video-upload-compatibility";
 import { DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE } from "../lib/desktop-video-upload-progress";
@@ -3666,6 +3676,9 @@ function PageContent() {
     const [authName, setAuthName] = useState("");
     const [authMessage, setAuthMessage] = useState("");
     const [authBusy, setAuthBusy] = useState(false);
+    const [authInviteCode, setAuthInviteCode] = useState("");
+    const [foundingAccess, setFoundingAccess] = useState<FoundingAccessState | null>(null);
+    const [foundingAccessLoading, setFoundingAccessLoading] = useState(false);
     const [accountRole, setAccountRole] = useState<AccountRole>("Listener");
     const [userAuthProfile, setUserAuthProfile] = useState({
         displayName: "",
@@ -5298,10 +5311,50 @@ function PageContent() {
         });
     }, []);
     const uploadsBlockedForCurrentUser = useMemo(
-        () => isPlatformOwnerEmail(activeUser?.email) ? false : isUploadBlockedForEmail(activeUser?.email),
-        [activeUser?.email],
+        () => isPlatformOwnerEmail(activeUser?.email)
+            ? false
+            : isUploadBlockedForEmail(activeUser?.email, foundingAccess?.canUpload === true),
+        [activeUser?.email, foundingAccess?.canUpload],
     );
     const isPlatformOwner = isPlatformOwnerEmail(activeUser?.email);
+    const foundingBetaLocked = isFoundingBetaLocked();
+    const reloadFoundingAccess = useCallback(async (userIdOverride = "", tokenOverride = "") => {
+        const userId = userIdOverride || accountUserIdRef.current || "";
+        const token = tokenOverride || authSessionRef.current?.access_token || "";
+        if (!userId || !token) {
+            setFoundingAccess(null);
+            return null;
+        }
+        setFoundingAccessLoading(true);
+        try {
+            const response = await fetch(`/api/founding-members/me?userId=${encodeURIComponent(userId)}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json().catch(() => ({}));
+            const access = (data.access || null) as FoundingAccessState | null;
+            setFoundingAccess(access);
+            return access;
+        }
+        catch {
+            setFoundingAccess(null);
+            return null;
+        }
+        finally {
+            setFoundingAccessLoading(false);
+        }
+    }, []);
+    useEffect(() => {
+        if (!authReady || !isAuthenticated || !accountUserId || !authSession?.access_token) {
+            setFoundingAccess(null);
+            return;
+        }
+        void reloadFoundingAccess(accountUserId, authSession.access_token);
+    }, [authReady, isAuthenticated, accountUserId, authSession?.access_token, authGateTick, reloadFoundingAccess]);
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const invite = new URLSearchParams(window.location.search).get("invite");
+        if (invite) setAuthInviteCode(invite.trim().toUpperCase());
+    }, []);
     useEffect(() => {
         if (authLoading)
             return;
@@ -11184,6 +11237,10 @@ function PageContent() {
             showToast("Log in before changing account type.", "error");
             return;
         }
+        if (foundingAccess?.isFoundingMember) {
+            showToast(FOUNDING_ROLE_LOCKED_MESSAGE, "error");
+            return;
+        }
         const previousRole = accountRole;
         setAccountRole(nextRole);
         try {
@@ -13423,6 +13480,22 @@ function PageContent() {
         }
         try {
             const signupDisplayName = authName.trim() || email.split("@")[0];
+            if (authMode === "signup" && foundingBetaLocked && !isPlatformOwnerEmail(email)) {
+                if (!authInviteCode.trim()) {
+                    setAuthMessage(FOUNDING_INVITE_REQUIRED_MESSAGE);
+                    return;
+                }
+                const validation = await fetch("/api/founding-invites/validate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ inviteCode: authInviteCode }),
+                });
+                const validationJson = await validation.json().catch(() => ({}));
+                if (!validation.ok || !validationJson.valid) {
+                    setAuthMessage(validationJson.error || FOUNDING_INVITE_REQUIRED_MESSAGE);
+                    return;
+                }
+            }
             const response = authMode === "signup"
                 ? await supabase.auth.signUp({
                     email,
@@ -13459,13 +13532,44 @@ function PageContent() {
                 action: "ensure",
                 displayName: signupDisplayName,
             }).catch(() => undefined);
+            if (authMode === "signup" && foundingBetaLocked && !isPlatformOwnerEmail(email) && authInviteCode.trim()) {
+                const redeem = await fetch("/api/founding-invites/redeem", {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${activeSession.access_token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        userId: activeSession.user.id,
+                        sessionUserId: activeSession.user.id,
+                        accessToken: activeSession.access_token,
+                        sessionAccessToken: activeSession.access_token,
+                        refreshToken: activeSession.refresh_token,
+                        sessionRefreshToken: activeSession.refresh_token,
+                        inviteCode: authInviteCode,
+                        displayName: signupDisplayName,
+                    }),
+                });
+                const redeemJson = await redeem.json().catch(() => ({}));
+                if (!redeem.ok) {
+                    setAuthMessage(redeemJson.error || "Invite redemption failed.");
+                    return;
+                }
+            }
+            const access = await reloadFoundingAccess(activeSession.user.id, activeSession.access_token);
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
+            setAuthInviteCode("");
             setAuthMessage(authMode === "signup"
-                ? "Account created. Your music is now saved."
+                ? "Account created. Your founding application is pending owner approval."
                 : "Welcome back.");
-            setView("Home");
+            const nextView = access?.dashboardView && access.canAccessApp
+                ? access.dashboardView as View
+                : "Home";
+            if (access?.canAccessApp) {
+                setView(nextView);
+            }
         }
         catch (error) {
             setAuthMessage(getAuthErrorMessage(error));
@@ -13517,6 +13621,18 @@ function PageContent() {
     }
     function handleNav(nextView: View) {
         setShowNotificationCenter(false);
+        if (!isPlatformOwner && foundingAccess && !foundingAccess.canAccessApp) {
+            showToast("Your founding member account is not approved yet.", "error");
+            return;
+        }
+        if (!isPlatformOwner && foundingAccess?.isFoundingMember && foundingAccess.approvalStatus === "approved") {
+            const allowedDashboard = foundingAccess.dashboardView;
+            const protectedViews: View[] = ["Artist Dashboard", "Producer Dashboard", "Home", "Videos", "Library", "Liked", "Following", "Recently Played", "Queue", "Playlists", "Profile", "Artist Profile", "Producer Profile"];
+            if (!protectedViews.includes(nextView) && nextView !== allowedDashboard) {
+                showToast("That area is not available for your founding role.", "error");
+                return;
+            }
+        }
         const accessDecision = evaluateDesktopNavAccess(nextView as DesktopNavView, desktopNavAccess);
         if (!accessDecision.allowed) {
             showToast("Owner admin access is required for platform controls.", "error");
@@ -14900,13 +15016,20 @@ function PageContent() {
 
           <div className="auth-copy">
             <h1>{authMode === "signup" ? "Create your account" : "Log in to Music Data Base"}</h1>
-            <p>Your library, likes, playlists, and recently played songs stay with your Supabase account.</p>
+            <p>{foundingBetaLocked && authMode === "signup"
+                ? "Founding beta signup requires a single-use invite code from Music Data Base."
+                : "Your library, likes, playlists, and recently played songs stay with your Supabase account."}</p>
           </div>
 
           <form className="auth-form" onSubmit={handleAuthSubmit}>
             {authMode === "signup" && (<label>
                 <span>Name</span>
                 <input name="name" value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder="Your name"/>
+              </label>)}
+
+            {authMode === "signup" && foundingBetaLocked && (<label>
+                <span>Invite code</span>
+                <input name="inviteCode" value={authInviteCode} onChange={(event) => setAuthInviteCode(event.target.value.toUpperCase())} placeholder="Single-use founding invite"/>
               </label>)}
 
             <label>
@@ -15070,6 +15193,20 @@ function PageContent() {
           }
         `}</style>
       </main>);
+    }
+    if (!isPlatformOwner && foundingBetaLocked && isAuthenticated && authReady) {
+        const accessBlocked = foundingAccessLoading || !foundingAccess?.canAccessApp;
+        if (accessBlocked) {
+            return (<FoundingMemberGate
+            approvalStatus={foundingAccessLoading
+                ? "pending"
+                : (foundingAccess?.approvalStatus || (foundingAccess?.isFoundingMember ? "rejected" : "blocked"))}
+            foundingRole={foundingAccess?.foundingRole || null}
+            displayName={getAccountDisplayName()}
+            blockedMessage={!foundingAccess?.isFoundingMember ? FOUNDING_INVITE_REQUIRED_MESSAGE : undefined}
+            onLogout={() => void logout()}
+        />);
+        }
     }
     if (!canRenderDesktopApplicationShell({
         authReady,
@@ -16452,6 +16589,23 @@ function PageContent() {
               <p>{isPlatformOwner ? "Permanent Owner/Admin account. You control verification, reports, payouts, subscriptions, users, and platform settings." : "Your library, likes, playlists, and uploads are stored in Supabase database tables. Auth metadata only keeps your display name, role, and avatar URL."}</p>
             </div>
 
+            {foundingAccess?.isFoundingMember && foundingAccess.member && foundingAccess.approvalStatus === "approved" ? (
+                <FoundingMemberProfileCard
+                    userId={accountUserId}
+                    accessToken={authSession?.access_token || ""}
+                    refreshToken={authSession?.refresh_token || ""}
+                    member={foundingAccess.member}
+                    onUpdated={() => void reloadFoundingAccess()}
+                />
+            ) : null}
+
+            {foundingAccess?.isFoundingMember ? (
+                <div className="profile-save">
+                    <h3>{foundingAccess.badgeLabel || "Founding Member"}</h3>
+                    <p>{foundingAccess.foundingRole ? foundingRoleLabel(foundingAccess.foundingRole) : "Founding role"} | Status: {foundingAccess.approvalStatus || "pending"}</p>
+                </div>
+            ) : null}
+
             {isPlatformOwner ? (<div className="profile-save">
               <h3>Owner Access</h3>
               <p>Permanent Owner/Admin account. You can open admin tools and test creator dashboards without changing this account into a public artist or producer.</p>
@@ -16469,7 +16623,7 @@ function PageContent() {
                   Admin Tools
                 </button>
               </div>
-            </div>) : (<div className="profile-save">
+            </div>) : (!foundingAccess?.isFoundingMember ? (<div className="profile-save">
               <h3>Account Type</h3>
               <p>Choose how you want Music Data Base to organize your creator tools.</p>
               <div className="role-switcher">
@@ -16477,7 +16631,7 @@ function PageContent() {
                     {role}
                   </button>))}
               </div>
-            </div>)}
+            </div>) : null)}
 
             {isPlatformOwner && (<div className="profile-save">
               <h3>Verification Admin</h3>
@@ -16622,6 +16776,12 @@ function PageContent() {
                 </article>
               </div>
             </section>
+
+            <FoundingOnboardingAdminPanel
+                userId={accountUserId}
+                accessToken={authSession?.access_token || ""}
+                refreshToken={authSession?.refresh_token || ""}
+            />
 
             <section className="stability-panel launch-checklist-panel">
               <div className="panel-title-row">

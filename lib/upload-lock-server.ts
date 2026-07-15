@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked } from "@/lib/upload-lock";
+import { getFoundingAccessForUser } from "@/lib/founding-access";
 import { getBearerToken } from "@/lib/request-auth";
 import { getSupabaseServerClient } from "@/lib/server-supabase";
 import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
@@ -41,6 +42,11 @@ export async function requireUploadAllowedForUserId(userId: string): Promise<Upl
     if (canUserUpload(email)) {
         return { ok: true, userId: cleanUserId, email };
     }
+    const supabase = getSupabaseServerClient();
+    const foundingAccess = await getFoundingAccessForUser(supabase, cleanUserId, email);
+    if (foundingAccess.canUpload) {
+        return { ok: true, userId: cleanUserId, email };
+    }
     return { ok: false, status: 503, error: UPLOAD_LOCK_MESSAGE };
 }
 
@@ -65,6 +71,11 @@ export async function requireUploadAllowedForRequest(request: Request): Promise<
         return { ok: false, status: 401, error: error?.message || "Invalid session token." };
     }
     if (canUserUpload(email)) {
+        return { ok: true, userId: data.user.id, email };
+    }
+    const supabase = getSupabaseServerClient();
+    const foundingAccess = await getFoundingAccessForUser(supabase, data.user.id, email);
+    if (foundingAccess.canUpload) {
         return { ok: true, userId: data.user.id, email };
     }
     return { ok: false, status: 503, error: UPLOAD_LOCK_MESSAGE };

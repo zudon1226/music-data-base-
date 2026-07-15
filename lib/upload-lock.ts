@@ -33,6 +33,9 @@ export function canUserUpload(email: string | null | undefined) {
     return getUploadAllowedEmails().includes(normalizedEmail);
 }
 
-export function isUploadBlockedForEmail(email: string | null | undefined) {
+export function isUploadBlockedForEmail(email: string | null | undefined, foundingUploadAllowed = false) {
+    if (foundingUploadAllowed) {
+        return false;
+    }
     return areUploadsLocked() && !canUserUpload(email);
 }

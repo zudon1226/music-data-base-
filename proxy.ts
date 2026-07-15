@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { evaluateFoundingApiAccess } from "@/lib/founding-api-access-server";
 
 /** DESKTOP ONLY — edge proxy runs ONLY on repair-metadata routes.
  * Supabase Auth (/auth/v1/*) is never proxied; browser talks to *.supabase.co directly.
@@ -27,8 +28,16 @@ function stripRepairMetadataRequestHeaders(request: NextRequest) {
     return headers;
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
+
+    const foundingAccess = await evaluateFoundingApiAccess(request, pathname);
+    if (!foundingAccess.ok) {
+        return NextResponse.json({
+            error: foundingAccess.error,
+            foundingAccessDenied: true,
+        }, { status: foundingAccess.status });
+    }
 
     if (!REPAIR_METADATA_PATHS.has(pathname)) {
         return NextResponse.next();
@@ -43,14 +52,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
     matcher: [
-        /*
-         * Run ONLY on public repair-metadata routes.
-         * Excluded from this proxy entirely:
-         * - /api/*
-         * - /auth/*
-         * - /_next/*
-         * - static assets (files with extensions)
-         */
+        "/api/:path*",
         "/api/auth/repair-metadata",
         "/api/platform/repair-auth-metadata",
     ],

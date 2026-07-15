@@ -150,6 +150,16 @@ export async function POST(request: Request) {
             const userId = String(body.userId || "").trim();
             const ownerLookup = userId ? await supabase.auth.admin.getUserById(userId).catch(() => null) : null;
             const isPlatformOwner = isPlatformOwnerEmail(ownerLookup?.data?.user?.email);
+            if (!isPlatformOwner) {
+                const foundingMember = await supabase
+                    .from("founding_members")
+                    .select("user_id")
+                    .eq("user_id", userId)
+                    .maybeSingle();
+                if (!foundingMember.error && foundingMember.data?.user_id) {
+                    return jsonResponse({ error: "Founding roles are assigned by invite and cannot be changed." }, 403);
+                }
+            }
             const accountType = isPlatformOwner ? "admin" : normalizeAccountType(body.accountType);
             const displayName = String(body.name || "").trim() || "Producer";
             const skipProducerProfile = isPlatformOwner || body.skipProducerProfile === true;
