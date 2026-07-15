@@ -1,6 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isPlatformOwnerUserId } from "@/lib/server-supabase";
+import {
+    cleanupPersistedMediaQueues,
+    deleteOptionalLegacyMediaRows,
+    deleteStorageObjectStrict,
+    removeMediaFromUserMusicState,
+} from "@/lib/media-delete-lifecycle";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const SONGS_BUCKET = "songs";
@@ -19,14 +25,12 @@ function getErrorMessage(error: unknown) {
     return "Unknown server error";
 }
 function isMissingSongLikesTableError(error: unknown) {
-    const message = getErrorMessage(error).toLowerCase();
     const code = error && typeof error === "object" ? String((error as Record<string, unknown>).code || "") : "";
-    return code === "42P01" || message.includes("song_likes") || message.includes("does not exist");
+    return code === "42P01" || code === "PGRST205";
 }
-function isMissingOptionalTableError(error: unknown, tableName: string) {
-    const message = getErrorMessage(error).toLowerCase();
+function isMissingOptionalTableError(error: unknown) {
     const code = error && typeof error === "object" ? String((error as Record<string, unknown>).code || "") : "";
-    return code === "42P01" || message.includes(tableName) || message.includes("does not exist");
+    return code === "42P01" || code === "PGRST205";
 }
 function isUuid(value: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -47,60 +51,9 @@ function getSupabaseServerClient() {
         },
     });
 }
-async function removeSongFromUserMusicState(supabase: ReturnType<typeof getSupabaseServerClient>, songId: string) {
-    const { data, error } = await supabase
-        .from("user_music_state")
-        .select("user_id,library_ids,recently_played,playlists");
-    if (error) {
-        if (isMissingOptionalTableError(error, "user_music_state"))
-            return;
-        throw error;
-    }
-    await Promise.all((data || []).map(async (row) => {
-        const libraryIds = Array.isArray(row.library_ids) ? row.library_ids.filter((id) => id !== songId) : [];
-        const recentlyPlayed = Array.isArray(row.recently_played)
-            ? row.recently_played.filter((entry) => {
-                if (!entry || typeof entry !== "object")
-                    return true;
-                return (entry as Record<string, unknown>).songId !== songId;
-            })
-            : [];
-        const playlists = Array.isArray(row.playlists)
-            ? row.playlists.map((playlist) => {
-                if (!playlist || typeof playlist !== "object")
-                    return playlist;
-                const playlistRecord = playlist as Record<string, unknown>;
-                return {
-                    ...playlistRecord,
-                    songIds: Array.isArray(playlistRecord.songIds)
-                        ? playlistRecord.songIds.filter((id) => id !== songId)
-                        : playlistRecord.songIds,
-                    updatedAt: new Date().toISOString(),
-                };
-            })
-            : [];
-        const { error: updateError } = await supabase
-            .from("user_music_state")
-            .update({
-            library_ids: libraryIds,
-            recently_played: recentlyPlayed,
-            playlists,
-            updated_at: new Date().toISOString(),
-        })
-            .eq("user_id", row.user_id);
-        if (updateError)
-            throw updateError;
-    }));
-}
-async function deleteOptionalSongRows(supabase: ReturnType<typeof getSupabaseServerClient>, tableName: string, songId: string) {
-    const { error } = await supabase.from(tableName).delete().eq("song_id", songId);
-    if (error && !isMissingOptionalTableError(error, tableName)) {
-        throw error;
-    }
-}
 async function deleteOptionalTypedItemRows(supabase: ReturnType<typeof getSupabaseServerClient>, tableName: string, itemId: string, itemType: string) {
     const { error } = await supabase.from(tableName).delete().eq("item_id", itemId).eq("item_type", itemType);
-    if (error && !isMissingOptionalTableError(error, tableName)) {
+    if (error && !isMissingOptionalTableError(error)) {
         throw error;
     }
 }
@@ -125,7 +78,7 @@ export async function DELETE(request: Request, { params }: {
         const supabase = getSupabaseServerClient();
         const { data: song, error: readError } = await supabase
             .from("songs")
-            .select("storage_path,user_id")
+            .select("storage_path,audio_url,user_id")
             .eq("id", id)
             .maybeSingle();
         if (readError) {
@@ -133,7 +86,12 @@ export async function DELETE(request: Request, { params }: {
             return jsonResponse({ error: getErrorMessage(readError) }, 500);
         }
         if (!song) {
-            return jsonResponse({ ok: true, alreadyDeleted: true });
+            await removeMediaFromUserMusicState(supabase, "song", id);
+            await cleanupPersistedMediaQueues("song", id);
+            return jsonResponse({
+                error: "Song record is already deleted; Storage cleanup cannot be verified without its stored path.",
+                alreadyDeleted: true,
+            }, 404);
         }
         if (!isOwnerAdmin && (!song.user_id || song.user_id !== userId)) {
             return jsonResponse({ error: "Only the owner can delete this uploaded track." }, 403);
@@ -143,14 +101,16 @@ export async function DELETE(request: Request, { params }: {
             console.error("[api/songs/:id] song likes delete failed:", likesError);
             return jsonResponse({ error: getErrorMessage(likesError) }, 500);
         }
-        const relatedTables = ["favorites", "likes", "playlist_songs", "recent_plays", "library_saves", "queue", "streams"];
+        const relatedTables = ["favorites", "likes", "playlist_songs", "recent_plays", "queue", "streams"];
         try {
             await Promise.all([
-                ...relatedTables.map((tableName) => deleteOptionalSongRows(supabase, tableName, id)),
+                ...relatedTables.map((tableName) => deleteOptionalLegacyMediaRows(supabase, tableName, "song", id)),
                 deleteOptionalTypedItemRows(supabase, "library_saves", id, "song"),
                 deleteOptionalTypedItemRows(supabase, "playlist_items", id, "song"),
-                deleteOptionalTypedItemRows(supabase, "recent_plays", id, "song"),
+                deleteOptionalTypedItemRows(supabase, "album_items", id, "song"),
+                deleteOptionalTypedItemRows(supabase, "album_tracks", id, "song"),
                 deleteOptionalTypedItemRows(supabase, "comments", id, "song"),
+                deleteOptionalTypedItemRows(supabase, "content_comments", id, "song"),
                 deleteOptionalTypedItemRows(supabase, "moderation_reports", id, "song"),
             ]);
         }
@@ -158,18 +118,36 @@ export async function DELETE(request: Request, { params }: {
             console.error("[api/songs/:id] related records delete failed:", relatedDeleteError);
             return jsonResponse({ error: getErrorMessage(relatedDeleteError) }, 500);
         }
-        await removeSongFromUserMusicState(supabase, id);
-        const { error: deleteError } = await supabase.from("songs").delete().eq("id", id);
+        const musicStateCleanup = await removeMediaFromUserMusicState(supabase, "song", id);
+        const queueCleanup = await cleanupPersistedMediaQueues("song", id);
+        const storageCleanup = await deleteStorageObjectStrict(
+            supabase,
+            SONGS_BUCKET,
+            String(song.storage_path || song.audio_url || ""),
+        );
+        const { data: deletedRows, error: deleteError } = await supabase
+            .from("songs")
+            .delete()
+            .eq("id", id)
+            .select("id");
         if (deleteError) {
             console.error("[api/songs/:id] delete failed:", deleteError);
             return jsonResponse({ error: getErrorMessage(deleteError) }, 500);
         }
-        if (song?.storage_path) {
-            const { error: storageError } = await supabase.storage.from(SONGS_BUCKET).remove([song.storage_path]);
-            if (storageError) {
-            }
+        if (!deletedRows?.some((row) => row.id === id)) {
+            console.error("[api/songs/:id] database delete verification failed:", { id });
+            return jsonResponse({ error: "Song database delete verification failed." }, 500);
         }
-        return jsonResponse({ ok: true });
+        return jsonResponse({
+            ok: true,
+            cleanup: {
+                database: true,
+                storage: storageCleanup.deleted,
+                queue: queueCleanup,
+                userMusicState: musicStateCleanup,
+                relatedReferences: true,
+            },
+        });
     }
     catch (error) {
         console.error("[api/songs/:id] delete server error:", error);

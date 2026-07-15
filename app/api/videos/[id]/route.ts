@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
-import { getErrorMessage, getSupabaseLibraryClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
+import {
+    getErrorMessage,
+    getSupabaseLibraryClient,
+    getSupabaseServerClient,
+    isPlatformOwnerUserId,
+} from "@/lib/server-supabase";
+import {
+    cleanupPersistedMediaQueues,
+    deleteOptionalLegacyMediaRows,
+    deleteStorageObjectStrict,
+    removeMediaFromUserMusicState,
+} from "@/lib/media-delete-lifecycle";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const VIDEOS_BUCKET = "videos";
@@ -11,13 +22,11 @@ function isMissingVideoLikesTableError(error: unknown) {
         return false;
     const record = error as Record<string, unknown>;
     const code = String(record.code || "");
-    const message = String(record.message || record.error || "").toLowerCase();
-    return code === "42P01" || message.includes("video_likes") || message.includes("does not exist");
+    return code === "42P01" || code === "PGRST205";
 }
-function isMissingOptionalTableError(error: unknown, tableName: string) {
-    const message = getErrorMessage(error).toLowerCase();
+function isMissingOptionalTableError(error: unknown) {
     const code = error && typeof error === "object" ? String((error as Record<string, unknown>).code || "") : "";
-    return code === "42P01" || code === "PGRST205" || message.includes(tableName) || message.includes("does not exist") || message.includes("schema cache");
+    return code === "42P01" || code === "PGRST205";
 }
 function getVideoLikesSetupMessage() {
     return "Video likes are not ready yet. Run the video_likes SQL migration in Supabase, then refresh.";
@@ -222,15 +231,9 @@ export async function PATCH(request: Request, { params }: {
         return jsonResponse({ error: getErrorMessage(error) }, 500);
     }
 }
-async function deleteOptionalVideoRows(supabase: ReturnType<typeof getSupabaseLibraryClient>, tableName: string, videoId: string) {
-    const { error } = await supabase.from(tableName).delete().eq("video_id", videoId);
-    if (error && !isMissingOptionalTableError(error, tableName)) {
-        throw error;
-    }
-}
 async function deleteOptionalTypedItemRows(supabase: ReturnType<typeof getSupabaseLibraryClient>, tableName: string, itemId: string, itemType: string) {
     const { error } = await supabase.from(tableName).delete().eq("item_id", itemId).eq("item_type", itemType);
-    if (error && !isMissingOptionalTableError(error, tableName)) {
+    if (error && !isMissingOptionalTableError(error)) {
         throw error;
     }
 }
@@ -245,7 +248,7 @@ async function isProducerProfileOwner(supabase: ReturnType<typeof getSupabaseLib
         .eq("user_id", userId)
         .limit(1);
     if (error) {
-        if (isMissingOptionalTableError(error, "producer_profiles"))
+        if (isMissingOptionalTableError(error))
             return false;
         throw error;
     }
@@ -266,7 +269,7 @@ export async function DELETE(request: Request, { params }: {
             return jsonResponse({ error: "Log in before deleting uploaded videos." }, 401);
         }
         const isOwnerAdmin = await isPlatformOwnerUserId(userId);
-        const supabase = getSupabaseLibraryClient();
+        const supabase = getSupabaseServerClient();
         if (!isUuid(id)) {
             if (!isOwnerAdmin || !id.startsWith("storage-")) {
                 return jsonResponse({ error: "Video delete requires a real database row id." }, 400);
@@ -275,16 +278,22 @@ export async function DELETE(request: Request, { params }: {
             if (!storagePath) {
                 return jsonResponse({ error: "Recovered video storage path is missing." }, 400);
             }
-            const { error: storageDeleteError } = await supabase.storage.from(VIDEOS_BUCKET).remove([storagePath]);
-            if (storageDeleteError) {
-                console.error("[api/videos/:id] recovered storage delete failed:", storageDeleteError);
-                return jsonResponse({ error: getErrorMessage(storageDeleteError) }, 500);
-            }
-            return jsonResponse({ ok: true, storageOnly: true });
+            const queueCleanup = await cleanupPersistedMediaQueues("video", id);
+            const musicStateCleanup = await removeMediaFromUserMusicState(supabase, "video", id);
+            const storageCleanup = await deleteStorageObjectStrict(supabase, VIDEOS_BUCKET, storagePath);
+            return jsonResponse({
+                ok: true,
+                storageOnly: true,
+                cleanup: {
+                    storage: storageCleanup.deleted,
+                    queue: queueCleanup,
+                    userMusicState: musicStateCleanup,
+                },
+            });
         }
         const { data: video, error: readError } = await supabase
             .from("videos")
-            .select("storage_path,user_id,artist_id,producer_id,producer_profile_id")
+            .select("storage_path,video_url,user_id,artist_id,producer_id,producer_profile_id")
             .eq("id", id)
             .maybeSingle();
         if (readError) {
@@ -292,7 +301,12 @@ export async function DELETE(request: Request, { params }: {
             return jsonResponse({ error: getErrorMessage(readError) }, 500);
         }
         if (!video) {
-            return jsonResponse({ ok: true, alreadyDeleted: true });
+            await removeMediaFromUserMusicState(supabase, "video", id);
+            await cleanupPersistedMediaQueues("video", id);
+            return jsonResponse({
+                error: "Video record is already deleted; Storage cleanup cannot be verified without its stored path.",
+                alreadyDeleted: true,
+            }, 404);
         }
         const ownedByUser = video.user_id === userId || video.artist_id === userId || video.producer_id === userId || video.producer_profile_id === userId;
         const ownedProducerProfile = !ownedByUser && await isProducerProfileOwner(supabase, [String(video.producer_id || ""), String(video.producer_profile_id || "")], userId);
@@ -301,13 +315,14 @@ export async function DELETE(request: Request, { params }: {
         }
         try {
             await Promise.all([
-                deleteOptionalVideoRows(supabase, "video_likes", id),
-                deleteOptionalVideoRows(supabase, "recent_videos", id),
-                deleteOptionalVideoRows(supabase, "recent_plays", id),
+                deleteOptionalLegacyMediaRows(supabase, "video_likes", "video", id),
+                deleteOptionalLegacyMediaRows(supabase, "recent_videos", "video", id),
                 deleteOptionalTypedItemRows(supabase, "library_saves", id, "video"),
                 deleteOptionalTypedItemRows(supabase, "playlist_items", id, "video"),
-                deleteOptionalTypedItemRows(supabase, "recent_plays", id, "video"),
+                deleteOptionalTypedItemRows(supabase, "album_items", id, "video"),
+                deleteOptionalTypedItemRows(supabase, "album_tracks", id, "video"),
                 deleteOptionalTypedItemRows(supabase, "comments", id, "video"),
+                deleteOptionalTypedItemRows(supabase, "content_comments", id, "video"),
                 deleteOptionalTypedItemRows(supabase, "moderation_reports", id, "video"),
             ]);
         }
@@ -315,17 +330,36 @@ export async function DELETE(request: Request, { params }: {
             console.error("[api/videos/:id] related records delete failed:", relatedDeleteError);
             return jsonResponse({ error: getErrorMessage(relatedDeleteError) }, 500);
         }
-        const { error: deleteError } = await supabase.from("videos").delete().eq("id", id);
+        const musicStateCleanup = await removeMediaFromUserMusicState(supabase, "video", id);
+        const queueCleanup = await cleanupPersistedMediaQueues("video", id);
+        const storageCleanup = await deleteStorageObjectStrict(
+            supabase,
+            VIDEOS_BUCKET,
+            String(video.storage_path || video.video_url || ""),
+        );
+        const { data: deletedRows, error: deleteError } = await supabase
+            .from("videos")
+            .delete()
+            .eq("id", id)
+            .select("id");
         if (deleteError) {
             console.error("[api/videos/:id] delete failed:", deleteError);
             return jsonResponse({ error: getErrorMessage(deleteError) }, 500);
         }
-        if (video?.storage_path) {
-            const { error: storageError } = await supabase.storage.from(VIDEOS_BUCKET).remove([video.storage_path]);
-            if (storageError) {
-            }
+        if (!deletedRows?.some((row) => row.id === id)) {
+            console.error("[api/videos/:id] database delete verification failed:", { id });
+            return jsonResponse({ error: "Video database delete verification failed." }, 500);
         }
-        return jsonResponse({ ok: true });
+        return jsonResponse({
+            ok: true,
+            cleanup: {
+                database: true,
+                storage: storageCleanup.deleted,
+                queue: queueCleanup,
+                userMusicState: musicStateCleanup,
+                relatedReferences: true,
+            },
+        });
     }
     catch (error) {
         console.error("[api/videos/:id] delete server error:", error);
