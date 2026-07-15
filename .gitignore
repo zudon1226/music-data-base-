@@ -7,3 +7,8 @@ node_modules/
 .next-dev.out.log
 .local-secrets/
 backups/owner-user-metadata*
+
+# Local verification artifacts and build cache
+tmp/
+tmp-*/
+*.tsbuildinfo
