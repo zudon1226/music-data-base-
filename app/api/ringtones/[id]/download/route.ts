@@ -46,9 +46,11 @@ export async function POST(request: Request, context: Params) {
 
         const isAdmin = await isAdminUserId(userId);
         const ownerTesting = isAdmin && body.ownerTesting === true;
+        const creatorTesting = body.creatorTesting === true
+            && String(product.data.creator_id || "") === userId;
         const purchase = await buyerHasPaidRingtonePurchase(userId, ringtoneId);
 
-        if (!purchase && !ownerTesting) {
+        if (!purchase && !ownerTesting && !creatorTesting) {
             return json({
                 error: "Download requires a paid purchase for this ringtone.",
                 code: "PURCHASE_REQUIRED",
@@ -88,14 +90,32 @@ export async function POST(request: Request, context: Params) {
             deviceType,
             purchaseId: purchase?.id || null,
             ownerTesting,
+            creatorTesting,
             installation: deviceType === "iphone"
                 ? {
-                    summary: "Use the Files app and GarageBand to install this ringtone on iPhone.",
+                    summary: "Download the file, save it in Files, then use GarageBand to export a ringtone. This web app cannot set an iPhone ringtone directly.",
                     cannotSetDirectly: true,
+                    steps: [
+                        "Download the file",
+                        "Save it in Files",
+                        "Open GarageBand",
+                        "Import the audio file",
+                        "Share as Ringtone",
+                        "Export",
+                        "Select Standard Ringtone, Text Tone, or Assign to Contact",
+                    ],
                 }
                 : {
-                    summary: "Save the MP3 and assign it as a ringtone in Android sound settings.",
+                    summary: "Save the audio file, then assign it as a ringtone in your Android sound settings. Steps vary by manufacturer.",
                     cannotSetDirectly: false,
+                    steps: [
+                        "Download the audio file",
+                        "Open your device Files or Downloads app",
+                        "Move or keep the file in an accessible folder",
+                        "Open Settings → Sound & vibration (or Sounds)",
+                        "Choose Phone ringtone / Ringtone",
+                        "Select the downloaded file if your manufacturer allows custom ringtones",
+                    ],
                 },
         });
     } catch (error) {

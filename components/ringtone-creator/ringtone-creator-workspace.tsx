@@ -453,6 +453,10 @@ export function RingtoneCreatorWorkspace({
                             <strong>{formatRingtoneMoney(salesSummary.revenueCents, salesSummary.currency)}</strong>
                             <span>{t("ringtones.price")}</span>
                         </div>
+                        <div>
+                            <strong>{formatRingtoneMoney((salesSummary as { platformFeeCents?: number }).platformFeeCents || 0, salesSummary.currency)}</strong>
+                            <span>{t("ringtones.platformFees")}</span>
+                        </div>
                     </div>
                 </div>
             ) : null}

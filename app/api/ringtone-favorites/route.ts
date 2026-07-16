@@ -18,13 +18,28 @@ export async function GET(request: Request) {
         if (!auth.ok) return json({ favoriteRingtoneIds: [] });
 
         const supabase = getSupabaseServerClient();
+        const includeProducts = new URL(request.url).searchParams.get("includeProducts") === "1";
         const { data, error } = await supabase
             .from("ringtone_favorites")
-            .select("ringtone_id")
+            .select("ringtone_id,created_at")
             .eq("user_id", userId)
             .order("created_at", { ascending: false });
         if (error) return json({ error: getErrorMessage(error) }, 500);
-        return json({ favoriteRingtoneIds: (data || []).map((row) => row.ringtone_id).filter(Boolean) });
+        const favoriteRingtoneIds = (data || []).map((row) => row.ringtone_id).filter(Boolean);
+        if (!includeProducts) return json({ favoriteRingtoneIds });
+
+        const products = favoriteRingtoneIds.length
+            ? await supabase
+                .from("ringtone_products")
+                .select("id,title,artwork_url,preview_url,duration_seconds,clip_start_seconds,clip_end_seconds,price_cents,currency,status,is_explicit,creator_id,published_at")
+                .in("id", favoriteRingtoneIds)
+                .in("status", [...PUBLIC_RINGTONE_STATUSES])
+            : { data: [] as Record<string, unknown>[] };
+
+        return json({
+            favoriteRingtoneIds,
+            favorites: products.data || [],
+        });
     } catch (error) {
         console.error("[api/ringtone-favorites] GET failed:", error);
         return json({ error: getErrorMessage(error) }, 500);

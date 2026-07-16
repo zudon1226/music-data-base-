@@ -17,6 +17,8 @@ const HOME_TAB_KEYS: Record<string, TranslationKey> = {
 
 const VIEW_SUBTITLE_KEYS: Partial<Record<DesktopNavView, TranslationKey>> = {
     Marketplace: "marketplace.pageSubtitle",
+    "Ringtone Marketplace": "ringtones.marketplaceSubtitle",
+    "My Purchased Ringtones": "ringtones.marketplaceSubtitle",
     Sales: "sales.pageSubtitle",
     "License History": "licenseHistory.pageSubtitle",
     "Artist Profile": "artistProfile.pageSubtitle",

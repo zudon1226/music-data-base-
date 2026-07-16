@@ -1,0 +1,212 @@
+/** Client helpers for Ringtone Platform Phase 3 marketplace / purchase UI. */
+
+import type { Session } from "@supabase/supabase-js";
+import { readAccessTokenFromSession } from "@/lib/client-api-auth";
+import { randomUUID } from "@/lib/ringtone-marketplace-id";
+
+function authHeaders(session: Session | null | undefined, json = true) {
+    const token = readAccessTokenFromSession(session);
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (json) headers["Content-Type"] = "application/json";
+    return headers;
+}
+
+async function parseJson(response: Response) {
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+    return { ok: response.ok, status: response.status, body };
+}
+
+export type MarketplaceRingtone = {
+    id: string;
+    creator_id: string;
+    title: string;
+    description?: string;
+    artwork_url: string;
+    preview_url: string;
+    duration_seconds: number;
+    clip_start_seconds?: number;
+    clip_end_seconds?: number;
+    price_cents: number;
+    currency: string;
+    status: string;
+    is_featured?: boolean;
+    is_explicit?: boolean;
+    source_song_id?: string | null;
+    creatorName?: string;
+    sourceSongTitle?: string;
+    sourceGenre?: string;
+    purchaseCount?: number;
+    downloadCount?: number;
+    favoriteCount?: number;
+    owned?: boolean;
+    favorited?: boolean;
+    published_at?: string | null;
+    created_at?: string;
+};
+
+export async function fetchRingtoneMarketplace(input: {
+    userId?: string;
+    session?: Session | null;
+    q?: string;
+    filter?: string;
+    sort?: string;
+    section?: string;
+    creatorId?: string;
+    page?: number;
+    pageSize?: number;
+    minPriceCents?: number;
+    maxPriceCents?: number;
+}) {
+    const params = new URLSearchParams();
+    if (input.userId) params.set("userId", input.userId);
+    if (input.q) params.set("q", input.q);
+    if (input.filter) params.set("filter", input.filter);
+    if (input.sort) params.set("sort", input.sort);
+    if (input.section) params.set("section", input.section);
+    if (input.creatorId) params.set("creatorId", input.creatorId);
+    if (input.page) params.set("page", String(input.page));
+    if (input.pageSize) params.set("pageSize", String(input.pageSize));
+    if (input.minPriceCents != null) params.set("minPriceCents", String(input.minPriceCents));
+    if (input.maxPriceCents != null) params.set("maxPriceCents", String(input.maxPriceCents));
+
+    const response = await fetch(`/api/ringtones/marketplace?${params.toString()}`, {
+        headers: authHeaders(input.session || null, false),
+        cache: "no-store",
+    });
+    return parseJson(response);
+}
+
+export async function fetchRingtoneDetail(input: {
+    ringtoneId: string;
+    userId?: string;
+    session?: Session | null;
+}) {
+    const params = new URLSearchParams();
+    if (input.userId) params.set("userId", input.userId);
+    const response = await fetch(`/api/ringtones/${input.ringtoneId}/detail?${params.toString()}`, {
+        headers: authHeaders(input.session || null, false),
+        cache: "no-store",
+    });
+    return parseJson(response);
+}
+
+export async function purchaseRingtone(input: {
+    ringtoneId: string;
+    userId: string;
+    session: Session | null;
+    idempotencyKey?: string;
+}) {
+    const response = await fetch(`/api/ringtones/${input.ringtoneId}/purchase`, {
+        method: "POST",
+        headers: authHeaders(input.session),
+        body: JSON.stringify({
+            userId: input.userId,
+            idempotencyKey: input.idempotencyKey || randomUUID(),
+        }),
+    });
+    return parseJson(response);
+}
+
+export async function confirmRingtonePurchase(input: {
+    ringtoneId: string;
+    purchaseId: string;
+    userId: string;
+    session: Session | null;
+    provider: string;
+    paymentReference?: string;
+    outcome?: "paid" | "failed" | "cancelled";
+}) {
+    const response = await fetch(`/api/ringtones/${input.ringtoneId}/purchase`, {
+        method: "PATCH",
+        headers: authHeaders(input.session),
+        body: JSON.stringify({
+            userId: input.userId,
+            purchaseId: input.purchaseId,
+            provider: input.provider,
+            paymentReference: input.paymentReference,
+            outcome: input.outcome || "paid",
+        }),
+    });
+    return parseJson(response);
+}
+
+export async function fetchMyRingtonePurchases(input: {
+    userId: string;
+    session: Session | null;
+    q?: string;
+    sort?: string;
+    status?: string;
+}) {
+    const params = new URLSearchParams({ userId: input.userId });
+    if (input.q) params.set("q", input.q);
+    if (input.sort) params.set("sort", input.sort);
+    if (input.status) params.set("status", input.status);
+    const response = await fetch(`/api/ringtones/purchases?${params.toString()}`, {
+        headers: authHeaders(input.session, false),
+        cache: "no-store",
+    });
+    return parseJson(response);
+}
+
+export async function toggleRingtoneFavorite(input: {
+    userId: string;
+    session: Session | null;
+    ringtoneId: string;
+    favorite: boolean;
+}) {
+    const response = await fetch("/api/ringtone-favorites", {
+        method: "POST",
+        headers: authHeaders(input.session),
+        body: JSON.stringify({
+            userId: input.userId,
+            ringtoneId: input.ringtoneId,
+            favorite: input.favorite,
+        }),
+    });
+    return parseJson(response);
+}
+
+export async function fetchFavoriteRingtones(input: {
+    userId: string;
+    session: Session | null;
+}) {
+    const response = await fetch(
+        `/api/ringtone-favorites?userId=${encodeURIComponent(input.userId)}&includeProducts=1`,
+        {
+            headers: authHeaders(input.session, false),
+            cache: "no-store",
+        },
+    );
+    return parseJson(response);
+}
+
+export async function downloadPurchasedRingtone(input: {
+    ringtoneId: string;
+    userId: string;
+    session: Session | null;
+    deviceType: "iphone" | "android";
+    creatorTesting?: boolean;
+}) {
+    const response = await fetch(`/api/ringtones/${input.ringtoneId}/download`, {
+        method: "POST",
+        headers: authHeaders(input.session),
+        body: JSON.stringify({
+            userId: input.userId,
+            deviceType: input.deviceType,
+            creatorTesting: input.creatorTesting === true,
+        }),
+    });
+    return parseJson(response);
+}
+
+export function formatRingtonePrice(cents: number, currency = "USD") {
+    try {
+        return new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: currency || "USD",
+        }).format((Number(cents) || 0) / 100);
+    } catch {
+        return `$${((Number(cents) || 0) / 100).toFixed(2)}`;
+    }
+}

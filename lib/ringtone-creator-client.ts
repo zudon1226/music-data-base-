@@ -51,6 +51,7 @@ export type RingtoneSalesSummary = {
     saleCount: number;
     earningsCents: number;
     revenueCents: number;
+    platformFeeCents?: number;
     currency: string;
 };
 

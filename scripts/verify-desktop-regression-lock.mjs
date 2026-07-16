@@ -389,6 +389,8 @@ for (const symbol of REQUIRED_PAGE_WIRING) {
 const DESKTOP_NAV_VIEWS = [
   "Home",
   "Marketplace",
+  "Ringtone Marketplace",
+  "My Purchased Ringtones",
   "Sales",
   "License History",
   "Trending",

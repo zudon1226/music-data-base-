@@ -23,6 +23,8 @@ export type DesktopNavView =
     | "Producer Dashboard"
     | "Producer Profile"
     | "My Ringtones"
+    | "Ringtone Marketplace"
+    | "My Purchased Ringtones"
     | "Platform Control Center";
 
 /** Sidebar routing context — owner flag only; do not gate navigation on auth here. */
@@ -45,6 +47,8 @@ export type DesktopNavItemDefinition = {
 export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Home", requiresOwner: false },
     { view: "Marketplace", requiresOwner: false },
+    { view: "Ringtone Marketplace", requiresOwner: false },
+    { view: "My Purchased Ringtones", requiresOwner: false },
     { view: "Sales", requiresOwner: false },
     { view: "License History", requiresOwner: false },
     { view: "Trending", requiresOwner: false },

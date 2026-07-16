@@ -33,13 +33,40 @@ export async function GET(request: Request) {
         const paid = sales.filter((row) => String(row.payment_status) === "paid");
         const earningsCents = paid.reduce((sum, row) => sum + Number(row.creator_earnings_cents || 0), 0);
         const revenueCents = paid.reduce((sum, row) => sum + Number(row.amount_cents || 0), 0);
+        const feeCents = paid.reduce((sum, row) => sum + Number(row.platform_fee_cents || 0), 0);
+        const ringtoneIds = [...new Set(paid.map((row) => row.ringtone_id).filter(Boolean))];
+
+        const [products, downloads] = await Promise.all([
+            ringtoneIds.length
+                ? supabase.from("ringtone_products").select("id,title").in("id", ringtoneIds)
+                : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+            ringtoneIds.length
+                ? supabase.from("ringtone_downloads").select("ringtone_id,purchase_id").in("ringtone_id", ringtoneIds)
+                : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+        ]);
+        const titleById = new Map((products.data || []).map((row) => [String(row.id), String((row as { title?: string }).title || "")]));
+        const downloadCountByPurchase = new Map<string, number>();
+        for (const row of downloads.data || []) {
+            const key = String((row as { purchase_id?: string }).purchase_id || "");
+            if (!key) continue;
+            downloadCountByPurchase.set(key, (downloadCountByPurchase.get(key) || 0) + 1);
+        }
+
+        const enrichedSales = paid.map((row) => ({
+            ...row,
+            ringtoneTitle: titleById.get(String(row.ringtone_id)) || "Ringtone",
+            downloadCount: downloadCountByPurchase.get(String(row.id)) || 0,
+            // Mask buyer identity for creator dashboards.
+            buyerLabel: `Buyer ${String(row.buyer_id || "").slice(0, 8)}`,
+        }));
 
         return json({
-            sales,
+            sales: enrichedSales,
             summary: {
                 saleCount: paid.length,
                 earningsCents,
                 revenueCents,
+                platformFeeCents: feeCents,
                 currency: paid[0]?.currency || "USD",
             },
         });

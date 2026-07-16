@@ -36,6 +36,7 @@ import {
     RingtoneCreatorWorkspace,
     type RingtonePreviewRequest,
 } from "../components/ringtone-creator/ringtone-creator-workspace";
+import { RingtoneMarketplaceWorkspace } from "../components/ringtone-marketplace/ringtone-marketplace-workspace";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
 import { fetchRingtoneEligibility } from "../lib/ringtone-creator-client";
 import { I18N_GLOBAL_STYLES } from "../lib/i18n/i18n-styles";
@@ -761,7 +762,7 @@ type DownloadVaultItem = {
     licenseId?: string;
     licensePdfFileName?: string;
 };
-type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Platform Control Center";
 type PlatformErrorRow = {
     id: string;
     user_id: string | null;
@@ -16040,6 +16041,26 @@ function PageContent() {
             onStopRingtonePreview={stopRingtonePreviewPlayback}
             activeRingtonePreviewId={activeRingtonePreview?.id || null}
             ringtonePreviewPlaying={ringtonePreviewPlaying}
+          />
+        ) : null}
+
+        {(view === "Ringtone Marketplace" || view === "My Purchased Ringtones") ? (
+          <RingtoneMarketplaceWorkspace
+            mode={view === "My Purchased Ringtones" ? "purchased" : "marketplace"}
+            userId={accountUserId}
+            session={authSession}
+            isAuthenticated={Boolean(accountUserId && authSession?.access_token)}
+            onPreviewRingtone={(request) => {
+              if (activeRingtonePreview?.id === request.id && ringtonePreviewPlaying) {
+                stopRingtonePreviewPlayback();
+                return;
+              }
+              playRingtonePreview(request);
+            }}
+            onStopRingtonePreview={stopRingtonePreviewPlayback}
+            activeRingtonePreviewId={activeRingtonePreview?.id || null}
+            ringtonePreviewPlaying={ringtonePreviewPlaying}
+            onRequireLogin={() => showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error")}
           />
         ) : null}
 
