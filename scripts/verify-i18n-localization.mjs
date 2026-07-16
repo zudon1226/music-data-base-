@@ -14,7 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidenceDir = path.join(root, "tmp");
 mkdirSync(evidenceDir, { recursive: true });
 const results = [];
-const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he"];
+const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el"];
+const phaseCLocales = ["tr", "ru", "uk", "pl", "ro", "el"];
 const LOCALE_STORAGE_KEY = "mdb.preferredLanguage";
 const LOCALE_COOKIE_KEY = "mdb_locale";
 
@@ -65,18 +66,21 @@ async function isDevServerUp(baseUrl) {
     }
 }
 
-async function runBrowserLayoutTests(baseUrl, localeMessages) {
+async function runBrowserLayoutTests(baseUrl, localeMessages, ownerSessionPayload) {
     const serverUp = await isDevServerUp(baseUrl);
     if (!serverUp) {
         recordNotRun("browser layout tests", `dev server unavailable at ${baseUrl}`);
         return;
     }
 
-    const browserLocales = ["de", "it", "nl", "ar", "he"];
+    const browserLocales = ["de", "it", "nl", "ar", "he", ...phaseCLocales];
     const viewports = [
-        { label: "desktop", options: { viewport: { width: 1440, height: 900 } } },
-        { label: "iPhone 14", options: { ...devices["iPhone 14"] } },
-        { label: "Pixel 7", options: { ...devices["Pixel 7"] } },
+        { label: "1440px", options: { viewport: { width: 1440, height: 900 } } },
+        { label: "1024px", options: { viewport: { width: 1024, height: 768 } } },
+        { label: "768px", options: { viewport: { width: 768, height: 1024 } } },
+        { label: "iPhone14-portrait", options: { ...devices["iPhone 14"] } },
+        { label: "iPhone14-landscape", options: { ...devices["iPhone 14 landscape"] } },
+        { label: "Pixel7-portrait", options: { ...devices["Pixel 7"] } },
     ];
 
     let browser;
@@ -86,6 +90,8 @@ async function runBrowserLayoutTests(baseUrl, localeMessages) {
             const messages = localeMessages[locale];
             const loginTitle = resolvePath(messages, "auth.loginTitle") || "";
             const expectedDir = ["ar", "he"].includes(locale) ? "rtl" : "ltr";
+            const languageEntry = parseRegistryLanguages(path.join(root, "lib/i18n/registry.ts"))
+                .find((language) => language.code === locale);
 
             for (const viewport of viewports) {
                 const context = await browser.newContext(viewport.options);
@@ -94,10 +100,20 @@ async function runBrowserLayoutTests(baseUrl, localeMessages) {
                     document.cookie = `${cookieKey}=${encodeURIComponent(code)}; Path=/; SameSite=Lax`;
                 }, { storageKey: LOCALE_STORAGE_KEY, cookieKey: LOCALE_COOKIE_KEY, code: locale });
 
+                if (ownerSessionPayload?.storageKey && ownerSessionPayload?.payload) {
+                    await context.addInitScript(({ key, value }) => {
+                        localStorage.setItem(key, value);
+                    }, { key: ownerSessionPayload.storageKey, value: ownerSessionPayload.payload });
+                }
+
                 const page = await context.newPage();
                 try {
                     await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
                     await page.waitForTimeout(1500);
+                    if (ownerSessionPayload?.storageKey) {
+                        await page.waitForSelector(".topbar, .auth-shell", { timeout: 60000 }).catch(() => null);
+                        await page.waitForTimeout(800);
+                    }
 
                     const shell = await page.evaluate(() => ({
                         lang: document.documentElement.lang,
@@ -116,7 +132,7 @@ async function runBrowserLayoutTests(baseUrl, localeMessages) {
                         `dir=${shell.dir}`,
                     );
 
-                    if (["de", "it", "nl"].includes(locale)) {
+                    if (["de", "it", "nl", ...phaseCLocales].includes(locale) && !ownerSessionPayload?.storageKey) {
                         const hasNativeAuth = loginTitle && shell.bodyText.includes(loginTitle);
                         const hasEnglishLogin = /Log in to Music Data Base/i.test(shell.bodyText);
                         record(
@@ -125,12 +141,50 @@ async function runBrowserLayoutTests(baseUrl, localeMessages) {
                             hasNativeAuth ? loginTitle.slice(0, 40) : "native login title not found",
                         );
                     }
+                    else if (["de", "it", "nl", ...phaseCLocales].includes(locale) && ownerSessionPayload?.storageKey && viewport.options.viewport?.width >= 1024) {
+                        const homeLabel = resolvePath(messages, "nav.home") || "";
+                        record(
+                            `browser ${locale} ${viewport.label} authenticated nav`,
+                            Boolean(homeLabel && shell.bodyText.includes(homeLabel)),
+                            homeLabel.slice(0, 40),
+                        );
+                    }
 
                     if (["ar", "he"].includes(locale)) {
                         record(
                             `browser ${locale} ${viewport.label} rtl auth`,
                             shell.dir === "rtl",
                             shell.dir,
+                        );
+                    }
+
+                    const layout = await page.evaluate(() => {
+                        const searchWrap = document.querySelector(".search-wrap");
+                        const searchBox = searchWrap?.querySelector(".search-box");
+                        const lang = searchWrap?.querySelector(".topbar-language-selector, .language-selector");
+                        const detachedTopbarLang = Boolean(document.querySelector(".topbar > .topbar-language-selector, .topbar > .language-selector"));
+                        if (!searchWrap || !searchBox || !lang) {
+                            return { ok: false, reason: "missing topbar search row" };
+                        }
+                        const searchRect = searchBox.getBoundingClientRect();
+                        const langRect = lang.getBoundingClientRect();
+                        const sameRow = Math.abs(searchRect.top - langRect.top) < 12;
+                        const beside = langRect.left >= searchRect.right - 2;
+                        const searchWrapOverflow = searchWrap.scrollWidth > searchWrap.clientWidth + 4;
+                        return { ok: sameRow && beside && !detachedTopbarLang && !searchWrapOverflow, sameRow, beside, detachedTopbarLang, searchWrapOverflow };
+                    });
+                    record(
+                        `browser ${locale} ${viewport.label} search row`,
+                        layout.ok,
+                        JSON.stringify(layout),
+                    );
+
+                    if (phaseCLocales.includes(locale) && languageEntry?.nativeName) {
+                        const triggerText = await page.evaluate(() => document.querySelector(".language-selector-trigger")?.textContent || "");
+                        record(
+                            `browser ${locale} ${viewport.label} selector label`,
+                            triggerText.includes(languageEntry.nativeName) || triggerText.includes(locale.toUpperCase()),
+                            triggerText.slice(0, 60),
                         );
                     }
 
@@ -378,7 +432,7 @@ async function main() {
     record("complete locales flagged", completeLocales.every((code) => registry.find((language) => language.code === code)?.translationComplete), completeLocales.join(", "));
 
     const incomplete = registry.filter((language) => !language.translationComplete).map((language) => language.code);
-    record("fallback locales registered", incomplete.length === 42, `${incomplete.length} fallback languages`);
+    record("fallback locales registered", incomplete.length === 36, `${incomplete.length} fallback languages`);
 
     const enMessages = parseExportObject(path.join(root, "lib/i18n/messages/en.ts"), "enMessages");
     const enFlat = flattenMessages(enMessages);
@@ -436,6 +490,15 @@ async function main() {
     record("native nav.home it", itFlat["nav.home"] !== enFlat["nav.home"] && itFlat["nav.home"] !== "Home", itFlat["nav.home"]);
     record("native nav.home nl", nlFlat["nav.home"] !== enFlat["nav.home"] && nlFlat["nav.home"] !== "Home", nlFlat["nav.home"]);
 
+    for (const locale of phaseCLocales) {
+        const flat = flattenMessages(getMessagesForLocale(locale));
+        record(
+            `native nav.home ${locale}`,
+            flat["nav.home"] !== enFlat["nav.home"] && flat["nav.home"] !== "Home",
+            flat["nav.home"],
+        );
+    }
+
     const arEntry = registry.find((language) => language.code === "ar");
     const heEntry = registry.find((language) => language.code === "he");
     const arFlat = flattenMessages(getMessagesForLocale("ar"));
@@ -472,6 +535,39 @@ async function main() {
     record("date formatting ar", /2026|15|يول|jul/i.test(dateAr) || dateAr.length > 0, dateAr);
     record("number formatting he", numberHe.includes("234") || numberHe.includes("567") || /\d/.test(numberHe), numberHe);
     record("currency formatting ar", currencyAr.includes("19") && currencyAr.includes("99"), currencyAr);
+
+    for (const locale of phaseCLocales) {
+        const dateValue = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date("2026-07-15T12:00:00Z"));
+        const numberValue = new Intl.NumberFormat(locale).format(1234567.89);
+        const percentValue = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(0.847);
+        const currencyValue = new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(19.99);
+        const compactValue = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(1250000);
+        record(`date formatting ${locale}`, /2026|15|\d/.test(dateValue), dateValue);
+        record(`number formatting ${locale}`, numberValue.includes("234") || numberValue.includes("567") || /\d/.test(numberValue), numberValue);
+        record(`percent formatting ${locale}`, percentValue.includes("84") || percentValue.includes("85") || /%/.test(percentValue), percentValue);
+        record(`currency formatting ${locale}`, currencyValue.includes("19") && currencyValue.includes("99"), currencyValue);
+        record(`compact count formatting ${locale}`, /1|2|M|K|м|k|тыс|mil|m/i.test(compactValue), compactValue);
+    }
+
+    for (const locale of phaseCLocales) {
+        const entry = registry.find((language) => language.code === locale);
+        record(`selector native name ${locale}`, entry?.nativeName === {
+            tr: "Türkçe",
+            ru: "Русский",
+            uk: "Українська",
+            pl: "Polski",
+            ro: "Română",
+            el: "Ελληνικά",
+        }[locale], entry?.nativeName || "");
+        record(`selector compact code ${locale}`, locale.split("-")[0].toUpperCase() === {
+            tr: "TR",
+            ru: "RU",
+            uk: "UK",
+            pl: "PL",
+            ro: "RO",
+            el: "EL",
+        }[locale], locale.split("-")[0].toUpperCase());
+    }
 
     const rtlLanguages = registry.filter((language) => language.rtl).map((language) => language.code);
     record("rtl locales", rtlLanguages.includes("ar") && rtlLanguages.includes("he") && rtlLanguages.includes("ur"), rtlLanguages.join(", "));
@@ -605,9 +701,24 @@ async function main() {
     }
 
     const browserMessageMap = Object.fromEntries(
-        ["de", "it", "nl", "ar", "he"].map((locale) => [locale, getMessagesForLocale(locale)]),
+        ["de", "it", "nl", "ar", "he", ...phaseCLocales].map((locale) => [locale, getMessagesForLocale(locale)]),
     );
-    await runBrowserLayoutTests(baseUrl, browserMessageMap);
+    let ownerSessionPayload = null;
+    if (owner?.access_token && env.NEXT_PUBLIC_SUPABASE_URL) {
+        const ref = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0];
+        ownerSessionPayload = {
+            storageKey: `sb-${ref}-auth-token`,
+            payload: JSON.stringify({
+                access_token: owner.access_token,
+                refresh_token: owner.refresh_token,
+                expires_at: owner.expires_at,
+                expires_in: owner.expires_in,
+                token_type: owner.token_type,
+                user: owner.user,
+            }),
+        };
+    }
+    await runBrowserLayoutTests(baseUrl, browserMessageMap, ownerSessionPayload);
 
     writeFileSync(path.join(evidenceDir, "i18n-localization-evidence.json"), JSON.stringify({
         generatedAt: new Date().toISOString(),

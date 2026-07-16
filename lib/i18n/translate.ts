@@ -9,6 +9,12 @@ import { itMessages } from "./messages/it";
 import { nlMessages } from "./messages/nl";
 import { arMessages } from "./messages/ar";
 import { heMessages } from "./messages/he";
+import { trMessages } from "./messages/tr";
+import { ruMessages } from "./messages/ru";
+import { ukMessages } from "./messages/uk";
+import { plMessages } from "./messages/pl";
+import { roMessages } from "./messages/ro";
+import { elMessages } from "./messages/el";
 import { COMPLETE_LOCALES, DEFAULT_LOCALE, normalizeLocale } from "./registry";
 
 const completeMessages: Record<string, TranslationMessages> = {
@@ -22,6 +28,12 @@ const completeMessages: Record<string, TranslationMessages> = {
     nl: nlMessages,
     ar: arMessages,
     he: heMessages,
+    tr: trMessages,
+    ru: ruMessages,
+    uk: ukMessages,
+    pl: plMessages,
+    ro: roMessages,
+    el: elMessages,
 };
 
 export function getMessagesForLocale(locale: string): TranslationMessages {
