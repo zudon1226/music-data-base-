@@ -17,6 +17,10 @@ export const I18N_GLOBAL_STYLES = `
     z-index: 140;
   }
 
+  .language-selector-open {
+    z-index: 10060;
+  }
+
   .language-selector-trigger {
     display: inline-flex;
     align-items: center;
@@ -29,10 +33,25 @@ export const I18N_GLOBAL_STYLES = `
     color: #e2f3ff;
     font-size: 12px;
     font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
   }
 
   .language-selector-compact .language-selector-trigger {
     padding: 0 8px;
+  }
+
+  .language-selector-backdrop {
+    position: fixed;
+    inset: 0;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: rgba(2, 6, 23, 0.12);
+    z-index: 10050;
+    cursor: default;
+    pointer-events: auto;
+    opacity: 1;
   }
 
   .language-selector-panel {
@@ -43,11 +62,20 @@ export const I18N_GLOBAL_STYLES = `
     max-height: min(360px, 60vh);
     overflow: hidden;
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
     border: 1px solid rgba(0, 212, 255, 0.35);
     border-radius: 10px;
     background: #071631;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    z-index: 10051;
+    pointer-events: auto;
+  }
+
+  .language-selector-panel-portal {
+    position: fixed;
+    right: auto;
+    top: auto;
+    margin: 0;
   }
 
   .mdb-rtl-shell .language-selector-panel {
@@ -61,6 +89,7 @@ export const I18N_GLOBAL_STYLES = `
     gap: 8px;
     padding: 10px;
     border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+    flex-shrink: 0;
   }
 
   .language-selector-search input {
@@ -72,6 +101,7 @@ export const I18N_GLOBAL_STYLES = `
     color: white;
     padding: 0 10px;
     outline: none;
+    pointer-events: auto;
   }
 
   .language-selector-panel ul {
@@ -79,6 +109,15 @@ export const I18N_GLOBAL_STYLES = `
     margin: 0;
     padding: 6px;
     overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .language-selector-panel li {
+    margin: 0;
+    padding: 0;
   }
 
   .language-selector-panel li button {
@@ -91,10 +130,21 @@ export const I18N_GLOBAL_STYLES = `
     border-radius: 8px;
     background: transparent;
     color: white;
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
+    position: relative;
+    z-index: 1;
+  }
+
+  .language-selector-panel li button strong,
+  .language-selector-panel li button span {
+    pointer-events: none;
   }
 
   .language-selector-panel li button:hover,
-  .language-selector-panel li button.active {
+  .language-selector-panel li button.active,
+  .language-selector-panel li button.focused {
     background: rgba(34, 211, 238, 0.14);
   }
 
@@ -144,15 +194,6 @@ export const I18N_GLOBAL_STYLES = `
   @media (max-width: 900px) {
     .topbar .language-selector {
       order: -1;
-    }
-
-    .language-selector-panel {
-      position: fixed;
-      top: auto;
-      bottom: 72px;
-      left: 12px;
-      right: 12px;
-      width: auto;
     }
   }
 `;

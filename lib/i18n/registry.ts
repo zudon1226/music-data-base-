@@ -98,3 +98,17 @@ export function isRtlLocale(code: string) {
 export function listLanguagesSorted() {
     return [...SUPPORTED_LANGUAGES].sort((left, right) => left.nativeName.localeCompare(right.nativeName, "en"));
 }
+
+export function validateLanguageRegistry() {
+    const codes = SUPPORTED_LANGUAGES.map((language) => language.code);
+    const duplicates = codes.filter((code, index) => codes.indexOf(code) !== index);
+    const missingFields = SUPPORTED_LANGUAGES.filter((language) =>
+        !language.code || !language.englishName || !language.nativeName,
+    ).map((language) => language.code || "(missing code)");
+    return {
+        count: SUPPORTED_LANGUAGES.length,
+        duplicates: [...new Set(duplicates)],
+        missingFields,
+        valid: duplicates.length === 0 && missingFields.length === 0,
+    };
+}

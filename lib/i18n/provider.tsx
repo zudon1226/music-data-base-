@@ -6,6 +6,7 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
     type ReactNode,
 } from "react";
@@ -60,6 +61,8 @@ export function I18nProvider({
 }: I18nProviderProps) {
     const [locale, setLocaleState] = useState(() => readInitialLocale(initialLocale || readStoredLocale(), profileLocale));
     const [announcement, setAnnouncement] = useState("");
+    const userLocaleOverrideRef = useRef(false);
+    const appliedProfileLocaleRef = useRef<string | null>(null);
 
     const t = useMemo(() => createTranslator(locale), [locale]);
     const direction = getDocumentDirection(locale);
@@ -74,10 +77,21 @@ export function I18nProvider({
     }, [direction, locale]);
 
     useEffect(() => {
-        if (profileLocale) {
-            setLocaleState(normalizeLocale(profileLocale));
-            persistLocale(profileLocale);
+        if (!profileLocale) return;
+        const normalizedProfile = normalizeLocale(profileLocale);
+        if (appliedProfileLocaleRef.current === normalizedProfile) return;
+        appliedProfileLocaleRef.current = normalizedProfile;
+
+        if (userLocaleOverrideRef.current) return;
+
+        const stored = readStoredLocale();
+        if (stored !== DEFAULT_LOCALE && stored !== normalizedProfile) {
+            setLocaleState(stored);
+            return;
         }
+
+        setLocaleState(normalizedProfile);
+        persistLocale(normalizedProfile);
     }, [profileLocale]);
 
     const setLocale = useCallback(async (
@@ -85,8 +99,10 @@ export function I18nProvider({
         options: { persistProfile?: boolean; userId?: string; accessToken?: string } = {},
     ) => {
         const normalized = normalizeLocale(nextLocale);
+        userLocaleOverrideRef.current = true;
         setLocaleState(normalized);
         persistLocale(normalized);
+        appliedProfileLocaleRef.current = normalized;
         const label = getLanguageDefinition(normalized).nativeName;
         setAnnouncement(createTranslator(normalized)("common.languageChanged", { language: label }));
         const effectiveUserId = options.userId || userId;
