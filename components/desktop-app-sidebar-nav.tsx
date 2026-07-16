@@ -63,8 +63,21 @@ export function DesktopAppSidebarNav({
     onNavigate,
     onOwnerRequired,
 }: DesktopAppSidebarNavProps) {
-    const { t } = useTranslation();
-    const visibleItems = listVisibleDesktopNavItems(access);
+    const { t, locale } = useTranslation();
+    const ownerVisible = Boolean(access.isPlatformOwner);
+
+    // Rebuild every label from the active locale so chrome never keeps mount-time English.
+    const localizedItems = useMemo(() => {
+        const visibleItems = listVisibleDesktopNavItems({
+            ...access,
+            isPlatformOwner: ownerVisible,
+        });
+        return visibleItems.map((item) => ({
+            view: item.view,
+            label: t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]),
+        }));
+    }, [access, locale, ownerVisible, t]);
+
     const handleNavClick = useMemo(
         () => createDesktopNavHandler({
             access,
@@ -77,23 +90,27 @@ export function DesktopAppSidebarNav({
     return (
         <>
             <style jsx global>{DESKTOP_SIDEBAR_LAYOUT_CSS}</style>
-            <nav className="nav desktop-sidebar-nav" aria-label={t("nav.mainNavigation")}>
-                {visibleItems.map((item) => {
-                    const label = t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]);
-                    return (
+            <nav
+                key={`desktop-sidebar-nav-${locale}`}
+                className="nav desktop-sidebar-nav"
+                aria-label={t("nav.mainNavigation")}
+                data-locale={locale}
+            >
+                {localizedItems.map((item) => (
                     <button
-                        key={item.view}
+                        key={`${locale}-${item.view}`}
                         type="button"
                         className={activeView === item.view ? "active" : ""}
                         aria-current={activeView === item.view ? "page" : undefined}
-                        title={label}
+                        title={item.label}
+                        data-nav-view={item.view}
+                        data-nav-label={item.label}
                         onClick={() => handleNavClick(item.view)}
                     >
                         {DESKTOP_NAV_ICONS[item.view]}
-                        <span>{label}</span>
+                        <span>{item.label}</span>
                     </button>
-                    );
-                })}
+                ))}
             </nav>
         </>
     );

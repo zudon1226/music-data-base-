@@ -631,7 +631,22 @@ async function main() {
 
     record("desktop selector component", readFileSync(path.join(root, "components/language-selector.tsx"), "utf8").includes("language-selector-panel"), "panel markup");
     record("mobile selector styles", readFileSync(path.join(root, "lib/i18n/i18n-styles.ts"), "utf8").includes("@media (max-width: 900px)"), "responsive rules");
-    record("rtl shell styles", readFileSync(path.join(root, "lib/i18n/i18n-styles.ts"), "utf8").includes(".mdb-rtl-shell"), "rtl shell");
+    const i18nStyles = readFileSync(path.join(root, "lib/i18n/i18n-styles.ts"), "utf8");
+    record("rtl shell styles", i18nStyles.includes(".mdb-rtl-shell"), "rtl shell");
+    record(
+        "permanent LTR shell lock",
+        i18nStyles.includes("direction: ltr !important")
+            && i18nStyles.includes(".mdb-rtl-shell .topbar")
+            && i18nStyles.includes(".mdb-rtl-shell .search-wrap")
+            && i18nStyles.includes(".mdb-rtl-shell .player-controls"),
+        "chrome locked LTR",
+    );
+    record(
+        "provider shell stays LTR",
+        readFileSync(path.join(root, "lib/i18n/provider.tsx"), "utf8").includes('dir="ltr"')
+            && readFileSync(path.join(root, "lib/i18n/provider.tsx"), "utf8").includes("mdb-app-shell"),
+        "mdb-app-shell dir=ltr",
+    );
 
     const routeKeys = [
         "nav.home", "nav.marketplace", "nav.trending", "nav.library", "nav.profile",

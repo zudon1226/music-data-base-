@@ -13,7 +13,7 @@ import {
 import { getDocumentDirection } from "./format";
 import type { TranslationKey } from "./messages/en";
 import { DEFAULT_LOCALE, getLanguageDefinition, normalizeLocale } from "./registry";
-import { detectBrowserLocale, persistLocale, readInitialLocale, readStoredLocale } from "./storage";
+import { detectBrowserLocale, hasStoredLocalePreference, persistLocale, readInitialLocale, readStoredLocale } from "./storage";
 import { createTranslator } from "./translate";
 
 type I18nContextValue = {
@@ -70,10 +70,15 @@ export function I18nProvider({
 
     useEffect(() => {
         if (typeof document === "undefined") return;
+        // Metadata only: keep lang/dir correct for assistive tech and text.
+        // Physical chrome stays LTR via .mdb-app-shell + i18n-styles locks.
         document.documentElement.lang = locale;
         document.documentElement.dir = direction;
+        document.documentElement.dataset.locale = locale;
+        document.documentElement.dataset.textDir = direction;
         document.body.dataset.locale = locale;
         document.body.dataset.dir = direction;
+        document.body.dataset.textDir = direction;
     }, [direction, locale]);
 
     useEffect(() => {
@@ -84,9 +89,9 @@ export function I18nProvider({
 
         if (userLocaleOverrideRef.current) return;
 
-        const stored = readStoredLocale();
-        if (stored !== DEFAULT_LOCALE && stored !== normalizedProfile) {
-            setLocaleState(stored);
+        // Keep an explicit on-device preference (including English) over profile sync.
+        if (hasStoredLocalePreference()) {
+            setLocaleState(readStoredLocale());
             return;
         }
 
@@ -125,7 +130,12 @@ export function I18nProvider({
 
     return (
         <I18nContext.Provider value={value}>
-            <div dir={direction} data-locale={locale} className={direction === "rtl" ? "mdb-rtl-shell" : "mdb-ltr-shell"}>
+            <div
+                dir="ltr"
+                data-locale={locale}
+                data-text-dir={direction}
+                className={`mdb-app-shell ${direction === "rtl" ? "mdb-rtl-shell" : "mdb-ltr-shell"}`}
+            >
                 <span className="sr-only" aria-live="polite">{announcement}</span>
                 {children}
             </div>

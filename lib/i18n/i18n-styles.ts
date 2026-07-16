@@ -1,4 +1,4 @@
-/** Global styles for language selector and RTL shell. */
+/** Global styles for language selector and permanent LTR application shell. */
 export const I18N_GLOBAL_STYLES = `
   .sr-only {
     position: absolute;
@@ -137,11 +137,6 @@ export const I18N_GLOBAL_STYLES = `
     margin: 0;
   }
 
-  .mdb-rtl-shell .language-selector-panel {
-    right: auto;
-    left: 0;
-  }
-
   .language-selector-search {
     display: flex;
     align-items: center;
@@ -232,26 +227,117 @@ export const I18N_GLOBAL_STYLES = `
     max-width: 16ch;
   }
 
-  .mdb-rtl-shell .topbar,
+  /*
+   * Permanent physical shell: never reverse chrome for RTL locales.
+   * html[dir=rtl] / .mdb-rtl-shell may exist for text metadata, but layout stays LTR.
+   */
+  html[dir="rtl"] .zml-app,
+  html[dir="rtl"] .sidebar,
+  html[dir="rtl"] .topbar,
+  html[dir="rtl"] .search-wrap,
+  html[dir="rtl"] .view-toggle,
+  html[dir="rtl"] .notification-wrap,
+  html[dir="rtl"] .upload-btn,
+  html[dir="rtl"] .dashboard-btn,
+  html[dir="rtl"] .profile-btn,
+  html[dir="rtl"] .logout-btn,
+  html[dir="rtl"] .player,
+  html[dir="rtl"] .video-player-bar,
+  html[dir="rtl"] .music-bottom-player,
+  html[dir="rtl"] .video-bottom-player,
+  html[dir="rtl"] .bottom-player,
+  html[dir="rtl"] .player-controls,
+  html[dir="rtl"] .player-center,
+  html[dir="rtl"] .player-song,
+  html[dir="rtl"] .desktop-sidebar-nav,
+  html[dir="rtl"] .desktop-sidebar-nav button,
+  html[dir="rtl"] .nav,
+  .mdb-app-shell,
+  .mdb-rtl-shell,
+  .mdb-ltr-shell,
+  .mdb-rtl-shell .zml-app,
   .mdb-rtl-shell .sidebar,
-  .mdb-rtl-shell .section-heading,
+  .mdb-rtl-shell .topbar,
+  .mdb-rtl-shell .search-wrap,
+  .mdb-rtl-shell .view-toggle,
+  .mdb-rtl-shell .notification-wrap,
+  .mdb-rtl-shell .upload-btn,
+  .mdb-rtl-shell .dashboard-btn,
+  .mdb-rtl-shell .profile-btn,
+  .mdb-rtl-shell .logout-btn,
   .mdb-rtl-shell .player,
-  .mdb-rtl-shell .video-player-bar {
-    direction: rtl;
-  }
-
-  .mdb-rtl-shell .search-box input,
-  .mdb-rtl-shell .auth-form input,
-  .mdb-rtl-shell .language-selector-search input {
-    direction: ltr;
-    text-align: start;
-  }
-
+  .mdb-rtl-shell .video-player-bar,
+  .mdb-rtl-shell .music-bottom-player,
+  .mdb-rtl-shell .video-bottom-player,
+  .mdb-rtl-shell .bottom-player,
   .mdb-rtl-shell .player-controls,
   .mdb-rtl-shell .player-center,
   .mdb-rtl-shell .player-song,
-  .mdb-rtl-shell .desktop-sidebar-nav button {
-    direction: ltr;
+  .mdb-rtl-shell .desktop-sidebar-nav,
+  .mdb-rtl-shell .desktop-sidebar-nav button,
+  .mdb-rtl-shell .nav {
+    direction: ltr !important;
+  }
+
+  html[dir="rtl"] .sidebar,
+  .mdb-rtl-shell .sidebar {
+    left: 0 !important;
+    right: auto !important;
+  }
+
+  /* Natural RTL text inside labels, content, dialogs, and editable fields */
+  html[dir="rtl"] .content,
+  html[dir="rtl"] .section-heading,
+  html[dir="rtl"] .language-selector-panel,
+  html[dir="rtl"] .language-selector-panel li button,
+  html[dir="rtl"] .notification-center,
+  html[dir="rtl"] .modal,
+  html[dir="rtl"] .modal-backdrop,
+  html[dir="rtl"] .auth-shell,
+  html[dir="rtl"] .auth-form,
+  .mdb-rtl-shell .content,
+  .mdb-rtl-shell .section-heading,
+  .mdb-rtl-shell .language-selector-panel,
+  .mdb-rtl-shell .language-selector-panel li button,
+  .mdb-rtl-shell .notification-center,
+  .mdb-rtl-shell .modal,
+  .mdb-rtl-shell .modal-backdrop,
+  .mdb-rtl-shell .auth-shell,
+  .mdb-rtl-shell .auth-form {
+    direction: rtl;
+  }
+
+  html[dir="rtl"] .search-box input,
+  html[dir="rtl"] .auth-form input,
+  html[dir="rtl"] .auth-form textarea,
+  html[dir="rtl"] .language-selector-search input,
+  html[dir="rtl"] .content input,
+  html[dir="rtl"] .content textarea,
+  .mdb-rtl-shell .search-box input,
+  .mdb-rtl-shell .auth-form input,
+  .mdb-rtl-shell .auth-form textarea,
+  .mdb-rtl-shell .language-selector-search input,
+  .mdb-rtl-shell .content input,
+  .mdb-rtl-shell .content textarea {
+    direction: rtl;
+    text-align: start;
+    unicode-bidi: plaintext;
+  }
+
+  /* Keep nav/header control glyphs and chrome text order stable while allowing localized words */
+  html[dir="rtl"] .desktop-sidebar-nav button span,
+  html[dir="rtl"] .topbar .upload-btn,
+  html[dir="rtl"] .topbar .dashboard-btn,
+  html[dir="rtl"] .topbar .profile-btn,
+  html[dir="rtl"] .topbar .logout-btn,
+  html[dir="rtl"] .view-toggle button,
+  .mdb-rtl-shell .desktop-sidebar-nav button span,
+  .mdb-rtl-shell .topbar .upload-btn,
+  .mdb-rtl-shell .topbar .dashboard-btn,
+  .mdb-rtl-shell .topbar .profile-btn,
+  .mdb-rtl-shell .topbar .logout-btn,
+  .mdb-rtl-shell .view-toggle button {
+    unicode-bidi: plaintext;
   }
 
   @media (max-width: 900px) {

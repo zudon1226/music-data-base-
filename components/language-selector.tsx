@@ -303,7 +303,7 @@ export function LanguageSelector({ compact = false, className = "" }: LanguageSe
                 aria-haspopup="listbox"
                 aria-expanded={open}
                 aria-controls={open ? listId : undefined}
-                aria-label="Select language"
+                aria-label={t("languageSelector.title")}
                 onClick={onTriggerClick}
             >
                 <Globe2 size={16} aria-hidden="true" className="language-selector-globe"/>

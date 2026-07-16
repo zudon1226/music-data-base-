@@ -2,6 +2,19 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE_KEY, LOCALE_STORAGE_KEY, normalizeLocale 
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
+export function hasStoredLocalePreference() {
+    if (typeof window === "undefined") return false;
+    try {
+        if (window.localStorage.getItem(LOCALE_STORAGE_KEY)) return true;
+    }
+    catch { /* ignore */ }
+    try {
+        return new RegExp(`(?:^|; )${LOCALE_COOKIE_KEY}=`).test(document.cookie);
+    }
+    catch { /* ignore */ }
+    return false;
+}
+
 export function readStoredLocale() {
     if (typeof window === "undefined") return DEFAULT_LOCALE;
     try {
@@ -42,8 +55,12 @@ export function detectBrowserLocale() {
 }
 
 export function readInitialLocale(storedLocale?: string | null, profileLocale?: string | null) {
-    if (profileLocale) return normalizeLocale(profileLocale);
+    // Device/local preference wins, including explicit English.
     if (storedLocale) return normalizeLocale(storedLocale);
+    if (typeof window !== "undefined" && hasStoredLocalePreference()) {
+        return readStoredLocale();
+    }
+    if (profileLocale) return normalizeLocale(profileLocale);
     const stored = readStoredLocale();
     if (stored !== DEFAULT_LOCALE) return stored;
     return detectBrowserLocale();

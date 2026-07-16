@@ -3475,7 +3475,7 @@ export default function Page() {
 }
 
 function PageContent() {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
     const router = useRouter();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -15238,14 +15238,15 @@ function PageContent() {
     const unreadNotifications = notifications.filter((notification) => !notification.read).length;
     const totalUpNextCount = upNextQueueItems.length;
     const activeAlbumTrackInfo = getActiveAlbumTrackInfo();
-    return (<main className={`zml-app view-${displayMode}`}>
-      <aside className="sidebar">
+    return (<main className={`zml-app view-${displayMode}`} data-app-locale={locale} dir="ltr">
+      <aside className="sidebar" data-sidebar-locale={locale} dir="ltr">
         <button className="logo" onClick={() => handleNav("Home")} title={t("nav.home")}>
           <img src={BRAND_LOGO} alt="Music Data Base"/>
           <span>{BRAND_TAGLINE}</span>
         </button>
 
         <DesktopAppSidebarNav
+          key={`sidebar-nav-${locale}`}
           activeView={view as DesktopNavView}
           access={desktopNavAccess}
           onNavigate={(nextView) => {
@@ -15317,8 +15318,8 @@ function PageContent() {
       </aside>
 
         <DesktopContentScrollRoot>
-        <header className="topbar">
-          <div className="search-wrap">
+        <header className="topbar" data-topbar-locale={locale} dir="ltr">
+          <div className="search-wrap" dir="ltr">
             <label className="search-box">
               <Search size={18}/>
               <input name="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)} placeholder={compactSearchPlaceholder ? t("search.placeholder") : t("search.extendedPlaceholder")}/>
@@ -16557,7 +16558,7 @@ function PageContent() {
               </div>
               <div>
                 <strong>{playlists.length}</strong>
-                <span>Playlists</span>
+                <span>{t("playlists.title")}</span>
               </div>
               <div>
                 <strong>{recentlyPlayed.length}</strong>
@@ -17669,8 +17670,8 @@ function PageContent() {
 
               <section className="artist-section">
                 <div className="artist-section-title">
-                  <h3>Playlists</h3>
-                  <span>{activeArtistPlaylists.length} playlists</span>
+                  <h3>{t("playlists.title")}</h3>
+                  <span>{activeArtistPlaylists.length}</span>
                 </div>
 
                 {activeArtistPlaylists.length === 0 ? (<p className="empty-small">Add this artist&apos;s songs or videos to a playlist and it will show here.</p>) : (<DesktopHorizontalRail className="artist-playlist-grid" label="Artist Playlists">
@@ -18558,7 +18559,7 @@ function PageContent() {
           </section>
         </aside>)}
 
-      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar video-bottom-player bottom-player mobile-bottom-player fixed-mobile-player">
+      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar video-bottom-player bottom-player mobile-bottom-player fixed-mobile-player" dir="ltr">
           <div className="video-player-now player-main">
             <img src={activeVideo.cover} alt=""/>
             <div>
@@ -18610,8 +18611,8 @@ function PageContent() {
           </div>
         </footer>)}
 
-      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player music-bottom-player bottom-player mobile-bottom-player fixed-mobile-player">
-          <div className="player-song player-main">
+      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player music-bottom-player bottom-player mobile-bottom-player fixed-mobile-player" dir="ltr">
+          <div className="player-song player-main" dir="ltr">
             <img src={currentSong.cover} alt=""/>
 
             <div>
@@ -18625,8 +18626,8 @@ function PageContent() {
             </div>
           </div>
 
-          <div className="player-center">
-            <div className="player-controls">
+          <div className="player-center" dir="ltr">
+            <div className="player-controls" dir="ltr">
               <button className={shuffleOn ? "mode-on" : ""} onClick={() => setShuffleOn((value) => !value)} title={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}>
                 <Shuffle size={16}/>
               </button>
