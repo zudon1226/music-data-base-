@@ -14,8 +14,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidenceDir = path.join(root, "tmp");
 mkdirSync(evidenceDir, { recursive: true });
 const results = [];
-const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl", "hi", "bn", "pa", "ur", "gu", "ta", "te", "mr", "ne", "vi"];
-const phaseCLocales = ["ta", "te", "mr", "ne", "vi"];
+const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl", "hi", "bn", "pa", "ur", "gu", "ta", "te", "mr", "ne", "vi", "zh-CN", "zh-TW", "ja", "ko", "th"];
+const phaseCLocales = ["zh-CN", "zh-TW", "ja", "ko", "th"];
+
+function messagesExportName(locale) {
+    if (locale === "zh-CN") return "zhCNMessages";
+    if (locale === "zh-TW") return "zhTWMessages";
+    return `${locale}Messages`;
+}
 const rtlLocales = ["ar", "he", "ur"];
 const LOCALE_STORAGE_KEY = "mdb.preferredLanguage";
 const LOCALE_COOKIE_KEY = "mdb_locale";
@@ -462,7 +468,7 @@ async function main() {
     record("complete locales flagged", completeLocales.every((code) => registry.find((language) => language.code === code)?.translationComplete), completeLocales.join(", "));
 
     const incomplete = registry.filter((language) => !language.translationComplete).map((language) => language.code);
-    record("fallback locales registered", incomplete.length === 15, `${incomplete.length} fallback languages`);
+    record("fallback locales registered", incomplete.length === 10, `${incomplete.length} fallback languages`);
 
     const enMessages = parseExportObject(path.join(root, "lib/i18n/messages/en.ts"), "enMessages");
     const enFlat = flattenMessages(enMessages);
@@ -470,7 +476,7 @@ async function main() {
     record("english dictionary keys", enKeys.length === 234, `${enKeys.length} keys`);
 
     for (const locale of completeLocales) {
-        const messages = parseExportObject(path.join(root, "lib/i18n/messages", `${locale}.ts`), `${locale}Messages`);
+        const messages = parseExportObject(path.join(root, "lib/i18n/messages", `${locale}.ts`), messagesExportName(locale));
         const flat = flattenMessages(messages);
         const missing = enKeys.filter((key) => !(key in flat) || !flat[key]);
         record(`translation completeness ${locale}`, missing.length === 0, missing.length ? `missing ${missing.slice(0, 5).join(", ")}` : `${enKeys.length} keys`);
@@ -483,7 +489,7 @@ async function main() {
 
     for (const locale of completeLocales) {
         if (locale === "en") continue;
-        const messages = parseExportObject(path.join(root, "lib/i18n/messages", `${locale}.ts`), `${locale}Messages`);
+        const messages = parseExportObject(path.join(root, "lib/i18n/messages", `${locale}.ts`), messagesExportName(locale));
         const flat = flattenMessages(messages);
         const englishCopies = enKeys.filter((key) => {
             const enValue = enFlat[key];
@@ -503,7 +509,7 @@ async function main() {
     function getMessagesForLocale(locale) {
         if (localeMessagesCache[locale]) return localeMessagesCache[locale];
         if (completeLocaleSet.has(locale)) {
-            localeMessagesCache[locale] = parseExportObject(path.join(root, "lib/i18n/messages", `${locale}.ts`), `${locale}Messages`);
+            localeMessagesCache[locale] = parseExportObject(path.join(root, "lib/i18n/messages", `${locale}.ts`), messagesExportName(locale));
             return localeMessagesCache[locale];
         }
         localeMessagesCache[locale] = enMessages;
@@ -581,24 +587,24 @@ async function main() {
         record(`number formatting ${locale}`, numberValue.includes("234") || numberValue.includes("567") || hasDigits(numberValue), numberValue);
         record(`percent formatting ${locale}`, percentValue.includes("84") || percentValue.includes("85") || /%/.test(percentValue) || hasDigits(percentValue), percentValue);
         record(`currency formatting ${locale}`, (currencyValue.includes("19") && currencyValue.includes("99")) || (hasDigits(currencyValue) && /\$|USD|US\$/i.test(currencyValue)), currencyValue);
-        record(`compact count formatting ${locale}`, /1|2|M|K|м|k|тыс|mil|m|লা|ਲੱਖ|لاکھ|લાખ/i.test(compactValue) || hasDigits(compactValue), compactValue);
+        record(`compact count formatting ${locale}`, /1|2|M|K|м|k|тыс|mil|m|লা|ਲੱਖ|لاکھ|લાખ|万|萬|억|만|พัน|ล้าน/i.test(compactValue) || hasDigits(compactValue), compactValue);
     }
 
     for (const locale of phaseCLocales) {
         const entry = registry.find((language) => language.code === locale);
         record(`selector native name ${locale}`, entry?.nativeName === {
-            ta: "தமிழ்",
-            te: "తెలుగు",
-            mr: "मराठी",
-            ne: "नेपाली",
-            vi: "Tiếng Việt",
+            "zh-CN": "简体中文",
+            "zh-TW": "繁體中文",
+            ja: "日本語",
+            ko: "한국어",
+            th: "ไทย",
         }[locale], entry?.nativeName || "");
         record(`selector compact code ${locale}`, locale.split("-")[0].toUpperCase() === {
-            ta: "TA",
-            te: "TE",
-            mr: "MR",
-            ne: "NE",
-            vi: "VI",
+            "zh-CN": "ZH",
+            "zh-TW": "ZH",
+            ja: "JA",
+            ko: "KO",
+            th: "TH",
         }[locale], locale.split("-")[0].toUpperCase());
     }
 
@@ -614,7 +620,7 @@ async function main() {
         "auth.loginTitle", "upload.title", "platformControlCenter.title", "testAccountCleanup.title",
     ];
     for (const locale of completeLocales) {
-        const messages = parseExportObject(path.join(root, "lib/i18n/messages", `${locale}.ts`), `${locale}Messages`);
+        const messages = parseExportObject(path.join(root, "lib/i18n/messages", `${locale}.ts`), messagesExportName(locale));
         const t = createTranslator(messages, enMessages);
         const missingRoutes = routeKeys.filter((key) => !t(key));
         record(`major route coverage ${locale}`, missingRoutes.length === 0, missingRoutes.join(", ") || "ok");

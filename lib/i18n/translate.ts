@@ -41,6 +41,11 @@ import { teMessages } from "./messages/te";
 import { mrMessages } from "./messages/mr";
 import { neMessages } from "./messages/ne";
 import { viMessages } from "./messages/vi";
+import { zhCNMessages } from "./messages/zh-CN";
+import { zhTWMessages } from "./messages/zh-TW";
+import { jaMessages } from "./messages/ja";
+import { koMessages } from "./messages/ko";
+import { thMessages } from "./messages/th";
 import { COMPLETE_LOCALES, DEFAULT_LOCALE, normalizeLocale } from "./registry";
 
 const completeMessages: Record<string, TranslationMessages> = {
@@ -86,6 +91,11 @@ const completeMessages: Record<string, TranslationMessages> = {
     mr: mrMessages,
     ne: neMessages,
     vi: viMessages,
+    "zh-CN": zhCNMessages,
+    "zh-TW": zhTWMessages,
+    ja: jaMessages,
+    ko: koMessages,
+    th: thMessages,
 };
 
 export function getMessagesForLocale(locale: string): TranslationMessages {
