@@ -150,12 +150,14 @@ export function validateRingtonePriceCents(value: unknown) {
 /** Allowed status transitions for creators (non-admin). */
 export function canCreatorTransitionStatus(from: RingtoneStatus, to: RingtoneStatus) {
     if (from === to) return true;
-    if (!isCreatorEditableStatus(from) || !isCreatorEditableStatus(to)) return false;
     const allowed: Record<string, RingtoneStatus[]> = {
         draft: ["processing", "pending_review"],
         processing: ["draft", "pending_review"],
         pending_review: ["draft"],
         rejected: ["draft", "pending_review"],
+        // Published products cannot be freely edited; revision returns to review, or archive.
+        published: ["pending_review", "archived"],
+        archived: ["draft"],
     };
     return (allowed[from] || []).includes(to);
 }
@@ -191,6 +193,10 @@ export function buildCreateRingtonePayload(input: {
     priceCents?: unknown;
     currency?: unknown;
     isExplicit?: unknown;
+    artworkUrl?: unknown;
+    sourceStoragePath?: unknown;
+    iphoneAvailable?: unknown;
+    androidAvailable?: unknown;
 }) {
     const title = sanitizeRingtoneText(input.title, 160);
     if (!title) return { ok: false as const, error: "Title is required." };
@@ -223,6 +229,13 @@ export function buildCreateRingtonePayload(input: {
     const currency = normalizeRingtoneCurrency(input.currency ?? "USD");
     if (!currency) return { ok: false as const, error: "Unsupported currency." };
 
+    const sourceStoragePath = sanitizeRingtoneText(input.sourceStoragePath, 500);
+    if (sourceKind === "upload" && sourceStoragePath) {
+        if (!sourceStoragePath.startsWith(`${input.creatorId}/`)) {
+            return { ok: false as const, error: "sourceStoragePath must be owner-scoped under the creator id." };
+        }
+    }
+
     return {
         ok: true as const,
         row: {
@@ -230,6 +243,7 @@ export function buildCreateRingtonePayload(input: {
             source_song_id: sourceKind === "owned_song" ? String(input.sourceSongId).trim() : null,
             title,
             description: sanitizeRingtoneText(input.description, 4000),
+            artwork_url: sanitizeRingtoneText(input.artworkUrl, 1000),
             duration_seconds: clip.durationSeconds,
             clip_start_seconds: clip.clipStartSeconds,
             clip_end_seconds: clip.clipEndSeconds,
@@ -239,6 +253,9 @@ export function buildCreateRingtonePayload(input: {
             is_explicit: input.isExplicit === true,
             ownership_confirmed: sourceKind === "owned_song" ? true : input.ownershipConfirmed === true,
             source_kind: sourceKind,
+            source_storage_path: sourceKind === "upload" ? sourceStoragePath : "",
+            iphone_available: input.iphoneAvailable !== false,
+            android_available: input.androidAvailable !== false,
         },
     };
 }

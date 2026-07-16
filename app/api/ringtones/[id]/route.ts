@@ -5,6 +5,7 @@ import { type RingtoneStatus } from "@/lib/ringtone-constants";
 import {
     canAdminTransitionStatus,
     canCreatorTransitionStatus,
+    isCreatorEditableStatus,
     isPublicRingtoneStatus,
     isRingtoneStatus,
     sanitizeRingtoneText,
@@ -83,48 +84,66 @@ export async function PATCH(request: Request, context: Params) {
 
         const currentStatus = String(existing.data.status || "draft") as RingtoneStatus;
         const updates: Record<string, unknown> = {};
+        const creatorMayEditFields = isAdmin || isCreatorEditableStatus(currentStatus);
+        const statusOnlyUnlock = !isAdmin && (currentStatus === "published" || currentStatus === "archived");
 
-        if (body.title != null) {
-            const title = sanitizeRingtoneText(body.title, 160);
-            if (!title) return json({ error: "Title is required." }, 400);
-            updates.title = title;
-        }
-        if (body.description != null) {
-            updates.description = sanitizeRingtoneText(body.description, 4000);
-        }
-        if (body.priceCents != null) {
-            const price = validateRingtonePriceCents(body.priceCents);
-            if (!price.ok) return json({ error: price.error }, 400);
-            updates.price_cents = price.priceCents;
-        }
-        if (body.currency != null) {
-            const currency = normalizeRingtoneCurrency(body.currency);
-            if (!currency) return json({ error: "Unsupported currency." }, 400);
-            updates.currency = currency;
-        }
-        if (body.isExplicit != null) updates.is_explicit = body.isExplicit === true;
+        if (creatorMayEditFields) {
+            if (body.title != null) {
+                const title = sanitizeRingtoneText(body.title, 160);
+                if (!title) return json({ error: "Title is required." }, 400);
+                updates.title = title;
+            }
+            if (body.description != null) {
+                updates.description = sanitizeRingtoneText(body.description, 4000);
+            }
+            if (body.artworkUrl != null) {
+                updates.artwork_url = sanitizeRingtoneText(body.artworkUrl, 1000);
+            }
+            if (body.sourceStoragePath != null) {
+                const path = sanitizeRingtoneText(body.sourceStoragePath, 500);
+                if (path && !path.startsWith(`${userId}/`)) {
+                    return json({ error: "sourceStoragePath must be owner-scoped under the creator id." }, 400);
+                }
+                updates.source_storage_path = path;
+            }
+            if (body.priceCents != null) {
+                const price = validateRingtonePriceCents(body.priceCents);
+                if (!price.ok) return json({ error: price.error }, 400);
+                updates.price_cents = price.priceCents;
+            }
+            if (body.currency != null) {
+                const currency = normalizeRingtoneCurrency(body.currency);
+                if (!currency) return json({ error: "Unsupported currency." }, 400);
+                updates.currency = currency;
+            }
+            if (body.isExplicit != null) updates.is_explicit = body.isExplicit === true;
+            if (body.iphoneAvailable != null) updates.iphone_available = body.iphoneAvailable === true;
+            if (body.androidAvailable != null) updates.android_available = body.androidAvailable === true;
 
-        if (
-            body.clipStartSeconds != null
-            || body.durationSeconds != null
-            || body.clipEndSeconds != null
-        ) {
-            const clip = validateRingtoneClip({
-                clipStartSeconds: Number(body.clipStartSeconds ?? existing.data.clip_start_seconds),
-                durationSeconds: body.durationSeconds == null
-                    ? Number(existing.data.duration_seconds)
-                    : Number(body.durationSeconds),
-                clipEndSeconds: body.clipEndSeconds == null
-                    ? undefined
-                    : Number(body.clipEndSeconds),
-                sourceDurationSeconds: body.sourceDurationSeconds == null
-                    ? null
-                    : Number(body.sourceDurationSeconds),
-            });
-            if (!clip.ok) return json({ error: clip.error }, 400);
-            updates.clip_start_seconds = clip.clipStartSeconds;
-            updates.clip_end_seconds = clip.clipEndSeconds;
-            updates.duration_seconds = clip.durationSeconds;
+            if (
+                body.clipStartSeconds != null
+                || body.durationSeconds != null
+                || body.clipEndSeconds != null
+            ) {
+                const clip = validateRingtoneClip({
+                    clipStartSeconds: Number(body.clipStartSeconds ?? existing.data.clip_start_seconds),
+                    durationSeconds: body.durationSeconds == null
+                        ? Number(existing.data.duration_seconds)
+                        : Number(body.durationSeconds),
+                    clipEndSeconds: body.clipEndSeconds == null
+                        ? undefined
+                        : Number(body.clipEndSeconds),
+                    sourceDurationSeconds: body.sourceDurationSeconds == null
+                        ? null
+                        : Number(body.sourceDurationSeconds),
+                });
+                if (!clip.ok) return json({ error: clip.error }, 400);
+                updates.clip_start_seconds = clip.clipStartSeconds;
+                updates.clip_end_seconds = clip.clipEndSeconds;
+                updates.duration_seconds = clip.durationSeconds;
+            }
+        } else if (!statusOnlyUnlock && body.status == null) {
+            return json({ error: "This ringtone is locked for creator edits." }, 403);
         }
 
         if (body.status != null) {
@@ -139,9 +158,7 @@ export async function PATCH(request: Request, context: Params) {
             }
             updates.status = nextStatus;
             if (nextStatus === "published") updates.published_at = new Date().toISOString();
-        }
-
-        if (!isAdmin && ["approved", "published", "suspended", "archived"].includes(currentStatus)) {
+        } else if (!creatorMayEditFields && !isAdmin) {
             return json({ error: "This ringtone is locked for creator edits." }, 403);
         }
 
@@ -181,8 +198,28 @@ export async function DELETE(request: Request, context: Params) {
         if (existing.data.creator_id !== userId && !isAdmin) {
             return json({ error: "You may only delete your own ringtone drafts." }, 403);
         }
-        if (!isAdmin && !["draft", "rejected", "archived"].includes(String(existing.data.status))) {
+        const status = String(existing.data.status || "");
+        if (!isAdmin && !["draft", "rejected", "archived"].includes(status)) {
             return json({ error: "Only draft, rejected, or archived ringtones may be deleted by creators." }, 403);
+        }
+
+        const purchases = await supabase
+            .from("ringtone_purchases")
+            .select("id")
+            .eq("ringtone_id", id)
+            .limit(1);
+        if (purchases.error) return json({ error: getErrorMessage(purchases.error) }, 500);
+        if ((purchases.data || []).length > 0) {
+            if (!isAdmin) {
+                return json({
+                    error: "Purchased ringtones cannot be permanently deleted. Archive the product instead.",
+                    code: "ARCHIVE_REQUIRED",
+                }, 409);
+            }
+        }
+
+        if (!isAdmin && status === "published") {
+            return json({ error: "Published ringtones must be archived instead of deleted." }, 403);
         }
 
         const { error } = await supabase.from("ringtone_products").delete().eq("id", id);

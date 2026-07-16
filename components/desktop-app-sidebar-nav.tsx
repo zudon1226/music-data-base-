@@ -10,6 +10,7 @@ import {
     Home,
     ListMusic,
     Music2,
+    Smartphone,
     Upload,
     UserCircle,
     UserPlus,
@@ -41,6 +42,7 @@ const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     Playlists: <ListMusic size={17}/>,
     "Artist Dashboard": <BarChart3 size={17}/>,
     "Producer Dashboard": <Disc3 size={17}/>,
+    "My Ringtones": <Smartphone size={17}/>,
     "Platform Control Center": <BarChart3 size={17}/>,
     "Recently Played": <Clock3 size={17}/>,
     Queue: <ListMusic size={17}/>,
@@ -54,6 +56,7 @@ type DesktopAppSidebarNavProps = {
     access: DesktopNavAccessContext;
     onNavigate: (nextView: DesktopNavView) => void;
     onOwnerRequired: () => void;
+    onRingtoneCreatorRequired?: () => void;
 };
 
 /** DESKTOP ONLY — sidebar buttons use the shared nav router and layout stack. */
@@ -62,6 +65,7 @@ export function DesktopAppSidebarNav({
     access,
     onNavigate,
     onOwnerRequired,
+    onRingtoneCreatorRequired,
 }: DesktopAppSidebarNavProps) {
     const { t, locale } = useTranslation();
     const ownerVisible = Boolean(access.isPlatformOwner);
@@ -83,8 +87,9 @@ export function DesktopAppSidebarNav({
             access,
             navigate: onNavigate,
             onOwnerRequired,
+            onRingtoneCreatorRequired,
         }),
-        [access, onNavigate, onOwnerRequired],
+        [access, onNavigate, onOwnerRequired, onRingtoneCreatorRequired],
     );
 
     return (

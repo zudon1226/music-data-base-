@@ -24,6 +24,7 @@ const VIEW_SUBTITLE_KEYS: Partial<Record<DesktopNavView, TranslationKey>> = {
     Profile: "profile.pageSubtitle",
     "Artist Dashboard": "artistDashboard.pageSubtitle",
     "Producer Dashboard": "producerDashboard.pageSubtitle",
+    "My Ringtones": "ringtones.pageSubtitle",
     "Platform Control Center": "platformControlCenter.pageSubtitle",
     Artists: "artists.pageSubtitle",
     Videos: "video.pageSubtitle",

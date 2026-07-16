@@ -90,13 +90,23 @@ export async function POST(request: Request) {
             priceCents: body.priceCents,
             currency: body.currency,
             isExplicit: body.isExplicit,
+            artworkUrl: body.artworkUrl,
+            sourceStoragePath: body.sourceStoragePath,
+            iphoneAvailable: body.iphoneAvailable,
+            androidAvailable: body.androidAvailable,
         });
         if (!built.ok) return json({ error: built.error }, 400);
+
+        const row = { ...built.row };
+        const submitForReview = body.submitForReview === true;
+        if (submitForReview) {
+            row.status = "pending_review";
+        }
 
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase
             .from("ringtone_products")
-            .insert(built.row)
+            .insert(row)
             .select("*")
             .single();
         if (error) return json({ error: getErrorMessage(error) }, 500);

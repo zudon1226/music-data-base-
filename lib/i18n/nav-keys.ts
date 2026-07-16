@@ -19,6 +19,7 @@ export const DESKTOP_NAV_TRANSLATION_KEYS: Record<DesktopNavView, TranslationKey
     Profile: "nav.profile",
     "Artist Dashboard": "nav.artistDashboard",
     "Producer Dashboard": "nav.producerDashboard",
+    "My Ringtones": "ringtones.myRingtones",
     "Platform Control Center": "nav.platformControlCenter",
     "Artist Profile": "nav.artistProfile",
     "Producer Profile": "nav.producerProfile",
@@ -40,5 +41,6 @@ export const VIEW_TITLE_KEYS: Partial<Record<DesktopNavView, TranslationKey>> = 
     Profile: "profile.title",
     "Artist Dashboard": "artistDashboard.title",
     "Producer Dashboard": "producerDashboard.title",
+    "My Ringtones": "ringtones.myRingtones",
     "Platform Control Center": "platformControlCenter.title",
 };

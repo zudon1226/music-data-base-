@@ -401,6 +401,7 @@ const DESKTOP_NAV_VIEWS = [
   "Playlists",
   "Artist Dashboard",
   "Producer Dashboard",
+  "My Ringtones",
   "Recently Played",
   "Queue",
   "Profile",

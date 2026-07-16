@@ -32,7 +32,12 @@ import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-r
 import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
 import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail";
 import { DesktopSongMediaCard, DesktopVideoMediaCard } from "../components/desktop-media-card";
+import {
+    RingtoneCreatorWorkspace,
+    type RingtonePreviewRequest,
+} from "../components/ringtone-creator/ringtone-creator-workspace";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
+import { fetchRingtoneEligibility } from "../lib/ringtone-creator-client";
 import { I18N_GLOBAL_STYLES } from "../lib/i18n/i18n-styles";
 import { translateHomeTab, translatePageSubtitle, translatePageTitle } from "../lib/i18n/page-copy";
 import { useTranslation } from "../lib/i18n/provider";
@@ -498,13 +503,17 @@ type AlbumUploadForm = {
 type EditAlbumForm = AlbumUploadForm;
 type AuthMode = "login" | "signup";
 type RepeatMode = "off" | "one" | "all";
-type ActiveMediaType = "song" | "video" | null;
+type ActiveMediaType = "song" | "video" | "ringtone" | null;
+type ActiveRingtonePreview = RingtonePreviewRequest;
 type ActiveMedia = {
     type: "song";
     item: Song;
 } | {
     type: "video";
     item: VideoItem;
+} | {
+    type: "ringtone";
+    item: ActiveRingtonePreview;
 } | null;
 type ToastMessage = {
     id: string;
@@ -752,7 +761,7 @@ type DownloadVaultItem = {
     licenseId?: string;
     licensePdfFileName?: string;
 };
-type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Platform Control Center";
 type PlatformErrorRow = {
     id: string;
     user_id: string | null;
@@ -3670,12 +3679,41 @@ function PageContent() {
         registerDesktopProductionSessionPublisher(publishLiveDesktopAuthSession);
         return () => unregisterDesktopProductionSessionPublisher();
     }, [publishLiveDesktopAuthSession]);
+    const [canCreateRingtones, setCanCreateRingtones] = useState(false);
+    const [ringtoneCreatorAccessChecked, setRingtoneCreatorAccessChecked] = useState(false);
+    const [activeRingtonePreview, setActiveRingtonePreview] = useState<ActiveRingtonePreview | null>(null);
+    const [ringtonePreviewPlaying, setRingtonePreviewPlaying] = useState(false);
+    const ringtoneAudioRef = useRef<HTMLAudioElement | null>(null);
+    const ringtoneClipEndRef = useRef(0);
     const desktopNavAccess = useMemo(() => ({
         accountUserId,
         authSession,
         isAuthenticated,
         isPlatformOwner: isPlatformOwnerEmail(activeUser?.email),
-    }), [accountUserId, authSession, isAuthenticated, activeUser?.email]);
+        canCreateRingtones: canCreateRingtones || isPlatformOwnerEmail(activeUser?.email),
+    }), [accountUserId, authSession, isAuthenticated, activeUser?.email, canCreateRingtones]);
+
+    useEffect(() => {
+        let cancelled = false;
+        async function loadRingtoneEligibility() {
+            if (!accountUserId || !authSession?.access_token) {
+                if (!cancelled) {
+                    setCanCreateRingtones(false);
+                    setRingtoneCreatorAccessChecked(true);
+                }
+                return;
+            }
+            const result = await fetchRingtoneEligibility(accountUserId, authSession);
+            if (!cancelled) {
+                setCanCreateRingtones(result.canCreateRingtones);
+                setRingtoneCreatorAccessChecked(true);
+            }
+        }
+        void loadRingtoneEligibility();
+        return () => {
+            cancelled = true;
+        };
+    }, [accountUserId, authSession]);
     function requireDesktopUploadUserId(loginMessage: string) {
         const uploadUserId = String(accountUserIdRef.current || userRef.current?.id || activeUserRef.current?.id || "").trim();
         if (!uploadUserId) {
@@ -8910,7 +8948,54 @@ function PageContent() {
             };
         }));
     }
+    function stopRingtonePreviewPlayback() {
+        if (ringtoneAudioRef.current) {
+            ringtoneAudioRef.current.pause();
+            ringtoneAudioRef.current.removeAttribute("src");
+            ringtoneAudioRef.current.load();
+        }
+        setRingtonePreviewPlaying(false);
+        setActiveRingtonePreview(null);
+        if (activeMediaType === "ringtone") {
+            setActiveMediaType(null);
+            setActiveMedia(null);
+        }
+    }
+
+    function playRingtonePreview(request: RingtonePreviewRequest) {
+        stopAllMedia();
+        setForcedQueuePlayableUrl("");
+        setActiveVideo(null);
+        setCurrentSong(null);
+        setActiveMediaType("ringtone");
+        setActiveMedia({ type: "ringtone", item: request });
+        setActiveRingtonePreview(request);
+        ringtoneClipEndRef.current = Number(request.clipEndSeconds) || 0;
+
+        if (!ringtoneAudioRef.current) {
+            ringtoneAudioRef.current = new Audio();
+        }
+        const audio = ringtoneAudioRef.current;
+        audio.pause();
+        audio.src = request.audioUrl;
+        audio.currentTime = Math.max(0, Number(request.clipStartSeconds) || 0);
+        const onTimeUpdate = () => {
+            if (audio.currentTime >= ringtoneClipEndRef.current - 0.05) {
+                audio.pause();
+                setRingtonePreviewPlaying(false);
+                audio.removeEventListener("timeupdate", onTimeUpdate);
+            }
+        };
+        audio.addEventListener("timeupdate", onTimeUpdate);
+        void audio.play().then(() => {
+            setRingtonePreviewPlaying(true);
+        }).catch(() => {
+            setRingtonePreviewPlaying(false);
+        });
+    }
+
     function playSong(song: Song, options: { preserveAlbumPlayback?: boolean } = {}) {
+        stopRingtonePreviewPlayback();
         stopAllMedia();
         setForcedQueuePlayableUrl("");
         setActiveMediaType("song");
@@ -9067,8 +9152,12 @@ function PageContent() {
         if (mainVideoRef.current) {
             mainVideoRef.current.pause();
         }
+        if (ringtoneAudioRef.current) {
+            ringtoneAudioRef.current.pause();
+        }
         setIsPlaying(false);
         setVideoPlaying(false);
+        setRingtonePreviewPlaying(false);
     }
     async function togglePlay() {
         if (!audioRef.current || !currentSong)
@@ -11986,6 +12075,7 @@ function PageContent() {
         }
     }
     function playVideo(video: VideoItem | Record<string, unknown>, sourceSection = "Video Card") {
+        stopRingtonePreviewPlayback();
         if (sourceSection !== "Shared Queue") {
             setForcedQueuePlayableUrl("");
         }
@@ -13644,7 +13734,7 @@ function PageContent() {
         }
         if (!isPlatformOwner && foundingAccess?.isFoundingMember && foundingAccess.approvalStatus === "approved") {
             const allowedDashboard = foundingAccess.dashboardView;
-            const protectedViews: View[] = ["Artist Dashboard", "Producer Dashboard", "Home", "Videos", "Library", "Liked", "Following", "Recently Played", "Queue", "Playlists", "Profile", "Artist Profile", "Producer Profile"];
+            const protectedViews: View[] = ["Artist Dashboard", "Producer Dashboard", "My Ringtones", "Home", "Videos", "Library", "Liked", "Following", "Recently Played", "Queue", "Playlists", "Profile", "Artist Profile", "Producer Profile"];
             if (!protectedViews.includes(nextView) && nextView !== allowedDashboard) {
                 showToast("That area is not available for your founding role.", "error");
                 return;
@@ -13652,6 +13742,10 @@ function PageContent() {
         }
         const accessDecision = evaluateDesktopNavAccess(nextView as DesktopNavView, desktopNavAccess);
         if (!accessDecision.allowed) {
+            if (accessDecision.reason === "ringtone-creator-required") {
+                showToast(t("ringtones.creatorAccessDenied"), "error");
+                return;
+            }
             showToast("Owner admin access is required for platform controls.", "error");
             return;
         }
@@ -15256,6 +15350,9 @@ function PageContent() {
           onOwnerRequired={() => {
             showToast(t("header.ownerAccessRequired"), "error");
           }}
+          onRingtoneCreatorRequired={() => {
+            showToast(t("ringtones.creatorAccessDenied"), "error");
+          }}
         />
 
         <section className="mini-stats" aria-label={t("stats.ariaLabel")}>
@@ -15926,6 +16023,25 @@ function PageContent() {
               Clear Recently Played
             </button>)}
         </section>
+
+        {view === "My Ringtones" ? (
+          <RingtoneCreatorWorkspace
+            userId={accountUserId}
+            session={authSession}
+            canCreateRingtones={canCreateRingtones || isPlatformOwnerEmail(activeUser?.email)}
+            accessDenied={ringtoneCreatorAccessChecked && !(canCreateRingtones || isPlatformOwnerEmail(activeUser?.email))}
+            onPreviewRingtone={(request) => {
+              if (activeRingtonePreview?.id === request.id && ringtonePreviewPlaying) {
+                stopRingtonePreviewPlayback();
+                return;
+              }
+              playRingtonePreview(request);
+            }}
+            onStopRingtonePreview={stopRingtonePreviewPlayback}
+            activeRingtonePreviewId={activeRingtonePreview?.id || null}
+            ringtonePreviewPlaying={ringtonePreviewPlaying}
+          />
+        ) : null}
 
         {view === "Sales" ? (<section className="sales-page">
             <section className="sales-hero">
