@@ -14,8 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidenceDir = path.join(root, "tmp");
 mkdirSync(evidenceDir, { recursive: true });
 const results = [];
-const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl", "hi", "bn", "pa", "ur", "gu"];
-const phaseCLocales = ["hi", "bn", "pa", "ur", "gu"];
+const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl", "hi", "bn", "pa", "ur", "gu", "ta", "te", "mr", "ne", "vi"];
+const phaseCLocales = ["ta", "te", "mr", "ne", "vi"];
 const rtlLocales = ["ar", "he", "ur"];
 const LOCALE_STORAGE_KEY = "mdb.preferredLanguage";
 const LOCALE_COOKIE_KEY = "mdb_locale";
@@ -462,7 +462,7 @@ async function main() {
     record("complete locales flagged", completeLocales.every((code) => registry.find((language) => language.code === code)?.translationComplete), completeLocales.join(", "));
 
     const incomplete = registry.filter((language) => !language.translationComplete).map((language) => language.code);
-    record("fallback locales registered", incomplete.length === 20, `${incomplete.length} fallback languages`);
+    record("fallback locales registered", incomplete.length === 15, `${incomplete.length} fallback languages`);
 
     const enMessages = parseExportObject(path.join(root, "lib/i18n/messages/en.ts"), "enMessages");
     const enFlat = flattenMessages(enMessages);
@@ -587,18 +587,18 @@ async function main() {
     for (const locale of phaseCLocales) {
         const entry = registry.find((language) => language.code === locale);
         record(`selector native name ${locale}`, entry?.nativeName === {
-            hi: "हिन्दी",
-            bn: "বাংলা",
-            pa: "ਪੰਜਾਬੀ",
-            ur: "اردو",
-            gu: "ગુજરાતી",
+            ta: "தமிழ்",
+            te: "తెలుగు",
+            mr: "मराठी",
+            ne: "नेपाली",
+            vi: "Tiếng Việt",
         }[locale], entry?.nativeName || "");
         record(`selector compact code ${locale}`, locale.split("-")[0].toUpperCase() === {
-            hi: "HI",
-            bn: "BN",
-            pa: "PA",
-            ur: "UR",
-            gu: "GU",
+            ta: "TA",
+            te: "TE",
+            mr: "MR",
+            ne: "NE",
+            vi: "VI",
         }[locale], locale.split("-")[0].toUpperCase());
     }
 
