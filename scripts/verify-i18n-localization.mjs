@@ -14,8 +14,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidenceDir = path.join(root, "tmp");
 mkdirSync(evidenceDir, { recursive: true });
 const results = [];
-const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl"];
-const phaseCLocales = ["et", "lv", "lt", "sk", "sl"];
+const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl", "hi", "bn", "pa", "ur", "gu"];
+const phaseCLocales = ["hi", "bn", "pa", "ur", "gu"];
+const rtlLocales = ["ar", "he", "ur"];
 const LOCALE_STORAGE_KEY = "mdb.preferredLanguage";
 const LOCALE_COOKIE_KEY = "mdb_locale";
 
@@ -73,7 +74,7 @@ async function runBrowserLayoutTests(baseUrl, localeMessages, ownerSessionPayloa
         return;
     }
 
-    const browserLocales = ["de", "it", "nl", "ar", "he", ...phaseCLocales];
+    const browserLocales = ["de", "it", "nl", ...rtlLocales, ...phaseCLocales.filter((code) => !rtlLocales.includes(code))];
     const viewports = [
         { label: "1440px", options: { viewport: { width: 1440, height: 900 } } },
         { label: "1024px", options: { viewport: { width: 1024, height: 768 } } },
@@ -89,7 +90,7 @@ async function runBrowserLayoutTests(baseUrl, localeMessages, ownerSessionPayloa
         for (const locale of browserLocales) {
             const messages = localeMessages[locale];
             const loginTitle = resolvePath(messages, "auth.loginTitle") || "";
-            const expectedDir = ["ar", "he"].includes(locale) ? "rtl" : "ltr";
+            const expectedDir = rtlLocales.includes(locale) ? "rtl" : "ltr";
             const languageEntry = parseRegistryLanguages(path.join(root, "lib/i18n/registry.ts"))
                 .find((language) => language.code === locale);
 
@@ -150,7 +151,7 @@ async function runBrowserLayoutTests(baseUrl, localeMessages, ownerSessionPayloa
                         );
                     }
 
-                    if (["ar", "he"].includes(locale)) {
+                    if (rtlLocales.includes(locale)) {
                         record(
                             `browser ${locale} ${viewport.label} rtl auth`,
                             shell.dir === "rtl",
@@ -163,6 +164,8 @@ async function runBrowserLayoutTests(baseUrl, localeMessages, ownerSessionPayloa
                         const searchBox = searchWrap?.querySelector(".search-box");
                         const lang = searchWrap?.querySelector(".topbar-language-selector, .language-selector");
                         const detachedTopbarLang = Boolean(document.querySelector(".topbar > .topbar-language-selector, .topbar > .language-selector"));
+                        const sidebar = document.querySelector(".sidebar, .desktop-sidebar, aside.sidebar");
+                        const playerControls = document.querySelector(".player-controls, .player-center");
                         if (!searchWrap || !searchBox || !lang) {
                             return { ok: false, reason: "missing topbar search row" };
                         }
@@ -171,13 +174,40 @@ async function runBrowserLayoutTests(baseUrl, localeMessages, ownerSessionPayloa
                         const sameRow = Math.abs(searchRect.top - langRect.top) < 12;
                         const beside = langRect.left >= searchRect.right - 2;
                         const searchWrapOverflow = searchWrap.scrollWidth > searchWrap.clientWidth + 4;
-                        return { ok: sameRow && beside && !detachedTopbarLang && !searchWrapOverflow, sameRow, beside, detachedTopbarLang, searchWrapOverflow };
+                        const sidebarRect = sidebar?.getBoundingClientRect();
+                        const sidebarOnLeft = !sidebarRect || sidebarRect.left < 120;
+                        const playerDir = playerControls ? getComputedStyle(playerControls).direction : "ltr";
+                        return {
+                            ok: sameRow && beside && !detachedTopbarLang && !searchWrapOverflow,
+                            sameRow,
+                            beside,
+                            detachedTopbarLang,
+                            searchWrapOverflow,
+                            sidebarOnLeft,
+                            playerDir,
+                            searchLeft: Math.round(searchRect.left),
+                            langLeft: Math.round(langRect.left),
+                        };
                     });
                     record(
                         `browser ${locale} ${viewport.label} search row`,
                         layout.ok,
                         JSON.stringify(layout),
                     );
+
+                    if (locale === "ur") {
+                        record(
+                            `browser ur ${viewport.label} rtl shell stability`,
+                            layout.ok && layout.sidebarOnLeft !== false && layout.playerDir === "ltr" && layout.beside,
+                            JSON.stringify({
+                                sidebarOnLeft: layout.sidebarOnLeft,
+                                playerDir: layout.playerDir,
+                                beside: layout.beside,
+                                searchLeft: layout.searchLeft,
+                                langLeft: layout.langLeft,
+                            }),
+                        );
+                    }
 
                     if (phaseCLocales.includes(locale) && languageEntry?.nativeName) {
                         const triggerText = await page.evaluate(() => document.querySelector(".language-selector-trigger")?.textContent || "");
@@ -432,7 +462,7 @@ async function main() {
     record("complete locales flagged", completeLocales.every((code) => registry.find((language) => language.code === code)?.translationComplete), completeLocales.join(", "));
 
     const incomplete = registry.filter((language) => !language.translationComplete).map((language) => language.code);
-    record("fallback locales registered", incomplete.length === 25, `${incomplete.length} fallback languages`);
+    record("fallback locales registered", incomplete.length === 20, `${incomplete.length} fallback languages`);
 
     const enMessages = parseExportObject(path.join(root, "lib/i18n/messages/en.ts"), "enMessages");
     const enFlat = flattenMessages(enMessages);
@@ -501,12 +531,16 @@ async function main() {
 
     const arEntry = registry.find((language) => language.code === "ar");
     const heEntry = registry.find((language) => language.code === "he");
+    const urEntry = registry.find((language) => language.code === "ur");
     const arFlat = flattenMessages(getMessagesForLocale("ar"));
     const heFlat = flattenMessages(getMessagesForLocale("he"));
+    const urFlat = flattenMessages(getMessagesForLocale("ur"));
     record("rtl registry ar", Boolean(arEntry?.rtl), String(arEntry?.rtl));
     record("rtl registry he", Boolean(heEntry?.rtl), String(heEntry?.rtl));
+    record("rtl registry ur", Boolean(urEntry?.rtl), String(urEntry?.rtl));
     record("rtl nav.home ar", arFlat["nav.home"] !== enFlat["nav.home"], arFlat["nav.home"]);
     record("rtl nav.home he", heFlat["nav.home"] !== enFlat["nav.home"], heFlat["nav.home"]);
+    record("rtl nav.home ur", urFlat["nav.home"] !== enFlat["nav.home"], urFlat["nav.home"]);
 
     record("language detection es", detectBrowserLocale(["es-MX", "en-US"], supportedCodes) === "es", "es-MX");
     record("language detection zh-CN", detectBrowserLocale(["zh-CN"], supportedCodes) === "zh-CN", "zh-CN");
@@ -542,28 +576,29 @@ async function main() {
         const percentValue = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(0.847);
         const currencyValue = new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(19.99);
         const compactValue = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(1250000);
-        record(`date formatting ${locale}`, /2026|15|\d/.test(dateValue), dateValue);
-        record(`number formatting ${locale}`, numberValue.includes("234") || numberValue.includes("567") || /\d/.test(numberValue), numberValue);
-        record(`percent formatting ${locale}`, percentValue.includes("84") || percentValue.includes("85") || /%/.test(percentValue), percentValue);
-        record(`currency formatting ${locale}`, currencyValue.includes("19") && currencyValue.includes("99"), currencyValue);
-        record(`compact count formatting ${locale}`, /1|2|M|K|м|k|тыс|mil|m/i.test(compactValue), compactValue);
+        const hasDigits = (value) => /\d|\p{Nd}/u.test(value);
+        record(`date formatting ${locale}`, /2026|15/.test(dateValue) || hasDigits(dateValue), dateValue);
+        record(`number formatting ${locale}`, numberValue.includes("234") || numberValue.includes("567") || hasDigits(numberValue), numberValue);
+        record(`percent formatting ${locale}`, percentValue.includes("84") || percentValue.includes("85") || /%/.test(percentValue) || hasDigits(percentValue), percentValue);
+        record(`currency formatting ${locale}`, (currencyValue.includes("19") && currencyValue.includes("99")) || (hasDigits(currencyValue) && /\$|USD|US\$/i.test(currencyValue)), currencyValue);
+        record(`compact count formatting ${locale}`, /1|2|M|K|м|k|тыс|mil|m|লা|ਲੱਖ|لاکھ|લાખ/i.test(compactValue) || hasDigits(compactValue), compactValue);
     }
 
     for (const locale of phaseCLocales) {
         const entry = registry.find((language) => language.code === locale);
         record(`selector native name ${locale}`, entry?.nativeName === {
-            et: "Eesti",
-            lv: "Latviešu",
-            lt: "Lietuvių",
-            sk: "Slovenčina",
-            sl: "Slovenščina",
+            hi: "हिन्दी",
+            bn: "বাংলা",
+            pa: "ਪੰਜਾਬੀ",
+            ur: "اردو",
+            gu: "ગુજરાતી",
         }[locale], entry?.nativeName || "");
         record(`selector compact code ${locale}`, locale.split("-")[0].toUpperCase() === {
-            et: "ET",
-            lv: "LV",
-            lt: "LT",
-            sk: "SK",
-            sl: "SL",
+            hi: "HI",
+            bn: "BN",
+            pa: "PA",
+            ur: "UR",
+            gu: "GU",
         }[locale], locale.split("-")[0].toUpperCase());
     }
 
@@ -699,7 +734,7 @@ async function main() {
     }
 
     const browserMessageMap = Object.fromEntries(
-        ["de", "it", "nl", "ar", "he", ...phaseCLocales].map((locale) => [locale, getMessagesForLocale(locale)]),
+        ["de", "it", "nl", ...rtlLocales, ...phaseCLocales.filter((code) => !rtlLocales.includes(code))].map((locale) => [locale, getMessagesForLocale(locale)]),
     );
     let ownerSessionPayload = null;
     if (owner?.access_token && env.NEXT_PUBLIC_SUPABASE_URL) {
