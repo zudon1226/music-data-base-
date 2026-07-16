@@ -9,6 +9,7 @@ import type {
     TestAccountReviewRow,
 } from "../lib/test-account-cleanup";
 import { testConfidenceClass } from "../lib/test-account-cleanup";
+import { useTranslation } from "../lib/i18n/provider";
 
 type TestAccountCleanupCenterProps = {
     userId: string;
@@ -23,10 +24,11 @@ function formatWhen(value: string | null) {
 }
 
 function PreviewPanel({ preview }: { preview: TestAccountDependencyPreview | null }) {
+    const { t } = useTranslation();
     if (!preview) return null;
     return (
         <div className="cleanup-preview-panel">
-            <h4>Dependency Preview</h4>
+            <h4>{t("testAccountCleanup.dependencyPreview")}</h4>
             <ul className="cleanup-preview-list">
                 <li>Auth user: {preview.authUser.email}</li>
                 <li>Profile rows: {preview.profileRows}</li>
@@ -55,7 +57,7 @@ function PreviewPanel({ preview }: { preview: TestAccountDependencyPreview | nul
                 </div>
             ) : null}
             <p className={preview.safeToDelete ? "cleanup-safe-yes" : "cleanup-safe-no"}>
-                {preview.safeToDelete ? "Cleanup appears safe for this account." : "Cleanup is blocked for this account."}
+                {preview.safeToDelete ? t("testAccountCleanup.safeToDelete") : t("testAccountCleanup.blocked")}
             </p>
         </div>
     );
@@ -66,6 +68,7 @@ export function TestAccountCleanupCenter({
     accessToken,
     refreshToken,
 }: TestAccountCleanupCenterProps) {
+    const { t } = useTranslation();
     const [review, setReview] = useState<TestAccountReviewList | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -172,7 +175,7 @@ export function TestAccountCleanupCenter({
                 <p>Review likely automated/test accounts, run dry-run previews, and delete one confirmed disposable account at a time.</p>
                 <button type="button" onClick={() => void loadReview()} disabled={loading}>
                     <RefreshCw size={15}/>
-                    {loading ? "Refreshing..." : "Refresh Review List"}
+                    {loading ? t("platformControlCenter.refreshing") : t("testAccountCleanup.refreshReviewList")}
                 </button>
             </div>
 

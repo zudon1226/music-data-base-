@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock3, ShieldX } from "lucide-react";
+import { useTranslation } from "../lib/i18n/provider";
 import {
     FOUNDING_INVITE_REQUIRED_MESSAGE,
     FOUNDING_PENDING_MESSAGE,
@@ -25,10 +26,11 @@ export function FoundingMemberGate({
     blockedMessage,
     onLogout,
 }: FoundingMemberGateProps) {
+    const { t } = useTranslation();
     const pending = approvalStatus === "pending";
     const message = blockedMessage
         || (pending ? FOUNDING_PENDING_MESSAGE : FOUNDING_REJECTED_MESSAGE);
-    const title = pending ? "Approval Pending" : approvalStatus === "blocked" ? "Invite Required" : "Access Not Approved";
+    const title = pending ? t("auth.approvalPending") : approvalStatus === "blocked" ? t("auth.inviteRequired") : t("auth.accessNotApproved");
 
     return (
         <main className="auth-page founding-gate-page">
@@ -39,10 +41,10 @@ export function FoundingMemberGate({
                 <div className="auth-copy">
                     <h1>{title}</h1>
                     <p>{message}</p>
-                    {foundingRole ? <p>Assigned role: <strong>{foundingRoleLabel(foundingRole)}</strong></p> : null}
-                    {displayName ? <p>Signed in as {displayName}</p> : null}
+                    {foundingRole ? <p>{t("auth.assignedRole", { role: foundingRoleLabel(foundingRole) })}</p> : null}
+                    {displayName ? <p>{t("auth.signedInAs", { name: displayName })}</p> : null}
                 </div>
-                <button className="auth-switch" onClick={onLogout} type="button">Sign out</button>
+                <button className="auth-switch" onClick={onLogout} type="button">{t("auth.signOut")}</button>
             </section>
             <style jsx global>{`
               .founding-gate-page .founding-gate-panel {

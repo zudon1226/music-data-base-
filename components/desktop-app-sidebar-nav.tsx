@@ -23,6 +23,8 @@ import {
     type DesktopNavView,
 } from "../lib/desktop-app-navigation";
 import { DESKTOP_SIDEBAR_LAYOUT_CSS } from "../lib/desktop-sidebar-layout";
+import { DESKTOP_NAV_TRANSLATION_KEYS } from "../lib/i18n/nav-keys";
+import { useTranslation } from "../lib/i18n/provider";
 
 const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     Home: <Home size={17}/>,
@@ -61,6 +63,7 @@ export function DesktopAppSidebarNav({
     onNavigate,
     onOwnerRequired,
 }: DesktopAppSidebarNavProps) {
+    const { t } = useTranslation();
     const visibleItems = listVisibleDesktopNavItems(access);
     const handleNavClick = useMemo(
         () => createDesktopNavHandler({
@@ -74,20 +77,23 @@ export function DesktopAppSidebarNav({
     return (
         <>
             <style jsx global>{DESKTOP_SIDEBAR_LAYOUT_CSS}</style>
-            <nav className="nav desktop-sidebar-nav" aria-label="Main">
-                {visibleItems.map((item) => (
+            <nav className="nav desktop-sidebar-nav" aria-label={t("nav.mainNavigation")}>
+                {visibleItems.map((item) => {
+                    const label = t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]);
+                    return (
                     <button
                         key={item.view}
                         type="button"
                         className={activeView === item.view ? "active" : ""}
                         aria-current={activeView === item.view ? "page" : undefined}
-                        title={item.view}
+                        title={label}
                         onClick={() => handleNavClick(item.view)}
                     >
                         {DESKTOP_NAV_ICONS[item.view]}
-                        <span>{item.view}</span>
+                        <span>{label}</span>
                     </button>
-                ))}
+                    );
+                })}
             </nav>
         </>
     );

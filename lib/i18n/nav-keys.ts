@@ -1,0 +1,44 @@
+import type { DesktopNavView } from "../desktop-app-navigation";
+import type { TranslationKey } from "./messages/en";
+
+export const DESKTOP_NAV_TRANSLATION_KEYS: Record<DesktopNavView, TranslationKey> = {
+    Home: "nav.home",
+    Marketplace: "nav.marketplace",
+    Sales: "nav.sales",
+    "License History": "nav.licenseHistory",
+    Trending: "nav.trending",
+    Beats: "nav.beats",
+    Artists: "nav.artists",
+    Videos: "nav.videos",
+    Library: "nav.library",
+    Liked: "nav.liked",
+    Following: "nav.following",
+    "Recently Played": "nav.recentlyPlayed",
+    Queue: "nav.queue",
+    Playlists: "nav.playlists",
+    Profile: "nav.profile",
+    "Artist Dashboard": "nav.artistDashboard",
+    "Producer Dashboard": "nav.producerDashboard",
+    "Platform Control Center": "nav.platformControlCenter",
+    "Artist Profile": "nav.artistProfile",
+    "Producer Profile": "nav.producerProfile",
+};
+
+export const VIEW_TITLE_KEYS: Partial<Record<DesktopNavView, TranslationKey>> = {
+    Home: "home.title",
+    Marketplace: "marketplace.title",
+    Trending: "trending.title",
+    Beats: "beats.title",
+    Artists: "artists.title",
+    Videos: "video.title",
+    Library: "library.title",
+    Liked: "favorites.title",
+    Following: "following.title",
+    "Recently Played": "recentlyPlayed.title",
+    Queue: "queue.title",
+    Playlists: "playlists.title",
+    Profile: "profile.title",
+    "Artist Dashboard": "artistDashboard.title",
+    "Producer Dashboard": "producerDashboard.title",
+    "Platform Control Center": "platformControlCenter.title",
+};

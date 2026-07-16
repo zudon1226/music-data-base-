@@ -1,3 +1,4 @@
+import { normalizeLocale } from "@/lib/i18n/registry";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 import { getSessionTokensFromRecord, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { ensureProfileRow, repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
         const supabase = getSupabaseServerClient();
         const { data: profileRow } = await supabase
             .from("profiles")
-            .select("display_name,account_type,avatar_url")
+            .select("display_name,account_type,avatar_url,preferred_language")
             .or(`id.eq.${userId},user_id.eq.${userId}`)
             .maybeSingle();
 
@@ -50,6 +51,7 @@ export async function GET(request: Request) {
             displayName,
             role,
             avatarUrl,
+            preferredLanguage: normalizeLocale(String(profileRow?.preferred_language || "en")),
         });
     }
     catch (error) {
@@ -108,6 +110,22 @@ export async function POST(request: Request) {
                 metadataChanged: repairResult.metadataChanged,
                 userMetadata: repairResult.userMetadata,
             });
+        }
+
+        if (action === "update-language") {
+            const preferredLanguage = normalizeLocale(String(body.preferredLanguage || body.preferred_language || "en"));
+            await ensureProfileRow(supabase, userId);
+            const updateResult = await supabase
+                .from("profiles")
+                .update({
+                    preferred_language: preferredLanguage,
+                    updated_at: new Date().toISOString(),
+                })
+                .or(`id.eq.${userId},user_id.eq.${userId}`);
+            if (updateResult.error) {
+                return jsonResponse({ error: getErrorMessage(updateResult.error) }, 500);
+            }
+            return jsonResponse({ ok: true, preferredLanguage });
         }
 
         return jsonResponse({ error: "Unsupported action." }, 400);

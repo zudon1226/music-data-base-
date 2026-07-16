@@ -6,6 +6,8 @@ import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { FoundingMemberGate } from "../components/founding-member-gate";
+import { AppI18nShell } from "../components/app-i18n-shell";
+import { LanguageSelector } from "../components/language-selector";
 import { FoundingMemberProfileCard } from "../components/founding-member-profile-card";
 import { PlatformControlCenter } from "../components/platform-control-center";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
@@ -31,6 +33,9 @@ import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
 import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail";
 import { DesktopSongMediaCard, DesktopVideoMediaCard } from "../components/desktop-media-card";
 import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
+import { I18N_GLOBAL_STYLES } from "../lib/i18n/i18n-styles";
+import { translateHomeTab, translatePageSubtitle, translatePageTitle } from "../lib/i18n/page-copy";
+import { useTranslation } from "../lib/i18n/provider";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { isSongQueueItem, isVideoQueueItem, normalizeSongToQueueItem, normalizeVideoToQueueItem, songToQueueMedia, videoToQueueMedia, type QueueMediaItem } from "../lib/desktop-media-queue";
 import { useDesktopMediaQueue } from "../lib/use-desktop-media-queue";
@@ -3462,12 +3467,15 @@ function ArtistNameButton({ name, className = "", onOpen, }: {
 export default function Page() {
     return (
         <DesktopAuthProvider>
-            <PageContent />
+            <AppI18nShell>
+                <PageContent />
+            </AppI18nShell>
         </DesktopAuthProvider>
     );
 }
 
 function PageContent() {
+    const { t } = useTranslation();
     const router = useRouter();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -13668,66 +13676,18 @@ function PageContent() {
         setShowUpload((value) => !value);
     }
     function pageTitle() {
-        if (showGlobalSearchHeading(view, search))
-            return view === "Videos" ? "Video Search" : "Search Results";
-        if (view === "Marketplace")
-            return "Music Marketplace";
-        if (view === "Sales")
-            return "Sales";
-        if (view === "License History")
-            return "License History";
-        if (view === "Artist Profile")
-            return activeArtist?.name || "Artist Profile";
-        if (view === "Producer Profile")
-            return activeProducerProfile?.name || "Producer Profile";
-        if (view === "Profile")
-            return "Profile";
-        if (view === "Artist Dashboard")
-            return "Artist Dashboard";
-        if (view === "Producer Dashboard")
-            return "Producer Dashboard";
-        if (view === "Home")
-            return activeTab;
-        return view;
+        return translatePageTitle(view, t, {
+            activeTab,
+            activeArtistName: activeArtist?.name,
+            activeProducerName: activeProducerProfile?.name,
+            isSearch: showGlobalSearchHeading(view, search),
+            isVideoSearch: view === "Videos",
+        });
     }
     function pageSubtitle() {
-        if (showGlobalSearchHeading(view, search))
-            return "Songs, videos, albums, artists, and producers matching your search.";
-        if (view === "Marketplace")
-            return "Browse artist stores, producer stores, releases, charts, and marketplace filters.";
-        if (view === "Sales")
-            return "Shopping cart, purchase history, and download vault.";
-        if (view === "License History")
-            return "Review generated beat licenses and download license PDFs.";
-        if (view === "Artist Profile")
-            return "Artist songs, albums, playlists, and stats.";
-        if (view === "Producer Profile")
-            return "Producer credits, beat licenses, and productions.";
-        if (view === "Profile")
-            return "Your account and saved music sync status.";
-        if (view === "Artist Dashboard")
-            return "Manage artist profiles, uploaded songs, and creator analytics.";
-        if (view === "Producer Dashboard")
-            return "Manage beats, licenses, credits, leases, downloads, and payouts.";
-        if (view === "Platform Control Center")
-            return "Monitor upload failures, media files, cleanup, and backups.";
-        if (view === "Artists")
-            return "Browse artist profiles, songs, videos, and follow creators.";
-        if (view === "Videos")
-            return "Upload, watch, search, and remove videos without mixing them into songs.";
-        if (view === "Library")
-            return "Songs, videos, and albums in your library.";
-        if (view === "Following")
-            return "New songs and videos from artists you follow.";
-        if (view === "Recently Played")
-            return "Every play is saved here, including repeat listens.";
-        if (view === "Queue")
-            return "Songs and videos lined up for the player.";
-        if (view === "Liked")
-            return "Songs, videos, and artists you liked.";
-        if (view === "Playlists")
-            return "Create playlists, add songs, set covers, and play them straight through.";
-        return "Browse music and keep your favorites close.";
+        return translatePageSubtitle(view, t, {
+            isSearch: showGlobalSearchHeading(view, search),
+        });
     }
     function renderCreatorGrowthPanel(summary: CreatorGrowthSummary) {
         const trendMax = Math.max(1, ...summary.followerTrend.map((point) => point.followers));
@@ -15015,38 +14975,40 @@ function PageContent() {
           </div>
 
           <div className="auth-copy">
-            <h1>{authMode === "signup" ? "Create your account" : "Log in to Music Data Base"}</h1>
+            <h1>{authMode === "signup" ? t("auth.createAccount") : t("auth.loginTitle")}</h1>
             <p>{foundingBetaLocked && authMode === "signup"
-                ? "Founding beta signup requires a single-use invite code from Music Data Base."
-                : "Your library, likes, playlists, and recently played songs stay with your Supabase account."}</p>
+                ? t("auth.foundingSignupSubtitle")
+                : t("auth.signupSubtitle")}</p>
           </div>
+
+          <LanguageSelector compact className="auth-language-selector"/>
 
           <form className="auth-form" onSubmit={handleAuthSubmit}>
             {authMode === "signup" && (<label>
-                <span>Name</span>
-                <input name="name" value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder="Your name"/>
+                <span>{t("auth.name")}</span>
+                <input name="name" value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder={t("auth.namePlaceholder")}/>
               </label>)}
 
             {authMode === "signup" && foundingBetaLocked && (<label>
-                <span>Invite code</span>
-                <input name="inviteCode" value={authInviteCode} onChange={(event) => setAuthInviteCode(event.target.value.toUpperCase())} placeholder="Single-use founding invite"/>
+                <span>{t("auth.inviteCode")}</span>
+                <input name="inviteCode" value={authInviteCode} onChange={(event) => setAuthInviteCode(event.target.value.toUpperCase())} placeholder={t("auth.inviteCodePlaceholder")}/>
               </label>)}
 
             <label>
-              <span>Email</span>
-              <input name="email" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="you@example.com"/>
+              <span>{t("auth.email")}</span>
+              <input name="email" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder={t("auth.emailPlaceholder")}/>
             </label>
 
             <label>
-              <span>Password</span>
-              <input name="password" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="At least 6 characters"/>
+              <span>{t("auth.password")}</span>
+              <input name="password" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("auth.passwordPlaceholder")}/>
             </label>
 
             {authMessage && <p className="auth-message">{authMessage}</p>}
 
             <button type="submit" disabled={authBusy}>
               {authMode === "signup" ? <UserPlus size={17}/> : <LogIn size={17}/>}
-              {authBusy ? "Working..." : authMode === "signup" ? "Sign Up" : "Login"}
+              {authBusy ? t("common.working") : authMode === "signup" ? t("auth.signUp") : t("auth.login")}
             </button>
           </form>
 
@@ -15054,7 +15016,7 @@ function PageContent() {
                 setAuthMode(authMode === "signup" ? "login" : "signup");
                 setAuthMessage("");
             }} type="button">
-            {authMode === "signup" ? "Already have an account? Login" : "Need an account? Sign Up"}
+            {authMode === "signup" ? t("auth.switchToLogin") : t("auth.switchToSignup")}
           </button>
         </section>
 
@@ -15222,7 +15184,7 @@ function PageContent() {
             <img src={BRAND_LOGO} alt="Music Data Base"/>
             <span>{BRAND_TAGLINE}</span>
           </div>
-          <p>{isAuthenticated ? "Opening your library..." : "Loading your music library..."}</p>
+          <p>{isAuthenticated ? t("auth.openingLibrary") : t("auth.loadingLibrary")}</p>
         </section>
       </main>);
     }
@@ -15269,7 +15231,7 @@ function PageContent() {
     const activeAlbumTrackInfo = getActiveAlbumTrackInfo();
     return (<main className={`zml-app view-${displayMode}`}>
       <aside className="sidebar">
-        <button className="logo" onClick={() => handleNav("Home")} title="Home">
+        <button className="logo" onClick={() => handleNav("Home")} title={t("nav.home")}>
           <img src={BRAND_LOGO} alt="Music Data Base"/>
           <span>{BRAND_TAGLINE}</span>
         </button>
@@ -15282,37 +15244,37 @@ function PageContent() {
             applyDesktopView(nextView as View);
           }}
           onOwnerRequired={() => {
-            showToast("Owner admin access is required for platform controls.", "error");
+            showToast(t("header.ownerAccessRequired"), "error");
           }}
         />
 
-        <section className="mini-stats" aria-label="Music stats">
+        <section className="mini-stats" aria-label={t("stats.ariaLabel")}>
           <div>
             <strong>{songs.length}</strong>
-            <span>Tracks</span>
+            <span>{t("stats.tracks")}</span>
           </div>
           <div>
             <strong>{librarySongs.length}</strong>
-            <span>Library</span>
+            <span>{t("stats.library")}</span>
           </div>
           <div>
             <strong>{videos.length}</strong>
-            <span>Videos</span>
+            <span>{t("stats.videos")}</span>
           </div>
           <div>
             <strong>{totalPlays}</strong>
-            <span>Plays</span>
+            <span>{t("stats.plays")}</span>
           </div>
         </section>
 
         <section className="queue-panel">
           <div className="panel-title-row">
-            <h2>Queue</h2>
-            {queueCount > 0 && (<button className="small-action" onClick={clearQueue} title="Clear queue">
-                Clear
+            <h2>{t("queue.title")}</h2>
+            {queueCount > 0 && (<button className="small-action" onClick={clearQueue} title={t("queue.clearQueue")}>
+                {t("common.clear")}
               </button>)}
           </div>
-          <p className="empty-small queue-panel-summary">{queueCount} media queued</p>
+          <p className="empty-small queue-panel-summary">{t("queue.mediaQueued", { count: queueCount })}</p>
 
           {queueCount === 0 ? null : (<div className="queue-list">
               {mediaQueueItems.slice(0, 5).map((item) => (<div className="queue-item" key={`${item.mediaType}-${item.id}`}>
@@ -15332,7 +15294,7 @@ function PageContent() {
                     </span>
                   </div>
 
-                  <button className="icon-action" onClick={() => removeMediaFromQueue(item.mediaType, item.id)} title="Remove">
+                  <button className="icon-action" onClick={() => removeMediaFromQueue(item.mediaType, item.id)} title={t("queue.remove")}>
                     <X size={14}/>
                   </button>
                 </div>))}
@@ -15341,7 +15303,7 @@ function PageContent() {
 
         <button className="reset-btn" disabled title="Reset is disabled until the audit is complete" type="button">
           <RotateCcw size={15}/>
-          Reset Disabled
+          {t("queue.resetDisabled")}
         </button>
       </aside>
 
@@ -15350,10 +15312,10 @@ function PageContent() {
           <div className="search-wrap">
             <label className="search-box">
               <Search size={18}/>
-              <input name="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)} placeholder="Search songs, videos, albums, artists..."/>
+              <input name="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)} placeholder={t("search.extendedPlaceholder")}/>
             </label>
-            {searchFocused && searchSuggestions.length > 0 && (<div className="search-suggestions" role="listbox" aria-label={searchInput.trim() ? "Search suggestions" : "Popular searches"}>
-                <span>{searchInput.trim() ? "Suggestions" : "Popular searches"}</span>
+            {searchFocused && searchSuggestions.length > 0 && (<div className="search-suggestions" role="listbox" aria-label={searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}>
+                <span>{searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}</span>
                 {searchSuggestions.map((suggestion) => (<button key={`${suggestion.type}-${suggestion.id}`} onClick={() => selectSearchSuggestion(suggestion)} type="button">
                     <img src={getArtworkUrl(suggestion.cover)} alt=""/>
                     <strong>{suggestion.title}</strong>
@@ -15362,31 +15324,33 @@ function PageContent() {
               </div>)}
           </div>
 
-          <div className="view-toggle" role="group" aria-label="Card view mode">
+          <div className="view-toggle" role="group" aria-label={t("header.cardViewMode")}>
             <button className={displayMode === "grid" ? "active" : ""} onClick={() => setDisplayMode("grid")} type="button">
               <span aria-hidden="true">□</span>
-              Grid View
+              {t("header.gridView")}
             </button>
             <button className={displayMode === "list" ? "active" : ""} onClick={() => setDisplayMode("list")} type="button">
               <span aria-hidden="true">☰</span>
-              List View
+              {t("header.listView")}
             </button>
           </div>
+
+          <LanguageSelector compact className="topbar-language-selector"/>
 
           <div className="notification-wrap" ref={notificationWrapRef}>
             <button className="notification-button" onClick={() => {
             setShowNotificationCenter((value) => !value);
             markNotificationsRead();
-        }} type="button" title="Notifications">
+        }} type="button" title={t("notifications.title")}>
               <Bell size={17}/>
               {unreadNotifications > 0 && <span>{unreadNotifications}</span>}
             </button>
             {showNotificationCenter && (<section className={notifications.length === 0 ? "notification-center notification-empty" : "notification-center"}>
                 <div className="notification-head">
-                  <strong>Notifications</strong>
-                  <button onClick={() => setNotifications([])} type="button">Clear</button>
+                  <strong>{t("notifications.title")}</strong>
+                  <button onClick={() => setNotifications([])} type="button">{t("common.clear")}</button>
                 </div>
-                {notifications.length === 0 ? (<p>No notifications yet.</p>) : notifications.slice(0, 8).map((notification) => (<article key={notification.id}>
+                {notifications.length === 0 ? (<p>{t("notifications.empty")}</p>) : notifications.slice(0, 8).map((notification) => (<article key={notification.id}>
                     <strong>{notification.title}</strong>
                     <span>{notification.body}</span>
                     <small>{formatVideoCreatedAt(notification.createdAt)}</small>
@@ -15398,31 +15362,31 @@ function PageContent() {
             className="upload-btn"
             disabled={uploadsBlockedForCurrentUser}
             onClick={toggleUploadPanel}
-            title={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : "Upload"}
+            title={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : t("upload.title")}
             type="button"
           >
             <Upload size={17}/>
-            Upload
+            {t("upload.title")}
           </button>
 
-          <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title="Artist Dashboard" type="button">
+          <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
             <BarChart3 size={17}/>
-            Artist
+            {t("header.artistShort")}
           </button>
 
-          <button className="dashboard-btn producer-dashboard-btn" onClick={() => handleNav("Producer Dashboard")} title="Producer Dashboard" type="button">
+          <button className="dashboard-btn producer-dashboard-btn" onClick={() => handleNav("Producer Dashboard")} title={t("nav.producerDashboard")} type="button">
             <Disc3 size={17}/>
-            Producer
+            {t("header.producerShort")}
           </button>
 
-          <button className="profile-btn" onClick={openProfileFromHeader} title="Profile" type="button">
+          <button className="profile-btn" onClick={openProfileFromHeader} title={t("nav.profile")} type="button">
             <User size={17}/>
-            Profile
+            {t("nav.profile")}
           </button>
 
-          <button className="logout-btn" onClick={logout} title="Logout" type="button">
+          <button className="logout-btn" onClick={logout} title={t("common.logout")} type="button">
             <LogOut size={17}/>
-            Logout
+            {t("common.logout")}
           </button>
         </header>
 
@@ -15856,7 +15820,7 @@ function PageContent() {
 
             <div className="tabs">
               {TABS.map((tab) => (<button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
-                  {tab}
+                  {translateHomeTab(tab, t)}
                 </button>))}
             </div>
 
@@ -16552,16 +16516,25 @@ function PageContent() {
               </div>
 
               <div>
-                <span className="playlist-kicker">{isPlatformOwner ? "OWNER / ADMIN" : "User Profile"}</span>
+                <span className="playlist-kicker">{isPlatformOwner ? "OWNER / ADMIN" : t("profile.userProfile")}</span>
                 <h2>{getAccountDisplayName() || "Z Music User"}</h2>
                 <p>{activeUser?.email}</p>
 
                 <div className="profile-actions">
                   <button onClick={logout} type="button">
                     <LogOut size={16}/>
-                    Logout
+                    {t("common.logout")}
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <div className="profile-save">
+              <h3>{t("settings.title")}</h3>
+              <p>{t("settings.languageDescription")}</p>
+              <div className="profile-language-row">
+                <span>{t("profile.preferredLanguage")}</span>
+                <LanguageSelector />
               </div>
             </div>
 
@@ -18646,23 +18619,23 @@ function PageContent() {
 
           <div className="player-center">
             <div className="player-controls">
-              <button className={shuffleOn ? "mode-on" : ""} onClick={() => setShuffleOn((value) => !value)} title={shuffleOn ? "Shuffle on" : "Shuffle off"}>
+              <button className={shuffleOn ? "mode-on" : ""} onClick={() => setShuffleOn((value) => !value)} title={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}>
                 <Shuffle size={16}/>
               </button>
 
-              <button onClick={previousSong} title="Previous">
+              <button onClick={previousSong} title={t("player.previous")}>
                 <SkipBack size={17} fill="currentColor"/>
               </button>
 
-              <button className="main-play" onClick={togglePlay} title={isPlaying ? "Pause" : "Play"}>
+              <button className="main-play" onClick={togglePlay} title={isPlaying ? t("player.pause") : t("player.play")}>
                 {isPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
               </button>
 
-              <button onClick={nextSong} title="Next">
+              <button onClick={nextSong} title={t("player.next")}>
                 <SkipForward size={17} fill="currentColor"/>
               </button>
 
-              <button className={repeatMode !== "off" ? "mode-on" : ""} onClick={toggleRepeatMode} title={`Repeat ${repeatMode}`}>
+              <button className={repeatMode !== "off" ? "mode-on" : ""} onClick={toggleRepeatMode} title={t("player.repeatMode", { mode: repeatMode })}>
                 <RotateCcw size={16}/>
                 {repeatMode === "one" && <span className="repeat-one">1</span>}
               </button>
@@ -18672,17 +18645,17 @@ function PageContent() {
               <span className="progress-time">
                 {formatTime(progress)} / {duration ? formatTime(duration) : currentSong.time}
               </span>
-              <input name="playbackProgress" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(progress, duration || progress)} onChange={seekSong} aria-label="Playback progress"/>
+              <input name="playbackProgress" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(progress, duration || progress)} onChange={seekSong} aria-label={t("player.playbackProgress")}/>
             </div>
           </div>
 
           <div className="player-side">
             <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
-              Queue {queueCount}
+              {t("player.queueCount", { count: queueCount })}
             </button>
             <label className="volume">
               <Volume2 size={18}/>
-              <input name="volume" type="range" min="0" max="100" value={Math.round(volume * 100)} onChange={changeVolume} aria-label="Volume"/>
+              <input name="volume" type="range" min="0" max="100" value={Math.round(volume * 100)} onChange={changeVolume} aria-label={t("player.volume")}/>
             </label>
           </div>
         </footer>)}
@@ -18698,6 +18671,8 @@ function PageContent() {
         }} onPause={() => setIsPlaying(false)} onEnded={handleTrackEnded}/>
 
         <style jsx global>{`
+          ${I18N_GLOBAL_STYLES}
+
           * {
             box-sizing: border-box;
           }

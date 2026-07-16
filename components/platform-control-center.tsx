@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Activity, BarChart3, RefreshCw, ShieldAlert, Trash2, Users } from "lucide-react";
 import { FoundingOnboardingAdminPanel } from "./founding-onboarding-admin-panel";
 import { TestAccountCleanupCenter } from "./test-account-cleanup-center";
+import { useTranslation } from "../lib/i18n/provider";
 import type { PlatformControlCenterSnapshot, PlatformHealthLabel } from "../lib/platform-control-center";
 import { healthLabelClass } from "../lib/platform-control-center";
 
@@ -30,10 +31,11 @@ function HealthBadge({ status }: { status: PlatformHealthLabel }) {
 }
 
 function ActivityList({ title, items }: { title: string; items: Array<{ id: string; title: string; detail: string; createdAt: string }> }) {
+    const { t } = useTranslation();
     return (
         <article className="control-center-card">
             <h4>{title}</h4>
-            {items.length === 0 ? <p className="control-center-empty">No recent activity.</p> : (
+            {items.length === 0 ? <p className="control-center-empty">{t("platformControlCenter.noRecentActivity")}</p> : (
                 <ul className="control-activity-list">
                     {items.map((item) => (
                         <li key={item.id}>
@@ -55,6 +57,7 @@ export function PlatformControlCenter({
     advancedTools,
     revenueSection,
 }: PlatformControlCenterProps) {
+    const { t } = useTranslation();
     const [snapshot, setSnapshot] = useState<PlatformControlCenterSnapshot | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -90,14 +93,14 @@ export function PlatformControlCenter({
         <section className="platform-control-center">
             <div className="control-center-header">
                 <div>
-                    <span className="control-center-kicker">Owner Only</span>
-                    <h2>Platform Control Center</h2>
-                    <p>Monitor platform health, founding onboarding, and owner operations from one dashboard.</p>
-                    <small>Last refreshed: {snapshot?.checkedAt ? formatWhen(snapshot.checkedAt) : "Not loaded yet"}</small>
+                    <span className="control-center-kicker">{t("platformControlCenter.ownerOnly")}</span>
+                    <h2>{t("platformControlCenter.title")}</h2>
+                    <p>{t("platformControlCenter.subtitle")}</p>
+                    <small>{t("platformControlCenter.lastRefreshed", { time: snapshot?.checkedAt ? formatWhen(snapshot.checkedAt) : t("platformControlCenter.notLoadedYet") })}</small>
                 </div>
                 <button onClick={() => void loadSnapshot()} type="button" disabled={loading}>
                     <RefreshCw size={15}/>
-                    {loading ? "Refreshing..." : "Refresh Dashboard"}
+                    {loading ? t("platformControlCenter.refreshing") : t("platformControlCenter.refreshDashboard")}
                 </button>
             </div>
 
@@ -105,8 +108,8 @@ export function PlatformControlCenter({
 
             <section className="stability-panel control-center-panel">
                 <div className="panel-title-row">
-                    <h3><BarChart3 size={16}/> Platform Overview</h3>
-                    <span>{overview ? `${formatCount(overview.totalUsers)} total users` : "Loading..."}</span>
+                    <h3><BarChart3 size={16}/> {t("platformControlCenter.platformOverview")}</h3>
+                    <span>{overview ? `${formatCount(overview.totalUsers)} total users` : t("common.loading")}</span>
                 </div>
                 <div className="control-overview-grid">
                     {[
@@ -135,7 +138,7 @@ export function PlatformControlCenter({
 
             <section className="stability-panel control-center-panel">
                 <div className="panel-title-row">
-                    <h3><ShieldAlert size={16}/> System Health</h3>
+                    <h3><ShieldAlert size={16}/> {t("platformControlCenter.systemHealth")}</h3>
                     <span>{snapshot?.health.filter((item) => item.status === "Healthy").length || 0} healthy checks</span>
                 </div>
                 <div className="control-health-grid">
@@ -153,7 +156,7 @@ export function PlatformControlCenter({
 
             <section className="stability-panel control-center-panel">
                 <div className="panel-title-row">
-                    <h3><Activity size={16}/> Recent Activity</h3>
+                    <h3><Activity size={16}/> {t("platformControlCenter.recentActivity")}</h3>
                     <span>{snapshot?.flaggedUploadCount || 0} flagged uploads</span>
                 </div>
                 <div className="control-activity-grid">
@@ -169,8 +172,8 @@ export function PlatformControlCenter({
 
             <section className="stability-panel control-center-panel" id="test-account-cleanup-center">
                 <div className="panel-title-row">
-                    <h3><Trash2 size={16}/> Test Account Cleanup Center</h3>
-                    <span>Owner-only review and safe deletion of disposable test accounts</span>
+                    <h3><Trash2 size={16}/> {t("testAccountCleanup.title")}</h3>
+                    <span>{t("testAccountCleanup.subtitle")}</span>
                 </div>
                 <TestAccountCleanupCenter
                     userId={userId}
@@ -181,8 +184,8 @@ export function PlatformControlCenter({
 
             <section className="stability-panel control-center-panel" id="founding-onboarding-controls">
                 <div className="panel-title-row">
-                    <h3><Users size={16}/> Founding Onboarding Controls</h3>
-                    <span>Review pending members and manage invites</span>
+                    <h3><Users size={16}/> {t("foundingOnboarding.title")}</h3>
+                    <span>{t("foundingOnboarding.subtitle")}</span>
                 </div>
                 <FoundingOnboardingAdminPanel
                     userId={userId}
