@@ -19,8 +19,9 @@ export const I18N_GLOBAL_STYLES = `
     flex-shrink: 0;
   }
 
+  /* Keep the trigger below the portaled panel/backdrop so option clicks are not intercepted. */
   .language-selector-open {
-    z-index: 10060;
+    z-index: 140;
   }
 
   .language-selector-trigger {
@@ -107,7 +108,7 @@ export const I18N_GLOBAL_STYLES = `
     margin: 0;
     padding: 0;
     background: rgba(2, 6, 23, 0.12);
-    z-index: 10050;
+    z-index: 10060;
     cursor: default;
     pointer-events: auto;
     opacity: 1;
@@ -126,7 +127,7 @@ export const I18N_GLOBAL_STYLES = `
     border-radius: 10px;
     background: #071631;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-    z-index: 10051;
+    z-index: 10061;
     pointer-events: auto;
   }
 
@@ -135,6 +136,7 @@ export const I18N_GLOBAL_STYLES = `
     right: auto;
     top: auto;
     margin: 0;
+    z-index: 10061;
   }
 
   .language-selector-search {

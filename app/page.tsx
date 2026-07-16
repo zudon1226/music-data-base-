@@ -19128,6 +19128,9 @@ function PageContent() {
           .content {
             margin-left: 188px;
             width: calc(100% - 188px);
+            max-width: calc(100vw - 188px);
+            min-width: 0;
+            overflow-x: hidden;
             padding: 14px 14px 154px;
           }
 
@@ -19137,12 +19140,15 @@ function PageContent() {
 
           .topbar {
             display: grid;
-            grid-template-columns: minmax(240px, 0.75fr) minmax(180px, 0.58fr) repeat(5, minmax(96px, 1fr));
-            gap: 10px;
+            grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.7fr) auto repeat(5, minmax(0, auto));
+            gap: 8px;
             align-items: center;
             position: sticky;
             top: 0;
             z-index: 5;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
             background: rgba(2, 6, 23, 0.92);
             backdrop-filter: blur(8px);
             padding-bottom: 10px;
@@ -25883,10 +25889,27 @@ function PageContent() {
             min-width: 0;
           }
 
+          @media (max-width: 1180px) {
+            .topbar {
+              grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.75fr) auto repeat(5, minmax(0, auto));
+              gap: 6px;
+            }
+
+            .upload-btn,
+            .profile-btn,
+            .dashboard-btn,
+            .logout-btn,
+            .notification-button,
+            .view-toggle button {
+              font-size: 12px;
+              padding: 0 8px;
+            }
+          }
+
           @media (max-width: 980px) {
             .topbar {
-              grid-template-columns: minmax(220px, 1fr) minmax(170px, 0.85fr) repeat(4, minmax(92px, 1fr));
-              gap: 8px;
+              grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) auto repeat(5, minmax(0, auto));
+              gap: 6px;
             }
 
             .upload-btn,
