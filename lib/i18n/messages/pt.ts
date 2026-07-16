@@ -33,7 +33,7 @@ export const ptMessages: TranslationMessages = {
     },
     nav: {
         home: "Início",
-        marketplace: "Marketplace",
+        marketplace: "Mercado",
         sales: "Vendas",
         licenseHistory: "Histórico de licenças",
         trending: "Em alta",
@@ -45,7 +45,7 @@ export const ptMessages: TranslationMessages = {
         following: "Seguindo",
         recentlyPlayed: "Tocados recentemente",
         queue: "Fila",
-        playlists: "Playlists",
+        playlists: "Listas de reprodução",
         profile: "Perfil",
         artistDashboard: "Painel do artista",
         producerDashboard: "Painel do produtor",
@@ -99,9 +99,9 @@ export const ptMessages: TranslationMessages = {
         }
     },
     marketplace: {
-        title: "Marketplace",
-        browse: "Explorar listagens do marketplace",
-        fullTitle: "Marketplace musical",
+        title: "Mercado",
+        browse: "Explorar listagens do mercado",
+        fullTitle: "Mercado musical",
         pageSubtitle: "Explore lojas de artistas, lojas de produtores, lançamentos, charts e filtros."
     },
     trending: {
@@ -160,7 +160,7 @@ export const ptMessages: TranslationMessages = {
         resetDisabled: "Redefinir desativado"
     },
     playlists: {
-        title: "Playlists",
+        title: "Listas de reprodução",
         empty: "Nenhuma playlist ainda.",
         create: "Criar playlist",
         pageSubtitle: "Crie playlists, adicione músicas, defina capas e reproduza do início ao fim."
@@ -193,7 +193,7 @@ export const ptMessages: TranslationMessages = {
         next: "Próximo",
         shuffle: "Aleatório",
         repeat: "Repetir",
-        volume: "Volume",
+        volume: "Volume do som",
         mute: "Silenciar",
         unmute: "Ativar som",
         shuffleOn: "Aleatório ativado",

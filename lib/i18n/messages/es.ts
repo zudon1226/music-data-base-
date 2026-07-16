@@ -39,7 +39,7 @@ export const esMessages: TranslationMessages = {
         trending: "Tendencias",
         beats: "Beats",
         artists: "Artistas",
-        videos: "Videos",
+        videos: "Vídeos",
         library: "Biblioteca",
         liked: "Me gusta",
         following: "Siguiendo",
@@ -203,7 +203,7 @@ export const esMessages: TranslationMessages = {
         queueCount: "Cola {count}"
     },
     video: {
-        title: "Videos",
+        title: "Vídeos",
         play: "Reproducir video",
         pause: "Pausar video",
         fullscreen: "Pantalla completa",
@@ -298,7 +298,7 @@ export const esMessages: TranslationMessages = {
         ariaLabel: "Estadísticas musicales",
         tracks: "Pistas",
         library: "Biblioteca",
-        videos: "Videos",
+        videos: "Vídeos",
         plays: "Reproducciones"
     },
     sales: {

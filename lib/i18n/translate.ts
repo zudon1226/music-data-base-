@@ -4,6 +4,11 @@ import { esMessages } from "./messages/es";
 import { frMessages } from "./messages/fr";
 import { htMessages } from "./messages/ht";
 import { ptMessages } from "./messages/pt";
+import { deMessages } from "./messages/de";
+import { itMessages } from "./messages/it";
+import { nlMessages } from "./messages/nl";
+import { arMessages } from "./messages/ar";
+import { heMessages } from "./messages/he";
 import { COMPLETE_LOCALES, DEFAULT_LOCALE, normalizeLocale } from "./registry";
 
 const completeMessages: Record<string, TranslationMessages> = {
@@ -12,6 +17,11 @@ const completeMessages: Record<string, TranslationMessages> = {
     fr: frMessages,
     ht: htMessages,
     pt: ptMessages,
+    de: deMessages,
+    it: itMessages,
+    nl: nlMessages,
+    ar: arMessages,
+    he: heMessages,
 };
 
 export function getMessagesForLocale(locale: string): TranslationMessages {

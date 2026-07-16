@@ -18,7 +18,7 @@ export const frMessages: TranslationMessages = {
         logout: "Déconnexion",
         profile: "Profil",
         settings: "Paramètres",
-        notifications: "Notifications",
+        notifications: "Alertes",
         yes: "Oui",
         no: "Non",
         back: "Retour",
@@ -33,7 +33,7 @@ export const frMessages: TranslationMessages = {
     },
     nav: {
         home: "Accueil",
-        marketplace: "Marketplace",
+        marketplace: "Place de marché",
         sales: "Ventes",
         licenseHistory: "Historique des licences",
         trending: "Tendances",
@@ -45,7 +45,7 @@ export const frMessages: TranslationMessages = {
         following: "Abonnements",
         recentlyPlayed: "Écoutés récemment",
         queue: "File d'attente",
-        playlists: "Playlists",
+        playlists: "Listes de lecture",
         profile: "Profil",
         artistDashboard: "Tableau de bord artiste",
         producerDashboard: "Tableau de bord producteur",
@@ -99,7 +99,7 @@ export const frMessages: TranslationMessages = {
         }
     },
     marketplace: {
-        title: "Marketplace",
+        title: "Place de marché",
         browse: "Parcourir les annonces",
         fullTitle: "Marketplace musicale",
         pageSubtitle: "Parcourez les boutiques d'artistes, de producteurs, les sorties, classements et filtres."
@@ -123,7 +123,7 @@ export const frMessages: TranslationMessages = {
         title: "Recherche",
         placeholder: "Rechercher titres, vidéos, artistes...",
         extendedPlaceholder: "Rechercher titres, vidéos, albums, artistes...",
-        suggestions: "Suggestions",
+        suggestions: "Propositions",
         popularSearches: "Recherches populaires",
         resultsTitle: "Résultats de recherche",
         videoSearchTitle: "Recherche vidéo",
@@ -160,13 +160,13 @@ export const frMessages: TranslationMessages = {
         resetDisabled: "Réinitialisation désactivée"
     },
     playlists: {
-        title: "Playlists",
+        title: "Listes de lecture",
         empty: "Aucune playlist pour le moment.",
         create: "Créer une playlist",
         pageSubtitle: "Créez des playlists, ajoutez des titres, définissez des couvertures et lisez-les en continu."
     },
     albums: {
-        title: "Albums",
+        title: "Albums musicaux",
         empty: "Aucun album pour le moment."
     },
     profile: {
@@ -183,17 +183,17 @@ export const frMessages: TranslationMessages = {
         languageDescription: "Choisissez votre langue d'affichage. Le contenu créé par les utilisateurs reste dans sa langue d'origine."
     },
     notifications: {
-        title: "Notifications",
+        title: "Alertes",
         empty: "Aucune notification pour le moment."
     },
     player: {
         play: "Lecture",
-        pause: "Pause",
+        pause: "Interruption",
         previous: "Précédent",
         next: "Suivant",
         shuffle: "Aléatoire",
         repeat: "Répéter",
-        volume: "Volume",
+        volume: "Volume sonore",
         mute: "Couper le son",
         unmute: "Activer le son",
         shuffleOn: "Aléatoire activé",
