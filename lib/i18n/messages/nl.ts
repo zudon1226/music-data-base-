@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const nlMessages: TranslationMessages = {
+export const nlMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "Opslaan",

@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const zhTWMessages: TranslationMessages = {
+export const zhTWMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "儲存",

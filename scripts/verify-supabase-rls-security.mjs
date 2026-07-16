@@ -41,10 +41,11 @@ const mutationMode = env.RLS_VERIFY_MUTATIONS === "1";
 const runToken = `${Date.now()}-${randomBytes(5).toString("hex")}`;
 const publicReadTables = new Set([
   "songs", "videos", "artist_profiles", "producer_profiles", "producer_beats",
+  "ringtone_products", "ringtone_reviews",
 ]);
-const allBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'licenses', 'downloads', 'user-media-queues'";
-const publicBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats'";
-const privateBuckets = "'licenses', 'downloads', 'user-media-queues'";
+const allBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-previews', 'ringtone-downloads'";
+const publicBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'ringtone-previews'";
+const privateBuckets = "'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-downloads'";
 const owner = "(storage.foldername(name))[1] = auth.uid()::text";
 const admin = "public.is_platform_admin()";
 const storagePolicySpecifications = new Map([
@@ -703,6 +704,8 @@ async function storagePolicyProbes({ anon, userA, userB, platformAdmin, service 
   }
 
   const buckets = new Set((listed.data || []).map((bucket) => bucket.id));
+  // Ringtone buckets are certified by scripts/verify-ringtone-foundation.mjs.
+  // Keep them in boundary policy definitions, but out of this probe loop.
   const requiredPublicBuckets = ["songs", "videos", "covers", "albums", "producer-beats"];
   const requiredPrivateBuckets = ["licenses", "downloads"];
   const optionalPrivateBuckets = ["user-media-queues"];
@@ -719,6 +722,7 @@ async function storagePolicyProbes({ anon, userA, userB, platformAdmin, service 
     covers: "image/png",
     albums: "application/octet-stream",
     "producer-beats": "audio/mpeg",
+    "ringtone-previews": "audio/mpeg",
   };
 
   if (!publicBuckets.length) {
@@ -809,11 +813,15 @@ async function storagePolicyProbes({ anon, userA, userB, platformAdmin, service 
     licenses: "application/pdf",
     downloads: "application/octet-stream",
     "user-media-queues": "application/json",
+    "ringtone-source": "audio/mpeg",
+    "ringtone-downloads": "audio/mpeg",
   };
   const privateExtensions = {
     licenses: "pdf",
     downloads: "bin",
     "user-media-queues": "json",
+    "ringtone-source": "mp3",
+    "ringtone-downloads": "mp3",
   };
 
   for (const privateBucket of privateBuckets) {

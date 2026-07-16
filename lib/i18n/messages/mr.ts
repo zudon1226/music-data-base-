@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const mrMessages: TranslationMessages = {
+export const mrMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "जतन करा",

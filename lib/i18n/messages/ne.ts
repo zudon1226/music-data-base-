@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const neMessages: TranslationMessages = {
+export const neMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "बचत गर्नुहोस्",

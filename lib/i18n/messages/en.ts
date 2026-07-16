@@ -265,6 +265,36 @@ export const enMessages = {
     formatting: {
         currencyLabel: "Price",
     },
+    ringtones: {
+        title: "Ringtones",
+        marketplace: "Ringtone Marketplace",
+        create: "Create Ringtone",
+        upload: "Upload Ringtone",
+        createFromSong: "Create From Song",
+        preview: "Preview",
+        purchase: "Purchase",
+        downloadForIphone: "Download for iPhone",
+        downloadForAndroid: "Download for Android",
+        installationInstructions: "Installation Instructions",
+        clipStart: "Clip Start",
+        duration: "Duration",
+        price: "Price",
+        draft: "Draft",
+        pendingReview: "Pending Review",
+        approved: "Approved",
+        rejected: "Rejected",
+        published: "Published",
+        myRingtones: "My Ringtones",
+        sales: "Ringtone Sales",
+        earnings: "Ringtone Earnings",
+        processing: "Processing",
+        suspended: "Suspended",
+        archived: "Archived",
+        ownershipConfirmation: "I confirm I own or am authorized to use this audio",
+        iphoneInstallHint: "Install using the Files app and GarageBand. This web app cannot set an iPhone ringtone directly.",
+        androidInstallHint: "Save the MP3 and assign it as a ringtone in your Android sound settings.",
+        maxDurationHint: "Ringtones must be between 15 and 30 seconds.",
+    },
 } as const;
 
 type DeepStringMap<T> = {
@@ -272,6 +302,14 @@ type DeepStringMap<T> = {
 };
 
 export type TranslationMessages = DeepStringMap<typeof enMessages>;
+
+/**
+ * Non-English dictionaries may omit Phase 1 ringtone foundation keys.
+ * Runtime translation falls back to English for any missing ringtone.* path.
+ */
+export type LocaleMessageDictionary = Omit<TranslationMessages, "ringtones"> & {
+    ringtones?: TranslationMessages["ringtones"];
+};
 
 type NestedKeyOf<T, Prefix extends string = ""> = T extends string
     ? Prefix extends "" ? never : Prefix

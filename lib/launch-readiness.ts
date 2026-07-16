@@ -49,9 +49,25 @@ export const REQUIRED_LAUNCH_TABLES = [
   "platform_incidents",
   "release_notes",
   "user_feedback",
+  "ringtone_products",
+  "ringtone_purchases",
+  "ringtone_downloads",
+  "ringtone_favorites",
+  "ringtone_reviews",
 ];
 
-export const EXPECTED_STORAGE_BUCKETS = ["songs", "videos", "covers", "albums", "producer-beats", "licenses", "downloads"];
+export const EXPECTED_STORAGE_BUCKETS = [
+  "songs",
+  "videos",
+  "covers",
+  "albums",
+  "producer-beats",
+  "licenses",
+  "downloads",
+  "ringtone-source",
+  "ringtone-previews",
+  "ringtone-downloads",
+];
 
 export const PUBLIC_LAUNCH_ROUTES = [
   {

@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const msMessages: TranslationMessages = {
+export const msMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "Simpan",

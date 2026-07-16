@@ -1,4 +1,4 @@
-import type { TranslationKey, TranslationMessages } from "./messages/en";
+import type { LocaleMessageDictionary, TranslationKey, TranslationMessages } from "./messages/en";
 import { enMessages } from "./messages/en";
 import { esMessages } from "./messages/es";
 import { frMessages } from "./messages/fr";
@@ -58,7 +58,7 @@ import { zuMessages } from "./messages/zu";
 import { afMessages } from "./messages/af";
 import { COMPLETE_LOCALES, DEFAULT_LOCALE, normalizeLocale } from "./registry";
 
-const completeMessages: Record<string, TranslationMessages> = {
+const completeMessages: Record<string, LocaleMessageDictionary> = {
     en: enMessages,
     es: esMessages,
     fr: frMessages,
@@ -120,13 +120,18 @@ const completeMessages: Record<string, TranslationMessages> = {
 
 export function getMessagesForLocale(locale: string): TranslationMessages {
     const normalized = normalizeLocale(locale);
+    if (normalized === "en") return enMessages;
     if (COMPLETE_LOCALES.has(normalized) && completeMessages[normalized]) {
-        return completeMessages[normalized];
+        const localeMessages = completeMessages[normalized];
+        return {
+            ...localeMessages,
+            ringtones: localeMessages.ringtones || enMessages.ringtones,
+        };
     }
     return enMessages;
 }
 
-function resolvePath(messages: TranslationMessages, key: string): string | undefined {
+function resolvePath(messages: TranslationMessages | LocaleMessageDictionary, key: string): string | undefined {
     const parts = key.split(".");
     let current: unknown = messages;
     for (const part of parts) {

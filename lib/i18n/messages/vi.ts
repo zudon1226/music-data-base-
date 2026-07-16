@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const viMessages: TranslationMessages = {
+export const viMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "Lưu",

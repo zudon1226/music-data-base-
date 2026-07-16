@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const koMessages: TranslationMessages = {
+export const koMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "저장",

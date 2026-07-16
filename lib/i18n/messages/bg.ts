@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const bgMessages: TranslationMessages = {
+export const bgMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "Запази",

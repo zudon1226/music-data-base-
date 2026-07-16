@@ -1,6 +1,6 @@
-import type { TranslationMessages } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
-export const igMessages: TranslationMessages = {
+export const igMessages: LocaleMessageDictionary = {
     common: {
         appName: "Music Data Base",
         save: "Chekwaa",
