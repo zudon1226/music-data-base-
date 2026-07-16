@@ -14,8 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidenceDir = path.join(root, "tmp");
 mkdirSync(evidenceDir, { recursive: true });
 const results = [];
-const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el"];
-const phaseCLocales = ["tr", "ru", "uk", "pl", "ro", "el"];
+const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu"];
+const phaseCLocales = ["sv", "no", "da", "fi", "cs", "hu"];
 const LOCALE_STORAGE_KEY = "mdb.preferredLanguage";
 const LOCALE_COOKIE_KEY = "mdb_locale";
 
@@ -432,7 +432,7 @@ async function main() {
     record("complete locales flagged", completeLocales.every((code) => registry.find((language) => language.code === code)?.translationComplete), completeLocales.join(", "));
 
     const incomplete = registry.filter((language) => !language.translationComplete).map((language) => language.code);
-    record("fallback locales registered", incomplete.length === 36, `${incomplete.length} fallback languages`);
+    record("fallback locales registered", incomplete.length === 30, `${incomplete.length} fallback languages`);
 
     const enMessages = parseExportObject(path.join(root, "lib/i18n/messages/en.ts"), "enMessages");
     const enFlat = flattenMessages(enMessages);
@@ -552,20 +552,20 @@ async function main() {
     for (const locale of phaseCLocales) {
         const entry = registry.find((language) => language.code === locale);
         record(`selector native name ${locale}`, entry?.nativeName === {
-            tr: "Türkçe",
-            ru: "Русский",
-            uk: "Українська",
-            pl: "Polski",
-            ro: "Română",
-            el: "Ελληνικά",
+            sv: "Svenska",
+            no: "Norsk",
+            da: "Dansk",
+            fi: "Suomi",
+            cs: "Čeština",
+            hu: "Magyar",
         }[locale], entry?.nativeName || "");
         record(`selector compact code ${locale}`, locale.split("-")[0].toUpperCase() === {
-            tr: "TR",
-            ru: "RU",
-            uk: "UK",
-            pl: "PL",
-            ro: "RO",
-            el: "EL",
+            sv: "SV",
+            no: "NO",
+            da: "DA",
+            fi: "FI",
+            cs: "CS",
+            hu: "HU",
         }[locale], locale.split("-")[0].toUpperCase());
     }
 
