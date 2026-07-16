@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { I18nProvider } from "../lib/i18n/provider";
+import { I18N_GLOBAL_STYLES } from "../lib/i18n/i18n-styles";
 import { useDesktopAuthState } from "../lib/desktop-auth-state";
 
 type AppI18nShellProps = {
@@ -45,6 +46,7 @@ export function AppI18nShell({ children }: AppI18nShellProps) {
             accessToken={authSession?.access_token || ""}
             profileLocale={profileLocale}
         >
+            <style dangerouslySetInnerHTML={{ __html: I18N_GLOBAL_STYLES }}/>
             {children}
         </I18nProvider>
     );

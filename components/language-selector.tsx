@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe2, Search } from "lucide-react";
+import { ChevronDown, Globe2, Search } from "lucide-react";
 import {
     useCallback,
     useEffect,
@@ -55,6 +55,12 @@ function measurePanelPosition(trigger: HTMLElement, panelWidth: number, maxPanel
     }
 
     return { top, left, width, maxHeight };
+}
+
+function shortLocaleCode(code: string) {
+    const normalized = normalizeLocale(code);
+    const base = normalized.split("-")[0];
+    return base.toUpperCase();
 }
 
 export function LanguageSelector({ compact = false, className = "" }: LanguageSelectorProps) {
@@ -293,14 +299,24 @@ export function LanguageSelector({ compact = false, className = "" }: LanguageSe
             <button
                 ref={triggerRef}
                 type="button"
-                className="language-selector-trigger"
+                className={`language-selector-trigger${open ? " is-open" : ""}`}
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                aria-label={t("languageSelector.title")}
+                aria-controls={open ? listId : undefined}
+                aria-label="Select language"
                 onClick={onTriggerClick}
             >
-                <Globe2 size={16}/>
-                {!compact ? <span>{activeLanguage?.nativeName || locale}</span> : null}
+                <Globe2 size={16} aria-hidden="true" className="language-selector-globe"/>
+                <span className="language-selector-label language-selector-label-desktop" aria-hidden="true">
+                    {activeLanguage?.nativeName || locale}
+                </span>
+                <span className="language-selector-label language-selector-label-mobile" aria-hidden="true">
+                    {shortLocaleCode(locale)}
+                </span>
+                <ChevronDown size={14} aria-hidden="true" className="language-selector-chevron"/>
+                <span className="sr-only">
+                    {t("languageSelector.currentLanguage", { language: activeLanguage?.nativeName || locale })}
+                </span>
             </button>
             {panel}
         </div>
