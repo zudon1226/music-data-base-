@@ -14,8 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidenceDir = path.join(root, "tmp");
 mkdirSync(evidenceDir, { recursive: true });
 const results = [];
-const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq"];
-const phaseCLocales = ["bg", "sr", "hr", "bs", "sq"];
+const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl"];
+const phaseCLocales = ["et", "lv", "lt", "sk", "sl"];
 const LOCALE_STORAGE_KEY = "mdb.preferredLanguage";
 const LOCALE_COOKIE_KEY = "mdb_locale";
 
@@ -427,7 +427,7 @@ async function main() {
 
     const registry = parseRegistryLanguages(path.join(root, "lib/i18n/registry.ts"));
     const supportedCodes = new Set(registry.map((language) => language.code));
-    record("language registry count", registry.length === 52, `${registry.length} languages`);
+    record("language registry count", registry.length === 57, `${registry.length} languages`);
     record("language registry sorted metadata", registry.every((language) => language.code && language.nativeName), "native names present");
     record("complete locales flagged", completeLocales.every((code) => registry.find((language) => language.code === code)?.translationComplete), completeLocales.join(", "));
 
@@ -552,18 +552,18 @@ async function main() {
     for (const locale of phaseCLocales) {
         const entry = registry.find((language) => language.code === locale);
         record(`selector native name ${locale}`, entry?.nativeName === {
-            bg: "Български",
-            sr: "Srpski",
-            hr: "Hrvatski",
-            bs: "Bosanski",
-            sq: "Shqip",
+            et: "Eesti",
+            lv: "Latviešu",
+            lt: "Lietuvių",
+            sk: "Slovenčina",
+            sl: "Slovenščina",
         }[locale], entry?.nativeName || "");
         record(`selector compact code ${locale}`, locale.split("-")[0].toUpperCase() === {
-            bg: "BG",
-            sr: "SR",
-            hr: "HR",
-            bs: "BS",
-            sq: "SQ",
+            et: "ET",
+            lv: "LV",
+            lt: "LT",
+            sk: "SK",
+            sl: "SL",
         }[locale], locale.split("-")[0].toUpperCase());
     }
 

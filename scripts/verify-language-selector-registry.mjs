@@ -242,7 +242,7 @@ async function main() {
     const duplicates = codes.filter((code, index) => codes.indexOf(code) !== index);
     const results = [];
 
-    results.push({ name: "registry count", ok: registry.length === 52, detail: `${registry.length}` });
+    results.push({ name: "registry count", ok: registry.length === 57, detail: `${registry.length}` });
     results.push({ name: "duplicate locale codes", ok: duplicates.length === 0, detail: duplicates.join(", ") || "none" });
     results.push({ name: "secret exposure scan", ok: scanForSecrets().length === 0, detail: "clean" });
     results.push({ name: "server reachable", ok: await isServerUp(baseUrl), detail: baseUrl });

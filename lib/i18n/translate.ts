@@ -26,6 +26,11 @@ import { srMessages } from "./messages/sr";
 import { hrMessages } from "./messages/hr";
 import { bsMessages } from "./messages/bs";
 import { sqMessages } from "./messages/sq";
+import { etMessages } from "./messages/et";
+import { lvMessages } from "./messages/lv";
+import { ltMessages } from "./messages/lt";
+import { skMessages } from "./messages/sk";
+import { slMessages } from "./messages/sl";
 import { COMPLETE_LOCALES, DEFAULT_LOCALE, normalizeLocale } from "./registry";
 
 const completeMessages: Record<string, TranslationMessages> = {
@@ -56,6 +61,11 @@ const completeMessages: Record<string, TranslationMessages> = {
     hr: hrMessages,
     bs: bsMessages,
     sq: sqMessages,
+    et: etMessages,
+    lv: lvMessages,
+    lt: ltMessages,
+    sk: skMessages,
+    sl: slMessages,
 };
 
 export function getMessagesForLocale(locale: string): TranslationMessages {
