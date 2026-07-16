@@ -46,6 +46,16 @@ import { zhTWMessages } from "./messages/zh-TW";
 import { jaMessages } from "./messages/ja";
 import { koMessages } from "./messages/ko";
 import { thMessages } from "./messages/th";
+import { idMessages } from "./messages/id";
+import { msMessages } from "./messages/ms";
+import { filMessages } from "./messages/fil";
+import { swMessages } from "./messages/sw";
+import { amMessages } from "./messages/am";
+import { soMessages } from "./messages/so";
+import { yoMessages } from "./messages/yo";
+import { igMessages } from "./messages/ig";
+import { zuMessages } from "./messages/zu";
+import { afMessages } from "./messages/af";
 import { COMPLETE_LOCALES, DEFAULT_LOCALE, normalizeLocale } from "./registry";
 
 const completeMessages: Record<string, TranslationMessages> = {
@@ -96,6 +106,16 @@ const completeMessages: Record<string, TranslationMessages> = {
     ja: jaMessages,
     ko: koMessages,
     th: thMessages,
+    id: idMessages,
+    ms: msMessages,
+    fil: filMessages,
+    sw: swMessages,
+    am: amMessages,
+    so: soMessages,
+    yo: yoMessages,
+    ig: igMessages,
+    zu: zuMessages,
+    af: afMessages,
 };
 
 export function getMessagesForLocale(locale: string): TranslationMessages {

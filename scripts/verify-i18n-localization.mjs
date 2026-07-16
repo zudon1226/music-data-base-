@@ -14,8 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidenceDir = path.join(root, "tmp");
 mkdirSync(evidenceDir, { recursive: true });
 const results = [];
-const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl", "hi", "bn", "pa", "ur", "gu", "ta", "te", "mr", "ne", "vi", "zh-CN", "zh-TW", "ja", "ko", "th"];
-const phaseCLocales = ["zh-CN", "zh-TW", "ja", "ko", "th"];
+const completeLocales = ["en", "es", "fr", "ht", "pt", "de", "it", "nl", "ar", "he", "tr", "ru", "uk", "pl", "ro", "el", "sv", "no", "da", "fi", "cs", "hu", "bg", "sr", "hr", "bs", "sq", "et", "lv", "lt", "sk", "sl", "hi", "bn", "pa", "ur", "gu", "ta", "te", "mr", "ne", "vi", "zh-CN", "zh-TW", "ja", "ko", "th", "id", "ms", "fil", "sw", "am", "so", "yo", "ig", "zu", "af"];
+const phaseCLocales = ["id", "ms", "fil", "sw", "am", "so", "yo", "ig", "zu", "af"];
 
 function messagesExportName(locale) {
     if (locale === "zh-CN") return "zhCNMessages";
@@ -83,6 +83,7 @@ async function runBrowserLayoutTests(baseUrl, localeMessages, ownerSessionPayloa
     const browserLocales = ["de", "it", "nl", ...rtlLocales, ...phaseCLocales.filter((code) => !rtlLocales.includes(code))];
     const viewports = [
         { label: "1440px", options: { viewport: { width: 1440, height: 900 } } },
+        { label: "1280px", options: { viewport: { width: 1280, height: 800 } } },
         { label: "1024px", options: { viewport: { width: 1024, height: 768 } } },
         { label: "768px", options: { viewport: { width: 768, height: 1024 } } },
         { label: "iPhone14-portrait", options: { ...devices["iPhone 14"] } },
@@ -468,7 +469,11 @@ async function main() {
     record("complete locales flagged", completeLocales.every((code) => registry.find((language) => language.code === code)?.translationComplete), completeLocales.join(", "));
 
     const incomplete = registry.filter((language) => !language.translationComplete).map((language) => language.code);
-    record("fallback locales registered", incomplete.length === 10, `${incomplete.length} fallback languages`);
+    record("fallback locales registered", incomplete.length === 0, incomplete.length ? incomplete.join(", ") : "0 fallback languages");
+
+    const registryCodes = registry.map((language) => language.code);
+    const duplicateCodes = registryCodes.filter((code, index) => registryCodes.indexOf(code) !== index);
+    record("duplicate locale audit", duplicateCodes.length === 0, duplicateCodes.length ? duplicateCodes.join(", ") : "no duplicate locales");
 
     const enMessages = parseExportObject(path.join(root, "lib/i18n/messages/en.ts"), "enMessages");
     const enFlat = flattenMessages(enMessages);
@@ -590,22 +595,35 @@ async function main() {
         record(`compact count formatting ${locale}`, /1|2|M|K|м|k|тыс|mil|m|লা|ਲੱਖ|لاکھ|લાખ|万|萬|억|만|พัน|ล้าน/i.test(compactValue) || hasDigits(compactValue), compactValue);
     }
 
+    const expectedNativeNames = {
+        id: "Bahasa Indonesia",
+        ms: "Bahasa Melayu",
+        fil: "Filipino",
+        sw: "Kiswahili",
+        am: "አማርኛ",
+        so: "Soomaali",
+        yo: "Yorùbá",
+        ig: "Igbo",
+        zu: "isiZulu",
+        af: "Afrikaans",
+    };
+    const expectedCompactCodes = {
+        id: "ID",
+        ms: "MS",
+        fil: "FIL",
+        sw: "SW",
+        am: "AM",
+        so: "SO",
+        yo: "YO",
+        ig: "IG",
+        zu: "ZU",
+        af: "AF",
+    };
     for (const locale of phaseCLocales) {
         const entry = registry.find((language) => language.code === locale);
-        record(`selector native name ${locale}`, entry?.nativeName === {
-            "zh-CN": "简体中文",
-            "zh-TW": "繁體中文",
-            ja: "日本語",
-            ko: "한국어",
-            th: "ไทย",
-        }[locale], entry?.nativeName || "");
-        record(`selector compact code ${locale}`, locale.split("-")[0].toUpperCase() === {
-            "zh-CN": "ZH",
-            "zh-TW": "ZH",
-            ja: "JA",
-            ko: "KO",
-            th: "TH",
-        }[locale], locale.split("-")[0].toUpperCase());
+        record(`selector native name ${locale}`, entry?.nativeName === expectedNativeNames[locale], entry?.nativeName || "");
+        const compact = locale === "fil" ? "FIL" : locale.split("-")[0].toUpperCase();
+        record(`selector compact code ${locale}`, compact === expectedCompactCodes[locale], compact);
     }
 
     const rtlLanguages = registry.filter((language) => language.rtl).map((language) => language.code);
