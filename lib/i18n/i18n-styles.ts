@@ -255,10 +255,6 @@ export const I18N_GLOBAL_STYLES = `
   }
 
   @media (max-width: 900px) {
-    .topbar .language-selector {
-      order: -1;
-    }
-
     .language-selector-label-desktop {
       display: none;
     }

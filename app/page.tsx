@@ -3524,6 +3524,7 @@ function PageContent() {
     const [search, setSearch] = useState("");
     const [searchInput, setSearchInput] = useState("");
     const [searchFocused, setSearchFocused] = useState(false);
+    const [compactSearchPlaceholder, setCompactSearchPlaceholder] = useState(false);
     const [marketplaceFilters, setMarketplaceFilters] = useState<MarketplaceFilters>({
         genre: "All Genres",
         artist: "All Artists",
@@ -3624,6 +3625,14 @@ function PageContent() {
         syncProtectedActionsReady();
         return subscribeDesktopProtectedActionsReady(syncProtectedActionsReady);
     }, [authGateTick, authSessionInitialized, isAuthenticated]);
+    useEffect(() => {
+        if (typeof window === "undefined") return undefined;
+        const media = window.matchMedia("(max-width: 1024px)");
+        const update = () => setCompactSearchPlaceholder(media.matches);
+        update();
+        media.addEventListener("change", update);
+        return () => media.removeEventListener("change", update);
+    }, []);
     const desktopActionFetch = useCallback(async (path: string, init?: Parameters<typeof desktopRuntime.fetch>[1]) => {
         const requireAuth = init?.requireAuth !== false;
         if (requireAuth && !isDesktopProtectedActionsEnabled()) {
@@ -15312,8 +15321,9 @@ function PageContent() {
           <div className="search-wrap">
             <label className="search-box">
               <Search size={18}/>
-              <input name="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)} placeholder={t("search.extendedPlaceholder")}/>
+              <input name="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)} placeholder={compactSearchPlaceholder ? t("search.placeholder") : t("search.extendedPlaceholder")}/>
             </label>
+            <LanguageSelector compact className="topbar-language-selector"/>
             {searchFocused && searchSuggestions.length > 0 && (<div className="search-suggestions" role="listbox" aria-label={searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}>
                 <span>{searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}</span>
                 {searchSuggestions.map((suggestion) => (<button key={`${suggestion.type}-${suggestion.id}`} onClick={() => selectSearchSuggestion(suggestion)} type="button">
@@ -15334,8 +15344,6 @@ function PageContent() {
               {t("header.listView")}
             </button>
           </div>
-
-          <LanguageSelector compact className="topbar-language-selector"/>
 
           <div className="notification-wrap" ref={notificationWrapRef}>
             <button className="notification-button" onClick={() => {
@@ -19128,7 +19136,7 @@ function PageContent() {
 
           .topbar {
             display: grid;
-            grid-template-columns: minmax(190px, 0.72fr) minmax(180px, 0.58fr) 44px repeat(5, minmax(96px, 1fr));
+            grid-template-columns: minmax(240px, 0.75fr) minmax(180px, 0.58fr) repeat(5, minmax(96px, 1fr));
             gap: 10px;
             align-items: center;
             position: sticky;
@@ -19143,6 +19151,18 @@ function PageContent() {
             position: relative;
             min-width: 0;
             width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .search-wrap .search-box {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+
+          .search-wrap .topbar-language-selector {
+            flex: 0 0 auto;
           }
 
           .search-box {
@@ -25864,7 +25884,7 @@ function PageContent() {
 
           @media (max-width: 980px) {
             .topbar {
-              grid-template-columns: minmax(180px, 1fr) minmax(170px, 0.85fr) 41px repeat(4, minmax(92px, 1fr));
+              grid-template-columns: minmax(220px, 1fr) minmax(170px, 0.85fr) repeat(4, minmax(92px, 1fr));
               gap: 8px;
             }
 
@@ -25980,7 +26000,6 @@ function PageContent() {
             }
 
             .search-wrap,
-            .search-box,
             .view-toggle {
               grid-column: 1 / -1;
             }
@@ -26075,6 +26094,10 @@ function PageContent() {
             .search-wrap,
             .view-toggle {
               grid-column: 1 / -1;
+            }
+
+            .search-wrap {
+              gap: 6px;
             }
 
             .search-box {
