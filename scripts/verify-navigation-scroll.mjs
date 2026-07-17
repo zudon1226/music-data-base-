@@ -40,6 +40,7 @@ function assertSource() {
     record("upload destination marker", page.includes('data-nav-destination="upload"'));
     record("heading destination marker", page.includes('data-nav-destination="heading"'));
     record("video scrollIntoView gated by nav lock", page.includes("!isNavigationScrollLocked()"));
+    record("inline video hero collapses off Videos view", page.includes("collapseInlineVideoHero") && page.includes("is-hidden"));
     record("applyDesktopView still schedules reset", page.includes("scheduleNavigationScrollReset"));
     record("toggleUpload ensures upload visible", page.includes("ensureUploadVisible: true"));
     record("Artist/Producer header buttons use handleNav", page.includes('handleNav("Artist Dashboard")') && page.includes('handleNav("Producer Dashboard")'));

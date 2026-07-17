@@ -14891,8 +14891,16 @@ function PageContent() {
         const showNetworkError = playbackFailure?.kind === "network-error";
         const showUnknownError = playbackFailure?.kind === "unknown-playback-error";
         const showVideoElement = Boolean(activeVideoPlaybackUrl) && !showMissingUrl && !showUnsupportedCodec;
+        // Keep the <video> mounted for continuous playback, but collapse the large
+        // in-flow hero outside Videos so destination headings can sit under the topbar.
+        const collapseInlineVideoHero = view !== "Videos" || showUpload;
 
-        return (<section className="video-player-panel global-video-player" ref={videoPreviewRef}>
+        return (<section
+          className={`video-player-panel global-video-player${collapseInlineVideoHero ? " is-hidden" : ""}`}
+          ref={videoPreviewRef}
+          aria-hidden={collapseInlineVideoHero ? true : undefined}
+          data-inline-video-collapsed={collapseInlineVideoHero ? "true" : "false"}
+        >
         {showUnsupportedCodec ? (<div className="video-mobile-incompatible-panel" data-playback-failure="unsupported-codec">
             <Film size={42}/>
             <strong>Unsupported codec on this device</strong>
@@ -20226,16 +20234,17 @@ function PageContent() {
           }
 
           .global-video-player.is-hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            margin: 0;
-            padding: 0;
-            border: 0;
-            overflow: hidden;
-            clip: rect(0 0 0 0);
-            clip-path: inset(50%);
-            pointer-events: none;
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            max-height: 1px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            overflow: hidden !important;
+            clip: rect(0 0 0 0) !important;
+            clip-path: inset(50%) !important;
+            pointer-events: none !important;
           }
 
           .video-player-panel video {
