@@ -24672,127 +24672,8 @@ function PageContent() {
             color: #9bdcf0;
           }
 
-          .test-account-cleanup-center {
-            display: grid;
-            gap: 14px;
-          }
-
-          .cleanup-toolbar {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: flex-start;
-          }
-
-          .cleanup-toolbar p,
-          .cleanup-footnote,
-          .cleanup-message p {
-            color: #9bdcf0;
-          }
-
-          .cleanup-table-wrap {
-            overflow-x: auto;
-          }
-
-          .cleanup-review-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-          }
-
-          .cleanup-review-table th,
-          .cleanup-review-table td {
-            padding: 10px 8px;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-            text-align: left;
-            vertical-align: top;
-          }
-
-          .cleanup-review-table th {
-            color: #67e8f9;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-          }
-
-          .cleanup-row-selected {
-            background: rgba(34, 211, 238, 0.08);
-          }
-
-          .cleanup-confidence-badge {
-            display: inline-flex;
-            padding: 4px 8px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-          }
-
-          .cleanup-confidence-high {
-            background: rgba(248, 113, 113, 0.18);
-            color: #fca5a5;
-          }
-
-          .cleanup-confidence-medium {
-            background: rgba(250, 204, 21, 0.18);
-            color: #fde047;
-          }
-
-          .cleanup-confidence-low {
-            background: rgba(148, 163, 184, 0.18);
-            color: #cbd5e1;
-          }
-
-          .cleanup-action-panel,
-          .cleanup-preview-panel,
-          .cleanup-delete-panel {
-            padding: 14px;
-            border-radius: 14px;
-            background: rgba(15, 23, 42, 0.72);
-            border: 1px solid rgba(148, 163, 184, 0.16);
-            display: grid;
-            gap: 12px;
-          }
-
-          .cleanup-action-head,
-          .cleanup-label-actions,
-          .cleanup-primary-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-          }
-
-          .cleanup-preview-list,
-          .cleanup-block-reasons ul {
-            margin: 0;
-            padding-left: 18px;
-            color: #9bdcf0;
-            display: grid;
-            gap: 4px;
-          }
-
-          .cleanup-safe-yes {
-            color: #86efac;
-          }
-
-          .cleanup-safe-no {
-            color: #fca5a5;
-          }
-
-          .cleanup-delete-panel label {
-            display: grid;
-            gap: 6px;
-            color: #dbeafe;
-          }
-
-          .cleanup-delete-panel input[type="text"] {
-            max-width: 220px;
-          }
-
-          .cleanup-delete-button {
-            width: fit-content;
-          }
+          /* Test Account Cleanup table styles live in test-account-cleanup-center.tsx
+             to keep account rows content-height only and avoid parent stretch. */
 
           .stability-page {
             width: min(1160px, 100%);
@@ -31020,6 +30901,23 @@ function PageContent() {
               min-height: 0 !important;
               height: auto !important;
               overflow: hidden !important;
+            }
+
+            .stability-page #test-account-cleanup-center.stability-panel,
+            .stability-page .test-account-cleanup-center,
+            .stability-page .test-account-cleanup-center .cleanup-table-wrap,
+            .stability-page .test-account-cleanup-center .cleanup-review-table,
+            .stability-page .test-account-cleanup-center .cleanup-review-table tr,
+            .stability-page .test-account-cleanup-center .cleanup-review-table td {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              flex-grow: 0 !important;
+              overflow: visible !important;
+            }
+
+            .stability-page .test-account-cleanup-center .cleanup-table-wrap {
+              overflow-x: visible !important;
             }
 
             .stability-page .stability-brand {

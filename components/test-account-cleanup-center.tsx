@@ -23,6 +23,23 @@ function formatWhen(value: string | null) {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+function ClampText({
+    value,
+    title,
+    className = "",
+}: {
+    value: string;
+    title?: string;
+    className?: string;
+}) {
+    const text = value || "—";
+    return (
+        <span className={`cleanup-cell-clamp ${className}`.trim()} title={title || text}>
+            {text}
+        </span>
+    );
+}
+
 function PreviewPanel({ preview }: { preview: TestAccountDependencyPreview | null }) {
     const { t } = useTranslation();
     if (!preview) return null;
@@ -169,6 +186,8 @@ export function TestAccountCleanupCenter({
         await runAction("set-label", { label });
     }, [runAction]);
 
+    const accounts = review?.accounts || [];
+
     return (
         <div className="test-account-cleanup-center">
             <div className="cleanup-toolbar">
@@ -186,59 +205,94 @@ export function TestAccountCleanupCenter({
                 <table className="cleanup-review-table">
                     <thead>
                         <tr>
-                            <th>Select</th>
-                            <th>Display name</th>
-                            <th>Email</th>
-                            <th>User ID</th>
-                            <th>Created</th>
-                            <th>Confirmed</th>
-                            <th>Last sign-in</th>
-                            <th>Role</th>
-                            <th>Approval</th>
-                            <th>Uploads</th>
-                            <th>Playlists</th>
-                            <th>Followers</th>
-                            <th>Confidence</th>
-                            <th>Reasons</th>
-                            <th>Protected</th>
+                            <th scope="col">Select</th>
+                            <th scope="col">Display name</th>
+                            <th scope="col">Email</th>
+                            <th scope="col">User ID</th>
+                            <th scope="col">Created</th>
+                            <th scope="col">Confirmed</th>
+                            <th scope="col">Last sign-in</th>
+                            <th scope="col">Role</th>
+                            <th scope="col">Approval</th>
+                            <th scope="col">Uploads</th>
+                            <th scope="col">Playlists</th>
+                            <th scope="col">Followers</th>
+                            <th scope="col">Confidence</th>
+                            <th scope="col">Reasons</th>
+                            <th scope="col">Protected</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {(review?.accounts || []).length === 0 ? (
-                            <tr>
+                        {accounts.length === 0 ? (
+                            <tr className="cleanup-empty-row">
                                 <td colSpan={15} className="control-center-empty">No flagged test accounts found.</td>
                             </tr>
-                        ) : (review?.accounts || []).map((account: TestAccountReviewRow) => (
-                            <tr key={account.userId} className={selectedUserId === account.userId ? "cleanup-row-selected" : ""}>
-                                <td>
-                                    <input
-                                        type="radio"
-                                        name="cleanup-account"
-                                        checked={selectedUserId === account.userId}
-                                        onChange={() => {
-                                            setSelectedUserId(account.userId);
-                                            setPreview(null);
-                                            setConfirmChecked(false);
-                                            setConfirmText("");
-                                        }}
-                                    />
-                                </td>
-                                <td>{account.displayName}</td>
-                                <td>{account.email}</td>
-                                <td><code>{account.userId.slice(0, 8)}…</code></td>
-                                <td>{formatWhen(account.createdAt)}</td>
-                                <td>{formatWhen(account.confirmedAt)}</td>
-                                <td>{formatWhen(account.lastSignInAt)}</td>
-                                <td>{account.role}</td>
-                                <td>{account.approvalStatus || "—"}</td>
-                                <td>{account.uploadsCount}</td>
-                                <td>{account.playlistsCount}</td>
-                                <td>{account.followersCount}</td>
-                                <td><span className={`cleanup-confidence-badge ${testConfidenceClass(account.testConfidence)}`}>{account.testConfidence}</span></td>
-                                <td>{account.flagReasons.join("; ")}</td>
-                                <td>{account.protectedStatus}</td>
-                            </tr>
-                        ))}
+                        ) : accounts.map((account: TestAccountReviewRow) => {
+                            const reasons = account.flagReasons.join("; ");
+                            return (
+                                <tr
+                                    key={account.userId}
+                                    className={selectedUserId === account.userId ? "cleanup-row-selected" : undefined}
+                                >
+                                    <td data-label="Select" className="cleanup-select-cell">
+                                        <input
+                                            type="radio"
+                                            name="cleanup-account"
+                                            checked={selectedUserId === account.userId}
+                                            onChange={() => {
+                                                setSelectedUserId(account.userId);
+                                                setPreview(null);
+                                                setConfirmChecked(false);
+                                                setConfirmText("");
+                                            }}
+                                            aria-label={`Select ${account.displayName || account.email || account.userId}`}
+                                        />
+                                    </td>
+                                    <td data-label="Display name">
+                                        <ClampText value={account.displayName || "—"} />
+                                    </td>
+                                    <td data-label="Email">
+                                        <ClampText value={account.email || "—"} title={account.email || undefined} />
+                                    </td>
+                                    <td data-label="User ID">
+                                        <ClampText
+                                            className="cleanup-mono"
+                                            value={account.userId}
+                                            title={account.userId}
+                                        />
+                                    </td>
+                                    <td data-label="Created">
+                                        <ClampText value={formatWhen(account.createdAt)} />
+                                    </td>
+                                    <td data-label="Confirmed">
+                                        <ClampText value={formatWhen(account.confirmedAt)} />
+                                    </td>
+                                    <td data-label="Last sign-in">
+                                        <ClampText value={formatWhen(account.lastSignInAt)} />
+                                    </td>
+                                    <td data-label="Role">
+                                        <ClampText value={account.role || "—"} />
+                                    </td>
+                                    <td data-label="Approval">
+                                        <ClampText value={account.approvalStatus || "—"} />
+                                    </td>
+                                    <td data-label="Uploads">{account.uploadsCount}</td>
+                                    <td data-label="Playlists">{account.playlistsCount}</td>
+                                    <td data-label="Followers">{account.followersCount}</td>
+                                    <td data-label="Confidence">
+                                        <span className={`cleanup-confidence-badge ${testConfidenceClass(account.testConfidence)}`}>
+                                            {account.testConfidence}
+                                        </span>
+                                    </td>
+                                    <td data-label="Reasons">
+                                        <ClampText value={reasons || "—"} title={reasons || undefined} />
+                                    </td>
+                                    <td data-label="Protected">
+                                        <ClampText value={account.protectedStatus || "—"} />
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -309,6 +363,326 @@ export function TestAccountCleanupCenter({
             <small className="cleanup-footnote">
                 Watchlist matches: {review?.watchlistMatches || 0}. Last checked: {review?.checkedAt ? formatWhen(review.checkedAt) : "Not loaded yet"}.
             </small>
+
+            <style jsx global>{`
+              .test-account-cleanup-center {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 12px !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                flex-grow: 0 !important;
+                /* Keep bottom audio player from covering the last account row */
+                padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px)) !important;
+              }
+
+              .test-account-cleanup-center .cleanup-toolbar {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+                height: auto !important;
+                min-height: 0 !important;
+                flex-grow: 0 !important;
+              }
+
+              .test-account-cleanup-center .cleanup-toolbar p,
+              .test-account-cleanup-center .cleanup-footnote,
+              .test-account-cleanup-center .cleanup-message p {
+                margin: 0;
+                color: #9bdcf0;
+              }
+
+              .test-account-cleanup-center .cleanup-table-wrap {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                overflow-x: auto !important;
+                overflow-y: visible !important;
+                flex-grow: 0 !important;
+              }
+
+              .test-account-cleanup-center .cleanup-review-table {
+                width: 100% !important;
+                min-width: 980px;
+                border-collapse: separate !important;
+                border-spacing: 0 8px !important;
+                table-layout: fixed !important;
+                height: auto !important;
+                min-height: 0 !important;
+                font-size: 13px;
+              }
+
+              .test-account-cleanup-center .cleanup-review-table thead,
+              .test-account-cleanup-center .cleanup-review-table tbody,
+              .test-account-cleanup-center .cleanup-review-table tr {
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                flex-grow: 0 !important;
+              }
+
+              .test-account-cleanup-center .cleanup-review-table tr {
+                background: rgba(15, 23, 42, 0.55);
+              }
+
+              .test-account-cleanup-center .cleanup-review-table thead tr {
+                background: transparent;
+              }
+
+              .test-account-cleanup-center .cleanup-review-table th,
+              .test-account-cleanup-center .cleanup-review-table td {
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                padding: 10px 12px !important;
+                border: 0 !important;
+                border-bottom: 1px solid rgba(148, 163, 184, 0.14) !important;
+                text-align: left !important;
+                vertical-align: middle !important;
+                line-height: 1.25 !important;
+                overflow: hidden !important;
+                flex-grow: 0 !important;
+              }
+
+              .test-account-cleanup-center .cleanup-review-table th {
+                color: #67e8f9;
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                white-space: nowrap;
+                padding-top: 4px !important;
+                padding-bottom: 4px !important;
+                border-bottom: 1px solid rgba(103, 232, 249, 0.28) !important;
+                background: transparent;
+              }
+
+              .test-account-cleanup-center .cleanup-review-table th:nth-child(1),
+              .test-account-cleanup-center .cleanup-review-table td:nth-child(1) { width: 56px; }
+              .test-account-cleanup-center .cleanup-review-table th:nth-child(2),
+              .test-account-cleanup-center .cleanup-review-table td:nth-child(2) { width: 12%; }
+              .test-account-cleanup-center .cleanup-review-table th:nth-child(3),
+              .test-account-cleanup-center .cleanup-review-table td:nth-child(3) { width: 14%; }
+              .test-account-cleanup-center .cleanup-review-table th:nth-child(4),
+              .test-account-cleanup-center .cleanup-review-table td:nth-child(4) { width: 12%; }
+              .test-account-cleanup-center .cleanup-review-table th:nth-child(14),
+              .test-account-cleanup-center .cleanup-review-table td:nth-child(14) { width: 16%; }
+
+              .test-account-cleanup-center .cleanup-select-cell {
+                text-align: center !important;
+              }
+
+              .test-account-cleanup-center .cleanup-select-cell input[type="radio"] {
+                width: 18px !important;
+                height: 18px !important;
+                min-width: 18px !important;
+                min-height: 18px !important;
+                max-height: 18px !important;
+                margin: 0 !important;
+                vertical-align: middle;
+              }
+
+              .test-account-cleanup-center .cleanup-cell-clamp {
+                display: -webkit-box !important;
+                -webkit-box-orient: vertical !important;
+                -webkit-line-clamp: 2 !important;
+                line-clamp: 2 !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: normal !important;
+                word-break: break-word !important;
+                overflow-wrap: anywhere !important;
+                max-width: 100% !important;
+                max-height: 2.5em !important;
+                line-height: 1.25 !important;
+              }
+
+              .test-account-cleanup-center .cleanup-mono {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                font-size: 12px;
+              }
+
+              .test-account-cleanup-center .cleanup-row-selected {
+                background: rgba(34, 211, 238, 0.1) !important;
+              }
+
+              .test-account-cleanup-center .cleanup-empty-row td {
+                text-align: center !important;
+                color: #9bdcf0;
+              }
+
+              .test-account-cleanup-center .cleanup-confidence-badge {
+                display: inline-flex;
+                align-items: center;
+                padding: 3px 8px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+                white-space: nowrap;
+              }
+
+              .test-account-cleanup-center .cleanup-confidence-high {
+                background: rgba(248, 113, 113, 0.18);
+                color: #fca5a5;
+              }
+
+              .test-account-cleanup-center .cleanup-confidence-medium {
+                background: rgba(250, 204, 21, 0.18);
+                color: #fde047;
+              }
+
+              .test-account-cleanup-center .cleanup-confidence-low {
+                background: rgba(148, 163, 184, 0.18);
+                color: #cbd5e1;
+              }
+
+              .test-account-cleanup-center .cleanup-action-panel,
+              .test-account-cleanup-center .cleanup-preview-panel,
+              .test-account-cleanup-center .cleanup-delete-panel {
+                padding: 14px;
+                border-radius: 14px;
+                background: rgba(15, 23, 42, 0.72);
+                border: 1px solid rgba(148, 163, 184, 0.16);
+                display: grid;
+                gap: 12px;
+                height: auto !important;
+                min-height: 0 !important;
+                flex-grow: 0 !important;
+              }
+
+              .test-account-cleanup-center .cleanup-action-head,
+              .test-account-cleanup-center .cleanup-label-actions,
+              .test-account-cleanup-center .cleanup-primary-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                align-items: center;
+              }
+
+              .test-account-cleanup-center .cleanup-preview-list,
+              .test-account-cleanup-center .cleanup-block-reasons ul {
+                margin: 0;
+                padding-left: 18px;
+                color: #9bdcf0;
+                display: grid;
+                gap: 4px;
+              }
+
+              .test-account-cleanup-center .cleanup-safe-yes { color: #86efac; }
+              .test-account-cleanup-center .cleanup-safe-no { color: #fca5a5; }
+
+              .test-account-cleanup-center .cleanup-delete-panel label {
+                display: grid;
+                gap: 6px;
+                color: #dbeafe;
+              }
+
+              .test-account-cleanup-center .cleanup-delete-panel input[type="text"] {
+                max-width: 220px;
+              }
+
+              .test-account-cleanup-center .cleanup-delete-button {
+                width: fit-content;
+              }
+
+              @media (max-width: 767px) {
+                .test-account-cleanup-center .cleanup-toolbar {
+                  flex-direction: column !important;
+                }
+
+                .test-account-cleanup-center .cleanup-table-wrap {
+                  overflow-x: visible !important;
+                }
+
+                .test-account-cleanup-center .cleanup-review-table {
+                  min-width: 0 !important;
+                  width: 100% !important;
+                  border-collapse: separate !important;
+                  border-spacing: 0 8px !important;
+                  table-layout: auto !important;
+                }
+
+                .test-account-cleanup-center .cleanup-review-table thead {
+                  display: none !important;
+                }
+
+                .test-account-cleanup-center .cleanup-review-table,
+                .test-account-cleanup-center .cleanup-review-table tbody {
+                  display: block !important;
+                  width: 100% !important;
+                }
+
+                .test-account-cleanup-center .cleanup-review-table tr {
+                  display: grid !important;
+                  grid-template-columns: 1fr !important;
+                  gap: 6px !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 10px 12px !important;
+                  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+                  border-radius: 10px !important;
+                  background: rgba(15, 23, 42, 0.72) !important;
+                  height: auto !important;
+                  min-height: 0 !important;
+                  align-content: start !important;
+                  justify-content: start !important;
+                  flex-grow: 0 !important;
+                }
+
+                .test-account-cleanup-center .cleanup-review-table td {
+                  display: grid !important;
+                  grid-template-columns: 104px minmax(0, 1fr) !important;
+                  align-items: center !important;
+                  gap: 8px !important;
+                  width: 100% !important;
+                  padding: 2px 0 !important;
+                  border: 0 !important;
+                  height: auto !important;
+                  min-height: 0 !important;
+                }
+
+                .test-account-cleanup-center .cleanup-review-table td::before {
+                  content: attr(data-label);
+                  color: #67e8f9;
+                  font-size: 11px;
+                  font-weight: 800;
+                  text-transform: uppercase;
+                  letter-spacing: 0.03em;
+                }
+
+                .test-account-cleanup-center .cleanup-select-cell {
+                  grid-template-columns: 104px auto !important;
+                  justify-items: start !important;
+                }
+
+                .test-account-cleanup-center .cleanup-empty-row td {
+                  display: block !important;
+                  text-align: left !important;
+                }
+
+                .test-account-cleanup-center .cleanup-empty-row td::before {
+                  content: none;
+                }
+
+                .test-account-cleanup-center .cleanup-delete-button,
+                .test-account-cleanup-center .cleanup-delete-panel input[type="text"] {
+                  width: 100%;
+                  max-width: none;
+                }
+              }
+
+              @media (min-width: 768px) and (max-width: 1024px) {
+                .test-account-cleanup-center .cleanup-review-table {
+                  min-width: 920px;
+                }
+              }
+            `}</style>
         </div>
     );
 }
