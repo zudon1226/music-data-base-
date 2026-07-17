@@ -71,6 +71,18 @@ record(
         && /auth\.redeemInviteSuccess/.test(page),
 );
 record(
+    "admin pending list uses founding_members pending status",
+    /listFoundingMembersForAdmin/.test(read("app/api/launch/founding-members/route.ts"))
+        && /approval_status === "pending"/.test(read("components/founding-onboarding-admin-panel.tsx"))
+        && /Approve/.test(read("components/founding-onboarding-admin-panel.tsx"))
+        && /Reject/.test(read("components/founding-onboarding-admin-panel.tsx")),
+);
+record(
+    "atomic redeem RPC migration present",
+    /redeem_founding_invite_atomic/.test(read("supabase/migrations/202607170005_founding_pending_approval_atomicity.sql"))
+        && /repair_orphaned_founding_redemptions/.test(read("supabase/migrations/202607170005_founding_pending_approval_atomicity.sql")),
+);
+record(
     "service distinguishes invalid/expired/revoked/used",
     /Invite code is invalid\./.test(service)
         && /Invite code has expired\./.test(service)

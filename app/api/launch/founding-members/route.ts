@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAdminUserId, isMissingFoundingSetup } from "@/lib/admin-auth";
+import { requireAdminUserId } from "@/lib/admin-auth";
 import { setFoundingMemberApproval } from "@/lib/founding-invite-service";
-import { foundingRoleLabel } from "@/lib/founding-onboarding";
+import {
+    getFoundingMembersListErrorMessage,
+    listFoundingMembersForAdmin,
+} from "@/lib/founding-members-admin";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -20,37 +23,18 @@ export async function GET(request: Request) {
         if (!admin.ok) return NextResponse.json({ error: admin.error }, { status: admin.status });
 
         const supabase = getSupabaseServerClient();
-        const result = await supabase
-            .from("founding_members")
-            .select("*")
-            .order("joined_at", { ascending: false });
-        if (result.error) {
-            if (isMissingFoundingSetup(result.error)) {
-                return NextResponse.json({ members: [], setupRequired: true });
-            }
-            return NextResponse.json({ error: getErrorMessage(result.error) }, { status: 500 });
-        }
-
-        const members = result.data || [];
-        const userIds = members.map((member) => String(member.user_id || "")).filter(isUuid);
-        const emails = new Map<string, string>();
-        await Promise.all(userIds.map(async (memberId) => {
-            const lookup = await supabase.auth.admin.getUserById(memberId);
-            if (lookup.data.user?.email) emails.set(memberId, lookup.data.user.email);
-        }));
-
+        const listed = await listFoundingMembersForAdmin(supabase);
         return NextResponse.json({
-            members: members.map((member) => ({
-                ...member,
-                email: emails.get(String(member.user_id || "")) || "",
-                roleLabel: foundingRoleLabel(member.founding_role),
-            })),
-            setupRequired: false,
+            members: listed.members,
+            pending: listed.pending || listed.members.filter((member) => member.approval_status === "pending"),
+            approved: listed.approved || listed.members.filter((member) => member.approval_status === "approved"),
+            rejected: listed.rejected || listed.members.filter((member) => member.approval_status === "rejected"),
+            setupRequired: listed.setupRequired,
         });
     }
     catch (error) {
         console.error("[api/launch/founding-members] GET error:", error);
-        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+        return NextResponse.json({ error: getFoundingMembersListErrorMessage(error) }, { status: 500 });
     }
 }
 

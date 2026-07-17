@@ -14,6 +14,7 @@
     "verify:dashboard2": "node scripts/verify-user-dashboard-phase2.mjs",
     "verify:founding": "node scripts/verify-founding-invite-gate.mjs",
     "verify:founding:live": "node scripts/verify-founding-onboarding.mjs",
+    "verify:founding:pending": "node scripts/verify-founding-pending-approvals.mjs",
     "verify:rls": "node scripts/verify-supabase-rls-security.mjs"
   },
   "dependencies": {

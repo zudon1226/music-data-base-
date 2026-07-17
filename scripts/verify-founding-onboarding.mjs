@@ -37,6 +37,7 @@ async function applyMigration(env) {
     const migrationFiles = [
         "202607150001_founding_onboarding.sql",
         "202607150002_harden_founding_members_rls.sql",
+        "202607170005_founding_pending_approval_atomicity.sql",
     ];
     const client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();
@@ -246,6 +247,20 @@ async function main() {
         });
         const redeemJson = await redeem.json().catch(() => ({}));
         record("single-use invite redeem", redeem.ok, redeemJson.approvalStatus || redeemJson.error || "");
+
+        const pendingAdmin = await fetch(`${baseUrl}/api/launch/founding-members?userId=${encodeURIComponent(owner.user.id)}`, {
+            headers: { Authorization: `Bearer ${owner.access_token}` },
+        });
+        const pendingAdminJson = await pendingAdmin.json().catch(() => ({}));
+        const pendingList = Array.isArray(pendingAdminJson.pending)
+            ? pendingAdminJson.pending
+            : (pendingAdminJson.members || []).filter((row) => row.approval_status === "pending");
+        const probeInPending = pendingList.some((row) => row.user_id === probeSession.user.id);
+        record(
+            "redeemed member appears in admin pending approvals",
+            pendingAdmin.ok && probeInPending,
+            JSON.stringify({ status: pendingAdmin.status, pendingCount: pendingList.length }),
+        );
 
         const secondRedeem = await fetch(`${baseUrl}/api/founding-invites/redeem`, {
             method: "POST",

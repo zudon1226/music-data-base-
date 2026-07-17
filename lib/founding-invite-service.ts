@@ -78,14 +78,52 @@ export async function redeemFoundingInvite(options: {
     displayName: string;
     rawCode: string;
 }) {
-    const validation = await validateInviteCode(options.supabase, options.rawCode);
-    if (!validation.ok) {
-        return { ok: false as const, error: validation.error };
+    const displayName = String(options.displayName || "").trim() || options.email.split("@")[0] || "Founding Member";
+
+    const rpc = await options.supabase.rpc("redeem_founding_invite_atomic", {
+        p_user_id: options.userId,
+        p_raw_code: options.rawCode,
+        p_display_name: displayName,
+    });
+    if (!rpc.error) {
+        const payload = (rpc.data || {}) as {
+            ok?: boolean;
+            error?: string;
+            member?: Record<string, unknown>;
+            intended_role?: FoundingRole;
+        };
+        if (!payload.ok) {
+            return { ok: false as const, error: payload.error || "Invite redemption failed." };
+        }
+        await options.supabase
+            .from("profiles")
+            .upsert({
+                id: options.userId,
+                user_id: options.userId,
+                display_name: displayName,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: "id" })
+            .then(() => undefined, () => undefined);
+        return {
+            ok: true as const,
+            member: payload.member,
+            intendedRole: (payload.intended_role || payload.member?.founding_role) as FoundingRole,
+        };
     }
 
-    const now = new Date().toISOString();
-    const invite = validation.invite;
-    const accountType = mapFoundingRoleToAccountType(validation.intendedRole);
+    const rpcMissing = /could not find the function|schema cache|does not exist/i.test(getErrorMessage(rpc.error));
+    if (!rpcMissing) {
+        return { ok: false as const, error: getErrorMessage(rpc.error) };
+    }
+
+    // Fallback path when atomic RPC migration is not installed yet.
+    const { invite, inviteCode } = await fetchInviteByCode(options.supabase, options.rawCode);
+    if (!inviteCode) {
+        return { ok: false as const, error: "Invite code is required." };
+    }
+    if (!invite) {
+        return { ok: false as const, error: "Invite code is invalid." };
+    }
 
     const existingMember = await options.supabase
         .from("founding_members")
@@ -96,15 +134,63 @@ export async function redeemFoundingInvite(options: {
         return { ok: false as const, error: getErrorMessage(existingMember.error) };
     }
     if (existingMember.data) {
-        const member = existingMember.data as { invite_id?: string | null; approval_status?: string };
+        const member = existingMember.data as { invite_id?: string | null; approval_status?: string; founding_role?: FoundingRole };
         if (member.invite_id === invite.id && member.approval_status === "pending") {
             return {
                 ok: true as const,
                 member: existingMember.data,
-                intendedRole: validation.intendedRole,
+                intendedRole: (member.founding_role || invite.intended_role) as FoundingRole,
             };
         }
         return { ok: false as const, error: "A founding membership is already linked to this account." };
+    }
+
+    if (invite.status === "used" && invite.redeemed_by === options.userId) {
+        const repaired = await options.supabase
+            .from("founding_members")
+            .upsert({
+                user_id: options.userId,
+                founding_role: invite.intended_role,
+                approval_status: "pending",
+                invite_id: invite.id,
+                display_name: displayName,
+                joined_at: invite.redeemed_at || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            }, { onConflict: "user_id" })
+            .select("*")
+            .single();
+        if (repaired.error) {
+            return { ok: false as const, error: getErrorMessage(repaired.error) };
+        }
+        return {
+            ok: true as const,
+            member: repaired.data,
+            intendedRole: invite.intended_role as FoundingRole,
+        };
+    }
+
+    const validation = await validateInviteCode(options.supabase, options.rawCode);
+    if (!validation.ok) {
+        return { ok: false as const, error: validation.error };
+    }
+
+    const now = new Date().toISOString();
+    const memberInsert = await options.supabase
+        .from("founding_members")
+        .insert({
+            user_id: options.userId,
+            founding_role: validation.intendedRole,
+            approval_status: "pending",
+            invite_id: invite.id,
+            display_name: displayName,
+            joined_at: now,
+            updated_at: now,
+        })
+        .select("*")
+        .single();
+
+    if (memberInsert.error) {
+        return { ok: false as const, error: getErrorMessage(memberInsert.error) };
     }
 
     const consume = await options.supabase
@@ -121,63 +207,23 @@ export async function redeemFoundingInvite(options: {
         .maybeSingle();
 
     if (consume.error || !consume.data) {
+        await options.supabase.from("founding_members").delete().eq("user_id", options.userId);
         return { ok: false as const, error: "Invite code has already been used or revoked." };
     }
 
-    const memberUpsert = await options.supabase
-        .from("founding_members")
-        .upsert({
-            user_id: options.userId,
-            founding_role: validation.intendedRole,
-            approval_status: "pending",
-            invite_id: invite.id,
-            display_name: options.displayName,
-            joined_at: now,
-            updated_at: now,
-        }, { onConflict: "user_id" })
-        .select("*")
-        .single();
-
-    if (memberUpsert.error) {
-        return { ok: false as const, error: getErrorMessage(memberUpsert.error) };
-    }
-
-    const profileUpsert = await options.supabase
+    await options.supabase
         .from("profiles")
         .upsert({
             id: options.userId,
             user_id: options.userId,
-            account_type: accountType,
-            display_name: options.displayName,
+            display_name: displayName,
             updated_at: now,
-        }, { onConflict: "id" });
-
-    if (profileUpsert.error) {
-        return { ok: false as const, error: getErrorMessage(profileUpsert.error) };
-    }
-
-    const roleUpsert = await options.supabase
-        .from("user_roles")
-        .upsert({
-            user_id: options.userId,
-            role: accountType,
-            status: "active",
-            granted_by: invite.created_by,
-            updated_at: now,
-        }, { onConflict: "user_id,role" });
-
-    if (roleUpsert.error) {
-        return { ok: false as const, error: getErrorMessage(roleUpsert.error) };
-    }
-
-    await repairAuthUserMetadata(options.supabase, options.userId, {
-        displayName: options.displayName,
-        role: accountType,
-    }).catch(() => undefined);
+        }, { onConflict: "id" })
+        .then(() => undefined, () => undefined);
 
     return {
         ok: true as const,
-        member: memberUpsert.data,
+        member: memberInsert.data,
         intendedRole: validation.intendedRole,
     };
 }
@@ -253,7 +299,12 @@ export async function setFoundingMemberApproval(options: {
     if (result.error) throw result.error;
     if (!result.data) return { ok: false as const, error: "Founding member not found." };
 
-    const member = result.data as { founding_role: FoundingRole; display_name?: string | null };
+    const member = result.data as {
+        founding_role: FoundingRole;
+        display_name?: string | null;
+        invite_id?: string | null;
+    };
+    const accountType = mapFoundingRoleToAccountType(member.founding_role);
     if (options.approvalStatus === "approved") {
         await options.supabase
             .from("user_roles")
@@ -264,17 +315,34 @@ export async function setFoundingMemberApproval(options: {
                 granted_by: options.reviewerId,
                 updated_at: now,
             }, { onConflict: "user_id,role" });
+        await options.supabase
+            .from("profiles")
+            .upsert({
+                id: options.userId,
+                user_id: options.userId,
+                account_type: accountType,
+                display_name: String(member.display_name || "").trim() || undefined,
+                updated_at: now,
+            }, { onConflict: "id" });
         await repairAuthUserMetadata(options.supabase, options.userId, {
             displayName: String(member.display_name || "").trim() || undefined,
             role: member.founding_role,
         }).catch(() => undefined);
     }
     else {
+        // Rejection must not reactivate or reuse the invite.
         await options.supabase
             .from("user_roles")
             .update({ status: "disabled", updated_at: now })
             .eq("user_id", options.userId)
             .eq("role", member.founding_role);
+        if (member.invite_id) {
+            await options.supabase
+                .from("founding_invites")
+                .update({ status: "used", updated_at: now })
+                .eq("id", member.invite_id)
+                .in("status", ["active", "used"]);
+        }
     }
 
     return { ok: true as const, member: result.data };

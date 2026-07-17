@@ -15631,18 +15631,17 @@ function PageContent() {
         const accessBlocked = foundingAccessLoading || !foundingAccess?.canAccessApp;
         if (accessBlocked) {
             return (<FoundingMemberGate
-            approvalStatus={foundingAccessLoading
-                ? "pending"
-                : (foundingAccess?.approvalStatus || (foundingAccess?.isFoundingMember ? "rejected" : "blocked"))}
+            approvalStatus={foundingAccess?.approvalStatus
+                || (foundingAccess?.isFoundingMember ? "rejected" : "blocked")}
             foundingRole={foundingAccess?.foundingRole || null}
             displayName={getAccountDisplayName()}
-            blockedMessage={!foundingAccess?.isFoundingMember ? FOUNDING_INVITE_REQUIRED_MESSAGE : undefined}
+            blockedMessage={!foundingAccessLoading && !foundingAccess?.isFoundingMember ? FOUNDING_INVITE_REQUIRED_MESSAGE : undefined}
             inviteCode={authInviteCode}
             onInviteCodeChange={setAuthInviteCode}
             onRedeemInvite={() => void handleGateRedeemInvite()}
-            redeemBusy={gateRedeemBusy}
-            redeemMessage={gateRedeemMessage}
-            redeemMessageTone={gateRedeemMessageTone}
+            redeemBusy={gateRedeemBusy || foundingAccessLoading}
+            redeemMessage={foundingAccessLoading ? t("common.working") : gateRedeemMessage}
+            redeemMessageTone={foundingAccessLoading ? "" : gateRedeemMessageTone}
             onLogout={() => void logout()}
         />);
         }

@@ -12,6 +12,7 @@ type FoundingMemberAdminRow = {
     display_name: string | null;
     joined_at: string;
     email?: string;
+    username?: string;
     roleLabel?: string;
 };
 
@@ -33,6 +34,19 @@ function authBody(userId: string, accessToken: string, refreshToken: string, ext
     };
 }
 
+function memberPrimaryLabel(member: FoundingMemberAdminRow) {
+    return member.display_name || member.username || member.email || member.user_id;
+}
+
+function memberSecondaryLabel(member: FoundingMemberAdminRow) {
+    const bits = [
+        member.roleLabel || foundingRoleLabel(member.founding_role),
+        member.username ? `@${member.username}` : "",
+        member.email || "",
+    ].filter(Boolean);
+    return bits.join(" · ");
+}
+
 export function FoundingOnboardingAdminPanel({
     userId,
     accessToken,
@@ -40,6 +54,7 @@ export function FoundingOnboardingAdminPanel({
 }: FoundingOnboardingAdminPanelProps) {
     const [invites, setInvites] = useState<FoundingInviteRecord[]>([]);
     const [members, setMembers] = useState<FoundingMemberAdminRow[]>([]);
+    const [pendingMembers, setPendingMembers] = useState<FoundingMemberAdminRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [role, setRole] = useState<FoundingRole>("founding_artist");
@@ -53,15 +68,21 @@ export function FoundingOnboardingAdminPanel({
         revoked: invites.filter((invite) => invite.status === "revoked"),
     }), [invites]);
 
-    const groupedMembers = useMemo(() => ({
-        pending: members.filter((member) => member.approval_status === "pending"),
-        approved: members.filter((member) => member.approval_status === "approved"),
-        rejected: members.filter((member) => member.approval_status === "rejected"),
-    }), [members]);
+    const groupedMembers = useMemo(() => {
+        const pending = pendingMembers.length > 0
+            ? pendingMembers
+            : members.filter((member) => member.approval_status === "pending");
+        return {
+            pending,
+            approved: members.filter((member) => member.approval_status === "approved"),
+            rejected: members.filter((member) => member.approval_status === "rejected"),
+        };
+    }, [members, pendingMembers]);
 
     useEffect(() => {
+        if (!userId || !accessToken) return;
         void loadData();
-    }, [userId]);
+    }, [userId, accessToken]);
 
     async function loadData() {
         setLoading(true);
@@ -76,8 +97,13 @@ export function FoundingOnboardingAdminPanel({
             const memberJson = await memberRes.json().catch(() => ({}));
             if (!inviteRes.ok) throw new Error(inviteJson.error || "Failed to load invites.");
             if (!memberRes.ok) throw new Error(memberJson.error || "Failed to load founding members.");
+            const nextMembers = (memberJson.members || []) as FoundingMemberAdminRow[];
+            const nextPending = Array.isArray(memberJson.pending)
+                ? memberJson.pending as FoundingMemberAdminRow[]
+                : nextMembers.filter((member) => member.approval_status === "pending");
             setInvites(inviteJson.invites || []);
-            setMembers(memberJson.members || []);
+            setMembers(nextMembers);
+            setPendingMembers(nextPending);
         }
         catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : "Failed to load founding onboarding data.");
@@ -170,7 +196,7 @@ export function FoundingOnboardingAdminPanel({
             </div>
 
             <div className="founding-onboarding-actions">
-                <button onClick={() => void loadData()} type="button" disabled={loading}>
+                <button onClick={() => void loadData()} type="button" disabled={loading || !accessToken}>
                     <RefreshCw size={15}/>
                     {loading ? "Loading..." : "Refresh Onboarding"}
                 </button>
@@ -205,14 +231,22 @@ export function FoundingOnboardingAdminPanel({
                             {groupedMembers.pending.map((member) => (
                                 <div className="founding-onboarding-row" key={member.user_id}>
                                     <div>
-                                        <strong>{member.display_name || member.email || member.user_id}</strong>
-                                        <span>{member.roleLabel || foundingRoleLabel(member.founding_role)}</span>
+                                        <strong>{memberPrimaryLabel(member)}</strong>
+                                        <span>{memberSecondaryLabel(member)}</span>
                                     </div>
                                     <div className="founding-onboarding-row-actions">
-                                        <button onClick={() => void reviewMember(member.user_id, "approve")} type="button" disabled={Boolean(busyAction)}>
+                                        <button
+                                            onClick={() => void reviewMember(member.user_id, "approve")}
+                                            type="button"
+                                            disabled={Boolean(busyAction)}
+                                        >
                                             <UserCheck size={14}/> Approve
                                         </button>
-                                        <button onClick={() => void reviewMember(member.user_id, "reject")} type="button" disabled={Boolean(busyAction)}>
+                                        <button
+                                            onClick={() => void reviewMember(member.user_id, "reject")}
+                                            type="button"
+                                            disabled={Boolean(busyAction)}
+                                        >
                                             <UserX size={14}/> Reject
                                         </button>
                                     </div>
@@ -247,8 +281,8 @@ export function FoundingOnboardingAdminPanel({
                     {groupedMembers.approved.map((member) => (
                         <div className="founding-onboarding-row" key={member.user_id}>
                             <div>
-                                <strong>{member.display_name || member.email}</strong>
-                                <span><Check size={12}/> {member.roleLabel}</span>
+                                <strong>{memberPrimaryLabel(member)}</strong>
+                                <span><Check size={12}/> {memberSecondaryLabel(member)}</span>
                             </div>
                         </div>
                     ))}
@@ -259,7 +293,7 @@ export function FoundingOnboardingAdminPanel({
                     {groupedInvites.used.slice(0, 6).map((invite) => (
                         <div className="founding-onboarding-row" key={invite.id}>
                             <strong>{invite.invite_code}</strong>
-                            <span>used</span>
+                            <span>used invite (not an approval)</span>
                         </div>
                     ))}
                     {groupedInvites.expired.slice(0, 4).map((invite) => (
@@ -270,7 +304,7 @@ export function FoundingOnboardingAdminPanel({
                     ))}
                     {groupedMembers.rejected.map((member) => (
                         <div className="founding-onboarding-row" key={member.user_id}>
-                            <strong>{member.display_name || member.email}</strong>
+                            <strong>{memberPrimaryLabel(member)}</strong>
                             <span>rejected</span>
                         </div>
                     ))}
@@ -335,6 +369,7 @@ export function FoundingOnboardingAdminPanel({
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
+                min-height: 36px;
               }
             `}</style>
         </section>

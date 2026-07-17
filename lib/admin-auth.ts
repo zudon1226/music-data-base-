@@ -41,8 +41,10 @@ export async function requirePlatformOwnerUserId(userId: string) {
 
 export function isMissingFoundingSetup(error: unknown) {
     const message = getErrorMessage(error).toLowerCase();
-    return message.includes("founding_invites")
-        || message.includes("founding_members")
-        || message.includes("does not exist")
-        || message.includes("schema cache");
+    const mentionsFoundingTable = message.includes("founding_invites") || message.includes("founding_members");
+    const looksMissing = message.includes("does not exist")
+        || message.includes("schema cache")
+        || message.includes("could not find the table")
+        || message.includes("could not find the relation");
+    return mentionsFoundingTable && looksMissing;
 }
