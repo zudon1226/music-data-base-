@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PublicProfileView from "@/components/PublicProfileView";
+import { loadPublicProfileExtras } from "@/lib/dashboard/public-profile-extras";
 import { getPublicSiteUrl } from "@/lib/server-supabase";
 import { loadPublicArtistProfile } from "@/lib/public-profile";
 
@@ -44,5 +45,17 @@ export default async function ArtistPublicPage({ params }: PageProps) {
 
   if (!profile) notFound();
 
-  return <PublicProfileView profile={profile} />;
+  const extras = await loadPublicProfileExtras(profile.userId).catch(() => ({
+    followingCount: 0,
+    publicPlaylists: [],
+    username: "",
+    city: "",
+    country: "",
+    followerCount: 0,
+  }));
+  if (extras.followerCount > profile.followers) {
+    profile.followers = extras.followerCount;
+  }
+
+  return <PublicProfileView profile={profile} extras={extras} />;
 }

@@ -32,6 +32,9 @@ import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-r
 import { DestinationPageHeading } from "../components/destination-page-heading";
 import { UserProfileDashboard } from "../components/user-profile-dashboard";
 import { NotificationCenterPanel, type DashboardNotification } from "../components/notification-center-panel";
+import { ActivityFeedPanel } from "../components/dashboard/activity-feed-panel";
+import { CreatorInsightsPanel } from "../components/dashboard/creator-insights-panel";
+import { FollowButton } from "../components/dashboard/follow-button";
 import {
     clearRecentlyPlayedRecords,
     removeRecentlyPlayedRecord,
@@ -17429,6 +17432,17 @@ function PageContent() {
               </div>
             </div>
 
+            {accountUserId ? (
+                <>
+                    <CreatorInsightsPanel userId={accountUserId} fetchFn={desktopActionFetch} />
+                    <ActivityFeedPanel
+                        userId={accountUserId}
+                        fetchFn={desktopActionFetch}
+                        onNavigate={(href) => handleNav(href as View)}
+                    />
+                </>
+            ) : null}
+
             <div className="dashboard-grid">
               <div>
                 <strong>{producerStats.beats}</strong>
@@ -17733,6 +17747,17 @@ function PageContent() {
               </div>
             </div>
 
+            {accountUserId ? (
+                <>
+                    <CreatorInsightsPanel userId={accountUserId} fetchFn={desktopActionFetch} />
+                    <ActivityFeedPanel
+                        userId={accountUserId}
+                        fetchFn={desktopActionFetch}
+                        onNavigate={(href) => handleNav(href as View)}
+                    />
+                </>
+            ) : null}
+
             <section className="analytics-panel">
               <div className="artist-section-title">
                 <h3>Artist Analytics</h3>
@@ -17997,6 +18022,19 @@ function PageContent() {
                       <UserPlus size={16}/>
                       {followedArtistIds.includes(activeArtist.id) ? "Following" : "Follow Artist"}
                     </button>
+                    {(() => {
+                        const ownerUserId = String(
+                            activeArtistSongs.find((song) => String(song.ownerId || "").trim())?.ownerId || "",
+                        ).trim();
+                        return ownerUserId && accountUserId && ownerUserId !== accountUserId ? (
+                            <FollowButton
+                                viewerUserId={accountUserId}
+                                targetUserId={ownerUserId}
+                                fetchFn={desktopActionFetch}
+                                initialFollowerCount={activeArtist.followers}
+                            />
+                        ) : null;
+                    })()}
                     <button onClick={() => shareArtist(activeArtist)} type="button">
                       <Share2 size={16}/>
                       Share Artist
@@ -18012,6 +18050,12 @@ function PageContent() {
                   </div>
                 </div>
               </div>
+
+              <ActivityFeedPanel
+                userId={accountUserId}
+                fetchFn={desktopActionFetch}
+                onNavigate={(href) => handleNav(href as View)}
+              />
 
               <section className="artist-section">
                 <div className="artist-section-title">
@@ -18145,10 +18189,19 @@ function PageContent() {
                   </div>
 
                   <div className="artist-actions">
-                    <button onClick={() => showToast("Producer follow support coming soon.", "info")} type="button">
-                      <UserPlus size={16}/>
-                      Follow Producer
-                    </button>
+                    {activeProducerProfile.userId && accountUserId && activeProducerProfile.userId !== accountUserId ? (
+                        <FollowButton
+                            viewerUserId={accountUserId}
+                            targetUserId={activeProducerProfile.userId}
+                            fetchFn={desktopActionFetch}
+                            initialFollowerCount={activeProducerProfile.followers}
+                        />
+                    ) : (
+                        <button disabled type="button">
+                            <UserPlus size={16}/>
+                            {t("dashboard.follow.follow")}
+                        </button>
+                    )}
                     <button onClick={() => navigator.clipboard.writeText(window.location.href)} type="button">
                       <Share2 size={16}/>
                       Share Producer
@@ -20020,6 +20073,108 @@ function PageContent() {
 
           .profile-stats-grid {
             margin-bottom: 16px;
+          }
+
+          .dashboard-activity-feed,
+          .creator-insights-panel {
+            margin: 16px 0 24px;
+            display: grid;
+            gap: 14px;
+          }
+
+          .dashboard-activity-list,
+          .creator-trending-block ul,
+          .creator-insights-grid ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 8px;
+          }
+
+          .dashboard-activity-item,
+          .follow-button,
+          .creator-insights-panel button {
+            min-height: 44px;
+            min-width: 44px;
+          }
+
+          .dashboard-activity-item {
+            width: 100%;
+            border: 1px solid rgba(34, 211, 238, 0.22);
+            border-radius: 8px;
+            background: #10204a;
+            color: inherit;
+            text-align: left;
+            display: grid;
+            gap: 4px;
+            padding: 10px 12px;
+            cursor: pointer;
+          }
+
+          .dashboard-activity-item:focus-visible,
+          .follow-button:focus-visible {
+            outline: 2px solid #22d3ee;
+            outline-offset: 2px;
+          }
+
+          .follow-button-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .follow-button {
+            border-radius: 8px;
+            border: 1px solid rgba(34, 211, 238, 0.4);
+            background: #14265c;
+            color: white;
+            padding: 8px 14px;
+            font-weight: 800;
+          }
+
+          .follow-button.is-following {
+            background: #22d3ee;
+            color: #020617;
+          }
+
+          .follow-mutual-badge,
+          .follow-count-chip {
+            border-radius: 999px;
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .creator-widgets-grid {
+            margin-bottom: 8px;
+          }
+
+          .creator-insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+          }
+
+          .creator-insights-grid article,
+          .creator-trending-block {
+            border-radius: 8px;
+            background: #10204a;
+            padding: 12px;
+          }
+
+          .creator-insights-grid li,
+          .creator-trending-block li {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+          }
+
+          .public-profile-follow-row {
+            margin-top: 12px;
           }
 
           .upload-btn {

@@ -262,6 +262,45 @@ export const bnMessages: LocaleMessageDictionary = {
                         moveUp: "Move up",
                         moveDown: "Move down",
                         persisted: "Queue is saved to your account."
+                    },
+            follow: {
+                        follow: "Follow",
+                        unfollow: "Unfollow",
+                        followers: "Followers",
+                        following: "Following",
+                        mutual: "Mutual",
+                        failed: "Could not update follow."
+                    },
+            activity: {
+                        title: "Activity Feed",
+                        empty: "No recent activity yet.",
+                        loadFailed: "Could not load activity."
+                    },
+            widgets: {
+                        title: "Dashboard Widgets",
+                        totalPlays: "Total plays",
+                        followersGained: "Followers gained (7d)",
+                        revenueSummary: "Revenue summary",
+                        uploadSongs: "Uploaded songs",
+                        uploadVideos: "Uploaded videos",
+                        uploadBeats: "Uploaded beats",
+                        trendingReleases: "Trending releases"
+                    },
+            insights: {
+                        title: "Creator Insights",
+                        loadFailed: "Could not load creator insights.",
+                        topSongs: "Top songs",
+                        topVideos: "Top videos",
+                        topBeats: "Top beats",
+                        analytics: "Period analytics",
+                        weeklyPlays: "Weekly plays",
+                        monthlyPlays: "Monthly plays",
+                        dailyViews: "Daily views (14d)",
+                        emptyMetric: "No data yet."
+                    },
+            publicProfile: {
+                        publicPlaylists: "Public playlists",
+                        publicUploads: "Public uploads"
                     }
         },
     testAccountCleanup: {
