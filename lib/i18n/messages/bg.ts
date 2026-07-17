@@ -381,6 +381,7 @@ export const bgMessages: LocaleMessageDictionary = {
         savingDraft: "Запазване на чернова…",
         duplicateFailed: "Тази мелодия не можа да бъде дублирана.",
         deleteFailed: "Тази мелодия не можа да бъде изтрита или архивирана.",
+        actionCouldNotComplete: "Действието с рингтона не можа да бъде завършено.",
         noOwnedSongs: "Все още нямате качени песни, налични като източници на мелодии.",
         emptyList: "Все още не сте създали мелодии.",
         loading: "Зареждане на вашите мелодии…",

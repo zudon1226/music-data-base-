@@ -381,6 +381,7 @@ export const skMessages: LocaleMessageDictionary = {
         savingDraft: "Ukladanie konceptu…",
         duplicateFailed: "Toto zvonenie sa nepodarilo duplikovať.",
         deleteFailed: "Toto zvonenie sa nepodarilo odstrániť ani archivovať.",
+        actionCouldNotComplete: "Akciu so zvonеним sa nepodarilo dokoncit.",
         noOwnedSongs: "Zatiaľ nemáte žiadne nahrané skladby dostupné ako zdroje zvonení.",
         emptyList: "Zatiaľ ste nevytvorili žiadne zvonenia.",
         loading: "Načítavajú sa vaše zvonenia…",

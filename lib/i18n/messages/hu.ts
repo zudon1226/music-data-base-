@@ -381,6 +381,7 @@ export const huMessages: LocaleMessageDictionary = {
         savingDraft: "Piszkozat mentése…",
         duplicateFailed: "Ezt a csengőhangot nem sikerült másolni.",
         deleteFailed: "Ezt a csengőhangot nem sikerült törölni vagy archiválni.",
+        actionCouldNotComplete: "A csengohang muveletet nem sikerult befejezni.",
         noOwnedSongs: "Még nincsenek feltöltött dalaid, amelyek csengőhang-forrásként használhatók.",
         emptyList: "Még nem hoztál létre csengőhangot.",
         loading: "Csengőhangjaid betöltése…",

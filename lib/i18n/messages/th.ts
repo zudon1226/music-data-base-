@@ -381,6 +381,7 @@ export const thMessages: LocaleMessageDictionary = {
         savingDraft: "กำลังบันทึกฉบับร่าง...",
         duplicateFailed: "ไม่สามารถทำซ้ำเสียงเรียกเข้านี้ได้",
         deleteFailed: "ไม่สามารถลบหรือเก็บเสียงเรียกเข้านี้",
+        actionCouldNotComplete: "ไม่สามารถดำเนินการกับริงโทนให้เสร็จสิ้นได้",
         noOwnedSongs: "คุณยังไม่มีเพลงที่อัปโหลดเป็นแหล่งเสียงเรียกเข้า",
         emptyList: "คุณยังไม่ได้สร้างเสียงเรียกเข้าใดๆ",
         loading: "กำลังโหลดเสียงเรียกเข้าของคุณ...",

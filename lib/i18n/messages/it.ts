@@ -381,6 +381,7 @@ export const itMessages: LocaleMessageDictionary = {
         savingDraft: "Salvataggio bozza…",
         duplicateFailed: "Impossibile duplicare questa suoneria.",
         deleteFailed: "Impossibile eliminare o archiviare questa suoneria.",
+        actionCouldNotComplete: "Impossibile completare l'azione sulla suoneria.",
         noOwnedSongs: "Non hai ancora brani caricati disponibili come sorgenti di suoneria.",
         emptyList: "Non hai ancora creato alcuna suoneria.",
         loading: "Caricamento delle tue suonerie…",

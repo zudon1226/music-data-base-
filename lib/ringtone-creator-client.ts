@@ -308,6 +308,10 @@ export async function deleteOrArchiveRingtone(input: {
     ringtoneId: string;
     status: RingtoneStatus;
 }) {
+    // Already soft-retained — never hard-delete archived products (moderation history is immutable).
+    if (input.status === "archived") {
+        return { ok: true, status: 200, body: { deleted: false, retained: true, archived: true, idempotent: true } };
+    }
     if (["published", "approved", "suspended"].includes(input.status)) {
         const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
             method: "PATCH",
@@ -324,7 +328,10 @@ export async function deleteOrArchiveRingtone(input: {
         },
     );
     const parsed = await parseJson(response);
-    if (!parsed.ok && parsed.body.code === "ARCHIVE_REQUIRED") {
+    if (
+        !parsed.ok
+        && (parsed.body.code === "ARCHIVE_REQUIRED" || parsed.body.code === "MODERATION_HISTORY_RETAINED")
+    ) {
         const archive = await fetch(`/api/ringtones/${input.ringtoneId}`, {
             method: "PATCH",
             headers: authHeaders(input.session),
@@ -333,6 +340,45 @@ export async function deleteOrArchiveRingtone(input: {
         return parseJson(archive);
     }
     return parsed;
+}
+
+/** Return an archived/published ringtone to an editable draft for re-review. */
+export async function returnRingtoneToReview(input: {
+    userId: string;
+    session: Session | null;
+    ringtoneId: string;
+    status: RingtoneStatus;
+}) {
+    if (["published", "suspended"].includes(input.status)) {
+        // Empty PATCH on published/suspended starts a purchase-safe draft revision.
+        const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
+            method: "PATCH",
+            headers: authHeaders(input.session),
+            body: JSON.stringify({ userId: input.userId }),
+        });
+        return parseJson(response);
+    }
+    const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
+        method: "PATCH",
+        headers: authHeaders(input.session),
+        body: JSON.stringify({ userId: input.userId, status: "draft" }),
+    });
+    return parseJson(response);
+}
+
+export function formatRingtoneClientError(error: unknown, fallback: string) {
+    const message = typeof error === "string"
+        ? error
+        : error && typeof error === "object" && "message" in error
+            ? String((error as { message?: unknown }).message || "")
+            : String(error || "");
+    if (
+        !message
+        || /ringtone_moderation_logs|is immutable|violates foreign key|PGRST|postgres|sqlstate|relation /i.test(message)
+    ) {
+        return fallback;
+    }
+    return message;
 }
 
 export type CreateRingtoneFormState = {

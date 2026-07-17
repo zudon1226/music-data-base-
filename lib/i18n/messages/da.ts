@@ -381,6 +381,7 @@ export const daMessages: LocaleMessageDictionary = {
         savingDraft: "Gemmer kladde…",
         duplicateFailed: "Kunne ikke duplikere denne ringetone.",
         deleteFailed: "Kunne ikke slette eller arkivere denne ringetone.",
+        actionCouldNotComplete: "Ringtone-handlingen kunne ikke fuldføres.",
         noOwnedSongs: "Du har endnu ingen uploadede sange tilgængelige som ringetonekilder.",
         emptyList: "Du har endnu ikke oprettet nogen ringetoner.",
         loading: "Indlæser dine ringetoner…",

@@ -381,6 +381,7 @@ export const ltMessages: LocaleMessageDictionary = {
         savingDraft: "Saugomas juodraštis…",
         duplicateFailed: "Nepavyko dubliuoti šios melodijos.",
         deleteFailed: "Nepavyko ištrinti arba archyvuoti šios melodijos.",
+        actionCouldNotComplete: "Melodijos veiksmo nepavyko uzbaigti.",
         noOwnedSongs: "Dar neturite įkeltų dainų, galimų naudoti kaip skambučio melodijų šaltinius.",
         emptyList: "Dar nesukūrėte jokių melodijų.",
         loading: "Įkeliamos jūsų melodijos…",

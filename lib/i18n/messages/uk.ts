@@ -381,6 +381,7 @@ export const ukMessages: LocaleMessageDictionary = {
         savingDraft: "Збереження чернетки…",
         duplicateFailed: "Не вдалося дублювати цей рингтон.",
         deleteFailed: "Не вдалося видалити або архівувати цей рингтон.",
+        actionCouldNotComplete: "Не вдалося завершити дію з рінгтоном.",
         noOwnedSongs: "У вас ще немає завантажених пісень, доступних як джерела рингтонів.",
         emptyList: "Ви ще не створили жодного рингтону.",
         loading: "Завантаження ваших рингтонів…",

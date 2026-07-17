@@ -381,6 +381,7 @@ export const jaMessages: LocaleMessageDictionary = {
         savingDraft: "下書きを保存中…",
         duplicateFailed: "この着信音を複製できませんでした。",
         deleteFailed: "この着信音を削除またはアーカイブできませんでした。",
+        actionCouldNotComplete: "着信音の操作を完了できませんでした。",
         noOwnedSongs: "着信音ソースとして利用できるアップロードされた曲がまだありません。",
         emptyList: "まだ着信音を作成していません。",
         loading: "着信音を読み込んでいます…",

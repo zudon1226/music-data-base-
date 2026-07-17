@@ -381,6 +381,7 @@ export const csMessages: LocaleMessageDictionary = {
         savingDraft: "Ukládání konceptu…",
         duplicateFailed: "Toto vyzvánění se nepodařilo duplikovat.",
         deleteFailed: "Toto vyzvánění se nepodařilo smazat ani archivovat.",
+        actionCouldNotComplete: "Akci se zvonenim se nepodarilo dokoncit.",
         noOwnedSongs: "Zatím nemáte žádné nahrané skladby dostupné jako zdroje vyzvánění.",
         emptyList: "Zatím jste nevytvořili žádná vyzvánění.",
         loading: "Načítání vašich vyzvánění…",

@@ -381,6 +381,7 @@ export const bsMessages: LocaleMessageDictionary = {
         savingDraft: "Čuvanje nacrta…",
         duplicateFailed: "Ova melodija nije mogla biti duplicirana.",
         deleteFailed: "Ova melodija nije mogla biti obrisana ili arhivirana.",
+        actionCouldNotComplete: "Radnja sa melodijom zvona nije mogla biti zavrsena.",
         noOwnedSongs: "Još nemate otpremljene pjesme dostupne kao izvore melodija.",
         emptyList: "Još niste kreirali nijednu melodiju.",
         loading: "Učitavanje vaših melodija…",

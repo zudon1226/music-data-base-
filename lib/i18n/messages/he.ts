@@ -381,6 +381,7 @@ export const heMessages: LocaleMessageDictionary = {
         savingDraft: "שומר את הטיוטה...",
         duplicateFailed: "לא ניתן היה לשכפל את הרינגטון הזה.",
         deleteFailed: "לא ניתן היה למחוק או להעביר את הרינגטון הזה לארכיון.",
+        actionCouldNotComplete: "לא ניתן היה להשלים את פעולת הרינגטון.",
         noOwnedSongs: "עדיין אין לך שירים שהועלו זמינים כמקורות רינגטון.",
         emptyList: "עדיין לא יצרת רינגטונים.",
         loading: "טוען את הרינגטונים שלך...",

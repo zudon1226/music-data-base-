@@ -381,6 +381,7 @@ export const viMessages: LocaleMessageDictionary = {
         savingDraft: "Đang lưu bản nháp…",
         duplicateFailed: "Không thể sao chép nhạc chuông này.",
         deleteFailed: "Không thể xóa hoặc lưu trữ nhạc chuông này.",
+        actionCouldNotComplete: "Khong the hoan tat thao tac nhac chuong.",
         noOwnedSongs: "Bạn chưa có bất kỳ bài hát nào đã tải lên làm nguồn nhạc chuông.",
         emptyList: "Bạn chưa tạo bất kỳ nhạc chuông nào.",
         loading: "Đang tải nhạc chuông của bạn…",

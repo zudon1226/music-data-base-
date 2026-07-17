@@ -381,6 +381,7 @@ export const etMessages: LocaleMessageDictionary = {
         savingDraft: "Mustandi salvestamine…",
         duplicateFailed: "Seda helinat ei õnnestunud dubleerida.",
         deleteFailed: "Seda helinat ei õnnestunud kustutada ega arhiveerida.",
+        actionCouldNotComplete: "Helina toimingut ei onnestunud lopule viia.",
         noOwnedSongs: "Sul pole veel üleslaaditud lugusid, mida saaks helina allikatena kasutada.",
         emptyList: "Sa pole veel ühtegi helinat loonud.",
         loading: "Sinu helinate laadimine…",

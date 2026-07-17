@@ -381,6 +381,7 @@ export const svMessages: LocaleMessageDictionary = {
         savingDraft: "Sparar utkast…",
         duplicateFailed: "Kunde inte duplicera denna ringsignal.",
         deleteFailed: "Kunde inte ta bort eller arkivera denna ringsignal.",
+        actionCouldNotComplete: "Ringtone-atgarden kunde inte slutforas.",
         noOwnedSongs: "Du har ännu inga uppladdade låtar tillgängliga som ringsignalskällor.",
         emptyList: "Du har inte skapat några ringsignaler ännu.",
         loading: "Laddar dina ringsignaler…",

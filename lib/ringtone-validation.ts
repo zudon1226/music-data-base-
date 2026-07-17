@@ -155,15 +155,15 @@ export function validateRingtonePriceCents(value: unknown) {
 export function canCreatorTransitionStatus(from: RingtoneStatus, to: RingtoneStatus) {
     if (from === to) return true;
     const allowed: Record<string, RingtoneStatus[]> = {
-        draft: ["processing"],
+        draft: ["processing", "archived"],
         processing: ["draft"],
         pending_review: ["draft"],
-        rejected: ["draft", "processing"],
+        rejected: ["draft", "processing", "archived"],
         // Published products require a new draft revision or archive — not silent republish.
         published: ["archived"],
         archived: ["draft"],
-        suspended: [],
-        approved: [],
+        suspended: ["archived"],
+        approved: ["archived"],
     };
     return (allowed[from] || []).includes(to);
 }

@@ -381,6 +381,7 @@ export const urMessages: LocaleMessageDictionary = {
         savingDraft: "مسودہ محفوظ ہو رہا ہے…",
         duplicateFailed: "اس رنگ ٹون کو ڈپلیکیٹ نہیں کیا جا سکا۔",
         deleteFailed: "اس رنگ ٹون کو حذف یا محفوظ نہیں کیا جا سکا۔",
+        actionCouldNotComplete: "رنگ ٹون کارروائی مکمل نہیں ہو سکی۔",
         noOwnedSongs: "آپ کے پاس ابھی تک کوئی بھی اپ لوڈ کردہ گانے بطور رنگ ٹون ذرائع دستیاب نہیں ہیں۔",
         emptyList: "آپ نے ابھی تک کوئی رنگ ٹونز نہیں بنایا ہے۔",
         loading: "آپ کے رنگ ٹونز لوڈ ہو رہے ہیں…",

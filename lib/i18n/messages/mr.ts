@@ -381,6 +381,7 @@ export const mrMessages: LocaleMessageDictionary = {
         savingDraft: "मसुदा जतन करत आहे...",
         duplicateFailed: "ही रिंगटोन डुप्लिकेट करू शकलो नाही.",
         deleteFailed: "हा रिंगटोन हटवू किंवा संग्रहित करू शकलो नाही.",
+        actionCouldNotComplete: "रिंगटोन क्रिया पूर्ण करता आली नाही.",
         noOwnedSongs: "तुमच्याकडे रिंगटोन स्रोत म्हणून अपलोड केलेली कोणतीही गाणी अद्याप उपलब्ध नाहीत.",
         emptyList: "तुम्ही अद्याप कोणतेही रिंगटोन तयार केलेले नाहीत.",
         loading: "तुमचे रिंगटोन लोड करत आहे...",

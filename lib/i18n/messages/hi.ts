@@ -381,6 +381,7 @@ export const hiMessages: LocaleMessageDictionary = {
         savingDraft: "ड्राफ्ट सहेजा जा रहा है...",
         duplicateFailed: "इस रिंगटोन की नकल नहीं बनाई जा सकी.",
         deleteFailed: "इस रिंगटोन को हटाया या संग्रहित नहीं किया जा सका.",
+        actionCouldNotComplete: "रिंगटोन क्रिया पूरी नहीं की जा सकी।",
         noOwnedSongs: "आपके पास रिंगटोन स्रोतों के रूप में अभी तक कोई भी अपलोड किया गया गाना उपलब्ध नहीं है।",
         emptyList: "आपने अभी तक कोई रिंगटोन नहीं बनाई है.",
         loading: "आपकी रिंगटोन लोड हो रही है...",

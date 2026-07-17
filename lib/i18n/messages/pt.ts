@@ -381,6 +381,7 @@ export const ptMessages: LocaleMessageDictionary = {
         savingDraft: "A guardar rascunho…",
         duplicateFailed: "Não foi possível duplicar este toque.",
         deleteFailed: "Não foi possível eliminar ou arquivar este toque.",
+        actionCouldNotComplete: "Nao foi possivel concluir a acao do toque.",
         noOwnedSongs: "Ainda não tem músicas enviadas disponíveis como fontes de toque.",
         emptyList: "Ainda não criou nenhum toque.",
         loading: "A carregar os seus toques…",

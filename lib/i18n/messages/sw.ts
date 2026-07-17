@@ -381,6 +381,7 @@ export const swMessages: LocaleMessageDictionary = {
         savingDraft: "Inahifadhi rasimu...",
         duplicateFailed: "Haikuweza kunakili mlio huu wa simu.",
         deleteFailed: "Haikuweza kufuta au kuhifadhi toni hii kwenye kumbukumbu.",
+        actionCouldNotComplete: "Kitendo cha mlio hakikuweza kukamilishwa.",
         noOwnedSongs: "Bado huna nyimbo zozote zilizopakiwa zinazopatikana kama vyanzo vya sauti.",
         emptyList: "Bado hujaunda milio yoyote ya simu.",
         loading: "Inapakia milio yako ya simu...",

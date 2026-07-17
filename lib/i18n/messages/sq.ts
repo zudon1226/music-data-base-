@@ -381,6 +381,7 @@ export const sqMessages: LocaleMessageDictionary = {
         savingDraft: "Po ruhet drafti…",
         duplicateFailed: "Kjo melodi nuk u dyfishua.",
         deleteFailed: "Kjo melodi nuk u fshi ose arkivua.",
+        actionCouldNotComplete: "Veprimi i ziles nuk mund te perfundonte.",
         noOwnedSongs: "Nuk ke ende këngë të ngarkuara të disponueshme si burime melodish.",
         emptyList: "Nuk ke krijuar ende asnjë melodi.",
         loading: "Po ngarkohen meloditë e tua…",

@@ -2,6 +2,11 @@
  * Owner/admin ringtone moderation actions (Phase 4).
  */
 
+import {
+    RINGTONE_ACTION_FAILED_MESSAGE,
+    logRingtoneActionFailure,
+    toPublicRingtoneActionError,
+} from "@/lib/ringtone-action-errors";
 import { notifyRingtoneEvent } from "@/lib/ringtone-notifications";
 import { writeRingtoneModerationLog } from "@/lib/ringtone-moderation-log";
 import { canPublishRingtone } from "@/lib/ringtone-publication";
@@ -45,7 +50,14 @@ export async function performRingtoneAdminAction(input: {
 
     const supabase = getSupabaseServerClient();
     const existing = await supabase.from("ringtone_products").select("*").eq("id", input.ringtoneId).maybeSingle();
-    if (existing.error) return { ok: false as const, error: getErrorMessage(existing.error), status: 500 };
+    if (existing.error) {
+        logRingtoneActionFailure("ringtone-moderation", existing.error);
+        return {
+            ok: false as const,
+            error: toPublicRingtoneActionError(existing.error, RINGTONE_ACTION_FAILED_MESSAGE),
+            status: 500,
+        };
+    }
     if (!existing.data) return { ok: false as const, error: "Ringtone not found.", status: 404 };
 
     const from = String(existing.data.status || "draft") as RingtoneStatus;
@@ -89,7 +101,14 @@ export async function performRingtoneAdminAction(input: {
         const updated = await supabase.from("ringtone_products").update({
             is_featured: featured,
         }).eq("id", input.ringtoneId).select("*").single();
-        if (updated.error) return { ok: false as const, error: getErrorMessage(updated.error), status: 500 };
+        if (updated.error) {
+            logRingtoneActionFailure("ringtone-moderation", updated.error);
+            return {
+                ok: false as const,
+                error: toPublicRingtoneActionError(updated.error, RINGTONE_ACTION_FAILED_MESSAGE),
+                status: 500,
+            };
+        }
         await writeRingtoneModerationLog({
             ringtoneId: input.ringtoneId,
             revisionId: existing.data.current_revision_id,
@@ -154,7 +173,14 @@ export async function performRingtoneAdminAction(input: {
         .eq("id", input.ringtoneId)
         .select("*")
         .single();
-    if (updated.error) return { ok: false as const, error: getErrorMessage(updated.error), status: 500 };
+    if (updated.error) {
+        logRingtoneActionFailure("ringtone-moderation", updated.error);
+        return {
+            ok: false as const,
+            error: toPublicRingtoneActionError(updated.error, RINGTONE_ACTION_FAILED_MESSAGE),
+            status: 500,
+        };
+    }
 
     await writeRingtoneModerationLog({
         ringtoneId: input.ringtoneId,

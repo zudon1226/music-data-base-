@@ -381,6 +381,7 @@ export const koMessages: LocaleMessageDictionary = {
         savingDraft: "초안 저장 중…",
         duplicateFailed: "이 벨소리를 복제할 수 없습니다.",
         deleteFailed: "이 벨소리를 삭제하거나 보관할 수 없습니다.",
+        actionCouldNotComplete: "벨소리 작업을 완료할 수 없습니다.",
         noOwnedSongs: "아직 벨소리 소스로 사용할 수 있는 업로드된 노래가 없습니다.",
         emptyList: "아직 벨소리를 만들지 않았습니다.",
         loading: "벨소리 로드 중…",

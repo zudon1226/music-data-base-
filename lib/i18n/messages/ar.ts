@@ -381,6 +381,7 @@ export const arMessages: LocaleMessageDictionary = {
         savingDraft: "جارٍ حفظ المسودة…",
         duplicateFailed: "لا يمكن تكرار نغمة الرنين هذه.",
         deleteFailed: "تعذر حذف أو أرشفة نغمة الرنين هذه.",
+        actionCouldNotComplete: "تعذّر إكمال إجراء نغمة الرنين.",
         noOwnedSongs: "ليس لديك أي أغانٍ تم تحميلها متاحة كمصادر لنغمات الرنين حتى الآن.",
         emptyList: "لم تقم بإنشاء أي نغمات رنين حتى الآن.",
         loading: "جارٍ تحميل نغمات الرنين...",

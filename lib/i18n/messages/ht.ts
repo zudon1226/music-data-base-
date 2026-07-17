@@ -381,6 +381,7 @@ export const htMessages: LocaleMessageDictionary = {
         savingDraft: "Ap sove bouyon…",
         duplicateFailed: "Pa t kapab kopi sonnri sa a.",
         deleteFailed: "Pa t kapab efase oswa achive sonnri sa a.",
+        actionCouldNotComplete: "Aksyon ringtone a pa t kapab fini.",
         noOwnedSongs: "Ou poko gen chante telechaje ki disponib kòm sous sonnri.",
         emptyList: "Ou poko kreye okenn sonnri.",
         loading: "Ap chaje sonnri ou yo…",

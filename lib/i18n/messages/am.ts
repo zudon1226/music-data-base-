@@ -381,6 +381,7 @@ export const amMessages: LocaleMessageDictionary = {
         savingDraft: "ረቂቅን በማስቀመጥ ላይ…",
         duplicateFailed: "ይህን የስልክ ጥሪ ድምፅ ማባዛት አልተቻለም።",
         deleteFailed: "ይህን የስልክ ጥሪ ድምፅ መሰረዝ ወይም በማህደር ማስቀመጥ አልተቻለም።",
+        actionCouldNotComplete: "የሪንግቶን እርምጃው ሊጠናቀቅ አልቻለም።",
         noOwnedSongs: "እስካሁን ምንም የተሰቀሉ ዘፈኖች የሉዎትም እንደ የስልክ ጥሪ ድምፅ ምንጮች።",
         emptyList: "እስካሁን ምንም የስልክ ጥሪ ድምፅ አልፈጠርክም።",
         loading: "የስልክ ጥሪ ድምፅዎን በመጫን ላይ…",

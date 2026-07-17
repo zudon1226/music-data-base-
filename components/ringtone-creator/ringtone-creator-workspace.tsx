@@ -13,6 +13,8 @@ import {
     createEmptyRingtoneForm,
     deleteOrArchiveRingtone,
     duplicateRingtone,
+    formatRingtoneClientError,
+    returnRingtoneToReview,
     fetchMyRingtones,
     fetchOwnedSourceSongs,
     fetchRingtoneSales,
@@ -600,27 +602,30 @@ export function RingtoneCreatorWorkspace({
                                                     ? t("ringtones.pausePreview")
                                                     : t("ringtones.previewRingtone")}
                                             </button>
-                                            {canEdit ? (
+                                            {canEdit && ringtone.status !== "archived" ? (
                                                 <button type="button" onClick={() => beginEdit(ringtone)}>
                                                     {t("ringtones.edit")}
                                                 </button>
-                                            ) : ["published", "suspended"].includes(ringtone.status) ? (
+                                            ) : null}
+                                            {["published", "suspended", "archived"].includes(ringtone.status) ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => {
                                                         startTransition(async () => {
-                                                            // Field edit on published starts a new draft revision (purchase-safe).
-                                                            const result = await saveRingtoneDraft({
+                                                            const result = await returnRingtoneToReview({
                                                                 userId,
                                                                 session,
                                                                 ringtoneId: ringtone.id,
-                                                                payload: { title: ringtone.title },
+                                                                status: ringtone.status,
                                                             });
                                                             if (!result.ok) {
-                                                                setError(String(result.body.error || t("ringtones.submitFailed")));
+                                                                setError(formatRingtoneClientError(
+                                                                    result.body.error || t("ringtones.actionCouldNotComplete"),
+                                                                    t("ringtones.actionCouldNotComplete"),
+                                                                ));
                                                                 return;
                                                             }
-                                                            setStatusMessage(t("ringtones.revision"));
+                                                            setStatusMessage(t("ringtones.requestRevision"));
                                                             await reloadAll();
                                                         });
                                                     }}
@@ -638,7 +643,10 @@ export function RingtoneCreatorWorkspace({
                                                             ringtoneId: ringtone.id,
                                                         });
                                                         if (!result.ok) {
-                                                            setError(String(result.body.error || t("ringtones.duplicateFailed")));
+                                                            setError(formatRingtoneClientError(
+                                                                result.body.error || t("ringtones.duplicateFailed"),
+                                                                t("ringtones.actionCouldNotComplete"),
+                                                            ));
                                                             return;
                                                         }
                                                         await reloadAll();
@@ -689,14 +697,17 @@ export function RingtoneCreatorWorkspace({
                                                             status: ringtone.status,
                                                         });
                                                         if (!result.ok) {
-                                                            setError(String(result.body.error || t("ringtones.deleteFailed")));
+                                                            setError(formatRingtoneClientError(
+                                                                result.body.error || t("ringtones.deleteFailed"),
+                                                                t("ringtones.actionCouldNotComplete"),
+                                                            ));
                                                             return;
                                                         }
                                                         await reloadAll();
                                                     });
                                                 }}
                                             >
-                                                {["published", "approved", "suspended"].includes(ringtone.status)
+                                                {["published", "approved", "suspended", "archived"].includes(ringtone.status)
                                                     ? t("ringtones.archived")
                                                     : t("ringtones.delete")}
                                             </button>

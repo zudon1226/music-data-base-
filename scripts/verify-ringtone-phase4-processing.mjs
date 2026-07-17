@@ -49,12 +49,14 @@ function finish() {
 function canCreatorTransitionStatus(from, to) {
     if (from === to) return true;
     const allowed = {
-        draft: ["processing"],
+        draft: ["processing", "archived"],
         processing: ["draft"],
         pending_review: ["draft"],
-        rejected: ["draft", "processing"],
+        rejected: ["draft", "processing", "archived"],
         published: ["archived"],
         archived: ["draft"],
+        suspended: ["archived"],
+        approved: ["archived"],
     };
     return (allowed[from] || []).includes(to);
 }
@@ -141,7 +143,7 @@ async function main() {
     assertIncludes(processing, "RINGTONE_PROCESSING_TEST_MODE", "test-mode processing gate");
     assertIncludes(jobs, "enqueueRingtoneProcessingJob", "idempotent enqueue");
     assertIncludes(jobs, "ACTIVE_JOB_STATUSES", "active job guard");
-    assertIncludes(validation, 'draft: ["processing"]', "creator draft→processing");
+    assertIncludes(validation, 'draft: ["processing", "archived"]', "creator draft→processing");
     assertIncludes(publication, "canPublishRingtone", "publication gates");
     assertIncludes(moderation, "performRingtoneAdminAction", "admin actions");
     assertIncludes(moderation, "REASON_REQUIRED", "rejection reason required");

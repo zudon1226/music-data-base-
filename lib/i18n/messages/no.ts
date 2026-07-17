@@ -381,6 +381,7 @@ export const noMessages: LocaleMessageDictionary = {
         savingDraft: "Lagrer utkast…",
         duplicateFailed: "Kunne ikke duplisere denne ringetonen.",
         deleteFailed: "Kunne ikke slette eller arkivere denne ringetonen.",
+        actionCouldNotComplete: "Ringtone-handlingen kunne ikke fullfores.",
         noOwnedSongs: "Du har ikke noen opplastede sanger tilgjengelig som ringetonekilder ennå.",
         emptyList: "Du har ikke opprettet noen ringetoner ennå.",
         loading: "Laster ringetonene dine…",

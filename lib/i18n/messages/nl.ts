@@ -381,6 +381,7 @@ export const nlMessages: LocaleMessageDictionary = {
         savingDraft: "Concept opslaan…",
         duplicateFailed: "Kon deze beltoon niet dupliceren.",
         deleteFailed: "Kon deze beltoon niet verwijderen of archiveren.",
+        actionCouldNotComplete: "De beltoonactie kon niet worden voltooid.",
         noOwnedSongs: "Je hebt nog geen geüploade nummers beschikbaar als beltoonbronnen.",
         emptyList: "Je hebt nog geen beltonen gemaakt.",
         loading: "Je beltonen laden…",

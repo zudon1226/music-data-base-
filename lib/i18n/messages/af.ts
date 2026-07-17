@@ -381,6 +381,7 @@ export const afMessages: LocaleMessageDictionary = {
         savingDraft: "Stoor konsep…",
         duplicateFailed: "Kon nie hierdie beltoon dupliseer nie.",
         deleteFailed: "Kon nie hierdie beltoon skrap of argiveer nie.",
+        actionCouldNotComplete: "Die ringtone-aksie kon nie voltooi word nie.",
         noOwnedSongs: "Jy het nog geen opgelaaide liedjies beskikbaar as beltoonbronne nie.",
         emptyList: "Jy het nog geen beltoon geskep nie.",
         loading: "Laai jou beltoon…",

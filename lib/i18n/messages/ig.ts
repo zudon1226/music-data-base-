@@ -381,6 +381,7 @@ export const igMessages: LocaleMessageDictionary = {
         savingDraft: "Na-echekwa akwụkwọ…",
         duplicateFailed: "Enweghị ike ịmegharị ụdaolu a.",
         deleteFailed: "Enweghị ike ihichapụ ma ọ bụ chekwaa ụdaolu a.",
+        actionCouldNotComplete: "Enweghi ike imecha ihe omume ringtone.",
         noOwnedSongs: "Ịnweghị egwu ebugoro dị ka isi mmalite ụdaolu ma.",
         emptyList: "Ị mepụtabeghị ụdaolu ọ bụla.",
         loading: "Na-ebugo ụdaolu gị…",

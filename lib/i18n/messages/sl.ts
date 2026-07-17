@@ -381,6 +381,7 @@ export const slMessages: LocaleMessageDictionary = {
         savingDraft: "Shranjevanje osnutka…",
         duplicateFailed: "Te melodije ni bilo mogoče podvojiti.",
         deleteFailed: "Te melodije ni bilo mogoče izbrisati ali arhivirati.",
+        actionCouldNotComplete: "Dejanja z melodijo zvonjenja ni bilo mogoce dokoncati.",
         noOwnedSongs: "Nimate še naloženih skladb, ki bi bile na voljo kot viri melodij.",
         emptyList: "Niste še ustvarili nobene melodije.",
         loading: "Nalaganje vaših melodij…",

@@ -381,6 +381,7 @@ export const zhCNMessages: LocaleMessageDictionary = {
         savingDraft: "正在保存草稿...",
         duplicateFailed: "无法复制此铃声。",
         deleteFailed: "无法删除或存档此铃声。",
+        actionCouldNotComplete: "无法完成铃声操作。",
         noOwnedSongs: "您还没有任何上传的歌曲可用作铃声源。",
         emptyList: "您还没有创建任何铃声。",
         loading: "正在加载您的铃声...",

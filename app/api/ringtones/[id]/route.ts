@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
 import { requireRingtoneCreator } from "@/lib/ringtone-access";
+import {
+    RINGTONE_ACTION_FAILED_CODE,
+    RINGTONE_ACTION_FAILED_MESSAGE,
+    logRingtoneActionFailure,
+    toPublicRingtoneActionError,
+} from "@/lib/ringtone-action-errors";
 import { type RingtoneStatus } from "@/lib/ringtone-constants";
+import { writeRingtoneModerationLog } from "@/lib/ringtone-moderation-log";
 import { beginPublishedRingtoneRevision } from "@/lib/ringtone-revisions";
 import {
     canAdminTransitionStatus,
@@ -24,7 +31,55 @@ function json(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
 
+function publicError(error: unknown, status = 500) {
+    logRingtoneActionFailure("api/ringtones/:id", error);
+    return json({
+        error: toPublicRingtoneActionError(error, RINGTONE_ACTION_FAILED_MESSAGE),
+        code: RINGTONE_ACTION_FAILED_CODE,
+    }, status);
+}
+
 type Params = { params: Promise<{ id: string }> };
+
+async function hasModerationHistory(ringtoneId: string) {
+    const supabase = getSupabaseServerClient();
+    const { count, error } = await supabase
+        .from("ringtone_moderation_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("ringtone_id", ringtoneId);
+    if (error) throw error;
+    return (count || 0) > 0;
+}
+
+async function appendStatusTransitionLog(input: {
+    ringtoneId: string;
+    product: Record<string, unknown>;
+    previousStatus: string;
+    newStatus: string;
+    actorId: string;
+    actorRole: "creator" | "admin";
+    action?: string;
+}) {
+    if (input.previousStatus === input.newStatus) return;
+    const action = input.action
+        || (input.newStatus === "archived"
+            ? "archive"
+            : input.newStatus === "draft" && ["archived", "published", "suspended", "rejected", "pending_review"].includes(input.previousStatus)
+                ? "return_to_review"
+                : "status_change");
+    await writeRingtoneModerationLog({
+        ringtoneId: input.ringtoneId,
+        revisionId: typeof input.product.current_revision_id === "string" ? input.product.current_revision_id : null,
+        revisionNumber: typeof input.product.revision_number === "number" ? input.product.revision_number : null,
+        action,
+        previousStatus: input.previousStatus,
+        newStatus: input.newStatus,
+        actorId: input.actorId,
+        actorRole: input.actorRole,
+        reason: "",
+        metadata: {},
+    });
+}
 
 export async function GET(request: Request, context: Params) {
     try {
@@ -36,7 +91,7 @@ export async function GET(request: Request, context: Params) {
             .select("*")
             .eq("id", id)
             .maybeSingle();
-        if (error) return json({ error: getErrorMessage(error) }, 500);
+        if (error) return publicError(error, 500);
         if (!data) return json({ error: "Ringtone not found." }, 404);
 
         const status = String(data.status || "") as RingtoneStatus;
@@ -53,8 +108,7 @@ export async function GET(request: Request, context: Params) {
         }
         return json({ ringtone: data });
     } catch (error) {
-        console.error("[api/ringtones/:id] GET failed:", error);
-        return json({ error: getErrorMessage(error) }, 500);
+        return publicError(error, 500);
     }
 }
 
@@ -71,7 +125,7 @@ export async function PATCH(request: Request, context: Params) {
 
         const supabase = getSupabaseServerClient();
         const existing = await supabase.from("ringtone_products").select("*").eq("id", id).maybeSingle();
-        if (existing.error) return json({ error: getErrorMessage(existing.error) }, 500);
+        if (existing.error) return publicError(existing.error, 500);
         if (!existing.data) return json({ error: "Ringtone not found." }, 404);
 
         const isAdmin = await isAdminUserId(userId);
@@ -87,6 +141,7 @@ export async function PATCH(request: Request, context: Params) {
         const updates: Record<string, unknown> = {};
         const creatorMayEditFields = isAdmin || isCreatorEditableStatus(currentStatus);
         const statusOnlyUnlock = !isAdmin && (currentStatus === "published" || currentStatus === "archived");
+        let statusTransitionAction: string | undefined;
 
         if (creatorMayEditFields) {
             if (body.title != null) {
@@ -150,6 +205,9 @@ export async function PATCH(request: Request, context: Params) {
         if (body.status != null) {
             if (!isRingtoneStatus(body.status)) return json({ error: "Invalid status." }, 400);
             const nextStatus = body.status as RingtoneStatus;
+            if (currentStatus === nextStatus) {
+                return json({ ringtone: existing.data, idempotent: true });
+            }
             if (!isAdmin && nextStatus === "pending_review") {
                 return json({
                     error: "Submit for review by starting secure processing. Creators cannot skip processing.",
@@ -168,10 +226,20 @@ export async function PATCH(request: Request, context: Params) {
             }
             updates.status = nextStatus;
             if (nextStatus === "published") updates.published_at = new Date().toISOString();
+            statusTransitionAction = nextStatus === "archived"
+                ? "archive"
+                : nextStatus === "draft"
+                    ? "return_to_review"
+                    : "status_change";
         } else if (!creatorMayEditFields && !isAdmin) {
             if (currentStatus === "published" || currentStatus === "suspended") {
                 const revision = await beginPublishedRingtoneRevision({ ringtoneId: id, actorId: userId });
-                if (!revision.ok) return json({ error: revision.error }, revision.status || 400);
+                if (!revision.ok) {
+                    return json({
+                        error: toPublicRingtoneActionError(revision.error, RINGTONE_ACTION_FAILED_MESSAGE),
+                        code: RINGTONE_ACTION_FAILED_CODE,
+                    }, revision.status || 400);
+                }
                 // Apply field updates onto the new draft revision.
                 const fieldBody = { ...body };
                 delete fieldBody.status;
@@ -179,11 +247,9 @@ export async function PATCH(request: Request, context: Params) {
                 delete fieldBody.sessionUserId;
                 const hasFields = Object.keys(fieldBody).some((key) => fieldBody[key] != null);
                 if (!hasFields) return json({ ringtone: revision.ringtone, revisionStarted: true });
-                // Re-enter editable path by recursively applying via a fresh select below.
                 const refreshed = await supabase.from("ringtone_products").select("*").eq("id", id).maybeSingle();
                 if (!refreshed.data) return json({ error: "Ringtone not found after revision start." }, 404);
                 Object.assign(existing, { data: refreshed.data });
-                // Fall through: rebuild updates for draft revision.
                 const draftUpdates: Record<string, unknown> = {};
                 if (body.title != null) {
                     const title = sanitizeRingtoneText(body.title, 160);
@@ -206,7 +272,7 @@ export async function PATCH(request: Request, context: Params) {
                     .eq("id", id)
                     .select("*")
                     .single();
-                if (error) return json({ error: getErrorMessage(error) }, 500);
+                if (error) return publicError(error, 500);
                 return json({ ringtone: data, revisionStarted: true });
             }
             return json({ error: "This ringtone is locked for creator edits." }, 403);
@@ -222,11 +288,23 @@ export async function PATCH(request: Request, context: Params) {
             .eq("id", id)
             .select("*")
             .single();
-        if (error) return json({ error: getErrorMessage(error) }, 500);
+        if (error) return publicError(error, 500);
+
+        if (typeof updates.status === "string") {
+            await appendStatusTransitionLog({
+                ringtoneId: id,
+                product: data,
+                previousStatus: currentStatus,
+                newStatus: String(updates.status),
+                actorId: userId,
+                actorRole: isAdmin ? "admin" : "creator",
+                action: statusTransitionAction,
+            });
+        }
+
         return json({ ringtone: data });
     } catch (error) {
-        console.error("[api/ringtones/:id] PATCH failed:", error);
-        return json({ error: getErrorMessage(error) }, 500);
+        return publicError(error, 500);
     }
 }
 
@@ -240,17 +318,22 @@ export async function DELETE(request: Request, context: Params) {
         if (!auth.ok) return json({ error: auth.error }, auth.status);
 
         const supabase = getSupabaseServerClient();
-        const existing = await supabase.from("ringtone_products").select("id,creator_id,status").eq("id", id).maybeSingle();
-        if (existing.error) return json({ error: getErrorMessage(existing.error) }, 500);
+        const existing = await supabase.from("ringtone_products").select("*").eq("id", id).maybeSingle();
+        if (existing.error) return publicError(existing.error, 500);
         if (!existing.data) return json({ error: "Ringtone not found." }, 404);
 
         const isAdmin = await isAdminUserId(userId);
         if (existing.data.creator_id !== userId && !isAdmin) {
             return json({ error: "You may only delete your own ringtone drafts." }, 403);
         }
-        const status = String(existing.data.status || "");
+        const status = String(existing.data.status || "") as RingtoneStatus;
         if (!isAdmin && !["draft", "rejected", "archived"].includes(status)) {
             return json({ error: "Only draft, rejected, or archived ringtones may be deleted by creators." }, 403);
+        }
+
+        // Archived products are already soft-retained. Never hard-delete them.
+        if (status === "archived") {
+            return json({ deleted: false, retained: true, archived: true, idempotent: true, id });
         }
 
         const purchases = await supabase
@@ -258,14 +341,55 @@ export async function DELETE(request: Request, context: Params) {
             .select("id")
             .eq("ringtone_id", id)
             .limit(1);
-        if (purchases.error) return json({ error: getErrorMessage(purchases.error) }, 500);
-        if ((purchases.data || []).length > 0) {
-            if (!isAdmin) {
+        if (purchases.error) return publicError(purchases.error, 500);
+        const hasPurchases = (purchases.data || []).length > 0;
+
+        let hasLogs = false;
+        try {
+            hasLogs = await hasModerationHistory(id);
+        } catch (error) {
+            return publicError(error, 500);
+        }
+
+        // Preserve immutable moderation history and purchase links by archiving instead of deleting.
+        if (hasLogs || hasPurchases) {
+            if (!isAdmin && !canCreatorTransitionStatus(status, "archived")) {
                 return json({
-                    error: "Purchased ringtones cannot be permanently deleted. Archive the product instead.",
-                    code: "ARCHIVE_REQUIRED",
+                    error: RINGTONE_ACTION_FAILED_MESSAGE,
+                    code: "MODERATION_HISTORY_RETAINED",
                 }, 409);
             }
+            if (isAdmin && !canAdminTransitionStatus(status, "archived")) {
+                return json({
+                    error: RINGTONE_ACTION_FAILED_MESSAGE,
+                    code: "MODERATION_HISTORY_RETAINED",
+                }, 409);
+            }
+            const archived = await supabase
+                .from("ringtone_products")
+                .update({ status: "archived" })
+                .eq("id", id)
+                .select("*")
+                .single();
+            if (archived.error) return publicError(archived.error, 500);
+            await writeRingtoneModerationLog({
+                ringtoneId: id,
+                revisionId: existing.data.current_revision_id,
+                revisionNumber: existing.data.revision_number,
+                action: "archive",
+                previousStatus: status,
+                newStatus: "archived",
+                actorId: userId,
+                actorRole: isAdmin ? "admin" : "creator",
+                reason: hasPurchases ? "Purchased ringtone retained via archive." : "Moderation history retained via archive.",
+                metadata: { hasPurchases, hasLogs, deleteBlocked: true },
+            });
+            return json({
+                deleted: false,
+                archived: true,
+                code: hasPurchases ? "ARCHIVE_REQUIRED" : "MODERATION_HISTORY_RETAINED",
+                ringtone: archived.data,
+            });
         }
 
         if (!isAdmin && status === "published") {
@@ -273,10 +397,38 @@ export async function DELETE(request: Request, context: Params) {
         }
 
         const { error } = await supabase.from("ringtone_products").delete().eq("id", id);
-        if (error) return json({ error: getErrorMessage(error) }, 500);
+        if (error) {
+            // FK restrict / immutability — never surface raw DB text.
+            const message = getErrorMessage(error);
+            if (/immutable|foreign key|restrict/i.test(message)) {
+                logRingtoneActionFailure("api/ringtones/:id DELETE", error);
+                const archived = await supabase
+                    .from("ringtone_products")
+                    .update({ status: "archived" })
+                    .eq("id", id)
+                    .select("*")
+                    .single();
+                if (!archived.error && archived.data) {
+                    await writeRingtoneModerationLog({
+                        ringtoneId: id,
+                        revisionId: existing.data.current_revision_id,
+                        revisionNumber: existing.data.revision_number,
+                        action: "archive",
+                        previousStatus: status,
+                        newStatus: "archived",
+                        actorId: userId,
+                        actorRole: isAdmin ? "admin" : "creator",
+                        reason: "Delete blocked; product archived to preserve history.",
+                        metadata: { deleteBlocked: true },
+                    });
+                    return json({ deleted: false, archived: true, ringtone: archived.data });
+                }
+                return json({ error: RINGTONE_ACTION_FAILED_MESSAGE, code: RINGTONE_ACTION_FAILED_CODE }, 409);
+            }
+            return publicError(error, 500);
+        }
         return json({ deleted: true, id });
     } catch (error) {
-        console.error("[api/ringtones/:id] DELETE failed:", error);
-        return json({ error: getErrorMessage(error) }, 500);
+        return publicError(error, 500);
     }
 }

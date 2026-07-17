@@ -381,6 +381,7 @@ export const bnMessages: LocaleMessageDictionary = {
         savingDraft: "খসড়া সংরক্ষণ করা হচ্ছে...",
         duplicateFailed: "এই রিংটোনটি নকল করা যায়নি৷",
         deleteFailed: "এই রিংটোনটি মুছে ফেলা বা সংরক্ষণাগার করা যায়নি৷",
+        actionCouldNotComplete: "রিংটোন অ্যাকশন সম্পন্ন করা যায়নি।",
         noOwnedSongs: "আপনার কাছে এখনও রিংটোন উত্স হিসাবে উপলব্ধ কোনো আপলোড করা গান নেই৷",
         emptyList: "আপনি এখনও কোনো রিংটোন তৈরি করেননি৷",
         loading: "আপনার রিংটোন লোড হচ্ছে...",

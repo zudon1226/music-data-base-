@@ -381,6 +381,7 @@ export const plMessages: LocaleMessageDictionary = {
         savingDraft: "Zapisywanie szkicu…",
         duplicateFailed: "Nie udało się zduplikować tego dzwonka.",
         deleteFailed: "Nie udało się usunąć ani zarchiwizować tego dzwonka.",
+        actionCouldNotComplete: "Nie udalo sie ukonczyc akcji dzwonka.",
         noOwnedSongs: "Nie masz jeszcze przesłanych utworów dostępnych jako źródła dzwonków.",
         emptyList: "Nie utworzyłeś jeszcze żadnych dzwonków.",
         loading: "Ładowanie Twoich dzwonków…",

@@ -381,6 +381,7 @@ export const idMessages: LocaleMessageDictionary = {
         savingDraft: "Menyimpan draf…",
         duplicateFailed: "Tidak dapat menduplikasi nada dering ini.",
         deleteFailed: "Tidak dapat menghapus atau mengarsipkan nada dering ini.",
+        actionCouldNotComplete: "Tindakan nada dering tidak dapat diselesaikan.",
         noOwnedSongs: "Anda belum memiliki lagu yang diunggah sebagai sumber nada dering.",
         emptyList: "Anda belum membuat nada dering apa pun.",
         loading: "Memuat nada dering Anda…",

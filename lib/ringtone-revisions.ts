@@ -4,6 +4,7 @@
  * prior purchase-linked storage paths.
  */
 
+import { writeRingtoneModerationLog } from "@/lib/ringtone-moderation-log";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export async function snapshotRingtoneRevision(input: {
@@ -122,6 +123,23 @@ export async function beginPublishedRingtoneRevision(input: {
     }).eq("id", input.ringtoneId).select("*").single();
 
     if (updated.error) return { ok: false as const, error: getErrorMessage(updated.error), status: 500 };
+
+    await writeRingtoneModerationLog({
+        ringtoneId: input.ringtoneId,
+        revisionId: existing.data.current_revision_id,
+        revisionNumber: nextRevision,
+        action: "return_to_review",
+        previousStatus: status,
+        newStatus: "draft",
+        actorId: input.actorId,
+        actorRole: "creator",
+        reason: "",
+        metadata: {
+            previousRevisionNumber: Number(existing.data.revision_number || 1),
+            nextRevisionNumber: nextRevision,
+        },
+    });
+
     return { ok: true as const, ringtone: updated.data, revisionNumber: nextRevision };
 }
 

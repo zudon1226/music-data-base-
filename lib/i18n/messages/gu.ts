@@ -381,6 +381,7 @@ export const guMessages: LocaleMessageDictionary = {
         savingDraft: "ડ્રાફ્ટ સાચવી રહ્યું છે...",
         duplicateFailed: "આ રિંગટોન ડુપ્લિકેટ કરી શકાયું નથી.",
         deleteFailed: "આ રિંગટોન કાઢી અથવા આર્કાઇવ કરી શકાયું નથી.",
+        actionCouldNotComplete: "રિંગટોન ક્રિયા પૂર્ણ કરી શકાઈ નહીં.",
         noOwnedSongs: "તમારી પાસે હજી સુધી રિંગટોન સ્ત્રોત તરીકે અપલોડ કરેલા કોઈપણ ગીતો ઉપલબ્ધ નથી.",
         emptyList: "તમે હજુ સુધી કોઈ રિંગટોન બનાવ્યા નથી.",
         loading: "તમારા રિંગટોન લોડ કરી રહ્યાં છીએ...",

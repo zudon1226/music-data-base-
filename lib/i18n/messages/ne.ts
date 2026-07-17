@@ -381,6 +381,7 @@ export const neMessages: LocaleMessageDictionary = {
         savingDraft: "मस्यौदा बचत गर्दै...",
         duplicateFailed: "यो रिङटोन नक्कल गर्न सकिएन।",
         deleteFailed: "यो रिङ्गटोन मेटाउन वा संग्रह गर्न सकिएन।",
+        actionCouldNotComplete: "रिङटोन कार्य पूरा गर्न सकिएन।",
         noOwnedSongs: "तपाईंसँग अहिले सम्म रिङटोन स्रोतको रूपमा अपलोड गरिएका कुनै पनि गीतहरू उपलब्ध छैनन्।",
         emptyList: "तपाईंले अहिलेसम्म कुनै पनि रिङ्गटोन सिर्जना गर्नुभएको छैन।",
         loading: "तपाईंका रिङटोनहरू लोड गर्दै...",

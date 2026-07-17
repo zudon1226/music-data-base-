@@ -381,6 +381,7 @@ export const filMessages: LocaleMessageDictionary = {
         savingDraft: "Sine-save ang draft...",
         duplicateFailed: "Hindi ma-duplicate ang ringtone na ito.",
         deleteFailed: "Hindi matanggal o ma-archive ang ringtone na ito.",
+        actionCouldNotComplete: "Hindi makumpleto ang aksyon sa ringtone.",
         noOwnedSongs: "Wala ka pang anumang mga na-upload na kanta na magagamit bilang mga mapagkukunan ng ringtone.",
         emptyList: "Hindi ka pa nakakagawa ng anumang mga ringtone.",
         loading: "Nilo-load ang iyong mga ringtone…",

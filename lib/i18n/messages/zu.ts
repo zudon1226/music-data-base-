@@ -381,6 +381,7 @@ export const zuMessages: LocaleMessageDictionary = {
         savingDraft: "Ilondoloza okusalungiswa...",
         duplicateFailed: "Ayikwazanga ukuphinda le ringtone.",
         deleteFailed: "Ayikwazanga ukususa noma ukufaka kungobo yomlando le ringtone.",
+        actionCouldNotComplete: "Isenzo se-ringtone asikwazanga ukuqedwa.",
         noOwnedSongs: "Awunazo izingoma ezilayishiwe ezitholakala njengemithombo yeringithoni okwamanje.",
         emptyList: "Awukakawadali amaringithoni okwamanje.",
         loading: "Ilayisha amaringithoni akho...",

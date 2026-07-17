@@ -381,6 +381,7 @@ export const trMessages: LocaleMessageDictionary = {
         savingDraft: "Taslak kaydediliyor…",
         duplicateFailed: "Bu zil sesi çoğaltılamadı.",
         deleteFailed: "Bu zil sesi silinemedi veya arşivlenemedi.",
+        actionCouldNotComplete: "Zil sesi islemi tamamlanamadi.",
         noOwnedSongs: "Henüz zil sesi kaynağı olarak kullanılabilecek yüklenmiş şarkınız yok.",
         emptyList: "Henüz hiç zil sesi oluşturmadınız.",
         loading: "Zil sesleriniz yükleniyor…",

@@ -381,6 +381,7 @@ export const esMessages: LocaleMessageDictionary = {
         savingDraft: "Guardando borrador…",
         duplicateFailed: "No se pudo duplicar este tono.",
         deleteFailed: "No se pudo eliminar o archivar este tono.",
+        actionCouldNotComplete: "No se pudo completar la accion del tono.",
         noOwnedSongs: "Aún no tienes canciones subidas disponibles como fuentes de tono.",
         emptyList: "Aún no has creado ningún tono.",
         loading: "Cargando tus tonos…",

@@ -381,6 +381,7 @@ export const hrMessages: LocaleMessageDictionary = {
         savingDraft: "Spremanje nacrta…",
         duplicateFailed: "Ova melodija nije mogla biti duplicirana.",
         deleteFailed: "Ova melodija nije mogla biti izbrisana ili arhivirana.",
+        actionCouldNotComplete: "Radnja sa melodijom zvona nije mogla biti dovrsena.",
         noOwnedSongs: "Još nemate prenesene pjesme dostupne kao izvore melodija.",
         emptyList: "Još niste stvorili nijednu melodiju.",
         loading: "Učitavanje vaših melodija…",

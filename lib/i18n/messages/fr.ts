@@ -381,6 +381,7 @@ export const frMessages: LocaleMessageDictionary = {
         savingDraft: "Enregistrement du brouillon…",
         duplicateFailed: "Impossible de dupliquer cette sonnerie.",
         deleteFailed: "Impossible de supprimer ou d’archiver cette sonnerie.",
+        actionCouldNotComplete: "L'action sur la sonnerie n'a pas pu etre effectuee.",
         noOwnedSongs: "Vous n’avez pas encore de chansons téléversées utilisables comme sources de sonnerie.",
         emptyList: "Vous n’avez encore créé aucune sonnerie.",
         loading: "Chargement de vos sonneries…",

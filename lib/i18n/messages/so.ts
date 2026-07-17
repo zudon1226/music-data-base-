@@ -381,6 +381,7 @@ export const soMessages: LocaleMessageDictionary = {
         savingDraft: "Kaydinta qabyada…",
         duplicateFailed: "Ma nuqulin karayn ringtone-kan",
         deleteFailed: "Ma tirtiri karo ama kaydin kari waayay dhawaaqan ringtone.",
+        actionCouldNotComplete: "Ficilka ringtone-ka lama dhammayn karin.",
         noOwnedSongs: "Weli ma haysatid heeso la soo galiyay oo diyaar u ah ilo ringtone ahaan.",
         emptyList: "Weli ma aadan abuurin wax ringtones ah.",
         loading: "Soo raraysa dhawaaqa garaacaaga…",

@@ -381,6 +381,7 @@ export const deMessages: LocaleMessageDictionary = {
         savingDraft: "Entwurf wird gespeichert…",
         duplicateFailed: "Dieser Klingelton konnte nicht dupliziert werden.",
         deleteFailed: "Dieser Klingelton konnte nicht gelöscht oder archiviert werden.",
+        actionCouldNotComplete: "Die Klingelton-Aktion konnte nicht abgeschlossen werden.",
         noOwnedSongs: "Sie haben noch keine hochgeladenen Songs als Klingelton-Quellen verfügbar.",
         emptyList: "Sie haben noch keine Klingeltöne erstellt.",
         loading: "Ihre Klingeltöne werden geladen…",

@@ -381,6 +381,7 @@ export const roMessages: LocaleMessageDictionary = {
         savingDraft: "Se salvează schița…",
         duplicateFailed: "Nu s-a putut duplica acest ton.",
         deleteFailed: "Nu s-a putut șterge sau arhiva acest ton.",
+        actionCouldNotComplete: "Actiunea pentru tonul de apel nu a putut fi finalizata.",
         noOwnedSongs: "Nu ai încă melodii încărcate disponibile ca surse de tonuri.",
         emptyList: "Nu ai creat încă niciun ton.",
         loading: "Se încarcă tonurile tale…",

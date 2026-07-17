@@ -381,6 +381,7 @@ export const ruMessages: LocaleMessageDictionary = {
         savingDraft: "Сохранение черновика…",
         duplicateFailed: "Не удалось дублировать этот рингтон.",
         deleteFailed: "Не удалось удалить или архивировать этот рингтон.",
+        actionCouldNotComplete: "Не удалось выполнить действие с рингтоном.",
         noOwnedSongs: "У вас ещё нет загруженных песен, доступных как источники рингтонов.",
         emptyList: "Вы ещё не создали ни одного рингтона.",
         loading: "Загрузка ваших рингтонов…",

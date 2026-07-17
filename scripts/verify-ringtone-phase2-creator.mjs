@@ -53,14 +53,14 @@ function validateClip({ clipStartSeconds, durationSeconds, sourceDurationSeconds
 function canCreatorTransitionStatus(from, to) {
     if (from === to) return true;
     const allowed = {
-        draft: ["processing"],
+        draft: ["processing", "archived"],
         processing: ["draft"],
         pending_review: ["draft"],
-        rejected: ["draft", "processing"],
+        rejected: ["draft", "processing", "archived"],
         published: ["archived"],
         archived: ["draft"],
-        suspended: [],
-        approved: [],
+        suspended: ["archived"],
+        approved: ["archived"],
     };
     return (allowed[from] || []).includes(to);
 }
@@ -95,7 +95,7 @@ async function main() {
     assertIncludes(en, "androidReady:", "i18n androidReady");
     assertIncludes(client, "fetchRingtoneEligibility", "client eligibility helper");
     assertIncludes(validation, 'published: ["archived"]', "published archive transition");
-    assertIncludes(validation, 'draft: ["processing"]', "creator queues processing");
+    assertIncludes(validation, 'draft: ["processing", "archived"]', "creator queues processing");
     assertIncludes(workspace, "aria-live", "status announcements");
     assertIncludes(workspace, "min-height: 44px", "touch targets");
     assertIncludes(workspace, 'role="tablist"', "wizard tabs accessible");

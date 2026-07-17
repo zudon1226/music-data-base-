@@ -381,6 +381,7 @@ export const lvMessages: LocaleMessageDictionary = {
         savingDraft: "Saglabā melnrakstu…",
         duplicateFailed: "Šo melodiju neizdevās dublēt.",
         deleteFailed: "Šo melodiju neizdevās dzēst vai arhivēt.",
+        actionCouldNotComplete: "Zvana signala darbibu neizdevas pabeigt.",
         noOwnedSongs: "Jums vēl nav augšupielādētu dziesmu, kas pieejamas kā zvana melodiju avoti.",
         emptyList: "Jūs vēl neesat izveidojis nevienu melodiju.",
         loading: "Ielādē jūsu melodijas…",

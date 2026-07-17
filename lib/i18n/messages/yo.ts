@@ -381,6 +381,7 @@ export const yoMessages: LocaleMessageDictionary = {
         savingDraft: "Nfipamọ iwe-ipamọ…",
         duplicateFailed: "Ko le ṣe pidánpidán ohun orin ipe yi.",
         deleteFailed: "Ko le parẹ tabi ṣafipamọ ohun orin ipe yi.",
+        actionCouldNotComplete: "Ise ringtone ko le pari.",
         noOwnedSongs: "O ko ni awọn orin ti a kojọpọ ti o wa bi awọn orisun ohun orin ipe sibẹsibẹ.",
         emptyList: "O ko ṣẹda awọn ohun orin ipe eyikeyi sibẹsibẹ.",
         loading: "Nkojọpọ awọn ohun orin ipe rẹ…",
