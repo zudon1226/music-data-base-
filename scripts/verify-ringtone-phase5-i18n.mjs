@@ -70,7 +70,7 @@ const en = extractObject(read("lib/i18n/messages/en.ts"), "enMessages");
 const enFlat = flatten(en);
 const allKeys = Object.keys(enFlat);
 const ringtoneKeys = allKeys.filter((key) => key.startsWith("ringtones."));
-record("english ringtone key count", ringtoneKeys.length === 182, String(ringtoneKeys.length));
+record("english ringtone key count", ringtoneKeys.length === 186, String(ringtoneKeys.length));
 record("english total key count", allKeys.length >= 400, String(allKeys.length));
 
 const requiredSurfaceKeys = [
@@ -138,6 +138,10 @@ const requiredSurfaceKeys = [
     "ringtones.moderationHistory",
     "ringtones.requestReprocessing",
     "ringtones.actionCouldNotComplete",
+    "ringtones.ringtoneDeleted",
+    "ringtones.ringtoneArchivedInstead",
+    "ringtones.ringtoneAlreadyArchived",
+    "ringtones.confirmDeleteRingtone",
 ];
 record(
     "required surface keys present in English",

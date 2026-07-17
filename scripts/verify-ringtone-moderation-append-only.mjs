@@ -53,7 +53,13 @@ function assertSourceContracts() {
     );
     const errors = readFileSync(path.join(root, "lib/ringtone-action-errors.ts"), "utf8");
     const validation = readFileSync(path.join(root, "lib/ringtone-validation.ts"), "utf8");
-    record("source DELETE archives when moderation history exists", route.includes("MODERATION_HISTORY_RETAINED") && route.includes("hasModerationHistory"));
+    const lifecycle = readFileSync(path.join(root, "lib/ringtone-delete-lifecycle.ts"), "utf8");
+    record(
+        "source DELETE archives when moderation history exists",
+        route.includes("deleteOrArchiveRingtoneProduct")
+            && lifecycle.includes("isHardDeleteEligible")
+            && lifecycle.includes('action: "archived"'),
+    );
     record("source PATCH appends status transition logs", route.includes("appendStatusTransitionLog") || route.includes("writeRingtoneModerationLog"));
     record("source never surfaces immutable table text", route.includes("toPublicRingtoneActionError") && errors.includes("is immutable"));
     record("source client sanitizes unsafe errors", client.includes("formatRingtoneClientError"));

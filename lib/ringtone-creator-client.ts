@@ -308,18 +308,45 @@ export async function deleteOrArchiveRingtone(input: {
     ringtoneId: string;
     status: RingtoneStatus;
 }) {
-    // Already soft-retained — never hard-delete archived products (moderation history is immutable).
+    // Archived UI must never call DELETE. Keep a defensive local short-circuit.
     if (input.status === "archived") {
-        return { ok: true, status: 200, body: { deleted: false, retained: true, archived: true, idempotent: true } };
+        return {
+            ok: true,
+            status: 200,
+            body: { success: true, action: "already_archived" },
+        };
     }
-    if (["published", "approved", "suspended"].includes(input.status)) {
+
+    // Non-draft lifecycle products archive via PATCH (never hard-delete).
+    if (["published", "approved", "suspended", "rejected"].includes(input.status)) {
         const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
             method: "PATCH",
             headers: authHeaders(input.session),
             body: JSON.stringify({ userId: input.userId, status: "archived" }),
         });
-        return parseJson(response);
+        const parsed = await parseJson(response);
+        if (parsed.ok) {
+            return {
+                ...parsed,
+                body: { ...parsed.body, success: true, action: "archived" },
+            };
+        }
+        return parsed;
     }
+
+    // Draft-only DELETE. Server re-checks eligibility and may archive instead.
+    if (input.status !== "draft") {
+        return {
+            ok: false,
+            status: 409,
+            body: {
+                success: false,
+                error: "The ringtone action could not be completed.",
+                code: "DELETE_NOT_ALLOWED",
+            },
+        };
+    }
+
     const response = await fetch(
         `/api/ringtones/${input.ringtoneId}?userId=${encodeURIComponent(input.userId)}`,
         {
@@ -327,19 +354,7 @@ export async function deleteOrArchiveRingtone(input: {
             headers: authHeaders(input.session, false),
         },
     );
-    const parsed = await parseJson(response);
-    if (
-        !parsed.ok
-        && (parsed.body.code === "ARCHIVE_REQUIRED" || parsed.body.code === "MODERATION_HISTORY_RETAINED")
-    ) {
-        const archive = await fetch(`/api/ringtones/${input.ringtoneId}`, {
-            method: "PATCH",
-            headers: authHeaders(input.session),
-            body: JSON.stringify({ userId: input.userId, status: "archived" }),
-        });
-        return parseJson(archive);
-    }
-    return parsed;
+    return parseJson(response);
 }
 
 /** Return an archived/published ringtone to an editable draft for re-review. */

@@ -686,31 +686,71 @@ export function RingtoneCreatorWorkspace({
                                                         : t("ringtones.submitForReview")}
                                                 </button>
                                             ) : null}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    startTransition(async () => {
-                                                        const result = await deleteOrArchiveRingtone({
-                                                            userId,
-                                                            session,
-                                                            ringtoneId: ringtone.id,
-                                                            status: ringtone.status,
+                                            {ringtone.status === "draft" ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (!window.confirm(t("ringtones.confirmDeleteRingtone"))) return;
+                                                        startTransition(async () => {
+                                                            const result = await deleteOrArchiveRingtone({
+                                                                userId,
+                                                                session,
+                                                                ringtoneId: ringtone.id,
+                                                                status: ringtone.status,
+                                                            });
+                                                            if (!result.ok) {
+                                                                setError(formatRingtoneClientError(
+                                                                    result.body.error || t("ringtones.deleteFailed"),
+                                                                    t("ringtones.actionCouldNotComplete"),
+                                                                ));
+                                                                return;
+                                                            }
+                                                            const action = String(result.body.action || "");
+                                                            if (action === "archived") {
+                                                                setStatusMessage(t("ringtones.ringtoneArchivedInstead"));
+                                                            } else if (action === "already_archived") {
+                                                                setStatusMessage(t("ringtones.ringtoneAlreadyArchived"));
+                                                            } else {
+                                                                setStatusMessage(t("ringtones.ringtoneDeleted"));
+                                                            }
+                                                            await reloadAll();
                                                         });
-                                                        if (!result.ok) {
-                                                            setError(formatRingtoneClientError(
-                                                                result.body.error || t("ringtones.deleteFailed"),
-                                                                t("ringtones.actionCouldNotComplete"),
-                                                            ));
-                                                            return;
-                                                        }
-                                                        await reloadAll();
-                                                    });
-                                                }}
-                                            >
-                                                {["published", "approved", "suspended", "archived"].includes(ringtone.status)
-                                                    ? t("ringtones.archived")
-                                                    : t("ringtones.delete")}
-                                            </button>
+                                                    }}
+                                                >
+                                                    {t("ringtones.delete")}
+                                                </button>
+                                            ) : null}
+                                            {["published", "approved", "suspended", "rejected"].includes(ringtone.status) ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        startTransition(async () => {
+                                                            const result = await deleteOrArchiveRingtone({
+                                                                userId,
+                                                                session,
+                                                                ringtoneId: ringtone.id,
+                                                                status: ringtone.status,
+                                                            });
+                                                            if (!result.ok) {
+                                                                setError(formatRingtoneClientError(
+                                                                    result.body.error || t("ringtones.deleteFailed"),
+                                                                    t("ringtones.actionCouldNotComplete"),
+                                                                ));
+                                                                return;
+                                                            }
+                                                            setStatusMessage(t("ringtones.archived"));
+                                                            await reloadAll();
+                                                        });
+                                                    }}
+                                                >
+                                                    {t("ringtones.archiveRingtone")}
+                                                </button>
+                                            ) : null}
+                                            {ringtone.status === "archived" ? (
+                                                <button type="button" disabled aria-disabled="true">
+                                                    {t("ringtones.archived")}
+                                                </button>
+                                            ) : null}
                                         </div>
                                     </div>
                                 </article>
