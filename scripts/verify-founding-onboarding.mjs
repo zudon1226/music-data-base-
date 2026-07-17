@@ -138,6 +138,73 @@ async function main() {
     const validJson = await validInvite.json().catch(() => ({}));
     record("valid invite validation", validInvite.ok && validJson.valid, validJson.intendedRole || "");
 
+    if (inviteCode) {
+        const caseInvite = await fetch(`${baseUrl}/api/founding-invites/validate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ inviteCode: `  ${inviteCode.toLowerCase()}  ` }),
+        });
+        const caseJson = await caseInvite.json().catch(() => ({}));
+        record("case-insensitive trimmed invite validation", caseInvite.ok && caseJson.valid === true, caseJson.intendedRole || caseJson.error || "");
+    }
+    else {
+        record("case-insensitive trimmed invite validation", false, "missing invite code");
+    }
+
+    const expiredInvite = await fetch(`${baseUrl}/api/launch/founding-invites`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(authBody(owner.user.id, owner, {
+            intendedRole: "founding_artist",
+            expiresAt: new Date(Date.now() - 60_000).toISOString(),
+        })),
+    });
+    const expiredInviteJson = await expiredInvite.json().catch(() => ({}));
+    const expiredCode = expiredInviteJson.invite?.invite_code || "";
+    const expiredValidate = await fetch(`${baseUrl}/api/founding-invites/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteCode: expiredCode }),
+    });
+    const expiredValidateJson = await expiredValidate.json().catch(() => ({}));
+    record(
+        "expired invite rejection",
+        Boolean(expiredCode) && !expiredValidate.ok && /expired/i.test(String(expiredValidateJson.error || "")),
+        expiredValidateJson.error || String(expiredValidate.status),
+    );
+
+    const revokeInvite = await fetch(`${baseUrl}/api/launch/founding-invites`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(authBody(owner.user.id, owner, { intendedRole: "founding_artist" })),
+    });
+    const revokeInviteJson = await revokeInvite.json().catch(() => ({}));
+    const revokeInviteId = revokeInviteJson.invite?.id || "";
+    const revokeCode = revokeInviteJson.invite?.invite_code || "";
+    let revokeOk = false;
+    if (revokeInviteId) {
+        const revoke = await fetch(`${baseUrl}/api/launch/founding-invites`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify(authBody(owner.user.id, owner, {
+                inviteId: revokeInviteId,
+                action: "revoke",
+            })),
+        });
+        revokeOk = revoke.ok;
+    }
+    const revokedValidate = await fetch(`${baseUrl}/api/founding-invites/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteCode: revokeCode }),
+    });
+    const revokedValidateJson = await revokedValidate.json().catch(() => ({}));
+    record(
+        "revoked invite rejection",
+        revokeOk && Boolean(revokeCode) && !revokedValidate.ok && /revoked/i.test(String(revokedValidateJson.error || "")),
+        revokedValidateJson.error || String(revokedValidate.status),
+    );
+
     const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
         auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -191,7 +258,24 @@ async function main() {
                 displayName: "Founding Probe",
             })),
         });
-        record("single-use invite second redeem blocked", secondRedeem.status === 400);
+        const secondRedeemJson = await secondRedeem.json().catch(() => ({}));
+        record(
+            "already-used invite redeem blocked",
+            secondRedeem.status === 400 && /already been used|already linked/i.test(String(secondRedeemJson.error || "")),
+            secondRedeemJson.error || String(secondRedeem.status),
+        );
+
+        const usedValidate = await fetch(`${baseUrl}/api/founding-invites/validate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ inviteCode }),
+        });
+        const usedValidateJson = await usedValidate.json().catch(() => ({}));
+        record(
+            "already-used invite validation rejected",
+            !usedValidate.ok && /already been used/i.test(String(usedValidateJson.error || "")),
+            usedValidateJson.error || String(usedValidate.status),
+        );
 
         const pendingAfter = await fetch(`${baseUrl}/api/founding-members/me?userId=${encodeURIComponent(probeSession.user.id)}`, {
             headers: { Authorization: `Bearer ${probeSession.access_token}` },

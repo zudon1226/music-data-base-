@@ -45,11 +45,23 @@ export async function fetchInviteByCode(supabase: SupabaseClient, rawCode: strin
 
 export async function validateInviteCode(supabase: SupabaseClient, rawCode: string) {
     const { invite, inviteCode } = await fetchInviteByCode(supabase, rawCode);
+    if (!inviteCode) {
+        return { ok: false as const, error: "Invite code is required." };
+    }
     if (!invite) {
         return { ok: false as const, error: "Invite code is invalid." };
     }
-    if (invite.status !== "active" || isInviteExpired(invite)) {
-        return { ok: false as const, error: "Invite code is expired or no longer active." };
+    if (invite.status === "used") {
+        return { ok: false as const, error: "Invite code has already been used." };
+    }
+    if (invite.status === "revoked") {
+        return { ok: false as const, error: "Invite code has been revoked." };
+    }
+    if (invite.status === "expired" || isInviteExpired(invite)) {
+        return { ok: false as const, error: "Invite code has expired." };
+    }
+    if (invite.status !== "active") {
+        return { ok: false as const, error: "Invite code is no longer active." };
     }
     return {
         ok: true as const,

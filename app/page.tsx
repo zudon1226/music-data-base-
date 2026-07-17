@@ -3762,6 +3762,9 @@ function PageContent() {
     const [authMessage, setAuthMessage] = useState("");
     const [authBusy, setAuthBusy] = useState(false);
     const [authInviteCode, setAuthInviteCode] = useState("");
+    const [gateRedeemBusy, setGateRedeemBusy] = useState(false);
+    const [gateRedeemMessage, setGateRedeemMessage] = useState("");
+    const [gateRedeemMessageTone, setGateRedeemMessageTone] = useState<"success" | "error" | "">("");
     const [foundingAccess, setFoundingAccess] = useState<FoundingAccessState | null>(null);
     const [foundingAccessLoading, setFoundingAccessLoading] = useState(false);
     const [accountRole, setAccountRole] = useState<AccountRole>("Listener");
@@ -13964,6 +13967,81 @@ function PageContent() {
             setAuthBusy(false);
         }
     }
+    async function handleGateRedeemInvite() {
+        setGateRedeemMessage("");
+        setGateRedeemMessageTone("");
+        const session = authSessionRef.current;
+        const userId = session?.user?.id || accountUserIdRef.current || "";
+        const accessToken = session?.access_token || "";
+        const refreshToken = session?.refresh_token || "";
+        if (!userId || !accessToken) {
+            setGateRedeemMessageTone("error");
+            setGateRedeemMessage("Log in before redeeming an invite.");
+            return;
+        }
+        const inviteCode = authInviteCode.trim();
+        if (!inviteCode) {
+            setGateRedeemMessageTone("error");
+            setGateRedeemMessage(FOUNDING_INVITE_REQUIRED_MESSAGE);
+            return;
+        }
+        setGateRedeemBusy(true);
+        try {
+            const validation = await fetch("/api/founding-invites/validate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ inviteCode }),
+            });
+            const validationJson = await validation.json().catch(() => ({}));
+            if (!validation.ok || !validationJson.valid) {
+                setGateRedeemMessageTone("error");
+                setGateRedeemMessage(validationJson.error || FOUNDING_INVITE_REQUIRED_MESSAGE);
+                return;
+            }
+
+            const redeem = await fetch("/api/founding-invites/redeem", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    userId,
+                    sessionUserId: userId,
+                    accessToken,
+                    sessionAccessToken: accessToken,
+                    refreshToken,
+                    sessionRefreshToken: refreshToken,
+                    inviteCode,
+                    displayName: getAccountDisplayName(),
+                }),
+            });
+            const redeemJson = await redeem.json().catch(() => ({}));
+            if (!redeem.ok) {
+                setGateRedeemMessageTone("error");
+                setGateRedeemMessage(redeemJson.error || "Invite redemption failed.");
+                return;
+            }
+
+            const access = await reloadFoundingAccess(userId, accessToken);
+            setAuthInviteCode("");
+            setGateRedeemMessageTone("success");
+            if (access?.canAccessApp) {
+                setGateRedeemMessage(t("auth.redeemInviteSuccessApproved"));
+                const nextView = (access.dashboardView as View | null) || "Home";
+                setView(nextView);
+                return;
+            }
+            setGateRedeemMessage(t("auth.redeemInviteSuccess"));
+        }
+        catch (error) {
+            setGateRedeemMessageTone("error");
+            setGateRedeemMessage(getAuthErrorMessage(error));
+        }
+        finally {
+            setGateRedeemBusy(false);
+        }
+    }
     async function logout() {
         setAuthMessage("");
         try {
@@ -15559,6 +15637,12 @@ function PageContent() {
             foundingRole={foundingAccess?.foundingRole || null}
             displayName={getAccountDisplayName()}
             blockedMessage={!foundingAccess?.isFoundingMember ? FOUNDING_INVITE_REQUIRED_MESSAGE : undefined}
+            inviteCode={authInviteCode}
+            onInviteCodeChange={setAuthInviteCode}
+            onRedeemInvite={() => void handleGateRedeemInvite()}
+            redeemBusy={gateRedeemBusy}
+            redeemMessage={gateRedeemMessage}
+            redeemMessageTone={gateRedeemMessageTone}
             onLogout={() => void logout()}
         />);
         }
