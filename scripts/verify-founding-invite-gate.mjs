@@ -38,11 +38,25 @@ record(
     "gate redeem controls are 44px high",
     /min-height:\s*44px/.test(gate)
         && /founding-gate-redeem-form input/.test(gate)
-        && /founding-gate-redeem-button/.test(gate),
+        && /founding-gate-redeem-button/.test(gate)
+        && /founding-gate-signout/.test(gate),
+);
+record(
+    "gate layout is compact and centered",
+    /width:\s*min\(460px,\s*100%\)/.test(gate)
+        && /max-width:\s*460px/.test(gate)
+        && /place-items:\s*center/.test(gate)
+        && /founding-gate-description[\s\S]*?margin:\s*8px 0 0/.test(gate)
+        && /founding-gate-meta[\s\S]*?margin:\s*8px 0 0/.test(gate)
+        && /founding-gate-redeem-form[\s\S]*?margin:\s*16px 0 0/.test(gate)
+        && /founding-gate-redeem-button[\s\S]*?margin:\s*12px 0 0/.test(gate)
+        && /founding-gate-signout[\s\S]*?margin:\s*16px 0 0/.test(gate)
+        && /\.founding-gate-panel\s*\{[\s\S]*?padding:\s*16px/.test(gate),
 );
 record(
     "gate redeem form only for blocked status",
-    /blocked && onRedeemInvite && onInviteCodeChange/.test(gate),
+    /showRedeemForm/.test(gate)
+        && /blocked && Boolean\(onRedeemInvite\) && Boolean\(onInviteCodeChange\)/.test(gate),
 );
 record(
     "page wires gate redeem to existing APIs",
