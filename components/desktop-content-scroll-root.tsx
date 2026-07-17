@@ -18,6 +18,7 @@ export function DesktopContentScrollRoot({
             <style jsx global>{DESKTOP_CONTENT_SCROLL_CSS}</style>
             <section
                 className={`content desktop-content-scroll-root ${className}`.trim()}
+                data-main-scroll-container=""
             >
                 {children}
             </section>

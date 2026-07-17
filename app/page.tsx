@@ -29,6 +29,7 @@ import {
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
+import { scheduleNavigationScrollReset } from "../lib/navigation-scroll";
 import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
 import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail";
 import { DesktopSongMediaCard, DesktopVideoMediaCard } from "../components/desktop-media-card";
@@ -5255,6 +5256,10 @@ function PageContent() {
     useEffect(() => {
         const timer = window.setTimeout(() => setShowNotificationCenter(false), 0);
         return () => window.clearTimeout(timer);
+    }, [view]);
+    // Safety net: every view change opens the main content at top (desktop + mobile containers).
+    useEffect(() => {
+        scheduleNavigationScrollReset({ focusHeading: true });
     }, [view]);
     useEffect(() => {
         startDesktopLocalBootstrap(() => {
@@ -13717,15 +13722,8 @@ function PageContent() {
         if (nextView === "Home") {
             setActiveTab("Trending");
         }
-        if (typeof window !== "undefined" && window.matchMedia("(max-width: 820px)").matches) {
-            window.setTimeout(() => {
-                const content = document.querySelector<HTMLElement>(".content");
-                if (content) {
-                    content.scrollTo({ top: 0, left: 0, behavior: "auto" });
-                }
-                window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-            }, 0);
-        }
+        // Instant scroll-to-top for the real main content container (desktop panel + mobile).
+        scheduleNavigationScrollReset({ focusHeading: true });
     }
     function handleNav(nextView: View) {
         setShowNotificationCenter(false);
@@ -13767,7 +13765,8 @@ function PageContent() {
             showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
             return;
         }
-        if (!showUpload) {
+        const opening = !showUpload;
+        if (opening) {
             if (view === "Producer Dashboard")
                 setUploadMode("beat");
             else if (view === "Artist Dashboard")
@@ -13777,7 +13776,16 @@ function PageContent() {
             else
                 setUploadMode(accountRole === "Producer" ? "beat" : "song");
         }
-        setShowUpload((value) => !value);
+        setShowUpload(opening ? true : false);
+        if (opening) {
+            scheduleNavigationScrollReset({ focusHeading: false, ensureUploadVisible: true });
+        }
+    }
+    function selectUploadMode(nextMode: typeof uploadMode) {
+        setUploadMode(nextMode);
+        if (showUpload) {
+            scheduleNavigationScrollReset({ focusHeading: false, ensureUploadVisible: true });
+        }
     }
     function pageTitle() {
         return translatePageTitle(view, t, {
@@ -15502,23 +15510,23 @@ function PageContent() {
         {showUpload && !uploadsBlockedForCurrentUser && (<section className="upload-shell">
             {(view === "Artist Dashboard" || view === "Producer Dashboard") && (<div className="upload-mode-tabs" role="tablist" aria-label="Dashboard upload type">
                 {view === "Producer Dashboard" ? (<>
-                    <button className={uploadMode === "beat" ? "active" : ""} onClick={() => setUploadMode("beat")} type="button">
+                    <button className={uploadMode === "beat" ? "active" : ""} onClick={() => selectUploadMode("beat")} type="button">
                       Upload Beat
                     </button>
-                    <button className={uploadMode === "producerVideo" ? "active" : ""} onClick={() => setUploadMode("producerVideo")} type="button">
+                    <button className={uploadMode === "producerVideo" ? "active" : ""} onClick={() => selectUploadMode("producerVideo")} type="button">
                       Upload Producer Video
                     </button>
-                    <button className={uploadMode === "producerAlbum" ? "active" : ""} onClick={() => setUploadMode("producerAlbum")} type="button">
+                    <button className={uploadMode === "producerAlbum" ? "active" : ""} onClick={() => selectUploadMode("producerAlbum")} type="button">
                       Upload Album
                     </button>
                   </>) : (<>
-                    <button className={uploadMode === "song" ? "active" : ""} onClick={() => setUploadMode("song")} type="button">
+                    <button className={uploadMode === "song" ? "active" : ""} onClick={() => selectUploadMode("song")} type="button">
                       Upload Song
                     </button>
-                    <button className={uploadMode === "video" ? "active" : ""} onClick={() => setUploadMode("video")} type="button">
+                    <button className={uploadMode === "video" ? "active" : ""} onClick={() => selectUploadMode("video")} type="button">
                       Upload Video
                     </button>
-                    <button className={uploadMode === "album" ? "active" : ""} onClick={() => setUploadMode("album")} type="button">
+                    <button className={uploadMode === "album" ? "active" : ""} onClick={() => selectUploadMode("album")} type="button">
                       Upload Album
                     </button>
                   </>)}
@@ -16005,7 +16013,7 @@ function PageContent() {
 
         <section className="section-heading">
           <div>
-            <h2>{pageTitle()}</h2>
+            <h2 data-page-heading tabIndex={-1}>{pageTitle()}</h2>
             <p>{pageSubtitle()}</p>
           </div>
 

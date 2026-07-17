@@ -75,6 +75,8 @@ function assertExport(content, exportName, file) {
 console.log("Desktop regression lock — static verification\n");
 
 // --- Required desktop module files ---
+assertIncludes(read("components/desktop-content-scroll-root.tsx"), "data-main-scroll-container", "desktop-content-scroll-root marks main scroll container");
+
 const REQUIRED_DESKTOP_MODULES = [
   "lib/desktop-protected-action-pipeline.ts",
   "lib/desktop-protected-click-dispatch.ts",
@@ -91,6 +93,7 @@ const REQUIRED_DESKTOP_MODULES = [
   "lib/desktop-auth-state.tsx",
   "lib/desktop-auth-recovery-gate.ts",
   "lib/desktop-content-scroll.ts",
+  "lib/navigation-scroll.ts",
   "components/desktop-content-scroll-root.tsx",
   "components/desktop-app-sidebar-nav.tsx",
   "lib/desktop-video-upload-runner.ts",
@@ -349,6 +352,13 @@ if (/\bpreventDefault\s*\(/.test(scrollCss)) {
   pass("desktop-content-scroll.ts does not call preventDefault");
 }
 
+const navigationScroll = read("lib/navigation-scroll.ts");
+assertIncludes(navigationScroll, "data-main-scroll-container", "navigation-scroll.ts main container selector");
+assertIncludes(navigationScroll, "scheduleNavigationScrollReset", "navigation-scroll.ts schedule helper");
+assertIncludes(navigationScroll, 'behavior: "auto"', "navigation-scroll.ts instant scroll");
+assertExport(navigationScroll, "scrollMainContentToTop", "lib/navigation-scroll.ts");
+assertExport(navigationScroll, "focusPageHeadingAfterNavigation", "lib/navigation-scroll.ts");
+
 // --- page.tsx wiring invariants ---
 const page = read("app/page.tsx");
 
@@ -375,6 +385,8 @@ const REQUIRED_PAGE_WIRING = [
   "uploadsBlockedForCurrentUser",
   "DesktopAppSidebarNav",
   "DesktopContentScrollRoot",
+  "scheduleNavigationScrollReset",
+  "data-page-heading",
   "runDesktopVideoUpload",
   "applyVideoUploadProgressUpdate",
   "refreshDesktopSupabaseSessionWhenSafe",
