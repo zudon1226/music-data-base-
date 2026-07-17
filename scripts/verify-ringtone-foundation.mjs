@@ -217,7 +217,20 @@ async function main() {
               and c.relname like 'ringtone_%'
             order by c.relname
         `);
-        record("rls enabled", rls.rows.length === 5 && rls.rows.every((row) => row.relrowsecurity), rls.rows.map((r) => `${r.relname}:${r.relrowsecurity}`).join(", "));
+        const requiredRlsTables = [
+            "ringtone_products",
+            "ringtone_purchases",
+            "ringtone_downloads",
+            "ringtone_favorites",
+            "ringtone_reviews",
+        ];
+        record(
+            "rls enabled",
+            rls.rows.length >= 5
+                && rls.rows.every((row) => row.relrowsecurity)
+                && requiredRlsTables.every((name) => rls.rows.some((row) => row.relname === name && row.relrowsecurity)),
+            rls.rows.map((r) => `${r.relname}:${r.relrowsecurity}`).join(", "),
+        );
 
         const policies = await db.query(`
             select tablename, count(*)::int as policy_count
@@ -226,9 +239,13 @@ async function main() {
             group by tablename
             order by tablename
         `);
+        const policyMap = new Map(policies.rows.map((row) => [row.tablename, row.policy_count]));
         record(
             "rls policies present",
-            policies.rows.length === 5 && policies.rows.every((row) => row.policy_count >= 2),
+            requiredRlsTables.every((name) => (policyMap.get(name) || 0) >= 2)
+                && (policyMap.get("ringtone_processing_jobs") || 0) >= 1
+                && (policyMap.get("ringtone_revisions") || 0) >= 1
+                && (policyMap.get("ringtone_moderation_logs") || 0) >= 1,
             policies.rows.map((r) => `${r.tablename}:${r.policy_count}`).join(", "),
         );
 

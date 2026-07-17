@@ -105,7 +105,24 @@ export function RingtoneCreatorWorkspace({
     const submitLockRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const statusLabel = (status: string) => {
+    const statusLabel = (ringtone: RingtoneProduct | string) => {
+        if (typeof ringtone === "string") {
+            const map: Record<string, string> = {
+                draft: t("ringtones.draft"),
+                processing: t("ringtones.processing"),
+                pending_review: t("ringtones.pendingReview"),
+                approved: t("ringtones.approved"),
+                rejected: t("ringtones.rejected"),
+                published: t("ringtones.published"),
+                suspended: t("ringtones.suspended"),
+                archived: t("ringtones.archived"),
+            };
+            return map[ringtone] || ringtone;
+        }
+        if (ringtone.last_processing_error_code && ringtone.status === "draft") {
+            return t("ringtones.processingFailed");
+        }
+        if (ringtone.status === "processing") return t("ringtones.processing");
         const map: Record<string, string> = {
             draft: t("ringtones.draft"),
             processing: t("ringtones.processing"),
@@ -116,7 +133,7 @@ export function RingtoneCreatorWorkspace({
             suspended: t("ringtones.suspended"),
             archived: t("ringtones.archived"),
         };
-        return map[status] || status;
+        return map[ringtone.status] || ringtone.status;
     };
 
     async function reloadAll() {
@@ -378,7 +395,7 @@ export function RingtoneCreatorWorkspace({
                 const ringtone = saved.body.ringtone as RingtoneProduct;
                 setEditingId(ringtone.id);
 
-                if (submitForReview && ringtone.status !== "pending_review") {
+                if (submitForReview) {
                     const submitted = await submitRingtoneForReview({
                         userId,
                         session,
@@ -387,10 +404,19 @@ export function RingtoneCreatorWorkspace({
                     if (!submitted.ok) {
                         throw new Error(String(submitted.body.error || t("ringtones.submitFailed")));
                     }
+                    const next = (submitted.body.ringtone || {}) as RingtoneProduct;
+                    if (next.status === "pending_review") {
+                        setStatusMessage(t("ringtones.submittedForReview"));
+                    } else if (next.status === "processing") {
+                        setStatusMessage(t("ringtones.processingStarted"));
+                    } else {
+                        setStatusMessage(t("ringtones.processingCompleted"));
+                    }
+                } else {
+                    setStatusMessage(t("ringtones.draftSaved"));
                 }
 
                 setProcessState("ready");
-                setStatusMessage(submitForReview ? t("ringtones.pendingReview") : t("ringtones.draftSaved"));
                 await reloadAll();
                 if (submitForReview) {
                     setMode("list");
@@ -526,13 +552,24 @@ export function RingtoneCreatorWorkspace({
                                         <h3>{ringtone.title}</h3>
                                         <p>{sourceLabel}</p>
                                         <p>
-                                            {ringtone.duration_seconds}s · {formatRingtoneMoney(ringtone.price_cents, ringtone.currency)} · {statusLabel(ringtone.status)}
+                                            {ringtone.duration_seconds}s · {formatRingtoneMoney(ringtone.price_cents, ringtone.currency)} · {statusLabel(ringtone)}
+                                            {ringtone.revision_number ? ` · ${t("ringtones.revision")} ${ringtone.revision_number}` : ""}
                                         </p>
                                         <p className="ringtone-card-dates">
                                             {t("ringtones.created")}: {new Date(ringtone.created_at).toLocaleDateString()}
                                             {" · "}
                                             {t("ringtones.updated")}: {new Date(ringtone.updated_at).toLocaleDateString()}
                                         </p>
+                                        {ringtone.status === "processing" ? (
+                                            <p className="ringtone-processing" role="status" aria-live="polite">
+                                                {t("ringtones.processingStarted")}
+                                            </p>
+                                        ) : null}
+                                        {ringtone.last_processing_error ? (
+                                            <p className="ringtone-rejection" role="status">
+                                                {t("ringtones.processingFailed")}: {ringtone.last_processing_error}
+                                            </p>
+                                        ) : null}
                                         {ringtone.status === "rejected" && ringtone.review_notes ? (
                                             <p className="ringtone-rejection" role="status">
                                                 {t("ringtones.rejectionReason")}: {ringtone.review_notes}
@@ -567,28 +604,30 @@ export function RingtoneCreatorWorkspace({
                                                 <button type="button" onClick={() => beginEdit(ringtone)}>
                                                     {t("ringtones.edit")}
                                                 </button>
-                                            ) : (
+                                            ) : ["published", "suspended"].includes(ringtone.status) ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => {
                                                         startTransition(async () => {
+                                                            // Field edit on published starts a new draft revision (purchase-safe).
                                                             const result = await saveRingtoneDraft({
                                                                 userId,
                                                                 session,
                                                                 ringtoneId: ringtone.id,
-                                                                payload: { status: "pending_review" },
+                                                                payload: { title: ringtone.title },
                                                             });
                                                             if (!result.ok) {
                                                                 setError(String(result.body.error || t("ringtones.submitFailed")));
                                                                 return;
                                                             }
+                                                            setStatusMessage(t("ringtones.revision"));
                                                             await reloadAll();
                                                         });
                                                     }}
                                                 >
                                                     {t("ringtones.requestRevision")}
                                                 </button>
-                                            )}
+                                            ) : null}
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -612,21 +651,31 @@ export function RingtoneCreatorWorkspace({
                                                 <button
                                                     type="button"
                                                     onClick={() => {
+                                                        if (submitLockRef.current) return;
+                                                        submitLockRef.current = true;
                                                         startTransition(async () => {
-                                                            const result = await submitRingtoneForReview({
-                                                                userId,
-                                                                session,
-                                                                ringtoneId: ringtone.id,
-                                                            });
-                                                            if (!result.ok) {
-                                                                setError(String(result.body.error || t("ringtones.submitFailed")));
-                                                                return;
+                                                            try {
+                                                                const result = await submitRingtoneForReview({
+                                                                    userId,
+                                                                    session,
+                                                                    ringtoneId: ringtone.id,
+                                                                    retry: Boolean(ringtone.last_processing_error_code),
+                                                                });
+                                                                if (!result.ok) {
+                                                                    setError(String(result.body.error || t("ringtones.submitFailed")));
+                                                                    return;
+                                                                }
+                                                                setStatusMessage(t("ringtones.submittedForReview"));
+                                                                await reloadAll();
+                                                            } finally {
+                                                                submitLockRef.current = false;
                                                             }
-                                                            await reloadAll();
                                                         });
                                                     }}
                                                 >
-                                                    {t("ringtones.submitForReview")}
+                                                    {ringtone.last_processing_error_code
+                                                        ? t("ringtones.retryProcessing")
+                                                        : t("ringtones.submitForReview")}
                                                 </button>
                                             ) : null}
                                             <button

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
 import { requireRingtoneCreator } from "@/lib/ringtone-access";
 import { type RingtoneStatus } from "@/lib/ringtone-constants";
+import { beginPublishedRingtoneRevision } from "@/lib/ringtone-revisions";
 import {
     canAdminTransitionStatus,
     canCreatorTransitionStatus,
@@ -149,6 +150,15 @@ export async function PATCH(request: Request, context: Params) {
         if (body.status != null) {
             if (!isRingtoneStatus(body.status)) return json({ error: "Invalid status." }, 400);
             const nextStatus = body.status as RingtoneStatus;
+            if (!isAdmin && nextStatus === "pending_review") {
+                return json({
+                    error: "Submit for review by starting secure processing. Creators cannot skip processing.",
+                    code: "PROCESSING_REQUIRED",
+                }, 400);
+            }
+            if (!isAdmin && (nextStatus === "approved" || nextStatus === "published" || nextStatus === "suspended")) {
+                return json({ error: "Creators cannot approve, publish, or suspend ringtones.", code: "FORBIDDEN_STATUS" }, 403);
+            }
             if (isAdmin) {
                 if (!canAdminTransitionStatus(currentStatus, nextStatus)) {
                     return json({ error: `Invalid admin status transition ${currentStatus} -> ${nextStatus}.` }, 400);
@@ -159,6 +169,46 @@ export async function PATCH(request: Request, context: Params) {
             updates.status = nextStatus;
             if (nextStatus === "published") updates.published_at = new Date().toISOString();
         } else if (!creatorMayEditFields && !isAdmin) {
+            if (currentStatus === "published" || currentStatus === "suspended") {
+                const revision = await beginPublishedRingtoneRevision({ ringtoneId: id, actorId: userId });
+                if (!revision.ok) return json({ error: revision.error }, revision.status || 400);
+                // Apply field updates onto the new draft revision.
+                const fieldBody = { ...body };
+                delete fieldBody.status;
+                delete fieldBody.userId;
+                delete fieldBody.sessionUserId;
+                const hasFields = Object.keys(fieldBody).some((key) => fieldBody[key] != null);
+                if (!hasFields) return json({ ringtone: revision.ringtone, revisionStarted: true });
+                // Re-enter editable path by recursively applying via a fresh select below.
+                const refreshed = await supabase.from("ringtone_products").select("*").eq("id", id).maybeSingle();
+                if (!refreshed.data) return json({ error: "Ringtone not found after revision start." }, 404);
+                Object.assign(existing, { data: refreshed.data });
+                // Fall through: rebuild updates for draft revision.
+                const draftUpdates: Record<string, unknown> = {};
+                if (body.title != null) {
+                    const title = sanitizeRingtoneText(body.title, 160);
+                    if (!title) return json({ error: "Title is required." }, 400);
+                    draftUpdates.title = title;
+                }
+                if (body.description != null) draftUpdates.description = sanitizeRingtoneText(body.description, 4000);
+                if (body.artworkUrl != null) draftUpdates.artwork_url = sanitizeRingtoneText(body.artworkUrl, 1000);
+                if (body.priceCents != null) {
+                    const price = validateRingtonePriceCents(body.priceCents);
+                    if (!price.ok) return json({ error: price.error }, 400);
+                    draftUpdates.price_cents = price.priceCents;
+                }
+                if (Object.keys(draftUpdates).length === 0) {
+                    return json({ ringtone: refreshed.data, revisionStarted: true });
+                }
+                const { data, error } = await supabase
+                    .from("ringtone_products")
+                    .update(draftUpdates)
+                    .eq("id", id)
+                    .select("*")
+                    .single();
+                if (error) return json({ error: getErrorMessage(error) }, 500);
+                return json({ ringtone: data, revisionStarted: true });
+            }
             return json({ error: "This ringtone is locked for creator edits." }, 403);
         }
 

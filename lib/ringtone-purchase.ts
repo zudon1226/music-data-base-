@@ -7,6 +7,19 @@ import { randomUUID } from "node:crypto";
 import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
+async function resolvePurchaseRevisionFields(ringtoneId: string) {
+    const supabase = getSupabaseServerClient();
+    const { data } = await supabase
+        .from("ringtone_products")
+        .select("id,current_revision_id,revision_number")
+        .eq("id", ringtoneId)
+        .maybeSingle();
+    return {
+        revision_id: data?.current_revision_id || null,
+        revision_number: data?.revision_number != null ? Number(data.revision_number) : null,
+    };
+}
+
 /** Match beat sale split: 90% creator / 10% platform. */
 export const RINGTONE_CREATOR_SHARE_PERCENT = 90;
 export const RINGTONE_PLATFORM_SHARE_PERCENT = 10;
@@ -116,6 +129,9 @@ export async function createRingtonePurchaseIntent(input: {
     );
     const isFree = split.amountCents === 0;
     const supabase = getSupabaseServerClient();
+    const revisionFields = isFree
+        ? await resolvePurchaseRevisionFields(product.ringtone.id)
+        : { revision_id: null as string | null, revision_number: null as number | null };
     const row = {
         ringtone_id: product.ringtone.id,
         buyer_id: input.buyerId,
@@ -129,6 +145,8 @@ export async function createRingtonePurchaseIntent(input: {
         payment_reference: isFree ? `free-${randomUUID()}` : "",
         idempotency_key: idempotencyKey,
         purchased_at: new Date().toISOString(),
+        revision_id: revisionFields.revision_id,
+        revision_number: revisionFields.revision_number,
     };
 
     const { data, error } = await supabase
@@ -246,6 +264,7 @@ export async function confirmRingtonePurchasePayment(input: {
         Number(product.ringtone.price_cents) || 0,
         String(product.ringtone.currency || existing.data.currency || "USD"),
     );
+    const revisionFields = await resolvePurchaseRevisionFields(String(existing.data.ringtone_id));
 
     const { data, error } = await supabase
         .from("ringtone_purchases")
@@ -259,6 +278,8 @@ export async function confirmRingtonePurchasePayment(input: {
             currency: split.currency,
             failure_reason: "",
             purchased_at: new Date().toISOString(),
+            revision_id: revisionFields.revision_id,
+            revision_number: revisionFields.revision_number,
         })
         .eq("id", input.purchaseId)
         .eq("buyer_id", input.buyerId)

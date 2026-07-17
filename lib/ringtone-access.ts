@@ -74,7 +74,7 @@ export async function buyerHasPaidRingtonePurchase(buyerId: string, ringtoneId: 
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
         .from("ringtone_purchases")
-        .select("id,payment_status,buyer_id,ringtone_id,creator_id")
+        .select("id,payment_status,buyer_id,ringtone_id,creator_id,revision_id,revision_number")
         .eq("buyer_id", buyerId)
         .eq("ringtone_id", ringtoneId)
         .eq("payment_status", "paid")

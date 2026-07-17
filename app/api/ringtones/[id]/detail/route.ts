@@ -54,14 +54,14 @@ export async function GET(request: Request, context: Params) {
             supabase
                 .from("ringtone_products")
                 .select("id,title,artwork_url,price_cents,currency,duration_seconds,preview_url,clip_start_seconds,clip_end_seconds,is_explicit,creator_id")
-                .in("status", ["approved", "published"])
+                .in("status", ["published"])
                 .neq("id", id)
                 .order("published_at", { ascending: false, nullsFirst: false })
                 .limit(8),
             supabase
                 .from("ringtone_products")
                 .select("id,title,artwork_url,price_cents,currency,duration_seconds,preview_url,clip_start_seconds,clip_end_seconds,is_explicit,creator_id")
-                .in("status", ["approved", "published"])
+                .in("status", ["published"])
                 .eq("creator_id", data.creator_id)
                 .neq("id", id)
                 .order("published_at", { ascending: false, nullsFirst: false })

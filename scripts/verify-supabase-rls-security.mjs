@@ -43,6 +43,7 @@ const publicReadTables = new Set([
   "songs", "videos", "artist_profiles", "producer_profiles", "producer_beats",
   "ringtone_products", "ringtone_reviews",
 ]);
+// Phase 4 private tables (no anon public read): ringtone_processing_jobs, ringtone_revisions, ringtone_moderation_logs
 const allBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-previews', 'ringtone-downloads'";
 const publicBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'ringtone-previews'";
 const privateBuckets = "'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-downloads'";

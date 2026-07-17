@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
 import { buyerHasPaidRingtonePurchase } from "@/lib/ringtone-access";
 import { RINGTONE_DEVICE_TYPES, RINGTONE_STORAGE_BUCKETS, type RingtoneDeviceType } from "@/lib/ringtone-constants";
+import { loadRevisionForPurchase } from "@/lib/ringtone-revisions";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -57,9 +58,15 @@ export async function POST(request: Request, context: Params) {
             }, 403);
         }
 
+        // Buyers keep the purchased revision files even if the product later revises.
+        const purchasedRevision = purchase?.revision_id
+            ? await loadRevisionForPurchase(String(purchase.revision_id))
+            : null;
+        const pathSource = purchasedRevision || product.data;
+
         const storagePath = deviceType === "iphone"
-            ? String(product.data.iphone_storage_path || product.data.download_storage_path || "")
-            : String(product.data.android_storage_path || product.data.download_storage_path || "");
+            ? String(pathSource.iphone_storage_path || pathSource.download_storage_path || "")
+            : String(pathSource.android_storage_path || pathSource.download_storage_path || "");
 
         if (!storagePath) {
             return json({

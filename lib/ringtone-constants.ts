@@ -17,7 +17,8 @@ export const RINGTONE_STATUSES = [
 
 export type RingtoneStatus = (typeof RINGTONE_STATUSES)[number];
 
-export const PUBLIC_RINGTONE_STATUSES: readonly RingtoneStatus[] = ["approved", "published"];
+/** Marketplace / purchase visibility — published only (approved awaits admin publish). */
+export const PUBLIC_RINGTONE_STATUSES: readonly RingtoneStatus[] = ["published"];
 
 export const RINGTONE_SOURCE_KINDS = ["owned_song", "upload"] as const;
 export type RingtoneSourceKind = (typeof RINGTONE_SOURCE_KINDS)[number];

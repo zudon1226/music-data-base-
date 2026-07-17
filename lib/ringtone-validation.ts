@@ -147,17 +147,23 @@ export function validateRingtonePriceCents(value: unknown) {
     return { ok: true as const, priceCents: price };
 }
 
-/** Allowed status transitions for creators (non-admin). */
+/**
+ * Allowed status transitions for creators (non-admin).
+ * Creators queue processing (draft/rejected → processing). Only the server worker
+ * may advance processing → pending_review after successful outputs.
+ */
 export function canCreatorTransitionStatus(from: RingtoneStatus, to: RingtoneStatus) {
     if (from === to) return true;
     const allowed: Record<string, RingtoneStatus[]> = {
-        draft: ["processing", "pending_review"],
-        processing: ["draft", "pending_review"],
+        draft: ["processing"],
+        processing: ["draft"],
         pending_review: ["draft"],
-        rejected: ["draft", "pending_review"],
-        // Published products cannot be freely edited; revision returns to review, or archive.
-        published: ["pending_review", "archived"],
+        rejected: ["draft", "processing"],
+        // Published products require a new draft revision or archive — not silent republish.
+        published: ["archived"],
         archived: ["draft"],
+        suspended: [],
+        approved: [],
     };
     return (allowed[from] || []).includes(to);
 }
@@ -167,13 +173,13 @@ export function canAdminTransitionStatus(from: RingtoneStatus, to: RingtoneStatu
     if (from === to) return true;
     if (!isRingtoneStatus(to)) return false;
     const allowed: Record<string, RingtoneStatus[]> = {
-        draft: ["processing", "pending_review", "archived"],
+        draft: ["processing", "archived"],
         processing: ["pending_review", "rejected", "draft"],
         pending_review: ["approved", "rejected", "draft"],
-        approved: ["published", "rejected", "suspended", "archived"],
-        rejected: ["draft", "pending_review", "archived"],
-        published: ["suspended", "archived", "approved"],
-        suspended: ["published", "archived", "rejected"],
+        approved: ["published", "rejected", "archived"],
+        rejected: ["draft", "processing", "archived"],
+        published: ["suspended", "archived"],
+        suspended: ["published", "archived"],
         archived: ["draft"],
     };
     return (allowed[from] || []).includes(to);

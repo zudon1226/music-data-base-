@@ -1,19 +1,36 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Activity, BarChart3, RefreshCw, ShieldAlert, Trash2, Users } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
+import { Activity, BarChart3, Music2, RefreshCw, ShieldAlert, Trash2, Users } from "lucide-react";
 import { FoundingOnboardingAdminPanel } from "./founding-onboarding-admin-panel";
 import { TestAccountCleanupCenter } from "./test-account-cleanup-center";
+import { RingtoneReviewQueue } from "./ringtone-review/ringtone-review-queue";
 import { useTranslation } from "../lib/i18n/provider";
 import type { PlatformControlCenterSnapshot, PlatformHealthLabel } from "../lib/platform-control-center";
 import { healthLabelClass } from "../lib/platform-control-center";
+
+type RingtonePreviewRequest = {
+    id: string;
+    title: string;
+    artworkUrl: string;
+    audioUrl: string;
+    clipStartSeconds: number;
+    clipEndSeconds: number;
+    durationSeconds: number;
+};
 
 type PlatformControlCenterProps = {
     userId: string;
     accessToken: string;
     refreshToken: string;
+    session?: Session | null;
     advancedTools?: ReactNode;
     revenueSection?: ReactNode;
+    onPreviewRingtone?: (request: RingtonePreviewRequest) => void;
+    onStopRingtonePreview?: () => void;
+    activeRingtonePreviewId?: string | null;
+    ringtonePreviewPlaying?: boolean;
 };
 
 function formatCount(value: number) {
@@ -54,13 +71,21 @@ export function PlatformControlCenter({
     userId,
     accessToken,
     refreshToken,
+    session = null,
     advancedTools,
     revenueSection,
+    onPreviewRingtone,
+    onStopRingtonePreview,
+    activeRingtonePreviewId = null,
+    ringtonePreviewPlaying = false,
 }: PlatformControlCenterProps) {
     const { t } = useTranslation();
     const [snapshot, setSnapshot] = useState<PlatformControlCenterSnapshot | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const reviewSession = session || (accessToken
+        ? { access_token: accessToken, refresh_token: refreshToken } as Session
+        : null);
 
     const loadSnapshot = useCallback(async () => {
         if (!userId || !accessToken) return;
@@ -168,6 +193,25 @@ export function PlatformControlCenter({
                     <ActivityList title="Recent storage errors" items={snapshot?.activity.recentStorageErrors || []}/>
                     <ActivityList title="Recent owner actions" items={snapshot?.activity.recentOwnerActions || []}/>
                 </div>
+            </section>
+
+            <section className="stability-panel control-center-panel" id="ringtone-review-queue">
+                <div className="panel-title-row">
+                    <h3><Music2 size={16}/> {t("ringtones.ringtoneReviewQueue")}</h3>
+                    <span>{t("ringtones.processingQueue")}</span>
+                </div>
+                {onPreviewRingtone && onStopRingtonePreview ? (
+                    <RingtoneReviewQueue
+                        userId={userId}
+                        session={reviewSession}
+                        onPreviewRingtone={onPreviewRingtone}
+                        onStopRingtonePreview={onStopRingtonePreview}
+                        activeRingtonePreviewId={activeRingtonePreviewId}
+                        ringtonePreviewPlaying={ringtonePreviewPlaying}
+                    />
+                ) : (
+                    <p className="control-center-empty">{t("ringtones.previewUnavailable")}</p>
+                )}
             </section>
 
             <section className="stability-panel control-center-panel" id="test-account-cleanup-center">

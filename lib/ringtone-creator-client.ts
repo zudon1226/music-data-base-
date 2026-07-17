@@ -31,9 +31,26 @@ export type RingtoneProduct = {
     review_notes: string;
     iphone_available?: boolean;
     android_available?: boolean;
+    revision_number?: number;
+    last_processing_error?: string;
+    last_processing_error_code?: string;
+    preview_storage_path?: string;
+    iphone_storage_path?: string;
+    android_storage_path?: string;
     created_at: string;
     updated_at: string;
     published_at: string | null;
+};
+
+export type RingtoneProcessingJob = {
+    id: string;
+    ringtone_id: string;
+    status: "queued" | "processing" | "completed" | "failed" | "canceled";
+    attempt_count?: number;
+    max_attempts?: number;
+    error_code?: string;
+    error_message?: string;
+    revision_number?: number;
 };
 
 export type RingtoneSourceSong = {
@@ -222,20 +239,54 @@ export async function saveRingtoneDraft(input: {
     return parseJson(response);
 }
 
+/**
+ * Submit starts secure server-side processing. Pending review is set only after
+ * successful outputs — creators cannot skip processing.
+ */
 export async function submitRingtoneForReview(input: {
     userId: string;
     session: Session | null;
     ringtoneId: string;
+    retry?: boolean;
 }) {
-    const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
-        method: "PATCH",
+    const response = await fetch(`/api/ringtones/${input.ringtoneId}/process`, {
+        method: "POST",
         headers: authHeaders(input.session),
         body: JSON.stringify({
             userId: input.userId,
-            status: "pending_review",
+            retry: input.retry === true,
         }),
     });
     return parseJson(response);
+}
+
+export async function retryRingtoneProcessing(input: {
+    userId: string;
+    session: Session | null;
+    ringtoneId: string;
+}) {
+    return submitRingtoneForReview({ ...input, retry: true });
+}
+
+export async function fetchRingtoneProcessingJob(input: {
+    userId: string;
+    session: Session | null;
+    ringtoneId: string;
+}) {
+    const response = await fetch(
+        `/api/ringtones/${input.ringtoneId}/process?userId=${encodeURIComponent(input.userId)}`,
+        {
+            headers: authHeaders(input.session, false),
+            cache: "no-store",
+        },
+    );
+    const parsed = await parseJson(response);
+    return {
+        ok: parsed.ok,
+        status: parsed.status,
+        job: (parsed.body.job || null) as RingtoneProcessingJob | null,
+        error: typeof parsed.body.error === "string" ? parsed.body.error : "",
+    };
 }
 
 export async function duplicateRingtone(input: {

@@ -53,12 +53,14 @@ function validateClip({ clipStartSeconds, durationSeconds, sourceDurationSeconds
 function canCreatorTransitionStatus(from, to) {
     if (from === to) return true;
     const allowed = {
-        draft: ["processing", "pending_review"],
-        processing: ["draft", "pending_review"],
+        draft: ["processing"],
+        processing: ["draft"],
         pending_review: ["draft"],
-        rejected: ["draft", "pending_review"],
-        published: ["pending_review", "archived"],
+        rejected: ["draft", "processing"],
+        published: ["archived"],
         archived: ["draft"],
+        suspended: [],
+        approved: [],
     };
     return (allowed[from] || []).includes(to);
 }
@@ -92,13 +94,15 @@ async function main() {
     assertIncludes(en, "iphoneReady:", "i18n iphoneReady");
     assertIncludes(en, "androidReady:", "i18n androidReady");
     assertIncludes(client, "fetchRingtoneEligibility", "client eligibility helper");
-    assertIncludes(validation, 'published: ["pending_review", "archived"]', "published revision/archive transitions");
+    assertIncludes(validation, 'published: ["archived"]', "published archive transition");
+    assertIncludes(validation, 'draft: ["processing"]', "creator queues processing");
     assertIncludes(workspace, "aria-live", "status announcements");
     assertIncludes(workspace, "min-height: 44px", "touch targets");
     assertIncludes(workspace, 'role="tablist"', "wizard tabs accessible");
     assertIncludes(timeline, "aria-label", "timeline accessible label");
     assertIncludes(workspace, "padding-bottom: calc(var(--mobile-player-reserve", "bottom player clearance");
     assertIncludes(workspace, "@media (max-width: 820px)", "responsive markers");
+    assertIncludes(client, "/process", "client process submit path");
 
     const requiredFiles = [
         "app/api/ringtones/eligibility/route.ts",
@@ -122,9 +126,10 @@ async function main() {
     const overflow = validateClip({ clipStartSeconds: 20, durationSeconds: 30, sourceDurationSeconds: 40 });
     record("reject source overflow", !overflow.ok, overflow.error);
     record("creator cannot publish", !canCreatorTransitionStatus("draft", "published"));
-    record("creator can submit", canCreatorTransitionStatus("draft", "pending_review"));
+    record("creator can queue processing", canCreatorTransitionStatus("draft", "processing"));
+    record("creator cannot skip to pending_review", !canCreatorTransitionStatus("draft", "pending_review"));
     record("creator can archive published", canCreatorTransitionStatus("published", "archived"));
-    record("creator can revise published", canCreatorTransitionStatus("published", "pending_review"));
+    record("creator cannot silent-republish", !canCreatorTransitionStatus("published", "pending_review"));
     record("invalid pending->published", !canCreatorTransitionStatus("pending_review", "published"));
 
     const secretPattern = /SUPABASE_SERVICE_ROLE_KEY\s*=\s*['"][^'"]+['"]/;

@@ -16809,7 +16809,18 @@ function PageContent() {
                 userId={accountUserId}
                 accessToken={authSession?.access_token || ""}
                 refreshToken={authSession?.refresh_token || ""}
+                session={authSession}
                 revenueSection={renderAdminRevenueDashboard()}
+                onPreviewRingtone={(request) => {
+                  if (activeRingtonePreview?.id === request.id && ringtonePreviewPlaying) {
+                    stopRingtonePreviewPlayback();
+                    return;
+                  }
+                  playRingtonePreview(request);
+                }}
+                onStopRingtonePreview={stopRingtonePreviewPlayback}
+                activeRingtonePreviewId={activeRingtonePreview?.id || null}
+                ringtonePreviewPlaying={ringtonePreviewPlaying}
             />
             <section className="dashboard-page stability-page">
             <div className="dashboard-brand stability-brand">
