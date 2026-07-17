@@ -274,11 +274,40 @@ async function main() {
             })),
         });
         const secondRedeemJson = await secondRedeem.json().catch(() => ({}));
+        const memberCount = await admin
+            .from("founding_members")
+            .select("user_id", { count: "exact", head: true })
+            .eq("user_id", probeSession.user.id);
         record(
-            "already-used invite redeem blocked",
-            secondRedeem.status === 400 && /already been used|already linked/i.test(String(secondRedeemJson.error || "")),
-            secondRedeemJson.error || String(secondRedeem.status),
+            "same-user redeem retry stays idempotent",
+            secondRedeem.ok && (memberCount.count || 0) === 1,
+            JSON.stringify({ status: secondRedeem.status, memberCount: memberCount.count, body: secondRedeemJson }),
         );
+
+        const otherEmail = `founding-other-${Date.now()}@probe.local`;
+        const otherPassword = `Probe_${Date.now()}_Dd4!`;
+        await admin.auth.admin.createUser({ email: otherEmail, password: otherPassword, email_confirm: true });
+        const otherLogin = await anon.auth.signInWithPassword({ email: otherEmail, password: otherPassword });
+        const otherSession = otherLogin.data.session;
+        let otherBlocked = false;
+        let otherDetail = "other session missing";
+        if (otherSession?.access_token) {
+            const otherRedeem = await fetch(`${baseUrl}/api/founding-invites/redeem`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${otherSession.access_token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(authBody(otherSession.user.id, otherSession, {
+                    inviteCode,
+                    displayName: "Other Probe",
+                })),
+            });
+            const otherJson = await otherRedeem.json().catch(() => ({}));
+            otherBlocked = otherRedeem.status === 400 && /already been used|already linked|no longer active/i.test(String(otherJson.error || ""));
+            otherDetail = otherJson.error || String(otherRedeem.status);
+        }
+        record("already-used invite blocked for different user", otherBlocked, otherDetail);
 
         const usedValidate = await fetch(`${baseUrl}/api/founding-invites/validate`, {
             method: "POST",
