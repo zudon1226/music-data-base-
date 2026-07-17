@@ -55,7 +55,14 @@ import {
     type RingtonePreviewRequest,
 } from "../components/ringtone-creator/ringtone-creator-workspace";
 import { RingtoneMarketplaceWorkspace } from "../components/ringtone-marketplace/ringtone-marketplace-workspace";
-import { evaluateDesktopNavAccess, type DesktopNavView } from "../lib/desktop-app-navigation";
+import {
+    evaluateDesktopNavAccess,
+    shouldShowArtistDashboardControl,
+    shouldShowProducerDashboardControl,
+    shouldShowUploadControl,
+    type DesktopNavView,
+} from "../lib/desktop-app-navigation";
+import { resolveNavCapabilities } from "../lib/role-based-navigation";
 import { fetchRingtoneEligibility } from "../lib/ringtone-creator-client";
 import { I18N_GLOBAL_STYLES } from "../lib/i18n/i18n-styles";
 import { translateHomeTab, translatePageSubtitle, translatePageTitle } from "../lib/i18n/page-copy";
@@ -2866,6 +2873,10 @@ function normalizeAccountRole(value: unknown): AccountRole {
     if (value === "Artist" || value === "Producer" || value === "Listener") {
         return value;
     }
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "artist" || normalized === "founding_artist") return "Artist";
+    if (normalized === "producer" || normalized === "founding_producer") return "Producer";
+    if (normalized === "listener") return "Listener";
     return "Listener";
 }
 function isPlatformOwnerEmail(email: unknown) {
@@ -3711,17 +3722,12 @@ function PageContent() {
     }, [publishLiveDesktopAuthSession]);
     const [canCreateRingtones, setCanCreateRingtones] = useState(false);
     const [ringtoneCreatorAccessChecked, setRingtoneCreatorAccessChecked] = useState(false);
+    const [accountNavRoles, setAccountNavRoles] = useState<string[]>([]);
+    const [accountIsAdmin, setAccountIsAdmin] = useState(false);
     const [activeRingtonePreview, setActiveRingtonePreview] = useState<ActiveRingtonePreview | null>(null);
     const [ringtonePreviewPlaying, setRingtonePreviewPlaying] = useState(false);
     const ringtoneAudioRef = useRef<HTMLAudioElement | null>(null);
     const ringtoneClipEndRef = useRef(0);
-    const desktopNavAccess = useMemo(() => ({
-        accountUserId,
-        authSession,
-        isAuthenticated,
-        isPlatformOwner: isPlatformOwnerEmail(activeUser?.email),
-        canCreateRingtones: canCreateRingtones || isPlatformOwnerEmail(activeUser?.email),
-    }), [accountUserId, authSession, isAuthenticated, activeUser?.email, canCreateRingtones]);
 
     useEffect(() => {
         let cancelled = false;
@@ -5581,6 +5587,49 @@ function PageContent() {
         [activeUser?.email, foundingAccess?.canUpload],
     );
     const isPlatformOwner = isPlatformOwnerEmail(activeUser?.email);
+    const hasOwnProducerProfile = useMemo(
+        () => Boolean(accountUserId && producerProfiles.some((profile) => profile.userId === accountUserId)),
+        [accountUserId, producerProfiles],
+    );
+    const navCapabilities = useMemo(() => resolveNavCapabilities({
+        isPlatformOwner,
+        isAdmin: accountIsAdmin,
+        accountRoles: accountNavRoles,
+        primaryRole: userAuthProfile.role || accountRole,
+        foundingRole: foundingAccess?.foundingRole || null,
+        canCreateRingtones: canCreateRingtones || isPlatformOwner,
+        hasProducerProfile: hasOwnProducerProfile,
+    }), [
+        isPlatformOwner,
+        accountIsAdmin,
+        accountNavRoles,
+        userAuthProfile.role,
+        accountRole,
+        foundingAccess?.foundingRole,
+        canCreateRingtones,
+        hasOwnProducerProfile,
+    ]);
+    const desktopNavAccess = useMemo(() => ({
+        accountUserId,
+        authSession,
+        isAuthenticated,
+        isPlatformOwner,
+        canCreateRingtones: canCreateRingtones || isPlatformOwner,
+        capabilities: navCapabilities,
+    }), [accountUserId, authSession, isAuthenticated, isPlatformOwner, canCreateRingtones, navCapabilities]);
+    useEffect(() => {
+        if (!isAuthenticated || !authReady) return;
+        const decision = evaluateDesktopNavAccess(view as DesktopNavView, desktopNavAccess);
+        if (!decision.allowed) {
+            setShowUpload(false);
+            setView("Home");
+        }
+    }, [isAuthenticated, authReady, view, desktopNavAccess]);
+    useEffect(() => {
+        if (!shouldShowUploadControl(desktopNavAccess) && showUpload) {
+            setShowUpload(false);
+        }
+    }, [desktopNavAccess, showUpload]);
     const foundingBetaLocked = isFoundingBetaLocked();
     const reloadFoundingAccess = useCallback(async (userIdOverride = "", tokenOverride = "") => {
         const userId = userIdOverride || accountUserIdRef.current || "";
@@ -5915,6 +5964,7 @@ function PageContent() {
         setProducerBeats(beats);
         if (!isPlatformOwner && accountUserId && profiles.some((profile) => profile.userId === accountUserId)) {
             setAccountRole("Producer");
+            setAccountNavRoles((previous) => (previous.includes("producer") ? previous : [...previous, "producer"]));
         }
         setActiveProducerId((previous) => (profiles.some((profile) => profile.id === previous) ? previous : profiles[0]?.id || ""));
         return { profiles, beats };
@@ -6236,6 +6286,10 @@ function PageContent() {
         const data = (await response.json().catch(() => ({}))) as {
             displayName?: string;
             role?: string;
+            roles?: string[];
+            isAdmin?: boolean;
+            isArtist?: boolean;
+            isProducer?: boolean;
             avatarUrl?: string;
             error?: string;
         };
@@ -6267,6 +6321,11 @@ function PageContent() {
             avatarUrl: String(data.avatarUrl || "").trim(),
         };
         setUserAuthProfile(nextProfile);
+        const nextRoles = Array.isArray(data.roles)
+            ? data.roles.map((role: unknown) => String(role || "").trim().toLowerCase()).filter(Boolean)
+            : [nextProfile.role].filter(Boolean);
+        setAccountNavRoles(nextRoles);
+        setAccountIsAdmin(Boolean(data.isAdmin) || nextRoles.includes("admin"));
         if (!isPlatformOwnerEmail(emailOverride || activeUser?.email)) {
             setAccountRole(normalizeAccountRole(nextProfile.role));
         }
@@ -11628,7 +11687,9 @@ function PageContent() {
             return;
         }
         const previousRole = accountRole;
+        const previousNavRoles = accountNavRoles;
         setAccountRole(nextRole);
+        setAccountNavRoles([nextRole.toLowerCase()]);
         try {
             const response = await fetch("/api/producers", {
                 method: "POST",
@@ -11653,6 +11714,7 @@ function PageContent() {
             };
             if (!response.ok) {
                 setAccountRole(previousRole);
+                setAccountNavRoles(previousNavRoles);
                 showToast(data.error || "Account type could not be saved.", "error");
                 return;
             }
@@ -11682,6 +11744,7 @@ function PageContent() {
         }
         catch (error) {
             setAccountRole(previousRole);
+            setAccountNavRoles(previousNavRoles);
             showToast("Account type could not be saved. Check your connection and try again.", "error");
         }
     }
@@ -14096,7 +14159,23 @@ function PageContent() {
                 showToast(t("ringtones.creatorAccessDenied"), "error");
                 return;
             }
-            showToast("Owner admin access is required for platform controls.", "error");
+            if (accessDecision.reason === "owner-required") {
+                showToast(t("header.ownerAccessRequired"), "error");
+                return;
+            }
+            if (accessDecision.reason === "artist-required") {
+                showToast("Artist access is required for that page.", "error");
+                return;
+            }
+            if (accessDecision.reason === "producer-required") {
+                showToast("Producer access is required for that page.", "error");
+                return;
+            }
+            if (accessDecision.reason === "creator-required") {
+                showToast("Creator access is required for that page.", "error");
+                return;
+            }
+            showToast("Your account role cannot open that page.", "error");
             return;
         }
         applyDesktopView(nextView);
@@ -14108,6 +14187,10 @@ function PageContent() {
         }
     }
     function toggleUploadPanel() {
+        if (!shouldShowUploadControl(desktopNavAccess)) {
+            showToast("Upload is available for Artist and Producer accounts.", "error");
+            return;
+        }
         if (uploadsBlockedForCurrentUser) {
             showToast(UPLOAD_LOCK_MESSAGE, "info");
             return;
@@ -15717,14 +15800,19 @@ function PageContent() {
           activeView={view as DesktopNavView}
           access={desktopNavAccess}
           onNavigate={(nextView) => {
-            setShowNotificationCenter(false);
-            applyDesktopView(nextView as View);
+            handleNav(nextView as View);
           }}
           onOwnerRequired={() => {
             showToast(t("header.ownerAccessRequired"), "error");
           }}
           onRingtoneCreatorRequired={() => {
             showToast(t("ringtones.creatorAccessDenied"), "error");
+          }}
+          onRoleRequired={(reason) => {
+            if (reason === "artist-required") showToast("Artist access is required for that page.", "error");
+            else if (reason === "producer-required") showToast("Producer access is required for that page.", "error");
+            else if (reason === "creator-required") showToast("Creator access is required for that page.", "error");
+            else showToast("Your account role cannot open that page.", "error");
           }}
         />
 
@@ -15840,6 +15928,7 @@ function PageContent() {
             })}
           />
 
+          {shouldShowUploadControl(desktopNavAccess) ? (
           <button
             className="upload-btn"
             disabled={uploadsBlockedForCurrentUser}
@@ -15850,16 +15939,21 @@ function PageContent() {
             <Upload size={17}/>
             {t("upload.title")}
           </button>
+          ) : null}
 
+          {shouldShowArtistDashboardControl(desktopNavAccess) ? (
           <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
             <BarChart3 size={17}/>
             {t("header.artistShort")}
           </button>
+          ) : null}
 
+          {shouldShowProducerDashboardControl(desktopNavAccess) ? (
           <button className="dashboard-btn producer-dashboard-btn" onClick={() => handleNav("Producer Dashboard")} title={t("nav.producerDashboard")} type="button">
             <Disc3 size={17}/>
             {t("header.producerShort")}
           </button>
+          ) : null}
 
           <button className="profile-btn" onClick={openProfileFromHeader} title={t("nav.profile")} type="button">
             <User size={17}/>
@@ -15874,7 +15968,7 @@ function PageContent() {
 
         {renderSharedVideoPlayer()}
 
-        {showUpload && !uploadsBlockedForCurrentUser && (<section className="upload-shell" data-nav-destination="upload">
+        {showUpload && shouldShowUploadControl(desktopNavAccess) && !uploadsBlockedForCurrentUser && (<section className="upload-shell" data-nav-destination="upload">
             {(view === "Artist Dashboard" || view === "Producer Dashboard") && (<div className="upload-mode-tabs" role="tablist" aria-label="Dashboard upload type">
                 {view === "Producer Dashboard" ? (<>
                     <button className={uploadMode === "beat" ? "active" : ""} onClick={() => selectUploadMode("beat")} type="button">
@@ -16383,15 +16477,21 @@ function PageContent() {
           subtitle={pageSubtitle()}
           actions={(
             <>
-              {showGlobalSearchHeading(view, search) && (<div className="dashboard-nav-row" role="navigation" aria-label="Dashboard shortcuts">
+              {showGlobalSearchHeading(view, search)
+                && (shouldShowArtistDashboardControl(desktopNavAccess) || shouldShowProducerDashboardControl(desktopNavAccess))
+                && (<div className="dashboard-nav-row" role="navigation" aria-label="Dashboard shortcuts">
+                  {shouldShowArtistDashboardControl(desktopNavAccess) ? (
                   <button onClick={() => handleNav("Artist Dashboard")} type="button">
                     <BarChart3 size={16}/>
                     Artist Dashboard
                   </button>
+                  ) : null}
+                  {shouldShowProducerDashboardControl(desktopNavAccess) ? (
                   <button onClick={() => handleNav("Producer Dashboard")} type="button">
                     <Disc3 size={16}/>
                     Producer Dashboard
                   </button>
+                  ) : null}
                 </div>)}
 
               {view === "Recently Played" && recentlyPlayed.length > 0 && !search.trim() && (<button className="clear-recent" onClick={clearRecentlyPlayed} type="button">

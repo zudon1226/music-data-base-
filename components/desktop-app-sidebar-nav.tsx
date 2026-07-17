@@ -21,6 +21,7 @@ import {
     createDesktopNavHandler,
     listVisibleDesktopNavItems,
     type DesktopNavAccessContext,
+    type DesktopNavBlockReason,
     type DesktopNavView,
 } from "../lib/desktop-app-navigation";
 import { DESKTOP_SIDEBAR_LAYOUT_CSS } from "../lib/desktop-sidebar-layout";
@@ -59,6 +60,7 @@ type DesktopAppSidebarNavProps = {
     onNavigate: (nextView: DesktopNavView) => void;
     onOwnerRequired: () => void;
     onRingtoneCreatorRequired?: () => void;
+    onRoleRequired?: (reason: DesktopNavBlockReason) => void;
 };
 
 /** DESKTOP ONLY — sidebar buttons use the shared nav router and layout stack. */
@@ -68,21 +70,18 @@ export function DesktopAppSidebarNav({
     onNavigate,
     onOwnerRequired,
     onRingtoneCreatorRequired,
+    onRoleRequired,
 }: DesktopAppSidebarNavProps) {
     const { t, locale } = useTranslation();
-    const ownerVisible = Boolean(access.isPlatformOwner);
 
     // Rebuild every label from the active locale so chrome never keeps mount-time English.
     const localizedItems = useMemo(() => {
-        const visibleItems = listVisibleDesktopNavItems({
-            ...access,
-            isPlatformOwner: ownerVisible,
-        });
+        const visibleItems = listVisibleDesktopNavItems(access);
         return visibleItems.map((item) => ({
             view: item.view,
             label: t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]),
         }));
-    }, [access, locale, ownerVisible, t]);
+    }, [access, locale, t]);
 
     const handleNavClick = useMemo(
         () => createDesktopNavHandler({
@@ -90,8 +89,9 @@ export function DesktopAppSidebarNav({
             navigate: onNavigate,
             onOwnerRequired,
             onRingtoneCreatorRequired,
+            onRoleRequired,
         }),
-        [access, onNavigate, onOwnerRequired, onRingtoneCreatorRequired],
+        [access, onNavigate, onOwnerRequired, onRingtoneCreatorRequired, onRoleRequired],
     );
 
     return (

@@ -1,6 +1,11 @@
-/** DESKTOP ONLY — sidebar view keys and navigation routing (no auth gating on clicks). */
+/** DESKTOP ONLY — sidebar view keys and role-driven navigation routing. */
 
 import type { Session } from "@supabase/supabase-js";
+import {
+    canAccessNavView,
+    type NavCapabilityFlags,
+    resolveNavCapabilities,
+} from "@/lib/role-based-navigation";
 
 export type DesktopNavView =
     | "Home"
@@ -27,74 +32,114 @@ export type DesktopNavView =
     | "My Purchased Ringtones"
     | "Platform Control Center";
 
-/** Sidebar routing context — owner flag only; do not gate navigation on auth here. */
 export type DesktopNavAccessContext = {
     accountUserId: string;
     authSession: Session | null;
     isAuthenticated: boolean;
     isPlatformOwner: boolean;
     canCreateRingtones?: boolean;
+    capabilities?: NavCapabilityFlags;
 };
 
-export type DesktopNavBlockReason = "owner-required" | "ringtone-creator-required";
+export type DesktopNavBlockReason =
+    | "owner-required"
+    | "ringtone-creator-required"
+    | "artist-required"
+    | "producer-required"
+    | "creator-required"
+    | "role-required";
 
 export type DesktopNavItemDefinition = {
     view: DesktopNavView;
-    requiresOwner: boolean;
+    requiresOwner?: boolean;
     requiresRingtoneCreator?: boolean;
+    requiresArtistDashboard?: boolean;
+    requiresProducerDashboard?: boolean;
+    requiresCreator?: boolean;
 };
 
 export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
-    { view: "Home", requiresOwner: false },
-    { view: "Marketplace", requiresOwner: false },
-    { view: "Ringtone Marketplace", requiresOwner: false },
-    { view: "My Purchased Ringtones", requiresOwner: false },
-    { view: "Sales", requiresOwner: false },
-    { view: "License History", requiresOwner: false },
-    { view: "Trending", requiresOwner: false },
-    { view: "Beats", requiresOwner: false },
-    { view: "Artists", requiresOwner: false },
-    { view: "Videos", requiresOwner: false },
-    { view: "Library", requiresOwner: false },
-    { view: "Liked", requiresOwner: false },
-    { view: "Following", requiresOwner: false },
-    { view: "Playlists", requiresOwner: false },
-    { view: "Artist Dashboard", requiresOwner: false },
-    { view: "Producer Dashboard", requiresOwner: false },
-    { view: "My Ringtones", requiresOwner: false, requiresRingtoneCreator: true },
+    { view: "Home" },
+    { view: "Marketplace" },
+    { view: "Ringtone Marketplace" },
+    { view: "My Purchased Ringtones" },
+    { view: "Sales", requiresCreator: true },
+    { view: "License History" },
+    { view: "Trending" },
+    { view: "Beats" },
+    { view: "Artists" },
+    { view: "Videos" },
+    { view: "Library" },
+    { view: "Liked" },
+    { view: "Following" },
+    { view: "Playlists" },
+    { view: "Artist Dashboard", requiresArtistDashboard: true },
+    { view: "Producer Dashboard", requiresProducerDashboard: true },
+    { view: "My Ringtones", requiresRingtoneCreator: true },
     { view: "Platform Control Center", requiresOwner: true },
-    { view: "Recently Played", requiresOwner: false },
-    { view: "Queue", requiresOwner: false },
-    { view: "Profile", requiresOwner: false },
+    { view: "Recently Played" },
+    { view: "Queue" },
+    { view: "Profile" },
 ];
 
+export function resolveDesktopNavCapabilities(context: DesktopNavAccessContext): NavCapabilityFlags {
+    if (context.capabilities) return context.capabilities;
+    return resolveNavCapabilities({
+        isPlatformOwner: context.isPlatformOwner,
+        canCreateRingtones: context.canCreateRingtones,
+    });
+}
+
 /**
- * Sidebar navigation must always route to the target view.
- * Platform Control Center is owner-gated; My Ringtones is creator-gated.
+ * Sidebar navigation routes to the target view when the role allows it.
+ * Platform Control Center is owner-gated; creator pages are role-gated.
  */
 export function evaluateDesktopNavAccess(
     nextView: DesktopNavView,
     context: DesktopNavAccessContext,
 ): { allowed: true } | { allowed: false; reason: DesktopNavBlockReason } {
+    const capabilities = resolveDesktopNavCapabilities(context);
     const item = DESKTOP_NAV_ITEMS.find((entry) => entry.view === nextView);
-    if (item?.requiresOwner && !context.isPlatformOwner) {
+
+    if (item?.requiresOwner && !capabilities.canPlatformControlCenter) {
         return { allowed: false, reason: "owner-required" };
     }
-    if (item?.requiresRingtoneCreator && !context.canCreateRingtones && !context.isPlatformOwner) {
+    if (item?.requiresArtistDashboard && !capabilities.canArtistDashboard) {
+        return { allowed: false, reason: "artist-required" };
+    }
+    if (item?.requiresProducerDashboard && !capabilities.canProducerDashboard) {
+        return { allowed: false, reason: "producer-required" };
+    }
+    if (item?.requiresCreator && !capabilities.canSales) {
+        return { allowed: false, reason: "creator-required" };
+    }
+    if (item?.requiresRingtoneCreator && !capabilities.canMyRingtones) {
         return { allowed: false, reason: "ringtone-creator-required" };
+    }
+    if (!canAccessNavView(nextView, capabilities)) {
+        return { allowed: false, reason: "role-required" };
     }
     return { allowed: true };
 }
 
 export function listVisibleDesktopNavItems(context: DesktopNavAccessContext) {
-    return DESKTOP_NAV_ITEMS.filter((item) => {
-        if (item.requiresOwner && !context.isPlatformOwner) return false;
-        if (item.requiresRingtoneCreator && !context.canCreateRingtones && !context.isPlatformOwner) return false;
-        return true;
-    });
+    const capabilities = resolveDesktopNavCapabilities(context);
+    return DESKTOP_NAV_ITEMS.filter((item) => canAccessNavView(item.view, capabilities));
 }
 
-/** @deprecated Sidebar navigation no longer gates on auth at click time. */
+export function shouldShowUploadControl(context: DesktopNavAccessContext) {
+    return resolveDesktopNavCapabilities(context).canUpload;
+}
+
+export function shouldShowArtistDashboardControl(context: DesktopNavAccessContext) {
+    return resolveDesktopNavCapabilities(context).canArtistDashboard;
+}
+
+export function shouldShowProducerDashboardControl(context: DesktopNavAccessContext) {
+    return resolveDesktopNavCapabilities(context).canProducerDashboard;
+}
+
+/** @deprecated Prefer role capabilities via resolveDesktopNavCapabilities. */
 export function hasDesktopAccountAccess(_context: DesktopNavAccessContext) {
     return true;
 }
@@ -104,16 +149,31 @@ export type DesktopNavHandlerOptions = {
     navigate: (nextView: DesktopNavView) => void;
     onOwnerRequired: () => void;
     onRingtoneCreatorRequired?: () => void;
+    onRoleRequired?: (reason: DesktopNavBlockReason) => void;
 };
 
 /** Shared sidebar click router — every button calls this, then setView. */
 export function createDesktopNavHandler(options: DesktopNavHandlerOptions) {
-    const { access, navigate, onOwnerRequired, onRingtoneCreatorRequired } = options;
+    const {
+        access,
+        navigate,
+        onOwnerRequired,
+        onRingtoneCreatorRequired,
+        onRoleRequired,
+    } = options;
     return function handleDesktopNav(nextView: DesktopNavView) {
         const decision = evaluateDesktopNavAccess(nextView, access);
         if (!decision.allowed) {
             if (decision.reason === "ringtone-creator-required") {
                 (onRingtoneCreatorRequired || onOwnerRequired)();
+                return;
+            }
+            if (decision.reason === "owner-required") {
+                onOwnerRequired();
+                return;
+            }
+            if (onRoleRequired) {
+                onRoleRequired(decision.reason);
                 return;
             }
             onOwnerRequired();

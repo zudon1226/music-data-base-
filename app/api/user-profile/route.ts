@@ -24,6 +24,7 @@ const PROFILE_SELECT = [
     "display_name",
     "username",
     "account_type",
+    "is_admin",
     "avatar_url",
     "bio",
     "city",
@@ -81,6 +82,39 @@ export async function GET(request: Request) {
         const role = normalizeRole(profileRow.account_type);
         const avatarUrl = String(profileRow.avatar_url || "").trim();
 
+        const roleSet = new Set<string>();
+        if (role && role !== "listener") roleSet.add(role);
+        if (profileRow.is_admin === true) roleSet.add("admin");
+        try {
+            const rolesResult = await supabase
+                .from("user_roles")
+                .select("role")
+                .eq("user_id", userId)
+                .eq("status", "active");
+            for (const row of rolesResult.data || []) {
+                const clean = String((row as { role?: string }).role || "").trim().toLowerCase();
+                if (clean) roleSet.add(clean);
+            }
+        }
+        catch {
+            // user_roles may be unavailable in some environments
+        }
+        try {
+            const artist = await supabase.from("artist_profiles").select("id").eq("user_id", userId).limit(1);
+            if (!artist.error && (artist.data || []).length > 0) roleSet.add("artist");
+        }
+        catch {
+            // optional
+        }
+        try {
+            const producer = await supabase.from("producer_profiles").select("id").eq("user_id", userId).limit(1);
+            if (!producer.error && (producer.data || []).length > 0) roleSet.add("producer");
+        }
+        catch {
+            // optional
+        }
+        const roles = [...roleSet];
+
         let songsCount = 0;
         let videosCount = 0;
         let ringtoneCount = 0;
@@ -124,6 +158,10 @@ export async function GET(request: Request) {
             displayName,
             username: String(profileRow.username || "").trim(),
             role,
+            roles,
+            isArtist: roleSet.has("artist") || roleSet.has("founding_artist"),
+            isProducer: roleSet.has("producer") || roleSet.has("founding_producer"),
+            isAdmin: roleSet.has("admin"),
             avatarUrl,
             biography: String(profileRow.bio || "").trim(),
             city: String(profileRow.city || "").trim(),

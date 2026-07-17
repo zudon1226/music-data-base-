@@ -11,6 +11,7 @@
     "verify:ui": "node scripts/verify-ui-polish.mjs",
     "verify:cleanup-ui": "node scripts/verify-test-account-cleanup-ui.mjs",
     "verify:nav": "node scripts/verify-navigation-scroll.mjs",
+    "verify:roles": "node scripts/verify-role-based-navigation.mjs",
     "verify:dashboard": "node scripts/verify-user-dashboard-phase1.mjs && node lib/dashboard/profile-fields.test.mjs",
     "verify:dashboard2": "node scripts/verify-user-dashboard-phase2.mjs",
     "verify:founding": "node scripts/verify-founding-invite-gate.mjs",
