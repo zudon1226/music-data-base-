@@ -423,6 +423,8 @@ export const swMessages: LocaleMessageDictionary = {
         alreadyOwned: "Tayari Inamilikiwa",
         paymentPending: "Malipo Yanasubiri",
         paymentPendingProvider: "Malipo yanasubiri. Kamilisha kulipa na mtoa huduma aliyeunganishwa ili kufungua vipakuliwa.",
+        purchasingComingSoon: "Inakuja hivi karibuni",
+        purchasingUnavailable: "Ununuzi wa ringtone unaolipiwa haupatikani kwa sasa.",
         paymentCompleted: "Malipo Yamekamilika",
         paymentFailed: "Malipo Yameshindikana",
         paymentCanceled: "Malipo Yameghairiwa",

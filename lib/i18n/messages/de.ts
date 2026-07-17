@@ -423,6 +423,8 @@ export const deMessages: LocaleMessageDictionary = {
         alreadyOwned: "Bereits erworben",
         paymentPending: "Zahlung ausstehend",
         paymentPendingProvider: "Zahlung ausstehend. Schließen Sie den Checkout beim verbundenen Zahlungsanbieter ab, um Downloads freizuschalten.",
+        purchasingComingSoon: "Demnächst",
+        purchasingUnavailable: "Bezahlte Klingeltonkäufe sind derzeit nicht verfügbar.",
         paymentCompleted: "Zahlung abgeschlossen",
         paymentFailed: "Zahlung fehlgeschlagen",
         paymentCanceled: "Zahlung abgebrochen",

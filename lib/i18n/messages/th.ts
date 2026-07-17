@@ -423,6 +423,8 @@ export const thMessages: LocaleMessageDictionary = {
         alreadyOwned: "เป็นเจ้าของแล้ว",
         paymentPending: "การชำระเงินที่รอดำเนินการ",
         paymentPendingProvider: "อยู่ระหว่างดำเนินการชำระเงิน ชำระเงินให้เสร็จสมบูรณ์กับผู้ให้บริการชำระเงินที่เชื่อมต่อเพื่อปลดล็อคการดาวน์โหลด",
+        purchasingComingSoon: "เร็วๆ นี้",
+        purchasingUnavailable: "การซื้อริงโทนแบบชำระเงินยังไม่พร้อมใช้งานในขณะนี้",
         paymentCompleted: "ชำระเงินเรียบร้อยแล้ว",
         paymentFailed: "การชำระเงินล้มเหลว",
         paymentCanceled: "การชำระเงินถูกยกเลิก",

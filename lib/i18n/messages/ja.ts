@@ -423,6 +423,8 @@ export const jaMessages: LocaleMessageDictionary = {
         alreadyOwned: "すでに所有しています",
         paymentPending: "支払い保留中",
         paymentPendingProvider: "支払いが保留中です。接続されている決済プロバイダーでチェックアウトを完了して、ダウンロードのロックを解除します。",
+        purchasingComingSoon: "近日公開",
+        purchasingUnavailable: "有料着信音の購入は現在ご利用いただけません。",
         paymentCompleted: "支払い完了",
         paymentFailed: "支払いに失敗しました",
         paymentCanceled: "支払いがキャンセルされました",

@@ -423,6 +423,8 @@ export const yoMessages: LocaleMessageDictionary = {
         alreadyOwned: "Ti Nini tẹlẹ",
         paymentPending: "Owo sisan ni isunmọtosi ni",
         paymentPendingProvider: "Owo sisan ni isunmọtosi ni. Isanwo pipe pẹlu olupese isanwo ti a ti sopọ lati ṣii awọn igbasilẹ.",
+        purchasingComingSoon: "Nbọ́ láìpẹ́",
+        purchasingUnavailable: "Rírà ringtone tí a san owó kò sí nísinsìnyí.",
         paymentCompleted: "Isanwo Pari",
         paymentFailed: "Isanwo Kuna",
         paymentCanceled: "Fagilee owo sisan",

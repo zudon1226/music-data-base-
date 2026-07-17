@@ -423,6 +423,8 @@ export const trMessages: LocaleMessageDictionary = {
         alreadyOwned: "Zaten sahip olunan",
         paymentPending: "Ödeme bekleniyor",
         paymentPendingProvider: "Ödeme bekleniyor. İndirmelerin kilidini açmak için bağlı ödeme sağlayıcısında ödemeyi tamamlayın.",
+        purchasingComingSoon: "Çok yakında",
+        purchasingUnavailable: "Ücretli zil sesi satın alma şu anda kullanılamıyor.",
         paymentCompleted: "Ödeme tamamlandı",
         paymentFailed: "Ödeme başarısız",
         paymentCanceled: "Ödeme iptal edildi",

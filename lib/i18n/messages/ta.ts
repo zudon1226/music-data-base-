@@ -423,6 +423,8 @@ export const taMessages: LocaleMessageDictionary = {
         alreadyOwned: "ஏற்கனவே சொந்தமானது",
         paymentPending: "கட்டணம் நிலுவையில் உள்ளது",
         paymentPendingProvider: "கட்டணம் நிலுவையில் உள்ளது. பதிவிறக்கங்களைத் திறக்க, இணைக்கப்பட்ட கட்டண வழங்குநருடன் செக் அவுட்டை முடிக்கவும்.",
+        purchasingComingSoon: "விரைவில்",
+        purchasingUnavailable: "கட்டண ரிங்டோன் வாங்குதல் தற்போது கிடைக்கவில்லை.",
         paymentCompleted: "கட்டணம் செலுத்தப்பட்டது",
         paymentFailed: "பணம் செலுத்த முடியவில்லை",
         paymentCanceled: "கட்டணம் ரத்து செய்யப்பட்டது",

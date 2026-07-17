@@ -423,6 +423,8 @@ export const skMessages: LocaleMessageDictionary = {
         alreadyOwned: "Už vlastnené",
         paymentPending: "Platba čaká",
         paymentPendingProvider: "Platba čaká. Dokončite platbu u pripojeného poskytovateľa platieb, aby ste odomkli sťahovanie.",
+        purchasingComingSoon: "Už čoskoro",
+        purchasingUnavailable: "Platený nákup zvonení momentálne nie je dostupný.",
         paymentCompleted: "Platba dokončená",
         paymentFailed: "Platba zlyhala",
         paymentCanceled: "Platba zrušená",

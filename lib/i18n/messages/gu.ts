@@ -423,6 +423,8 @@ export const guMessages: LocaleMessageDictionary = {
         alreadyOwned: "પહેલેથી જ માલિકીનું છે",
         paymentPending: "ચુકવણી બાકી છે",
         paymentPendingProvider: "ચુકવણી બાકી છે. ડાઉનલોડ્સને અનલૉક કરવા માટે કનેક્ટેડ ચુકવણી પ્રદાતા સાથે પૂર્ણ ચેકઆઉટ કરો.",
+        purchasingComingSoon: "ટૂંક સમયમાં",
+        purchasingUnavailable: "પેઇડ રિંગટોન ખરીદી હાલમાં ઉપલબ્ધ નથી.",
         paymentCompleted: "ચુકવણી પૂર્ણ",
         paymentFailed: "ચુકવણી નિષ્ફળ",
         paymentCanceled: "ચુકવણી રદ કરી",

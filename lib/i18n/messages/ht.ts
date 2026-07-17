@@ -423,6 +423,8 @@ export const htMessages: LocaleMessageDictionary = {
         alreadyOwned: "Deja posede",
         paymentPending: "Peman ap tann",
         paymentPendingProvider: "Peman ap tann. Konplete peman an ak founisè peman ki konekte a pou debloke telechajman yo.",
+        purchasingComingSoon: "Byento",
+        purchasingUnavailable: "Acha ringtone ki peye a pa disponib kounye a.",
         paymentCompleted: "Peman fini",
         paymentFailed: "Peman echwe",
         paymentCanceled: "Peman anile",

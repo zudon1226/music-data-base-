@@ -47,6 +47,29 @@ export function isRingtonePaymentsTestModeEnabled() {
     return process.env.RINGTONE_PAYMENTS_TEST_MODE === "1";
 }
 
+/** Live Stripe checkout requires both secret and webhook secret in production. */
+export function isRingtoneLivePaymentsConfigured() {
+    const secret = String(process.env.STRIPE_SECRET_KEY || "").trim();
+    const webhook = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
+    return Boolean(secret && webhook && !secret.includes("your-") && !webhook.includes("your-"));
+}
+
+/**
+ * Paid ringtone purchasing mode for production safety reporting.
+ * - live: Stripe credentials configured
+ * - test-only: RINGTONE_PAYMENTS_TEST_MODE=1 without live Stripe
+ * - safely-disabled: neither live nor test; paid intents must not complete
+ */
+export function getRingtonePaymentMode(): "live" | "test-only" | "safely-disabled" {
+    if (isRingtoneLivePaymentsConfigured()) return "live";
+    if (isRingtonePaymentsTestModeEnabled()) return "test-only";
+    return "safely-disabled";
+}
+
+export function canStartPaidRingtonePurchase() {
+    return getRingtonePaymentMode() !== "safely-disabled";
+}
+
 export function isPurchasableRingtoneStatus(status: unknown) {
     return (PUBLIC_RINGTONE_STATUSES as readonly string[]).includes(String(status || ""));
 }
@@ -128,6 +151,14 @@ export async function createRingtonePurchaseIntent(input: {
         String(product.ringtone.currency || "USD"),
     );
     const isFree = split.amountCents === 0;
+    if (!isFree && !canStartPaidRingtonePurchase()) {
+        return {
+            ok: false as const,
+            error: "Paid ringtone purchasing is coming soon. Purchasing is currently unavailable.",
+            status: 503,
+            code: "PURCHASING_UNAVAILABLE",
+        };
+    }
     const supabase = getSupabaseServerClient();
     const revisionFields = isFree
         ? await resolvePurchaseRevisionFields(product.ringtone.id)

@@ -423,6 +423,8 @@ export const ukMessages: LocaleMessageDictionary = {
         alreadyOwned: "Уже придбано",
         paymentPending: "Очікується оплата",
         paymentPendingProvider: "Очікується оплата. Завершіть оплату в підключеного платіжного провайдера, щоб розблокувати завантаження.",
+        purchasingComingSoon: "Незабаром",
+        purchasingUnavailable: "Платна купівля рингтонів наразі недоступна.",
         paymentCompleted: "Оплату завершено",
         paymentFailed: "Оплату не виконано",
         paymentCanceled: "Оплату скасовано",

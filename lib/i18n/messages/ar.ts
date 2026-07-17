@@ -423,6 +423,8 @@ export const arMessages: LocaleMessageDictionary = {
         alreadyOwned: "مملوكة بالفعل",
         paymentPending: "الدفع معلق",
         paymentPendingProvider: "الدفع معلق. أكمل عملية الدفع مع مزود الدفع المتصل لفتح التنزيلات.",
+        purchasingComingSoon: "قريبًا",
+        purchasingUnavailable: "شراء نغمات الرنين المدفوعة غير متاح حاليًا.",
         paymentCompleted: "اكتمل الدفع",
         paymentFailed: "فشل الدفع",
         paymentCanceled: "تم إلغاء الدفع",

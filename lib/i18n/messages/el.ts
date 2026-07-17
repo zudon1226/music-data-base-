@@ -423,6 +423,8 @@ export const elMessages: LocaleMessageDictionary = {
         alreadyOwned: "Ήδη αποκτημένος",
         paymentPending: "Εκκρεμής πληρωμή",
         paymentPendingProvider: "Εκκρεμής πληρωμή. Ολοκληρώστε την πληρωμή με τον συνδεδεμένο πάροχο για να ξεκλειδώσετε τις λήψεις.",
+        purchasingComingSoon: "Σύντομα",
+        purchasingUnavailable: "Οι επί πληρωμή αγορές ήχων κλήσης δεν είναι διαθέσιμες προς το παρόν.",
         paymentCompleted: "Η πληρωμή ολοκληρώθηκε",
         paymentFailed: "Η πληρωμή απέτυχε",
         paymentCanceled: "Η πληρωμή ακυρώθηκε",

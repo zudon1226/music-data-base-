@@ -423,6 +423,8 @@ export const csMessages: LocaleMessageDictionary = {
         alreadyOwned: "Již vlastněno",
         paymentPending: "Platba čeká",
         paymentPendingProvider: "Platba čeká. Dokončete platbu u připojeného poskytovatele plateb, abyste odemkli stahování.",
+        purchasingComingSoon: "Již brzy",
+        purchasingUnavailable: "Placený nákup vyzváněcích tónů není momentálně dostupný.",
         paymentCompleted: "Platba dokončena",
         paymentFailed: "Platba selhala",
         paymentCanceled: "Platba zrušena",

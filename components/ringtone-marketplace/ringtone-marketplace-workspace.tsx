@@ -199,6 +199,11 @@ export function RingtoneMarketplaceWorkspace({
         try {
             const intent = await purchaseRingtone({ ringtoneId, userId, session });
             if (!intent.ok) {
+                if (String(intent.body.code || "") === "PURCHASING_UNAVAILABLE") {
+                    setStatusMessage(t("ringtones.purchasingComingSoon"));
+                    setError(t("ringtones.purchasingUnavailable"));
+                    return;
+                }
                 throw new Error(String(intent.body.error || t("ringtones.purchaseFailed")));
             }
             const state = String(intent.body.state || "");

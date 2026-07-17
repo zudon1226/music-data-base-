@@ -423,6 +423,8 @@ export const soMessages: LocaleMessageDictionary = {
         alreadyOwned: "Durba Lahaanshaha",
         paymentPending: "Lacag-bixinta oo la sugayo",
         paymentPendingProvider: "Lacag bixinta ayaa sugaysa. Buuxi jeegaga bixiye lacag bixinta ku xidhan si aad u furto soo dejinta",
+        purchasingComingSoon: "Dhawaan",
+        purchasingUnavailable: "Iibsashada ringtone-ka lacagta ah hadda lama heli karo.",
         paymentCompleted: "Lacag Bixintii Waa La Dhameeyay",
         paymentFailed: "Lacag-bixintu way Fashilantay",
         paymentCanceled: "Lacag-bixinta waa la joojiyay",

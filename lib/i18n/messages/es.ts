@@ -423,6 +423,8 @@ export const esMessages: LocaleMessageDictionary = {
         alreadyOwned: "Ya adquirido",
         paymentPending: "Pago pendiente",
         paymentPendingProvider: "Pago pendiente. Completa el pago con el proveedor conectado para desbloquear las descargas.",
+        purchasingComingSoon: "Próximamente",
+        purchasingUnavailable: "La compra de tonos de pago no está disponible actualmente.",
         paymentCompleted: "Pago completado",
         paymentFailed: "Pago fallido",
         paymentCanceled: "Pago cancelado",

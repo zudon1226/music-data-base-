@@ -423,6 +423,8 @@ export const idMessages: LocaleMessageDictionary = {
         alreadyOwned: "Sudah Dimiliki",
         paymentPending: "Pembayaran Tertunda",
         paymentPendingProvider: "Pembayaran tertunda. Selesaikan pembayaran dengan penyedia pembayaran yang terhubung untuk membuka kunci unduhan.",
+        purchasingComingSoon: "Segera hadir",
+        purchasingUnavailable: "Pembelian nada dering berbayar saat ini tidak tersedia.",
         paymentCompleted: "Pembayaran Selesai",
         paymentFailed: "Pembayaran Gagal",
         paymentCanceled: "Pembayaran Dibatalkan",

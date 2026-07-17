@@ -423,6 +423,8 @@ export const msMessages: LocaleMessageDictionary = {
         alreadyOwned: "Sudah Milik",
         paymentPending: "Pembayaran Belum Selesai",
         paymentPendingProvider: "Pembayaran belum selesai. Selesaikan pembayaran dengan penyedia pembayaran yang disambungkan untuk membuka kunci muat turun.",
+        purchasingComingSoon: "Akan datang",
+        purchasingUnavailable: "Pembelian nada dering berbayar tidak tersedia buat masa ini.",
         paymentCompleted: "Pembayaran Selesai",
         paymentFailed: "Pembayaran Gagal",
         paymentCanceled: "Pembayaran Dibatalkan",

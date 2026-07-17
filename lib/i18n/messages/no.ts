@@ -423,6 +423,8 @@ export const noMessages: LocaleMessageDictionary = {
         alreadyOwned: "Allerede eid",
         paymentPending: "Betaling venter",
         paymentPendingProvider: "Betaling venter. Fullfør kassen hos den tilkoblede betalingsleverandøren for å låse opp nedlastinger.",
+        purchasingComingSoon: "Kommer snart",
+        purchasingUnavailable: "Betalt kjøp av ringetoner er foreløpig utilgjengelig.",
         paymentCompleted: "Betaling fullført",
         paymentFailed: "Betaling mislyktes",
         paymentCanceled: "Betaling avbrutt",

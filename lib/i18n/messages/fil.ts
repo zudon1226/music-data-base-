@@ -423,6 +423,8 @@ export const filMessages: LocaleMessageDictionary = {
         alreadyOwned: "Pagmamay-ari na",
         paymentPending: "Nakabinbin ang Pagbabayad",
         paymentPendingProvider: "Nakabinbin ang pagbabayad. Kumpletuhin ang pag-checkout sa konektadong provider ng pagbabayad upang i-unlock ang mga pag-download.",
+        purchasingComingSoon: "Malapit na",
+        purchasingUnavailable: "Hindi available ang bayad na pagbili ng ringtone sa ngayon.",
         paymentCompleted: "Nakumpleto ang Pagbabayad",
         paymentFailed: "Nabigo ang Pagbabayad",
         paymentCanceled: "Kinansela ang Pagbabayad",

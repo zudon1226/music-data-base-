@@ -423,6 +423,8 @@ export const daMessages: LocaleMessageDictionary = {
         alreadyOwned: "Allerede ejet",
         paymentPending: "Betaling afventer",
         paymentPendingProvider: "Betaling afventer. Fuldfør checkout hos den tilsluttede betalingsudbyder for at låse downloads op.",
+        purchasingComingSoon: "Kommer snart",
+        purchasingUnavailable: "Betalt køb af ringetoner er i øjeblikket utilgængeligt.",
         paymentCompleted: "Betaling gennemført",
         paymentFailed: "Betaling mislykkedes",
         paymentCanceled: "Betaling annulleret",

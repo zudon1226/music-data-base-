@@ -423,6 +423,8 @@ export const sqMessages: LocaleMessageDictionary = {
         alreadyOwned: "Tashmë e zotëruar",
         paymentPending: "Pagesa në pritje",
         paymentPendingProvider: "Pagesa në pritje. Përfundo pagesën te ofruesi i lidhur për të zhbllokuar shkarkimet.",
+        purchasingComingSoon: "Së shpejti",
+        purchasingUnavailable: "Blerja me pagesë e melodive të telefonit nuk është e disponueshme tani.",
         paymentCompleted: "Pagesa u përfundua",
         paymentFailed: "Pagesa dështoi",
         paymentCanceled: "Pagesa u anulua",

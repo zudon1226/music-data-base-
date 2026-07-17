@@ -423,6 +423,8 @@ export const srMessages: LocaleMessageDictionary = {
         alreadyOwned: "Već posedovano",
         paymentPending: "Plaćanje na čekanju",
         paymentPendingProvider: "Plaćanje na čekanju. Završite naplatu kod povezanog pružaoca plaćanja da otključate preuzimanja.",
+        purchasingComingSoon: "Uskoro",
+        purchasingUnavailable: "Plaćena kupovina melodija trenutno nije dostupna.",
         paymentCompleted: "Plaćanje završeno",
         paymentFailed: "Plaćanje nije uspelo",
         paymentCanceled: "Plaćanje otkazano",

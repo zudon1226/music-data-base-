@@ -423,6 +423,8 @@ export const plMessages: LocaleMessageDictionary = {
         alreadyOwned: "Już posiadany",
         paymentPending: "Płatność oczekująca",
         paymentPendingProvider: "Płatność oczekująca. Dokończ płatność u podłączonego dostawcy, aby odblokować pobieranie.",
+        purchasingComingSoon: "Wkrótce",
+        purchasingUnavailable: "Płatny zakup dzwonków jest obecnie niedostępny.",
         paymentCompleted: "Płatność zakończona",
         paymentFailed: "Płatność nieudana",
         paymentCanceled: "Płatność anulowana",

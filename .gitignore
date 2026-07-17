@@ -12,3 +12,11 @@ backups/owner-user-metadata*
 tmp/
 tmp-*/
 *.tsbuildinfo
+*.log
+dev-server*.log
+next-dev*.log
+next-direct*.log
+next-start*.log
+scripts/_phase6-*.mjs
+
+*.pid

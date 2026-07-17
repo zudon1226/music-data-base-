@@ -373,6 +373,8 @@ export const enMessages = {
         alreadyOwned: "Already Owned",
         paymentPending: "Payment Pending",
         paymentPendingProvider: "Payment pending. Complete checkout with the connected payment provider to unlock downloads.",
+        purchasingComingSoon: "Coming Soon",
+        purchasingUnavailable: "Paid ringtone purchasing is currently unavailable.",
         paymentCompleted: "Payment Completed",
         paymentFailed: "Payment Failed",
         paymentCanceled: "Payment Canceled",

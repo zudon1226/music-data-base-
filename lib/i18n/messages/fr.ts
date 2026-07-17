@@ -423,6 +423,8 @@ export const frMessages: LocaleMessageDictionary = {
         alreadyOwned: "Déjà acquis",
         paymentPending: "Paiement en attente",
         paymentPendingProvider: "Paiement en attente. Terminez le paiement auprès du prestataire connecté pour débloquer les téléchargements.",
+        purchasingComingSoon: "Bientôt disponible",
+        purchasingUnavailable: "L’achat payant de sonneries est actuellement indisponible.",
         paymentCompleted: "Paiement effectué",
         paymentFailed: "Échec du paiement",
         paymentCanceled: "Paiement annulé",

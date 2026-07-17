@@ -423,6 +423,8 @@ export const igMessages: LocaleMessageDictionary = {
         alreadyOwned: "Enweelarị ya",
         paymentPending: "Ịkwụ ụgwọ na-echere",
         paymentPendingProvider: "Ịkwụ ụgwọ na-echere. Ntụnye ego zuru ezu na onye na-eweta ịkwụ ụgwọ ejikọrọ ka imeghe nbudata.",
+        purchasingComingSoon: "Na-abịa n’oge na-adịghị anya",
+        purchasingUnavailable: "Ịzụta ringtone a na-akwụ ụgwọ adịghị adị ugbu a.",
         paymentCompleted: "Ezuchala ugwo",
         paymentFailed: "Ịkwụ ụgwọ agaghị",
         paymentCanceled: "Kagbuo ugwo",

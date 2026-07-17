@@ -423,6 +423,8 @@ export const nlMessages: LocaleMessageDictionary = {
         alreadyOwned: "Al in bezit",
         paymentPending: "Betaling in behandeling",
         paymentPendingProvider: "Betaling in behandeling. Rond de checkout af bij de gekoppelde betaalprovider om downloads te ontgrendelen.",
+        purchasingComingSoon: "Binnenkort",
+        purchasingUnavailable: "Betaalde aankoop van beltonen is momenteel niet beschikbaar.",
         paymentCompleted: "Betaling voltooid",
         paymentFailed: "Betaling mislukt",
         paymentCanceled: "Betaling geannuleerd",

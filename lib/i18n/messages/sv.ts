@@ -423,6 +423,8 @@ export const svMessages: LocaleMessageDictionary = {
         alreadyOwned: "Redan ägd",
         paymentPending: "Betalning väntar",
         paymentPendingProvider: "Betalning väntar. Slutför kassan hos den anslutna betalningsleverantören för att låsa upp nedladdningar.",
+        purchasingComingSoon: "Kommer snart",
+        purchasingUnavailable: "Betald köp av ringsignaler är för närvarande inte tillgängligt.",
         paymentCompleted: "Betalning slutförd",
         paymentFailed: "Betalning misslyckades",
         paymentCanceled: "Betalning avbruten",

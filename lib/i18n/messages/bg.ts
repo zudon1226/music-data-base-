@@ -423,6 +423,8 @@ export const bgMessages: LocaleMessageDictionary = {
         alreadyOwned: "Вече притежавана",
         paymentPending: "Чакащо плащане",
         paymentPendingProvider: "Чакащо плащане. Завършете плащането при свързания доставчик, за да отключите изтеглянията.",
+        purchasingComingSoon: "Очаквайте скоро",
+        purchasingUnavailable: "Платеният покупки на рингтонове временно не са налични.",
         paymentCompleted: "Плащането е завършено",
         paymentFailed: "Плащането е неуспешно",
         paymentCanceled: "Плащането е отменено",

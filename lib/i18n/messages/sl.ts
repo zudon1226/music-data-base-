@@ -423,6 +423,8 @@ export const slMessages: LocaleMessageDictionary = {
         alreadyOwned: "Že v lasti",
         paymentPending: "Plačilo v teku",
         paymentPendingProvider: "Plačilo v teku. Dokončajte blagajno pri povezanem ponudniku plačil, da odklenete prenose.",
+        purchasingComingSoon: "Kmalu",
+        purchasingUnavailable: "Plačljiv nakup melodij zvonjenja trenutno ni na voljo.",
         paymentCompleted: "Plačilo dokončano",
         paymentFailed: "Plačilo ni uspelo",
         paymentCanceled: "Plačilo preklicano",

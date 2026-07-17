@@ -423,6 +423,8 @@ export const viMessages: LocaleMessageDictionary = {
         alreadyOwned: "Đã sở hữu",
         paymentPending: "Đang chờ thanh toán",
         paymentPendingProvider: "Đang chờ thanh toán. Hoàn tất thanh toán với nhà cung cấp dịch vụ thanh toán được kết nối để mở khóa các bản tải xuống.",
+        purchasingComingSoon: "Sắp ra mắt",
+        purchasingUnavailable: "Mua nhạc chuông trả phí hiện chưa khả dụng.",
         paymentCompleted: "Thanh toán đã hoàn tất",
         paymentFailed: "Thanh toán không thành công",
         paymentCanceled: "Thanh toán đã bị hủy",

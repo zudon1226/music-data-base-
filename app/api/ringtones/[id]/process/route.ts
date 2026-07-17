@@ -11,6 +11,8 @@ import { getErrorMessage, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Clip encode (15–30s) needs headroom for ffmpeg-static on Fluid compute. */
+export const maxDuration = 60;
 
 function json(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });

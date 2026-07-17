@@ -423,6 +423,8 @@ export const bnMessages: LocaleMessageDictionary = {
         alreadyOwned: "ইতিমধ্যে মালিকানাধীন",
         paymentPending: "পেমেন্ট পেন্ডিং",
         paymentPendingProvider: "পেমেন্ট মুলতুবি ডাউনলোড আনলক করতে সংযুক্ত পেমেন্ট প্রদানকারীর সাথে সম্পূর্ণ চেকআউট করুন।",
+        purchasingComingSoon: "শীঘ্রই আসছে",
+        purchasingUnavailable: "পেইড রিংটোন কেনা এই মুহূর্তে উপলব্ধ নয়।",
         paymentCompleted: "পেমেন্ট সম্পন্ন হয়েছে",
         paymentFailed: "অর্থপ্রদান ব্যর্থ হয়েছে৷",
         paymentCanceled: "পেমেন্ট বাতিল করা হয়েছে",

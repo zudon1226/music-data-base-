@@ -423,6 +423,8 @@ export const urMessages: LocaleMessageDictionary = {
         alreadyOwned: "پہلے سے ہی ملکیت ہے۔",
         paymentPending: "ادائیگی زیر التواء",
         paymentPendingProvider: "ادائیگی زیر التواء ہے۔ ڈاؤن لوڈز کو غیر مقفل کرنے کے لیے منسلک ادائیگی فراہم کنندہ کے ساتھ مکمل چیک آؤٹ کریں۔",
+        purchasingComingSoon: "جلد آرہا ہے",
+        purchasingUnavailable: "ادا شدہ رنگ ٹون خریداری اس وقت دستیاب نہیں۔",
         paymentCompleted: "ادائیگی مکمل ہو گئی۔",
         paymentFailed: "ادائیگی ناکام ہو گئی۔",
         paymentCanceled: "ادائیگی منسوخ کر دی گئی۔",

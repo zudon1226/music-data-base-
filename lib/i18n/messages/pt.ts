@@ -423,6 +423,8 @@ export const ptMessages: LocaleMessageDictionary = {
         alreadyOwned: "Já adquirido",
         paymentPending: "Pagamento pendente",
         paymentPendingProvider: "Pagamento pendente. Conclua o checkout com o fornecedor de pagamento ligado para desbloquear as transferências.",
+        purchasingComingSoon: "Em breve",
+        purchasingUnavailable: "A compra paga de toques não está disponível no momento.",
         paymentCompleted: "Pagamento concluído",
         paymentFailed: "Pagamento falhou",
         paymentCanceled: "Pagamento cancelado",

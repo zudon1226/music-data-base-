@@ -423,6 +423,8 @@ export const mrMessages: LocaleMessageDictionary = {
         alreadyOwned: "आधीच मालकीचे",
         paymentPending: "पेमेंट प्रलंबित",
         paymentPendingProvider: "पेमेंट प्रलंबित. डाउनलोड अनलॉक करण्यासाठी कनेक्ट केलेल्या पेमेंट प्रदात्यासह पूर्ण चेकआउट करा.",
+        purchasingComingSoon: "लवकरच येत आहे",
+        purchasingUnavailable: "सशुल्क रिंगटोन खरेदी सध्या उपलब्ध नाही.",
         paymentCompleted: "पेमेंट पूर्ण झाले",
         paymentFailed: "पेमेंट अयशस्वी",
         paymentCanceled: "पेमेंट रद्द केले",

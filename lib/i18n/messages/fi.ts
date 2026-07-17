@@ -423,6 +423,8 @@ export const fiMessages: LocaleMessageDictionary = {
         alreadyOwned: "Jo omistuksessa",
         paymentPending: "Maksu odottaa",
         paymentPendingProvider: "Maksu odottaa. Viimeistele kassa yhdistetyn maksupalvelun kautta avataksesi lataukset.",
+        purchasingComingSoon: "Tulossa pian",
+        purchasingUnavailable: "Maksullisten soittoäänien osto ei ole tällä hetkellä saatavilla.",
         paymentCompleted: "Maksu valmis",
         paymentFailed: "Maksu epäonnistui",
         paymentCanceled: "Maksu peruutettu",

@@ -423,6 +423,8 @@ export const ruMessages: LocaleMessageDictionary = {
         alreadyOwned: "Уже приобретён",
         paymentPending: "Ожидается оплата",
         paymentPendingProvider: "Ожидается оплата. Завершите оплату у подключённого платёжного провайдера, чтобы разблокировать скачивания.",
+        purchasingComingSoon: "Скоро",
+        purchasingUnavailable: "Платные покупки рингтонов сейчас недоступны.",
         paymentCompleted: "Оплата завершена",
         paymentFailed: "Оплата не удалась",
         paymentCanceled: "Оплата отменена",

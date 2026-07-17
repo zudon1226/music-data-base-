@@ -423,6 +423,8 @@ export const koMessages: LocaleMessageDictionary = {
         alreadyOwned: "이미 소유함",
         paymentPending: "결제 보류 중",
         paymentPendingProvider: "결제 보류 중입니다. 다운로드를 잠금 해제하려면 연결된 결제 서비스 제공업체에서 결제를 완료하세요.",
+        purchasingComingSoon: "곧 제공",
+        purchasingUnavailable: "유료 벨소리 구매는 현재 이용할 수 없습니다.",
         paymentCompleted: "결제 완료",
         paymentFailed: "결제 실패",
         paymentCanceled: "결제가 취소되었습니다.",

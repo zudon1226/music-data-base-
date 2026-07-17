@@ -423,6 +423,8 @@ export const ltMessages: LocaleMessageDictionary = {
         alreadyOwned: "Jau turima",
         paymentPending: "Mokėjimas laukia",
         paymentPendingProvider: "Mokėjimas laukia. Užbaikite atsiskaitymą su prijungtu mokėjimo teikėju, kad atrakintumėte atsisiuntimus.",
+        purchasingComingSoon: "Netrukus",
+        purchasingUnavailable: "Mokamas skambėjimo tonų pirkimas šiuo metu nepasiekiamas.",
         paymentCompleted: "Mokėjimas baigtas",
         paymentFailed: "Mokėjimas nepavyko",
         paymentCanceled: "Mokėjimas atšauktas",

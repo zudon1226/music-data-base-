@@ -423,6 +423,8 @@ export const afMessages: LocaleMessageDictionary = {
         alreadyOwned: "Reeds besit",
         paymentPending: "Betaling hangende",
         paymentPendingProvider: "Betaling hangende. Voltooi betaalpunt by die gekoppelde betalingsverskaffer om aflaaie te ontsluit.",
+        purchasingComingSoon: "Binnekort",
+        purchasingUnavailable: "Betaalde ringtone-aankope is tans nie beskikbaar nie.",
         paymentCompleted: "Betaling voltooi",
         paymentFailed: "Betaling misluk",
         paymentCanceled: "Betaling gekanselleer",

@@ -423,6 +423,8 @@ export const zuMessages: LocaleMessageDictionary = {
         alreadyOwned: "Usuvele Unomnikazi",
         paymentPending: "Inkokhelo Ilindile",
         paymentPendingProvider: "Inkokhelo ilindile. Qedela ukuphuma nomhlinzeki wokukhokha oxhunyiwe ukuze uvule okulandiwe.",
+        purchasingComingSoon: "Kuzofika maduze",
+        purchasingUnavailable: "Ukuthenga amaringithoni akhokhelwayo akutholakali okwamanje.",
         paymentCompleted: "Inkokhelo Iqediwe",
         paymentFailed: "Inkokhelo Yehlulekile",
         paymentCanceled: "Inkokhelo Ikhanseliwe",

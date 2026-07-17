@@ -423,6 +423,8 @@ export const neMessages: LocaleMessageDictionary = {
         alreadyOwned: "पहिले नै स्वामित्व छ",
         paymentPending: "भुक्तानी बाँकी छ",
         paymentPendingProvider: "भुक्तानी बाँकी छ। डाउनलोडहरू अनलक गर्न जडित भुक्तानी प्रदायकसँग चेकआउट पूरा गर्नुहोस्।",
+        purchasingComingSoon: "चाँडै आउँदैछ",
+        purchasingUnavailable: "भुक्तानीयुक्त रिङटोन खरिद हाल उपलब्ध छैन।",
         paymentCompleted: "भुक्तानी पूरा भयो",
         paymentFailed: "भुक्तानी असफल भयो",
         paymentCanceled: "भुक्तानी रद्द गरियो",

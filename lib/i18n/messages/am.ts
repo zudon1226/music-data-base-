@@ -423,6 +423,8 @@ export const amMessages: LocaleMessageDictionary = {
         alreadyOwned: "አስቀድሞ በባለቤትነት የተያዘ",
         paymentPending: "ክፍያ በመጠባበቅ ላይ",
         paymentPendingProvider: "ክፍያ በመጠባበቅ ላይ። ውርዶችን ለመክፈት ከተገናኘው የክፍያ አቅራቢ ጋር ፍተሻን ያጠናቅቁ።",
+        purchasingComingSoon: "በቅርቡ",
+        purchasingUnavailable: "የሚከፈል የሪንግቶን ግዢ በአሁኑ ሰዓት አይገኝም።",
         paymentCompleted: "ክፍያ ተጠናቀቀ",
         paymentFailed: "ክፍያ አልተሳካም።",
         paymentCanceled: "ክፍያ ተሰርዟል።",

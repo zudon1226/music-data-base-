@@ -423,6 +423,8 @@ export const lvMessages: LocaleMessageDictionary = {
         alreadyOwned: "Jau iegādāts",
         paymentPending: "Maksājums gaida",
         paymentPendingProvider: "Maksājums gaida. Pabeidziet norēķinu pie pievienotā maksājumu sniedzēja, lai atbloķētu lejupielādes.",
+        purchasingComingSoon: "Drīzumā",
+        purchasingUnavailable: "Maksas zvanu toņu iegāde pašlaik nav pieejama.",
         paymentCompleted: "Maksājums pabeigts",
         paymentFailed: "Maksājums neizdevās",
         paymentCanceled: "Maksājums atcelts",

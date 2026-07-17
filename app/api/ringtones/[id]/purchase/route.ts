@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import {
     confirmRingtonePurchasePayment,
     createRingtonePurchaseIntent,
+    getRingtonePaymentMode,
+    isRingtonePaymentsTestModeEnabled,
 } from "@/lib/ringtone-purchase";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
@@ -94,7 +96,8 @@ export async function POST(request: Request, context: Params) {
                 currency: result.ringtone.currency,
             },
             requiresPayment: true,
-            testModeAvailable: process.env.RINGTONE_PAYMENTS_TEST_MODE === "1",
+            testModeAvailable: isRingtonePaymentsTestModeEnabled(),
+            paymentMode: getRingtonePaymentMode(),
             message: "Purchase intent created. Complete payment to unlock downloads.",
         }, 201);
     } catch (error) {

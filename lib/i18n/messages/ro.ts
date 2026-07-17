@@ -423,6 +423,8 @@ export const roMessages: LocaleMessageDictionary = {
         alreadyOwned: "Deja deținut",
         paymentPending: "Plată în așteptare",
         paymentPendingProvider: "Plată în așteptare. Finalizează plata la furnizorul de plăți conectat pentru a debloca descărcările.",
+        purchasingComingSoon: "În curând",
+        purchasingUnavailable: "Achiziția plătită de tonuri de apel nu este disponibilă momentan.",
         paymentCompleted: "Plată finalizată",
         paymentFailed: "Plată eșuată",
         paymentCanceled: "Plată anulată",

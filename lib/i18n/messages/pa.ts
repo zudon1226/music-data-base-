@@ -423,6 +423,8 @@ export const paMessages: LocaleMessageDictionary = {
         alreadyOwned: "ਪਹਿਲਾਂ ਹੀ ਮਲਕੀਅਤ ਹੈ",
         paymentPending: "ਭੁਗਤਾਨ ਬਕਾਇਆ",
         paymentPendingProvider: "ਭੁਗਤਾਨ ਬਕਾਇਆ। ਡਾਉਨਲੋਡਸ ਨੂੰ ਅਨਲੌਕ ਕਰਨ ਲਈ ਕਨੈਕਟ ਕੀਤੇ ਭੁਗਤਾਨ ਪ੍ਰਦਾਤਾ ਨਾਲ ਪੂਰਾ ਚੈੱਕਆਉਟ ਕਰੋ।",
+        purchasingComingSoon: "ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ",
+        purchasingUnavailable: "ਭੁਗਤਾਨ ਵਾਲੀ ਰਿੰਗਟੋਨ ਖਰੀਦ ਇਸ ਵੇਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।",
         paymentCompleted: "ਭੁਗਤਾਨ ਪੂਰਾ ਹੋਇਆ",
         paymentFailed: "ਭੁਗਤਾਨ ਅਸਫਲ ਰਿਹਾ",
         paymentCanceled: "ਭੁਗਤਾਨ ਰੱਦ ਕੀਤਾ ਗਿਆ",

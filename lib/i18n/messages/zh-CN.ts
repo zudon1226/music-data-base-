@@ -423,6 +423,8 @@ export const zhCNMessages: LocaleMessageDictionary = {
         alreadyOwned: "已拥有",
         paymentPending: "待付款",
         paymentPendingProvider: "待付款。与连接的支付提供商完成结帐以解锁下载。",
+        purchasingComingSoon: "即将推出",
+        purchasingUnavailable: "付费铃声购买功能暂时不可用。",
         paymentCompleted: "付款完成",
         paymentFailed: "付款失败",
         paymentCanceled: "付款已取消",

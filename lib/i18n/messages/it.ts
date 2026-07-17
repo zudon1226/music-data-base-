@@ -423,6 +423,8 @@ export const itMessages: LocaleMessageDictionary = {
         alreadyOwned: "Già acquistata",
         paymentPending: "Pagamento in sospeso",
         paymentPendingProvider: "Pagamento in sospeso. Completa il checkout con il provider di pagamento collegato per sbloccare i download.",
+        purchasingComingSoon: "Prossimamente",
+        purchasingUnavailable: "L’acquisto a pagamento di suonerie non è attualmente disponibile.",
         paymentCompleted: "Pagamento completato",
         paymentFailed: "Pagamento non riuscito",
         paymentCanceled: "Pagamento annullato",

@@ -17,9 +17,11 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { accessSync, constants as fsConstants } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import ffmpegStaticPath from "ffmpeg-static";
 import {
     RINGTONE_ARTIFACT_MAX_BYTES,
     RINGTONE_MAX_DURATION_SECONDS,
@@ -28,6 +30,30 @@ import {
 } from "@/lib/ringtone-constants";
 
 export const RINGTONE_PROCESSING_VERSION = "ringtone-ffmpeg-v1";
+
+/** Prefer the bundled static binary (Vercel/Linux), then PATH `ffmpeg`. */
+function resolveFfmpegBinary(): string | null {
+    const candidates = [
+        typeof ffmpegStaticPath === "string" ? ffmpegStaticPath : "",
+        process.env.FFMPEG_PATH || "",
+        "ffmpeg",
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+        if (candidate === "ffmpeg") return candidate;
+        try {
+            accessSync(candidate, fsConstants.X_OK);
+            return candidate;
+        } catch {
+            try {
+                accessSync(candidate, fsConstants.F_OK);
+                return candidate;
+            } catch {
+                /* try next */
+            }
+        }
+    }
+    return null;
+}
 
 export type RingtoneProcessJob = {
     ringtoneId: string;
@@ -226,12 +252,14 @@ function runCommand(command: string, args: string[], timeoutMs = 120_000): Promi
     });
 }
 
-async function ffmpegAvailable(): Promise<boolean> {
+async function ffmpegAvailable(): Promise<string | null> {
+    const binary = resolveFfmpegBinary();
+    if (!binary) return null;
     try {
-        const result = await runCommand("ffmpeg", ["-version"], 8_000);
-        return result.code === 0;
+        const result = await runCommand(binary, ["-version"], 8_000);
+        return result.code === 0 ? binary : null;
     } catch {
-        return false;
+        return null;
     }
 }
 
@@ -270,6 +298,7 @@ function buildTestModeM4a(durationSeconds: number, label: string): Buffer {
 }
 
 async function encodeWithFfmpeg(input: {
+    ffmpegBinary: string;
     sourceBytes: Buffer;
     clipStartSeconds: number;
     durationSeconds: number;
@@ -293,7 +322,7 @@ async function encodeWithFfmpeg(input: {
             "-ar", "44100",
         ];
 
-        const preview = await runCommand("ffmpeg", [
+        const preview = await runCommand(input.ffmpegBinary, [
             ...common,
             "-c:a", "aac",
             "-b:a", "128k",
@@ -303,7 +332,7 @@ async function encodeWithFfmpeg(input: {
             return { error: "Preview AAC encode failed.", code: "PREVIEW_ENCODE_FAILED" };
         }
 
-        const android = await runCommand("ffmpeg", [
+        const android = await runCommand(input.ffmpegBinary, [
             ...common,
             "-c:a", "libmp3lame",
             "-b:a", "160k",
@@ -313,7 +342,7 @@ async function encodeWithFfmpeg(input: {
             return { error: "Android MP3 encode failed.", code: "ANDROID_ENCODE_FAILED" };
         }
 
-        const iphone = await runCommand("ffmpeg", [
+        const iphone = await runCommand(input.ffmpegBinary, [
             ...common,
             "-c:a", "aac",
             "-b:a", "192k",
@@ -367,14 +396,15 @@ export async function executeRingtoneProcessingJob(
         return { ok: false, error: plan.error, code: "PLAN_FAILED" };
     }
 
-    const hasFfmpeg = await ffmpegAvailable();
+    const ffmpegBinary = await ffmpegAvailable();
     let previewBytes: Buffer;
     let androidBytes: Buffer;
     let iphoneBytes: Buffer;
     let engine: "ffmpeg" | "test_mode";
 
-    if (hasFfmpeg) {
+    if (ffmpegBinary) {
         const encoded = await encodeWithFfmpeg({
+            ffmpegBinary,
             sourceBytes,
             clipStartSeconds: job.clipStartSeconds,
             durationSeconds: job.durationSeconds,

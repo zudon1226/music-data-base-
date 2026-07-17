@@ -423,6 +423,8 @@ export const hiMessages: LocaleMessageDictionary = {
         alreadyOwned: "पहले से ही स्वामित्व में है",
         paymentPending: "भुगतान लंबित है",
         paymentPendingProvider: "भुगतान लंबित है. डाउनलोड अनलॉक करने के लिए कनेक्टेड भुगतान प्रदाता के साथ पूरा चेकआउट करें।",
+        purchasingComingSoon: "जल्द आ रहा है",
+        purchasingUnavailable: "पेड रिंगटोन खरीदारी फिलहाल उपलब्ध नहीं है।",
         paymentCompleted: "भुगतान पूरा हो गया",
         paymentFailed: "भुगतान विफल",
         paymentCanceled: "भुगतान रद्द कर दिया गया",

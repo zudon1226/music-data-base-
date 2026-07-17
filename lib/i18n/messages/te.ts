@@ -423,6 +423,8 @@ export const teMessages: LocaleMessageDictionary = {
         alreadyOwned: "ఇప్పటికే సొంతమైంది",
         paymentPending: "చెల్లింపు పెండింగ్‌లో ఉంది",
         paymentPendingProvider: "చెల్లింపు పెండింగ్‌లో ఉంది. డౌన్‌లోడ్‌లను అన్‌లాక్ చేయడానికి కనెక్ట్ చేయబడిన చెల్లింపు ప్రదాతతో చెక్అవుట్ పూర్తి చేయండి.",
+        purchasingComingSoon: "త్వరలో",
+        purchasingUnavailable: "చెల్లింపు రింగ్‌టోన్ కొనుగోలు ప్రస్తుతం అందుబాటులో లేదు.",
         paymentCompleted: "చెల్లింపు పూర్తయింది",
         paymentFailed: "చెల్లింపు విఫలమైంది",
         paymentCanceled: "చెల్లింపు రద్దు చేయబడింది",

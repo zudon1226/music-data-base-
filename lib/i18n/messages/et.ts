@@ -423,6 +423,8 @@ export const etMessages: LocaleMessageDictionary = {
         alreadyOwned: "Juba olemas",
         paymentPending: "Makse ootel",
         paymentPendingProvider: "Makse ootel. Lõpeta makse seotud makseteenuse pakkujaga, et avada allalaadimised.",
+        purchasingComingSoon: "Varsti",
+        purchasingUnavailable: "Tasuline helinate ostmine pole praegu saadaval.",
         paymentCompleted: "Makse lõpule viidud",
         paymentFailed: "Makse ebaõnnestus",
         paymentCanceled: "Makse tühistatud",

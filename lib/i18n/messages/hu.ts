@@ -423,6 +423,8 @@ export const huMessages: LocaleMessageDictionary = {
         alreadyOwned: "Már birtokolt",
         paymentPending: "Fizetés függőben",
         paymentPendingProvider: "Fizetés függőben. Fejezd be a fizetést a csatlakoztatott fizetési szolgáltatónál a letöltések feloldásához.",
+        purchasingComingSoon: "Hamarosan",
+        purchasingUnavailable: "A fizetős csengőhang-vásárlás jelenleg nem érhető el.",
         paymentCompleted: "Fizetés kész",
         paymentFailed: "Fizetés sikertelen",
         paymentCanceled: "Fizetés megszakítva",

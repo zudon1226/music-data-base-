@@ -423,6 +423,8 @@ export const heMessages: LocaleMessageDictionary = {
         alreadyOwned: "כבר בבעלות",
         paymentPending: "תשלום בהמתנה",
         paymentPendingProvider: "תשלום בהמתנה. השלם את התשלום עם ספק התשלומים המחובר כדי לפתוח הורדות.",
+        purchasingComingSoon: "בקרוב",
+        purchasingUnavailable: "רכישת רינגטונים בתשלום אינה זמינה כרגע.",
         paymentCompleted: "התשלום הושלם",
         paymentFailed: "התשלום נכשל",
         paymentCanceled: "התשלום בוטל",
