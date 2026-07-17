@@ -391,6 +391,8 @@ export const soMessages: LocaleMessageDictionary = {
         sort: "Kala soocida",
         sortNewest: "Ugu cusub",
         sortOldest: "Ugu da'da weyn",
+        sortOldestSubmission: "Gudbinta ugu da’da weyn",
+        sortNewestSubmission: "Gudbinta ugu cusub",
         sortTitle: "Ciwaanka",
         sortPrice: "Qiimaha",
         sortStatus: "Xaalada",

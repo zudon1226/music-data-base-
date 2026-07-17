@@ -391,6 +391,8 @@ export const urMessages: LocaleMessageDictionary = {
         sort: "چھانٹنا",
         sortNewest: "تازہ ترین",
         sortOldest: "قدیم ترین",
+        sortOldestSubmission: "قدیم ترین جمع کرانا",
+        sortNewestSubmission: "تازہ ترین جمع کرانا",
         sortTitle: "عنوان",
         sortPrice: "قیمت",
         sortStatus: "حیثیت",

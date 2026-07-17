@@ -391,6 +391,8 @@ export const svMessages: LocaleMessageDictionary = {
         sort: "Sortera",
         sortNewest: "Nyast",
         sortOldest: "Äldst",
+        sortOldestSubmission: "Äldsta inlämning",
+        sortNewestSubmission: "Nyaste inlämning",
         sortTitle: "Titel",
         sortPrice: "Pris",
         sortStatus: "Läge",

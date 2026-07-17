@@ -72,6 +72,13 @@ async function main() {
     assertIncludes(purchaseLib, "RINGTONE_PAYMENTS_TEST_MODE", "test-mode gate");
     assertIncludes(purchaseLib, "calculateRingtonePurchaseSplit", "server fee split");
     assertIncludes(purchaseRoute, "createRingtonePurchaseIntent", "purchase intent route");
+    const marketRoute = read("app/api/ringtones/marketplace/route.ts");
+    assertIncludes(marketRoute, "parseOptionalNumber", "marketplace empty-number guard");
+    record(
+        "marketplace does not coerce empty maxPrice to 0",
+        !marketRoute.includes('Number(url.searchParams.get("maxPriceCents") || "")')
+            && !marketRoute.includes("Number(url.searchParams.get('maxPriceCents') || '')"),
+    );
     assertIncludes(purchaseRoute, "confirmRingtonePurchasePayment", "purchase confirm route");
     assertIncludes(marketUi, "purchaseLockRef", "double-click lock");
     assertIncludes(marketUi, "aria-live", "a11y status");

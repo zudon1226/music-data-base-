@@ -391,6 +391,8 @@ export const slMessages: LocaleMessageDictionary = {
         sort: "Razvrsti",
         sortNewest: "Najnovejše",
         sortOldest: "Najstarejše",
+        sortOldestSubmission: "Najstarejša oddaja",
+        sortNewestSubmission: "Najnovejša oddaja",
         sortTitle: "Naslov",
         sortPrice: "Cena",
         sortStatus: "Stanje",

@@ -30,28 +30,30 @@ type RingtoneReviewQueueProps = {
 };
 
 type FilterKey =
-    | "pending_review"
+    | "all"
+    | "processing"
     | "processing_failed"
+    | "pending_review"
     | "approved"
     | "rejected"
     | "published"
     | "suspended"
-    | "archived"
-    | "all";
+    | "archived";
 
 type SortKey = "oldest" | "newest" | "creator" | "title" | "status";
 
 type ConfirmableAction = "archive" | "suspend" | "reprocess";
 
 const FILTERS: FilterKey[] = [
-    "pending_review",
+    "all",
+    "processing",
     "processing_failed",
+    "pending_review",
     "approved",
     "rejected",
     "published",
     "suspended",
     "archived",
-    "all",
 ];
 
 function actionSuccessMessage(
@@ -69,6 +71,9 @@ function actionSuccessMessage(
     }
     if (action === "reprocess") {
         return `${t("ringtones.requestReprocessing")} — ${t("ringtones.processingStarted")}`;
+    }
+    if (action === "publish") {
+        return `${t("ringtones.publishRingtone")} — ${t("ringtones.published")}`;
     }
     return t("ringtones.reviewActionSucceeded");
 }
@@ -130,16 +135,30 @@ export function RingtoneReviewQueue({
 
     const filterLabel = (key: FilterKey) => {
         const map: Record<FilterKey, string> = {
-            pending_review: t("ringtones.pendingReview"),
+            all: t("ringtones.filterAll"),
+            processing: t("ringtones.processing"),
             processing_failed: t("ringtones.processingFailed"),
+            pending_review: t("ringtones.pendingReview"),
             approved: t("ringtones.approved"),
             rejected: t("ringtones.rejected"),
             published: t("ringtones.published"),
             suspended: t("ringtones.suspended"),
             archived: t("ringtones.archived"),
-            all: t("ringtones.filterAll"),
         };
-        return map[key];
+        const label = String(map[key] || "").trim();
+        return label || key;
+    };
+
+    const sortLabel = (key: SortKey) => {
+        const map: Record<SortKey, string> = {
+            oldest: t("ringtones.sortOldestSubmission"),
+            newest: t("ringtones.sortNewestSubmission"),
+            creator: t("ringtones.creator"),
+            title: t("ringtones.sortTitle"),
+            status: t("ringtones.sortStatus"),
+        };
+        const label = String(map[key] || "").trim();
+        return label || key;
     };
 
     const applyLocalActionResult = (itemId: string, nextStatus: string) => {
@@ -233,25 +252,48 @@ export function RingtoneReviewQueue({
             {error ? <p className="ringtone-error" role="alert">{error}</p> : null}
 
             <div className="ringtone-review-toolbar" role="toolbar" aria-label={t("ringtones.ringtoneReviewQueue")}>
-                <label>
-                    <span>{t("ringtones.filter")}</span>
+                <label className="ringtone-review-select-field" htmlFor="ringtone-review-filter">
+                    <span id="ringtone-review-filter-label">{t("ringtones.filter")}</span>
                     <select
+                        id="ringtone-review-filter"
+                        className="ringtone-review-select"
                         value={filter}
+                        aria-labelledby="ringtone-review-filter-label"
                         onChange={(event) => setFilter(event.target.value as FilterKey)}
                     >
-                        {FILTERS.map((key) => (
-                            <option key={key} value={key}>{filterLabel(key)}</option>
-                        ))}
+                        {FILTERS.map((key) => {
+                            const label = filterLabel(key);
+                            return (
+                                <option key={key} value={key} label={label}>
+                                    {label}
+                                </option>
+                            );
+                        })}
                     </select>
                 </label>
-                <label>
-                    <span>{t("ringtones.sort")}</span>
-                    <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
-                        <option value="oldest">{t("ringtones.sortOldest")}</option>
-                        <option value="newest">{t("ringtones.sortNewest")}</option>
-                        <option value="creator">{t("ringtones.creator")}</option>
-                        <option value="title">{t("ringtones.sortTitle")}</option>
-                        <option value="status">{t("ringtones.sortStatus")}</option>
+                <label className="ringtone-review-select-field" htmlFor="ringtone-review-sort">
+                    <span id="ringtone-review-sort-label">{t("ringtones.sort")}</span>
+                    <select
+                        id="ringtone-review-sort"
+                        className="ringtone-review-select"
+                        value={sort}
+                        aria-labelledby="ringtone-review-sort-label"
+                        onChange={(event) => setSort(event.target.value as SortKey)}
+                    >
+                        {([
+                            "oldest",
+                            "newest",
+                            "creator",
+                            "title",
+                            "status",
+                        ] as SortKey[]).map((key) => {
+                            const label = sortLabel(key);
+                            return (
+                                <option key={key} value={key} label={label}>
+                                    {label}
+                                </option>
+                            );
+                        })}
                     </select>
                 </label>
             </div>
@@ -586,10 +628,52 @@ export function RingtoneReviewQueue({
                     flex-wrap: wrap;
                     gap: 0.75rem 1rem;
                 }
-                .ringtone-review-toolbar label {
+                .ringtone-review-select-field {
                     display: grid;
-                    gap: 0.25rem;
-                    min-width: 160px;
+                    gap: 0.35rem;
+                    min-width: 200px;
+                    flex: 1 1 220px;
+                }
+                .ringtone-review-select-field > span {
+                    color: #e8f7ff;
+                    font-weight: 700;
+                }
+                /* Explicit colors: native option menus must not inherit white-on-white. */
+                .ringtone-review-select {
+                    appearance: auto;
+                    color-scheme: light;
+                    width: 100%;
+                    min-height: 44px;
+                    border-radius: 8px;
+                    border: 1px solid rgba(0, 212, 255, 0.45);
+                    background-color: #08122b;
+                    color: #e8f7ff;
+                    font: inherit;
+                    font-weight: 700;
+                    padding: 0.55rem 0.8rem;
+                }
+                .ringtone-review-select:hover {
+                    border-color: rgba(34, 211, 238, 0.75);
+                }
+                .ringtone-review-select:focus,
+                .ringtone-review-select:focus-visible {
+                    outline: 2px solid #22d3ee;
+                    outline-offset: 2px;
+                }
+                .ringtone-review-select:disabled {
+                    opacity: 0.55;
+                    cursor: not-allowed;
+                }
+                .ringtone-review-select option {
+                    background-color: #ffffff;
+                    color: #111827;
+                    font-weight: 600;
+                }
+                .ringtone-review-select option:checked,
+                .ringtone-review-select option:hover,
+                .ringtone-review-select option:focus {
+                    background-color: #dbeafe;
+                    color: #0f172a;
                 }
                 .ringtone-review-success {
                     margin: 0;

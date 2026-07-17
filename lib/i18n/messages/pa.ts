@@ -391,6 +391,8 @@ export const paMessages: LocaleMessageDictionary = {
         sort: "ਲੜੀਬੱਧ",
         sortNewest: "ਸਭ ਤੋਂ ਨਵਾਂ",
         sortOldest: "ਸਭ ਤੋਂ ਪੁਰਾਣਾ",
+        sortOldestSubmission: "ਸਭ ਤੋਂ ਪੁਰਾਣੀ ਸਬਮਿਸ਼ਨ",
+        sortNewestSubmission: "ਨਵੀਨਤਮ ਸਬਮਿਸ਼ਨ",
         sortTitle: "ਸਿਰਲੇਖ",
         sortPrice: "ਕੀਮਤ",
         sortStatus: "ਸਥਿਤੀ",

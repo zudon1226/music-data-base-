@@ -391,6 +391,8 @@ export const skMessages: LocaleMessageDictionary = {
         sort: "Zoradiť",
         sortNewest: "Najnovšie",
         sortOldest: "Najstaršie",
+        sortOldestSubmission: "Najstaršie odoslanie",
+        sortNewestSubmission: "Najnovšie odoslanie",
         sortTitle: "Názov",
         sortPrice: "Cena",
         sortStatus: "Stav",

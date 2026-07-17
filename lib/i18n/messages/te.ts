@@ -391,6 +391,8 @@ export const teMessages: LocaleMessageDictionary = {
         sort: "క్రమబద్ధీకరించు",
         sortNewest: "సరికొత్త",
         sortOldest: "అతి పురాతనమైనది",
+        sortOldestSubmission: "పురాతన సమర్పణ",
+        sortNewestSubmission: "కొత్త సమర్పణ",
         sortTitle: "శీర్షిక",
         sortPrice: "ధర",
         sortStatus: "స్థితి",

@@ -10,6 +10,15 @@ function json(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
 
+/** Parse optional numeric query params. Empty/missing must NOT become 0. */
+function parseOptionalNumber(raw: string | null): number | null {
+    if (raw == null) return null;
+    const trimmed = String(raw).trim();
+    if (!trimmed) return null;
+    const value = Number(trimmed);
+    return Number.isFinite(value) ? value : null;
+}
+
 type SortKey =
     | "featured"
     | "newest"
@@ -36,10 +45,11 @@ export async function GET(request: Request) {
         const filter = (url.searchParams.get("filter") || "all").trim().toLowerCase();
         const sort = ((url.searchParams.get("sort") || "featured").trim().toLowerCase()) as SortKey;
         const creatorId = url.searchParams.get("creatorId")?.trim() || "";
-        const minPrice = Number(url.searchParams.get("minPriceCents") || "");
-        const maxPrice = Number(url.searchParams.get("maxPriceCents") || "");
-        const minDuration = Number(url.searchParams.get("minDuration") || "");
-        const maxDuration = Number(url.searchParams.get("maxDuration") || "");
+        // Number("") === 0 — never treat missing query params as numeric filters.
+        const minPrice = parseOptionalNumber(url.searchParams.get("minPriceCents"));
+        const maxPrice = parseOptionalNumber(url.searchParams.get("maxPriceCents"));
+        const minDuration = parseOptionalNumber(url.searchParams.get("minDuration"));
+        const maxDuration = parseOptionalNumber(url.searchParams.get("maxDuration"));
         const page = Math.max(1, Number(url.searchParams.get("page") || 1) || 1);
         const pageSize = Math.min(48, Math.max(1, Number(url.searchParams.get("pageSize") || 24) || 24));
         const section = (url.searchParams.get("section") || "").trim().toLowerCase();
@@ -48,7 +58,8 @@ export async function GET(request: Request) {
         let query = supabase
             .from("ringtone_products")
             .select("id,creator_id,title,description,artwork_url,preview_url,duration_seconds,clip_start_seconds,clip_end_seconds,price_cents,currency,status,is_featured,is_explicit,source_song_id,source_kind,published_at,created_at", { count: "exact" })
-            .in("status", [...PUBLIC_RINGTONE_STATUSES]);
+            .in("status", [...PUBLIC_RINGTONE_STATUSES])
+            .not("published_at", "is", null);
 
         if (filter === "featured" || section === "featured") query = query.eq("is_featured", true);
         if (filter === "free" || section === "free") query = query.eq("price_cents", 0);
@@ -56,10 +67,10 @@ export async function GET(request: Request) {
         if (filter === "explicit") query = query.eq("is_explicit", true);
         if (filter === "clean") query = query.eq("is_explicit", false);
         if (creatorId && isUuid(creatorId)) query = query.eq("creator_id", creatorId);
-        if (Number.isFinite(minPrice)) query = query.gte("price_cents", minPrice);
-        if (Number.isFinite(maxPrice)) query = query.lte("price_cents", maxPrice);
-        if (Number.isFinite(minDuration) && minDuration > 0) query = query.gte("duration_seconds", minDuration);
-        if (Number.isFinite(maxDuration) && maxDuration > 0) query = query.lte("duration_seconds", maxDuration);
+        if (minPrice != null) query = query.gte("price_cents", minPrice);
+        if (maxPrice != null) query = query.lte("price_cents", maxPrice);
+        if (minDuration != null && minDuration > 0) query = query.gte("duration_seconds", minDuration);
+        if (maxDuration != null && maxDuration > 0) query = query.lte("duration_seconds", maxDuration);
         if (section === "newest" || filter === "recent") {
             query = query.order("published_at", { ascending: false, nullsFirst: false });
         }

@@ -391,6 +391,8 @@ export const heMessages: LocaleMessageDictionary = {
         sort: "מיון",
         sortNewest: "הכי חדש",
         sortOldest: "הכי ותיק",
+        sortOldestSubmission: "ההגשה הישנה ביותר",
+        sortNewestSubmission: "ההגשה החדשה ביותר",
         sortTitle: "כותרת",
         sortPrice: "מחיר",
         sortStatus: "סטטוס",

@@ -391,6 +391,8 @@ export const ptMessages: LocaleMessageDictionary = {
         sort: "Ordenar",
         sortNewest: "Mais recentes",
         sortOldest: "Mais antigos",
+        sortOldestSubmission: "Envio mais antigo",
+        sortNewestSubmission: "Envio mais recente",
         sortTitle: "Título",
         sortPrice: "Preço",
         sortStatus: "Estado",

@@ -391,6 +391,8 @@ export const trMessages: LocaleMessageDictionary = {
         sort: "Sırala",
         sortNewest: "En yeni",
         sortOldest: "En eski",
+        sortOldestSubmission: "En eski gönderim",
+        sortNewestSubmission: "En yeni gönderim",
         sortTitle: "Başlık",
         sortPrice: "Fiyat",
         sortStatus: "Durum",

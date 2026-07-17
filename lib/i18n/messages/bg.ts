@@ -391,6 +391,8 @@ export const bgMessages: LocaleMessageDictionary = {
         sort: "Сортиране",
         sortNewest: "Най-нови",
         sortOldest: "Най-стари",
+        sortOldestSubmission: "Най-старо изпращане",
+        sortNewestSubmission: "Най-ново изпращане",
         sortTitle: "Заглавие",
         sortPrice: "Цена",
         sortStatus: "Статус",

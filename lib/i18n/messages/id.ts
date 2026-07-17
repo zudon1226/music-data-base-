@@ -391,6 +391,8 @@ export const idMessages: LocaleMessageDictionary = {
         sort: "Sortir",
         sortNewest: "Terbaru",
         sortOldest: "Tertua",
+        sortOldestSubmission: "Pengajuan terlama",
+        sortNewestSubmission: "Pengajuan terbaru",
         sortTitle: "Judul",
         sortPrice: "Harga",
         sortStatus: "Keadaan",

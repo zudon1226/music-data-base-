@@ -391,6 +391,8 @@ export const swMessages: LocaleMessageDictionary = {
         sort: "Panga",
         sortNewest: "Mpya zaidi",
         sortOldest: "Kongwe zaidi",
+        sortOldestSubmission: "Uwasilishaji wa zamani zaidi",
+        sortNewestSubmission: "Uwasilishaji mpya zaidi",
         sortTitle: "Kichwa",
         sortPrice: "Bei",
         sortStatus: "Hali",

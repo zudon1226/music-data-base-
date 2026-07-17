@@ -391,6 +391,8 @@ export const ltMessages: LocaleMessageDictionary = {
         sort: "Rikiuoti",
         sortNewest: "Naujausios",
         sortOldest: "Seniausios",
+        sortOldestSubmission: "Seniausias pateikimas",
+        sortNewestSubmission: "Naujausias pateikimas",
         sortTitle: "Pavadinimas",
         sortPrice: "Kaina",
         sortStatus: "Būsena",

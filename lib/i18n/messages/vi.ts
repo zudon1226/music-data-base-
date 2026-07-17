@@ -391,6 +391,8 @@ export const viMessages: LocaleMessageDictionary = {
         sort: "Sắp xếp",
         sortNewest: "Mới nhất",
         sortOldest: "Cũ nhất",
+        sortOldestSubmission: "Bản gửi cũ nhất",
+        sortNewestSubmission: "Bản gửi mới nhất",
         sortTitle: "Tiêu đề",
         sortPrice: "Giá",
         sortStatus: "Trạng thái",

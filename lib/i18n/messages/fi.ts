@@ -391,6 +391,8 @@ export const fiMessages: LocaleMessageDictionary = {
         sort: "Lajittele",
         sortNewest: "Uusimmat",
         sortOldest: "Vanhimmat",
+        sortOldestSubmission: "Vanhin lähetys",
+        sortNewestSubmission: "Uusin lähetys",
         sortTitle: "Otsikko",
         sortPrice: "Hinta",
         sortStatus: "Tila",

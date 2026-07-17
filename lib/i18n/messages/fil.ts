@@ -391,6 +391,8 @@ export const filMessages: LocaleMessageDictionary = {
         sort: "Pagbukud-bukurin",
         sortNewest: "Pinakabago",
         sortOldest: "Pinakamatanda",
+        sortOldestSubmission: "Pinakalumang pagsusumite",
+        sortNewestSubmission: "Pinakabagong pagsusumite",
         sortTitle: "Pamagat",
         sortPrice: "Presyo",
         sortStatus: "Katayuan",

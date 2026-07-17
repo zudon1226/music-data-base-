@@ -391,6 +391,8 @@ export const neMessages: LocaleMessageDictionary = {
         sort: "क्रमबद्ध गर्नुहोस्",
         sortNewest: "सबैभन्दा नयाँ",
         sortOldest: "सबैभन्दा पुरानो",
+        sortOldestSubmission: "सबैभन्दा पुरानो पेस",
+        sortNewestSubmission: "नवीनतम पेस",
         sortTitle: "शीर्षक",
         sortPrice: "मूल्य",
         sortStatus: "स्थिति",

@@ -391,6 +391,8 @@ export const hiMessages: LocaleMessageDictionary = {
         sort: "क्रमबद्ध करें",
         sortNewest: "नवीनतम",
         sortOldest: "सबसे पुराना",
+        sortOldestSubmission: "सबसे पुरानी सबमिशन",
+        sortNewestSubmission: "नवीनतम सबमिशन",
         sortTitle: "शीर्षक",
         sortPrice: "कीमत",
         sortStatus: "स्थिति",

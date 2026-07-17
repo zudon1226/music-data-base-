@@ -391,6 +391,8 @@ export const elMessages: LocaleMessageDictionary = {
         sort: "Ταξινόμηση",
         sortNewest: "Νεότερα",
         sortOldest: "Παλαιότερα",
+        sortOldestSubmission: "Παλαιότερη υποβολή",
+        sortNewestSubmission: "Νεότερη υποβολή",
         sortTitle: "Τίτλος",
         sortPrice: "Τιμή",
         sortStatus: "Κατάσταση",

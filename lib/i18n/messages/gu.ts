@@ -391,6 +391,8 @@ export const guMessages: LocaleMessageDictionary = {
         sort: "સૉર્ટ કરો",
         sortNewest: "નવીનતમ",
         sortOldest: "સૌથી જૂનું",
+        sortOldestSubmission: "સૌથી જૂની સબમિશન",
+        sortNewestSubmission: "નવીનતમ સબમિશન",
         sortTitle: "શીર્ષક",
         sortPrice: "કિંમત",
         sortStatus: "સ્થિતિ",

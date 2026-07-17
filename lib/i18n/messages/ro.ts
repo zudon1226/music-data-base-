@@ -391,6 +391,8 @@ export const roMessages: LocaleMessageDictionary = {
         sort: "Sortează",
         sortNewest: "Cele mai noi",
         sortOldest: "Cele mai vechi",
+        sortOldestSubmission: "Cea mai veche trimitere",
+        sortNewestSubmission: "Cea mai recentă trimitere",
         sortTitle: "Titlu",
         sortPrice: "Preț",
         sortStatus: "Stare",

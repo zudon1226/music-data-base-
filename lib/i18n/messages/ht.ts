@@ -391,6 +391,8 @@ export const htMessages: LocaleMessageDictionary = {
         sort: "Triye",
         sortNewest: "Pi nouvo",
         sortOldest: "Pi ansyen",
+        sortOldestSubmission: "Soumisyon ki pi ansyen",
+        sortNewestSubmission: "Soumisyon ki pi resan",
         sortTitle: "Tit",
         sortPrice: "Pri",
         sortStatus: "Estati",

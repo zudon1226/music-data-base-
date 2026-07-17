@@ -391,6 +391,8 @@ export const jaMessages: LocaleMessageDictionary = {
         sort: "並べ替え",
         sortNewest: "最新の",
         sortOldest: "最古の",
+        sortOldestSubmission: "最も古い提出",
+        sortNewestSubmission: "最新の提出",
         sortTitle: "タイトル",
         sortPrice: "価格",
         sortStatus: "ステータス",

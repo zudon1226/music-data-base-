@@ -55,6 +55,24 @@ record("ownership still required", creator.includes("ownershipRequired") && crea
 record("iphone/android independent", creator.includes("iphoneAvailable") && creator.includes("androidAvailable"));
 record("creator player clearance", creator.includes("--mobile-player-reserve"));
 
+record("filter includes processing", review.includes('"processing"') && review.includes("ringtones.processing"));
+record("filter includes all statuses", ["pending_review", "approved", "published", "rejected", "suspended", "archived", "processing_failed"].every((k) => review.includes(`"${k}"`) || review.includes(`'${k}'`)));
+record("sort submission labels", review.includes("sortOldestSubmission") && review.includes("sortNewestSubmission"));
+record("select contrast styles", review.includes("color-scheme: light") && review.includes(".ringtone-review-select option") && review.includes("background-color: #ffffff") && review.includes("color: #111827"));
+record("select closed contrast", review.includes("background-color: #08122b") && review.includes("color: #e8f7ff"));
+record("no empty option labels", !review.includes(">{/*") && review.includes("label={label}"));
+record("publish success message", review.includes("publishRingtone") && review.includes('action === "publish"'));
+
+const marketplace = read("app/api/ringtones/marketplace/route.ts");
+record(
+        "marketplace optional number parse",
+        marketplace.includes("parseOptionalNumber")
+            && !marketplace.includes('Number(url.searchParams.get("minPriceCents") || "")')
+            && !marketplace.includes("Number(url.searchParams.get('minPriceCents') || '')"),
+    );
+record("marketplace ignores empty max price", marketplace.includes("parseOptionalNumber(url.searchParams.get(\"maxPriceCents\"))") || marketplace.includes("parseOptionalNumber(url.searchParams.get('maxPriceCents'))"));
+record("marketplace requires published_at", marketplace.includes('.not("published_at", "is", null)') || marketplace.includes(".not('published_at', 'is', null)"));
+
 const failed = results.filter((r) => !r.ok);
 console.log(`\nRingtone review/checkbox UI: ${results.length - failed.length}/${results.length} passed`);
 process.exit(failed.length ? 1 : 0);

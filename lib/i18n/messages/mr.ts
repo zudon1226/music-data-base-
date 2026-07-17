@@ -391,6 +391,8 @@ export const mrMessages: LocaleMessageDictionary = {
         sort: "क्रमवारी लावा",
         sortNewest: "सर्वात नवीन",
         sortOldest: "सर्वात जुने",
+        sortOldestSubmission: "सर्वात जुनी सबमिशन",
+        sortNewestSubmission: "नवीनतम सबमिशन",
         sortTitle: "शीर्षक",
         sortPrice: "किंमत",
         sortStatus: "स्थिती",

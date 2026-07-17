@@ -391,6 +391,8 @@ export const ukMessages: LocaleMessageDictionary = {
         sort: "Сортування",
         sortNewest: "Найновіші",
         sortOldest: "Найстаріші",
+        sortOldestSubmission: "Найстаріша подача",
+        sortNewestSubmission: "Найновіша подача",
         sortTitle: "Назва",
         sortPrice: "Ціна",
         sortStatus: "Статус",

@@ -391,6 +391,8 @@ export const sqMessages: LocaleMessageDictionary = {
         sort: "Rendit",
         sortNewest: "Më të rejat",
         sortOldest: "Më të vjetrat",
+        sortOldestSubmission: "Dërgimi më i vjetër",
+        sortNewestSubmission: "Dërgimi më i ri",
         sortTitle: "Titulli",
         sortPrice: "Çmimi",
         sortStatus: "Statusi",

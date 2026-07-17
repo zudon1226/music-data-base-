@@ -391,6 +391,8 @@ export const huMessages: LocaleMessageDictionary = {
         sort: "Rendezés",
         sortNewest: "Legújabb",
         sortOldest: "Legrégebbi",
+        sortOldestSubmission: "Legrégebbi beküldés",
+        sortNewestSubmission: "Legújabb beküldés",
         sortTitle: "Cím",
         sortPrice: "Ár",
         sortStatus: "Állapot",

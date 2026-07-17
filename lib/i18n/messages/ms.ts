@@ -391,6 +391,8 @@ export const msMessages: LocaleMessageDictionary = {
         sort: "Isih",
         sortNewest: "Terbaru",
         sortOldest: "Tertua",
+        sortOldestSubmission: "Penyerahan tertua",
+        sortNewestSubmission: "Penyerahan terbaharu",
         sortTitle: "Tajuk",
         sortPrice: "harga",
         sortStatus: "Keadaan",

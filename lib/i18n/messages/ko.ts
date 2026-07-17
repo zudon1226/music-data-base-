@@ -391,6 +391,8 @@ export const koMessages: LocaleMessageDictionary = {
         sort: "정렬",
         sortNewest: "최신",
         sortOldest: "가장 오래된",
+        sortOldestSubmission: "가장 오래된 제출",
+        sortNewestSubmission: "최신 제출",
         sortTitle: "제목",
         sortPrice: "가격",
         sortStatus: "상태",

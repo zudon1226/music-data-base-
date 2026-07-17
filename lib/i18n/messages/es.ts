@@ -391,6 +391,8 @@ export const esMessages: LocaleMessageDictionary = {
         sort: "Ordenar",
         sortNewest: "Más recientes",
         sortOldest: "Más antiguos",
+        sortOldestSubmission: "Envío más antiguo",
+        sortNewestSubmission: "Envío más reciente",
         sortTitle: "Título",
         sortPrice: "Precio",
         sortStatus: "Estado",

@@ -391,6 +391,8 @@ export const deMessages: LocaleMessageDictionary = {
         sort: "Sortieren",
         sortNewest: "Neueste",
         sortOldest: "Älteste",
+        sortOldestSubmission: "Älteste Einreichung",
+        sortNewestSubmission: "Neueste Einreichung",
         sortTitle: "Titel",
         sortPrice: "Preis",
         sortStatus: "Zustand",

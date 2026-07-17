@@ -391,6 +391,8 @@ export const nlMessages: LocaleMessageDictionary = {
         sort: "Sorteren",
         sortNewest: "Nieuwste",
         sortOldest: "Oudste",
+        sortOldestSubmission: "Oudste inzending",
+        sortNewestSubmission: "Nieuwste inzending",
         sortTitle: "Titel",
         sortPrice: "Prijs",
         sortStatus: "Staat",

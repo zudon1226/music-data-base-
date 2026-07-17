@@ -391,6 +391,8 @@ export const csMessages: LocaleMessageDictionary = {
         sort: "Řadit",
         sortNewest: "Nejnovější",
         sortOldest: "Nejstarší",
+        sortOldestSubmission: "Nejstarší odeslání",
+        sortNewestSubmission: "Nejnovější odeslání",
         sortTitle: "Název",
         sortPrice: "Cena",
         sortStatus: "Stav",

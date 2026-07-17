@@ -391,6 +391,8 @@ export const afMessages: LocaleMessageDictionary = {
         sort: "Sorteer",
         sortNewest: "Nuutste",
         sortOldest: "Oudste",
+        sortOldestSubmission: "Oudste indiening",
+        sortNewestSubmission: "Nuutste indiening",
         sortTitle: "Titel",
         sortPrice: "Prys",
         sortStatus: "Toestand",

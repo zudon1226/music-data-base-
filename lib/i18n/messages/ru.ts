@@ -391,6 +391,8 @@ export const ruMessages: LocaleMessageDictionary = {
         sort: "Сортировка",
         sortNewest: "Сначала новые",
         sortOldest: "Сначала старые",
+        sortOldestSubmission: "Самая старая отправка",
+        sortNewestSubmission: "Самая новая отправка",
         sortTitle: "Название",
         sortPrice: "Цена",
         sortStatus: "Статус",

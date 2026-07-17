@@ -391,6 +391,8 @@ export const amMessages: LocaleMessageDictionary = {
         sort: "ደርድር",
         sortNewest: "አዲሱ",
         sortOldest: "በጣም የቆየ",
+        sortOldestSubmission: "በጣም የቆየ ማቅረብ",
+        sortNewestSubmission: "አዲሱ ማቅረብ",
         sortTitle: "ርዕስ",
         sortPrice: "ዋጋ",
         sortStatus: "ሁኔታ",

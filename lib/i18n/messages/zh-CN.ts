@@ -391,6 +391,8 @@ export const zhCNMessages: LocaleMessageDictionary = {
         sort: "排序",
         sortNewest: "最新",
         sortOldest: "最古老的",
+        sortOldestSubmission: "最早提交",
+        sortNewestSubmission: "最新提交",
         sortTitle: "标题",
         sortPrice: "价格",
         sortStatus: "状态",

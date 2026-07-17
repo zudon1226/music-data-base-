@@ -391,6 +391,8 @@ export const igMessages: LocaleMessageDictionary = {
         sort: "Hazie",
         sortNewest: "Kacha ọhụrụ",
         sortOldest: "Nke kacha ochie",
+        sortOldestSubmission: "Ntinye ochie kacha",
+        sortNewestSubmission: "Ntinye ọhụrụ kacha",
         sortTitle: "Aha",
         sortPrice: "Ọnụ ahịa",
         sortStatus: "Ọnọdụ",

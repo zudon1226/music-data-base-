@@ -341,6 +341,8 @@ export const enMessages = {
         sort: "Sort",
         sortNewest: "Newest",
         sortOldest: "Oldest",
+        sortOldestSubmission: "Oldest Submission",
+        sortNewestSubmission: "Newest Submission",
         sortTitle: "Title",
         sortPrice: "Price",
         sortStatus: "Status",

@@ -391,6 +391,8 @@ export const yoMessages: LocaleMessageDictionary = {
         sort: "Too",
         sortNewest: "Titun julọ",
         sortOldest: "Atijọ julọ",
+        sortOldestSubmission: "Ifiranṣẹ atijọ julọ",
+        sortNewestSubmission: "Ifiranṣẹ tuntun julọ",
         sortTitle: "Akọle",
         sortPrice: "Iye owo",
         sortStatus: "Ipo",

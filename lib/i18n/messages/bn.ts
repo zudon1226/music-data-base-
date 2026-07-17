@@ -391,6 +391,8 @@ export const bnMessages: LocaleMessageDictionary = {
         sort: "সাজান",
         sortNewest: "নতুনতম",
         sortOldest: "প্রাচীনতম",
+        sortOldestSubmission: "প্রাচীনতম জমা",
+        sortNewestSubmission: "নতুনতম জমা",
         sortTitle: "শিরোনাম",
         sortPrice: "দাম",
         sortStatus: "স্ট্যাটাস",

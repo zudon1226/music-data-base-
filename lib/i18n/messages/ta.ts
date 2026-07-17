@@ -391,6 +391,8 @@ export const taMessages: LocaleMessageDictionary = {
         sort: "வரிசைப்படுத்து",
         sortNewest: "புதியது",
         sortOldest: "பழமையானது",
+        sortOldestSubmission: "பழமையான சமர்ப்பிப்பு",
+        sortNewestSubmission: "புதிய சமர்ப்பிப்பு",
         sortTitle: "தலைப்பு",
         sortPrice: "விலை",
         sortStatus: "நிலை",

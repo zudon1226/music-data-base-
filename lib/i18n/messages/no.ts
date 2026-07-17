@@ -391,6 +391,8 @@ export const noMessages: LocaleMessageDictionary = {
         sort: "Sorter",
         sortNewest: "Nyeste",
         sortOldest: "Eldste",
+        sortOldestSubmission: "Eldste innsending",
+        sortNewestSubmission: "Nyeste innsending",
         sortTitle: "Tittel",
         sortPrice: "Pris",
         sortStatus: "Tilstand",

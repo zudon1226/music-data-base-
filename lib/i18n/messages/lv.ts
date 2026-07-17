@@ -391,6 +391,8 @@ export const lvMessages: LocaleMessageDictionary = {
         sort: "Kārtot",
         sortNewest: "Jaunākās",
         sortOldest: "Vecākās",
+        sortOldestSubmission: "Vecākā iesniegšana",
+        sortNewestSubmission: "Jaunākā iesniegšana",
         sortTitle: "Nosaukums",
         sortPrice: "Cena",
         sortStatus: "Statuss",

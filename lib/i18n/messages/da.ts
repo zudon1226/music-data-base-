@@ -391,6 +391,8 @@ export const daMessages: LocaleMessageDictionary = {
         sort: "Sortér",
         sortNewest: "Nyeste",
         sortOldest: "Ældste",
+        sortOldestSubmission: "Ældste indsendelse",
+        sortNewestSubmission: "Nyeste indsendelse",
         sortTitle: "Titel",
         sortPrice: "Pris",
         sortStatus: "Tilstand",

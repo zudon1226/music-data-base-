@@ -391,6 +391,8 @@ export const etMessages: LocaleMessageDictionary = {
         sort: "Sorteeri",
         sortNewest: "Uusimad",
         sortOldest: "Vanimad",
+        sortOldestSubmission: "Vanim esitus",
+        sortNewestSubmission: "Uusim esitus",
         sortTitle: "Pealkiri",
         sortPrice: "Hind",
         sortStatus: "Olek",

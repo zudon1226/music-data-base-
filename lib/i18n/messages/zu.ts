@@ -391,6 +391,8 @@ export const zuMessages: LocaleMessageDictionary = {
         sort: "Hlunga",
         sortNewest: "Okusha kakhulu",
         sortOldest: "Omdala kunawo wonke",
+        sortOldestSubmission: "Ukuthunyelwa okudala kakhulu",
+        sortNewestSubmission: "Ukuthunyelwa okusha kakhulu",
         sortTitle: "Isihloko",
         sortPrice: "Inani",
         sortStatus: "Isimo",

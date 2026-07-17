@@ -391,6 +391,8 @@ export const thMessages: LocaleMessageDictionary = {
         sort: "จัดเรียง",
         sortNewest: "ใหม่ล่าสุด",
         sortOldest: "เก่าแก่ที่สุด",
+        sortOldestSubmission: "การส่งที่เก่าที่สุด",
+        sortNewestSubmission: "การส่งล่าสุด",
         sortTitle: "ชื่อเรื่อง",
         sortPrice: "ราคา",
         sortStatus: "สถานะ",

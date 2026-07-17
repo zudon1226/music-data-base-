@@ -391,6 +391,8 @@ export const arMessages: LocaleMessageDictionary = {
         sort: "فرز",
         sortNewest: "الأحدث",
         sortOldest: "الأقدم",
+        sortOldestSubmission: "أقدم إرسال",
+        sortNewestSubmission: "أحدث إرسال",
         sortTitle: "العنوان",
         sortPrice: "السعر",
         sortStatus: "الحالة",
