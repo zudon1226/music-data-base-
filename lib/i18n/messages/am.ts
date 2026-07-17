@@ -217,7 +217,8 @@ export const amMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "ማሳወቂያዎች",
-            empty: "እስካሁን ምንም ማሳወቂያዎ የለም።"
+            empty: "እስካሁን ምንም ማሳወቂያዎ የለም።",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const amMessages: LocaleMessageDictionary = {
             cancel: "ሰርዝ",
             pageSubtitle: "የእርስዎን የስልክ ጥሪ ድምፅ ካታሎግ ይፍጠሩ እና ያስተዳድሩ።",
             marketplaceSubtitle: "የደወል ቅላጼዎችን አስቀድመው ይመልከቱ፣ ተወዳጅ፣ ይግዙ እና ያውርዱ።",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "ተለይተው የቀረቡ የጥሪ ቅላጼዎች",
             trendingRingtones: "በመታየት ላይ ያሉ የደወል ቅላጼዎች",
             newRingtones: "አዲስ የስልክ ጥሪ ድምፅ",

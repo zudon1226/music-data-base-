@@ -217,7 +217,8 @@ export const urMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "اطلاعات",
-            empty: "ابھی کوئی اطلاع نہیں۔"
+            empty: "ابھی کوئی اطلاع نہیں۔",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const urMessages: LocaleMessageDictionary = {
             cancel: "منسوخ کریں۔",
             pageSubtitle: "اپنا رنگ ٹون کیٹلاگ بنائیں اور ان کا نظم کریں۔",
             marketplaceSubtitle: "محفوظ طریقے سے رنگ ٹونز کا پیش نظارہ کریں، پسندیدہ بنائیں، خریدیں اور ڈاؤن لوڈ کریں۔",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "نمایاں رنگ ٹونز",
             trendingRingtones: "ٹرینڈنگ رنگ ٹونز",
             newRingtones: "نئے رنگ ٹونز",

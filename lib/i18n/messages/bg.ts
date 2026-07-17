@@ -217,7 +217,8 @@ export const bgMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Известия",
-            empty: "Все още няма известия."
+            empty: "Все още няма известия.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const bgMessages: LocaleMessageDictionary = {
             cancel: "Отказ",
             pageSubtitle: "Създавайте и управлявайте каталога си с мелодии.",
             marketplaceSubtitle: "Преглеждайте, добавяйте в любими, купувайте и изтегляйте мелодии сигурно.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Препоръчани мелодии",
             trendingRingtones: "Популярни мелодии",
             newRingtones: "Нови мелодии",

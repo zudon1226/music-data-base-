@@ -78,9 +78,28 @@ function resolveNavCapabilities(input = {}) {
 }
 
 const LISTENER_NAV_VIEWS = [
-    "Home", "Marketplace", "Ringtone Marketplace", "My Purchased Ringtones", "License History",
-    "Trending", "Beats", "Artists", "Videos", "Library", "Liked", "Following", "Playlists",
-    "Recently Played", "Queue", "Profile",
+    "Home",
+    "Marketplace",
+    "Ringtone Marketplace",
+    "My Purchased Ringtones",
+    "Favorite Ringtones",
+    "Library",
+    "Liked",
+    "Following",
+    "Playlists",
+    "Recently Played",
+    "Queue",
+    "Profile",
+    "Notifications",
+];
+
+const LISTENER_ACCESSIBLE_VIEWS = [
+    ...LISTENER_NAV_VIEWS,
+    "License History",
+    "Trending",
+    "Beats",
+    "Artists",
+    "Videos",
 ];
 
 const ALL_NAV_VIEWS = [
@@ -93,13 +112,13 @@ const ALL_NAV_VIEWS = [
 ];
 
 function canAccessNavView(view, capabilities) {
-    if (capabilities.isPlatformOwner) return true;
+    if (capabilities.isPlatformOwner || capabilities.canPlatformControlCenter) return true;
     if (view === "Platform Control Center") return capabilities.canPlatformControlCenter;
     if (view === "Artist Dashboard" || view === "Artist Profile") return capabilities.canArtistDashboard;
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
     if (view === "Sales") return capabilities.canSales;
     if (view === "My Ringtones") return capabilities.canMyRingtones;
-    return LISTENER_NAV_VIEWS.includes(view);
+    return LISTENER_ACCESSIBLE_VIEWS.includes(view);
 }
 
 function visibleViews(capabilities) {
@@ -111,12 +130,18 @@ const navLib = read("lib/desktop-app-navigation.ts");
 const roleLib = read("lib/role-based-navigation.ts");
 const profileApi = read("app/api/user-profile/route.ts");
 const sidebar = read("components/desktop-app-sidebar-nav.tsx");
+const marketUi = read("components/ringtone-marketplace/ringtone-marketplace-workspace.tsx");
 
 record("role helper module present", roleLib.includes("resolveNavCapabilities") && roleLib.includes("LISTENER_NAV_VIEWS"));
+record("listener accessible allowlist present", roleLib.includes("LISTENER_ACCESSIBLE_VIEWS"));
 record("nav items mark role requirements", navLib.includes("requiresArtistDashboard: true")
     && navLib.includes("requiresProducerDashboard: true")
     && navLib.includes("requiresCreator: true")
     && navLib.includes("requiresOwner: true"));
+record("sidebar includes Favorite Ringtones + Notifications", navLib.includes('"Favorite Ringtones"') && navLib.includes('"Notifications"'));
+record("sidebar omits discovery from DESKTOP_NAV_ITEMS", !/DESKTOP_NAV_ITEMS[\s\S]*\{ view: "Trending" \}/.test(navLib)
+    && !navLib.includes('{ view: "License History" }')
+    && !navLib.includes('{ view: "Beats" }'));
 record("page wires role-gated header controls", page.includes("shouldShowUploadControl(desktopNavAccess)")
     && page.includes("shouldShowArtistDashboardControl(desktopNavAccess)")
     && page.includes("shouldShowProducerDashboardControl(desktopNavAccess)"));
@@ -126,6 +151,13 @@ record("profile API returns roles array", profileApi.includes("roles") && profil
 record("normalizeAccountRole accepts lowercase", page.includes('normalized === "artist"') && page.includes('normalized === "producer"'));
 record("unauthorized view bounce exists", page.includes("evaluateDesktopNavAccess(view as DesktopNavView, desktopNavAccess)"));
 record("source keeps PCC owner-gated", roleLib.includes("canPlatformControlCenter: isPlatformOwner"));
+record("ringtone destinations are separate", page.includes('view === "Favorite Ringtones"')
+    && marketUi.includes('destination === "purchased"')
+    && marketUi.includes("browseMarketplace")
+    && !marketUi.includes("ringtone-market-tabs"));
+record("purchased empty has marketplace CTA only", marketUi.includes("ringtone-purchased-empty")
+    && marketUi.includes("onBrowseMarketplace")
+    && !/purchasedEmpty[\s\S]{0,200}ringtone-market-grid/.test(marketUi));
 
 const listenerCaps = resolveNavCapabilities({ primaryRole: "listener" });
 const artistCaps = resolveNavCapabilities({ primaryRole: "artist" });
@@ -149,6 +181,10 @@ record(
     listenerViews.join(", "),
 );
 record("listener upload/dashboard flags off", !listenerCaps.canUpload && !listenerCaps.canArtistDashboard && !listenerCaps.canProducerDashboard);
+record(
+    "listener nav excludes discovery sidebar items",
+    ["Trending", "Beats", "Artists", "Videos", "License History"].every((view) => !LISTENER_NAV_VIEWS.includes(view)),
+);
 
 record(
     "artist matrix",

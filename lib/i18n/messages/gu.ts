@@ -217,7 +217,8 @@ export const guMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "સૂચનાએઁ",
-            empty: "અભી કોઈ સૂચના નહીં૤"
+            empty: "અભી કોઈ સૂચના નહીં૤",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const guMessages: LocaleMessageDictionary = {
             cancel: "રદ કરો",
             pageSubtitle: "તમારી રિંગટોન કેટલોગ બનાવો અને મેનેજ કરો.",
             marketplaceSubtitle: "પૂર્વાવલોકન કરો, મનપસંદ કરો, ખરીદી કરો અને સુરક્ષિત રીતે રિંગટોન ડાઉનલોડ કરો.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "ફીચર્ડ રિંગટોન",
             trendingRingtones: "ટ્રેન્ડિંગ રિંગટોન",
             newRingtones: "નવા રિંગટોન",

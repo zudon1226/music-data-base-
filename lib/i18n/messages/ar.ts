@@ -217,7 +217,8 @@ export const arMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "الإشعارات",
-            empty: "لا توجد إشعارات بعد."
+            empty: "لا توجد إشعارات بعد.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const arMessages: LocaleMessageDictionary = {
             cancel: "إلغاء",
             pageSubtitle: "إنشاء وإدارة كتالوج النغمات الخاصة بك.",
             marketplaceSubtitle: "قم بمعاينة النغمات وتفضيلها وشرائها وتنزيلها بشكل آمن.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "نغمات مميزة",
             trendingRingtones: "نغمات تتجه",
             newRingtones: "نغمات جديدة",

@@ -217,7 +217,8 @@ export const deMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Benachrichtigungen",
-            empty: "Noch keine Benachrichtigungen."
+            empty: "Noch keine Benachrichtigungen.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const deMessages: LocaleMessageDictionary = {
             cancel: "Abbrechen",
             pageSubtitle: "Erstellen und verwalten Sie Ihren Klingelton-Katalog.",
             marketplaceSubtitle: "Hören Sie Klingeltöne vor, speichern Sie Favoriten, kaufen und laden Sie sicher herunter.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Empfohlene Klingeltöne",
             trendingRingtones: "Trendende Klingeltöne",
             newRingtones: "Neue Klingeltöne",

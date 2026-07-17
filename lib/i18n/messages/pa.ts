@@ -217,7 +217,8 @@ export const paMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "ਸੂਚਨਾਏਁ",
-            empty: "ਅਭੀ ਕੋਈ ਸੂਚਨਾ ਨਹੀਂ੤"
+            empty: "ਅਭੀ ਕੋਈ ਸੂਚਨਾ ਨਹੀਂ੤",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const paMessages: LocaleMessageDictionary = {
             cancel: "ਰੱਦ ਕਰੋ",
             pageSubtitle: "ਆਪਣਾ ਰਿੰਗਟੋਨ ਕੈਟਾਲਾਗ ਬਣਾਓ ਅਤੇ ਪ੍ਰਬੰਧਿਤ ਕਰੋ।",
             marketplaceSubtitle: "ਪੂਰਵਦਰਸ਼ਨ ਕਰੋ, ਪਸੰਦੀਦਾ, ਖਰੀਦੋ, ਅਤੇ ਸੁਰੱਖਿਅਤ ਢੰਗ ਨਾਲ ਰਿੰਗਟੋਨ ਡਾਊਨਲੋਡ ਕਰੋ।",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "ਫੀਚਰਡ ਰਿੰਗਟੋਨਸ",
             trendingRingtones: "ਪ੍ਰਚਲਿਤ ਰਿੰਗਟੋਨਸ",
             newRingtones: "ਨਵੇਂ ਰਿੰਗਟੋਨਸ",

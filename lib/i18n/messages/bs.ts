@@ -217,7 +217,8 @@ export const bsMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Obavještenja",
-            empty: "Još nema obavještenja."
+            empty: "Još nema obavještenja.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const bsMessages: LocaleMessageDictionary = {
             cancel: "Otkaži",
             pageSubtitle: "Kreirajte i upravljajte katalogom melodija.",
             marketplaceSubtitle: "Pregledajte, omilite, kupujte i sigurno preuzimajte melodije.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Istaknute melodije",
             trendingRingtones: "Popularne melodije",
             newRingtones: "Nove melodije",

@@ -217,7 +217,8 @@ export const bnMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "বিজ্ঞপ্তি",
-            empty: "এখনো কোনো বিজ্ঞপ্তি নেই।"
+            empty: "এখনো কোনো বিজ্ঞপ্তি নেই।",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const bnMessages: LocaleMessageDictionary = {
             cancel: "বাতিল করুন",
             pageSubtitle: "আপনার রিংটোন ক্যাটালগ তৈরি করুন এবং পরিচালনা করুন।",
             marketplaceSubtitle: "প্রিভিউ, প্রিয়, ক্রয়, এবং নিরাপদে রিংটোন ডাউনলোড করুন.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "বৈশিষ্ট্যযুক্ত রিংটোন",
             trendingRingtones: "ট্রেন্ডিং রিংটোন",
             newRingtones: "নতুন রিংটোন",

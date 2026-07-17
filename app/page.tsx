@@ -790,7 +790,7 @@ type DownloadVaultItem = {
     licenseId?: string;
     licensePdfFileName?: string;
 };
-type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Platform Control Center";
 type PlatformErrorRow = {
     id: string;
     user_id: string | null;
@@ -14136,6 +14136,9 @@ function PageContent() {
         if (nextView === "Home") {
             setActiveTab("Trending");
         }
+        if (nextView === "Notifications") {
+            void reloadNotificationsFromServer();
+        }
         // Explicit nav action: pin destination heading under sticky topbar (not mere scrollTop=0).
         scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
     }
@@ -16520,9 +16523,15 @@ function PageContent() {
           />
         ) : null}
 
-        {(view === "Ringtone Marketplace" || view === "My Purchased Ringtones") ? (
+        {(view === "Ringtone Marketplace" || view === "My Purchased Ringtones" || view === "Favorite Ringtones") ? (
           <RingtoneMarketplaceWorkspace
-            mode={view === "My Purchased Ringtones" ? "purchased" : "marketplace"}
+            destination={
+              view === "My Purchased Ringtones"
+                ? "purchased"
+                : view === "Favorite Ringtones"
+                  ? "favorites"
+                  : "marketplace"
+            }
             userId={accountUserId}
             session={authSession}
             isAuthenticated={Boolean(accountUserId && authSession?.access_token)}
@@ -16537,7 +16546,56 @@ function PageContent() {
             activeRingtonePreviewId={activeRingtonePreview?.id || null}
             ringtonePreviewPlaying={ringtonePreviewPlaying}
             onRequireLogin={() => showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error")}
+            onBrowseMarketplace={() => handleNav("Ringtone Marketplace")}
           />
+        ) : null}
+
+        {view === "Notifications" ? (
+          <section className="notifications-page dashboard-page" aria-label={t("notifications.title")}>
+            <div className="dashboard-panel">
+              <div className="notification-head-actions">
+                <button
+                  type="button"
+                  disabled={unreadNotifications === 0 || notificationsLoading}
+                  onClick={() => { markNotificationsRead(); }}
+                >
+                  {t("dashboard.notifications.markAllRead")}
+                </button>
+                <button
+                  type="button"
+                  disabled={notificationsLoading || notifications.every((item) => !item.read)}
+                  onClick={() => { void clearReadNotifications(); }}
+                >
+                  {t("dashboard.notifications.clearRead")}
+                </button>
+              </div>
+              {notificationsLoading ? <p>{t("common.loading")}</p> : null}
+              {!notificationsLoading && notifications.length === 0 ? (
+                <p className="dashboard-empty-card">{t("notifications.empty")}</p>
+              ) : null}
+              <ul className="notifications-page-list">
+                {notifications.map((notification) => (
+                  <li key={notification.id} className={notification.read ? "read" : "unread"}>
+                    <button
+                      type="button"
+                      className="notifications-page-item"
+                      onClick={() => {
+                        void markNotificationRead(notification.id);
+                        navigateFromNotification(notification);
+                      }}
+                    >
+                      <strong>{notification.title}</strong>
+                      <span>{notification.body}</span>
+                      <time>{formatVideoCreatedAt(notification.createdAt)}</time>
+                    </button>
+                    <button type="button" onClick={() => { void deleteNotification(notification.id); }}>
+                      {t("common.delete")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
         ) : null}
 
         {view === "Sales" ? (<section className="sales-page">
@@ -20084,6 +20142,51 @@ function PageContent() {
             padding: 0;
             display: grid;
             gap: 8px;
+          }
+
+          .notifications-page {
+            display: grid;
+            gap: 12px;
+            padding-bottom: calc(var(--mobile-player-reserve, 110px) + 24px);
+          }
+
+          .notifications-page-list {
+            list-style: none;
+            margin: 12px 0 0;
+            padding: 0;
+            display: grid;
+            gap: 10px;
+          }
+
+          .notifications-page-list li {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: start;
+            border-radius: 8px;
+            background: #10204a;
+            padding: 10px;
+          }
+
+          .notifications-page-list li.unread {
+            border: 1px solid rgba(34, 211, 238, 0.45);
+          }
+
+          .notifications-page-item,
+          .notifications-page-list > li > button {
+            min-height: 44px;
+            min-width: 44px;
+          }
+
+          .notifications-page-item {
+            display: grid;
+            gap: 4px;
+            text-align: left;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            padding: 4px;
           }
 
           .notification-item {

@@ -217,7 +217,8 @@ export const daMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Notifikationer",
-            empty: "Ingen notifikationer endnu."
+            empty: "Ingen notifikationer endnu.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const daMessages: LocaleMessageDictionary = {
             cancel: "Annuller",
             pageSubtitle: "Opret og administrer dit ringetonekatalog.",
             marketplaceSubtitle: "Forhåndslyt, favoritmarkér, køb og download ringetoner sikkert.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Udvalgte ringetoner",
             trendingRingtones: "Trending ringetoner",
             newRingtones: "Nye ringetoner",

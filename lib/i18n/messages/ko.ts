@@ -217,7 +217,8 @@ export const koMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "알림",
-            empty: "아직 알림이 없습니다."
+            empty: "아직 알림이 없습니다.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const koMessages: LocaleMessageDictionary = {
             cancel: "취소",
             pageSubtitle: "벨소리 카탈로그를 만들고 관리하세요.",
             marketplaceSubtitle: "벨소리를 안전하게 미리 보고, 즐겨찾기에 추가하고, 구매하고, 다운로드하세요.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "추천 벨소리",
             trendingRingtones: "인기 벨소리",
             newRingtones: "새로운 벨소리",

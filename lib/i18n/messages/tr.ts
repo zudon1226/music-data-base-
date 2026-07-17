@@ -217,7 +217,8 @@ export const trMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Bildirimler",
-            empty: "Henüz bildirim yok."
+            empty: "Henüz bildirim yok.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const trMessages: LocaleMessageDictionary = {
             cancel: "İptal",
             pageSubtitle: "Zil sesi kataloğunuzu oluşturun ve yönetin.",
             marketplaceSubtitle: "Zil seslerini güvenle dinleyin, favorileyin, satın alın ve indirin.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Öne çıkan zil sesleri",
             trendingRingtones: "Trend zil sesleri",
             newRingtones: "Yeni zil sesleri",

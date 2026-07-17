@@ -217,7 +217,8 @@ export const filMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Mga abiso",
-            empty: "Wala pang abiso."
+            empty: "Wala pang abiso.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const filMessages: LocaleMessageDictionary = {
             cancel: "Kanselahin",
             pageSubtitle: "Lumikha at pamahalaan ang iyong katalogo ng ringtone.",
             marketplaceSubtitle: "I-preview, paborito, pagbili, at pag-download ng mga ringtone nang secure.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Mga Tampok na Ringtone",
             trendingRingtones: "Mga Trending na Ringtone",
             newRingtones: "Bagong Ringtone",

@@ -217,7 +217,8 @@ export const htMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Notifikasyon",
-            empty: "Pa gen notifikasyon ankò."
+            empty: "Pa gen notifikasyon ankò.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const htMessages: LocaleMessageDictionary = {
             cancel: "Anile",
             pageSubtitle: "Kreye epi jere katalòg sonnri ou.",
             marketplaceSubtitle: "Pre-ekoute, mete nan favori, achte epi telechaje sonnri an sekirite.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Sonnri an vedèt",
             trendingRingtones: "Sonnri ki gen tandans",
             newRingtones: "Nouvo sonnri",

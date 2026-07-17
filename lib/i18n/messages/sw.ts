@@ -217,7 +217,8 @@ export const swMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Arifa",
-            empty: "Bado hakuna arifa."
+            empty: "Bado hakuna arifa.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const swMessages: LocaleMessageDictionary = {
             cancel: "Ghairi",
             pageSubtitle: "Unda na udhibiti katalogi yako ya sauti za simu.",
             marketplaceSubtitle: "Hakiki, penda, nunua na upakue sauti za simu kwa usalama.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Sauti Za Simu Zilizoangaziwa",
             trendingRingtones: "Sauti Za Simu Zinazovuma",
             newRingtones: "Sauti Za Simu Mpya",

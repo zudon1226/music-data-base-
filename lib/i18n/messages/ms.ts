@@ -217,7 +217,8 @@ export const msMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Pemberitahuan",
-            empty: "Tiada pemberitahuan lagi."
+            empty: "Tiada pemberitahuan lagi.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const msMessages: LocaleMessageDictionary = {
             cancel: "Batal",
             pageSubtitle: "Cipta dan urus katalog nada dering anda.",
             marketplaceSubtitle: "Pratonton, kegemaran, beli dan muat turun nada dering dengan selamat.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Nada Dering Pilihan",
             trendingRingtones: "Nada Dering Arah Aliran",
             newRingtones: "Nada Dering Baharu",

@@ -217,7 +217,8 @@ export const slMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Obvestila",
-            empty: "Še ni obvestil."
+            empty: "Še ni obvestil.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const slMessages: LocaleMessageDictionary = {
             cancel: "Prekliči",
             pageSubtitle: "Ustvarjajte in upravljajte katalog melodij zvonjenja.",
             marketplaceSubtitle: "Predvajajte, dodajajte med priljubljene, kupujte in varno prenašajte melodije.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Izpostavljene melodije",
             trendingRingtones: "Priljubljene melodije",
             newRingtones: "Nove melodije",

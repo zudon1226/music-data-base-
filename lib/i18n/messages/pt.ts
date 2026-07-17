@@ -217,7 +217,8 @@ export const ptMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Notificações",
-            empty: "Nenhuma notificação ainda."
+            empty: "Nenhuma notificação ainda.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const ptMessages: LocaleMessageDictionary = {
             cancel: "Cancelar",
             pageSubtitle: "Crie e gira o seu catálogo de toques.",
             marketplaceSubtitle: "Pré-visualize, favorite, compre e descarregue toques com segurança.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Toques em destaque",
             trendingRingtones: "Toques em tendência",
             newRingtones: "Novos toques",

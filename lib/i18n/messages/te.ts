@@ -217,7 +217,8 @@ export const teMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "నోటిఫికేషన్లు",
-            empty: "ఇంకా నోటిఫికేషన్లు లేవు."
+            empty: "ఇంకా నోటిఫికేషన్లు లేవు.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const teMessages: LocaleMessageDictionary = {
             cancel: "రద్దు చేయి",
             pageSubtitle: "మీ రింగ్‌టోన్ కేటలాగ్‌ను సృష్టించండి మరియు నిర్వహించండి.",
             marketplaceSubtitle: "రింగ్‌టోన్‌లను సురక్షితంగా ప్రివ్యూ చేయండి, ఇష్టమైనవి, కొనుగోలు చేయండి మరియు డౌన్‌లోడ్ చేయండి.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "ఫీచర్ చేసిన రింగ్‌టోన్‌లు",
             trendingRingtones: "ట్రెండింగ్ రింగ్‌టోన్‌లు",
             newRingtones: "కొత్త రింగ్‌టోన్‌లు",

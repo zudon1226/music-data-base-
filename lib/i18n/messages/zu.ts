@@ -217,7 +217,8 @@ export const zuMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Izaziso",
-            empty: "Azikho izaziso okwamanje."
+            empty: "Azikho izaziso okwamanje.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const zuMessages: LocaleMessageDictionary = {
             cancel: "Khansela",
             pageSubtitle: "Dala futhi uphathe ikhathalogi yakho yeringithoni.",
             marketplaceSubtitle: "Buka kuqala, intandokazi, thenga, bese ulanda amaringithoni ngokuphephile.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Amaringithoni afakiwe",
             trendingRingtones: "Amaringithoni Athrendayo",
             newRingtones: "Amaringithoni Amasha",

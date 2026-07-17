@@ -217,7 +217,8 @@ export const jaMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "通知",
-            empty: "通知はまだありません。"
+            empty: "通知はまだありません。",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const jaMessages: LocaleMessageDictionary = {
             cancel: "キャンセル",
             pageSubtitle: "着信音カタログを作成および管理します。",
             marketplaceSubtitle: "着信音を安全にプレビュー、お気に入り、購入、ダウンロードできます。",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "注目の着メロ",
             trendingRingtones: "トレンドの着信音",
             newRingtones: "新しい着信音",

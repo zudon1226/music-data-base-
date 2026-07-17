@@ -217,7 +217,8 @@ export const elMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Ειδοποιήσεις",
-            empty: "Δεν υπάρχουν ακόμα ειδοποιήσεις."
+            empty: "Δεν υπάρχουν ακόμα ειδοποιήσεις.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const elMessages: LocaleMessageDictionary = {
             cancel: "Ακύρωση",
             pageSubtitle: "Δημιουργήστε και διαχειριστείτε τον κατάλογο ήχων κλήσης σας.",
             marketplaceSubtitle: "Προακούστε, προσθέστε στα αγαπημένα, αγοράστε και κατεβάστε ήχους κλήσης με ασφάλεια.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Προτεινόμενοι ήχοι κλήσης",
             trendingRingtones: "Δημοφιλείς ήχοι κλήσης",
             newRingtones: "Νέοι ήχοι κλήσης",

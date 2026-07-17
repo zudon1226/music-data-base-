@@ -217,7 +217,8 @@ export const roMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Notificări",
-            empty: "Nicio notificare încă."
+            empty: "Nicio notificare încă.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const roMessages: LocaleMessageDictionary = {
             cancel: "Anulează",
             pageSubtitle: "Creează și gestionează catalogul tău de tonuri.",
             marketplaceSubtitle: "Previzualizează, marchează ca favorite, cumpără și descarcă tonuri în siguranță.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Tonuri recomandate",
             trendingRingtones: "Tonuri în tendințe",
             newRingtones: "Tonuri noi",

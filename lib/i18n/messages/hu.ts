@@ -217,7 +217,8 @@ export const huMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Értesítések",
-            empty: "Még nincsenek értesítések."
+            empty: "Még nincsenek értesítések.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const huMessages: LocaleMessageDictionary = {
             cancel: "Mégse",
             pageSubtitle: "Hozd létre és kezeld a csengőhang-katalógusodat.",
             marketplaceSubtitle: "Hallgasd meg, kedveld, vásárold meg és töltsd le biztonságosan a csengőhangokat.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Kiemelt csengőhangok",
             trendingRingtones: "Népszerű csengőhangok",
             newRingtones: "Új csengőhangok",

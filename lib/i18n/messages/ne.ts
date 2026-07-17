@@ -217,7 +217,8 @@ export const neMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "सूचनाहरू",
-            empty: "अहिलेसम्म सूचना छैन।"
+            empty: "अहिलेसम्म सूचना छैन।",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const neMessages: LocaleMessageDictionary = {
             cancel: "रद्द गर्नुहोस्",
             pageSubtitle: "आफ्नो रिङ्गटोन क्याटलग सिर्जना र व्यवस्थापन गर्नुहोस्।",
             marketplaceSubtitle: "पूर्वावलोकन, मनपर्ने, खरिद, र सुरक्षित रूपमा रिङटोन डाउनलोड।",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "विशेष रिङटोन",
             trendingRingtones: "ट्रेन्डिङ रिङटोन",
             newRingtones: "नयाँ रिङ्टोनहरू",

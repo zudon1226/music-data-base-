@@ -217,7 +217,8 @@ export const ukMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Сповіщення",
-            empty: "Поки що немає сповіщень."
+            empty: "Поки що немає сповіщень.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const ukMessages: LocaleMessageDictionary = {
             cancel: "Скасувати",
             pageSubtitle: "Створюйте та керуйте каталогом рингтонів.",
             marketplaceSubtitle: "Прослуховуйте, додавайте до обраного, купуйте та безпечно завантажуйте рингтони.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Рекомендовані рингтони",
             trendingRingtones: "Популярні рингтони",
             newRingtones: "Нові рингтони",

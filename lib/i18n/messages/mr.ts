@@ -217,7 +217,8 @@ export const mrMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "सूचना",
-            empty: "अजून सूचना नाहीत."
+            empty: "अजून सूचना नाहीत.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const mrMessages: LocaleMessageDictionary = {
             cancel: "रद्द करा",
             pageSubtitle: "तुमचा रिंगटोन कॅटलॉग तयार करा आणि व्यवस्थापित करा.",
             marketplaceSubtitle: "रिंगटोन सुरक्षितपणे पूर्वावलोकन करा, पसंत करा, खरेदी करा आणि डाउनलोड करा.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "वैशिष्ट्यीकृत रिंगटोन",
             trendingRingtones: "ट्रेंडिंग रिंगटोन",
             newRingtones: "नवीन रिंगटोन",

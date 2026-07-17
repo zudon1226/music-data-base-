@@ -217,7 +217,8 @@ export const thMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "การแจ้งเตือน",
-            empty: "ยังไม่มีการแจ้งเตือน"
+            empty: "ยังไม่มีการแจ้งเตือน",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const thMessages: LocaleMessageDictionary = {
             cancel: "ยกเลิก",
             pageSubtitle: "สร้างและจัดการแค็ตตาล็อกริงโทนของคุณ",
             marketplaceSubtitle: "ดูตัวอย่าง รายการโปรด ซื้อ และดาวน์โหลดเสียงเรียกเข้าอย่างปลอดภัย",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "เสียงเรียกเข้าที่โดดเด่น",
             trendingRingtones: "เสียงเรียกเข้าที่กำลังมาแรง",
             newRingtones: "ริงโทนใหม่",

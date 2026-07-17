@@ -171,6 +171,7 @@ export const enMessages = {
     notifications: {
         title: "Notifications",
         empty: "No notifications yet.",
+        pageSubtitle: "Alerts about purchases, follows, and account activity.",
     },
     dashboard: {
         profile: {
@@ -463,7 +464,11 @@ export const enMessages = {
         next: "Next",
         cancel: "Cancel",
         pageSubtitle: "Create and manage your ringtone catalog.",
-        marketplaceSubtitle: "Preview, favorite, purchase, and download ringtones securely.",
+        marketplaceSubtitle: "Browse published ringtones. Search, filter, sort, preview, favorite, and buy.",
+        purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+        favoritesSubtitle: "Ringtones you saved as favorites.",
+        browseMarketplace: "Browse Ringtone Marketplace",
+        play: "Play",
         featuredRingtones: "Featured Ringtones",
         trendingRingtones: "Trending Ringtones",
         newRingtones: "New Ringtones",

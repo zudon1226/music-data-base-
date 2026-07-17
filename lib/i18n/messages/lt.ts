@@ -217,7 +217,8 @@ export const ltMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Pranešimai",
-            empty: "Dar nėra pranešimų."
+            empty: "Dar nėra pranešimų.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const ltMessages: LocaleMessageDictionary = {
             cancel: "Atšaukti",
             pageSubtitle: "Kurkite ir tvarkykite skambučio melodijų katalogą.",
             marketplaceSubtitle: "Klausykite, pažymėkite mėgstamomis, pirkite ir saugiai atsisiųskite skambučio melodijas.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Rekomenduojamos melodijos",
             trendingRingtones: "Populiarios melodijos",
             newRingtones: "Naujos melodijos",

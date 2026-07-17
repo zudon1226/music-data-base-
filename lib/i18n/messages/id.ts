@@ -217,7 +217,8 @@ export const idMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Notifikasi",
-            empty: "Belum ada notifikasi."
+            empty: "Belum ada notifikasi.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const idMessages: LocaleMessageDictionary = {
             cancel: "Batalkan",
             pageSubtitle: "Buat dan kelola katalog nada dering Anda.",
             marketplaceSubtitle: "Pratinjau, favoritkan, beli, dan unduh nada dering dengan aman.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Nada Dering Unggulan",
             trendingRingtones: "Nada Dering yang Sedang Tren",
             newRingtones: "Nada Dering Baru",

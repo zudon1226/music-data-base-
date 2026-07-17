@@ -217,7 +217,8 @@ export const skMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Notifikácie",
-            empty: "Zatiaľ žiadne notifikácie."
+            empty: "Zatiaľ žiadne notifikácie.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const skMessages: LocaleMessageDictionary = {
             cancel: "Zrušiť",
             pageSubtitle: "Vytvárajte a spravujte katalóg zvonení.",
             marketplaceSubtitle: "Prehrávajte, obľúbte, kupujte a bezpečne sťahujte zvonenia.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Odporúčané zvonenia",
             trendingRingtones: "Trendové zvonenia",
             newRingtones: "Nové zvonenia",

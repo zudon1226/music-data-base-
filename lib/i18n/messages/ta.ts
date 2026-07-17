@@ -217,7 +217,8 @@ export const taMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "அறிவிப்புகள்",
-            empty: "இன்னும் அறிவிப்புகள் இல்லை."
+            empty: "இன்னும் அறிவிப்புகள் இல்லை.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const taMessages: LocaleMessageDictionary = {
             cancel: "ரத்து செய்",
             pageSubtitle: "உங்கள் ரிங்டோன் பட்டியலை உருவாக்கி நிர்வகிக்கவும்.",
             marketplaceSubtitle: "ரிங்டோன்களைப் பாதுகாப்பாக முன்னோட்டமிடவும், பிடித்தவை, வாங்கவும் மற்றும் பதிவிறக்கவும்.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "சிறப்பு ரிங்டோன்கள்",
             trendingRingtones: "பிரபலமான ரிங்டோன்கள்",
             newRingtones: "புதிய ரிங்டோன்கள்",

@@ -217,7 +217,8 @@ export const fiMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Ilmoitukset",
-            empty: "Ei vielä ilmoituksia."
+            empty: "Ei vielä ilmoituksia.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const fiMessages: LocaleMessageDictionary = {
             cancel: "Peruuta",
             pageSubtitle: "Luo ja hallitse soittoääniluetteloasi.",
             marketplaceSubtitle: "Esikuuntele, merkitse suosikiksi, osta ja lataa soittoääniä turvallisesti.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Suositellut soittoäänet",
             trendingRingtones: "Nousussa olevat soittoäänet",
             newRingtones: "Uudet soittoäänet",

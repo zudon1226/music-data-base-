@@ -424,6 +424,7 @@ const DESKTOP_NAV_VIEWS = [
   "Marketplace",
   "Ringtone Marketplace",
   "My Purchased Ringtones",
+  "Favorite Ringtones",
   "Sales",
   "License History",
   "Trending",
@@ -440,6 +441,7 @@ const DESKTOP_NAV_VIEWS = [
   "Recently Played",
   "Queue",
   "Profile",
+  "Notifications",
 ];
 
 for (const view of DESKTOP_NAV_VIEWS) {

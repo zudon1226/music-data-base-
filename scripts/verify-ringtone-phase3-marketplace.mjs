@@ -61,10 +61,14 @@ async function main() {
 
     assertIncludes(nav, '"Ringtone Marketplace"', "nav marketplace");
     assertIncludes(nav, '"My Purchased Ringtones"', "nav purchased");
+    assertIncludes(nav, '"Favorite Ringtones"', "nav favorites");
     assertIncludes(page, "RingtoneMarketplaceWorkspace", "page marketplace wiring");
+    assertIncludes(page, 'destination={', "page destination wiring");
     assertIncludes(page, "playRingtonePreview", "exclusive preview helper");
     assertIncludes(en, "featuredRingtones:", "i18n featured");
     assertIncludes(en, "myPurchasedRingtones:", "i18n purchased");
+    assertIncludes(en, "browseMarketplace:", "i18n browse marketplace CTA");
+    assertIncludes(en, "purchasedSubtitle:", "i18n purchased subtitle");
     assertIncludes(en, "paymentCompleted:", "i18n payment completed");
     assertIncludes(en, "downloadForIphone:", "i18n iphone download");
     assertIncludes(en, "downloadForAndroid:", "i18n android download");
@@ -85,6 +89,11 @@ async function main() {
     assertIncludes(marketUi, "min-height: 44px", "touch targets");
     assertIncludes(marketUi, "padding-bottom: calc(var(--mobile-player-reserve", "player clearance");
     assertIncludes(marketUi, "@media (max-width: 820px)", "responsive markers");
+    assertIncludes(marketUi, "white-space: nowrap", "no run-together labels");
+    assertIncludes(marketUi, "ringtone-purchased-empty", "purchased empty state");
+    assertIncludes(marketUi, "onBrowseMarketplace", "browse marketplace CTA wiring");
+    record("no internal ringtone tabs", !marketUi.includes("ringtone-market-tabs"));
+    record("no duplicate workspace h1", !/<h1>/.test(marketUi));
     assertIncludes(downloadRoute, "expiresInSeconds: 60", "signed-URL expiry contract");
     assertIncludes(downloadRoute, "creatorTesting", "creator testing download path");
     assertIncludes(downloadRoute, "Open GarageBand", "iphone install steps");

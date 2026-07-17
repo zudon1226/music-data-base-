@@ -217,7 +217,8 @@ export const itMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Notifiche",
-            empty: "Nessuna notifica ancora."
+            empty: "Nessuna notifica ancora.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const itMessages: LocaleMessageDictionary = {
             cancel: "Annulla",
             pageSubtitle: "Crea e gestisci il tuo catalogo di suonerie.",
             marketplaceSubtitle: "Ascolta in anteprima, aggiungi ai preferiti, acquista e scarica suonerie in sicurezza.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Suonerie in evidenza",
             trendingRingtones: "Suonerie di tendenza",
             newRingtones: "Nuove suonerie",

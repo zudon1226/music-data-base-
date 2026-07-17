@@ -217,7 +217,8 @@ export const heMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "התראות",
-            empty: "אין התראות עדיין."
+            empty: "אין התראות עדיין.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const heMessages: LocaleMessageDictionary = {
             cancel: "בטל",
             pageSubtitle: "צור ונהל את קטלוג הרינגטונים שלך.",
             marketplaceSubtitle: "תצוגה מקדימה, מועדף, רכוש והורד רינגטונים בצורה מאובטחת.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "רינגטונים מומלצים",
             trendingRingtones: "רינגטונים פופולריים",
             newRingtones: "רינגטונים חדשים",

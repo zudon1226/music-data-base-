@@ -217,7 +217,8 @@ export const yoMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Ìfitónilétí",
-            empty: "Kò sì ìfitónilétí sẹ́."
+            empty: "Kò sì ìfitónilétí sẹ́.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const yoMessages: LocaleMessageDictionary = {
             cancel: "Fagilee",
             pageSubtitle: "Ṣẹda ati ṣakoso awọn katalogi ohun orin ipe rẹ.",
             marketplaceSubtitle: "Awotẹlẹ, ayanfẹ, rira, ati ṣe igbasilẹ awọn ohun orin ipe ni aabo.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Awọn ohun orin ipe ifihan",
             trendingRingtones: "Awọn ohun orin ipe ti aṣa",
             newRingtones: "Awọn ohun orin ipe titun",

@@ -217,7 +217,8 @@ export const sqMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Njoftimet",
-            empty: "Ende nuk ka njoftime."
+            empty: "Ende nuk ka njoftime.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const sqMessages: LocaleMessageDictionary = {
             cancel: "Anulo",
             pageSubtitle: "Krijo dhe menaxho katalogun tënd të melodive.",
             marketplaceSubtitle: "Dëgjo, shto te të preferuarat, bli dhe shkarko melodi në mënyrë të sigurt.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Melodi të veçuara",
             trendingRingtones: "Melodi në trend",
             newRingtones: "Melodi të reja",

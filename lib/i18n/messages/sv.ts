@@ -217,7 +217,8 @@ export const svMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Aviseringar",
-            empty: "Inga aviseringar ännu."
+            empty: "Inga aviseringar ännu.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const svMessages: LocaleMessageDictionary = {
             cancel: "Avbryt",
             pageSubtitle: "Skapa och hantera din katalog med ringsignaler.",
             marketplaceSubtitle: "Förhandslyssna, favoritmarkera, köp och ladda ner ringsignaler säkert.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Utvalda ringsignaler",
             trendingRingtones: "Trendande ringsignaler",
             newRingtones: "Nya ringsignaler",

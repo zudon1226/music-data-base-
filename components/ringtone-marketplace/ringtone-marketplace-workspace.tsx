@@ -17,10 +17,10 @@ import {
     type MarketplaceRingtone,
 } from "@/lib/ringtone-marketplace-client";
 
-type WorkspaceMode = "marketplace" | "detail" | "purchased" | "favorites";
+export type RingtoneDestination = "marketplace" | "purchased" | "favorites";
 
 type RingtoneMarketplaceWorkspaceProps = {
-    mode: WorkspaceMode;
+    destination: RingtoneDestination;
     userId: string;
     session: Session | null;
     isAuthenticated: boolean;
@@ -29,11 +29,12 @@ type RingtoneMarketplaceWorkspaceProps = {
     activeRingtonePreviewId: string | null;
     ringtonePreviewPlaying: boolean;
     onRequireLogin: () => void;
+    onBrowseMarketplace: () => void;
     initialRingtoneId?: string;
 };
 
 export function RingtoneMarketplaceWorkspace({
-    mode: initialMode,
+    destination,
     userId,
     session,
     isAuthenticated,
@@ -42,10 +43,11 @@ export function RingtoneMarketplaceWorkspace({
     activeRingtonePreviewId,
     ringtonePreviewPlaying,
     onRequireLogin,
+    onBrowseMarketplace,
     initialRingtoneId = "",
 }: RingtoneMarketplaceWorkspaceProps) {
     const { t } = useTranslation();
-    const [mode, setMode] = useState<WorkspaceMode>(initialMode);
+    const [detailId, setDetailId] = useState(initialRingtoneId);
     const [ringtones, setRingtones] = useState<MarketplaceRingtone[]>([]);
     const [popularCreators, setPopularCreators] = useState<Array<{ creatorId: string; creatorName: string; count: number }>>([]);
     const [purchases, setPurchases] = useState<Record<string, unknown>[]>([]);
@@ -63,11 +65,15 @@ export function RingtoneMarketplaceWorkspace({
     const [installGuide, setInstallGuide] = useState<{ title: string; steps: string[] } | null>(null);
     const [pending, startTransition] = useTransition();
     const purchaseLockRef = useRef(false);
-    const selectedIdRef = useRef(initialRingtoneId);
 
     useEffect(() => {
-        setMode(initialMode);
-    }, [initialMode]);
+        setDetailId(initialRingtoneId);
+        setDetail(null);
+        setRelated([]);
+        setMoreFromCreator([]);
+        setError("");
+        setStatusMessage("");
+    }, [destination, initialRingtoneId]);
 
     async function loadMarketplace(nextPage = page) {
         setError("");
@@ -117,29 +123,37 @@ export function RingtoneMarketplaceWorkspace({
     }
 
     async function openDetail(ringtoneId: string) {
-        selectedIdRef.current = ringtoneId;
-        setMode("detail");
+        setDetailId(ringtoneId);
         const result = await fetchRingtoneDetail({ ringtoneId, userId: userId || undefined, session });
         if (!result.ok) {
             setError(String(result.body.error || t("ringtones.detailLoadFailed")));
             return;
         }
         setDetail((result.body.ringtone || null) as Record<string, unknown> | null);
-        setRelated((result.body.relatedRingtones || []) as MarketplaceRingtone[]);
-        setMoreFromCreator((result.body.moreFromCreator || []) as MarketplaceRingtone[]);
+        if (destination === "marketplace") {
+            setRelated((result.body.relatedRingtones || []) as MarketplaceRingtone[]);
+            setMoreFromCreator((result.body.moreFromCreator || []) as MarketplaceRingtone[]);
+        } else {
+            setRelated([]);
+            setMoreFromCreator([]);
+        }
     }
 
     useEffect(() => {
         startTransition(async () => {
-            if (mode === "marketplace") await loadMarketplace(1);
-            if (mode === "purchased") await loadPurchases();
-            if (mode === "favorites") await loadFavorites();
-            if (mode === "detail" && (selectedIdRef.current || initialRingtoneId)) {
-                await openDetail(selectedIdRef.current || initialRingtoneId);
+            if (destination === "marketplace") {
+                if (detailId) {
+                    await openDetail(detailId);
+                } else {
+                    await loadMarketplace(1);
+                }
+                return;
             }
+            if (destination === "purchased") await loadPurchases();
+            if (destination === "favorites") await loadFavorites();
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mode, userId, session?.access_token]);
+    }, [destination, detailId, userId, session?.access_token]);
 
     function previewCard(ringtone: MarketplaceRingtone) {
         if (!ringtone.preview_url) {
@@ -169,6 +183,13 @@ export function RingtoneMarketplaceWorkspace({
         }
         const previousOwned = ringtone.favorited;
         setRingtones((rows) => rows.map((row) => (row.id === ringtone.id ? { ...row, favorited: next } : row)));
+        setFavorites((rows) => {
+            if (!next) return rows.filter((row) => row.id !== ringtone.id);
+            if (rows.some((row) => row.id === ringtone.id)) {
+                return rows.map((row) => (row.id === ringtone.id ? { ...row, favorited: true } : row));
+            }
+            return [{ ...ringtone, favorited: true }, ...rows];
+        });
         if (detail && String(detail.id) === ringtone.id) {
             setDetail({ ...detail, favorited: next });
         }
@@ -184,6 +205,7 @@ export function RingtoneMarketplaceWorkspace({
                 setDetail({ ...detail, favorited: previousOwned });
             }
             setError(String(result.body.error || t("ringtones.favoriteFailed")));
+            if (destination === "favorites") await loadFavorites();
         }
     }
 
@@ -210,13 +232,13 @@ export function RingtoneMarketplaceWorkspace({
             if (state === "already_owned") {
                 setStatusMessage(t("ringtones.alreadyOwned"));
                 await loadMarketplace(page);
-                if (mode === "detail") await openDetail(ringtoneId);
+                if (detailId) await openDetail(ringtoneId);
                 return;
             }
             if (state === "free_acquisition_completed") {
                 setStatusMessage(t("ringtones.freeAcquisitionCompleted"));
                 await loadMarketplace(page);
-                if (mode === "detail") await openDetail(ringtoneId);
+                if (detailId) await openDetail(ringtoneId);
                 return;
             }
 
@@ -248,7 +270,7 @@ export function RingtoneMarketplaceWorkspace({
                 setStatusMessage(t("ringtones.paymentPendingProvider"));
             }
             await loadMarketplace(page);
-            if (mode === "detail") await openDetail(ringtoneId);
+            if (detailId) await openDetail(ringtoneId);
         } catch (purchaseError) {
             setError(purchaseError instanceof Error ? purchaseError.message : t("ringtones.purchaseFailed"));
             setStatusMessage(t("ringtones.paymentFailed"));
@@ -284,7 +306,7 @@ export function RingtoneMarketplaceWorkspace({
         setStatusMessage(t("ringtones.downloadStarted"));
     }
 
-    function renderCard(ringtone: MarketplaceRingtone) {
+    function renderMarketplaceCard(ringtone: MarketplaceRingtone) {
         return (
             <article key={ringtone.id} className="dashboard-panel ringtone-market-card">
                 <button type="button" className="ringtone-market-cover" onClick={() => void openDetail(ringtone.id)}>
@@ -307,16 +329,11 @@ export function RingtoneMarketplaceWorkspace({
                         <button type="button" onClick={() => void handleFavorite(ringtone, !ringtone.favorited)}>
                             {ringtone.favorited ? t("ringtones.unfavorite") : t("ringtones.favorite")}
                         </button>
+                        <button type="button" onClick={() => void openDetail(ringtone.id)}>
+                            {t("ringtones.details")}
+                        </button>
                         {ringtone.owned ? (
-                            <>
-                                <span className="ringtone-owned-badge">{t("ringtones.alreadyOwned")}</span>
-                                <button type="button" onClick={() => void handleDownload(ringtone.id, "iphone")}>
-                                    {t("ringtones.downloadForIphone")}
-                                </button>
-                                <button type="button" onClick={() => void handleDownload(ringtone.id, "android")}>
-                                    {t("ringtones.downloadForAndroid")}
-                                </button>
-                            </>
+                            <span className="ringtone-owned-badge">{t("ringtones.alreadyOwned")}</span>
                         ) : (
                             <button
                                 type="button"
@@ -327,47 +344,21 @@ export function RingtoneMarketplaceWorkspace({
                                 {ringtone.price_cents === 0 ? t("ringtones.getFree") : t("ringtones.buyNow")}
                             </button>
                         )}
-                        <button type="button" onClick={() => void openDetail(ringtone.id)}>
-                            {t("ringtones.details")}
-                        </button>
                     </div>
                 </div>
             </article>
         );
     }
 
-    return (
-        <section className="ringtone-marketplace-page dashboard-page" data-ringtone-marketplace={mode}>
-            <header className="ringtone-market-header">
-                <div>
-                    <h1>
-                        {mode === "purchased"
-                            ? t("ringtones.myPurchasedRingtones")
-                            : mode === "favorites"
-                                ? t("ringtones.favoriteRingtones")
-                                : mode === "detail"
-                                    ? t("ringtones.details")
-                                    : t("ringtones.marketplace")}
-                    </h1>
-                    <p>{t("ringtones.marketplaceSubtitle")}</p>
-                </div>
-                <div className="ringtone-market-tabs">
-                    <button type="button" className={mode === "marketplace" ? "active" : ""} onClick={() => setMode("marketplace")}>
-                        {t("ringtones.marketplace")}
-                    </button>
-                    <button type="button" className={mode === "purchased" ? "active" : ""} onClick={() => setMode("purchased")}>
-                        {t("ringtones.myPurchasedRingtones")}
-                    </button>
-                    <button type="button" className={mode === "favorites" ? "active" : ""} onClick={() => setMode("favorites")}>
-                        {t("ringtones.favoriteRingtones")}
-                    </button>
-                </div>
-            </header>
+    const showMarketplaceBrowse = destination === "marketplace" && !detailId;
+    const showMarketplaceDetail = destination === "marketplace" && Boolean(detailId && detail);
 
+    return (
+        <section className="ringtone-marketplace-page dashboard-page" data-ringtone-destination={destination}>
             <div className="sr-only" aria-live="polite">{statusMessage}</div>
             {error ? <p className="ringtone-error" role="alert">{error}</p> : null}
 
-            {mode === "marketplace" ? (
+            {showMarketplaceBrowse ? (
                 <>
                     <div className="ringtone-market-controls">
                         <label>
@@ -447,7 +438,7 @@ export function RingtoneMarketplaceWorkspace({
                     ) : null}
 
                     <div className="ringtone-market-grid">
-                        {ringtones.map((ringtone) => renderCard(ringtone))}
+                        {ringtones.map((ringtone) => renderMarketplaceCard(ringtone))}
                     </div>
                     {!pending && ringtones.length === 0 ? <p className="dashboard-empty-card">{t("ringtones.marketplaceEmpty")}</p> : null}
                     <div className="ringtone-pagination">
@@ -462,9 +453,9 @@ export function RingtoneMarketplaceWorkspace({
                 </>
             ) : null}
 
-            {mode === "detail" && detail ? (
+            {showMarketplaceDetail && detail ? (
                 <div className="dashboard-panel ringtone-detail">
-                    <button type="button" onClick={() => setMode("marketplace")}>{t("ringtones.back")}</button>
+                    <button type="button" onClick={() => setDetailId("")}>{t("ringtones.back")}</button>
                     <div className="ringtone-detail-grid">
                         <img src={String(detail.artwork_url || "/music-data-base-logo.png")} alt="" width={220} height={220} />
                         <div>
@@ -492,44 +483,44 @@ export function RingtoneMarketplaceWorkspace({
                                     {detail.favorited ? t("ringtones.unfavorite") : t("ringtones.favorite")}
                                 </button>
                                 {detail.owned ? (
-                                    <>
-                                        <span className="ringtone-owned-badge">{t("ringtones.alreadyOwned")}</span>
-                                        <button type="button" onClick={() => void handleDownload(String(detail.id), "iphone")}>
-                                            {t("ringtones.downloadForIphone")}
-                                        </button>
-                                        <button type="button" onClick={() => void handleDownload(String(detail.id), "android")}>
-                                            {t("ringtones.downloadForAndroid")}
-                                        </button>
-                                    </>
+                                    <span className="ringtone-owned-badge">{t("ringtones.alreadyOwned")}</span>
                                 ) : (
                                     <button type="button" className="save-upload" onClick={() => void handlePurchase(String(detail.id))}>
-                                        {Number(detail.price_cents) === 0 ? t("ringtones.getFree") : t("ringtones.purchaseRingtone")}
+                                        {Number(detail.price_cents) === 0 ? t("ringtones.getFree") : t("ringtones.buyNow")}
                                     </button>
                                 )}
                             </div>
-                            <div className="ringtone-install-copy">
-                                <h3>{t("ringtones.installationInstructions")}</h3>
-                                <p>{t("ringtones.iphoneInstallHint")}</p>
-                                <p>{t("ringtones.androidInstallHint")}</p>
-                            </div>
                         </div>
                     </div>
-                    <section>
-                        <h3>{t("ringtones.relatedRingtones")}</h3>
-                        <div className="ringtone-market-grid">{related.map((ringtone) => renderCard(ringtone))}</div>
-                    </section>
-                    <section>
-                        <h3>{t("ringtones.moreFromCreator")}</h3>
-                        <div className="ringtone-market-grid">{moreFromCreator.map((ringtone) => renderCard(ringtone))}</div>
-                    </section>
+                    {related.length > 0 ? (
+                        <section>
+                            <h3>{t("ringtones.relatedRingtones")}</h3>
+                            <div className="ringtone-market-grid">{related.map((ringtone) => renderMarketplaceCard(ringtone))}</div>
+                        </section>
+                    ) : null}
+                    {moreFromCreator.length > 0 ? (
+                        <section>
+                            <h3>{t("ringtones.moreFromCreator")}</h3>
+                            <div className="ringtone-market-grid">{moreFromCreator.map((ringtone) => renderMarketplaceCard(ringtone))}</div>
+                        </section>
+                    ) : null}
                 </div>
             ) : null}
 
-            {mode === "purchased" ? (
+            {destination === "purchased" ? (
                 <div className="ringtone-purchased-list">
                     {!isAuthenticated ? <p role="alert">{t("ringtones.loginToViewPurchases")}</p> : null}
+                    {isAuthenticated && purchases.length === 0 ? (
+                        <div className="dashboard-empty-card ringtone-purchased-empty">
+                            <p>{t("ringtones.purchasedEmpty")}</p>
+                            <button type="button" className="save-upload" onClick={onBrowseMarketplace}>
+                                {t("ringtones.browseMarketplace")}
+                            </button>
+                        </div>
+                    ) : null}
                     {purchases.map((purchase) => {
                         const ringtone = (purchase.ringtone || {}) as MarketplaceRingtone;
+                        const ringtoneId = String(purchase.ringtone_id || ringtone.id || "");
                         return (
                             <article key={String(purchase.id)} className="dashboard-panel ringtone-market-card">
                                 <img src={ringtone.artwork_url || "/music-data-base-logo.png"} alt="" width={88} height={88} />
@@ -543,28 +534,39 @@ export function RingtoneMarketplaceWorkspace({
                                     <p>{t("ringtones.receipt")}: {String(purchase.payment_reference || purchase.id)}</p>
                                     <p>{t("ringtones.downloadAgain")}: {Number(purchase.downloadCount) || 0}</p>
                                     <div className="ringtone-market-actions">
-                                        <button type="button" onClick={() => void handleDownload(String(purchase.ringtone_id), "iphone")}>
+                                        <button
+                                            type="button"
+                                            disabled={!ringtone.preview_url}
+                                            onClick={() => previewCard({ ...ringtone, id: ringtoneId })}
+                                        >
+                                            {activeRingtonePreviewId === ringtoneId && ringtonePreviewPlaying
+                                                ? t("ringtones.pausePreview")
+                                                : t("ringtones.play")}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleFavorite({ ...ringtone, id: ringtoneId, favorited: Boolean(ringtone.favorited) }, !ringtone.favorited)}
+                                        >
+                                            {ringtone.favorited ? t("ringtones.unfavorite") : t("ringtones.favorite")}
+                                        </button>
+                                        <button type="button" onClick={() => void handleDownload(ringtoneId, "iphone")}>
                                             {t("ringtones.downloadForIphone")}
                                         </button>
-                                        <button type="button" onClick={() => void handleDownload(String(purchase.ringtone_id), "android")}>
+                                        <button type="button" onClick={() => void handleDownload(ringtoneId, "android")}>
                                             {t("ringtones.downloadForAndroid")}
-                                        </button>
-                                        <button type="button" onClick={() => void openDetail(String(purchase.ringtone_id))}>
-                                            {t("ringtones.installationInstructions")}
                                         </button>
                                     </div>
                                 </div>
                             </article>
                         );
                     })}
-                    {isAuthenticated && purchases.length === 0 ? <p className="dashboard-empty-card">{t("ringtones.purchasedEmpty")}</p> : null}
                 </div>
             ) : null}
 
-            {mode === "favorites" ? (
+            {destination === "favorites" ? (
                 <div className="ringtone-market-grid">
                     {!isAuthenticated ? <p role="alert">{t("ringtones.loginToFavorite")}</p> : null}
-                    {favorites.map((ringtone) => renderCard(ringtone))}
+                    {favorites.map((ringtone) => renderMarketplaceCard(ringtone))}
                     {isAuthenticated && favorites.length === 0 ? <p className="dashboard-empty-card">{t("ringtones.favoritesEmpty")}</p> : null}
                 </div>
             ) : null}
@@ -585,19 +587,22 @@ export function RingtoneMarketplaceWorkspace({
                     gap: 16px;
                     padding-bottom: calc(var(--mobile-player-reserve, 110px) + 28px);
                 }
-                .ringtone-market-header,
-                .ringtone-market-tabs,
                 .ringtone-market-controls,
                 .ringtone-market-actions,
                 .ringtone-section-links,
                 .ringtone-pagination,
-                .ringtone-creator-chips {
+                .ringtone-creator-chips,
+                .ringtone-purchased-empty {
                     display: flex;
                     flex-wrap: wrap;
                     gap: 10px;
                     align-items: center;
                 }
-                .ringtone-market-header { justify-content: space-between; }
+                .ringtone-purchased-empty {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 14px;
+                }
                 .ringtone-market-grid,
                 .ringtone-purchased-list {
                     display: grid;
@@ -611,20 +616,23 @@ export function RingtoneMarketplaceWorkspace({
                     align-items: start;
                 }
                 .ringtone-market-cover,
-                .ringtone-market-tabs button,
                 .ringtone-market-actions button,
                 .ringtone-section-links button,
                 .ringtone-creator-chips button,
-                .ringtone-pagination button {
+                .ringtone-pagination button,
+                .ringtone-purchased-empty button,
+                .ringtone-detail > button,
+                .ringtone-install-guide button {
                     min-height: 44px;
                     min-width: 44px;
+                    padding: 0.65rem 0.9rem;
                     border-radius: 8px;
                     border: 1px solid rgba(0, 212, 255, 0.28);
                     background: #0b1736;
                     color: #e8f7ff;
                     cursor: pointer;
+                    white-space: nowrap;
                 }
-                .ringtone-market-tabs button.active { background: #22d3ee; color: #062033; font-weight: 800; }
                 .ringtone-market-controls label { display: grid; gap: 6px; min-width: 160px; flex: 1; }
                 .ringtone-market-controls input,
                 .ringtone-market-controls select {
@@ -643,8 +651,12 @@ export function RingtoneMarketplaceWorkspace({
                     align-items: start;
                 }
                 .ringtone-owned-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    min-height: 44px;
                     color: #67e8f9;
                     font-weight: 700;
+                    padding: 0 0.4rem;
                 }
                 .ringtone-error { color: #fecaca; }
                 .sr-only {
@@ -654,6 +666,17 @@ export function RingtoneMarketplaceWorkspace({
                 @media (max-width: 820px) {
                     .ringtone-market-card,
                     .ringtone-detail-grid { grid-template-columns: 1fr; }
+                    .ringtone-market-actions {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 10px;
+                    }
+                    .ringtone-market-actions button,
+                    .ringtone-owned-badge {
+                        width: 100%;
+                        justify-content: center;
+                        text-align: center;
+                    }
                 }
             `}</style>
         </section>

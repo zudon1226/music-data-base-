@@ -98,17 +98,16 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
     };
 }
 
-/** Listener-facing destinations that every authenticated account may open. */
+/**
+ * Consumer destinations shown in Listener navigation.
+ * Favorite Ringtones stays a separate ringtone destination.
+ */
 export const LISTENER_NAV_VIEWS = [
     "Home",
     "Marketplace",
     "Ringtone Marketplace",
     "My Purchased Ringtones",
-    "License History",
-    "Trending",
-    "Beats",
-    "Artists",
-    "Videos",
+    "Favorite Ringtones",
     "Library",
     "Liked",
     "Following",
@@ -116,6 +115,20 @@ export const LISTENER_NAV_VIEWS = [
     "Recently Played",
     "Queue",
     "Profile",
+    "Notifications",
+] as const;
+
+/**
+ * Extra consumer destinations still reachable via Home tabs / deep links
+ * without appearing in the Listener sidebar.
+ */
+export const LISTENER_ACCESSIBLE_VIEWS = [
+    ...LISTENER_NAV_VIEWS,
+    "License History",
+    "Trending",
+    "Beats",
+    "Artists",
+    "Videos",
 ] as const;
 
 export function canAccessNavView(view: string, capabilities: NavCapabilityFlags): boolean {
@@ -125,6 +138,6 @@ export function canAccessNavView(view: string, capabilities: NavCapabilityFlags)
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
     if (view === "Sales") return capabilities.canSales;
     if (view === "My Ringtones") return capabilities.canMyRingtones;
-    if ((LISTENER_NAV_VIEWS as readonly string[]).includes(view)) return true;
+    if ((LISTENER_ACCESSIBLE_VIEWS as readonly string[]).includes(view)) return true;
     return false;
 }

@@ -217,7 +217,8 @@ export const etMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Teavitused",
-            empty: "Teavitusi pole veel."
+            empty: "Teavitusi pole veel.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const etMessages: LocaleMessageDictionary = {
             cancel: "Tühista",
             pageSubtitle: "Loo ja halda oma helinakataloogi.",
             marketplaceSubtitle: "Kuula, lisa lemmikutesse, osta ja laadi helinaid turvaliselt alla.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Esiletõstetud helinad",
             trendingRingtones: "Populaarsed helinad",
             newRingtones: "Uued helinad",

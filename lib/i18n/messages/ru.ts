@@ -217,7 +217,8 @@ export const ruMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Уведомления",
-            empty: "Пока нет уведомлений."
+            empty: "Пока нет уведомлений.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const ruMessages: LocaleMessageDictionary = {
             cancel: "Отмена",
             pageSubtitle: "Создавайте и управляйте каталогом рингтонов.",
             marketplaceSubtitle: "Прослушивайте, добавляйте в избранное, покупайте и безопасно скачивайте рингтоны.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Рекомендуемые рингтоны",
             trendingRingtones: "Популярные рингтоны",
             newRingtones: "Новые рингтоны",

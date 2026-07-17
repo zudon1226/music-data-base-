@@ -217,7 +217,8 @@ export const zhTWMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "通知",
-            empty: "尚無通知。"
+            empty: "尚無通知。",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const zhTWMessages: LocaleMessageDictionary = {
             cancel: "取消",
             pageSubtitle: "建立和管理您的鈴聲目錄。",
             marketplaceSubtitle: "安全地預覽、收藏、購買和下載鈴聲。",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "精選鈴聲",
             trendingRingtones: "流行鈴聲",
             newRingtones: "新鈴聲",

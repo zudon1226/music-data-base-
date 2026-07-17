@@ -217,7 +217,8 @@ export const nlMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Meldingen",
-            empty: "Nog geen meldingen."
+            empty: "Nog geen meldingen.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const nlMessages: LocaleMessageDictionary = {
             cancel: "Annuleren",
             pageSubtitle: "Maak en beheer je beltooncatalogus.",
             marketplaceSubtitle: "Beluister, favoriet, koop en download beltonen veilig.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Uitgelichte beltonen",
             trendingRingtones: "Trending beltonen",
             newRingtones: "Nieuwe beltonen",

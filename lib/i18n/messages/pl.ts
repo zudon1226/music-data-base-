@@ -217,7 +217,8 @@ export const plMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Powiadomienia",
-            empty: "Brak powiadomień."
+            empty: "Brak powiadomień.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const plMessages: LocaleMessageDictionary = {
             cancel: "Anuluj",
             pageSubtitle: "Twórz i zarządzaj katalogiem dzwonków.",
             marketplaceSubtitle: "Odsłuchuj, dodawaj do ulubionych, kupuj i bezpiecznie pobieraj dzwonki.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Wyróżnione dzwonki",
             trendingRingtones: "Popularne dzwonki",
             newRingtones: "Nowe dzwonki",

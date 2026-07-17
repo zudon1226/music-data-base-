@@ -217,7 +217,8 @@ export const viMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Thông báo",
-            empty: "Chưa có thông báo."
+            empty: "Chưa có thông báo.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const viMessages: LocaleMessageDictionary = {
             cancel: "Hủy bỏ",
             pageSubtitle: "Tạo và quản lý danh mục nhạc chuông của bạn.",
             marketplaceSubtitle: "Xem trước, yêu thích, mua và tải nhạc chuông một cách an toàn.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Nhạc chuông nổi bật",
             trendingRingtones: "Nhạc chuông thịnh hành",
             newRingtones: "Nhạc chuông mới",

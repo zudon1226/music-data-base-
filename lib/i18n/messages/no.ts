@@ -217,7 +217,8 @@ export const noMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Varsler",
-            empty: "Ingen varsler ennå."
+            empty: "Ingen varsler ennå.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const noMessages: LocaleMessageDictionary = {
             cancel: "Avbryt",
             pageSubtitle: "Opprett og administrer ringetonkatalogen din.",
             marketplaceSubtitle: "Forhåndslytt, favorittmerk, kjøp og last ned ringetoner sikkert.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Utvalgte ringetoner",
             trendingRingtones: "Trending ringetoner",
             newRingtones: "Nye ringetoner",

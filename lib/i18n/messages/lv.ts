@@ -217,7 +217,8 @@ export const lvMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Paziņojumi",
-            empty: "Vēl nav paziņojumu."
+            empty: "Vēl nav paziņojumu.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const lvMessages: LocaleMessageDictionary = {
             cancel: "Atcelt",
             pageSubtitle: "Izveidojiet un pārvaldiet zvana melodiju katalogu.",
             marketplaceSubtitle: "Noklausieties, pievienojiet favorītiem, pērciet un droši lejupielādējiet zvana melodijas.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Izceltās melodijas",
             trendingRingtones: "Populārās melodijas",
             newRingtones: "Jaunas melodijas",

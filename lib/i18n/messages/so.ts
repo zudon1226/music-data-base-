@@ -217,7 +217,8 @@ export const soMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Ogeysiisyada",
-            empty: "Weli ma jiraan ogeysiisyo."
+            empty: "Weli ma jiraan ogeysiisyo.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const soMessages: LocaleMessageDictionary = {
             cancel: "Jooji",
             pageSubtitle: "Abuur oo maamul buug-gacmeedkaaga ringtone",
             marketplaceSubtitle: "Dib u eeg, jecel, iibso, oo soo deji dhawaaqyada dhawaaqyada si ammaan ah.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Codka garaaca ee muuqda",
             trendingRingtones: "Dhawaaqyada soo noqnoqda",
             newRingtones: "Heeso Cusub",

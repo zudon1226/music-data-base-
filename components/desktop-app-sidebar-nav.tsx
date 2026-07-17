@@ -2,6 +2,7 @@
 
 import {
     BarChart3,
+    Bell,
     BookOpen,
     Clock3,
     Disc3,
@@ -11,6 +12,7 @@ import {
     ListMusic,
     Music2,
     Smartphone,
+    Star,
     Upload,
     UserCircle,
     UserPlus,
@@ -46,10 +48,12 @@ const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     "My Ringtones": <Smartphone size={17}/>,
     "Ringtone Marketplace": <Smartphone size={17}/>,
     "My Purchased Ringtones": <Smartphone size={17}/>,
+    "Favorite Ringtones": <Star size={17}/>,
     "Platform Control Center": <BarChart3 size={17}/>,
     "Recently Played": <Clock3 size={17}/>,
     Queue: <ListMusic size={17}/>,
     Profile: <UserCircle size={17}/>,
+    Notifications: <Bell size={17}/>,
     "Artist Profile": <UserCircle size={17}/>,
     "Producer Profile": <UserCircle size={17}/>,
 };

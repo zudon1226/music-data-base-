@@ -217,7 +217,8 @@ export const csMessages: LocaleMessageDictionary = {
         },
     notifications: {
             title: "Oznámení",
-            empty: "Zatím žádná oznámení."
+            empty: "Zatím žádná oznámení.",
+            pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
             profile: {
@@ -511,6 +512,10 @@ export const csMessages: LocaleMessageDictionary = {
             cancel: "Zrušit",
             pageSubtitle: "Vytvářejte a spravujte katalog vyzvánění.",
             marketplaceSubtitle: "Přehrávejte, oblíbejte, kupujte a bezpečně stahujte vyzvánění.",
+            purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
+            favoritesSubtitle: "Ringtones you saved as favorites.",
+            browseMarketplace: "Browse Ringtone Marketplace",
+            play: "Play",
             featuredRingtones: "Doporučená vyzvánění",
             trendingRingtones: "Trendy vyzvánění",
             newRingtones: "Nová vyzvánění",

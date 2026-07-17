@@ -23,6 +23,7 @@ export type DesktopNavView =
     | "Queue"
     | "Playlists"
     | "Profile"
+    | "Notifications"
     | "Artist Dashboard"
     | "Artist Profile"
     | "Producer Dashboard"
@@ -30,6 +31,7 @@ export type DesktopNavView =
     | "My Ringtones"
     | "Ringtone Marketplace"
     | "My Purchased Ringtones"
+    | "Favorite Ringtones"
     | "Platform Control Center";
 
 export type DesktopNavAccessContext = {
@@ -63,23 +65,20 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Marketplace" },
     { view: "Ringtone Marketplace" },
     { view: "My Purchased Ringtones" },
-    { view: "Sales", requiresCreator: true },
-    { view: "License History" },
-    { view: "Trending" },
-    { view: "Beats" },
-    { view: "Artists" },
-    { view: "Videos" },
+    { view: "Favorite Ringtones" },
     { view: "Library" },
     { view: "Liked" },
     { view: "Following" },
     { view: "Playlists" },
+    { view: "Recently Played" },
+    { view: "Queue" },
+    { view: "Profile" },
+    { view: "Notifications" },
+    { view: "Sales", requiresCreator: true },
     { view: "Artist Dashboard", requiresArtistDashboard: true },
     { view: "Producer Dashboard", requiresProducerDashboard: true },
     { view: "My Ringtones", requiresRingtoneCreator: true },
     { view: "Platform Control Center", requiresOwner: true },
-    { view: "Recently Played" },
-    { view: "Queue" },
-    { view: "Profile" },
 ];
 
 export function resolveDesktopNavCapabilities(context: DesktopNavAccessContext): NavCapabilityFlags {
