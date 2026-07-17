@@ -453,12 +453,10 @@ type DeepStringMap<T> = {
 export type TranslationMessages = DeepStringMap<typeof enMessages>;
 
 /**
- * Non-English dictionaries may omit Phase 1 ringtone foundation keys.
- * Runtime translation falls back to English for any missing ringtone.* path.
+ * Phase 5: every supported locale must include full ringtone key parity.
+ * Runtime still has a defensive English fallback, but locale files must not rely on it.
  */
-export type LocaleMessageDictionary = Omit<TranslationMessages, "ringtones"> & {
-    ringtones?: TranslationMessages["ringtones"];
-};
+export type LocaleMessageDictionary = TranslationMessages;
 
 type NestedKeyOf<T, Prefix extends string = ""> = T extends string
     ? Prefix extends "" ? never : Prefix

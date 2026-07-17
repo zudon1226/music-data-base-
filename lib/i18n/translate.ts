@@ -125,7 +125,7 @@ export function getMessagesForLocale(locale: string): TranslationMessages {
         const localeMessages = completeMessages[normalized];
         return {
             ...localeMessages,
-            ringtones: localeMessages.ringtones || enMessages.ringtones,
+            ringtones: localeMessages.ringtones ?? enMessages.ringtones,
         };
     }
     return enMessages;
