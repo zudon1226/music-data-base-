@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "verify:desktop": "node scripts/verify-desktop-regression-lock.mjs"
+    "verify:desktop": "node scripts/verify-desktop-regression-lock.mjs",
+    "verify:ui": "node scripts/verify-ui-polish.mjs",
+    "verify:nav": "node scripts/verify-navigation-scroll.mjs"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.15.0",

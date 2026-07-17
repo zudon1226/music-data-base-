@@ -95,6 +95,8 @@ const REQUIRED_DESKTOP_MODULES = [
   "lib/desktop-content-scroll.ts",
   "lib/navigation-scroll.ts",
   "lib/app-header-offset.ts",
+  "lib/ui/app-ui-shell.ts",
+  "components/destination-page-heading.tsx",
   "components/desktop-content-scroll-root.tsx",
   "components/desktop-app-sidebar-nav.tsx",
   "lib/desktop-video-upload-runner.ts",
@@ -374,6 +376,9 @@ assertIncludes(headerOffset, "measureAppHeaderOffset", "app-header-offset.ts liv
 assertIncludes(headerOffset, "measureLiveHeaderClearance", "app-header-offset.ts live clearance");
 assertIncludes(headerOffset, "margin-bottom", "app-header-offset.ts topbar layout breathing");
 assertIncludes(read("app/page.tsx"), "scroll-padding-top: var(--app-header-offset", "page.tsx mobile scroll-padding uses header offset");
+assertIncludes(read("lib/ui/app-ui-shell.ts"), "--ui-touch-min: 44px", "app-ui-shell.ts touch targets");
+assertIncludes(read("components/desktop-content-scroll-root.tsx"), "APP_UI_SHELL_CSS", "scroll root injects UI shell CSS");
+assertIncludes(read("app/page.tsx"), "DestinationPageHeading", "page uses DestinationPageHeading");
 
 // --- page.tsx wiring invariants ---
 const page = read("app/page.tsx");

@@ -3,6 +3,7 @@
 import { useLayoutEffect, type ReactNode } from "react";
 import { APP_HEADER_OFFSET_CSS, syncAppHeaderOffset } from "../lib/app-header-offset";
 import { DESKTOP_CONTENT_SCROLL_CSS } from "../lib/desktop-content-scroll";
+import { APP_UI_SHELL_CSS } from "../lib/ui/app-ui-shell";
 
 type DesktopContentScrollRootProps = {
     children: ReactNode;
@@ -47,6 +48,10 @@ export function DesktopContentScrollRoot({
             <style
                 data-app-header-offset-css=""
                 dangerouslySetInnerHTML={{ __html: APP_HEADER_OFFSET_CSS }}
+            />
+            <style
+                data-app-ui-shell=""
+                dangerouslySetInnerHTML={{ __html: APP_UI_SHELL_CSS }}
             />
             <section
                 className={`content desktop-content-scroll-root ${className}`.trim()}

@@ -29,6 +29,7 @@ import {
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
+import { DestinationPageHeading } from "../components/destination-page-heading";
 import {
     buildActiveNavigationKey,
     disableBrowserScrollRestoration,
@@ -16036,27 +16037,28 @@ function PageContent() {
             </section>
           </>)}
 
-        <section className="section-heading" data-nav-destination="heading">
-          <div>
-            <h2 data-page-heading tabIndex={-1}>{pageTitle()}</h2>
-            <p>{pageSubtitle()}</p>
-          </div>
+        <DestinationPageHeading
+          title={pageTitle()}
+          subtitle={pageSubtitle()}
+          actions={(
+            <>
+              {showGlobalSearchHeading(view, search) && (<div className="dashboard-nav-row" role="navigation" aria-label="Dashboard shortcuts">
+                  <button onClick={() => handleNav("Artist Dashboard")} type="button">
+                    <BarChart3 size={16}/>
+                    Artist Dashboard
+                  </button>
+                  <button onClick={() => handleNav("Producer Dashboard")} type="button">
+                    <Disc3 size={16}/>
+                    Producer Dashboard
+                  </button>
+                </div>)}
 
-          {showGlobalSearchHeading(view, search) && (<div className="dashboard-nav-row" role="navigation" aria-label="Dashboard shortcuts">
-              <button onClick={() => handleNav("Artist Dashboard")} type="button">
-                <BarChart3 size={16}/>
-                Artist Dashboard
-              </button>
-              <button onClick={() => handleNav("Producer Dashboard")} type="button">
-                <Disc3 size={16}/>
-                Producer Dashboard
-              </button>
-            </div>)}
-
-          {view === "Recently Played" && recentlyPlayed.length > 0 && !search.trim() && (<button className="clear-recent" onClick={clearRecentlyPlayed}>
-              Clear Recently Played
-            </button>)}
-        </section>
+              {view === "Recently Played" && recentlyPlayed.length > 0 && !search.trim() && (<button className="clear-recent" onClick={clearRecentlyPlayed} type="button">
+                  Clear Recently Played
+                </button>)}
+            </>
+          )}
+        />
 
         {view === "My Ringtones" ? (
           <RingtoneCreatorWorkspace
@@ -16101,7 +16103,7 @@ function PageContent() {
             <section className="sales-hero">
               <div>
                 <span className="section-kicker">Phase 5C Sales</span>
-                <h2>Shopping cart, purchase history, and download vault.</h2>
+                <p className="destination-hero-lead">Shopping cart, purchase history, and download vault.</p>
                 <p>Buy songs, albums, and producer beats from the marketplace. Checkout is ready for payment gateway connection.</p>
               </div>
               <div className="sales-hero-stats">
@@ -16186,7 +16188,7 @@ function PageContent() {
             <section className="license-history-hero">
               <div>
                 <span className="section-kicker">Phase 5B Licensing</span>
-                <h2>Beat license history and PDF records.</h2>
+                <p className="destination-hero-lead">Beat license history and PDF records.</p>
                 <p>Generated licenses stay here for review, checkout connection, and repeat downloads.</p>
               </div>
               <div className="license-history-stats">
@@ -16217,7 +16219,7 @@ function PageContent() {
             <section className="marketplace-hero">
               <div>
                 <span className="section-kicker">Music Marketplace</span>
-                <h2>Discover releases, stores, charts, and creator catalogs.</h2>
+                <p className="destination-hero-lead">Discover releases, stores, charts, and creator catalogs.</p>
                 <p>{marketplaceReleases.length} marketplace items across songs, videos, albums, and producer beats.</p>
               </div>
               <div className="marketplace-hero-stats">
@@ -22284,10 +22286,12 @@ function PageContent() {
             align-items: end;
           }
 
-          .marketplace-hero h2 {
+          .marketplace-hero h2,
+          .marketplace-hero .destination-hero-lead {
             margin: 4px 0 8px;
-            font-size: clamp(28px, 4vw, 52px);
-            line-height: 1;
+            font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+            line-height: 1.3;
+            font-weight: 650;
           }
 
           .marketplace-hero p {
@@ -22826,17 +22830,26 @@ function PageContent() {
           }
 
           .sales-hero h2,
-          .license-history-hero h2 {
+          .license-history-hero h2,
+          .sales-hero .destination-hero-lead,
+          .license-history-hero .destination-hero-lead {
             margin: 4px 0 8px;
-            font-size: clamp(26px, 4vw, 46px);
-            line-height: 1;
+            font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+            line-height: 1.3;
+            font-weight: 650;
           }
 
           .sales-hero p,
           .license-history-hero p {
             margin: 0;
             color: #c8f5ff;
-            font-weight: 800;
+            font-weight: 600;
+          }
+
+          .sales-hero .destination-hero-lead,
+          .license-history-hero .destination-hero-lead {
+            color: #e8f4ff;
+            font-weight: 650;
           }
 
           .sales-hero-stats,
@@ -26411,7 +26424,7 @@ function PageContent() {
             .global-video-player {
               gap: 10px;
               margin-top: 14px;
-              scroll-margin-top: 132px;
+              scroll-margin-top: var(--app-header-offset, 0px);
               padding: 10px;
               overflow: hidden;
             }
@@ -31010,7 +31023,7 @@ function PageContent() {
               margin-top: 0 !important;
               padding-top: 0 !important;
               top: 0 !important;
-              transform: translateY(-8px) !important;
+              transform: none !important;
             }
 
             .content > section,
