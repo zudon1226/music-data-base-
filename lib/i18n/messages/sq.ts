@@ -346,6 +346,16 @@ export const sqMessages: LocaleMessageDictionary = {
             uploadSong: "Ngarko këngë",
             uploadVideo: "Ngarko video",
             uploadAlbum: "Ngarko album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Ngarkimet janë çaktivizuar përkohësisht ndërsa Music Data Base është në ndërtim."
         },
     artistDashboard: {

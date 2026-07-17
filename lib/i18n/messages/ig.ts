@@ -346,6 +346,16 @@ export const igMessages: LocaleMessageDictionary = {
             uploadSong: "Bulite Egwu",
             uploadVideo: "Bulite Vidiyo",
             uploadAlbum: "Bulite Albọm",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Agbanyụrụ mbulite nwa oge ka e na-ewu Music Data Base."
         },
     artistDashboard: {

@@ -346,6 +346,16 @@ export const zuMessages: LocaleMessageDictionary = {
             uploadSong: "Layisha Ingoma",
             uploadVideo: "Layisha Ividiyo",
             uploadAlbum: "Layisha I-albhamu",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Ukulayisha kukhutshaziwe okwesikhashana ngenkathi i-Music Data Base yakhiwa."
         },
     artistDashboard: {

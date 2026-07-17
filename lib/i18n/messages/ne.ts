@@ -346,6 +346,16 @@ export const neMessages: LocaleMessageDictionary = {
             uploadSong: "गीत अपलोड गर्नुहोस्",
             uploadVideo: "भिडियो अपलोड गर्नुहोस्",
             uploadAlbum: "एल्बम अपलोड गर्नुहोस्",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base निर्माणाधीन हुँदा अपलोड अस्थायी रूपमा अक्षम छन्।"
         },
     artistDashboard: {

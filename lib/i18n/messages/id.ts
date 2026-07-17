@@ -346,6 +346,16 @@ export const idMessages: LocaleMessageDictionary = {
             uploadSong: "Unggah Lagu",
             uploadVideo: "Unggah Video",
             uploadAlbum: "Unggah Album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Unggahan dinonaktifkan sementara saat Music Data Base sedang dibangun."
         },
     artistDashboard: {

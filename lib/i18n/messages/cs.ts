@@ -346,6 +346,16 @@ export const csMessages: LocaleMessageDictionary = {
             uploadSong: "Nahrát skladbu",
             uploadVideo: "Nahrát video",
             uploadAlbum: "Nahrát album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Nahrávání je dočasně vypnuté, protože Music Data Base je ve výstavbě."
         },
     artistDashboard: {

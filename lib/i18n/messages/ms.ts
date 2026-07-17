@@ -346,6 +346,16 @@ export const msMessages: LocaleMessageDictionary = {
             uploadSong: "Muat Naik Lagu",
             uploadVideo: "Muat Naik Video",
             uploadAlbum: "Muat Naik Album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Muat naik dilumpuhkan sementara semasa Music Data Base sedang dibina."
         },
     artistDashboard: {

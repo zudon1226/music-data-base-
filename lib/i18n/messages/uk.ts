@@ -346,6 +346,16 @@ export const ukMessages: LocaleMessageDictionary = {
             uploadSong: "Завантажити пісню",
             uploadVideo: "Завантажити відео",
             uploadAlbum: "Завантажити альбом",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Завантаження тимчасово вимкнено, поки Music Data Base перебуває в розробці."
         },
     artistDashboard: {

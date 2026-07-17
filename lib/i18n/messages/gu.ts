@@ -346,6 +346,16 @@ export const guMessages: LocaleMessageDictionary = {
             uploadSong: "ગીત અપલોડ કરો",
             uploadVideo: "વીડિયો અપલોડ કરેં",
             uploadAlbum: "એલ્બમ અપલોડ કરેં",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base નિર્માણાધીન હોને કે દૌરાન અપલોડ અસ્થાયી રૂપ સે અક્ષમ હૈં૤"
         },
     artistDashboard: {

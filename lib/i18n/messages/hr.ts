@@ -346,6 +346,16 @@ export const hrMessages: LocaleMessageDictionary = {
             uploadSong: "Prenesi pjesmu",
             uploadVideo: "Prenesi video",
             uploadAlbum: "Prenesi album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Prijenosi su privremeno onemogućeni dok se Music Data Base gradi."
         },
     artistDashboard: {

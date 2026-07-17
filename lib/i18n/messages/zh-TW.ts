@@ -346,6 +346,16 @@ export const zhTWMessages: LocaleMessageDictionary = {
             uploadSong: "上傳歌曲",
             uploadVideo: "上傳影片",
             uploadAlbum: "上傳專輯",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base 建置期間，上傳功能暫時停用。"
         },
     artistDashboard: {

@@ -346,6 +346,16 @@ export const ptMessages: LocaleMessageDictionary = {
             uploadSong: "Enviar música",
             uploadVideo: "Enviar vídeo",
             uploadAlbum: "Enviar álbum",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Os envios estão temporariamente desativados enquanto o Music Data Base está em construção."
         },
     artistDashboard: {

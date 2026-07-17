@@ -346,6 +346,16 @@ export const filMessages: LocaleMessageDictionary = {
             uploadSong: "Mag-ikarga ng Kanta",
             uploadVideo: "Mag-ikarga ng Video",
             uploadAlbum: "Mag-ikarga ng Album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Pansamantalang hindi pinapagana ang mga pag-ikarga habang ginagawa ang Music Data Base."
         },
     artistDashboard: {

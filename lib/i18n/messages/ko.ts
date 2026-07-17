@@ -346,6 +346,16 @@ export const koMessages: LocaleMessageDictionary = {
             uploadSong: "곡 업로드",
             uploadVideo: "동영상 업로드",
             uploadAlbum: "앨범 업로드",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base 구축 중에는 업로드가 일시적으로 비활성화됩니다."
         },
     artistDashboard: {

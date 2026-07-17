@@ -55,6 +55,13 @@ import {
     type RingtonePreviewRequest,
 } from "../components/ringtone-creator/ringtone-creator-workspace";
 import { RingtoneMarketplaceWorkspace } from "../components/ringtone-marketplace/ringtone-marketplace-workspace";
+import { CreatorStudioUploadChrome } from "../components/studio/creator-studio-upload-chrome";
+import {
+    defaultUploadModeForStudio,
+    isBeatLikeUploadMode,
+    resolveCreatorStudio,
+    type CreatorStudioKind,
+} from "../lib/creator-studio";
 import {
     evaluateDesktopNavAccess,
     shouldShowArtistDashboardControl,
@@ -635,7 +642,7 @@ type LikedTab = "All" | "Songs" | "Videos";
 type LibraryTab = "Songs" | "Videos" | "Albums";
 type RecentTab = "Songs" | "Videos" | "Albums";
 type DisplayMode = "grid" | "list";
-type UploadMode = "song" | "video" | "beat" | "producerVideo" | "album" | "producerAlbum";
+type UploadMode = "song" | "video" | "beat" | "instrumental" | "producerVideo" | "album" | "producerAlbum";
 type MarketplaceContentFilter = "All" | "Songs" | "Videos" | "Albums" | "Beats";
 type MarketplacePriceFilter = "All Prices" | "Free" | "Paid" | "Premium";
 type MarketplaceFilters = {
@@ -3611,6 +3618,7 @@ function PageContent() {
     const [volume, setVolume] = useState(0.9);
     const [showUpload, setShowUpload] = useState(false);
     const [uploadMode, setUploadMode] = useState<UploadMode>("song");
+    const [creatorStudio, setCreatorStudio] = useState<CreatorStudioKind>("artist");
     const [hasLoaded, setHasLoaded] = useState(false);
     const [authSessionInitialized, setAuthSessionInitialized] = useState(false);
     const {
@@ -5375,7 +5383,7 @@ function PageContent() {
             void addUploadedVideo(retryEvent);
             return;
         }
-        if (uploadMode === "beat") {
+        if (isBeatLikeUploadMode(uploadMode)) {
             void addUploadedProducerBeat(retryEvent);
             return;
         }
@@ -11641,18 +11649,22 @@ function PageContent() {
             uploadGuardActive = beginUploadGuard(uploadGuardKey, "This song upload is already running.");
             if (!uploadGuardActive)
                 return;
+            let producerCreditId = uploadForm.producerId;
+            if (creatorStudio === "producer") {
+                const profile = currentProducerProfile.id ? currentProducerProfile : await saveProducerProfile();
+                producerCreditId = profile.id;
+            }
             const newSong = await uploadAudioToSupabase(selectedFile, {
                 title,
                 artist,
                 type: uploadForm.type,
                 cover: uploadForm.cover,
-                producerId: uploadForm.producerId,
+                producerId: producerCreditId,
             });
             const databaseSongs = await reloadSongLibraryFromSupabase();
             const savedSong = databaseSongs.find((song) => song.id === newSong.id) || newSong;
             saveToLibrary(savedSong);
             setCurrentSong(savedSong);
-            setView("Library");
             setShowUpload(false);
             setUploadForm({
                 title: "",
@@ -11663,6 +11675,12 @@ function PageContent() {
             });
             setUploadFile(null);
             setUploadStatus("");
+            if (creatorStudio === "producer") {
+                setView("Producer Dashboard");
+                showToast("Song uploaded to Producer Studio.", "success");
+            } else {
+                setView("Library");
+            }
         }
         catch (error) {
             const message = getStorageErrorMessage(error, "audio");
@@ -11840,10 +11858,14 @@ function PageContent() {
             showToast(uploadLockMessage, "info");
             return;
         }
+        const isInstrumental = uploadMode === "instrumental";
+        const productLabel = isInstrumental ? "instrumental" : "beat";
         const title = uploadForm.title.trim();
         const producerName = uploadForm.artist.trim() || currentProducerProfile.name;
         if (!title || !producerName) {
-            setUploadError("Add a beat title and producer name first.");
+            setUploadError(isInstrumental
+                ? "Add an instrumental title and producer name first."
+                : "Add a beat title and producer name first.");
             return;
         }
         const fileError = getAudioFileError(uploadFile);
@@ -11853,23 +11875,35 @@ function PageContent() {
         }
         setUploadBusy(true);
         setUploadProgress(1);
-        setUploadStatus("Starting beat upload...");
+        setUploadStatus(isInstrumental ? "Starting instrumental upload..." : "Starting beat upload...");
         let uploadGuardActive = false;
         let uploadGuardKey = "";
         try {
             if (!uploadFile) {
-                setUploadError("Choose an MP3, WAV, or M4A beat file.");
+                setUploadError(isInstrumental
+                    ? "Choose an MP3, WAV, or M4A instrumental file."
+                    : "Choose an MP3, WAV, or M4A beat file.");
                 return;
             }
-            uploadGuardKey = getUploadGuardKey("beat", title, [uploadFile]);
-            uploadGuardActive = beginUploadGuard(uploadGuardKey, "This beat upload is already running.");
+            uploadGuardKey = getUploadGuardKey(productLabel, title, [uploadFile]);
+            uploadGuardActive = beginUploadGuard(
+                uploadGuardKey,
+                isInstrumental
+                    ? "This instrumental upload is already running."
+                    : "This beat upload is already running.",
+            );
             if (!uploadGuardActive)
                 return;
             const profile = currentProducerProfile.id ? currentProducerProfile : await saveProducerProfile();
+            const category = isInstrumental
+                ? (uploadForm.type === "Instrumental" || BEAT_CATEGORIES.includes(uploadForm.type)
+                    ? (uploadForm.type || "Instrumental")
+                    : "Instrumental")
+                : uploadForm.type;
             const newSong = await uploadAudioToSupabase(uploadFile, {
                 title,
                 artist: producerName,
-                type: uploadForm.type,
+                type: category,
                 cover: uploadForm.cover,
                 producerId: profile.id,
             });
@@ -11877,18 +11911,24 @@ function PageContent() {
             await reloadSongLibraryFromSupabase();
             await reloadProducerDataFromSupabase();
             saveToLibrary({ ...newSong, producer: profile.name, producerId: profile.id, beatId: beat.id });
-            setUploadForm({ title: "", artist: "", type: "Beats", cover: "", producerId: "" });
+            setUploadForm({ title: "", artist: "", type: isInstrumental ? "Instrumental" : "Beats", cover: "", producerId: "" });
             setUploadFile(null);
             setUploadStatus("");
             setShowUpload(false);
+            setCreatorStudio("producer");
             setView("Producer Dashboard");
-            showToast("Beat uploaded to Producer Dashboard.", "success");
+            showToast(
+                isInstrumental
+                    ? "Instrumental uploaded to Producer Studio."
+                    : "Beat uploaded to Producer Studio.",
+                "success",
+            );
         }
         catch (error) {
             const message = getStorageErrorMessage(error, "audio");
             setUploadError(message);
             setUploadStatus("");
-            reportPlatformError("upload", "beat-upload", message, { title, producerName });
+            reportPlatformError("upload", `${productLabel}-upload`, message, { title, producerName });
         }
         finally {
             if (uploadGuardActive) {
@@ -14121,9 +14161,11 @@ function PageContent() {
     function applyDesktopView(nextView: View) {
         setView(nextView);
         if (nextView === "Artist Dashboard") {
+            setCreatorStudio("artist");
             setUploadMode("song");
         }
         if (nextView === "Producer Dashboard") {
+            setCreatorStudio("producer");
             setUploadMode("beat");
         }
         if (nextView === "Platform Control Center") {
@@ -14204,14 +14246,18 @@ function PageContent() {
         }
         const opening = !showUpload;
         if (opening) {
-            if (view === "Producer Dashboard")
-                setUploadMode("beat");
-            else if (view === "Artist Dashboard")
-                setUploadMode("song");
-            else if (view === "Videos")
+            const nextStudio = resolveCreatorStudio({
+                preferStudio: creatorStudio,
+                canArtistDashboard: shouldShowArtistDashboardControl(desktopNavAccess),
+                canProducerDashboard: shouldShowProducerDashboardControl(desktopNavAccess),
+                view,
+            });
+            setCreatorStudio(nextStudio);
+            if (view === "Videos" && nextStudio === "artist") {
                 setUploadMode("video");
-            else
-                setUploadMode(accountRole === "Producer" ? "beat" : "song");
+            } else {
+                setUploadMode(defaultUploadModeForStudio(nextStudio));
+            }
         }
         setShowUpload(opening ? true : false);
         if (opening) {
@@ -14220,9 +14266,28 @@ function PageContent() {
     }
     function selectUploadMode(nextMode: typeof uploadMode) {
         setUploadMode(nextMode);
+        if (nextMode === "instrumental") {
+            setUploadForm((previous) => ({ ...previous, type: "Instrumental" }));
+        } else if (nextMode === "beat") {
+            setUploadForm((previous) => ({ ...previous, type: previous.type === "Instrumental" ? "Beats" : previous.type || "Beats" }));
+        }
         if (showUpload) {
             scheduleNavigationScrollReset({ focusHeading: false, ensureUploadVisible: true });
         }
+    }
+    function switchCreatorStudio(nextStudio: CreatorStudioKind) {
+        setCreatorStudio(nextStudio);
+        setUploadMode(defaultUploadModeForStudio(nextStudio));
+        if (nextStudio === "artist" && view === "Producer Dashboard" && shouldShowArtistDashboardControl(desktopNavAccess)) {
+            setView("Artist Dashboard");
+        }
+        if (nextStudio === "producer" && view === "Artist Dashboard" && shouldShowProducerDashboardControl(desktopNavAccess)) {
+            setView("Producer Dashboard");
+        }
+        if (!showUpload) {
+            setShowUpload(true);
+        }
+        scheduleNavigationScrollReset({ focusHeading: false, ensureUploadVisible: true });
     }
     function pageTitle() {
         return translatePageTitle(view, t, {
@@ -15971,38 +16036,21 @@ function PageContent() {
 
         {renderSharedVideoPlayer()}
 
-        {showUpload && shouldShowUploadControl(desktopNavAccess) && !uploadsBlockedForCurrentUser && (<section className="upload-shell" data-nav-destination="upload">
-            {(view === "Artist Dashboard" || view === "Producer Dashboard") && (<div className="upload-mode-tabs" role="tablist" aria-label="Dashboard upload type">
-                {view === "Producer Dashboard" ? (<>
-                    <button className={uploadMode === "beat" ? "active" : ""} onClick={() => selectUploadMode("beat")} type="button">
-                      Upload Beat
-                    </button>
-                    <button className={uploadMode === "producerVideo" ? "active" : ""} onClick={() => selectUploadMode("producerVideo")} type="button">
-                      Upload Producer Video
-                    </button>
-                    <button className={uploadMode === "producerAlbum" ? "active" : ""} onClick={() => selectUploadMode("producerAlbum")} type="button">
-                      Upload Album
-                    </button>
-                  </>) : (<>
-                    <button className={uploadMode === "song" ? "active" : ""} onClick={() => selectUploadMode("song")} type="button">
-                      Upload Song
-                    </button>
-                    <button className={uploadMode === "video" ? "active" : ""} onClick={() => selectUploadMode("video")} type="button">
-                      Upload Video
-                    </button>
-                    <button className={uploadMode === "album" ? "active" : ""} onClick={() => selectUploadMode("album")} type="button">
-                      Upload Album
-                    </button>
-                  </>)}
-              </div>)}
+        {showUpload && shouldShowUploadControl(desktopNavAccess) && !uploadsBlockedForCurrentUser && (<section className="upload-shell" data-nav-destination="upload" data-creator-studio={creatorStudio}>
+            <CreatorStudioUploadChrome
+              studio={creatorStudio}
+              canArtistStudio={shouldShowArtistDashboardControl(desktopNavAccess)}
+              canProducerStudio={shouldShowProducerDashboardControl(desktopNavAccess)}
+              activeMode={uploadMode}
+              brandLogo={BRAND_LOGO}
+              onStudioChange={switchCreatorStudio}
+              onSelectMode={selectUploadMode}
+            />
 
             {uploadMode === "album" || uploadMode === "producerAlbum" ? (<form className="upload-card album-upload-card" onSubmit={addUploadedAlbum}>
-                <div className="upload-brand">
-                  <img src={BRAND_LOGO} alt="Music Data Base"/>
-                  <div>
-                    <h2>{uploadMode === "producerAlbum" ? "Upload Producer Album" : "Upload Album"}</h2>
-                    <span>{BRAND_TAGLINE}</span>
-                  </div>
+                <div className="upload-mode-heading">
+                  <h3>{uploadMode === "producerAlbum" ? t("upload.uploadProducerAlbum") : t("upload.uploadAlbum")}</h3>
+                  <p>{creatorStudio === "producer" ? t("upload.producerStudioSubtitle") : t("upload.artistStudioSubtitle")}</p>
                 </div>
 
                 <div className="upload-grid">
@@ -16082,12 +16130,9 @@ function PageContent() {
                   {albumUploadBusy ? "Uploading..." : "Save Album"}
                 </button>
               </form>) : uploadMode === "video" || uploadMode === "producerVideo" ? (<form className="video-upload-card" onSubmit={addUploadedVideo}>
-                <div className="upload-brand">
-                  <img src={BRAND_LOGO} alt="Music Data Base"/>
-                  <div>
-                    <h3>{uploadMode === "producerVideo" ? "Upload Producer Video" : "Upload Video"}</h3>
-                    <span>{BRAND_TAGLINE}</span>
-                  </div>
+                <div className="upload-mode-heading">
+                  <h3>{uploadMode === "producerVideo" ? t("upload.uploadProducerVideo") : t("upload.uploadVideo")}</h3>
+                  <p>{creatorStudio === "producer" ? "Production video metadata and credits." : "Artist release video metadata."}</p>
                 </div>
 
                 <p className="video-upload-codec-guidance">{VIDEO_UPLOAD_CODEC_GUIDANCE}</p>
@@ -16095,7 +16140,7 @@ function PageContent() {
                 <div className="video-form-grid">
                   <input name="dashboardVideoTitle" value={videoForm.title} onChange={(event) => setVideoForm({ ...videoForm, title: event.target.value })} placeholder="Video title"/>
 
-                  <input name="dashboardVideoCreator" value={videoForm.creator} onChange={(event) => setVideoForm({ ...videoForm, creator: event.target.value })} placeholder={uploadMode === "producerVideo" ? "Producer name" : "Creator name"}/>
+                  <input name="dashboardVideoCreator" value={videoForm.creator} onChange={(event) => setVideoForm({ ...videoForm, creator: event.target.value })} placeholder={uploadMode === "producerVideo" || creatorStudio === "producer" ? "Producer name" : "Creator name"}/>
 
                   <select name="dashboardVideoCategory" value={videoForm.category} onChange={(event) => setVideoForm({ ...videoForm, category: event.target.value })}>
                     <option>Music Video</option>
@@ -16108,7 +16153,7 @@ function PageContent() {
 
                   <input name="dashboardVideoCover" value={videoForm.cover} onChange={(event) => setVideoForm({ ...videoForm, cover: event.target.value })} placeholder="Cover image URL"/>
 
-                  {uploadMode !== "producerVideo" && (<label className="producer-select-field">
+                  {uploadMode !== "producerVideo" && creatorStudio !== "producer" && (<label className="producer-select-field">
                       <span>Producer credit</span>
                       <select name="dashboardVideoProducer" value={videoForm.producerId} onChange={(event) => setVideoForm({ ...videoForm, producerId: event.target.value })}>
                         <option value="">No producer assigned.</option>
@@ -16151,31 +16196,62 @@ function PageContent() {
                   </div>)}
 
                 <button className="save-upload" type="submit" disabled={videoUploadBusy}>
-                  {videoUploadBusy ? "Uploading..." : uploadMode === "producerVideo" ? "Save Producer Video" : "Save Video"}
+                  {videoUploadBusy ? "Uploading..." : uploadMode === "producerVideo" || creatorStudio === "producer" ? "Save Production Video" : "Save Video"}
                 </button>
-              </form>) : (<form className="upload-card" onSubmit={uploadMode === "beat" ? addUploadedProducerBeat : addUploadedSong}>
-            <div className="upload-brand">
-              <img src={BRAND_LOGO} alt="Music Data Base"/>
-              <div>
-                <h2>{uploadMode === "beat" ? "Upload Beat" : "Upload Song"}</h2>
-                <span>{BRAND_TAGLINE}</span>
-              </div>
+              </form>) : (<form className="upload-card" onSubmit={isBeatLikeUploadMode(uploadMode) ? addUploadedProducerBeat : addUploadedSong}>
+            <div className="upload-mode-heading">
+              <h3>
+                {uploadMode === "beat"
+                    ? t("upload.uploadBeat")
+                    : uploadMode === "instrumental"
+                        ? t("upload.uploadInstrumental")
+                        : t("upload.uploadSong")}
+              </h3>
+              <p>
+                {isBeatLikeUploadMode(uploadMode)
+                    ? "Assign licensing and production metadata for your producer catalog."
+                    : creatorStudio === "producer"
+                        ? "Upload a song from Producer Studio. Your producer credit is applied automatically."
+                        : "Artist release metadata and optional producer credit."}
+              </p>
             </div>
 
             <div className="upload-grid">
-              <input name="songTitle" value={uploadForm.title} onChange={(event) => setUploadForm({ ...uploadForm, title: event.target.value })} placeholder={uploadMode === "beat" ? "Beat title" : "Song title"}/>
+              <input
+                name="songTitle"
+                value={uploadForm.title}
+                onChange={(event) => setUploadForm({ ...uploadForm, title: event.target.value })}
+                placeholder={
+                    uploadMode === "beat"
+                        ? "Beat title"
+                        : uploadMode === "instrumental"
+                            ? "Instrumental title"
+                            : "Song title"
+                }
+              />
 
-              <input name="songArtist" value={uploadForm.artist} onChange={(event) => setUploadForm({ ...uploadForm, artist: event.target.value })} placeholder={uploadMode === "beat" ? "Producer name" : "Artist name"}/>
+              <input
+                name="songArtist"
+                value={uploadForm.artist}
+                onChange={(event) => setUploadForm({ ...uploadForm, artist: event.target.value })}
+                placeholder={
+                    isBeatLikeUploadMode(uploadMode)
+                        ? "Producer name"
+                        : creatorStudio === "producer"
+                            ? "Featured artist name"
+                            : "Artist name"
+                }
+              />
 
               <select name="songType" value={uploadForm.type} onChange={(event) => setUploadForm({ ...uploadForm, type: event.target.value })}>
-                {(uploadMode === "beat"
+                {(isBeatLikeUploadMode(uploadMode)
                     ? BEAT_CATEGORIES
                     : ["Beats", "Artists", "Producers", ...BEAT_CATEGORIES.filter((category) => category !== "Beats")]).map((category) => (<option key={category}>{category}</option>))}
               </select>
 
               <input name="songCover" value={uploadForm.cover} onChange={(event) => setUploadForm({ ...uploadForm, cover: event.target.value })} placeholder="Cover image URL"/>
 
-              {uploadMode !== "beat" && (<label className="producer-select-field">
+              {!isBeatLikeUploadMode(uploadMode) && creatorStudio !== "producer" && (<label className="producer-select-field">
                   <span>Producer credit</span>
                   <select name="songProducer" value={uploadForm.producerId} onChange={(event) => setUploadForm({ ...uploadForm, producerId: event.target.value })}>
                     <option value="">No producer assigned.</option>
@@ -16185,8 +16261,20 @@ function PageContent() {
                   </select>
                 </label>)}
 
+              {!isBeatLikeUploadMode(uploadMode) && creatorStudio === "producer" ? (
+                <p className="producer-credit-note wide">
+                  Producer credit: {currentProducerProfile.name || "Your producer profile"}
+                </p>
+              ) : null}
+
               <label className="audio-file-field wide">
-                <span>{uploadMode === "beat" ? "Beat file" : "Audio file"}</span>
+                <span>
+                  {uploadMode === "beat"
+                      ? "Beat file"
+                      : uploadMode === "instrumental"
+                          ? "Instrumental file"
+                          : "Audio file"}
+                </span>
                 <input name="audioFile" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/x-m4a" onChange={(event) => {
                     const file = event.target.files?.[0] || null;
                     setUploadFile(file);
@@ -16197,7 +16285,7 @@ function PageContent() {
                 <small>{uploadFile ? `${uploadFile.name} (${formatFileSize(uploadFile.size)})` : "MP3, WAV, or M4A"}</small>
               </label>
 
-              {uploadMode === "beat" && (<>
+              {isBeatLikeUploadMode(uploadMode) && (<>
                   <select name="producerLicense" value={producerLicense} onChange={(event) => setProducerLicense(event.target.value as BeatLicense)}>
                     <option>Free</option>
                     <option>Lease</option>
@@ -16235,7 +16323,13 @@ function PageContent() {
               </div>)}
 
             <button className="save-upload" type="submit" disabled={uploadBusy}>
-              {uploadBusy ? "Uploading..." : uploadMode === "beat" ? "Save Beat" : "Save Song"}
+              {uploadBusy
+                  ? "Uploading..."
+                  : uploadMode === "beat"
+                      ? "Save Beat"
+                      : uploadMode === "instrumental"
+                          ? "Save Instrumental"
+                          : "Save Song"}
             </button>
           </form>)}
           </section>)}
@@ -17669,7 +17763,8 @@ function PageContent() {
               <img src={BRAND_LOGO} alt="Music Data Base"/>
               <div>
                 <span>{BRAND_TAGLINE}</span>
-                <h2>Producer Dashboard</h2>
+                <h2>{t("upload.producerStudio")}</h2>
+                <p className="creator-studio-subtitle">{t("producerDashboard.pageSubtitle")}</p>
               </div>
             </div>
 
@@ -17949,7 +18044,8 @@ function PageContent() {
               <img src={BRAND_LOGO} alt="Music Data Base"/>
               <div>
                 <span>{BRAND_TAGLINE}</span>
-                <h2>Artist Dashboard</h2>
+                <h2>{t("upload.artistStudio")}</h2>
+                <p className="creator-studio-subtitle">{t("artistDashboard.pageSubtitle")}</p>
               </div>
             </div>
 
@@ -20557,6 +20653,7 @@ function PageContent() {
             display: grid;
             gap: 12px;
             margin-bottom: 16px;
+            padding-bottom: calc(var(--mobile-player-reserve, 110px) + 12px);
             scroll-margin-top: var(--app-header-offset, 0px);
           }
 
@@ -20565,19 +20662,80 @@ function PageContent() {
             margin-bottom: 0;
           }
 
+          .creator-studio-chrome {
+            display: grid;
+            gap: 12px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 10px;
+            background: linear-gradient(180deg, #0b1736 0%, #071631 100%);
+            padding: 14px;
+          }
+
+          .creator-studio-chrome-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+
+          .creator-studio-chrome-brand img {
+            width: 56px;
+            height: 56px;
+            border-radius: 8px;
+            object-fit: contain;
+            background: #020617;
+            border: 1px solid rgba(251, 191, 36, 0.28);
+          }
+
+          .creator-studio-kicker {
+            margin: 0;
+            color: #fbbf24;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+          }
+
+          .creator-studio-chrome h2,
+          .upload-mode-heading h3 {
+            margin: 0;
+            color: #e8f7ff;
+          }
+
+          .creator-studio-subtitle,
+          .upload-mode-heading p,
+          .producer-credit-note {
+            margin: 4px 0 0;
+            color: #9ec9e6;
+            font-size: 13px;
+            line-height: 1.4;
+          }
+
+          .creator-studio-switcher,
           .upload-mode-tabs {
             display: flex;
             align-items: center;
             gap: 10px;
             flex-wrap: wrap;
+          }
+
+          .creator-studio-switcher {
+            border: 1px solid rgba(251, 191, 36, 0.35);
+            border-radius: 8px;
+            background: #08122b;
+            padding: 8px;
+          }
+
+          .upload-mode-tabs {
             border: 1px solid rgba(0, 212, 255, 0.28);
             border-radius: 8px;
             background: #071631;
             padding: 10px;
           }
 
+          .creator-studio-switcher button,
           .upload-mode-tabs button {
-            min-height: 38px;
+            min-height: 44px;
+            min-width: 44px;
             border: 0;
             border-radius: 8px;
             background: #152d66;
@@ -20586,12 +20744,33 @@ function PageContent() {
             font-weight: 900;
             padding: 0 16px;
             white-space: nowrap;
+            cursor: pointer;
           }
 
+          .creator-studio-switcher button.active,
+          .creator-studio-switcher button:hover,
           .upload-mode-tabs button.active,
           .upload-mode-tabs button:hover {
             background: #22d3ee;
             color: #020617;
+          }
+
+          .upload-mode-heading {
+            margin-bottom: 12px;
+          }
+
+          @media (max-width: 820px) {
+            .creator-studio-switcher,
+            .upload-mode-tabs {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+            }
+
+            .creator-studio-switcher button,
+            .upload-mode-tabs button {
+              width: 100%;
+              justify-content: center;
+            }
           }
 
           .upload-card h2,

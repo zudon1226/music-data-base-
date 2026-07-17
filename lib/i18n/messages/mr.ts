@@ -346,6 +346,16 @@ export const mrMessages: LocaleMessageDictionary = {
             uploadSong: "गाणे अपलोड करा",
             uploadVideo: "व्हिडिओ अपलोड करा",
             uploadAlbum: "अल्बम अपलोड करा",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base बांधकामाधीन असताना अपलोड तात्पुरते अक्षम आहेत."
         },
     artistDashboard: {

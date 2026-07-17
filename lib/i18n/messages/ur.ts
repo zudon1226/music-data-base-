@@ -346,6 +346,16 @@ export const urMessages: LocaleMessageDictionary = {
             uploadSong: "گانا اپ لوڈ کریں",
             uploadVideo: "ویڈیو اپ لوڈ کریں",
             uploadAlbum: "البم اپ لوڈ کریں",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base کی تعمیر کے دوران اپ لوڈ عارضی طور پر غیر فعال ہیں۔"
         },
     artistDashboard: {

@@ -346,6 +346,16 @@ export const hiMessages: LocaleMessageDictionary = {
             uploadSong: "गाना अपलोड करें",
             uploadVideo: "वीडियो अपलोड करें",
             uploadAlbum: "एल्बम अपलोड करें",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base निर्माणाधीन होने के दौरान अपलोड अस्थायी रूप से अक्षम हैं।"
         },
     artistDashboard: {

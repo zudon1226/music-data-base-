@@ -346,6 +346,16 @@ export const elMessages: LocaleMessageDictionary = {
             uploadSong: "Μεταφόρτωση τραγουδιού",
             uploadVideo: "Μεταφόρτωση βίντεο",
             uploadAlbum: "Μεταφόρτωση άλμπουμ",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Οι μεταφορτώσεις είναι προσωρινά απενεργοποιημένες ενώ το Music Data Base βρίσκεται υπό κατασκευή."
         },
     artistDashboard: {

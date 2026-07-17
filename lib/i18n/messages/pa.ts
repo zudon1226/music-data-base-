@@ -346,6 +346,16 @@ export const paMessages: LocaleMessageDictionary = {
             uploadSong: "ਗੀਤ ਅੱਪਲੋਡ ਕਰੋ",
             uploadVideo: "ਵੀਡਿਯੋ ਅਪਲੋਡ ਕਰੇਂ",
             uploadAlbum: "ਏਲ੍ਬਮ ਅਪਲੋਡ ਕਰੇਂ",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base ਨਿਰ੍ਮਾਣਾਧੀਨ ਹੋਨੇ ਕੇ ਦੌਰਾਨ ਅਪਲੋਡ ਅਸ੍ਥਾਯੀ ਰੂਪ ਸੇ ਅਕ੍਷ਮ ਹੈਂ੤"
         },
     artistDashboard: {

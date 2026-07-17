@@ -346,6 +346,16 @@ export const taMessages: LocaleMessageDictionary = {
             uploadSong: "பாடலைப் பதிவேற்று",
             uploadVideo: "வீடியோவைப் பதிவேற்று",
             uploadAlbum: "ஆல்பத்தைப் பதிவேற்று",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base கட்டுமானத்தில் இருக்கும்போது பதிவேற்றங்கள் தற்காலிகமாக முடக்கப்பட்டுள்ளன."
         },
     artistDashboard: {

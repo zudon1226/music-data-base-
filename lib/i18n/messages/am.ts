@@ -346,6 +346,16 @@ export const amMessages: LocaleMessageDictionary = {
             uploadSong: "መዝሙር ይስቀሉ",
             uploadVideo: "ቪዲዮ ይስቀሉ",
             uploadAlbum: "አልበም ይስቀሉ",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Uploads ለጊዜው የአካል ጉዳተኞች ሲሆኑ_TOK0__ በግንባታ ላይ ነው ።"
         },
     artistDashboard: {

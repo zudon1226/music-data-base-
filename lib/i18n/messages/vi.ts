@@ -346,6 +346,16 @@ export const viMessages: LocaleMessageDictionary = {
             uploadSong: "Tải lên bài hát",
             uploadVideo: "Tải lên video",
             uploadAlbum: "Tải lên album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Tải lên tạm thời bị tắt trong khi Music Data Base đang xây dựng."
         },
     artistDashboard: {

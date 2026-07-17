@@ -346,6 +346,16 @@ export const bnMessages: LocaleMessageDictionary = {
             uploadSong: "গান আপলোড করুন",
             uploadVideo: "ভিডিও আপলোড করুন",
             uploadAlbum: "অ্যালবাম আপলোড করুন",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base নির্মাণাধীন থাকায় আপলোড সাময়িকভাবে নিষ্ক্রিয়।"
         },
     artistDashboard: {

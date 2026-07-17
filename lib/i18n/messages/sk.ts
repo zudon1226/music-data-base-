@@ -346,6 +346,16 @@ export const skMessages: LocaleMessageDictionary = {
             uploadSong: "Nahrať skladbu",
             uploadVideo: "Nahrať video",
             uploadAlbum: "Nahrať album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Nahrávanie je dočasne vypnuté, kým sa Music Data Base buduje."
         },
     artistDashboard: {

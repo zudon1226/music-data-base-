@@ -346,6 +346,16 @@ export const fiMessages: LocaleMessageDictionary = {
             uploadSong: "Lataa kappale",
             uploadVideo: "Lataa video",
             uploadAlbum: "Lataa albumi",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Lataukset on tilapäisesti poistettu käytöstä, kun Music Data Base on rakenteilla."
         },
     artistDashboard: {

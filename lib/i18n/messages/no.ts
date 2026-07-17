@@ -346,6 +346,16 @@ export const noMessages: LocaleMessageDictionary = {
             uploadSong: "Last opp sang",
             uploadVideo: "Last opp video",
             uploadAlbum: "Last opp album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Opplastinger er midlertidig deaktivert mens Music Data Base er under bygging."
         },
     artistDashboard: {

@@ -159,6 +159,21 @@ record("purchased empty has marketplace CTA only", marketUi.includes("ringtone-p
     && marketUi.includes("onBrowseMarketplace")
     && !/purchasedEmpty[\s\S]{0,200}ringtone-market-grid/.test(marketUi));
 
+const studioLib = read("lib/creator-studio.ts");
+const studioChrome = read("components/studio/creator-studio-upload-chrome.tsx");
+const en = read("lib/i18n/messages/en.ts");
+record("creator studio helper present", studioLib.includes("PRODUCER_STUDIO_UPLOAD_MODES") && studioLib.includes("instrumental"));
+record("producer studio includes song + beat + instrumental", studioLib.includes('mode: "song"')
+    && studioLib.includes('mode: "beat"')
+    && studioLib.includes('mode: "instrumental"'));
+record("upload chrome wires studio switcher", studioChrome.includes("creator-studio-switcher")
+    && studioChrome.includes("upload.producerStudio")
+    && studioChrome.includes("upload.artistStudio"));
+record("page uses CreatorStudioUploadChrome", page.includes("CreatorStudioUploadChrome")
+    && page.includes("switchCreatorStudio")
+    && page.includes('uploadMode === "instrumental"'));
+record("studio copy present", en.includes("producerStudio:") && en.includes("uploadInstrumental:") && en.includes("artistStudio:"));
+
 const listenerCaps = resolveNavCapabilities({ primaryRole: "listener" });
 const artistCaps = resolveNavCapabilities({ primaryRole: "artist" });
 const producerCaps = resolveNavCapabilities({ primaryRole: "producer" });

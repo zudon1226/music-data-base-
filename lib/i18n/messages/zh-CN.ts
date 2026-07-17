@@ -346,6 +346,16 @@ export const zhCNMessages: LocaleMessageDictionary = {
             uploadSong: "上传歌曲",
             uploadVideo: "上传视频",
             uploadAlbum: "上传专辑",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base 建设期间，上传功能暂时禁用。"
         },
     artistDashboard: {

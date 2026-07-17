@@ -346,6 +346,16 @@ export const bsMessages: LocaleMessageDictionary = {
             uploadSong: "Otpremi pjesmu",
             uploadVideo: "Otpremi video",
             uploadAlbum: "Otpremi album",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Otpremanja su privremeno onemogućena dok se Music Data Base gradi."
         },
     artistDashboard: {

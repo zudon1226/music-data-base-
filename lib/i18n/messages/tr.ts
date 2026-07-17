@@ -346,6 +346,16 @@ export const trMessages: LocaleMessageDictionary = {
             uploadSong: "Şarkı Yükle",
             uploadVideo: "Video Yükle",
             uploadAlbum: "Albüm Yükle",
+            uploadBeat: "Upload Beat",
+            uploadInstrumental: "Upload Instrumental",
+            uploadProducerVideo: "Upload Video",
+            uploadProducerAlbum: "Upload Album",
+            artistStudio: "Artist Studio",
+            producerStudio: "Producer Studio",
+            artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
+            producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
+            studioKicker: "Creator Upload",
+            switchStudio: "Switch studio",
             lockedMessage: "Music Data Base yapım aşamasındayken yüklemeler geçici olarak devre dışı bırakıldı."
         },
     artistDashboard: {
