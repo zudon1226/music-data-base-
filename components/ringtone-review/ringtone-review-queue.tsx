@@ -41,6 +41,8 @@ type FilterKey =
 
 type SortKey = "oldest" | "newest" | "creator" | "title" | "status";
 
+type ConfirmableAction = "archive" | "suspend" | "reprocess";
+
 const FILTERS: FilterKey[] = [
     "pending_review",
     "processing_failed",
@@ -51,6 +53,33 @@ const FILTERS: FilterKey[] = [
     "archived",
     "all",
 ];
+
+function actionSuccessMessage(
+    action: string,
+    t: ReturnType<typeof useTranslation>["t"],
+) {
+    if (action === "approve") {
+        return `${t("ringtones.approveRingtone")} — ${t("ringtones.approved")}`;
+    }
+    if (action === "reject") {
+        return `${t("ringtones.rejectRingtone")} — ${t("ringtones.rejected")}`;
+    }
+    if (action === "archive") {
+        return `${t("ringtones.archiveRingtone")} — ${t("ringtones.archived")}`;
+    }
+    if (action === "reprocess") {
+        return `${t("ringtones.requestReprocessing")} — ${t("ringtones.processingStarted")}`;
+    }
+    return t("ringtones.reviewActionSucceeded");
+}
+
+function shouldKeepAfterStatusChange(filter: FilterKey, nextStatus: string) {
+    if (filter === "all") return true;
+    if (filter === "processing_failed") {
+        return nextStatus === "draft" || nextStatus === "processing" || nextStatus === "rejected";
+    }
+    return filter === nextStatus;
+}
 
 export function RingtoneReviewQueue({
     userId,
@@ -70,7 +99,8 @@ export function RingtoneReviewQueue({
     const [loading, setLoading] = useState(true);
     const [rejectTarget, setRejectTarget] = useState<RingtoneReviewItem | null>(null);
     const [rejectReason, setRejectReason] = useState("");
-    const [confirmAction, setConfirmAction] = useState<{ item: RingtoneReviewItem; action: string } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ item: RingtoneReviewItem; action: ConfirmableAction } | null>(null);
+    const [busyKey, setBusyKey] = useState("");
     const [pending, startTransition] = useTransition();
     const actionLockRef = useRef(false);
 
@@ -112,9 +142,25 @@ export function RingtoneReviewQueue({
         return map[key];
     };
 
+    const applyLocalActionResult = (itemId: string, nextStatus: string) => {
+        setItems((previous) => {
+            if (!shouldKeepAfterStatusChange(filter, nextStatus)) {
+                return previous.filter((row) => row.id !== itemId);
+            }
+            return previous.map((row) => (
+                row.id === itemId
+                    ? { ...row, status: nextStatus }
+                    : row
+            ));
+        });
+    };
+
     const runAction = (item: RingtoneReviewItem, action: string, reason = "") => {
         if (actionLockRef.current || pending) return;
         actionLockRef.current = true;
+        const lockKey = `${item.id}:${action}`;
+        setBusyKey(lockKey);
+        setError("");
         startTransition(async () => {
             try {
                 const result = await performRingtoneReviewAction({
@@ -128,13 +174,27 @@ export function RingtoneReviewQueue({
                     setError(String(result.body.error || t("ringtones.reviewActionFailed")));
                     return;
                 }
-                setStatusMessage(t("ringtones.reviewActionSucceeded"));
+
+                const ringtone = result.body.ringtone as { status?: string } | undefined;
+                const nextStatus = String(ringtone?.status || (
+                    action === "approve" ? "approved"
+                        : action === "reject" ? "rejected"
+                            : action === "archive" ? "archived"
+                                : action === "publish" ? "published"
+                                    : action === "suspend" ? "suspended"
+                                        : action === "restore" ? "published"
+                                            : item.status
+                ));
+
+                setStatusMessage(actionSuccessMessage(action, t));
                 setRejectTarget(null);
                 setRejectReason("");
                 setConfirmAction(null);
+                applyLocalActionResult(item.id, nextStatus);
                 await load();
             } finally {
                 actionLockRef.current = false;
+                setBusyKey("");
             }
         });
     };
@@ -144,6 +204,8 @@ export function RingtoneReviewQueue({
         [items, logs],
     );
 
+    const actionsDisabled = loading || pending || Boolean(busyKey);
+
     return (
         <section className="ringtone-review-queue" data-ringtone-review="queue">
             <header className="ringtone-review-header">
@@ -151,12 +213,23 @@ export function RingtoneReviewQueue({
                     <h3>{t("ringtones.ringtoneReviewQueue")}</h3>
                     <p>{t("ringtones.ringtoneReviewQueueSubtitle")}</p>
                 </div>
-                <button type="button" onClick={() => void load()} disabled={loading || pending}>
+                <button
+                    type="button"
+                    className="rrq-btn rrq-btn-secondary"
+                    onClick={() => void load()}
+                    disabled={actionsDisabled}
+                    aria-label={t("common.refresh")}
+                >
                     {loading ? t("ringtones.loading") : t("common.refresh")}
                 </button>
             </header>
 
             <div className="sr-only" aria-live="polite">{statusMessage}</div>
+            {statusMessage ? (
+                <p className="ringtone-review-success" role="status" data-ringtone-review="success">
+                    {statusMessage}
+                </p>
+            ) : null}
             {error ? <p className="ringtone-error" role="alert">{error}</p> : null}
 
             <div className="ringtone-review-toolbar" role="toolbar" aria-label={t("ringtones.ringtoneReviewQueue")}>
@@ -193,8 +266,10 @@ export function RingtoneReviewQueue({
                     const sourceLabel = item.source_kind === "owned_song"
                         ? t("ringtones.existingSong")
                         : t("ringtones.uploadSource");
+                    const previewActive = activeRingtonePreviewId === item.id && ringtonePreviewPlaying;
+                    const itemBusy = busyKey.startsWith(`${item.id}:`);
                     return (
-                        <article key={item.id} className="ringtone-review-card dashboard-panel">
+                        <article key={item.id} className="ringtone-review-card dashboard-panel" data-ringtone-status={item.status}>
                             <img
                                 src={item.artwork_url || "/music-data-base-logo.png"}
                                 alt=""
@@ -221,7 +296,7 @@ export function RingtoneReviewQueue({
                                     {item.ownership_confirmed ? t("ringtones.ownershipConfirmation") : t("ringtones.ownershipRequired")}
                                 </p>
                                 <p>
-                                    {t("ringtones.status")}: {item.status}
+                                    {t("ringtones.status")}: <strong data-ringtone-status-label>{item.status}</strong>
                                     {" · "}
                                     {item.previewReady ? t("ringtones.previewReady") : t("ringtones.previewUnavailable")}
                                     {" · "}
@@ -243,12 +318,20 @@ export function RingtoneReviewQueue({
                                     </p>
                                 ) : null}
 
-                                <div className="ringtone-review-actions">
+                                <div className="ringtone-review-actions" role="group" aria-label={t("ringtones.ringtoneReviewQueue")}>
                                     <button
                                         type="button"
+                                        className="rrq-btn rrq-btn-secondary rrq-btn-media"
+                                        disabled={actionsDisabled || !item.preview_url}
+                                        aria-label={previewActive ? t("ringtones.pausePreview") : t("ringtones.preview")}
+                                        aria-pressed={previewActive}
                                         onClick={() => {
                                             if (!item.preview_url) {
                                                 setError(t("ringtones.previewUnavailable"));
+                                                return;
+                                            }
+                                            if (previewActive) {
+                                                onStopRingtonePreview();
                                                 return;
                                             }
                                             onPreviewRingtone({
@@ -262,51 +345,111 @@ export function RingtoneReviewQueue({
                                             });
                                         }}
                                     >
-                                        {activeRingtonePreviewId === item.id && ringtonePreviewPlaying
-                                            ? t("ringtones.pausePreview")
-                                            : t("ringtones.preview")}
+                                        {previewActive ? t("ringtones.pausePreview") : t("ringtones.preview")}
                                     </button>
+
                                     {item.status === "pending_review" ? (
                                         <>
-                                            <button type="button" onClick={() => runAction(item, "approve")}>
-                                                {t("ringtones.approveRingtone")}
+                                            <button
+                                                type="button"
+                                                className="rrq-btn rrq-btn-approve"
+                                                disabled={actionsDisabled}
+                                                aria-busy={busyKey === `${item.id}:approve`}
+                                                aria-label={t("ringtones.approveRingtone")}
+                                                onClick={() => runAction(item, "approve")}
+                                            >
+                                                {busyKey === `${item.id}:approve`
+                                                    ? t("ringtones.loading")
+                                                    : t("ringtones.approveRingtone")}
                                             </button>
-                                            <button type="button" onClick={() => setRejectTarget(item)}>
+                                            <button
+                                                type="button"
+                                                className="rrq-btn rrq-btn-reject"
+                                                disabled={actionsDisabled}
+                                                aria-label={t("ringtones.rejectRingtone")}
+                                                onClick={() => {
+                                                    setError("");
+                                                    setRejectReason("");
+                                                    setRejectTarget(item);
+                                                }}
+                                            >
                                                 {t("ringtones.rejectRingtone")}
                                             </button>
                                         </>
                                     ) : null}
+
                                     {item.status === "approved" ? (
-                                        <button type="button" onClick={() => runAction(item, "publish")}>
-                                            {t("ringtones.publishRingtone")}
+                                        <button
+                                            type="button"
+                                            className="rrq-btn rrq-btn-approve"
+                                            disabled={actionsDisabled}
+                                            aria-busy={busyKey === `${item.id}:publish`}
+                                            aria-label={t("ringtones.publishRingtone")}
+                                            onClick={() => runAction(item, "publish")}
+                                        >
+                                            {busyKey === `${item.id}:publish`
+                                                ? t("ringtones.loading")
+                                                : t("ringtones.publishRingtone")}
                                         </button>
                                     ) : null}
+
                                     {item.status === "published" ? (
                                         <button
                                             type="button"
+                                            className="rrq-btn rrq-btn-reject"
+                                            disabled={actionsDisabled}
+                                            aria-label={t("ringtones.suspendRingtone")}
                                             onClick={() => setConfirmAction({ item, action: "suspend" })}
                                         >
                                             {t("ringtones.suspendRingtone")}
                                         </button>
                                     ) : null}
+
                                     {item.status === "suspended" ? (
-                                        <button type="button" onClick={() => runAction(item, "restore")}>
-                                            {t("ringtones.restoreRingtone")}
+                                        <button
+                                            type="button"
+                                            className="rrq-btn rrq-btn-approve"
+                                            disabled={actionsDisabled}
+                                            aria-busy={busyKey === `${item.id}:restore`}
+                                            aria-label={t("ringtones.restoreRingtone")}
+                                            onClick={() => runAction(item, "restore")}
+                                        >
+                                            {busyKey === `${item.id}:restore`
+                                                ? t("ringtones.loading")
+                                                : t("ringtones.restoreRingtone")}
                                         </button>
                                     ) : null}
+
                                     {["approved", "rejected", "published", "suspended", "pending_review"].includes(item.status) ? (
                                         <button
                                             type="button"
+                                            className="rrq-btn rrq-btn-archive"
+                                            disabled={actionsDisabled}
+                                            aria-label={t("ringtones.archiveRingtone")}
                                             onClick={() => setConfirmAction({ item, action: "archive" })}
                                         >
                                             {t("ringtones.archiveRingtone")}
                                         </button>
                                     ) : null}
-                                    <button type="button" onClick={() => runAction(item, "reprocess")}>
+
+                                    <button
+                                        type="button"
+                                        className="rrq-btn rrq-btn-reprocess"
+                                        disabled={actionsDisabled}
+                                        aria-label={t("ringtones.requestReprocessing")}
+                                        onClick={() => setConfirmAction({ item, action: "reprocess" })}
+                                    >
                                         {t("ringtones.requestReprocessing")}
                                     </button>
+
                                     {activeRingtonePreviewId === item.id ? (
-                                        <button type="button" onClick={onStopRingtonePreview}>
+                                        <button
+                                            type="button"
+                                            className="rrq-btn rrq-btn-secondary rrq-btn-media"
+                                            disabled={itemBusy}
+                                            aria-label={t("ringtones.pausePreview")}
+                                            onClick={onStopRingtonePreview}
+                                        >
                                             {t("ringtones.pausePreview")}
                                         </button>
                                     ) : null}
@@ -347,11 +490,16 @@ export function RingtoneReviewQueue({
                                 onChange={(event) => setRejectReason(event.target.value)}
                                 rows={4}
                                 required
+                                aria-required="true"
                             />
                         </label>
                         <div className="ringtone-review-actions">
                             <button
                                 type="button"
+                                className="rrq-btn rrq-btn-reject"
+                                disabled={actionsDisabled || !rejectReason.trim()}
+                                aria-busy={busyKey === `${rejectTarget.id}:reject`}
+                                aria-label={t("ringtones.rejectRingtone")}
                                 onClick={() => {
                                     if (!rejectReason.trim()) {
                                         setError(t("ringtones.rejectionReasonRequired"));
@@ -360,9 +508,16 @@ export function RingtoneReviewQueue({
                                     runAction(rejectTarget, "reject", rejectReason.trim());
                                 }}
                             >
-                                {t("ringtones.rejectRingtone")}
+                                {busyKey === `${rejectTarget.id}:reject`
+                                    ? t("ringtones.loading")
+                                    : t("ringtones.rejectRingtone")}
                             </button>
-                            <button type="button" onClick={() => { setRejectTarget(null); setRejectReason(""); }}>
+                            <button
+                                type="button"
+                                className="rrq-btn rrq-btn-secondary"
+                                disabled={actionsDisabled}
+                                onClick={() => { setRejectTarget(null); setRejectReason(""); }}
+                            >
                                 {t("ringtones.cancel")}
                             </button>
                         </div>
@@ -376,17 +531,36 @@ export function RingtoneReviewQueue({
                         <h4 id="confirm-dialog-title">
                             {confirmAction.action === "suspend"
                                 ? t("ringtones.suspendRingtone")
-                                : t("ringtones.archiveRingtone")}
+                                : confirmAction.action === "reprocess"
+                                    ? t("ringtones.requestReprocessing")
+                                    : t("ringtones.archiveRingtone")}
                         </h4>
                         <p>{confirmAction.item.title}</p>
                         <div className="ringtone-review-actions">
                             <button
                                 type="button"
+                                className={
+                                    confirmAction.action === "reprocess"
+                                        ? "rrq-btn rrq-btn-reprocess"
+                                        : confirmAction.action === "suspend"
+                                            ? "rrq-btn rrq-btn-reject"
+                                            : "rrq-btn rrq-btn-archive"
+                                }
+                                disabled={actionsDisabled}
+                                aria-busy={busyKey === `${confirmAction.item.id}:${confirmAction.action}`}
+                                aria-label={t("dialogs.confirm")}
                                 onClick={() => runAction(confirmAction.item, confirmAction.action)}
                             >
-                                {t("dialogs.confirm")}
+                                {busyKey === `${confirmAction.item.id}:${confirmAction.action}`
+                                    ? t("ringtones.loading")
+                                    : t("dialogs.confirm")}
                             </button>
-                            <button type="button" onClick={() => setConfirmAction(null)}>
+                            <button
+                                type="button"
+                                className="rrq-btn rrq-btn-secondary"
+                                disabled={actionsDisabled}
+                                onClick={() => setConfirmAction(null)}
+                            >
                                 {t("ringtones.cancel")}
                             </button>
                         </div>
@@ -417,6 +591,19 @@ export function RingtoneReviewQueue({
                     gap: 0.25rem;
                     min-width: 160px;
                 }
+                .ringtone-review-success {
+                    margin: 0;
+                    padding: 0.7rem 0.9rem;
+                    border-radius: 8px;
+                    border: 1px solid rgba(34, 197, 94, 0.45);
+                    background: rgba(6, 78, 59, 0.45);
+                    color: #bbf7d0;
+                    font-weight: 700;
+                }
+                .ringtone-error {
+                    color: #fecaca;
+                    font-weight: 700;
+                }
                 .ringtone-review-list {
                     display: grid;
                     gap: 0.85rem;
@@ -443,11 +630,86 @@ export function RingtoneReviewQueue({
                 .ringtone-review-actions {
                     display: flex;
                     flex-wrap: wrap;
-                    gap: 0.5rem;
-                    margin-top: 0.65rem;
+                    gap: 0.65rem;
+                    margin-top: 0.75rem;
                 }
-                .ringtone-review-actions button {
+                .rrq-btn {
+                    appearance: none;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.35rem;
                     min-height: 44px;
+                    min-width: 44px;
+                    padding: 0.6rem 0.95rem;
+                    border-radius: 8px;
+                    border: 1px solid rgba(0, 212, 255, 0.35);
+                    background: #0b1736;
+                    color: #e8f7ff;
+                    font: inherit;
+                    font-weight: 800;
+                    font-size: 0.92rem;
+                    line-height: 1.2;
+                    text-align: center;
+                    white-space: normal;
+                    cursor: pointer;
+                    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+                }
+                .rrq-btn:hover:not(:disabled) {
+                    border-color: rgba(34, 211, 238, 0.75);
+                    background: #102247;
+                }
+                .rrq-btn:focus-visible {
+                    outline: 2px solid #22d3ee;
+                    outline-offset: 2px;
+                    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25);
+                }
+                .rrq-btn:disabled,
+                .rrq-btn[aria-busy="true"] {
+                    opacity: 0.55;
+                    cursor: not-allowed;
+                }
+                .rrq-btn-secondary,
+                .rrq-btn-media {
+                    background: #0b1736;
+                    border-color: rgba(0, 212, 255, 0.35);
+                    color: #e8f7ff;
+                }
+                .rrq-btn-approve {
+                    background: #065f46;
+                    border-color: rgba(52, 211, 153, 0.65);
+                    color: #ecfdf5;
+                }
+                .rrq-btn-approve:hover:not(:disabled) {
+                    background: #047857;
+                    border-color: #6ee7b7;
+                }
+                .rrq-btn-reject {
+                    background: #7f1d1d;
+                    border-color: rgba(248, 113, 113, 0.7);
+                    color: #fef2f2;
+                }
+                .rrq-btn-reject:hover:not(:disabled) {
+                    background: #991b1b;
+                    border-color: #fca5a5;
+                }
+                .rrq-btn-archive {
+                    background: #1f2937;
+                    border-color: rgba(156, 163, 175, 0.55);
+                    color: #f3f4f6;
+                }
+                .rrq-btn-archive:hover:not(:disabled) {
+                    background: #374151;
+                    border-color: #d1d5db;
+                }
+                .rrq-btn-reprocess {
+                    background: #0c4a6e;
+                    border-color: rgba(56, 189, 248, 0.65);
+                    color: #e0f2fe;
+                }
+                .rrq-btn-reprocess:hover:not(:disabled) {
+                    background: #075985;
+                    border-color: #7dd3fc;
                 }
                 .ringtone-modal {
                     position: fixed;
@@ -477,6 +739,16 @@ export function RingtoneReviewQueue({
                     margin: 0;
                     padding-left: 1.1rem;
                 }
+                .sr-only {
+                    position: absolute;
+                    width: 1px;
+                    height: 1px;
+                    padding: 0;
+                    margin: -1px;
+                    overflow: hidden;
+                    clip: rect(0, 0, 0, 0);
+                    border: 0;
+                }
                 @media (max-width: 820px) {
                     .ringtone-review-card {
                         grid-template-columns: 64px minmax(0, 1fr);
@@ -484,6 +756,9 @@ export function RingtoneReviewQueue({
                     .ringtone-review-card img {
                         width: 64px;
                         height: 64px;
+                    }
+                    .rrq-btn {
+                        flex: 1 1 calc(50% - 0.65rem);
                     }
                 }
                 @media (max-width: 480px) {
@@ -495,6 +770,9 @@ export function RingtoneReviewQueue({
                     }
                     .ringtone-review-toolbar label {
                         width: 100%;
+                    }
+                    .rrq-btn {
+                        flex: 1 1 100%;
                     }
                 }
             `}</style>

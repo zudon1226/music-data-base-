@@ -781,8 +781,9 @@ export function RingtoneCreatorWorkspace({
                                     </div>
                                 ) : (
                                     <div className="ringtone-upload-source">
-                                        <label className="ringtone-checkbox">
+                                        <label className="ringtone-checkbox" htmlFor="ringtone-ownership-upload">
                                             <input
+                                                id="ringtone-ownership-upload"
                                                 type="checkbox"
                                                 checked={form.ownershipConfirmed}
                                                 onChange={(event) => updateForm({ ownershipConfirmed: event.target.checked })}
@@ -877,39 +878,47 @@ export function RingtoneCreatorWorkspace({
                                         ))}
                                     </select>
                                 </label>
-                                <label className="ringtone-checkbox">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.isExplicit}
-                                        onChange={(event) => updateForm({ isExplicit: event.target.checked })}
-                                    />
-                                    <span>{t("ringtones.explicitContent")}</span>
-                                </label>
-                                <label className="ringtone-checkbox">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.iphoneAvailable}
-                                        onChange={(event) => updateForm({ iphoneAvailable: event.target.checked })}
-                                    />
-                                    <span>{t("ringtones.iphoneReady")}</span>
-                                </label>
-                                <label className="ringtone-checkbox">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.androidAvailable}
-                                        onChange={(event) => updateForm({ androidAvailable: event.target.checked })}
-                                    />
-                                    <span>{t("ringtones.androidReady")}</span>
-                                </label>
-                                <label className="ringtone-checkbox">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.ownershipConfirmed || form.sourceKind === "owned_song"}
-                                        disabled={form.sourceKind === "owned_song"}
-                                        onChange={(event) => updateForm({ ownershipConfirmed: event.target.checked })}
-                                    />
-                                    <span>{t("ringtones.ownershipConfirmation")}</span>
-                                </label>
+                                <div className="ringtone-checkbox-stack" role="group" aria-label={t("ringtones.details")}>
+                                    <label className="ringtone-checkbox" htmlFor="ringtone-explicit">
+                                        <input
+                                            id="ringtone-explicit"
+                                            type="checkbox"
+                                            checked={form.isExplicit}
+                                            onChange={(event) => updateForm({ isExplicit: event.target.checked })}
+                                        />
+                                        <span>{t("ringtones.explicitContent")}</span>
+                                    </label>
+                                    <label className="ringtone-checkbox" htmlFor="ringtone-iphone-ready">
+                                        <input
+                                            id="ringtone-iphone-ready"
+                                            type="checkbox"
+                                            checked={form.iphoneAvailable}
+                                            onChange={(event) => updateForm({ iphoneAvailable: event.target.checked })}
+                                        />
+                                        <span>{t("ringtones.iphoneReady")}</span>
+                                    </label>
+                                    <label className="ringtone-checkbox" htmlFor="ringtone-android-ready">
+                                        <input
+                                            id="ringtone-android-ready"
+                                            type="checkbox"
+                                            checked={form.androidAvailable}
+                                            onChange={(event) => updateForm({ androidAvailable: event.target.checked })}
+                                        />
+                                        <span>{t("ringtones.androidReady")}</span>
+                                    </label>
+                                    <label className="ringtone-checkbox" htmlFor="ringtone-ownership-details">
+                                        <input
+                                            id="ringtone-ownership-details"
+                                            type="checkbox"
+                                            checked={form.ownershipConfirmed || form.sourceKind === "owned_song"}
+                                            disabled={form.sourceKind === "owned_song"}
+                                            onChange={(event) => updateForm({ ownershipConfirmed: event.target.checked })}
+                                            required={form.sourceKind !== "owned_song"}
+                                            aria-required={form.sourceKind !== "owned_song"}
+                                        />
+                                        <span>{t("ringtones.ownershipConfirmation")}</span>
+                                    </label>
+                                </div>
                             </div>
                         ) : null}
 
@@ -1070,10 +1079,90 @@ export function RingtoneCreatorWorkspace({
                     text-align: left;
                     width: 100%;
                 }
-                .ringtone-field,
-                .ringtone-checkbox {
+                .ringtone-field {
                     display: grid;
                     gap: 6px;
+                }
+                .ringtone-checkbox-stack {
+                    display: grid;
+                    gap: 12px;
+                    margin-top: 4px;
+                    padding-bottom: 8px;
+                }
+                .ringtone-checkbox {
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                    min-height: 48px;
+                    width: 100%;
+                    margin: 0;
+                    padding: 10px 12px;
+                    border-radius: 10px;
+                    border: 1px solid rgba(0, 212, 255, 0.28);
+                    background: #08122b;
+                    color: #e8f7ff;
+                    cursor: pointer;
+                    user-select: none;
+                    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+                }
+                .ringtone-checkbox:hover {
+                    border-color: rgba(34, 211, 238, 0.65);
+                    background: #0b1736;
+                }
+                .ringtone-checkbox:focus-within {
+                    outline: 2px solid #22d3ee;
+                    outline-offset: 2px;
+                    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.22);
+                }
+                .ringtone-checkbox span {
+                    flex: 1 1 auto;
+                    line-height: 1.35;
+                    font-weight: 700;
+                }
+                .ringtone-checkbox input[type="checkbox"] {
+                    appearance: none;
+                    -webkit-appearance: none;
+                    flex: 0 0 auto;
+                    width: 24px;
+                    height: 24px;
+                    min-width: 24px;
+                    min-height: 24px;
+                    margin: 0;
+                    border-radius: 6px;
+                    border: 2px solid rgba(34, 211, 238, 0.75);
+                    background: #020617;
+                    display: grid;
+                    place-content: center;
+                    cursor: pointer;
+                }
+                .ringtone-checkbox input[type="checkbox"]::before {
+                    content: "";
+                    width: 12px;
+                    height: 12px;
+                    transform: scale(0);
+                    transition: transform 0.12s ease-in-out;
+                    box-shadow: inset 1em 1em #22d3ee;
+                    background-color: #22d3ee;
+                    border-radius: 2px;
+                    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0, 43% 62%);
+                }
+                .ringtone-checkbox input[type="checkbox"]:checked {
+                    background: #083344;
+                    border-color: #22d3ee;
+                }
+                .ringtone-checkbox input[type="checkbox"]:checked::before {
+                    transform: scale(1);
+                }
+                .ringtone-checkbox input[type="checkbox"]:focus-visible {
+                    outline: 2px solid #67e8f9;
+                    outline-offset: 2px;
+                }
+                .ringtone-checkbox:has(input:disabled) {
+                    opacity: 0.65;
+                    cursor: not-allowed;
+                }
+                .ringtone-checkbox input[type="checkbox"]:disabled {
+                    cursor: not-allowed;
                 }
                 .ringtone-field input,
                 .ringtone-field textarea,
@@ -1087,6 +1176,10 @@ export function RingtoneCreatorWorkspace({
                     background: #08122b;
                     color: #e8f7ff;
                     padding: 0.65rem 0.8rem;
+                }
+                .ringtone-upload-source {
+                    display: grid;
+                    gap: 12px;
                 }
                 .ringtone-error,
                 .ringtone-access-denied,
