@@ -356,10 +356,13 @@ const navigationScroll = read("lib/navigation-scroll.ts");
 assertIncludes(navigationScroll, "data-main-scroll-container", "navigation-scroll.ts main container selector");
 assertIncludes(navigationScroll, "scheduleNavigationScrollReset", "navigation-scroll.ts schedule helper");
 assertIncludes(navigationScroll, "scrollContainerToElement", "navigation-scroll.ts destination pin");
+assertIncludes(navigationScroll, "getActiveScrollContainers", "navigation-scroll.ts active scroll containers");
 assertIncludes(navigationScroll, "buildActiveNavigationKey", "navigation-scroll.ts active view key");
 assertIncludes(navigationScroll, 'behavior: "auto"', "navigation-scroll.ts instant scroll");
 assertExport(navigationScroll, "resetNavigationScroll", "lib/navigation-scroll.ts");
 assertExport(navigationScroll, "focusPageHeadingAfterNavigation", "lib/navigation-scroll.ts");
+assertIncludes(read("components/desktop-content-scroll-root.tsx"), "dangerouslySetInnerHTML", "desktop scroll CSS plain style injection");
+assertIncludes(scrollCss, "height: 100vh !important", "desktop-content-scroll.ts forced viewport height");
 assertExport(navigationScroll, "isNavigationScrollLocked", "lib/navigation-scroll.ts");
 
 // --- page.tsx wiring invariants ---

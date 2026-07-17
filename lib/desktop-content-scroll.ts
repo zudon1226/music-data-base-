@@ -4,27 +4,32 @@ export const DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX = 821;
 
 /**
  * Desktop layout: body locked; main content scrolls natively.
+ * Uses !important so page.tsx shell rules cannot expand .content to full
+ * document height (which forces window/document scrolling instead).
  * No wheel listeners, no preventDefault, no synthetic scroll.
  */
 export const DESKTOP_CONTENT_SCROLL_CSS = `
   @media (min-width: ${DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX}px) {
     html,
     body {
-      height: 100%;
-      overflow: hidden;
+      height: 100% !important;
+      max-height: 100% !important;
+      overflow: hidden !important;
     }
 
     .zml-app {
-      height: 100vh;
-      min-height: 100vh;
-      overflow: hidden;
-      padding-bottom: 0;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      min-height: 100vh !important;
+      overflow: hidden !important;
+      padding-bottom: 0 !important;
     }
 
     .content.desktop-content-scroll-root {
-      height: 100vh;
-      overflow-y: auto;
-      overflow-x: hidden;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
       overscroll-behavior: auto;
       scroll-behavior: auto;
       -webkit-overflow-scrolling: touch;

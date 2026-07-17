@@ -27,10 +27,14 @@ function assertSource() {
 
     record("pins destination under sticky topbar", helper.includes("scrollContainerToElement") && helper.includes("getStickyTopOffset"));
     record("does not treat scrollTop=0 as sufficient alone", helper.includes("scrollTop=0 is NOT enough") || helper.includes("Pin the destination"));
+    record("resolves active scroll containers including document", helper.includes("getActiveScrollContainers") && helper.includes("scrollingElement"));
+    record("does not blank document scroll when destination exists", helper.includes("if (destination && containers.length > 0)"));
     record("active navigation key helper", helper.includes("buildActiveNavigationKey"));
     record("navigation scroll lock", helper.includes("isNavigationScrollLocked") && helper.includes("markNavigationScrollLock"));
     record("disables browser scrollRestoration", helper.includes('scrollRestoration = "manual"'));
     record("scroll root data attribute", rootComponent.includes("data-main-scroll-container"));
+    record("desktop scroll CSS injected without styled-jsx", rootComponent.includes("dangerouslySetInnerHTML") && rootComponent.includes("data-desktop-content-scroll") && !rootComponent.includes("jsx global") && !rootComponent.includes("<style jsx"));
+    record("desktop scroll CSS forces viewport scrollport", read("lib/desktop-content-scroll.ts").includes("height: 100vh !important") && read("lib/desktop-content-scroll.ts").includes("overflow: hidden !important"));
     record("page uses useLayoutEffect on activeNavigationKey", page.includes("useLayoutEffect") && page.includes("activeNavigationKey"));
     record("page buildActiveNavigationKey wired", page.includes("buildActiveNavigationKey({ view, showUpload, uploadMode })"));
     record("upload destination marker", page.includes('data-nav-destination="upload"'));

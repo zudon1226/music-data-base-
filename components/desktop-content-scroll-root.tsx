@@ -8,14 +8,21 @@ type DesktopContentScrollRootProps = {
     className?: string;
 };
 
-/** DESKTOP ONLY — main content scroll container; native browser wheel/touchpad only. */
+/**
+ * DESKTOP ONLY — main content scroll container; native browser wheel/touchpad only.
+ * Inject CSS via a plain style tag (avoid Next styled jsx stripping) so the
+ * scrollport rules actually ship in production builds.
+ */
 export function DesktopContentScrollRoot({
     children,
     className = "",
 }: DesktopContentScrollRootProps) {
     return (
         <>
-            <style jsx global>{DESKTOP_CONTENT_SCROLL_CSS}</style>
+            <style
+                data-desktop-content-scroll=""
+                dangerouslySetInnerHTML={{ __html: DESKTOP_CONTENT_SCROLL_CSS }}
+            />
             <section
                 className={`content desktop-content-scroll-root ${className}`.trim()}
                 data-main-scroll-container=""

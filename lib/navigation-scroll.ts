@@ -1,9 +1,12 @@
 /**
  * Navigation scroll reset for the SPA shell.
  *
- * Important: scrollTop=0 is NOT enough. The shared video/hero sits above the
- * page heading inside the main scroll panel, so intentional navigation must
- * pin the destination heading (or upload shell) under the sticky topbar.
+ * Important: scrollTop=0 on the wrong element is NOT enough.
+ * Production often scrolls document/window when the desktop content
+ * scrollport CSS fails to apply; and even inside the main panel the
+ * shared video/hero sits above the page heading. Intentional navigation
+ * must pin the destination heading (or upload shell) under the sticky topbar
+ * on every element that is actually scrolling.
  */
 
 export const MAIN_SCROLL_CONTAINER_ATTR = "data-main-scroll-container";
@@ -47,17 +50,72 @@ export function getMainScrollContainer(): HTMLElement | null {
     );
 }
 
+function canElementScroll(el: HTMLElement | null): el is HTMLElement {
+    if (!el) return false;
+    return el.scrollHeight > el.clientHeight + 1;
+}
+
+/**
+ * Resolve every scrollport that can currently move vertical content.
+ * Prefers the marked main panel; always includes document.scrollingElement
+ * when the window/document is the real scroller (production desktop bug).
+ * Never includes the sidebar.
+ */
+export function getActiveScrollContainers(): HTMLElement[] {
+    if (typeof document === "undefined") return [];
+    const found: HTMLElement[] = [];
+    const seen = new Set<HTMLElement>();
+
+    const push = (el: HTMLElement | null) => {
+        if (!el || seen.has(el)) return;
+        if (el.classList?.contains("sidebar")) return;
+        if (el.closest?.(".sidebar")) return;
+        seen.add(el);
+        found.push(el);
+    };
+
+    const main = getMainScrollContainer();
+    if (canElementScroll(main)) {
+        push(main);
+    }
+
+    const scrolling = document.scrollingElement as HTMLElement | null;
+    if (canElementScroll(scrolling)) {
+        push(scrolling);
+    }
+
+    if (typeof document.documentElement !== "undefined" && canElementScroll(document.documentElement)) {
+        push(document.documentElement);
+    }
+    if (document.body && canElementScroll(document.body) && document.body !== scrolling) {
+        push(document.body);
+    }
+
+    // If nothing reports as scrollable yet (layout mid-commit), still target main + document.
+    if (found.length === 0) {
+        push(main);
+        push(scrolling);
+    }
+
+    return found.filter(Boolean);
+}
+
 function getStickyTopOffset(container: HTMLElement) {
-    const topbar = container.querySelector<HTMLElement>(".topbar");
+    const scope = container.querySelector?.(".topbar")
+        ? container
+        : (getMainScrollContainer() || document);
+    const topbar = (scope as ParentNode).querySelector?.(".topbar") as HTMLElement | null
+        || document.querySelector<HTMLElement>(".topbar");
     if (!topbar) return 0;
     const style = typeof window !== "undefined" ? window.getComputedStyle(topbar) : null;
     if (style && (style.position === "sticky" || style.position === "fixed")) {
         return Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 0);
     }
-    return 0;
+    // Sticky may not resolve on document element; still account for visible topbar height.
+    return Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 0);
 }
 
-/** Scroll container so `target` sits at the top edge (below sticky chrome). */
+/** Scroll a container so `target` sits at the top edge (below sticky chrome). */
 export function scrollContainerToElement(
     container: HTMLElement,
     target: HTMLElement,
@@ -71,6 +129,16 @@ export function scrollContainerToElement(
     container.scrollLeft = 0;
     if (typeof container.scrollTo === "function") {
         container.scrollTo({ top: nextTop, left: 0, behavior: "auto" });
+    }
+
+    // When the document/window is the scroller, also sync window.scrollTo.
+    if (
+        typeof window !== "undefined"
+        && (container === document.scrollingElement
+            || container === document.documentElement
+            || container === document.body)
+    ) {
+        window.scrollTo({ top: nextTop, left: 0, behavior: "auto" });
     }
 }
 
@@ -108,8 +176,8 @@ export function getNavigationDestination(preferUpload: boolean): HTMLElement | n
 }
 
 /**
- * Pin the destination (heading or upload) to the top of the real scroll panel.
- * Also clears document/window scroll as a nested-scroll fallback.
+ * Pin the destination (heading or upload) to the top of every active scrollport.
+ * Falls back to clearing document/window scroll only when no destination exists.
  */
 export function resetNavigationScroll(options: {
     preferUpload?: boolean;
@@ -119,35 +187,48 @@ export function resetNavigationScroll(options: {
     markNavigationScrollLock();
     disableBrowserScrollRestoration();
 
-    const container = getMainScrollContainer();
     const preferUpload = options.preferUpload === true;
     const destination = getNavigationDestination(preferUpload);
+    const containers = getActiveScrollContainers();
+    const main = getMainScrollContainer();
 
-    if (container && destination) {
-        scrollContainerToElement(container, destination);
-    } else if (container) {
-        container.scrollTop = 0;
-        container.scrollLeft = 0;
-        if (typeof container.scrollTo === "function") {
-            container.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    if (destination && containers.length > 0) {
+        for (const container of containers) {
+            scrollContainerToElement(container, destination);
         }
+    } else {
+        for (const container of containers) {
+            container.scrollTop = 0;
+            container.scrollLeft = 0;
+            if (typeof container.scrollTo === "function") {
+                container.scrollTo({ top: 0, left: 0, behavior: "auto" });
+            }
+        }
+        if (main && !containers.includes(main)) {
+            main.scrollTop = 0;
+            main.scrollLeft = 0;
+        }
+        resetDocumentScrollFallback();
     }
-
-    resetDocumentScrollFallback();
 
     if (options.focusHeading !== false) {
         focusPageHeadingAfterNavigation();
         // Focus can restore prior scroll in some browsers — force destination again.
-        if (container && destination) {
-            scrollContainerToElement(container, destination);
+        if (destination) {
+            for (const container of getActiveScrollContainers()) {
+                scrollContainerToElement(container, destination);
+            }
         }
     }
 
+    const primary = containers[0] || main;
     return {
         ok: true as const,
-        containerScrollTop: container?.scrollTop ?? null,
+        containerScrollTop: primary?.scrollTop ?? null,
+        documentScrollTop: (document.scrollingElement as HTMLElement | null)?.scrollTop ?? null,
         hasDestination: Boolean(destination),
         preferUpload,
+        activeContainerCount: containers.length,
     };
 }
 
