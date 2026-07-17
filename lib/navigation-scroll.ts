@@ -202,6 +202,25 @@ export function getNavigationDestination(preferUpload: boolean): HTMLElement | n
     );
 }
 
+/** True when the marked page heading sits far below the first screen (e.g. Home). */
+export function isDestinationBuriedInScrollport(
+    container: HTMLElement,
+    destination: HTMLElement,
+) {
+    const containerRect = container.getBoundingClientRect();
+    const destRect = destination.getBoundingClientRect();
+    const destinationDocumentTop = container.scrollTop + (destRect.top - containerRect.top);
+    return destinationDocumentTop > container.clientHeight * 0.85;
+}
+
+function scrollContainerToTop(container: HTMLElement) {
+    container.scrollTop = 0;
+    container.scrollLeft = 0;
+    if (typeof container.scrollTo === "function") {
+        container.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+}
+
 /**
  * Pin the destination (heading or upload) fully below the toolbar on every
  * active scrollport. Syncs --app-header-offset before scrolling.
@@ -219,45 +238,45 @@ export function resetNavigationScroll(options: {
     const destination = getNavigationDestination(preferUpload);
     const containers = getActiveScrollContainers();
     const main = getMainScrollContainer();
+    let openedAtPageTop = false;
 
     if (destination && containers.length > 0) {
         for (const container of containers) {
             // Home (and similar) bury .section-heading below hero/discovery blocks.
             // Open those views at the true top instead of jumping to a mid-page title.
-            const containerRect = container.getBoundingClientRect();
-            const destRect = destination.getBoundingClientRect();
-            const destinationDocumentTop = container.scrollTop + (destRect.top - containerRect.top);
-            if (destinationDocumentTop > container.clientHeight * 0.85) {
-                container.scrollTop = 0;
-                container.scrollLeft = 0;
-                if (typeof container.scrollTo === "function") {
-                    container.scrollTo({ top: 0, left: 0, behavior: "auto" });
-                }
+            if (isDestinationBuriedInScrollport(container, destination)) {
+                scrollContainerToTop(container);
+                openedAtPageTop = true;
                 continue;
             }
             scrollContainerToElement(container, destination);
         }
     } else {
         for (const container of containers) {
-            container.scrollTop = 0;
-            container.scrollLeft = 0;
-            if (typeof container.scrollTo === "function") {
-                container.scrollTo({ top: 0, left: 0, behavior: "auto" });
-            }
+            scrollContainerToTop(container);
         }
         if (main && !containers.includes(main)) {
-            main.scrollTop = 0;
-            main.scrollLeft = 0;
+            scrollContainerToTop(main);
         }
         resetDocumentScrollFallback();
+        openedAtPageTop = true;
     }
 
     if (options.focusHeading !== false) {
         focusPageHeadingAfterNavigation();
-        // Focus can restore prior scroll in some browsers — force destination again.
-        if (destination) {
+        // Focus can restore prior scroll — re-pin only when the heading is the
+        // true first-screen destination (not a buried Home title).
+        if (destination && !openedAtPageTop) {
             for (const container of getActiveScrollContainers()) {
+                if (isDestinationBuriedInScrollport(container, destination)) {
+                    scrollContainerToTop(container);
+                    continue;
+                }
                 scrollContainerToElement(container, destination);
+            }
+        } else if (openedAtPageTop) {
+            for (const container of getActiveScrollContainers()) {
+                scrollContainerToTop(container);
             }
         }
     }
