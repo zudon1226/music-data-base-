@@ -478,8 +478,9 @@ async function main() {
     const enMessages = parseExportObject(path.join(root, "lib/i18n/messages/en.ts"), "enMessages");
     const enFlat = flattenMessages(enMessages);
     const enKeys = Object.keys(enFlat);
-    // Ringtone Phase 1 adds English-source foundation keys; localized dictionaries catch up later.
-    const deferredTranslationPrefixes = ["ringtones."];
+    // Ringtone Phase 1 + User Dashboard Phase 1 add English-source foundation keys;
+    // localized dictionaries catch up later while key parity remains required.
+    const deferredTranslationPrefixes = ["ringtones.", "dashboard."];
     const isDeferredTranslationKey = (key) => deferredTranslationPrefixes.some((prefix) => key.startsWith(prefix));
     const parityKeys = enKeys.filter((key) => !isDeferredTranslationKey(key));
     const ringtoneKeys = enKeys.filter((key) => isDeferredTranslationKey(key));

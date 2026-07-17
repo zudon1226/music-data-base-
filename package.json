@@ -9,7 +9,9 @@
     "lint": "eslint",
     "verify:desktop": "node scripts/verify-desktop-regression-lock.mjs",
     "verify:ui": "node scripts/verify-ui-polish.mjs",
-    "verify:nav": "node scripts/verify-navigation-scroll.mjs"
+    "verify:nav": "node scripts/verify-navigation-scroll.mjs",
+    "verify:dashboard": "node scripts/verify-user-dashboard-phase1.mjs && node lib/dashboard/profile-fields.test.mjs",
+    "verify:rls": "node scripts/verify-supabase-rls-security.mjs"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.15.0",

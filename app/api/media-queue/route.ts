@@ -30,6 +30,8 @@ export async function GET(request: Request) {
         return jsonResponse({
             items: loaded.items,
             activeIndex: loaded.activeIndex,
+            shuffleOn: loaded.shuffleOn,
+            repeatMode: loaded.repeatMode,
             hydrated: true,
             userId,
             backend: loaded.backend,
@@ -66,12 +68,18 @@ export async function PUT(request: Request) {
 
         const incoming = uniqueMediaQueueItems(Array.isArray(body.items) ? body.items : []);
         const activeIndex = typeof body.activeIndex === "number" ? body.activeIndex : -1;
-        const saved = await saveMediaQueue(userId, incoming, activeIndex);
+        const shuffleOn = typeof body.shuffleOn === "boolean" ? body.shuffleOn : undefined;
+        const repeatMode = body.repeatMode === "one" || body.repeatMode === "all" || body.repeatMode === "off"
+            ? body.repeatMode
+            : undefined;
+        const saved = await saveMediaQueue(userId, incoming, activeIndex, { shuffleOn, repeatMode });
 
         return jsonResponse({
             ok: true,
             items: incoming,
             activeIndex,
+            shuffleOn: shuffleOn ?? false,
+            repeatMode: repeatMode ?? "off",
             userId,
             backend: saved.backend,
             setupRequired: saved.setupRequired === true,

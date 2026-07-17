@@ -30,6 +30,14 @@ import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/deskto
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
 import { DestinationPageHeading } from "../components/destination-page-heading";
+import { UserProfileDashboard } from "../components/user-profile-dashboard";
+import { NotificationCenterPanel, type DashboardNotification } from "../components/notification-center-panel";
+import {
+    clearRecentlyPlayedRecords,
+    removeRecentlyPlayedRecord,
+    syncRecentlyPlayedRecord,
+} from "../lib/dashboard/recently-played-sync";
+import { defaultHrefForNotification } from "../lib/dashboard/notification-kinds";
 import {
     buildActiveNavigationKey,
     disableBrowserScrollRestoration,
@@ -52,6 +60,7 @@ import { useTranslation } from "../lib/i18n/provider";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { isSongQueueItem, isVideoQueueItem, normalizeSongToQueueItem, normalizeVideoToQueueItem, songToQueueMedia, videoToQueueMedia, type QueueMediaItem } from "../lib/desktop-media-queue";
 import { useDesktopMediaQueue } from "../lib/use-desktop-media-queue";
+import { createDesktopSupabaseAuthClient } from "../lib/supabase-auth-client";
 import {
     buildSharedVideoPlayerConfig,
     getVideoPlaybackUrl as getCanonicalVideoPlaybackUrl,
@@ -287,8 +296,10 @@ type PlatformNotification = {
     id: string;
     title: string;
     body: string;
+    kind?: string | null;
+    href?: string;
     itemId?: string;
-    itemType?: "song" | "video" | "album" | "artist" | "producer" | "playlist";
+    itemType?: "song" | "video" | "album" | "artist" | "producer" | "playlist" | "ringtone" | "beat" | "system";
     read: boolean;
     createdAt: string;
 };
@@ -3657,6 +3668,8 @@ function PageContent() {
         }
         return desktopRuntime.fetch(path, init);
     }, [desktopRuntime]);
+    const [shuffleOn, setShuffleOn] = useState(false);
+    const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
     const {
         mediaQueueItems,
         mediaQueueActiveIndex,
@@ -3682,6 +3695,12 @@ function PageContent() {
         // Do not wait for desktop API session bootstrap (authSessionInitialized).
         authResolved: !authLoading && Boolean(String(accountUserId || "").trim()),
         authenticatedFetch: desktopActionFetch,
+        shuffleOn,
+        repeatMode,
+        onRemotePlaybackPrefs: (prefs) => {
+            setShuffleOn(Boolean(prefs.shuffleOn));
+            setRepeatMode(prefs.repeatMode === "one" || prefs.repeatMode === "all" ? prefs.repeatMode : "off");
+        },
     });
     useEffect(() => {
         registerDesktopProductionSessionPublisher(publishLiveDesktopAuthSession);
@@ -4366,8 +4385,6 @@ function PageContent() {
     const [activeMedia, setActiveMedia] = useState<ActiveMedia>({ type: "song", item: DEFAULT_SONGS[2] });
     const [remoteMusicStateReady, setRemoteMusicStateReady] = useState(false);
     const [toast, setToast] = useState<ToastMessage | null>(null);
-    const [shuffleOn, setShuffleOn] = useState(false);
-    const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
     const [editingSongId, setEditingSongId] = useState("");
     const [editingVideoId, setEditingVideoId] = useState("");
     const [editingAlbumId, setEditingAlbumId] = useState("");
@@ -4424,7 +4441,67 @@ function PageContent() {
         followers: 0,
     });
     const [notifications, setNotifications] = useState<PlatformNotification[]>([]);
+    const [notificationsLoading, setNotificationsLoading] = useState(false);
     const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+    useEffect(() => {
+        const userId = String(accountUserId || "").trim();
+        if (!userId || authLoading || !isDesktopProtectedActionsEnabled()) {
+            return undefined;
+        }
+        let cancelled = false;
+        const refresh = async () => {
+            try {
+                const response = await desktopActionFetch(`/api/notifications?userId=${encodeURIComponent(userId)}`, {
+                    cache: "no-store",
+                    requireAuth: true,
+                });
+                if (!response.ok || cancelled) return;
+                const data = await response.json().catch(() => ({}));
+                const remote = Array.isArray(data.notifications) ? data.notifications as DashboardNotification[] : [];
+                if (cancelled) return;
+                setNotifications(remote.map((item) => ({
+                    id: String(item.id),
+                    title: String(item.title || ""),
+                    body: String(item.body || ""),
+                    kind: item.kind,
+                    href: item.href,
+                    itemId: item.itemId,
+                    itemType: item.itemType as PlatformNotification["itemType"],
+                    read: Boolean(item.read),
+                    createdAt: String(item.createdAt || ""),
+                })));
+            }
+            catch {
+                // keep local notifications if remote refresh fails
+            }
+        };
+        void refresh();
+        const pollId = window.setInterval(() => { void refresh(); }, 45000);
+        let supabaseClient: ReturnType<typeof createDesktopSupabaseAuthClient> | null = null;
+        let channelName = "";
+        try {
+            supabaseClient = createDesktopSupabaseAuthClient();
+            channelName = `notifications:${userId}`;
+            supabaseClient
+                .channel(channelName)
+                .on(
+                    "postgres_changes",
+                    { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+                    () => { void refresh(); },
+                )
+                .subscribe();
+        }
+        catch {
+            supabaseClient = null;
+        }
+        return () => {
+            cancelled = true;
+            window.clearInterval(pollId);
+            if (supabaseClient && channelName) {
+                void supabaseClient.removeChannel(supabaseClient.channel(channelName));
+            }
+        };
+    }, [accountUserId, authLoading, desktopActionFetch]);
     const [commentsByItem, setCommentsByItem] = useState<Record<string, ContentComment[]>>({});
     const [commentTarget, setCommentTarget] = useState<CommentTarget>(null);
     const [commentDraft, setCommentDraft] = useState("");
@@ -4445,20 +4522,124 @@ function PageContent() {
             setToast((current) => (current?.id === id ? null : current));
         }, 3200);
     }
-    function pushNotification(title: string, body: string, itemType?: PlatformNotification["itemType"], itemId?: string) {
+    function pushNotification(
+        title: string,
+        body: string,
+        itemType?: PlatformNotification["itemType"],
+        itemId?: string,
+        kind?: string,
+    ) {
+        const href = defaultHrefForNotification(kind, itemType, itemId);
         const notification: PlatformNotification = {
             id: createToastId(),
             title,
             body,
+            kind,
+            href,
             itemId,
             itemType,
             read: false,
             createdAt: new Date().toISOString(),
         };
         setNotifications((previous) => [notification, ...previous].slice(0, 50));
+        const userId = String(accountUserId || "").trim();
+        if (userId && isDesktopProtectedActionsEnabled()) {
+            void desktopActionFetch("/api/notifications", {
+                method: "POST",
+                requireAuth: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "create",
+                    userId,
+                    title,
+                    body,
+                    kind: kind || "system_announcement",
+                    itemType,
+                    itemId,
+                    href,
+                }),
+            }).catch(() => undefined);
+        }
     }
     function markNotificationsRead() {
         setNotifications((previous) => previous.map((notification) => ({ ...notification, read: true })));
+        const userId = String(accountUserId || "").trim();
+        if (userId && isDesktopProtectedActionsEnabled()) {
+            void desktopActionFetch("/api/notifications", {
+                method: "POST",
+                requireAuth: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "mark-all-read", userId }),
+            }).catch(() => undefined);
+        }
+    }
+    async function reloadNotificationsFromServer() {
+        const userId = String(accountUserId || "").trim();
+        if (!userId || !isDesktopProtectedActionsEnabled()) return;
+        setNotificationsLoading(true);
+        try {
+            const response = await desktopActionFetch(`/api/notifications?userId=${encodeURIComponent(userId)}`, {
+                cache: "no-store",
+                requireAuth: true,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) return;
+            const remote = Array.isArray(data.notifications) ? data.notifications as DashboardNotification[] : [];
+            setNotifications(remote.map((item) => ({
+                id: String(item.id),
+                title: String(item.title || ""),
+                body: String(item.body || ""),
+                kind: item.kind,
+                href: item.href,
+                itemId: item.itemId,
+                itemType: item.itemType as PlatformNotification["itemType"],
+                read: Boolean(item.read),
+                createdAt: String(item.createdAt || ""),
+            })));
+        }
+        finally {
+            setNotificationsLoading(false);
+        }
+    }
+    async function markNotificationRead(id: string) {
+        setNotifications((previous) => previous.map((item) => (item.id === id ? { ...item, read: true } : item)));
+        const userId = String(accountUserId || "").trim();
+        if (!userId) return;
+        await desktopActionFetch("/api/notifications", {
+            method: "POST",
+            requireAuth: true,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "mark-read", userId, id }),
+        }).catch(() => undefined);
+    }
+    async function deleteNotification(id: string) {
+        setNotifications((previous) => previous.filter((item) => item.id !== id));
+        const userId = String(accountUserId || "").trim();
+        if (!userId) return;
+        await desktopActionFetch("/api/notifications", {
+            method: "POST",
+            requireAuth: true,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "delete", userId, id }),
+        }).catch(() => undefined);
+    }
+    async function clearReadNotifications() {
+        setNotifications((previous) => previous.filter((item) => !item.read));
+        const userId = String(accountUserId || "").trim();
+        if (!userId) return;
+        await desktopActionFetch("/api/notifications", {
+            method: "POST",
+            requireAuth: true,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "clear-read", userId }),
+        }).catch(() => undefined);
+    }
+    function navigateFromNotification(notification: PlatformNotification) {
+        const destination = String(notification.href || defaultHrefForNotification(notification.kind, notification.itemType, notification.itemId));
+        if (destination) {
+            handleNav(destination as View);
+        }
+        setShowNotificationCenter(false);
     }
     function getCommentKey(itemType: ContentComment["itemType"], itemId: string) {
         return `${itemType}:${itemId}`;
@@ -8920,6 +9101,18 @@ function PageContent() {
             song: playedSong,
         };
         setRecentlyPlayed((previous) => prependRecentPlay(previous, recentEntry));
+        const userId = String(accountUserId || "").trim();
+        if (userId && isDesktopProtectedActionsEnabled()) {
+            void syncRecentlyPlayedRecord(desktopActionFetch, {
+                userId,
+                mediaType: "song",
+                mediaId: song.id,
+                playbackPosition: 0,
+                title: song.title,
+                artist: song.artist,
+                coverUrl: song.cover,
+            }).catch(() => undefined);
+        }
     }
     function saveVideoPlay(video: VideoItem) {
         const playedVideo = normalizeVideoForPlayback(video);
@@ -8935,6 +9128,18 @@ function PageContent() {
             video: playedVideo,
         };
         setRecentlyPlayed((previous) => prependRecentPlay(previous, recentEntry));
+        const userId = String(accountUserId || "").trim();
+        if (userId && isDesktopProtectedActionsEnabled()) {
+            void syncRecentlyPlayedRecord(desktopActionFetch, {
+                userId,
+                mediaType: "video",
+                mediaId: playedVideo.id,
+                playbackPosition: 0,
+                title: playedVideo.title,
+                artist: playedVideo.creator || playedVideo.creatorName || "",
+                coverUrl: playedVideo.cover || "",
+            }).catch(() => undefined);
+        }
     }
     function saveAlbumPlay(album: Album | ResolvedAlbum) {
         const resolvedAlbum = resolveAlbumTracksFromPools(album);
@@ -8950,6 +9155,18 @@ function PageContent() {
             album: normalizeAlbumRecord(resolvedAlbum),
         };
         setRecentlyPlayed((previous) => prependRecentPlay(previous, recentEntry));
+        const userId = String(accountUserId || "").trim();
+        if (userId && isDesktopProtectedActionsEnabled()) {
+            void syncRecentlyPlayedRecord(desktopActionFetch, {
+                userId,
+                mediaType: "album",
+                mediaId: resolvedAlbum.id,
+                playbackPosition: 0,
+                title: resolvedAlbum.title,
+                artist: resolvedAlbum.creatorName || resolvedAlbum.artistName || "",
+                coverUrl: resolvedAlbum.cover || "",
+            }).catch(() => undefined);
+        }
     }
     function updateRecentPlaybackPosition(itemType: "song" | "video", itemId: string, positionValue: number, durationValue: number, force = false) {
         if (!itemId)
@@ -8969,6 +9186,17 @@ function PageContent() {
                 duration: Number.isFinite(durationValue) && durationValue > 0 ? durationValue : entry.duration,
             };
         }));
+        const userId = String(accountUserId || "").trim();
+        if (userId && isDesktopProtectedActionsEnabled() && force) {
+            const completed = Number.isFinite(durationValue) && durationValue > 0 && positionValue >= durationValue * 0.95;
+            void syncRecentlyPlayedRecord(desktopActionFetch, {
+                userId,
+                mediaType: itemType,
+                mediaId: itemId,
+                playbackPosition: positionValue,
+                completed,
+            }).catch(() => undefined);
+        }
     }
     function stopRingtonePreviewPlayback() {
         if (ringtoneAudioRef.current) {
@@ -10272,12 +10500,36 @@ function PageContent() {
         }
     }
     function clearQueue() {
+        if (queueCount > 0 && typeof window !== "undefined" && !window.confirm(t("dashboard.queue.clearConfirm"))) {
+            return;
+        }
         clearSharedMediaQueue();
         setActiveAlbumPlayback(null);
     }
     function clearRecentlyPlayed() {
+        if (typeof window !== "undefined" && !window.confirm(t("dashboard.recentlyPlayed.clearConfirm"))) {
+            return;
+        }
         setRecentlyPlayed([]);
         remoteMusicStateSaveSnapshotRef.current = "";
+        const userId = String(accountUserId || "").trim();
+        if (userId && isDesktopProtectedActionsEnabled()) {
+            void clearRecentlyPlayedRecords(desktopActionFetch, userId).catch(() => undefined);
+        }
+    }
+    function removeRecentlyPlayedEntry(entry: RecentPlay) {
+        const entryType = String(entry.itemType || "song");
+        const entryId = String(entry.itemId || entry.songId || "").trim();
+        setRecentlyPlayed((previous) => previous.filter((item) => item.playId !== entry.playId));
+        const userId = String(accountUserId || "").trim();
+        if (userId && entryId && isDesktopProtectedActionsEnabled()) {
+            const allowed = new Set(["song", "video", "beat", "album", "ringtone"]);
+            const mediaType = (allowed.has(entryType) ? entryType : "song") as "song" | "video" | "beat" | "album" | "ringtone";
+            void removeRecentlyPlayedRecord(desktopActionFetch, userId, {
+                mediaType,
+                mediaId: entryId,
+            }).catch(() => undefined);
+        }
     }
     async function saveQueueAsPlaylist() {
         if (!guardDesktopProtectedAction("save-queue-playlist")) {
@@ -15478,26 +15730,29 @@ function PageContent() {
             </button>
           </div>
 
-          <div className="notification-wrap" ref={notificationWrapRef}>
-            <button className="notification-button" onClick={() => {
-            setShowNotificationCenter((value) => !value);
-            markNotificationsRead();
-        }} type="button" title={t("notifications.title")}>
-              <Bell size={17}/>
-              {unreadNotifications > 0 && <span>{unreadNotifications}</span>}
-            </button>
-            {showNotificationCenter && (<section className={notifications.length === 0 ? "notification-center notification-empty" : "notification-center"}>
-                <div className="notification-head">
-                  <strong>{t("notifications.title")}</strong>
-                  <button onClick={() => setNotifications([])} type="button">{t("common.clear")}</button>
-                </div>
-                {notifications.length === 0 ? (<p>{t("notifications.empty")}</p>) : notifications.slice(0, 8).map((notification) => (<article key={notification.id}>
-                    <strong>{notification.title}</strong>
-                    <span>{notification.body}</span>
-                    <small>{formatVideoCreatedAt(notification.createdAt)}</small>
-                  </article>))}
-              </section>)}
-          </div>
+          <NotificationCenterPanel
+            wrapRef={notificationWrapRef}
+            open={showNotificationCenter}
+            notifications={notifications}
+            unreadCount={unreadNotifications}
+            loading={notificationsLoading}
+            formatTimestamp={formatVideoCreatedAt}
+            onToggle={() => {
+                setShowNotificationCenter((value) => {
+                    const next = !value;
+                    if (next) void reloadNotificationsFromServer();
+                    return next;
+                });
+            }}
+            onMarkRead={(id) => { void markNotificationRead(id); }}
+            onMarkAllRead={() => { markNotificationsRead(); }}
+            onDelete={(id) => { void deleteNotification(id); }}
+            onClearRead={() => { void clearReadNotifications(); }}
+            onNavigate={(notification) => navigateFromNotification({
+                ...notification,
+                itemType: notification.itemType as PlatformNotification["itemType"],
+            })}
+          />
 
           <button
             className="upload-btn"
@@ -16054,8 +16309,8 @@ function PageContent() {
                 </div>)}
 
               {view === "Recently Played" && recentlyPlayed.length > 0 && !search.trim() && (<button className="clear-recent" onClick={clearRecentlyPlayed} type="button">
-                  Clear Recently Played
-                </button>)}
+                  {t("dashboard.recentlyPlayed.clearHistory")}
+              </button>)}
             </>
           )}
         />
@@ -16690,54 +16945,30 @@ function PageContent() {
                     </article>);
                 })}
               </DesktopHorizontalRail>)}
-          </section>) : view === "Profile" && !search.trim() ? (<section className="profile-page">
-            <div className="profile-hero">
-              <div className="profile-avatar">
-                {(getAccountDisplayName() || activeUser?.email || "Z").slice(0, 1).toUpperCase()}
-              </div>
-
-              <div>
-                <span className="playlist-kicker">{isPlatformOwner ? "OWNER / ADMIN" : t("profile.userProfile")}</span>
-                <h2>{getAccountDisplayName() || "Z Music User"}</h2>
-                <p>{activeUser?.email}</p>
-
-                <div className="profile-actions">
-                  <button onClick={logout} type="button">
-                    <LogOut size={16}/>
-                    {t("common.logout")}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="profile-save">
-              <h3>{t("settings.title")}</h3>
-              <p>{t("settings.languageDescription")}</p>
-              <div className="profile-language-row">
-                <span>{t("profile.preferredLanguage")}</span>
-                <LanguageSelector />
-              </div>
-            </div>
-
-            <div className="profile-grid">
-              <div>
-                <strong>{librarySongs.length}</strong>
-                <span>Library songs</span>
-              </div>
-              <div>
-                <strong>{likedSongs.length}</strong>
-                <span>Liked songs</span>
-              </div>
-              <div>
-                <strong>{playlists.length}</strong>
-                <span>{t("playlists.title")}</span>
-              </div>
-              <div>
-                <strong>{recentlyPlayed.length}</strong>
-                <span>Recent plays</span>
-              </div>
-            </div>
-
+          </section>) : view === "Profile" && !search.trim() ? (
+          <UserProfileDashboard
+            userId={accountUserId}
+            email={activeUser?.email || authEmail || ""}
+            isPlatformOwner={isPlatformOwner}
+            accountRoleLabel={accountRole}
+            fetchFn={desktopActionFetch}
+            onLogout={logout}
+            onSaved={(profile) => {
+                if (profile.displayName) {
+                    setUserAuthProfile((previous) => ({
+                        ...previous,
+                        displayName: profile.displayName || previous.displayName,
+                        avatarUrl: profile.avatarUrl || previous.avatarUrl,
+                    }));
+                }
+                else if (profile.avatarUrl) {
+                    setUserAuthProfile((previous) => ({
+                        ...previous,
+                        avatarUrl: profile.avatarUrl || previous.avatarUrl,
+                    }));
+                }
+            }}
+          >
             <div className="profile-save">
               <h3>Account Sync</h3>
               <p>{isPlatformOwner ? "Permanent Owner/Admin account. You control verification, reports, payouts, subscriptions, users, and platform settings." : "Your library, likes, playlists, and uploads are stored in Supabase database tables. Auth metadata only keeps your display name, role, and avatar URL."}</p>
@@ -16839,7 +17070,7 @@ function PageContent() {
                 </div>
               </div>
             </div>)}
-          </section>) : view === "Platform Control Center" && isPlatformOwner && !search.trim() ? (<>
+          </UserProfileDashboard>) : view === "Platform Control Center" && isPlatformOwner && !search.trim() ? (<>
             <PlatformControlCenter
                 userId={accountUserId}
                 accessToken={authSession?.access_token || ""}
@@ -18312,6 +18543,14 @@ function PageContent() {
                         <Play size={17} fill="currentColor"/>
                         <span>{resumeLabel}</span>
                       </button>
+                      <button
+                        onClick={() => removeRecentlyPlayedEntry(entry)}
+                        title={t("dashboard.recentlyPlayed.removeOne")}
+                        type="button"
+                      >
+                        <Trash2 size={16}/>
+                        <span>{t("dashboard.recentlyPlayed.removeOne")}</span>
+                      </button>
                       {itemType === "song" && entry.song ? renderMobileSongQueueButton(entry.song) : itemType === "video" && entry.video ? renderMobileVideoQueueButton(entry.video) : itemType === "album" && entry.album ? renderMobileAlbumQueueButton(entry.album) : null}
                     </article>);
                 })}
@@ -19584,6 +19823,203 @@ function PageContent() {
             color: #9bdcf0;
             font-size: 11px;
             font-weight: 800;
+          }
+
+          .notification-head-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+          }
+
+          .notification-head-actions button,
+          .notification-item-actions button,
+          .notification-item-main,
+          .profile-actions button,
+          .profile-edit-actions button,
+          .profile-avatar-upload {
+            min-height: 44px;
+            min-width: 44px;
+          }
+
+          .notification-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 8px;
+          }
+
+          .notification-item {
+            border-radius: 8px;
+            background: #10204a;
+            padding: 8px;
+            display: grid;
+            gap: 8px;
+          }
+
+          .notification-item.is-unread {
+            border: 1px solid rgba(34, 211, 238, 0.45);
+          }
+
+          .notification-item-main {
+            border: 0;
+            background: transparent;
+            color: inherit;
+            text-align: left;
+            display: grid;
+            gap: 3px;
+            padding: 4px;
+            width: 100%;
+            cursor: pointer;
+          }
+
+          .notification-item-main:focus-visible,
+          .notification-head-actions button:focus-visible,
+          .notification-item-actions button:focus-visible,
+          .profile-edit-form input:focus-visible,
+          .profile-edit-form textarea:focus-visible,
+          .profile-actions button:focus-visible {
+            outline: 2px solid #22d3ee;
+            outline-offset: 2px;
+          }
+
+          .notification-item-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+          }
+
+          .profile-avatar-wrap {
+            display: grid;
+            gap: 10px;
+            justify-items: start;
+          }
+
+          .profile-avatar-image {
+            width: 92px;
+            height: 92px;
+            border-radius: 999px;
+            object-fit: cover;
+            border: 2px solid rgba(34, 211, 238, 0.55);
+          }
+
+          .profile-avatar-upload {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(34, 211, 238, 0.35);
+            background: #14265c;
+            color: white;
+            padding: 8px 12px;
+            cursor: pointer;
+          }
+
+          .profile-avatar-upload input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+          }
+
+          .profile-username {
+            color: #9bdcf0;
+            font-weight: 700;
+          }
+
+          .profile-role-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 8px 0;
+          }
+
+          .profile-role-badge {
+            border-radius: 999px;
+            border: 1px solid rgba(34, 211, 238, 0.35);
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .profile-feedback {
+            margin: 10px 0;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #10204a;
+          }
+
+          .profile-feedback-error {
+            border: 1px solid #ef4444;
+            color: #fecaca;
+          }
+
+          .profile-feedback-success {
+            border: 1px solid #22c55e;
+            color: #bbf7d0;
+          }
+
+          .profile-edit-form,
+          .profile-details,
+          .profile-meta-list {
+            display: grid;
+            gap: 12px;
+            margin: 16px 0;
+          }
+
+          .profile-edit-form label,
+          .profile-edit-row label {
+            display: grid;
+            gap: 6px;
+          }
+
+          .profile-edit-form input,
+          .profile-edit-form textarea {
+            min-height: 44px;
+            border-radius: 8px;
+            border: 1px solid rgba(34, 211, 238, 0.35);
+            background: #0c1733;
+            color: white;
+            padding: 10px 12px;
+          }
+
+          .profile-edit-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+          }
+
+          .profile-meta-list {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          }
+
+          .profile-meta-list dt {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .profile-meta-list dd {
+            margin: 4px 0 0;
+            word-break: break-word;
+          }
+
+          .profile-stats-grid {
+            margin-bottom: 16px;
           }
 
           .upload-btn {

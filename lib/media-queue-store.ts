@@ -200,9 +200,22 @@ export async function saveMediaQueueToStorage(
     return { backend: "storage" };
 }
 
+export type MediaQueuePlaybackPrefs = {
+    shuffleOn?: boolean;
+    repeatMode?: "off" | "one" | "all";
+};
+
+function normalizeRepeatMode(value: unknown): "off" | "one" | "all" {
+    const mode = String(value || "off").trim().toLowerCase();
+    if (mode === "one" || mode === "all") return mode;
+    return "off";
+}
+
 export async function loadMediaQueue(userId: string): Promise<{
     items: MediaQueueItem[];
     activeIndex: number;
+    shuffleOn: boolean;
+    repeatMode: "off" | "one" | "all";
     backend: "database" | "storage";
     setupRequired?: boolean;
 }> {
@@ -215,14 +228,14 @@ export async function loadMediaQueue(userId: string): Promise<{
             .order("position", { ascending: true }),
         supabase
             .from("user_media_queue_state")
-            .select("active_index")
+            .select("active_index,shuffle_on,repeat_mode")
             .eq("user_id", userId)
             .maybeSingle(),
     ]);
 
     if (itemsResult.error && isMissingQueueTable(itemsResult.error)) {
         const fromStorage = await loadMediaQueueFromStorage(userId);
-        return { ...fromStorage, setupRequired: true };
+        return { ...fromStorage, shuffleOn: false, repeatMode: "off", setupRequired: true };
     }
     if (itemsResult.error) {
         throw itemsResult.error;
@@ -239,13 +252,20 @@ export async function loadMediaQueue(userId: string): Promise<{
     const activeIndex = typeof stateResult.data?.active_index === "number"
         ? stateResult.data.active_index
         : -1;
-    return { items, activeIndex, backend: "database" };
+    return {
+        items,
+        activeIndex,
+        shuffleOn: Boolean(stateResult.data?.shuffle_on),
+        repeatMode: normalizeRepeatMode(stateResult.data?.repeat_mode),
+        backend: "database",
+    };
 }
 
 export async function saveMediaQueue(
     userId: string,
     items: MediaQueueItem[],
     activeIndex: number,
+    prefs: MediaQueuePlaybackPrefs = {},
 ): Promise<{ backend: "database" | "storage"; setupRequired?: boolean }> {
     const supabase = getSupabaseLibraryClient();
     const { error: deleteError } = await supabase
@@ -290,13 +310,21 @@ export async function saveMediaQueue(
         }
     }
 
+    const statePayload: Record<string, unknown> = {
+        user_id: userId,
+        active_index: activeIndex,
+        updated_at: new Date().toISOString(),
+    };
+    if (typeof prefs.shuffleOn === "boolean") {
+        statePayload.shuffle_on = prefs.shuffleOn;
+    }
+    if (prefs.repeatMode) {
+        statePayload.repeat_mode = normalizeRepeatMode(prefs.repeatMode);
+    }
+
     const { error: stateError } = await supabase
         .from("user_media_queue_state")
-        .upsert({
-            user_id: userId,
-            active_index: activeIndex,
-            updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
+        .upsert(statePayload, { onConflict: "user_id" });
     if (stateError && !isMissingQueueTable(stateError)) {
         throw stateError;
     }

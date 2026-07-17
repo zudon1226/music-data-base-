@@ -168,12 +168,20 @@ function queueSnapshot(userId: string, items: MediaQueueItem[], activeIndex: num
  * those flags without the effect re-running because accountUserId/authResolved deps
  * did not change), commit() skips persist forever while in-memory enqueue still works.
  */
+type QueueAuthenticatedFetch = (
+    path: string,
+    init?: RequestInit & { requireAuth?: boolean },
+) => Promise<Response>;
+
 export function useDesktopMediaQueue(options: {
     accountUserId: string;
     authResolved: boolean;
-    authenticatedFetch?: unknown;
+    authenticatedFetch?: QueueAuthenticatedFetch;
+    shuffleOn?: boolean;
+    repeatMode?: "off" | "one" | "all";
+    onRemotePlaybackPrefs?: (prefs: { shuffleOn: boolean; repeatMode: "off" | "one" | "all" }) => void;
 }) {
-    const { accountUserId, authResolved } = options;
+    const { accountUserId, authResolved, authenticatedFetch, shuffleOn = false, repeatMode = "off", onRemotePlaybackPrefs } = options;
     const [state, setState] = useState<MediaQueueState>(() => emptyMediaQueue());
     const stateRef = useRef(state);
     stateRef.current = state;
@@ -181,10 +189,20 @@ export function useDesktopMediaQueue(options: {
     const hydrationCompleteRef = useRef(false);
     const hydratedUserIdRef = useRef("");
     const lastPersistedSnapshotRef = useRef("");
+    const lastRemoteSnapshotRef = useRef("");
+    const remoteHydratedRef = useRef(false);
     const hydrateGenerationRef = useRef(0);
     const allowEmptyPersistRef = useRef(false);
     const accountUserIdRef = useRef(accountUserId);
+    const fetchRef = useRef(authenticatedFetch);
+    const shuffleRef = useRef(shuffleOn);
+    const repeatRef = useRef(repeatMode);
+    const prefsCallbackRef = useRef(onRemotePlaybackPrefs);
     accountUserIdRef.current = accountUserId;
+    fetchRef.current = authenticatedFetch;
+    shuffleRef.current = shuffleOn;
+    repeatRef.current = repeatMode;
+    prefsCallbackRef.current = onRemotePlaybackPrefs;
 
     /**
      * Synchronous hydrate using the live accountUserId.
@@ -284,6 +302,36 @@ export function useDesktopMediaQueue(options: {
         else if (items.length > 0 || allowEmpty || !storedPayloadHasItems(userId)) {
             lastPersistedSnapshotRef.current = queueSnapshot(userId, items, activeIndex);
         }
+
+        const fetchFn = fetchRef.current;
+        if (!fetchFn || !remoteHydratedRef.current) {
+            return;
+        }
+        const remoteSnapshot = `${snapshot}|shuffle=${shuffleRef.current}|repeat=${repeatRef.current}`;
+        if (remoteSnapshot === lastRemoteSnapshotRef.current) {
+            return;
+        }
+        lastRemoteSnapshotRef.current = remoteSnapshot;
+        void fetchFn("/api/media-queue", {
+            method: "PUT",
+            requireAuth: true,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                userId,
+                items: uniqueMediaQueueItems(items),
+                activeIndex: clampQueueActiveIndex(items, activeIndex),
+                queueHydrated: true,
+                shuffleOn: shuffleRef.current,
+                repeatMode: repeatRef.current,
+            }),
+        }).then(async (response) => {
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                persistDebug("remote persist failed", response.status, payload);
+            }
+        }).catch((error) => {
+            persistDebug("remote persist error", error);
+        });
     }, []);
 
     useLayoutEffect(() => {
@@ -301,6 +349,63 @@ export function useDesktopMediaQueue(options: {
     }, [accountUserId, authResolved, ensureHydrated]);
 
     useEffect(() => {
+        if (!authResolved) return;
+        const userId = String(accountUserId || "").trim();
+        if (!userId || !hydrationCompleteRef.current) return;
+        const fetchFn = fetchRef.current;
+        if (!fetchFn || remoteHydratedRef.current) return;
+
+        let cancelled = false;
+        const generation = hydrateGenerationRef.current;
+        void (async () => {
+            try {
+                const response = await fetchFn(`/api/media-queue?userId=${encodeURIComponent(userId)}`, {
+                    cache: "no-store",
+                    requireAuth: true,
+                });
+                if (!response.ok || cancelled || hydrateGenerationRef.current !== generation) return;
+                const payload = await response.json().catch(() => ({}));
+                const remoteItems = uniqueMediaQueueItems(Array.isArray(payload.items) ? payload.items : []);
+                const remoteActive = clampQueueActiveIndex(remoteItems, Number(payload.activeIndex));
+                const local = stateRef.current;
+                // Prefer the richer source; never wipe a non-empty local queue with empty remote on first connect.
+                const preferRemote = remoteItems.length > 0 && (
+                    local.items.length === 0
+                    || remoteItems.length >= local.items.length
+                );
+                if (preferRemote) {
+                    const nextState: MediaQueueState = {
+                        ...local,
+                        userId,
+                        items: remoteItems,
+                        activeIndex: remoteActive,
+                        queueHydrated: true,
+                        isLoadingQueue: false,
+                    };
+                    stateRef.current = nextState;
+                    setState(nextState);
+                    writeStoredQueue(userId, remoteItems, remoteActive, { allowEmpty: true, reason: "remote-hydrate" });
+                    lastPersistedSnapshotRef.current = queueSnapshot(userId, remoteItems, remoteActive);
+                }
+                prefsCallbackRef.current?.({
+                    shuffleOn: Boolean(payload.shuffleOn),
+                    repeatMode: payload.repeatMode === "one" || payload.repeatMode === "all" ? payload.repeatMode : "off",
+                });
+                remoteHydratedRef.current = true;
+                lastRemoteSnapshotRef.current = `${queueSnapshot(userId, stateRef.current.items, stateRef.current.activeIndex)}|shuffle=${Boolean(payload.shuffleOn)}|repeat=${payload.repeatMode || "off"}`;
+            }
+            catch (error) {
+                persistDebug("remote hydrate failed", error);
+                remoteHydratedRef.current = true;
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [accountUserId, authResolved]);
+
+    useEffect(() => {
         if (!authResolved) {
             return;
         }
@@ -314,7 +419,7 @@ export function useDesktopMediaQueue(options: {
             return;
         }
         persistNow(userId, state.items, state.activeIndex, "effect");
-    }, [state.items, state.activeIndex, state.userId, state.queueHydrated, authResolved, accountUserId, ensureHydrated, persistNow]);
+    }, [state.items, state.activeIndex, state.userId, state.queueHydrated, authResolved, accountUserId, shuffleOn, repeatMode, ensureHydrated, persistNow]);
 
     const commit = useCallback((updater: (previous: MediaQueueState) => MediaQueueState, reason = "commit") => {
         const ensuredUserId = ensureHydrated(`commit:${reason}`);
@@ -498,6 +603,8 @@ export function useDesktopMediaQueue(options: {
         hydratedUserIdRef.current = "";
         hydrationCompleteRef.current = false;
         lastPersistedSnapshotRef.current = "";
+        lastRemoteSnapshotRef.current = "";
+        remoteHydratedRef.current = false;
         allowEmptyPersistRef.current = false;
         persistDebug("resetQueueOnLogout — memory cleared, localStorage NOT touched");
         const next = {
