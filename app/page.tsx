@@ -19678,6 +19678,7 @@ function PageContent() {
             display: grid;
             gap: 12px;
             margin-bottom: 16px;
+            scroll-margin-top: var(--app-header-offset, 0px);
           }
 
           .upload-shell .upload-card,
@@ -21029,11 +21030,13 @@ function PageContent() {
             gap: 12px;
             margin-bottom: 12px;
             flex-wrap: wrap;
+            scroll-margin-top: var(--app-header-offset, 0px);
           }
 
           .section-heading h2 {
             margin: 0;
             font-size: 23px;
+            scroll-margin-top: var(--app-header-offset, 0px);
           }
 
           .section-heading p {
@@ -30998,7 +31001,7 @@ function PageContent() {
               overflow-y: auto !important;
               overflow-x: hidden !important;
               overscroll-behavior: contain !important;
-              scroll-padding-top: 0 !important;
+              scroll-padding-top: var(--app-header-offset, 0px) !important;
               scroll-padding-bottom: var(--mobile-player-reserve) !important;
               z-index: 1 !important;
             }
@@ -31021,8 +31024,16 @@ function PageContent() {
             .content .empty-state {
               margin-top: 0 !important;
               padding-top: 0 !important;
-              scroll-margin-top: 0 !important;
               transform: none !important;
+            }
+
+            /* Destination titles must clear the sticky toolbar (measured --app-header-offset). */
+            .content .section-heading,
+            .content [data-page-heading],
+            .content [data-nav-destination="heading"],
+            .content [data-nav-destination="upload"],
+            .content .upload-shell {
+              scroll-margin-top: var(--app-header-offset, 0px) !important;
             }
 
             .content > .topbar + * {

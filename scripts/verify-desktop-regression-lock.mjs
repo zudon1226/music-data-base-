@@ -94,6 +94,7 @@ const REQUIRED_DESKTOP_MODULES = [
   "lib/desktop-auth-recovery-gate.ts",
   "lib/desktop-content-scroll.ts",
   "lib/navigation-scroll.ts",
+  "lib/app-header-offset.ts",
   "components/desktop-content-scroll-root.tsx",
   "components/desktop-app-sidebar-nav.tsx",
   "lib/desktop-video-upload-runner.ts",
@@ -359,11 +360,18 @@ assertIncludes(navigationScroll, "scrollContainerToElement", "navigation-scroll.
 assertIncludes(navigationScroll, "getActiveScrollContainers", "navigation-scroll.ts active scroll containers");
 assertIncludes(navigationScroll, "buildActiveNavigationKey", "navigation-scroll.ts active view key");
 assertIncludes(navigationScroll, 'behavior: "auto"', "navigation-scroll.ts instant scroll");
+assertIncludes(navigationScroll, "syncAppHeaderOffset", "navigation-scroll.ts syncs measured header offset");
 assertExport(navigationScroll, "resetNavigationScroll", "lib/navigation-scroll.ts");
 assertExport(navigationScroll, "focusPageHeadingAfterNavigation", "lib/navigation-scroll.ts");
 assertIncludes(read("components/desktop-content-scroll-root.tsx"), "dangerouslySetInnerHTML", "desktop scroll CSS plain style injection");
 assertIncludes(scrollCss, "height: 100vh !important", "desktop-content-scroll.ts forced viewport height");
 assertExport(navigationScroll, "isNavigationScrollLocked", "lib/navigation-scroll.ts");
+const headerOffset = read("lib/app-header-offset.ts");
+assertIncludes(headerOffset, "--app-header-offset", "app-header-offset.ts CSS custom property");
+assertIncludes(headerOffset, "scroll-padding-top", "app-header-offset.ts scroll-padding-top");
+assertIncludes(headerOffset, "scroll-margin-top", "app-header-offset.ts scroll-margin-top");
+assertIncludes(headerOffset, "measureAppHeaderOffset", "app-header-offset.ts live measure");
+assertIncludes(read("app/page.tsx"), "scroll-padding-top: var(--app-header-offset", "page.tsx mobile scroll-padding uses header offset");
 
 // --- page.tsx wiring invariants ---
 const page = read("app/page.tsx");

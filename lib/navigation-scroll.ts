@@ -1,13 +1,17 @@
 /**
  * Navigation scroll reset for the SPA shell.
  *
- * Important: scrollTop=0 on the wrong element is NOT enough.
- * Production often scrolls document/window when the desktop content
- * scrollport CSS fails to apply; and even inside the main panel the
- * shared video/hero sits above the page heading. Intentional navigation
- * must pin the destination heading (or upload shell) under the sticky topbar
- * on every element that is actually scrolling.
+ * Destination titles must sit fully below the sticky/fixed top toolbar.
+ * Absolute scrollTop=0 alone is not enough when the toolbar overlays the
+ * first paint of the destination — use the measured --app-header-offset.
  */
+
+import {
+    APP_HEADER_OFFSET_VAR,
+    getAppHeaderOffset,
+    measureAppHeaderOffset,
+    syncAppHeaderOffset,
+} from "./app-header-offset";
 
 export const MAIN_SCROLL_CONTAINER_ATTR = "data-main-scroll-container";
 export const MAIN_SCROLL_CONTAINER_SELECTOR = `[${MAIN_SCROLL_CONTAINER_ATTR}]`;
@@ -15,6 +19,13 @@ export const PAGE_HEADING_ATTR = "data-page-heading";
 export const PAGE_HEADING_SELECTOR = `[${PAGE_HEADING_ATTR}]`;
 export const UPLOAD_SHELL_SELECTOR = ".upload-shell";
 export const NAV_DESTINATION_ATTR = "data-nav-destination";
+
+export {
+    APP_HEADER_OFFSET_VAR,
+    getAppHeaderOffset,
+    measureAppHeaderOffset,
+    syncAppHeaderOffset,
+};
 
 let navigationScrollLockUntil = 0;
 
@@ -58,8 +69,7 @@ function canElementScroll(el: HTMLElement | null): el is HTMLElement {
 /**
  * Resolve every scrollport that can currently move vertical content.
  * Prefers the marked main panel; always includes document.scrollingElement
- * when the window/document is the real scroller (production desktop bug).
- * Never includes the sidebar.
+ * when the window/document is the real scroller. Never includes the sidebar.
  */
 export function getActiveScrollContainers(): HTMLElement[] {
     if (typeof document === "undefined") return [];
@@ -91,7 +101,6 @@ export function getActiveScrollContainers(): HTMLElement[] {
         push(document.body);
     }
 
-    // If nothing reports as scrollable yet (layout mid-commit), still target main + document.
     if (found.length === 0) {
         push(main);
         push(scrolling);
@@ -100,22 +109,12 @@ export function getActiveScrollContainers(): HTMLElement[] {
     return found.filter(Boolean);
 }
 
-function getStickyTopOffset(container: HTMLElement) {
-    const scope = container.querySelector?.(".topbar")
-        ? container
-        : (getMainScrollContainer() || document);
-    const topbar = (scope as ParentNode).querySelector?.(".topbar") as HTMLElement | null
-        || document.querySelector<HTMLElement>(".topbar");
-    if (!topbar) return 0;
-    const style = typeof window !== "undefined" ? window.getComputedStyle(topbar) : null;
-    if (style && (style.position === "sticky" || style.position === "fixed")) {
-        return Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 0);
-    }
-    // Sticky may not resolve on document element; still account for visible topbar height.
-    return Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 0);
+/** Measured sticky/fixed header offset (px), synced to --app-header-offset. */
+export function getStickyTopOffset(_container?: HTMLElement) {
+    return syncAppHeaderOffset();
 }
 
-/** Scroll a container so `target` sits at the top edge (below sticky chrome). */
+/** Scroll a container so `target` sits fully below the sticky/fixed toolbar. */
 export function scrollContainerToElement(
     container: HTMLElement,
     target: HTMLElement,
@@ -131,7 +130,6 @@ export function scrollContainerToElement(
         container.scrollTo({ top: nextTop, left: 0, behavior: "auto" });
     }
 
-    // When the document/window is the scroller, also sync window.scrollTo.
     if (
         typeof window !== "undefined"
         && (container === document.scrollingElement
@@ -176,8 +174,8 @@ export function getNavigationDestination(preferUpload: boolean): HTMLElement | n
 }
 
 /**
- * Pin the destination (heading or upload) to the top of every active scrollport.
- * Falls back to clearing document/window scroll only when no destination exists.
+ * Pin the destination (heading or upload) fully below the toolbar on every
+ * active scrollport. Syncs --app-header-offset before scrolling.
  */
 export function resetNavigationScroll(options: {
     preferUpload?: boolean;
@@ -187,6 +185,7 @@ export function resetNavigationScroll(options: {
     markNavigationScrollLock();
     disableBrowserScrollRestoration();
 
+    const headerOffset = syncAppHeaderOffset();
     const preferUpload = options.preferUpload === true;
     const destination = getNavigationDestination(preferUpload);
     const containers = getActiveScrollContainers();
@@ -226,6 +225,7 @@ export function resetNavigationScroll(options: {
         ok: true as const,
         containerScrollTop: primary?.scrollTop ?? null,
         documentScrollTop: (document.scrollingElement as HTMLElement | null)?.scrollTop ?? null,
+        headerOffset,
         hasDestination: Boolean(destination),
         preferUpload,
         activeContainerCount: containers.length,
@@ -237,6 +237,8 @@ export function focusPageHeadingAfterNavigation() {
     const heading = document.querySelector<HTMLElement>(PAGE_HEADING_SELECTOR)
         || document.querySelector<HTMLElement>(".section-heading h2");
     if (!heading) return;
+    // Keep scroll-margin in sync with the measured toolbar before focus.
+    syncAppHeaderOffset();
     if (!heading.hasAttribute("tabindex")) {
         heading.tabIndex = -1;
     }
@@ -253,13 +255,14 @@ export type NavigationScrollResetOptions = {
 };
 
 /**
- * After React commits the destination view, pin destination into view.
+ * After React commits the destination view, pin destination below the toolbar.
  * Double rAF waits for layout without arbitrary long timeouts.
  */
 export function scheduleNavigationScrollReset(options: NavigationScrollResetOptions = {}) {
     if (typeof window === "undefined") return;
     const { focusHeading = true, ensureUploadVisible = false } = options;
     markNavigationScrollLock();
+    syncAppHeaderOffset();
 
     const run = () => {
         resetNavigationScroll({

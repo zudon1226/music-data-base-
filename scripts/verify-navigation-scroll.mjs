@@ -1,5 +1,5 @@
 /**
- * Navigation scroll reset contracts — internal-view / nested-container / focus.
+ * Navigation scroll reset contracts — header offset / nested-container / focus.
  */
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -21,12 +21,13 @@ function read(rel) {
 
 function assertSource() {
     const helper = read("lib/navigation-scroll.ts");
+    const offset = read("lib/app-header-offset.ts");
     const page = read("app/page.tsx");
     const rootComponent = read("components/desktop-content-scroll-root.tsx");
     const sidebar = read("components/desktop-app-sidebar-nav.tsx");
 
     record("pins destination under sticky topbar", helper.includes("scrollContainerToElement") && helper.includes("getStickyTopOffset"));
-    record("does not treat scrollTop=0 as sufficient alone", helper.includes("scrollTop=0 is NOT enough") || helper.includes("Pin the destination"));
+    record("does not treat scrollTop=0 as sufficient alone", helper.includes("scrollTop=0 alone is not enough") || helper.includes("Absolute scrollTop=0 alone is not enough"));
     record("resolves active scroll containers including document", helper.includes("getActiveScrollContainers") && helper.includes("scrollingElement"));
     record("does not blank document scroll when destination exists", helper.includes("if (destination && containers.length > 0)"));
     record("active navigation key helper", helper.includes("buildActiveNavigationKey"));
@@ -35,6 +36,13 @@ function assertSource() {
     record("scroll root data attribute", rootComponent.includes("data-main-scroll-container"));
     record("desktop scroll CSS injected without styled-jsx", rootComponent.includes("dangerouslySetInnerHTML") && rootComponent.includes("data-desktop-content-scroll") && !rootComponent.includes("jsx global") && !rootComponent.includes("<style jsx"));
     record("desktop scroll CSS forces viewport scrollport", read("lib/desktop-content-scroll.ts").includes("height: 100vh !important") && read("lib/desktop-content-scroll.ts").includes("overflow: hidden !important"));
+    record("measures live header into --app-header-offset", offset.includes("--app-header-offset") && offset.includes("measureAppHeaderOffset") && offset.includes("getBoundingClientRect"));
+    record("exposes scroll-padding-top via header offset CSS", offset.includes("scroll-padding-top") && offset.includes("APP_HEADER_OFFSET_CSS"));
+    record("exposes scroll-margin-top on destinations", offset.includes("scroll-margin-top") && offset.includes("[data-page-heading]"));
+    record("scroll root syncs header offset on resize", rootComponent.includes("syncAppHeaderOffset") && rootComponent.includes("ResizeObserver"));
+    record("nav reset syncs header offset before pin", helper.includes("syncAppHeaderOffset()"));
+    record("focus uses preventScroll after offset sync", helper.includes("preventScroll: true") && helper.includes("syncAppHeaderOffset"));
+    record("mobile keeps scroll-padding-top from header offset", page.includes("scroll-padding-top: var(--app-header-offset") && !page.includes("scroll-padding-top: 0 !important"));
     record("page uses useLayoutEffect on activeNavigationKey", page.includes("useLayoutEffect") && page.includes("activeNavigationKey"));
     record("page buildActiveNavigationKey wired", page.includes("buildActiveNavigationKey({ view, showUpload, uploadMode })"));
     record("upload destination marker", page.includes('data-nav-destination="upload"'));
@@ -50,45 +58,38 @@ function assertSource() {
 
 function assertNestedScrollAlgorithm() {
     // Simulate sticky topbar + hero above heading inside a panel.
+    const headerOffset = 72 + 6; // measured height + breathing room
     const container = {
         scrollTop: 1400,
         scrollLeft: 30,
-        topbarHeight: 72,
         getBoundingClientRect: () => ({ top: 0, left: 0, width: 1200, height: 800 }),
-        querySelector(sel) {
-            if (sel === ".topbar") {
-                return {
-                    getBoundingClientRect: () => ({ height: thisParent.topbarHeight }),
-                    offsetHeight: thisParent.topbarHeight,
-                };
-            }
-            return null;
-        },
         scrollTo({ top, left }) {
             this.scrollTop = top;
             this.scrollLeft = left;
         },
     };
-    const thisParent = container;
     const heading = {
-        getBoundingClientRect: () => ({ top: 520, left: 0, width: 800, height: 40 }), // below hero in viewport
+        getBoundingClientRect: () => ({ top: 520, left: 0, width: 800, height: 40 }),
     };
 
-    // Same math as scrollContainerToElement
-    const stickyOffset = container.topbarHeight;
+    const stickyOffset = headerOffset;
     const containerRect = container.getBoundingClientRect();
     const targetRect = heading.getBoundingClientRect();
     const nextTop = Math.max(0, Math.round(container.scrollTop + (targetRect.top - containerRect.top) - stickyOffset));
     container.scrollTop = nextTop;
     container.scrollLeft = 0;
 
-    record("nested-scroll moves past hero to heading", nextTop === 1400 + 520 - 72);
+    record("nested-scroll moves past hero to heading", nextTop === 1400 + 520 - headerOffset);
     record("nested-scroll clears horizontal offset", container.scrollLeft === 0);
-    record("upload/artist/producer/beats share destination pin", nextTop > 0);
+    record("destination pin clears toolbar overlap", nextTop > 0 && headerOffset > 72);
 
-    const uploadRect = { top: 90 }; // just under topbar after open
+    const uploadRect = { top: 90 };
     const uploadTop = Math.max(0, Math.round(0 + (uploadRect.top - 0) - stickyOffset));
-    record("upload navigation pins shell under topbar", uploadTop === 18);
+    record("upload navigation pins shell under topbar", uploadTop === Math.max(0, 90 - headerOffset));
+
+    // Heading must sit strictly below toolbar (no underlap allowance).
+    const destTopAfterPin = headerOffset;
+    record("heading visibility requires top >= header offset", destTopAfterPin >= headerOffset);
 
     const focusState = { preventScroll: false };
     const headingEl = {
