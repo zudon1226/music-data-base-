@@ -371,6 +371,8 @@ assertIncludes(headerOffset, "--app-header-offset", "app-header-offset.ts CSS cu
 assertIncludes(headerOffset, "scroll-padding-top", "app-header-offset.ts scroll-padding-top");
 assertIncludes(headerOffset, "scroll-margin-top", "app-header-offset.ts scroll-margin-top");
 assertIncludes(headerOffset, "measureAppHeaderOffset", "app-header-offset.ts live measure");
+assertIncludes(headerOffset, "measureLiveHeaderClearance", "app-header-offset.ts live clearance");
+assertIncludes(headerOffset, "margin-bottom", "app-header-offset.ts topbar layout breathing");
 assertIncludes(read("app/page.tsx"), "scroll-padding-top: var(--app-header-offset", "page.tsx mobile scroll-padding uses header offset");
 
 // --- page.tsx wiring invariants ---

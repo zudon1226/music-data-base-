@@ -37,6 +37,8 @@ function assertSource() {
     record("desktop scroll CSS injected without styled-jsx", rootComponent.includes("dangerouslySetInnerHTML") && rootComponent.includes("data-desktop-content-scroll") && !rootComponent.includes("jsx global") && !rootComponent.includes("<style jsx"));
     record("desktop scroll CSS forces viewport scrollport", read("lib/desktop-content-scroll.ts").includes("height: 100vh !important") && read("lib/desktop-content-scroll.ts").includes("overflow: hidden !important"));
     record("measures live header into --app-header-offset", offset.includes("--app-header-offset") && offset.includes("measureAppHeaderOffset") && offset.includes("getBoundingClientRect"));
+    record("measures live header clearance for pin math", offset.includes("measureLiveHeaderClearance") && helper.includes("measureLiveHeaderClearance"));
+    record("topbar layout breathing below toolbar", offset.includes("margin-bottom") && offset.includes("APP_HEADER_OFFSET_BREATHING_PX"));
     record("exposes scroll-padding-top via header offset CSS", offset.includes("scroll-padding-top") && offset.includes("APP_HEADER_OFFSET_CSS"));
     record("exposes scroll-margin-top on destinations", offset.includes("scroll-margin-top") && offset.includes("[data-page-heading]"));
     record("scroll root syncs header offset on resize", rootComponent.includes("syncAppHeaderOffset") && rootComponent.includes("ResizeObserver"));
@@ -58,7 +60,7 @@ function assertSource() {
 
 function assertNestedScrollAlgorithm() {
     // Simulate sticky topbar + hero above heading inside a panel.
-    const headerOffset = 72 + 6; // measured height + breathing room
+    const headerOffset = 72 + 8; // measured height + breathing room
     const container = {
         scrollTop: 1400,
         scrollLeft: 30,

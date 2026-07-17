@@ -7,9 +7,11 @@
  */
 
 import {
+    APP_HEADER_OFFSET_BREATHING_PX,
     APP_HEADER_OFFSET_VAR,
     getAppHeaderOffset,
     measureAppHeaderOffset,
+    measureLiveHeaderClearance,
     syncAppHeaderOffset,
 } from "./app-header-offset";
 
@@ -24,6 +26,7 @@ export {
     APP_HEADER_OFFSET_VAR,
     getAppHeaderOffset,
     measureAppHeaderOffset,
+    measureLiveHeaderClearance,
     syncAppHeaderOffset,
 };
 
@@ -110,8 +113,9 @@ export function getActiveScrollContainers(): HTMLElement[] {
 }
 
 /** Measured sticky/fixed header offset (px), synced to --app-header-offset. */
-export function getStickyTopOffset(_container?: HTMLElement) {
-    return syncAppHeaderOffset();
+export function getStickyTopOffset(container?: HTMLElement) {
+    syncAppHeaderOffset();
+    return measureLiveHeaderClearance(container);
 }
 
 /** Scroll a container so `target` sits fully below the sticky/fixed toolbar. */
@@ -120,10 +124,35 @@ export function scrollContainerToElement(
     target: HTMLElement,
     extraOffset = 0,
 ) {
-    const stickyOffset = getStickyTopOffset(container) + extraOffset;
+    syncAppHeaderOffset();
     const containerRect = container.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
-    const nextTop = Math.max(0, Math.round(container.scrollTop + (targetRect.top - containerRect.top) - stickyOffset));
+    const topbar = typeof document !== "undefined"
+        ? document.querySelector<HTMLElement>(".topbar")
+        : null;
+    const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : containerRect.top;
+    const liveClearance = measureLiveHeaderClearance(container) + extraOffset;
+    const gapBelowToolbar = targetRect.top - topbarBottom;
+
+    // Already fully clear near the page top — use scrollTop=0 so we do not
+    // pull the title up underneath a topbar that still sits below content padding.
+    if (
+        gapBelowToolbar >= APP_HEADER_OFFSET_BREATHING_PX - 0.5
+        && container.scrollTop <= 64
+        && targetRect.top < containerRect.top + Math.min(container.clientHeight, 480)
+    ) {
+        container.scrollTop = 0;
+        container.scrollLeft = 0;
+        if (typeof container.scrollTo === "function") {
+            container.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        }
+        return;
+    }
+
+    const nextTop = Math.max(
+        0,
+        Math.round(container.scrollTop + (targetRect.top - containerRect.top) - liveClearance),
+    );
     container.scrollTop = nextTop;
     container.scrollLeft = 0;
     if (typeof container.scrollTo === "function") {
@@ -193,6 +222,19 @@ export function resetNavigationScroll(options: {
 
     if (destination && containers.length > 0) {
         for (const container of containers) {
+            // Home (and similar) bury .section-heading below hero/discovery blocks.
+            // Open those views at the true top instead of jumping to a mid-page title.
+            const containerRect = container.getBoundingClientRect();
+            const destRect = destination.getBoundingClientRect();
+            const destinationDocumentTop = container.scrollTop + (destRect.top - containerRect.top);
+            if (destinationDocumentTop > container.clientHeight * 0.85) {
+                container.scrollTop = 0;
+                container.scrollLeft = 0;
+                if (typeof container.scrollTo === "function") {
+                    container.scrollTo({ top: 0, left: 0, behavior: "auto" });
+                }
+                continue;
+            }
             scrollContainerToElement(container, destination);
         }
     } else {

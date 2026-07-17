@@ -7,17 +7,22 @@ export const APP_HEADER_OFFSET_VAR = "--app-header-offset";
 export const APP_HEADER_OFFSET_ATTR = "data-app-header-offset";
 export const MAIN_SCROLL_CONTAINER_SELECTOR = "[data-main-scroll-container]";
 
-/** Small breathing room for blur, subpixels, and font ascent — not a large gap. */
-export const APP_HEADER_OFFSET_BREATHING_PX = 6;
+/** Breathing room for blur, subpixels, and font ascent — not a large gap. */
+export const APP_HEADER_OFFSET_BREATHING_PX = 8;
 
 /**
  * CSS that wires the measured offset into the real scrollport and destinations.
- * Safe to inject globally; values come from the custom property updated at runtime.
+ * Topbar margin-bottom gives in-flow titles clearance at scrollTop=0
+ * (scroll-margin alone does not create layout space).
  */
 export const APP_HEADER_OFFSET_CSS = `
   ${MAIN_SCROLL_CONTAINER_SELECTOR} {
     ${APP_HEADER_OFFSET_VAR}: 0px;
     scroll-padding-top: var(${APP_HEADER_OFFSET_VAR}, 0px);
+  }
+
+  ${MAIN_SCROLL_CONTAINER_SELECTOR} > .topbar {
+    margin-bottom: ${APP_HEADER_OFFSET_BREATHING_PX}px;
   }
 
   [data-page-heading],
@@ -38,10 +43,7 @@ function getScrollContainerForHeaderMeasure(): HTMLElement | null {
     );
 }
 
-/**
- * Measure the sticky/fixed top toolbar coverage inside the main scrollport.
- * Includes responsive height, padding, and transform-shifted visual bounds.
- */
+/** Stuck sticky-header height (for --app-header-offset / scroll-padding). */
 export function measureAppHeaderOffset(): number {
     if (typeof document === "undefined") return 0;
     const topbar = document.querySelector<HTMLElement>(".topbar");
@@ -50,22 +52,26 @@ export function measureAppHeaderOffset(): number {
     const barRect = topbar.getBoundingClientRect();
     const layoutHeight = Math.ceil(topbar.offsetHeight || 0);
     const visualHeight = Math.ceil(barRect.height || 0);
-
-    const main = getScrollContainerForHeaderMeasure();
-    const mainRect = main?.getBoundingClientRect();
-
-    // When the bar is stuck at the top of the scrollport, coverage is bar.bottom - port.top.
-    // When mid-page, prefer the bar's own height so we do not over-clear.
-    let coverage = Math.max(layoutHeight, visualHeight);
-    if (mainRect) {
-        const distanceFromPortTop = barRect.top - mainRect.top;
-        // Stuck (or nearly stuck) at the top of the scrollport.
-        if (distanceFromPortTop <= 2) {
-            coverage = Math.max(coverage, Math.ceil(barRect.bottom - mainRect.top));
-        }
-    }
-
+    const coverage = Math.max(layoutHeight, visualHeight, 0);
     return Math.max(0, coverage + APP_HEADER_OFFSET_BREATHING_PX);
+}
+
+/**
+ * Live clearance from the scrollport top to the visible bottom of the toolbar.
+ * Use this when pinning destinations — near scrollTop=0 the topbar sits below
+ * content padding, so height-only math can place titles underneath it.
+ */
+export function measureLiveHeaderClearance(container?: HTMLElement | null): number {
+    if (typeof document === "undefined") return 0;
+    const topbar = document.querySelector<HTMLElement>(".topbar");
+    if (!topbar) return measureAppHeaderOffset();
+
+    const port = container || getScrollContainerForHeaderMeasure();
+    const portTop = port?.getBoundingClientRect().top ?? 0;
+    const barBottom = topbar.getBoundingClientRect().bottom;
+    const live = Math.ceil(barBottom - portTop) + APP_HEADER_OFFSET_BREATHING_PX;
+    // Never under-clear relative to the stuck header height.
+    return Math.max(live, measureAppHeaderOffset());
 }
 
 /** Write --app-header-offset onto the main scroll container and documentElement. */
