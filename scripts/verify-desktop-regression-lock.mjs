@@ -355,9 +355,12 @@ if (/\bpreventDefault\s*\(/.test(scrollCss)) {
 const navigationScroll = read("lib/navigation-scroll.ts");
 assertIncludes(navigationScroll, "data-main-scroll-container", "navigation-scroll.ts main container selector");
 assertIncludes(navigationScroll, "scheduleNavigationScrollReset", "navigation-scroll.ts schedule helper");
+assertIncludes(navigationScroll, "scrollContainerToElement", "navigation-scroll.ts destination pin");
+assertIncludes(navigationScroll, "buildActiveNavigationKey", "navigation-scroll.ts active view key");
 assertIncludes(navigationScroll, 'behavior: "auto"', "navigation-scroll.ts instant scroll");
-assertExport(navigationScroll, "scrollMainContentToTop", "lib/navigation-scroll.ts");
+assertExport(navigationScroll, "resetNavigationScroll", "lib/navigation-scroll.ts");
 assertExport(navigationScroll, "focusPageHeadingAfterNavigation", "lib/navigation-scroll.ts");
+assertExport(navigationScroll, "isNavigationScrollLocked", "lib/navigation-scroll.ts");
 
 // --- page.tsx wiring invariants ---
 const page = read("app/page.tsx");

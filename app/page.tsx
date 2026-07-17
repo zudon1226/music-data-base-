@@ -3,7 +3,7 @@
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
-import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState, } from "react";
+import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { FoundingMemberGate } from "../components/founding-member-gate";
 import { AppI18nShell } from "../components/app-i18n-shell";
@@ -29,7 +29,12 @@ import {
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
-import { scheduleNavigationScrollReset } from "../lib/navigation-scroll";
+import {
+    buildActiveNavigationKey,
+    disableBrowserScrollRestoration,
+    isNavigationScrollLocked,
+    scheduleNavigationScrollReset,
+} from "../lib/navigation-scroll";
 import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
 import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail";
 import { DesktopSongMediaCard, DesktopVideoMediaCard } from "../components/desktop-media-card";
@@ -5257,10 +5262,20 @@ function PageContent() {
         const timer = window.setTimeout(() => setShowNotificationCenter(false), 0);
         return () => window.clearTimeout(timer);
     }, [view]);
-    // Safety net: every view change opens the main content at top (desktop + mobile containers).
     useEffect(() => {
-        scheduleNavigationScrollReset({ focusHeading: true });
-    }, [view]);
+        disableBrowserScrollRestoration();
+    }, []);
+    const activeNavigationKey = useMemo(
+        () => buildActiveNavigationKey({ view, showUpload, uploadMode }),
+        [view, showUpload, uploadMode],
+    );
+    // Internal view switches do not change the URL — reset scroll from the active view key.
+    useLayoutEffect(() => {
+        scheduleNavigationScrollReset({
+            focusHeading: !showUpload,
+            ensureUploadVisible: showUpload,
+        });
+    }, [activeNavigationKey, showUpload]);
     useEffect(() => {
         startDesktopLocalBootstrap(() => {
             setHasLoaded(true);
@@ -12158,7 +12173,7 @@ function PageContent() {
                 mainVideo.load();
             }
             pendingVideoPlayRef.current = false;
-            if (shouldUseNativeMobileControls) {
+            if (shouldUseNativeMobileControls && !isNavigationScrollLocked()) {
                 mainVideo?.scrollIntoView({ behavior: "smooth", block: "center" });
             }
             return;
@@ -12200,7 +12215,9 @@ function PageContent() {
             if (shouldUseNativeMobileControls) {
                 pendingVideoPlayRef.current = false;
                 mainVideo.controls = true;
-                mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
+                if (!isNavigationScrollLocked()) {
+                    mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
                 return;
             }
             mainVideo.play().then(() => {
@@ -12250,8 +12267,8 @@ function PageContent() {
             : uniqueVideos([nextActiveVideo, ...previous]));
         window.requestAnimationFrame(() => {
             window.requestAnimationFrame(() => {
-                videoPreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                if (!mainVideoRef.current) {
+                if (!isNavigationScrollLocked()) {
+                    videoPreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
             });
         });
@@ -13722,8 +13739,8 @@ function PageContent() {
         if (nextView === "Home") {
             setActiveTab("Trending");
         }
-        // Instant scroll-to-top for the real main content container (desktop panel + mobile).
-        scheduleNavigationScrollReset({ focusHeading: true });
+        // Explicit nav action: pin destination heading under sticky topbar (not mere scrollTop=0).
+        scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
     }
     function handleNav(nextView: View) {
         setShowNotificationCenter(false);
@@ -15507,7 +15524,7 @@ function PageContent() {
 
         {renderSharedVideoPlayer()}
 
-        {showUpload && !uploadsBlockedForCurrentUser && (<section className="upload-shell">
+        {showUpload && !uploadsBlockedForCurrentUser && (<section className="upload-shell" data-nav-destination="upload">
             {(view === "Artist Dashboard" || view === "Producer Dashboard") && (<div className="upload-mode-tabs" role="tablist" aria-label="Dashboard upload type">
                 {view === "Producer Dashboard" ? (<>
                     <button className={uploadMode === "beat" ? "active" : ""} onClick={() => selectUploadMode("beat")} type="button">
@@ -16011,7 +16028,7 @@ function PageContent() {
             </section>
           </>)}
 
-        <section className="section-heading">
+        <section className="section-heading" data-nav-destination="heading">
           <div>
             <h2 data-page-heading tabIndex={-1}>{pageTitle()}</h2>
             <p>{pageSubtitle()}</p>
