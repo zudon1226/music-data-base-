@@ -19033,14 +19033,16 @@ function PageContent() {
                     const cover = itemType === "video" ? entry.video?.cover : itemType === "album" ? entry.album?.cover : entry.song?.cover;
                     const resumeLabel = entry.position && entry.position > 0 ? `Resume ${formatRuntimeLabel(entry.position)}` : "Play";
                     return (<article className="recent-row" key={entry.playId}>
-                      <span className="recent-number">{index + 1}</span>
-                      <img src={cover || BRAND_LOGO} alt=""/>
-                      <div className="recent-copy">
-                        <h3>{title}</h3>
-                        <p>{creator}</p>
-                        <small>{itemType} | {formatRuntimeLabel(entry.position || 0)} / {formatRuntimeLabel(entry.duration || 0)}</small>
+                      <div className="recent-card-header">
+                        <span className="recent-number">{index + 1}</span>
+                        <img className="recent-art" src={cover || BRAND_LOGO} alt="" width={112} height={112}/>
+                        <div className="recent-copy">
+                          <h3>{title}</h3>
+                          <p>{creator}</p>
+                          <small>{itemType} | {formatRuntimeLabel(entry.position || 0)} / {formatRuntimeLabel(entry.duration || 0)}</small>
+                          <span className="recent-time">{formatPlayedAt(entry.playedAt)}</span>
+                        </div>
                       </div>
-                      <span className="recent-time">{formatPlayedAt(entry.playedAt)}</span>
                       <div className="recent-actions">
                         <button onClick={() => resumeRecentPlay(entry)} title={`${resumeLabel} ${title || ""}`} type="button">
                           <Play size={17} fill="currentColor"/>
@@ -23129,6 +23131,10 @@ function PageContent() {
             padding: 10px;
           }
 
+          .recent-card-header {
+            display: contents;
+          }
+
           .recent-number {
             color: #9bdcf0;
             font-size: 13px;
@@ -23137,7 +23143,8 @@ function PageContent() {
             min-width: 44px;
           }
 
-          .recent-row img {
+          .recent-row img,
+          .recent-row .recent-art {
             width: 58px;
             height: 58px;
             border-radius: 8px;
@@ -31873,11 +31880,12 @@ function PageContent() {
               scroll-margin-bottom: var(--mobile-player-reserve) !important;
             }
 
-            /* Recently Played — natural content height; compact 8–12px gaps. */
+            /* Recently Played — compact 112px art + side metadata + 2-row actions. */
             .recent-panel {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
+              align-content: start !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
@@ -31887,7 +31895,7 @@ function PageContent() {
               min-height: 0 !important;
               height: auto !important;
               gap: 10px !important;
-              padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px) + 16px) !important;
+              padding-bottom: calc(var(--mobile-player-height, 72px) + 16px) !important;
               margin: 0 !important;
               overflow-x: hidden !important;
               overflow-y: visible !important;
@@ -31935,61 +31943,91 @@ function PageContent() {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
+              align-content: start !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
-              gap: 8px !important;
+              gap: 10px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
               max-height: none !important;
-              padding: 10px !important;
+              padding: 12px !important;
               margin: 0 !important;
               overflow: visible !important;
               box-sizing: border-box !important;
             }
 
-            .recent-row > * {
-              flex: 0 0 auto !important;
-              flex-grow: 0 !important;
-              min-width: 0 !important;
+            .recent-card-header {
+              display: grid !important;
+              grid-template-columns: 112px minmax(0, 1fr) !important;
+              grid-template-areas:
+                "num num"
+                "art copy" !important;
+              column-gap: 12px !important;
+              row-gap: 8px !important;
+              width: 100% !important;
               max-width: 100% !important;
+              min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               margin: 0 !important;
+              padding: 0 !important;
+              box-sizing: border-box !important;
             }
 
-            .recent-number {
-              align-self: flex-start !important;
+            .recent-card-header > .recent-number {
+              grid-area: num !important;
+              align-self: start !important;
+              justify-self: start !important;
               width: auto !important;
               min-width: 0 !important;
               line-height: 1.1 !important;
+              margin: 0 !important;
             }
 
-            .recent-row > img {
-              width: 120px !important;
-              height: 120px !important;
-              max-width: 120px !important;
-              max-height: 120px !important;
-              flex: 0 0 120px !important;
+            .recent-card-header > .recent-art,
+            .recent-card-header > img.recent-art,
+            .recent-row .recent-art {
+              grid-area: art !important;
+              width: 112px !important;
+              height: 112px !important;
+              max-width: 112px !important;
+              max-height: 112px !important;
+              min-width: 112px !important;
+              min-height: 112px !important;
+              flex: 0 0 112px !important;
+              flex-grow: 0 !important;
+              align-self: start !important;
+              justify-self: start !important;
               object-fit: cover !important;
               border-radius: 8px !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              box-sizing: border-box !important;
             }
 
-            .recent-copy {
+            .recent-card-header > .recent-copy {
+              grid-area: copy !important;
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
               justify-content: flex-start !important;
               gap: 2px !important;
-              width: 100% !important;
-              flex: 0 0 auto !important;
-              flex-grow: 0 !important;
+              width: auto !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
-              overflow: visible !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              overflow: hidden !important;
+              margin: 0 !important;
+              padding: 0 !important;
             }
 
             .recent-copy h3 {
@@ -32001,16 +32039,19 @@ function PageContent() {
               text-overflow: ellipsis !important;
               word-break: break-word !important;
               overflow-wrap: anywhere !important;
-              font-size: 16px !important;
+              font-size: 15px !important;
               line-height: 1.15 !important;
               margin: 0 !important;
             }
 
             .recent-copy p,
-            .recent-copy small {
+            .recent-copy small,
+            .recent-copy .recent-time {
               display: block !important;
               width: 100% !important;
+              max-width: 100% !important;
               margin: 0 !important;
+              padding: 0 !important;
               line-height: 1.2 !important;
             }
 
@@ -32020,52 +32061,46 @@ function PageContent() {
               text-overflow: ellipsis !important;
             }
 
-            .recent-copy small {
-              white-space: normal !important;
-              overflow: visible !important;
-              overflow-wrap: anywhere !important;
-            }
-
-            .recent-time {
-              display: block !important;
-              width: 100% !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              flex: 0 0 auto !important;
-              flex-grow: 0 !important;
-              min-height: 0 !important;
-              height: auto !important;
-              line-height: 1.2 !important;
+            .recent-copy small,
+            .recent-copy .recent-time {
               white-space: normal !important;
               overflow: visible !important;
               overflow-wrap: anywhere !important;
             }
 
             .recent-actions {
-              display: flex !important;
-              flex-direction: column !important;
-              align-items: stretch !important;
-              justify-content: flex-start !important;
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              align-content: start !important;
+              justify-content: stretch !important;
               gap: 8px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
+              max-height: 110px !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
               margin: 0 !important;
               padding: 0 !important;
+              box-sizing: border-box !important;
+            }
+
+            .recent-actions > :first-child {
+              grid-column: 1 / -1 !important;
             }
 
             .recent-actions > button,
+            .recent-actions > .mobile-queue-btn,
             .recent-row .recent-actions .mobile-queue-btn {
+              grid-column: auto !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 44px !important;
               height: 44px !important;
-              max-height: 44px !important;
+              max-height: 48px !important;
               flex: 0 0 44px !important;
               flex-grow: 0 !important;
               white-space: nowrap !important;
@@ -32073,7 +32108,12 @@ function PageContent() {
               text-overflow: ellipsis !important;
               justify-content: center !important;
               margin: 0 !important;
+              padding: 0 8px !important;
               box-sizing: border-box !important;
+            }
+
+            .recent-actions > :first-child {
+              grid-column: 1 / -1 !important;
             }
 
             .recent-list > .recent-row:last-child {
@@ -32092,16 +32132,37 @@ function PageContent() {
               overflow: visible !important;
             }
 
-            /* Queue — natural document height; no viewport stretch. */
+            /* Queue — natural content height; no viewport / flex stretch. */
             .content:has(> .queue-page) {
-              padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
-              scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
+              display: block !important;
+              align-content: start !important;
+              height: 100dvh !important;
+              min-height: 0 !important;
+              padding-bottom: 0 !important;
+              scroll-padding-bottom: calc(var(--mobile-player-height, 72px) + 16px) !important;
+            }
+
+            .content:has(> .queue-page) > .section-heading,
+            .content:has(> .queue-page) > .destination-page-heading,
+            .content:has(> .queue-page) > .queue-page {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              align-content: start !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              max-height: none !important;
+              margin-bottom: 0 !important;
             }
 
             .queue-page {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
+              align-content: start !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
@@ -32112,9 +32173,8 @@ function PageContent() {
               height: auto !important;
               max-height: none !important;
               gap: 10px !important;
-              padding: 0 0 16px !important;
+              padding: 0 0 calc(var(--mobile-player-height, 72px) + 16px) !important;
               margin: 0 !important;
-              scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
               overflow-x: hidden !important;
               overflow-y: visible !important;
               box-sizing: border-box !important;
@@ -32143,6 +32203,7 @@ function PageContent() {
               min-height: 0 !important;
               height: auto !important;
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               overflow: visible !important;
             }
 
@@ -32171,7 +32232,7 @@ function PageContent() {
             }
 
             .queue-page .queue-manage-sections {
-              padding-bottom: 16px !important;
+              padding-bottom: 0 !important;
             }
 
             .mobile-queue-btn {
@@ -32206,9 +32267,12 @@ function PageContent() {
 
             .media-card-actions .mobile-queue-btn,
             .artist-album-actions .mobile-queue-btn,
-            .playlist-song-actions .mobile-queue-btn,
-            .recent-row .mobile-queue-btn {
+            .playlist-song-actions .mobile-queue-btn {
               grid-column: 1 / -1 !important;
+            }
+
+            .recent-row .recent-actions > .mobile-queue-btn {
+              grid-column: auto !important;
             }
 
             /* Profile — compact single-column card; bio starts immediately below. */
@@ -32978,21 +33042,25 @@ function PageContent() {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
+              align-content: start !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
               min-height: 0 !important;
               height: auto !important;
               max-height: none !important;
-              scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
             }
 
             .content > .queue-page {
-              padding-bottom: 16px !important;
+              padding-bottom: calc(var(--mobile-player-height, 72px) + 16px) !important;
+            }
+
+            .content:has(> .queue-page) {
+              padding-bottom: 0 !important;
             }
 
             .content > .recent-panel {
-              padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px) + 16px) !important;
+              padding-bottom: calc(var(--mobile-player-height, 72px) + 16px) !important;
             }
 
             .content > .profile-page {
