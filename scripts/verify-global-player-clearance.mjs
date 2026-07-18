@@ -31,6 +31,22 @@ record(
         && page.includes("--global-player-height-collapsed"),
 );
 record(
+    "protected scrollbar gutter token",
+    page.includes("--player-scrollbar-gutter")
+        && /--player-scrollbar-gutter:\s*max\(20px/.test(page),
+);
+record(
+    "desktop player uses scrollbar gutter (not right:0)",
+    /right:\s*var\(--player-scrollbar-gutter/.test(page)
+        && !/\.player,\s*\n\s*\.video-player-bar\s*\{[\s\S]{0,220}right:\s*0;/.test(page),
+);
+record(
+    "floating dock insets defined",
+    page.includes("--player-dock-inset-bottom")
+        && page.includes("--player-dock-inset-inline")
+        && page.includes("--player-dock-radius"),
+);
+record(
     "player collapsed localStorage key",
     page.includes('playerCollapsed: "zml_player_collapsed"')
         && page.includes("STORAGE_KEYS.playerCollapsed"),
@@ -50,6 +66,11 @@ record(
     "mobile player height uses global token",
     /--mobile-player-height:\s*var\(--global-player-height\)/.test(page)
         && globals.includes("var(--global-player-height"),
+);
+record(
+    "mobile player clears right edge (not right:0)",
+    globals.includes("right: max(8px, env(safe-area-inset-right, 0px))")
+        && page.includes("right: max(8px, env(safe-area-inset-right, 0px))"),
 );
 record(
     "collapsed mobile player grid compact",

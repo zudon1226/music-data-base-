@@ -140,8 +140,12 @@ async function assertComputedFixture() {
 <style>
   :root {
     --mobile-sidebar-width: 112px;
-    --mobile-player-height: 72px;
-    --mobile-player-reserve: 110px;
+    --mobile-player-height: 88px;
+    --mobile-player-reserve: 116px;
+    --global-player-height: 88px;
+    --global-player-height-collapsed: 52px;
+    --player-dock-inset-bottom: 12px;
+    --player-scrollbar-gutter: 20px;
   }
   * { box-sizing: border-box; }
   body {
@@ -423,12 +427,22 @@ async function assertComputedFixture() {
             const el = document.getElementById("player");
             const r = el.getBoundingClientRect();
             const s = getComputedStyle(el);
-            return { h: r.height, position: s.position, bottom: s.bottom };
+            return {
+                h: r.height,
+                position: s.position,
+                bottom: s.bottom,
+                rightGutter: window.innerWidth - r.right,
+                left: r.left,
+            };
         });
         record(
-            "computed fixed player unchanged height/position",
-            player.position === "fixed" && player.h >= 70 && player.h <= 74,
-            `h=${player.h.toFixed(1)} pos=${player.position}`,
+            "computed floating player dock clears edges",
+            player.position === "fixed"
+                && player.h >= 48
+                && player.h <= 96
+                && player.rightGutter >= 7.5
+                && player.left >= 112,
+            `h=${player.h.toFixed(1)} pos=${player.position} rightGutter=${player.rightGutter.toFixed(1)} left=${player.left.toFixed(1)}`,
         );
 
         await page.screenshot({ path: path.join(evidenceDir, "empty-queue-390.png"), fullPage: false });

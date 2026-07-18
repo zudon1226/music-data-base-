@@ -1075,8 +1075,9 @@ const STORAGE_KEYS = {
     playerCollapsed: "zml_player_collapsed",
 };
 
-const GLOBAL_PLAYER_HEIGHT_EXPANDED_PX = 80;
-const GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX = 56;
+const GLOBAL_PLAYER_HEIGHT_EXPANDED_PX = 88;
+const GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX = 52;
+const PLAYER_DOCK_INSET_BOTTOM_PX = 12;
 
 function readStoredPlayerCollapsedPreference(): boolean | null {
     if (typeof window === "undefined") return null;
@@ -5552,7 +5553,7 @@ function PageContent() {
             root.style.setProperty("--mobile-player-height", `${next}px`);
             root.style.setProperty(
                 "--mobile-player-reserve",
-                `calc(${next}px + env(safe-area-inset-bottom, 0px) + 16px)`,
+                `calc(${next}px + ${PLAYER_DOCK_INSET_BOTTOM_PX}px + env(safe-area-inset-bottom, 0px) + 16px)`,
             );
         };
         const el = playerBarRef.current;
@@ -19736,18 +19737,33 @@ function PageContent() {
           ${I18N_GLOBAL_STYLES}
 
           :root {
+            --desktop-sidebar-width: 188px;
+            --player-scrollbar-gutter: max(20px, env(safe-area-inset-right, 0px));
+            --player-dock-inset-bottom: ${PLAYER_DOCK_INSET_BOTTOM_PX}px;
+            --player-dock-inset-inline: 12px;
+            --player-dock-radius: 16px;
             --global-player-height-expanded: ${GLOBAL_PLAYER_HEIGHT_EXPANDED_PX}px;
             --global-player-height-collapsed: ${GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX}px;
             --global-player-height: var(--global-player-height-expanded);
             --mobile-player-height: var(--global-player-height);
-            --mobile-player-reserve: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
+            --mobile-player-reserve: calc(
+              var(--global-player-height)
+              + var(--player-dock-inset-bottom)
+              + env(safe-area-inset-bottom, 0px)
+              + 16px
+            );
           }
 
           html[data-player-collapsed="true"],
           html.player-collapsed {
             --global-player-height: var(--global-player-height-collapsed);
             --mobile-player-height: var(--global-player-height);
-            --mobile-player-reserve: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
+            --mobile-player-reserve: calc(
+              var(--global-player-height)
+              + var(--player-dock-inset-bottom)
+              + env(safe-area-inset-bottom, 0px)
+              + 16px
+            );
           }
 
           * {
@@ -26882,72 +26898,84 @@ function PageContent() {
             font-weight: 800;
           }
 
+          /* Floating studio-console dock — never enter the scrollbar gutter. */
           .player,
           .video-player-bar {
             position: fixed;
-            left: 188px;
-            right: 0;
-            bottom: 0;
+            left: calc(var(--desktop-sidebar-width, 188px) + var(--player-dock-inset-inline, 12px));
+            right: var(--player-scrollbar-gutter, 20px);
+            bottom: calc(var(--player-dock-inset-bottom, 12px) + env(safe-area-inset-bottom, 0px));
+            width: auto;
+            max-width: calc(
+              100vw
+              - var(--desktop-sidebar-width, 188px)
+              - var(--player-dock-inset-inline, 12px)
+              - var(--player-scrollbar-gutter, 20px)
+            );
             z-index: 40;
             overflow: hidden;
-            max-width: 100%;
             box-sizing: border-box;
-            padding-bottom: env(safe-area-inset-bottom, 0px);
+            border-radius: var(--player-dock-radius, 16px);
+            border: 1px solid rgba(34, 211, 238, 0.42);
+            background:
+              linear-gradient(180deg, rgba(10, 28, 62, 0.94), rgba(3, 12, 32, 0.9));
+            backdrop-filter: blur(18px) saturate(1.15);
+            -webkit-backdrop-filter: blur(18px) saturate(1.15);
+            box-shadow:
+              0 14px 36px rgba(0, 0, 0, 0.42),
+              0 0 0 1px rgba(0, 212, 255, 0.08) inset;
           }
 
           .player {
             min-height: var(--global-player-height-expanded);
             height: auto;
-            background: rgba(0, 0, 0, 0.94);
-            border-top: 1px solid rgba(0, 212, 255, 0.25);
             display: grid;
-            grid-template-columns: minmax(180px, 250px) minmax(300px, 1fr) minmax(128px, 170px) 44px;
+            grid-template-columns: minmax(180px, 250px) minmax(300px, 1fr) minmax(128px, 170px) 40px;
             align-items: center;
             gap: 10px;
-            padding: 7px 14px;
-            padding-bottom: calc(7px + env(safe-area-inset-bottom, 0px));
+            padding: 10px 12px;
           }
 
           .video-player-bar {
             min-height: var(--global-player-height-expanded);
             height: auto;
-            background: rgba(4, 12, 30, 0.96);
-            border-top: 1px solid rgba(34, 211, 238, 0.45);
-            box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.24);
             display: grid;
-            grid-template-columns: 280px 1fr 180px 44px;
+            grid-template-columns: 280px 1fr 180px 40px;
             align-items: center;
             gap: 12px;
-            padding: 9px 16px;
-            padding-bottom: calc(9px + env(safe-area-inset-bottom, 0px));
+            padding: 10px 14px;
           }
 
           .player-collapse-toggle {
-            width: 44px;
-            height: 44px;
-            min-width: 44px;
-            min-height: 44px;
-            border: 1px solid rgba(34, 211, 238, 0.45);
-            border-radius: 8px;
-            background: #10204a;
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            min-height: 36px;
+            max-width: 36px;
+            border: 1px solid rgba(34, 211, 238, 0.5);
+            border-radius: 11px;
+            background: rgba(16, 36, 78, 0.95);
             color: #22d3ee;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            flex: 0 0 44px;
+            flex: 0 0 36px;
             padding: 0;
+            justify-self: end;
+            align-self: center;
             z-index: 2;
+            box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.08);
           }
 
           .player.is-collapsed,
           .video-player-bar.is-collapsed {
             min-height: var(--global-player-height-collapsed);
             height: var(--global-player-height-collapsed);
-            max-height: calc(var(--global-player-height-collapsed) + env(safe-area-inset-bottom, 0px));
-            grid-template-columns: minmax(0, 1fr) 44px 44px;
+            max-height: var(--global-player-height-collapsed);
+            grid-template-columns: minmax(0, 1fr) 44px 40px;
             gap: 8px;
-            padding: 6px 12px;
-            padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+            padding: 6px 10px;
+            border-radius: 14px;
           }
 
           .player.is-collapsed .player-side,
@@ -27091,8 +27119,13 @@ function PageContent() {
 
           .toast {
             position: fixed;
-            right: 18px;
-            bottom: 82px;
+            right: calc(var(--player-scrollbar-gutter, 20px) + 8px);
+            bottom: calc(
+              var(--global-player-height, 88px)
+              + var(--player-dock-inset-bottom, 12px)
+              + env(safe-area-inset-bottom, 0px)
+              + 16px
+            );
             z-index: 40;
             max-width: min(360px, calc(100vw - 36px));
             border-radius: 8px;
@@ -27331,11 +27364,24 @@ function PageContent() {
           }
 
           .player-song img {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
             object-fit: cover;
             flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+          }
+
+          .player.is-collapsed .player-song img,
+          .video-player-bar.is-collapsed .video-player-now img {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+          }
+
+          .player.is-collapsed .artist-name,
+          .video-player-bar.is-collapsed .artist-name {
+            display: none !important;
           }
 
           .player-song strong,
@@ -27536,7 +27582,7 @@ function PageContent() {
             }
 
             .player {
-              grid-template-columns: minmax(150px, 210px) minmax(260px, 1fr) minmax(110px, 145px);
+              grid-template-columns: minmax(150px, 210px) minmax(260px, 1fr) minmax(110px, 145px) 40px;
               gap: 8px;
               padding-inline: 10px;
             }
@@ -27644,7 +27690,12 @@ function PageContent() {
               --mobile-sidebar-width: 64px;
               --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: var(--global-player-height);
-              --mobile-player-reserve: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
+              --mobile-player-reserve: calc(
+                var(--global-player-height)
+                + var(--player-dock-inset-bottom, 12px)
+                + env(safe-area-inset-bottom, 0px)
+                + 16px
+              );
             }
 
             html,
@@ -28080,48 +28131,12 @@ function PageContent() {
               width: 56px;
             }
 
-            .player {
-              left: var(--mobile-sidebar-width);
-              grid-template-columns: 1fr;
-              height: auto;
-              min-height: 0;
-              max-height: calc(165px + env(safe-area-inset-bottom, 0px));
-              align-items: stretch;
-              gap: 4px;
-              padding: 6px 10px calc(7px + env(safe-area-inset-bottom, 0px));
-              overflow: hidden;
-              pointer-events: none;
-            }
-
-            .player button,
-            .player input,
-            .player label,
-            .player-song {
+            /* Legacy stacked-player rules removed — mobile uses floating dock below. */
+            .player,
+            .music-bottom-player,
+            .video-bottom-player,
+            .fixed-mobile-player {
               pointer-events: auto;
-            }
-
-            .player-song {
-              justify-content: center;
-              width: min(100%, 360px);
-              justify-self: center;
-              gap: 6px;
-            }
-
-            .player-song img {
-              width: 28px;
-              height: 28px;
-              border-radius: 7px;
-            }
-
-            .player-song strong {
-              max-width: 24ch;
-              font-size: 11.5px;
-              line-height: 1.05;
-            }
-
-            .player-song small {
-              font-size: 10px;
-              line-height: 1.05;
             }
 
             .stability-brand {
@@ -28155,57 +28170,7 @@ function PageContent() {
               grid-template-columns: 1fr;
             }
 
-            .player-center {
-              justify-self: stretch;
-            }
-
-            .player-controls {
-              width: auto;
-              justify-self: center;
-              gap: 5px;
-            }
-
-            .player-controls button,
-            .player-controls button:nth-child(2),
-            .player-controls .main-play,
-            .player-controls button:nth-child(4) {
-              width: 28px;
-              min-width: 28px;
-              height: 28px;
-              border-radius: 7px;
-            }
-
-            .player-controls button:first-child,
-            .player-controls button:last-child {
-              width: 26px;
-              min-width: 26px;
-              height: 27px;
-            }
-
-            .player .progress-row {
-              width: min(100%, 520px);
-              justify-self: center;
-              gap: 2px;
-            }
-
-            .player .progress-time {
-              font-size: 9px;
-            }
-
-            .player-side {
-              width: min(100%, 360px);
-              justify-self: center;
-              grid-template-columns: minmax(72px, auto) minmax(96px, 1fr);
-              align-items: center;
-              justify-items: stretch;
-              gap: 6px;
-            }
-
-            .queue-drawer-button {
-              min-height: 26px;
-              padding: 0 7px;
-              font-size: 10px;
-            }
+            /* Compact control sizing for mobile is owned by the floating-dock block. */
 
             .volume {
               gap: 4px;
@@ -29179,37 +29144,11 @@ function PageContent() {
               min-height: var(--mobile-player-reserve);
             }
 
-            .player {
-              max-height: calc(165px + env(safe-area-inset-bottom, 0px));
-              grid-template-columns: 1fr;
-              grid-template-rows: auto auto;
-              gap: 5px;
-              padding: 6px 8px calc(7px + env(safe-area-inset-bottom, 0px));
-            }
-
+            /* Obsolete stacked player layout removed — floating dock owns mobile geometry. */
             .player-side,
             .player .queue-drawer-button,
             .player .volume {
               display: none;
-            }
-
-            .player-song {
-              justify-content: center;
-              width: min(100%, 300px);
-            }
-
-            .player-song img {
-              width: 32px;
-              height: 32px;
-            }
-
-            .player-song strong {
-              max-width: 22ch;
-              font-size: 12px;
-            }
-
-            .player-song small {
-              font-size: 10px;
             }
 
             .player-controls {
@@ -29556,7 +29495,12 @@ function PageContent() {
               --mobile-sidebar-width: 112px;
               --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: var(--global-player-height);
-              --mobile-player-reserve: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
+              --mobile-player-reserve: calc(
+                var(--global-player-height)
+                + var(--player-dock-inset-bottom, 12px)
+                + env(safe-area-inset-bottom, 0px)
+                + 16px
+              );
             }
 
             main,
@@ -33046,48 +32990,72 @@ function PageContent() {
             }
 
             .music-bottom-player,
-            .video-bottom-player {
+            .video-bottom-player,
+            .fixed-mobile-player {
               position: fixed !important;
-              left: var(--mobile-sidebar-width) !important;
-              right: 0 !important;
-              bottom: 0px !important;
-              width: calc(100vw - var(--mobile-sidebar-width)) !important;
-              max-width: calc(100vw - var(--mobile-sidebar-width)) !important;
-              height: var(--global-player-height) !important;
-              min-height: var(--global-player-height) !important;
-              max-height: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px)) !important;
+              left: calc(var(--mobile-sidebar-width) + 8px) !important;
+              right: max(8px, env(safe-area-inset-right, 0px)) !important;
+              bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+              width: auto !important;
+              max-width: calc(
+                100vw
+                - var(--mobile-sidebar-width)
+                - 8px
+                - max(8px, env(safe-area-inset-right, 0px))
+              ) !important;
+              height: var(--global-player-height, 88px) !important;
+              min-height: var(--global-player-height, 88px) !important;
+              max-height: var(--global-player-height, 88px) !important;
               margin: 0 !important;
-              padding: 3px 6px calc(2px + env(safe-area-inset-bottom, 0px)) !important;
+              padding: 6px 8px !important;
               transform: none !important;
               z-index: 9999 !important;
               display: grid !important;
-              grid-template-columns: minmax(0, 1fr) repeat(5, 44px) 44px !important;
+              /* title | prev | play | next | collapse — fits beside permanent sidebar */
+              grid-template-columns: minmax(0, 1fr) repeat(3, 44px) 44px !important;
               grid-template-rows: 1fr !important;
               gap: 5px !important;
               align-items: center !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
+              border-radius: 14px !important;
+              border: 1px solid rgba(34, 211, 238, 0.42) !important;
+              background:
+                linear-gradient(180deg, rgba(10, 28, 62, 0.96), rgba(3, 12, 32, 0.94)) !important;
+              box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4) !important;
             }
 
             .music-bottom-player.is-collapsed,
             .video-bottom-player.is-collapsed,
             .fixed-mobile-player.is-collapsed {
-              height: var(--global-player-height-collapsed) !important;
-              min-height: var(--global-player-height-collapsed) !important;
-              max-height: calc(var(--global-player-height-collapsed) + env(safe-area-inset-bottom, 0px)) !important;
+              height: var(--global-player-height-collapsed, 52px) !important;
+              min-height: var(--global-player-height-collapsed, 52px) !important;
+              max-height: var(--global-player-height-collapsed, 52px) !important;
               grid-template-columns: minmax(0, 1fr) 44px 44px !important;
-              padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
+              padding: 4px 8px !important;
             }
 
             .music-bottom-player .player-collapse-toggle,
             .video-bottom-player .player-collapse-toggle {
-              grid-column: -2 !important;
+              grid-column: 5 !important;
               grid-row: 1 !important;
               width: 44px !important;
               height: 44px !important;
               min-width: 44px !important;
               min-height: 44px !important;
+              max-width: 44px !important;
+              max-height: 44px !important;
               justify-self: end !important;
+            }
+
+            .music-bottom-player .player-controls > button:first-child,
+            .music-bottom-player .player-controls > button:last-child {
+              display: none !important;
+            }
+
+            .video-bottom-player .video-player-controls > button:nth-child(4),
+            .video-bottom-player .video-player-controls > button:nth-child(5) {
+              display: none !important;
             }
 
             .music-bottom-player.is-collapsed .player-controls > button:not(.main-play),
@@ -33184,14 +33152,14 @@ function PageContent() {
             }
 
             .music-bottom-player .player-controls {
-              grid-column: 2 / -1 !important;
+              grid-column: 2 / span 3 !important;
               grid-row: 1 !important;
               width: 100% !important;
               min-width: 0 !important;
               max-width: 100% !important;
               display: grid !important;
               grid-auto-flow: column !important;
-              grid-auto-columns: 42px !important;
+              grid-auto-columns: 44px !important;
               align-items: center !important;
               justify-content: flex-end !important;
               gap: 6px !important;
@@ -33251,27 +33219,8 @@ function PageContent() {
             }
 
             .video-bottom-player {
-              /* Height/grid come from the shared .music-bottom-player/.video-bottom-player block above. */
-              position: fixed !important;
-              left: var(--mobile-sidebar-width) !important;
-              right: 0 !important;
-              bottom: 0px !important;
-              width: calc(100vw - var(--mobile-sidebar-width)) !important;
-              max-width: calc(100vw - var(--mobile-sidebar-width)) !important;
-              height: var(--global-player-height) !important;
-              min-height: var(--global-player-height) !important;
-              max-height: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px)) !important;
-              margin: 0 !important;
-              padding: 3px 6px calc(2px + env(safe-area-inset-bottom, 0px)) !important;
-              transform: none !important;
-              z-index: 9999 !important;
+              /* Shared floating-dock geometry is defined with .music-bottom-player above. */
               display: grid !important;
-              grid-template-columns: minmax(0, 1fr) repeat(5, 44px) 44px !important;
-              grid-template-rows: 1fr !important;
-              gap: 5px !important;
-              align-items: center !important;
-              overflow: hidden !important;
-              box-sizing: border-box !important;
             }
 
             .video-bottom-player .video-player-now {
