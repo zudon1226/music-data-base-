@@ -1,3 +1,5 @@
+import { migrateClientAccessSession } from "@/lib/client-access-session";
+
 const AUTH_CLEANUP_FLAG = "mdb_auth_cleanup_done";
 
 function isLegacyAuthStorageKey(key: string) {
@@ -20,6 +22,8 @@ export function runAuthStorageCleanupOnce() {
     if (typeof window === "undefined") {
         return;
     }
+    // Always migrate access schema so Listeners drop stale role/workspace caches.
+    migrateClientAccessSession();
     if (sessionStorage.getItem(AUTH_CLEANUP_FLAG) === "true") {
         return;
     }

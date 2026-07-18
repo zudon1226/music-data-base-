@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+    canBuyerUseRingtoneTestCheckout,
     confirmRingtonePurchasePayment,
     createRingtonePurchaseIntent,
     getRingtonePaymentMode,
-    isRingtonePaymentsTestModeEnabled,
 } from "@/lib/ringtone-purchase";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
@@ -83,6 +83,7 @@ export async function POST(request: Request, context: Params) {
             }, 201);
         }
 
+        const testModeAvailable = await canBuyerUseRingtoneTestCheckout(userId);
         return json({
             state: "payment_pending",
             purchase,
@@ -96,9 +97,12 @@ export async function POST(request: Request, context: Params) {
                 currency: result.ringtone.currency,
             },
             requiresPayment: true,
-            testModeAvailable: isRingtonePaymentsTestModeEnabled(),
+            testModeAvailable,
+            ownerTestCheckout: testModeAvailable && getRingtonePaymentMode() === "safely-disabled",
             paymentMode: getRingtonePaymentMode(),
-            message: "Purchase intent created. Complete payment to unlock downloads.",
+            message: testModeAvailable
+                ? "Purchase intent created. Complete owner/test checkout to unlock downloads."
+                : "Purchase intent created. Complete payment to unlock downloads.",
         }, 201);
     } catch (error) {
         console.error("[api/ringtones/:id/purchase] POST failed:", error);

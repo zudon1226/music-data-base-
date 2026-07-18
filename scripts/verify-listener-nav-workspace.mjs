@@ -52,8 +52,9 @@ record(
 );
 record(
     "upload shell requires showUpload AND canUpload",
-    /showUpload && shouldShowUploadControl\(desktopNavAccess\)/.test(page)
-    && page.includes('data-active-workspace="upload"'),
+    (page.includes("canRenderUploadWorkspace") || /showUpload && shouldShowUploadControl\(desktopNavAccess\)/.test(page))
+    && page.includes('data-active-workspace="upload"')
+    && page.includes("!navCapabilities.isListenerOnly"),
 );
 record(
     "applyDesktopView unmounts upload",
@@ -97,7 +98,8 @@ record(
 );
 record(
     "listener destinations never blocked by founding whitelist",
-    page.includes("isListenerAccessibleNavView")
+    !page.includes("That area is not available for your founding role.")
+    && page.includes("server-trusted role capabilities only")
     && ["Marketplace", "Ringtone Marketplace", "My Purchased Ringtones", "Notifications"]
         .every((view) => roleLib.includes(`"${view}"`)),
 );
@@ -117,6 +119,20 @@ record(
     "media card does not render Delete without canDelete",
     /\{canDelete \? \(/.test(mediaCard)
     && mediaCard.includes("<Trash2"),
+);
+record(
+    "media card does not render Claim without canClaim",
+    /\{canClaim \? \(/.test(mediaCard)
+    && mediaCard.includes("Claim"),
+);
+record(
+    "access schema migration present",
+    read("lib/client-access-session.ts").includes("CLIENT_ACCESS_SCHEMA_VERSION")
+    && page.includes("migrateClientAccessSession"),
+);
+record(
+    "listener role sanitize on client",
+    roleLib.includes("sanitizeNavRolesForPrimary"),
 );
 
 // Capability matrix: leftover creator signals must not grant upload to listeners.

@@ -33,6 +33,8 @@ export type DesktopSongCardState = {
     isFollowed: boolean;
     isQueued: boolean;
     canDelete: boolean;
+    /** Copyright Claim — creator/owner only; never for Listeners. */
+    canClaim: boolean;
     producerCredit: string | null;
     commentCount: number;
     verifiedBadge?: ReactNode;
@@ -44,6 +46,8 @@ export type DesktopVideoCardState = {
     isFollowed: boolean;
     isQueued: boolean;
     canDelete: boolean;
+    /** Copyright Claim — creator/owner only; never for Listeners. */
+    canClaim: boolean;
     commentCount: number;
     verifiedBadge?: ReactNode;
     mobileIncompatible?: boolean;

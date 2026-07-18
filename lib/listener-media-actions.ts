@@ -25,7 +25,7 @@ export type ListenerMediaActionCapabilityInput = {
     isPlatformOwner?: boolean;
 };
 
-/** True when Edit / Delete / Archive / Publish / moderation owner tools may render. */
+/** True when Edit / Delete / Archive / Publish / Claim / moderation owner tools may render. */
 export function canRenderCreatorMediaControls(
     input: ListenerMediaActionCapabilityInput,
 ): boolean {
@@ -47,8 +47,17 @@ export function resolveListenerMediaCardCanDelete(input: {
     return Boolean(input.ownershipAllowsDelete);
 }
 
+/** Copyright Claim is a creator/ownership control — never for Listener cards. */
+export function resolveListenerMediaCardCanClaim(input: ListenerMediaActionCapabilityInput): boolean {
+    return canRenderCreatorMediaControls(input);
+}
+
 export function isListenerAccessibleNavView(view: string): boolean {
     return (LISTENER_ACCESSIBLE_VIEWS as readonly string[]).includes(view);
+}
+
+export function isCreatorOnlyNavView(view: string): boolean {
+    return (CREATOR_ONLY_NAV_VIEWS as readonly string[]).includes(view);
 }
 
 /** Stable Listener primary action order (labels may be compact). */
@@ -59,4 +68,11 @@ export const LISTENER_MEDIA_PRIMARY_ACTION_ORDER = [
     "save",
     "playlist",
     "queue",
+] as const;
+
+/** Stable Listener secondary action order. */
+export const LISTENER_MEDIA_SECONDARY_ACTION_ORDER = [
+    "comments",
+    "share",
+    "report",
 ] as const;

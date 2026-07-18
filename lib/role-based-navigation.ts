@@ -78,6 +78,39 @@ function toNavFlags(
     };
 }
 
+const CREATOR_ROLE_TOKENS = new Set([
+    "artist",
+    "producer",
+    "admin",
+    "creator",
+    "founding_artist",
+    "founding_producer",
+    "artist_pro",
+    "producer_pro",
+]);
+
+/**
+ * When the authoritative primary role is Listener, drop stale creator/founding
+ * role tokens that may linger in client caches or invite leftovers.
+ */
+export function sanitizeNavRolesForPrimary(
+    primaryRole: unknown,
+    accountRoles: Iterable<string>,
+    options: { isPlatformOwner?: boolean; isAdmin?: boolean } = {},
+): string[] {
+    const primary = normalizeNavRole(primaryRole);
+    const roles = [...accountRoles]
+        .map((role) => String(role || "").trim().toLowerCase())
+        .filter(Boolean);
+    if (options.isPlatformOwner || options.isAdmin || primary === "admin") {
+        return roles;
+    }
+    if (primary === "listener") {
+        return roles.filter((role) => !CREATOR_ROLE_TOKENS.has(role) && normalizeNavRole(role) === "listener");
+    }
+    return roles;
+}
+
 export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavCapabilityFlags {
     const isPlatformOwner = Boolean(input.isPlatformOwner);
     if (!isPlatformOwner && input.rolesReady === false) {
@@ -96,11 +129,17 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
         };
     }
 
+    const primaryRole = input.primaryRole || "listener";
+    const sanitizedRoles = sanitizeNavRolesForPrimary(
+        primaryRole,
+        collectNavRoles(input),
+        { isPlatformOwner, isAdmin: input.isAdmin },
+    );
     const resolved = resolveCapabilitiesFromExplicitRoles({
         isPlatformOwner,
         isAdmin: input.isAdmin,
-        primaryRole: input.primaryRole,
-        accountRoles: collectNavRoles(input),
+        primaryRole,
+        accountRoles: sanitizedRoles,
     });
     return toNavFlags(resolved, isPlatformOwner);
 }

@@ -58,6 +58,7 @@ function DesktopArtistNameButton({
 
 function DesktopMediaCardSecondaryActions({
     commentCount,
+    canClaim,
     onOpenComments,
     onShare,
     shareLabel,
@@ -65,6 +66,7 @@ function DesktopMediaCardSecondaryActions({
     onClaim,
 }: {
     commentCount: number;
+    canClaim: boolean;
     onOpenComments: () => void;
     onShare: () => void;
     shareLabel: string;
@@ -85,10 +87,12 @@ function DesktopMediaCardSecondaryActions({
                 <Bell size={14} />
                 Report
             </button>
-            <button onClick={onClaim} type="button">
-                <BookOpen size={14} />
-                Claim
-            </button>
+            {canClaim ? (
+                <button onClick={onClaim} type="button">
+                    <BookOpen size={14} />
+                    Claim
+                </button>
+            ) : null}
         </div>
     );
 }
@@ -278,6 +282,7 @@ export function DesktopSongMediaCard({
 
                 <DesktopMediaCardSecondaryActions
                     commentCount={state.commentCount}
+                    canClaim={state.canClaim}
                     onOpenComments={handlers.onOpenComments}
                     onShare={handlers.onShare}
                     shareLabel="Share Song"
@@ -360,6 +365,7 @@ export function DesktopVideoMediaCard({
 
                 <DesktopMediaCardSecondaryActions
                     commentCount={state.commentCount}
+                    canClaim={state.canClaim}
                     onOpenComments={handlers.onOpenComments}
                     onShare={handlers.onShare}
                     shareLabel="Share Video"

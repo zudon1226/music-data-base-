@@ -5,7 +5,12 @@
 
 import { randomUUID } from "node:crypto";
 import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
-import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import {
+    getErrorMessage,
+    getSupabaseServerClient,
+    isPlatformOwnerUserId,
+    isUuid,
+} from "@/lib/server-supabase";
 
 async function resolvePurchaseRevisionFields(ringtoneId: string) {
     const supabase = getSupabaseServerClient();
@@ -68,6 +73,19 @@ export function getRingtonePaymentMode(): "live" | "test-only" | "safely-disable
 
 export function canStartPaidRingtonePurchase() {
     return getRingtonePaymentMode() !== "safely-disabled";
+}
+
+/** Paid intents for normal buyers require live Stripe or global test mode. */
+export async function canBuyerStartPaidRingtonePurchase(buyerId: string) {
+    if (canStartPaidRingtonePurchase()) return true;
+    // Owner-only development checkout when Stripe is not configured.
+    return isPlatformOwnerUserId(buyerId);
+}
+
+/** Test-provider completion: global test mode, or platform owner only. */
+export async function canBuyerUseRingtoneTestCheckout(buyerId: string) {
+    if (isRingtonePaymentsTestModeEnabled()) return true;
+    return isPlatformOwnerUserId(buyerId);
 }
 
 export function isPurchasableRingtoneStatus(status: unknown) {
@@ -151,12 +169,13 @@ export async function createRingtonePurchaseIntent(input: {
         String(product.ringtone.currency || "USD"),
     );
     const isFree = split.amountCents === 0;
-    if (!isFree && !canStartPaidRingtonePurchase()) {
+    if (!isFree && !(await canBuyerStartPaidRingtonePurchase(input.buyerId))) {
         return {
             ok: false as const,
             error: "Paid ringtone purchasing is coming soon. Purchasing is currently unavailable.",
             status: 503,
             code: "PURCHASING_UNAVAILABLE",
+            paymentMode: getRingtonePaymentMode(),
         };
     }
     const supabase = getSupabaseServerClient();
@@ -270,7 +289,7 @@ export async function confirmRingtonePurchasePayment(input: {
     const paymentReference = String(input.paymentReference || "").trim();
 
     if (provider === "test") {
-        if (!isRingtonePaymentsTestModeEnabled()) {
+        if (!(await canBuyerUseRingtoneTestCheckout(input.buyerId))) {
             return {
                 ok: false as const,
                 error: "Test-mode ringtone payments are disabled. Set RINGTONE_PAYMENTS_TEST_MODE=1 for isolated verification only.",

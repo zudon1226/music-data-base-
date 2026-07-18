@@ -62,6 +62,9 @@ export function RingtoneMarketplaceWorkspace({
     const [total, setTotal] = useState(0);
     const [error, setError] = useState("");
     const [statusMessage, setStatusMessage] = useState("");
+    const [paymentMode, setPaymentMode] = useState<"live" | "test-only" | "safely-disabled" | "">("");
+    const [paidCheckoutAvailable, setPaidCheckoutAvailable] = useState(true);
+    const [ownerTestCheckout, setOwnerTestCheckout] = useState(false);
     const [installGuide, setInstallGuide] = useState<{ title: string; steps: string[] } | null>(null);
     const [pending, startTransition] = useTransition();
     const purchaseLockRef = useRef(false);
@@ -94,6 +97,14 @@ export function RingtoneMarketplaceWorkspace({
         setPopularCreators((result.body.popularCreators || []) as Array<{ creatorId: string; creatorName: string; count: number }>);
         setTotal(Number(result.body.total) || 0);
         setPage(nextPage);
+        const mode = String(result.body.paymentMode || "");
+        setPaymentMode(
+            mode === "live" || mode === "test-only" || mode === "safely-disabled"
+                ? mode
+                : "",
+        );
+        setPaidCheckoutAvailable(result.body.paidCheckoutAvailable !== false);
+        setOwnerTestCheckout(result.body.ownerTestCheckout === true);
     }
 
     async function loadPurchases() {
@@ -223,7 +234,10 @@ export function RingtoneMarketplaceWorkspace({
             if (!intent.ok) {
                 if (String(intent.body.code || "") === "PURCHASING_UNAVAILABLE") {
                     setStatusMessage(t("ringtones.purchasingComingSoon"));
-                    setError(t("ringtones.purchasingUnavailable"));
+                    setError(
+                        `${t("ringtones.purchasingUnavailable")} Live checkout is not configured. Free ringtones can still be acquired.`,
+                    );
+                    setPaidCheckoutAvailable(false);
                     return;
                 }
                 throw new Error(String(intent.body.error || t("ringtones.purchaseFailed")));
@@ -334,14 +348,27 @@ export function RingtoneMarketplaceWorkspace({
                         </button>
                         {ringtone.owned ? (
                             <span className="ringtone-owned-badge">{t("ringtones.alreadyOwned")}</span>
-                        ) : (
+                        ) : ringtone.price_cents === 0 || paidCheckoutAvailable ? (
                             <button
                                 type="button"
                                 className="save-upload"
                                 disabled={pending || purchaseLockRef.current}
                                 onClick={() => void handlePurchase(ringtone.id)}
+                                title={
+                                    ringtone.price_cents > 0 && ownerTestCheckout
+                                        ? "Owner test checkout (no live Stripe)"
+                                        : undefined
+                                }
                             >
-                                {ringtone.price_cents === 0 ? t("ringtones.getFree") : t("ringtones.buyNow")}
+                                {ringtone.price_cents === 0
+                                    ? t("ringtones.getFree")
+                                    : ownerTestCheckout
+                                        ? `${t("ringtones.buyNow")} (Test)`
+                                        : t("ringtones.buyNow")}
+                            </button>
+                        ) : (
+                            <button type="button" className="save-upload" disabled title={t("ringtones.purchasingUnavailable")}>
+                                {t("ringtones.purchasingUnavailable")}
                             </button>
                         )}
                     </div>
@@ -357,6 +384,15 @@ export function RingtoneMarketplaceWorkspace({
         <section className="ringtone-marketplace-page dashboard-page" data-ringtone-destination={destination}>
             <div className="sr-only" aria-live="polite">{statusMessage}</div>
             {error ? <p className="ringtone-error" role="alert">{error}</p> : null}
+            {destination === "marketplace" && paymentMode === "safely-disabled" ? (
+                <p className="ringtone-payment-mode-banner" role="status" data-payment-mode={paymentMode}>
+                    {t("ringtones.purchasingUnavailable")}{" "}
+                    Live checkout is not configured on this environment. Free ringtones can still be acquired.
+                    {ownerTestCheckout
+                        ? " Owner test checkout is available for verifying entitlements without live Stripe."
+                        : ""}
+                </p>
+            ) : null}
 
             {showMarketplaceBrowse ? (
                 <>

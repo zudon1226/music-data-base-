@@ -82,10 +82,11 @@ export async function GET(request: Request) {
         const avatarUrl = String(profileRow.avatar_url || "").trim();
         // Authoritative roles only: account_type + active user_roles. Never infer from profile tables.
         const resolved = await loadResolvedAccountCapabilities(userId, email);
-        const role = normalizeRole(profileRow.account_type) === "listener"
-            ? resolved.primaryRole
-            : normalizeRole(profileRow.account_type);
-        const roles = resolved.roles.length > 0 ? resolved.roles : [role];
+        // Listener profiles must never surface stale founding/creator role tokens to the client.
+        const role = resolved.isListenerOnly ? "listener" : resolved.primaryRole;
+        const roles = resolved.isListenerOnly
+            ? ["listener"]
+            : (resolved.roles.length > 0 ? resolved.roles : [role]);
 
         let songsCount = 0;
         let videosCount = 0;

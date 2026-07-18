@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
+import {
+    canBuyerUseRingtoneTestCheckout,
+    getRingtonePaymentMode,
+} from "@/lib/ringtone-purchase";
 import { optionalMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -200,6 +204,10 @@ export async function GET(request: Request) {
             .sort((a, b) => b.count - a.count)
             .slice(0, 8);
 
+        const paymentMode = getRingtonePaymentMode();
+        const ownerTestCheckout = userId && isUuid(userId)
+            ? await canBuyerUseRingtoneTestCheckout(userId)
+            : false;
         return json({
             ringtones: catalog,
             page,
@@ -207,6 +215,9 @@ export async function GET(request: Request) {
             total: typeof count === "number" ? count : catalog.length,
             popularCreators,
             filtersApplied: { filter, sort, q, creatorId, section },
+            paymentMode,
+            paidCheckoutAvailable: paymentMode !== "safely-disabled" || Boolean(ownerTestCheckout),
+            ownerTestCheckout: Boolean(ownerTestCheckout) && paymentMode === "safely-disabled",
         });
     } catch (error) {
         console.error("[api/ringtones/marketplace] GET failed:", error);

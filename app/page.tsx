@@ -72,9 +72,14 @@ import {
 import { resolveNavCapabilities } from "../lib/role-based-navigation";
 import {
     ACCOUNT_ROLE_UNAVAILABLE_MESSAGE,
-    isListenerAccessibleNavView,
+    isCreatorOnlyNavView,
+    resolveListenerMediaCardCanClaim,
     resolveListenerMediaCardCanDelete,
 } from "../lib/listener-media-actions";
+import {
+    CLIENT_ACCESS_SCHEMA_VERSION,
+    migrateClientAccessSession,
+} from "../lib/client-access-session";
 import { fetchRingtoneEligibility } from "../lib/ringtone-creator-client";
 import { I18N_GLOBAL_STYLES } from "../lib/i18n/i18n-styles";
 import { translateHomeTab, translatePageSubtitle, translatePageTitle } from "../lib/i18n/page-copy";
@@ -5491,12 +5496,16 @@ function PageContent() {
         });
     }, [activeNavigationKey, showUpload]);
     useEffect(() => {
+        migrateClientAccessSession();
+    }, []);
+    useEffect(() => {
         startDesktopLocalBootstrap(() => {
             setHasLoaded(true);
             resolveUserMusicStateBootstrapAfterLocalHydration(() => setRemoteMusicStateReady(true));
         }, () => {
             clearOversizedMediaStorageKeys();
             clearRemovedPlaceholderArtworkFromLocalStorage();
+            migrateClientAccessSession();
             const loadedSongs = DEFAULT_SONGS;
             const loadedVideos: VideoItem[] = [];
             const songMap = new Map(loadedSongs.map((song) => [song.id, song]));
@@ -5629,18 +5638,29 @@ function PageContent() {
         capabilities: navCapabilities,
     }), [accountUserId, authSession, isAuthenticated, isPlatformOwner, navCapabilities]);
     useEffect(() => {
-        if (!isAuthenticated || !authReady) return;
+        if (!isAuthenticated || !authReady || !accountRolesReady) return;
         const decision = evaluateDesktopNavAccess(view as DesktopNavView, desktopNavAccess);
         if (!decision.allowed) {
             setShowUpload(false);
+            setToast(null);
             setView("Home");
+            showToast(ACCOUNT_ROLE_UNAVAILABLE_MESSAGE, "error");
         }
-    }, [isAuthenticated, authReady, view, desktopNavAccess]);
+    }, [isAuthenticated, authReady, accountRolesReady, view, desktopNavAccess]);
     useEffect(() => {
         if (!shouldShowUploadControl(desktopNavAccess) && showUpload) {
             setShowUpload(false);
         }
     }, [desktopNavAccess, showUpload]);
+    useEffect(() => {
+        // Never keep creator studio chrome mounted for Listener-only accounts.
+        if (accountRolesReady && navCapabilities.isListenerOnly) {
+            setShowUpload(false);
+            if (isCreatorOnlyNavView(view)) {
+                setView("Home");
+            }
+        }
+    }, [accountRolesReady, navCapabilities.isListenerOnly, view]);
     const foundingBetaLocked = isFoundingBetaLocked();
     const reloadFoundingAccess = useCallback(async (userIdOverride = "", tokenOverride = "") => {
         const userId = userIdOverride || accountUserIdRef.current || "";
@@ -6304,6 +6324,8 @@ function PageContent() {
             isAdmin?: boolean;
             isArtist?: boolean;
             isProducer?: boolean;
+            canUpload?: boolean;
+            isListenerOnly?: boolean;
             avatarUrl?: string;
             error?: string;
         };
@@ -6337,15 +6359,21 @@ function PageContent() {
             role: String(data.role || "listener").trim().toLowerCase(),
             avatarUrl: String(data.avatarUrl || "").trim(),
         };
-        setUserAuthProfile(nextProfile);
-        const nextRoles = Array.isArray(data.roles)
-            ? data.roles.map((role: unknown) => String(role || "").trim().toLowerCase()).filter(Boolean)
-            : [nextProfile.role].filter(Boolean);
+        const listenerOnly = data.isListenerOnly === true
+            || (nextProfile.role === "listener" && data.canUpload !== true && !data.isArtist && !data.isProducer);
+        const forcedRole = listenerOnly ? "listener" : nextProfile.role;
+        setUserAuthProfile({ ...nextProfile, role: forcedRole });
+        const nextRoles = listenerOnly
+            ? ["listener"]
+            : Array.isArray(data.roles)
+                ? data.roles.map((role: unknown) => String(role || "").trim().toLowerCase()).filter(Boolean)
+                : [forcedRole].filter(Boolean);
         setAccountNavRoles(nextRoles);
         setAccountIsAdmin(Boolean(data.isAdmin) || nextRoles.includes("admin"));
         setAccountRolesReady(true);
+        setShowUpload(false);
         if (!isPlatformOwnerEmail(emailOverride || activeUser?.email)) {
-            setAccountRole(normalizeAccountRole(nextProfile.role));
+            setAccountRole(normalizeAccountRole(forcedRole));
         }
         await confirmAuthenticatedFromApi(profileUserId);
         return nextProfile;
@@ -10199,17 +10227,33 @@ function PageContent() {
         });
     }
     function canDeleteUploadedAlbum(album: ResolvedAlbum) {
-        return Boolean(isDatabaseUuid(album.id) &&
+        const ownershipAllowsDelete = Boolean(isDatabaseUuid(album.id) &&
             (isPlatformOwner ||
                 (accountUserId &&
                     (album.userId === accountUserId ||
                         album.artistId === accountUserId ||
                         album.producerId === accountUserId ||
                         album.producerProfileId === accountUserId))));
+        return resolveListenerMediaCardCanDelete({
+            ownershipAllowsDelete,
+            canUpload: navCapabilities.canUpload,
+            isPlatformOwner,
+        });
     }
     function canDeleteProducerBeat(beat: ProducerBeat) {
-        return Boolean(isDatabaseUuid(beat.id) && (isPlatformOwner || (accountUserId && beat.producerUserId === accountUserId)));
+        const ownershipAllowsDelete = Boolean(
+            isDatabaseUuid(beat.id) && (isPlatformOwner || (accountUserId && beat.producerUserId === accountUserId)),
+        );
+        return resolveListenerMediaCardCanDelete({
+            ownershipAllowsDelete,
+            canUpload: navCapabilities.canUpload,
+            isPlatformOwner,
+        });
     }
+    const canClaimMedia = resolveListenerMediaCardCanClaim({
+        canUpload: navCapabilities.canUpload,
+        isPlatformOwner,
+    });
     function clearSongPlayerIfDeleted(songId: string) {
         if (activeMedia?.item.id !== songId && currentSong?.id !== songId)
             return;
@@ -10896,6 +10940,7 @@ function PageContent() {
                 isFollowed,
                 isQueued,
                 canDelete: canDeleteTrack,
+                canClaim: canClaimMedia,
                 producerCredit,
                 commentCount: getCommentsForItem("song", song.id).length,
                 verifiedBadge: renderVerifiedBadge(isArtistVerified(song.artist), "Verified Artist"),
@@ -10957,6 +11002,7 @@ function PageContent() {
                 isFollowed: isFollowing,
                 isQueued,
                 canDelete: canDeleteVideo,
+                canClaim: canClaimMedia,
                 commentCount: getCommentsForItem("video", video.id).length,
                 verifiedBadge: renderVerifiedBadge(isArtistVerified(video.creator), "Verified Artist"),
                 mobileIncompatible,
@@ -14195,6 +14241,7 @@ function PageContent() {
     }
     function applyDesktopView(nextView: View) {
         // Exactly one destination workspace: always unmount upload chrome when leaving via nav.
+        setToast(null);
         setShowUpload(false);
         setShowNotificationCenter(false);
         setView(nextView);
@@ -14235,13 +14282,8 @@ function PageContent() {
     function handleNav(nextView: View) {
         setShowNotificationCenter(false);
         setToast(null);
-        // Pending founding members may still use Listener destinations; only creator workspaces stay locked.
-        if (!isPlatformOwner && foundingAccess && !foundingAccess.canAccessApp) {
-            if (!isListenerAccessibleNavView(nextView)) {
-                denyUnauthorizedDesktopNav();
-                return;
-            }
-        }
+        // FoundingMemberGate already blocks unapproved app access. Navigation uses
+        // server-trusted role capabilities only — never founding invite leftovers.
         const accessDecision = evaluateDesktopNavAccess(nextView as DesktopNavView, desktopNavAccess);
         if (!accessDecision.allowed) {
             denyUnauthorizedDesktopNav();
@@ -15880,7 +15922,21 @@ function PageContent() {
     const unreadNotifications = notifications.filter((notification) => !notification.read).length;
     const totalUpNextCount = upNextQueueItems.length;
     const activeAlbumTrackInfo = getActiveAlbumTrackInfo();
-    return (<main className={`zml-app view-${displayMode}`} data-app-locale={locale} dir="ltr">
+    const canRenderUploadWorkspace = showUpload
+        && shouldShowUploadControl(desktopNavAccess)
+        && !uploadsBlockedForCurrentUser
+        && !navCapabilities.isListenerOnly;
+    return (<main
+      className={`zml-app view-${displayMode}`}
+      data-app-locale={locale}
+      data-access-schema={CLIENT_ACCESS_SCHEMA_VERSION}
+      data-account-role={navCapabilities.isListenerOnly ? "listener" : (userAuthProfile.role || "listener")}
+      data-roles-ready={accountRolesReady ? "true" : "false"}
+      data-can-upload={navCapabilities.canUpload ? "true" : "false"}
+      data-upload-open={canRenderUploadWorkspace ? "true" : "false"}
+      data-active-view={view}
+      dir="ltr"
+    >
       <aside className="sidebar" data-sidebar-locale={locale} dir="ltr">
         <button className="logo" onClick={() => handleNav("Home")} title={t("nav.home")}>
           <img src={BRAND_LOGO} alt="Music Data Base"/>
@@ -16057,7 +16113,7 @@ function PageContent() {
 
         {renderSharedVideoPlayer()}
 
-        {showUpload && shouldShowUploadControl(desktopNavAccess) && !uploadsBlockedForCurrentUser && (<section className="upload-shell" data-nav-destination="upload" data-active-workspace="upload" data-creator-studio={creatorStudio}>
+        {canRenderUploadWorkspace ? (<section className="upload-shell" data-nav-destination="upload" data-active-workspace="upload" data-creator-studio={creatorStudio}>
             <CreatorStudioUploadChrome
               studio={creatorStudio}
               canArtistStudio={shouldShowArtistDashboardControl(desktopNavAccess)}
@@ -16353,9 +16409,9 @@ function PageContent() {
                           : "Save Song"}
             </button>
           </form>)}
-          </section>)}
+          </section>) : null}
 
-        {view === "Trending" && !search.trim() && (<section className="trending-controls">
+        {!canRenderUploadWorkspace && view === "Trending" && !search.trim() && (<section className="trending-controls">
             <div>
               <span className="playlist-kicker">Trending Algorithm</span>
               <h2>Most played, liked, and followed</h2>
@@ -16619,7 +16675,7 @@ function PageContent() {
           )}
         />
 
-        {view === "My Ringtones" ? (
+        {!canRenderUploadWorkspace && view === "My Ringtones" && navCapabilities.canMyRingtones ? (
           <RingtoneCreatorWorkspace
             userId={accountUserId}
             session={authSession}
@@ -20681,6 +20737,83 @@ function PageContent() {
           .upload-shell .upload-card,
           .upload-shell .video-upload-card {
             margin-bottom: 0;
+          }
+
+          /* When upload workspace is open, hide other destination content (no stale layering). */
+          .zml-app[data-upload-open="true"] [data-main-scroll-container] > :not(.topbar):not(.upload-shell) {
+            display: none !important;
+          }
+
+          .zml-app[data-can-upload="false"] .upload-btn,
+          .zml-app[data-can-upload="false"] .dashboard-btn,
+          .zml-app[data-account-role="listener"] .upload-btn,
+          .zml-app[data-account-role="listener"] .dashboard-btn {
+            display: none !important;
+          }
+
+          .ringtone-payment-mode-banner {
+            margin: 0 0 12px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(250, 204, 21, 0.35);
+            background: rgba(120, 53, 15, 0.35);
+            color: #fef3c7;
+            font-size: 13px;
+            line-height: 1.4;
+            font-weight: 700;
+          }
+
+          @media (max-width: 430px) {
+            .zml-app,
+            .zml-app * {
+              max-width: 100%;
+            }
+
+            .zml-app {
+              overflow-x: hidden;
+            }
+
+            .song-grid,
+            .video-grid,
+            .library-list,
+            .media-list,
+            .discovery-grid {
+              grid-template-columns: 1fr !important;
+            }
+
+            .song-card,
+            .video-card,
+            .library-card,
+            .media-card {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+
+            .card-actions,
+            .media-card-actions {
+              display: flex !important;
+              flex-wrap: wrap !important;
+              gap: 6px !important;
+              overflow: visible !important;
+              height: auto !important;
+            }
+
+            .card-actions button,
+            .media-card-actions button {
+              flex: 1 1 calc(50% - 6px) !important;
+              min-width: 44px !important;
+              min-height: 44px !important;
+            }
+
+            .content,
+            [data-main-scroll-container] {
+              padding-bottom: calc(var(--mobile-player-reserve, 110px) + 16px) !important;
+            }
+
+            .desktop-sidebar-nav button {
+              min-width: 44px;
+              min-height: 44px;
+            }
           }
 
           .creator-studio-chrome {
@@ -27835,19 +27968,22 @@ function PageContent() {
 
             .song-card .card-actions,
             .library-card.song-card .card-actions {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              grid-auto-rows: 32px;
-              min-height: 104px;
+              display: flex;
+              flex-wrap: wrap;
+              gap: 6px;
+              min-height: 0;
               height: auto;
-              overflow: hidden;
+              overflow: visible;
             }
 
             .song-card .card-actions button,
             .library-card.song-card .card-actions button {
-              min-height: 32px;
-              height: 32px;
+              flex: 1 1 calc(50% - 6px);
+              min-width: 44px;
+              min-height: 44px;
+              height: auto;
               font-size: 11px;
-              padding: 0 5px;
+              padding: 0 6px;
             }
 
             .view-list .song-grid {
@@ -28472,19 +28608,22 @@ function PageContent() {
 
             .song-card .card-actions,
             .library-card.song-card .card-actions {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              grid-auto-rows: 32px;
-              min-height: 104px;
+              display: flex;
+              flex-wrap: wrap;
+              gap: 6px;
+              min-height: 0;
               height: auto;
-              overflow: hidden;
+              overflow: visible;
             }
 
             .song-card .card-actions button,
             .library-card.song-card .card-actions button {
-              min-height: 32px;
-              height: 32px;
+              flex: 1 1 calc(50% - 6px);
+              min-width: 44px;
+              min-height: 44px;
+              height: auto;
               font-size: 11px;
-              padding: 0 5px;
+              padding: 0 6px;
             }
 
             .artist-card {
