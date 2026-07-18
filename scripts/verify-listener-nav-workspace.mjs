@@ -24,6 +24,8 @@ function read(rel) {
 const page = read("app/page.tsx");
 const roleLib = read("lib/role-based-navigation.ts");
 const resolvedLib = read("lib/resolved-account-role.ts");
+const listenerActions = read("lib/listener-media-actions.ts");
+const mediaCard = read("components/desktop-media-card.tsx");
 const profileApi = read("app/api/user-profile/route.ts");
 const sidebar = read("components/desktop-app-sidebar-nav.tsx");
 const audioUpload = read("app/api/upload-audio/route.ts");
@@ -81,6 +83,40 @@ record(
 record(
     "single workspace contract documented in applyDesktopView",
     page.includes("Exactly one destination workspace"),
+);
+record(
+    "founding approved whitelist removed from handleNav",
+    !page.includes("That area is not available for your founding role.")
+    && !page.includes('protectedViews: View[] = ["Artist Dashboard"'),
+);
+record(
+    "role warning uses account-role copy",
+    listenerActions.includes("This area is not available for your account role.")
+    && page.includes("ACCOUNT_ROLE_UNAVAILABLE_MESSAGE")
+    && page.includes("denyUnauthorizedDesktopNav"),
+);
+record(
+    "listener destinations never blocked by founding whitelist",
+    page.includes("isListenerAccessibleNavView")
+    && ["Marketplace", "Ringtone Marketplace", "My Purchased Ringtones", "Notifications"]
+        .every((view) => roleLib.includes(`"${view}"`)),
+);
+record(
+    "delete gated via listener media action resolver",
+    listenerActions.includes("resolveListenerMediaCardCanDelete")
+    && page.includes("resolveListenerMediaCardCanDelete")
+    && page.includes("canUpload: navCapabilities.canUpload"),
+);
+record(
+    "media card queue supports remove when queued",
+    mediaCard.includes("onToggleQueue")
+    && mediaCard.includes("Remove from queue")
+    && !mediaCard.includes("disabled={isQueued}"),
+);
+record(
+    "media card does not render Delete without canDelete",
+    /\{canDelete \? \(/.test(mediaCard)
+    && mediaCard.includes("<Trash2"),
 );
 
 // Capability matrix: leftover creator signals must not grant upload to listeners.

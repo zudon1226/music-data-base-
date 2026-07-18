@@ -70,6 +70,11 @@ import {
     type DesktopNavView,
 } from "../lib/desktop-app-navigation";
 import { resolveNavCapabilities } from "../lib/role-based-navigation";
+import {
+    ACCOUNT_ROLE_UNAVAILABLE_MESSAGE,
+    isListenerAccessibleNavView,
+    resolveListenerMediaCardCanDelete,
+} from "../lib/listener-media-actions";
 import { fetchRingtoneEligibility } from "../lib/ringtone-creator-client";
 import { I18N_GLOBAL_STYLES } from "../lib/i18n/i18n-styles";
 import { translateHomeTab, translatePageSubtitle, translatePageTitle } from "../lib/i18n/page-copy";
@@ -10149,7 +10154,7 @@ function PageContent() {
         await removeLibraryItem(albumId, "album");
     }
     function canDeleteUploadedSong(song: Song) {
-        return canDeleteDesktopUploadedItem({
+        const ownershipAllowsDelete = canDeleteDesktopUploadedItem({
             itemId: song.id,
             ownerUserId: song.ownerId,
             producerUserId: song.producerId,
@@ -10163,12 +10168,17 @@ function PageContent() {
             resolveArtistId: createArtistId,
             isDatabaseUuid,
         });
+        return resolveListenerMediaCardCanDelete({
+            ownershipAllowsDelete,
+            canUpload: navCapabilities.canUpload,
+            isPlatformOwner,
+        });
     }
     function canDeleteUploadedVideo(video: VideoItem) {
         if (isPlatformOwner) {
             return isDatabaseUuid(video.id) || video.id.startsWith("storage-");
         }
-        return canDeleteDesktopUploadedItem({
+        const ownershipAllowsDelete = canDeleteDesktopUploadedItem({
             itemId: video.id,
             ownerUserId: video.ownerId,
             producerUserId: video.producerId || video.producerProfileId,
@@ -10181,6 +10191,11 @@ function PageContent() {
             selectedArtistProfileId: selectedDashboardArtist?.id,
             resolveArtistId: createArtistId,
             isDatabaseUuid,
+        });
+        return resolveListenerMediaCardCanDelete({
+            ownershipAllowsDelete,
+            canUpload: navCapabilities.canUpload,
+            isPlatformOwner,
         });
     }
     function canDeleteUploadedAlbum(album: ResolvedAlbum) {
@@ -10896,7 +10911,13 @@ function PageContent() {
                     }
                     saveSongToLibrary(song);
                 },
-                onAddToQueue: () => addToQueue(song),
+                onToggleQueue: () => {
+                    if (isQueued) {
+                        removeMediaFromQueue("song", song.id);
+                        return;
+                    }
+                    addToQueue(song);
+                },
                 onOpenPlaylist: () => openPlaylistMenu(song),
                 onDelete: () => permanentDeleteSong(song.id, "Permanently delete this song?"),
                 onOpenComments: () => openComments("song", song),
@@ -10952,7 +10973,13 @@ function PageContent() {
                     }
                     handleSaveVideo(video.id);
                 },
-                onAddToQueue: () => addVideoToQueue(video),
+                onToggleQueue: () => {
+                    if (isQueued) {
+                        removeMediaFromQueue("video", video.id);
+                        return;
+                    }
+                    addVideoToQueue(video);
+                },
                 onOpenPlaylist: () => handleVideoPlaylist(video.id),
                 onDelete: () => handlePermanentDeleteVideo(video.id),
                 onOpenComments: () => openComments("video", video),
@@ -14195,43 +14222,29 @@ function PageContent() {
         // Explicit nav action: pin destination heading under sticky topbar (not mere scrollTop=0).
         scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
     }
-    function handleNav(nextView: View) {
-        setShowNotificationCenter(false);
-        if (!isPlatformOwner && foundingAccess && !foundingAccess.canAccessApp) {
-            showToast("Your founding member account is not approved yet.", "error");
+    function denyUnauthorizedDesktopNav() {
+        setToast(null);
+        setShowUpload(false);
+        showToast(ACCOUNT_ROLE_UNAVAILABLE_MESSAGE, "error");
+        if (view !== "Home") {
+            applyDesktopView("Home");
             return;
         }
-        if (!isPlatformOwner && foundingAccess?.isFoundingMember && foundingAccess.approvalStatus === "approved") {
-            const allowedDashboard = foundingAccess.dashboardView;
-            const protectedViews: View[] = ["Artist Dashboard", "Producer Dashboard", "My Ringtones", "Home", "Videos", "Library", "Liked", "Following", "Recently Played", "Queue", "Playlists", "Profile", "Artist Profile", "Producer Profile"];
-            if (!protectedViews.includes(nextView) && nextView !== allowedDashboard) {
-                showToast("That area is not available for your founding role.", "error");
+        scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
+    }
+    function handleNav(nextView: View) {
+        setShowNotificationCenter(false);
+        setToast(null);
+        // Pending founding members may still use Listener destinations; only creator workspaces stay locked.
+        if (!isPlatformOwner && foundingAccess && !foundingAccess.canAccessApp) {
+            if (!isListenerAccessibleNavView(nextView)) {
+                denyUnauthorizedDesktopNav();
                 return;
             }
         }
         const accessDecision = evaluateDesktopNavAccess(nextView as DesktopNavView, desktopNavAccess);
         if (!accessDecision.allowed) {
-            if (accessDecision.reason === "ringtone-creator-required") {
-                showToast(t("ringtones.creatorAccessDenied"), "error");
-                return;
-            }
-            if (accessDecision.reason === "owner-required") {
-                showToast(t("header.ownerAccessRequired"), "error");
-                return;
-            }
-            if (accessDecision.reason === "artist-required") {
-                showToast("Artist access is required for that page.", "error");
-                return;
-            }
-            if (accessDecision.reason === "producer-required") {
-                showToast("Producer access is required for that page.", "error");
-                return;
-            }
-            if (accessDecision.reason === "creator-required") {
-                showToast("Creator access is required for that page.", "error");
-                return;
-            }
-            showToast("Your account role cannot open that page.", "error");
+            denyUnauthorizedDesktopNav();
             return;
         }
         applyDesktopView(nextView);
@@ -15882,16 +15895,13 @@ function PageContent() {
             handleNav(nextView as View);
           }}
           onOwnerRequired={() => {
-            showToast(t("header.ownerAccessRequired"), "error");
+            denyUnauthorizedDesktopNav();
           }}
           onRingtoneCreatorRequired={() => {
-            showToast(t("ringtones.creatorAccessDenied"), "error");
+            denyUnauthorizedDesktopNav();
           }}
-          onRoleRequired={(reason) => {
-            if (reason === "artist-required") showToast("Artist access is required for that page.", "error");
-            else if (reason === "producer-required") showToast("Producer access is required for that page.", "error");
-            else if (reason === "creator-required") showToast("Creator access is required for that page.", "error");
-            else showToast("Your account role cannot open that page.", "error");
+          onRoleRequired={() => {
+            denyUnauthorizedDesktopNav();
           }}
         />
 
@@ -21243,6 +21253,16 @@ function PageContent() {
 
           .horizontal-rail-track > * {
             scroll-snap-align: start;
+            align-self: stretch;
+            height: auto;
+            min-height: 100%;
+          }
+
+          .horizontal-rail-track .song-card,
+          .horizontal-rail-track .video-card,
+          .horizontal-rail-track .media-card {
+            height: 100%;
+            min-height: 340px;
           }
 
           .rail-arrow {
@@ -22122,14 +22142,16 @@ function PageContent() {
           }
 
           .song-card {
-            height: 340px;
+            height: auto;
+            min-height: 340px;
             background: #122244;
             border: 1px solid rgba(0, 212, 255, 0.22);
             border-radius: 8px;
-            overflow: hidden;
+            overflow: visible;
             container-type: inline-size;
             display: grid;
-            grid-template-rows: 100px minmax(0, 1fr);
+            grid-template-rows: 100px auto;
+            align-self: stretch;
           }
 
           .cover-wrap {
@@ -22214,10 +22236,10 @@ function PageContent() {
           .song-body {
             padding: 8px;
             display: grid;
-            grid-template-rows: 60px 18px 24px 68px 30px;
+            grid-template-rows: auto auto auto auto auto;
             gap: 5px;
             min-height: 0;
-            overflow: hidden;
+            overflow: visible;
           }
 
           .song-head {
@@ -22323,14 +22345,13 @@ function PageContent() {
           }
 
           .card-actions {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
             align-items: stretch;
-            grid-auto-rows: minmax(31px, 1fr);
-            height: 68px;
-            min-height: 68px;
-            overflow: hidden;
+            height: auto;
+            min-height: 0;
+            overflow: visible;
           }
 
           .card-actions button,
@@ -22338,8 +22359,9 @@ function PageContent() {
           .playlist-actions button,
           .add-song-row button,
           .playlist-song-row > button {
-            min-width: 0;
-            min-height: 31px;
+            flex: 1 1 calc(50% - 6px);
+            min-width: 44px;
+            min-height: 44px;
             border: 0;
             border-radius: 8px;
             font-weight: 900;
@@ -22352,7 +22374,7 @@ function PageContent() {
             gap: 4px;
             overflow: hidden;
             white-space: nowrap;
-            padding: 0 6px;
+            padding: 0 8px;
           }
 
           .card-actions button span {
@@ -22596,7 +22618,8 @@ function PageContent() {
           }
 
           .library-card.song-card {
-            height: 360px;
+            height: auto;
+            min-height: 360px;
           }
 
           .library-card.video-card {
@@ -22604,7 +22627,7 @@ function PageContent() {
           }
 
           .library-card .song-body {
-            grid-template-rows: 60px 18px 24px 78px 30px;
+            grid-template-rows: auto auto auto auto auto;
           }
 
           .library-card .song-head {
@@ -26420,8 +26443,9 @@ function PageContent() {
           }
 
           .song-card {
-            height: 360px;
-            grid-template-rows: 96px minmax(0, 1fr);
+            height: auto;
+            min-height: 360px;
+            grid-template-rows: 96px auto;
           }
 
           .song-card .cover-wrap {
@@ -26429,13 +26453,12 @@ function PageContent() {
           }
 
           .song-card .song-body {
-            grid-template-rows: 56px 16px 22px minmax(112px, auto) 0;
+            grid-template-rows: auto auto auto auto auto;
             gap: 4px;
           }
 
           .song-card .card-actions,
           .video-card .card-actions {
-            grid-auto-rows: 34px;
             align-content: start;
             overflow: visible;
           }
@@ -27765,7 +27788,7 @@ function PageContent() {
 
             .song-body,
             .library-card .song-body {
-              grid-template-rows: 50px 0 20px 104px 26px;
+              grid-template-rows: auto auto auto auto auto;
               padding: 7px;
               gap: 5px;
             }
@@ -28401,7 +28424,7 @@ function PageContent() {
 
             .song-card .song-body,
             .library-card .song-body {
-              grid-template-rows: 50px 0 20px 104px 26px;
+              grid-template-rows: auto auto auto auto auto;
               padding: 7px;
               gap: 5px;
             }
@@ -29238,16 +29261,26 @@ function PageContent() {
               overflow: visible !important;
             }
 
+            .media-card-actions,
+            .media-card .card-actions {
+              display: flex !important;
+              flex-wrap: wrap !important;
+              gap: 6px !important;
+              height: auto !important;
+              min-height: 0 !important;
+              overflow: visible !important;
+            }
+
             .media-card-actions button,
             .media-card .card-actions button,
             .media-card .card-secondary-actions button,
             .media-card .artist-album-actions button,
             .media-card .artist-card-actions button {
               flex: 1 1 calc(50% - 8px) !important;
-              min-width: 0 !important;
+              min-width: 44px !important;
               max-width: 100% !important;
               height: auto !important;
-              min-height: 34px !important;
+              min-height: 44px !important;
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;

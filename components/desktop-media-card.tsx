@@ -93,6 +93,7 @@ function DesktopMediaCardSecondaryActions({
     );
 }
 
+/** Centralized Listener/creator primary actions — stable order on every page. */
 function DesktopMediaCardPrimaryActions({
     playLabel,
     isLiked,
@@ -106,7 +107,7 @@ function DesktopMediaCardPrimaryActions({
     onToggleLike,
     onToggleFollow,
     onToggleSave,
-    onAddToQueue,
+    onToggleQueue,
     onOpenPlaylist,
     onDelete,
 }: {
@@ -122,7 +123,7 @@ function DesktopMediaCardPrimaryActions({
     onToggleLike: () => void;
     onToggleFollow: () => void;
     onToggleSave: () => void;
-    onAddToQueue: () => void;
+    onToggleQueue: () => void;
     onOpenPlaylist: () => void;
     onDelete: () => void;
 }) {
@@ -173,13 +174,12 @@ function DesktopMediaCardPrimaryActions({
 
             <button
                 className={isQueued ? "queue-btn queued" : "queue-btn"}
-                disabled={isQueued}
-                onClick={onAddToQueue}
-                title={isQueued ? "Already in queue" : "Add to queue"}
+                onClick={onToggleQueue}
+                title={isQueued ? "Remove from queue" : "Add to queue"}
                 type="button"
             >
                 <ListMusic size={15} />
-                <span>{isQueued ? "Queued" : "Add to Queue"}</span>
+                <span>{isQueued ? "Remove" : "Queue"}</span>
             </button>
 
             {canDelete ? (
@@ -217,8 +217,8 @@ export function DesktopSongMediaCard({
                 <div className="card-header-actions">
                     <button
                         className={state.isQueued ? "card-icon-btn queued" : "card-icon-btn"}
-                        onClick={handlers.onAddToQueue}
-                        title={state.isQueued ? "Queued" : "Add to queue"}
+                        onClick={handlers.onToggleQueue}
+                        title={state.isQueued ? "Remove from queue" : "Add to queue"}
                         type="button"
                     >
                         <ListMusic size={15} />
@@ -270,7 +270,7 @@ export function DesktopSongMediaCard({
                         onToggleLike={handlers.onToggleLike}
                         onToggleFollow={handlers.onToggleFollow}
                         onToggleSave={handlers.onToggleSave}
-                        onAddToQueue={handlers.onAddToQueue}
+                        onToggleQueue={handlers.onToggleQueue}
                         onOpenPlaylist={handlers.onOpenPlaylist}
                         onDelete={handlers.onDelete}
                     />
@@ -352,7 +352,7 @@ export function DesktopVideoMediaCard({
                         onToggleLike={handlers.onToggleLike}
                         onToggleFollow={handlers.onToggleFollow}
                         onToggleSave={handlers.onToggleSave}
-                        onAddToQueue={handlers.onAddToQueue}
+                        onToggleQueue={handlers.onToggleQueue}
                         onOpenPlaylist={handlers.onOpenPlaylist}
                         onDelete={handlers.onDelete}
                     />

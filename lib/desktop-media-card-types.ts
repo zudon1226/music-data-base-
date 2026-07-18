@@ -55,7 +55,8 @@ export type DesktopSongCardHandlers = {
     onToggleLike: () => void;
     onToggleFollow: () => void;
     onToggleSave: () => void;
-    onAddToQueue: () => void;
+    /** Add when not queued; remove when already queued. */
+    onToggleQueue: () => void;
     onOpenPlaylist: () => void;
     onDelete: () => void;
     onOpenComments: () => void;
@@ -70,7 +71,8 @@ export type DesktopVideoCardHandlers = {
     onToggleLike: () => void;
     onToggleFollow: () => void;
     onToggleSave: () => void;
-    onAddToQueue: () => void;
+    /** Add when not queued; remove when already queued. */
+    onToggleQueue: () => void;
     onOpenPlaylist: () => void;
     onDelete: () => void;
     onOpenComments: () => void;

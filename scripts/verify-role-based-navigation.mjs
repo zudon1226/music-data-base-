@@ -223,6 +223,11 @@ const adminViews = visibleViews(adminCaps);
 
 record("listener sees core destinations", LISTENER_NAV_VIEWS.every((view) => listenerViews.includes(view)), listenerViews.join(", "));
 record(
+    "page omits founding-role whitelist toast",
+    !page.includes("That area is not available for your founding role.")
+    && page.includes("ACCOUNT_ROLE_UNAVAILABLE_MESSAGE"),
+);
+record(
     "listener hides creator/admin destinations",
     ["Artist Dashboard", "Producer Dashboard", "Platform Control Center", "Sales", "My Ringtones"]
         .every((view) => !listenerViews.includes(view)),

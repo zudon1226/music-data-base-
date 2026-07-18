@@ -476,7 +476,11 @@ for (const [handler, marker] of PROTECTED_HANDLER_MARKERS) {
 if (page.includes("canDeleteUploadedSong")) {
   assertIncludes(page, "canDeleteDesktopUploadedItem", "canDeleteUploadedSong");
   assertIncludes(page, "authSession: authSessionRef.current", "delete visibility");
+  assertIncludes(page, "resolveListenerMediaCardCanDelete", "listener delete gate");
+  assertIncludes(page, "canUpload: navCapabilities.canUpload", "delete requires creator capability");
 }
+assertIncludes(page, "ACCOUNT_ROLE_UNAVAILABLE_MESSAGE", "account-role warning");
+assertNotIncludes(page, "That area is not available for your founding role.", "stale founding-role nav toast");
 
 // Profile must resolve via runtime display helper
 assertIncludes(page, "desktopRuntime.resolveDisplayName", "profile display name");
