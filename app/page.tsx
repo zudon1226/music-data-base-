@@ -19038,22 +19038,24 @@ function PageContent() {
                       <div className="recent-copy">
                         <h3>{title}</h3>
                         <p>{creator}</p>
-                        <small>{itemType} | {formatPlayedAt(entry.playedAt)} | {formatRuntimeLabel(entry.position || 0)} / {formatRuntimeLabel(entry.duration || 0)}</small>
+                        <small>{itemType} | {formatRuntimeLabel(entry.position || 0)} / {formatRuntimeLabel(entry.duration || 0)}</small>
                       </div>
                       <span className="recent-time">{formatPlayedAt(entry.playedAt)}</span>
-                      <button onClick={() => resumeRecentPlay(entry)} title={`${resumeLabel} ${title || ""}`} type="button">
-                        <Play size={17} fill="currentColor"/>
-                        <span>{resumeLabel}</span>
-                      </button>
-                      <button
-                        onClick={() => removeRecentlyPlayedEntry(entry)}
-                        title={t("dashboard.recentlyPlayed.removeOne")}
-                        type="button"
-                      >
-                        <Trash2 size={16}/>
-                        <span>{t("dashboard.recentlyPlayed.removeOne")}</span>
-                      </button>
-                      {itemType === "song" && entry.song ? renderMobileSongQueueButton(entry.song) : itemType === "video" && entry.video ? renderMobileVideoQueueButton(entry.video) : itemType === "album" && entry.album ? renderMobileAlbumQueueButton(entry.album) : null}
+                      <div className="recent-actions">
+                        <button onClick={() => resumeRecentPlay(entry)} title={`${resumeLabel} ${title || ""}`} type="button">
+                          <Play size={17} fill="currentColor"/>
+                          <span>{resumeLabel}</span>
+                        </button>
+                        <button
+                          onClick={() => removeRecentlyPlayedEntry(entry)}
+                          title={t("dashboard.recentlyPlayed.removeOne")}
+                          type="button"
+                        >
+                          <Trash2 size={16}/>
+                          <span>{t("dashboard.recentlyPlayed.removeOne")}</span>
+                        </button>
+                        {itemType === "song" && entry.song ? renderMobileSongQueueButton(entry.song) : itemType === "video" && entry.video ? renderMobileVideoQueueButton(entry.video) : itemType === "album" && entry.album ? renderMobileAlbumQueueButton(entry.album) : null}
+                      </div>
                     </article>);
                 })}
                 </section>)}
@@ -22552,7 +22554,8 @@ function PageContent() {
           }
 
           .card-actions button,
-          .recent-row button,
+          .recent-row > button,
+          .recent-actions > button,
           .playlist-actions button,
           .add-song-row button,
           .playlist-song-row > button {
@@ -22724,7 +22727,8 @@ function PageContent() {
           }
 
           .play-btn,
-          .recent-row button,
+          .recent-row > button,
+          .recent-actions > button,
           .playlist-actions button:first-child,
           .playlist-song-row > button {
             background: #25c7df;
@@ -23171,7 +23175,17 @@ function PageContent() {
             font-weight: 800;
           }
 
-          .recent-row button {
+          .recent-actions {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 0 0 auto;
+          }
+
+          .recent-row button,
+          .recent-actions button {
             min-height: 34px;
             border: 0;
             border-radius: 8px;
@@ -23187,7 +23201,8 @@ function PageContent() {
             white-space: nowrap;
           }
 
-          .recent-row .recent-queue-btn {
+          .recent-row .recent-queue-btn,
+          .recent-actions .recent-queue-btn {
             min-width: 148px;
             display: inline-flex !important;
             visibility: visible;
@@ -23204,7 +23219,8 @@ function PageContent() {
             display: none;
           }
 
-          .recent-row .mobile-queue-btn.recent-queue-btn {
+          .recent-row .mobile-queue-btn.recent-queue-btn,
+          .recent-actions .mobile-queue-btn.recent-queue-btn {
             display: inline-flex !important;
           }
 
@@ -28424,7 +28440,8 @@ function PageContent() {
             }
 
             .recent-time {
-              flex: 1 1 100%;
+              flex: 0 0 auto;
+              width: 100%;
             }
 
             .recent-row .recent-queue-btn {
@@ -31798,20 +31815,79 @@ function PageContent() {
               margin: 0 !important;
             }
 
-            /* Recently Played — content-sized compact cards (no empty middle stretch). */
+            /* Home hero — compact at narrow widths so Recommended clears the player. */
+            .hero {
+              min-height: 0 !important;
+              height: auto !important;
+              max-height: none !important;
+              align-items: flex-start !important;
+              padding: 12px 12px 14px !important;
+              margin: 0 0 12px !important;
+              box-sizing: border-box !important;
+            }
+
+            .hero-logo {
+              width: min(96px, 28vw) !important;
+              max-height: 72px !important;
+              margin-bottom: 6px !important;
+            }
+
+            .hero p {
+              margin: 0 0 4px !important;
+              font-size: 11px !important;
+              line-height: 1.2 !important;
+            }
+
+            .hero h1 {
+              font-size: clamp(22px, 6.2vw, 30px) !important;
+              line-height: 1.05 !important;
+              margin: 0 0 6px !important;
+            }
+
+            .hero span {
+              font-size: 12px !important;
+              line-height: 1.3 !important;
+              max-width: 100% !important;
+            }
+
+            .hero-buttons {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+              margin-top: 10px !important;
+              width: 100% !important;
+            }
+
+            .hero-buttons button {
+              min-height: 44px !important;
+              width: 100% !important;
+              justify-content: center !important;
+              padding: 8px 10px !important;
+              font-size: 13px !important;
+              gap: 6px !important;
+            }
+
+            .content > .hero + .discovery-section,
+            .content .hero + .discovery-section {
+              margin-top: 0 !important;
+              scroll-margin-bottom: var(--mobile-player-reserve) !important;
+            }
+
+            /* Recently Played — natural content height only; no blank middle. */
             .recent-panel {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
               gap: 12px !important;
-              padding-bottom: 20px !important;
+              padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px) + 16px) !important;
               margin: 0 !important;
               overflow-x: hidden !important;
               overflow-y: visible !important;
@@ -31842,6 +31918,7 @@ function PageContent() {
               align-items: stretch !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
@@ -31860,13 +31937,15 @@ function PageContent() {
               align-items: stretch !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
-              gap: 12px !important;
+              flex-grow: 0 !important;
+              gap: 10px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
-              padding: 12px !important;
+              max-height: none !important;
+              padding: 10px !important;
               margin: 0 !important;
               overflow: visible !important;
               box-sizing: border-box !important;
@@ -31874,36 +31953,42 @@ function PageContent() {
 
             .recent-row > * {
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               min-width: 0 !important;
               max-width: 100% !important;
+              min-height: 0 !important;
+              height: auto !important;
+              margin: 0 !important;
             }
 
             .recent-number {
               align-self: flex-start !important;
-              order: 1 !important;
               width: auto !important;
               min-width: 0 !important;
+              line-height: 1.1 !important;
             }
 
             .recent-row > img {
-              order: 2 !important;
-              width: 128px !important;
-              height: 128px !important;
-              max-width: 128px !important;
-              flex: 0 0 128px !important;
+              width: 80px !important;
+              height: 80px !important;
+              max-width: 80px !important;
+              max-height: 80px !important;
+              flex: 0 0 80px !important;
               object-fit: cover !important;
               border-radius: 8px !important;
             }
 
             .recent-copy {
-              order: 3 !important;
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
               justify-content: flex-start !important;
-              gap: 4px !important;
+              gap: 2px !important;
               width: 100% !important;
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
               overflow: visible !important;
             }
 
@@ -31916,56 +32001,83 @@ function PageContent() {
               text-overflow: ellipsis !important;
               word-break: break-word !important;
               overflow-wrap: anywhere !important;
-              line-height: 1.2 !important;
+              font-size: 16px !important;
+              line-height: 1.15 !important;
               margin: 0 !important;
             }
 
-            .recent-copy p {
+            .recent-copy p,
+            .recent-copy small {
               display: block !important;
               width: 100% !important;
               margin: 0 !important;
+              line-height: 1.2 !important;
+            }
+
+            .recent-copy p {
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
             }
 
             .recent-copy small {
-              display: block !important;
-              width: 100% !important;
-              margin: 0 !important;
               white-space: normal !important;
               overflow: visible !important;
               overflow-wrap: anywhere !important;
             }
 
             .recent-time {
-              order: 4 !important;
               display: block !important;
               width: 100% !important;
               margin: 0 !important;
+              padding: 0 !important;
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              line-height: 1.2 !important;
               white-space: normal !important;
               overflow: visible !important;
               overflow-wrap: anywhere !important;
             }
 
-            .recent-row > button {
-              order: 5 !important;
+            .recent-actions {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            .recent-actions > button,
+            .recent-row .recent-actions .mobile-queue-btn {
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 44px !important;
-              height: auto !important;
-              flex: 0 0 auto !important;
+              height: 44px !important;
+              max-height: 44px !important;
+              flex: 0 0 44px !important;
+              flex-grow: 0 !important;
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
               justify-content: center !important;
               margin: 0 !important;
+              box-sizing: border-box !important;
             }
 
             .recent-list > .recent-row:last-child {
-              margin-bottom: 24px !important;
+              margin-bottom: 8px !important;
             }
 
             .recent-panel .empty-state {
@@ -31974,12 +32086,18 @@ function PageContent() {
               min-height: 0 !important;
               height: auto !important;
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               padding: 12px !important;
               margin: 0 !important;
               overflow: visible !important;
             }
 
-            /* Queue — empty/populated content ends naturally; no viewport stretch. */
+            /* Queue — end after empty state; player clearance only. */
+            .content:has(> .queue-page) {
+              padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
+              scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
             .queue-page {
               display: flex !important;
               flex-direction: column !important;
@@ -31994,9 +32112,9 @@ function PageContent() {
               height: auto !important;
               max-height: none !important;
               gap: 12px !important;
-              padding-bottom: 20px !important;
+              padding-bottom: 16px !important;
               margin: 0 !important;
-              scroll-padding-bottom: var(--mobile-player-reserve) !important;
+              scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
               overflow-x: hidden !important;
               overflow-y: visible !important;
               box-sizing: border-box !important;
@@ -32010,8 +32128,8 @@ function PageContent() {
               max-height: none !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
-              padding: 16px !important;
-              margin: 0 0 4px !important;
+              padding: 12px !important;
+              margin: 0 !important;
               overflow: visible !important;
               box-sizing: border-box !important;
             }
@@ -32811,10 +32929,23 @@ function PageContent() {
               align-items: stretch !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               min-height: 0 !important;
               height: auto !important;
+              max-height: none !important;
+              scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            .content > .queue-page {
+              padding-bottom: 16px !important;
+            }
+
+            .content > .recent-panel {
+              padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px) + 16px) !important;
+            }
+
+            .content > .profile-page {
               padding-bottom: 20px !important;
-              scroll-padding-bottom: var(--mobile-player-reserve) !important;
             }
 
             .content > .mobile-player-spacer:last-child,

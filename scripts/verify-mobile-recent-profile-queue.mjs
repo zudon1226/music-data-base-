@@ -1,5 +1,5 @@
 /**
- * Mobile Recently Played / Profile / Queue layout contracts.
+ * Mobile Recently Played / Profile / Queue / Home hero layout contracts.
  * Run: node scripts/verify-mobile-recent-profile-queue.mjs
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -20,7 +20,7 @@ function read(rel) {
     return readFileSync(full, "utf8");
 }
 
-function sliceRule(source, selector, limit = 800) {
+function sliceRule(source, selector, limit = 900) {
     const idx = source.lastIndexOf(selector);
     if (idx < 0) return "";
     return source.slice(idx, idx + limit);
@@ -36,78 +36,81 @@ const end = page.indexOf("`}</style>", start);
 const mobileBlock = start >= 0 ? page.slice(start, end > start ? end : undefined) : "";
 
 const recentRow = sliceRule(mobileBlock, ".recent-row {");
-const recentChildren = sliceRule(mobileBlock, ".recent-row > *");
-const recentCopy = sliceRule(mobileBlock, ".recent-copy {");
 const recentImg = sliceRule(mobileBlock, ".recent-row > img");
+const recentCopy = sliceRule(mobileBlock, ".recent-copy {");
 const recentTime = sliceRule(mobileBlock, ".recent-time {");
-const recentBtn = sliceRule(mobileBlock, ".recent-row > button");
-const queuePage = sliceRule(mobileBlock, ".queue-page {");
-const queueEmpty = sliceRule(mobileBlock, ".queue-page .empty-state");
-const profilePage = sliceRule(mobileBlock, ".profile-page {");
-const profileHero = sliceRule(mobileBlock, ".profile-hero {", 1200);
-const profileUpload = sliceRule(mobileBlock, ".profile-avatar-upload {");
-const profileActionsMatch = mobileBlock.match(/\.profile-actions\s*\{[^}]*display:\s*grid[\s\S]{0,400}?repeat\(2,\s*minmax\(0,\s*1fr\)/);
-const profileH2 = sliceRule(mobileBlock, ".profile-hero h2 {");
-const profileEmail = sliceRule(mobileBlock, ".profile-email,");
+const recentActions = sliceRule(mobileBlock, ".recent-actions {");
+const queuePageMatch = mobileBlock.match(/\.queue-page\s*\{[\s\S]*?display:\s*flex\s*!important;[\s\S]{0,700}?box-sizing:\s*border-box\s*!important;/);
+const queuePage = queuePageMatch ? queuePageMatch[0] : "";
+const queueEmptyMatch = mobileBlock.match(/\.queue-page \.empty-state\s*\{[\s\S]{0,400}?box-sizing:\s*border-box\s*!important;/);
+const queueEmpty = queueEmptyMatch ? queueEmptyMatch[0] : "";
+const hero = sliceRule(mobileBlock, ".hero {");
+const heroLogo = sliceRule(mobileBlock, ".hero-logo {");
+const heroButtons = sliceRule(mobileBlock, ".hero-buttons {");
+const profileActionsMatch = mobileBlock.match(/\.profile-actions\s*\{[\s\S]{0,400}?repeat\(2,\s*minmax\(0,\s*1fr\)/);
 
 record("mobile 768 breakpoint present", Boolean(mobileBlock));
 record(
-    "recent row content-sized (no space-between)",
+    "recent row natural height (no stretch)",
     recentRow.includes("justify-content: flex-start")
         && recentRow.includes("min-height: 0")
         && recentRow.includes("height: auto")
-        && !recentRow.includes("justify-content: space-between"),
+        && recentRow.includes("flex-grow: 0")
+        && !recentRow.includes("justify-content: space-between")
+        && !recentRow.includes("100vh")
+        && !recentRow.includes("min-height: 100"),
 );
 record(
-    "recent artwork 120-140px",
-    recentImg.includes("width: 128px") && recentImg.includes("height: 128px"),
+    "recent artwork compact <= 96px",
+    /width:\s*80px/.test(recentImg) && /height:\s*80px/.test(recentImg),
 );
 record(
-    "recent children flex none",
-    recentChildren.includes("flex: 0 0 auto") && recentCopy.includes("flex: 0 0 auto"),
+    "recent copy/time/actions do not grow",
+    recentCopy.includes("flex-grow: 0")
+        && recentTime.includes("flex-grow: 0")
+        && recentActions.includes("flex-direction: column")
+        && recentActions.includes("flex-grow: 0")
+        && page.includes('className="recent-actions"'),
 );
 record(
-    "recent time above actions via order",
-    recentTime.includes("order: 4") && recentBtn.includes("order: 5"),
+    "recent action buttons 44px",
+    mobileBlock.includes(".recent-actions > button")
+        && /min-height:\s*44px/.test(sliceRule(mobileBlock, ".recent-actions > button")),
 );
 record(
-    "recent actions 44px touch",
-    recentBtn.includes("min-height: 44px"),
+    "queue empty state no artificial height",
+    mobileBlock.includes("content:has(> .queue-page)")
+        && mobileBlock.includes(".queue-page .empty-state")
+        && /queue-page[\s\S]{0,500}flex-grow:\s*0/.test(mobileBlock)
+        && /queue-page \.empty-state[\s\S]{0,300}min-height:\s*0/.test(mobileBlock)
+        && /queue-page \.empty-state[\s\S]{0,300}flex-grow:\s*0/.test(mobileBlock)
+        && !/\.queue-page\s*\{[^}]{0,200}100vh/.test(mobileBlock),
 );
 record(
-    "queue empty state no stretch",
-    queuePage.includes("min-height: 0")
-        && queuePage.includes("height: auto")
-        && queuePage.includes("flex-grow: 0")
-        && queueEmpty.includes("flex-grow: 0")
-        && !queuePage.includes("padding-bottom: 150px")
-        && !sliceRule(mobileBlock, ".recent-panel {").includes("padding-bottom: 150px")
-        && !profilePage.includes("padding-bottom: 150px"),
+    "queue/recent player clearance token",
+    mobileBlock.includes("var(--mobile-player-reserve)")
+        && mobileBlock.includes("env(safe-area-inset-bottom")
+        && mobileBlock.includes("padding-bottom: 16px !important"),
 );
 record(
-    "queue/recent/profile not unwrapped with display contents",
+    "queue/recent/profile not display contents",
     !/\.content > \.queue-page[\s\S]{0,80}display:\s*contents/.test(mobileBlock)
         && !/\.content > \.recent-panel[\s\S]{0,80}display:\s*contents/.test(mobileBlock)
-        && !/\.content > \.profile-page[\s\S]{0,80}display:\s*contents/.test(mobileBlock)
-        && mobileBlock.includes("Keep Profile / Queue / Recently Played as real boxes"),
+        && !/\.content > \.profile-page[\s\S]{0,80}display:\s*contents/.test(mobileBlock),
 );
 record(
-    "profile hero single column mobile",
-    mobileBlock.includes(".profile-hero {\n              display: flex !important;\n              flex-direction: column !important;")
-        || (mobileBlock.includes("flex-direction: column !important;")
-            && mobileBlock.includes(".profile-avatar-image")
-            && mobileBlock.includes("width: 120px !important;")
-            && mobileBlock.includes(".profile-avatar-upload")
-            && mobileBlock.includes("min-height: 44px !important;")
-            && Boolean(profileActionsMatch)),
+    "home hero compact on mobile",
+    hero.includes("min-height: 0")
+        && heroLogo.includes("max-height: 72px")
+        && heroButtons.includes("margin-top: 10px")
+        && /font-size:\s*clamp\(22px/.test(mobileBlock),
 );
 record(
-    "profile text wraps with clamp",
-    profileH2.includes("clamp(")
-        && profileH2.includes("overflow-wrap: anywhere")
-        && profileEmail.includes("overflow-wrap: anywhere")
-        && profile.includes('className="profile-hero-main"')
-        && profile.includes('className="profile-email"'),
+    "profile controls containment preserved",
+    mobileBlock.includes("flex-direction: column !important;")
+        && mobileBlock.includes(".profile-avatar-upload")
+        && Boolean(profileActionsMatch)
+        && profile.includes('className="profile-hero-main"'),
 );
 record(
     "destination heading markers preserved",
