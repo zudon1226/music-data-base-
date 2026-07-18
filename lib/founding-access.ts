@@ -14,9 +14,21 @@ export type FoundingAccessState = {
     foundingRole: FoundingRole | null;
     approvalStatus: FoundingApprovalStatus | null;
     member: FoundingMemberRecord | null;
+    /** Beta gate only — never used for creator chrome or post-login navigation. */
     canAccessApp: boolean;
+    /**
+     * Upload-lock bypass for approved founding members.
+     * Does NOT grant Upload button / Artist Studio / My Ringtones visibility.
+     * Creator chrome comes only from profiles.account_type + user_roles.
+     */
     canUpload: boolean;
+    /**
+     * @deprecated Never use for navigation. Always null.
+     * Founding invite role must not force Artist/Producer Dashboard.
+     */
     dashboardView: string | null;
+    /** Informational only — which creator dashboard the invite intended. */
+    suggestedCreatorDashboard: string | null;
     badgeLabel: string | null;
     joinedAt: string | null;
 };
@@ -29,6 +41,7 @@ const DEFAULT_ACCESS: FoundingAccessState = {
     canAccessApp: true,
     canUpload: false,
     dashboardView: null,
+    suggestedCreatorDashboard: null,
     badgeLabel: null,
     joinedAt: null,
 };
@@ -59,7 +72,7 @@ export function resolveFoundingAccess(
             ...DEFAULT_ACCESS,
             canAccessApp: true,
             canUpload: true,
-            dashboardView: "Platform Control Center",
+            suggestedCreatorDashboard: "Platform Control Center",
         };
     }
 
@@ -75,6 +88,7 @@ export function resolveFoundingAccess(
     }
 
     const approved = member.approval_status === "approved";
+    const suggested = approved ? foundingRoleDashboard(member.founding_role) : null;
 
     return {
         isFoundingMember: true,
@@ -82,8 +96,11 @@ export function resolveFoundingAccess(
         approvalStatus: member.approval_status,
         member,
         canAccessApp: approved,
+        // Upload-lock bypass only — not navigation/chrome.
         canUpload: approved,
-        dashboardView: approved ? foundingRoleDashboard(member.founding_role) : null,
+        // CRITICAL: never auto-route Listeners (or anyone) from founding role.
+        dashboardView: null,
+        suggestedCreatorDashboard: suggested,
         badgeLabel: member.badge_label || "Founding Member",
         joinedAt: member.joined_at,
     };

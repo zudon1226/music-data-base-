@@ -49,7 +49,7 @@ const LISTENER_NAV = [
     "Notifications",
 ];
 
-record("access schema version exported", accessSession.includes("CLIENT_ACCESS_SCHEMA_VERSION = 3"));
+record("access schema version exported", accessSession.includes("CLIENT_ACCESS_SCHEMA_VERSION = 4"));
 record("obsolete role keys listed", accessSession.includes("zml_account_role") && accessSession.includes("mdb.foundingRole"));
 record("auth boot migrates access session", authBoot.includes("migrateClientAccessSession"));
 record("page migrates access session on boot", page.includes("migrateClientAccessSession()"));

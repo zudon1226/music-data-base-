@@ -15,6 +15,7 @@
     "verify:studio": "node scripts/verify-creator-studio-upload.mjs",
     "verify:listener": "node scripts/verify-listener-nav-workspace.mjs",
     "verify:mobile-listener": "node scripts/verify-mobile-listener-access.mjs",
+    "verify:access": "node scripts/verify-account-access-pipeline.mjs",
     "verify:dashboard": "node scripts/verify-user-dashboard-phase1.mjs && node lib/dashboard/profile-fields.test.mjs",
     "verify:dashboard2": "node scripts/verify-user-dashboard-phase2.mjs",
     "verify:founding": "node scripts/verify-founding-invite-gate.mjs",

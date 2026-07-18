@@ -341,7 +341,14 @@ async function main() {
             headers: { Authorization: `Bearer ${probeSession.access_token}` },
         });
         const approvedJson = await approvedAccess.json().catch(() => ({}));
-        record("artist dashboard access", approvedJson.access?.canAccessApp === true && approvedJson.access?.dashboardView === "Artist Dashboard", JSON.stringify(approvedJson.access || {}));
+        record(
+            "artist founding access without nav elevation",
+            approvedJson.access?.canAccessApp === true
+                && approvedJson.access?.dashboardView == null
+                && (approvedJson.access?.suggestedCreatorDashboard === "Artist Dashboard"
+                    || approvedJson.access?.foundingRole === "founding_artist"),
+            JSON.stringify(approvedJson.access || {}),
+        );
 
         const roleChange = await fetch(`${baseUrl}/api/producers`, {
             method: "POST",
@@ -455,8 +462,11 @@ async function main() {
                 });
                 const producerAccessJson = await producerAccess.json().catch(() => ({}));
                 record(
-                    "producer dashboard access",
-                    producerAccessJson.access?.canAccessApp === true && producerAccessJson.access?.dashboardView === "Producer Dashboard",
+                    "producer founding access without nav elevation",
+                    producerAccessJson.access?.canAccessApp === true
+                        && producerAccessJson.access?.dashboardView == null
+                        && (producerAccessJson.access?.suggestedCreatorDashboard === "Producer Dashboard"
+                            || producerAccessJson.access?.foundingRole === "founding_producer"),
                     JSON.stringify(producerAccessJson.access || {}),
                 );
             }

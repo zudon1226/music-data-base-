@@ -20,7 +20,16 @@ export async function GET(request: Request) {
         const userLookup = await supabase.auth.admin.getUserById(userId);
         const email = userLookup.data.user?.email || "";
         const access = await getFoundingAccessForUser(supabase, userId, email);
-        return NextResponse.json({ ok: true, access, member: access.member });
+        // dashboardView is intentionally null — founding role must not drive SPA navigation.
+        return NextResponse.json({
+            ok: true,
+            access: {
+                ...access,
+                dashboardView: null,
+            },
+            member: access.member,
+            navigationNote: "Founding membership does not grant creator destinations; use profiles.account_type.",
+        });
     }
     catch (error) {
         console.error("[api/founding-members/me] GET error:", error);

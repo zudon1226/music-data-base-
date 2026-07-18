@@ -4,7 +4,7 @@
  * so signed-in Listeners pick up corrected chrome without recreating accounts.
  */
 
-export const CLIENT_ACCESS_SCHEMA_VERSION = 3;
+export const CLIENT_ACCESS_SCHEMA_VERSION = 4;
 export const CLIENT_ACCESS_SCHEMA_KEY = "mdb.access.schemaVersion";
 
 /** Obsolete role / workspace / founding cache keys that must never drive chrome. */

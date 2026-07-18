@@ -1,9 +1,11 @@
 import { normalizeLocale } from "@/lib/i18n/registry";
 import { parseProfileEditableFields } from "@/lib/dashboard/profile-fields";
 import {
-    loadResolvedAccountCapabilities,
-    normalizeResolvedAccountRole,
-} from "@/lib/resolved-account-role";
+    loadAccountAccessSnapshot,
+    logAccountAccessTrace,
+} from "@/lib/account-access";
+import { getFoundingAccessForUser } from "@/lib/founding-access";
+import { normalizeResolvedAccountRole } from "@/lib/resolved-account-role";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 import { getSessionTokensFromRecord, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { ensureProfileRow, repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
@@ -77,16 +79,42 @@ export async function GET(request: Request) {
 
         const userResult = await supabase.auth.admin.getUserById(userId);
         const email = userResult.data.user?.email || "";
+        const authMetadata = (userResult.data.user?.user_metadata || {}) as Record<string, unknown>;
+        const authMetadataRole = String(authMetadata.role || authMetadata.accountRole || "").trim().toLowerCase();
         const createdAt = String(profileRow.created_at || userResult.data.user?.created_at || "").trim();
         const displayName = String(profileRow.display_name || email.split("@")[0] || "").trim();
         const avatarUrl = String(profileRow.avatar_url || "").trim();
-        // Authoritative roles only: account_type + active user_roles. Never infer from profile tables.
-        const resolved = await loadResolvedAccountCapabilities(userId, email);
+        const founding = await getFoundingAccessForUser(supabase, userId, email);
+        // Authoritative roles only: account_type + active user_roles. Never infer from founding/metadata.
+        const access = await loadAccountAccessSnapshot({
+            userId,
+            email,
+            profileAccountType: String(profileRow.account_type || ""),
+            authMetadataRole,
+            foundingRole: founding.foundingRole,
+            foundingApprovalStatus: founding.approvalStatus,
+        });
+        const resolved = access.capabilities;
+        logAccountAccessTrace(access.trace, "user-profile.GET");
         // Listener profiles must never surface stale founding/creator role tokens to the client.
         const role = resolved.isListenerOnly ? "listener" : resolved.primaryRole;
         const roles = resolved.isListenerOnly
             ? ["listener"]
             : (resolved.roles.length > 0 ? resolved.roles : [role]);
+
+        // Heal stale auth metadata role so client SDKs never rehydrate founding_artist over Listener.
+        if (resolved.isListenerOnly && authMetadataRole && authMetadataRole !== "listener") {
+            try {
+                await repairAuthUserMetadata(supabase, userId, {
+                    displayName,
+                    role: "listener",
+                    avatarUrl,
+                });
+                access.trace.divergenceNotes.push(`repaired auth_metadata.role ${authMetadataRole} → listener`);
+            } catch (repairError) {
+                console.warn("[api/user-profile] metadata repair skipped:", getErrorMessage(repairError));
+            }
+        }
 
         let songsCount = 0;
         let videosCount = 0;
@@ -136,6 +164,10 @@ export async function GET(request: Request) {
             isProducer: resolved.isProducer,
             isAdmin: resolved.isAdmin,
             canUpload: resolved.canUpload,
+            canArtistDashboard: resolved.canArtistDashboard,
+            canProducerDashboard: resolved.canProducerDashboard,
+            canMyRingtones: resolved.canMyRingtones,
+            canSales: resolved.canSales,
             isListenerOnly: resolved.isListenerOnly,
             avatarUrl,
             biography: String(profileRow.bio || "").trim(),
@@ -153,6 +185,7 @@ export async function GET(request: Request) {
                 ringtoneCount,
             },
             isOwner: true,
+            accessTrace: access.trace,
         });
     }
     catch (error) {

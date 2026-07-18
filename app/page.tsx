@@ -80,6 +80,10 @@ import {
     CLIENT_ACCESS_SCHEMA_VERSION,
     migrateClientAccessSession,
 } from "../lib/client-access-session";
+import {
+    ACCOUNT_ACCESS_TRACE_PREFIX,
+    resolvePostAuthDestination,
+} from "../lib/account-access";
 import { fetchRingtoneEligibility } from "../lib/ringtone-creator-client";
 import { I18N_GLOBAL_STYLES } from "../lib/i18n/i18n-styles";
 import { translateHomeTab, translatePageSubtitle, translatePageTitle } from "../lib/i18n/page-copy";
@@ -5641,10 +5645,11 @@ function PageContent() {
         if (!isAuthenticated || !authReady || !accountRolesReady) return;
         const decision = evaluateDesktopNavAccess(view as DesktopNavView, desktopNavAccess);
         if (!decision.allowed) {
+            // Silent recovery for deep links / legacy founding redirects.
+            // Intentional unauthorized clicks toast via denyUnauthorizedDesktopNav only.
             setShowUpload(false);
             setToast(null);
             setView("Home");
-            showToast(ACCOUNT_ROLE_UNAVAILABLE_MESSAGE, "error");
         }
     }, [isAuthenticated, authReady, accountRolesReady, view, desktopNavAccess]);
     useEffect(() => {
@@ -6327,6 +6332,7 @@ function PageContent() {
             canUpload?: boolean;
             isListenerOnly?: boolean;
             avatarUrl?: string;
+            accessTrace?: Record<string, unknown>;
             error?: string;
         };
         if (!response.ok) {
@@ -6375,8 +6381,11 @@ function PageContent() {
         if (!isPlatformOwnerEmail(emailOverride || activeUser?.email)) {
             setAccountRole(normalizeAccountRole(forcedRole));
         }
+        if (data.accessTrace && typeof console !== "undefined") {
+            console.info(ACCOUNT_ACCESS_TRACE_PREFIX, "client-profile-hydrate", data.accessTrace);
+        }
         await confirmAuthenticatedFromApi(profileUserId);
-        return nextProfile;
+        return { ...nextProfile, role: forcedRole };
     }
     function getUploadLockMessageForUser(uploadUser?: SupabaseUser | null) {
         return isUploadBlockedForEmail(uploadUser?.email || activeUser?.email) ? UPLOAD_LOCK_MESSAGE : "";
@@ -14130,6 +14139,11 @@ function PageContent() {
                 }
             }
             const access = await reloadFoundingAccess(activeSession.user.id, activeSession.access_token);
+            // Reload authoritative capabilities before choosing a destination.
+            const profileAfterLogin = await reloadUserProfileFromSupabase(
+                activeSession.user.id,
+                activeSession.user.email || email,
+            );
             setAuthEmail("");
             setAuthPassword("");
             setAuthName("");
@@ -14137,11 +14151,27 @@ function PageContent() {
             setAuthMessage(authMode === "signup"
                 ? "Account created. Your founding application is pending owner approval."
                 : "Welcome back.");
-            const nextView = access?.dashboardView && access.canAccessApp
-                ? access.dashboardView as View
-                : "Home";
-            if (access?.canAccessApp) {
+            // Never navigate from founding invite role (e.g. founding_artist → Artist Dashboard).
+            // Listener account_type must land on Home even when founding_members is approved.
+            const primaryAfterLogin = String(profileAfterLogin?.role || "listener").trim().toLowerCase();
+            const nextView = resolvePostAuthDestination({
+                isPlatformOwner: isPlatformOwnerEmail(activeSession.user.email),
+                canArtistDashboard: primaryAfterLogin === "artist" || primaryAfterLogin === "admin",
+                canProducerDashboard: primaryAfterLogin === "producer" || primaryAfterLogin === "admin",
+            }) as View;
+            if (access?.canAccessApp !== false) {
+                setShowUpload(false);
+                setToast(null);
                 setView(nextView);
+            }
+            if (typeof console !== "undefined") {
+                console.info(ACCOUNT_ACCESS_TRACE_PREFIX, "post-login-destination", {
+                    nextView,
+                    primaryAfterLogin,
+                    foundingDashboardIgnored: access?.suggestedCreatorDashboard || access?.dashboardView || null,
+                    foundingRole: access?.foundingRole || null,
+                    foundingApproval: access?.approvalStatus || null,
+                });
             }
         }
         catch (error) {
@@ -14208,12 +14238,15 @@ function PageContent() {
             }
 
             const access = await reloadFoundingAccess(userId, accessToken);
+            await reloadUserProfileFromSupabase(userId);
             setAuthInviteCode("");
             setGateRedeemMessageTone("success");
             if (access?.canAccessApp) {
                 setGateRedeemMessage(t("auth.redeemInviteSuccessApproved"));
-                const nextView = (access.dashboardView as View | null) || "Home";
-                setView(nextView);
+                // Founding approval must not force Artist/Producer Dashboard for Listener profiles.
+                setShowUpload(false);
+                setToast(null);
+                setView("Home");
                 return;
             }
             setGateRedeemMessage(t("auth.redeemInviteSuccess"));
