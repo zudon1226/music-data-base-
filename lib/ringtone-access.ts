@@ -1,38 +1,13 @@
 import { isAdminUserId } from "@/lib/admin-auth";
+import { loadResolvedAccountCapabilities } from "@/lib/resolved-account-role";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export async function canUserCreateRingtones(userId: string) {
     if (!userId || !isUuid(userId)) return false;
     if (await isAdminUserId(userId)) return true;
-
-    const supabase = getSupabaseServerClient();
-
-    const roles = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .in("role", ["admin", "artist", "producer", "creator"])
-        .limit(1);
-    if (!roles.error && (roles.data || []).length > 0) return true;
-
-    const profile = await supabase
-        .from("profiles")
-        .select("account_type,is_admin")
-        .or(`id.eq.${userId},user_id.eq.${userId}`)
-        .limit(1);
-    const row = (profile.data || [])[0] as { account_type?: string; is_admin?: boolean } | undefined;
-    if (row?.is_admin) return true;
-    const accountType = String(row?.account_type || "").toLowerCase();
-    if (["admin", "artist", "producer", "creator"].includes(accountType)) return true;
-
-    const artist = await supabase.from("artist_profiles").select("id").eq("user_id", userId).limit(1);
-    if (!artist.error && (artist.data || []).length > 0) return true;
-
-    const producer = await supabase.from("producer_profiles").select("id").eq("user_id", userId).limit(1);
-    if (!producer.error && (producer.data || []).length > 0) return true;
-
-    return false;
+    // Explicit account roles only — never grant from leftover artist/producer profile rows.
+    const capabilities = await loadResolvedAccountCapabilities(userId);
+    return capabilities.canMyRingtones;
 }
 
 export async function requireRingtoneCreator(userId: string) {

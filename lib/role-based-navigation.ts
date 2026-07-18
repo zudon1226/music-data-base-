@@ -1,7 +1,14 @@
 /**
  * Role-driven navigation visibility for the SPA shell.
  * Server-side authorization remains authoritative for mutating APIs.
+ * Creator access comes only from explicit account roles — never from profile-table existence.
  */
+
+import {
+    normalizeResolvedAccountRole,
+    resolveCapabilitiesFromExplicitRoles,
+    type ResolvedAccountCapabilities,
+} from "@/lib/resolved-account-role";
 
 export type NavAccountRole = "listener" | "artist" | "producer" | "admin";
 
@@ -24,20 +31,20 @@ export type ResolveNavCapabilitiesInput = {
     isAdmin?: boolean;
     accountRoles?: Iterable<string>;
     primaryRole?: string | null;
+    /** @deprecated Ignored — use explicit accountRoles / primaryRole only. */
     foundingRole?: string | null;
+    /** @deprecated Ignored for upload/dashboard gates. */
     canCreateRingtones?: boolean;
+    /** @deprecated Ignored — profile rows must not grant creator nav. */
     hasArtistProfile?: boolean;
+    /** @deprecated Ignored — profile rows must not grant creator nav. */
     hasProducerProfile?: boolean;
+    /** When false, force listener-only chrome until server roles arrive. */
+    rolesReady?: boolean;
 };
 
-const CREATOR_ROLES = new Set(["artist", "producer", "admin", "creator", "founding_artist", "founding_producer"]);
-
 export function normalizeNavRole(value: unknown): NavAccountRole {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "admin") return "admin";
-    if (normalized === "artist" || normalized === "founding_artist") return "artist";
-    if (normalized === "producer" || normalized === "founding_producer") return "producer";
-    return "listener";
+    return normalizeResolvedAccountRole(value);
 }
 
 export function collectNavRoles(input: ResolveNavCapabilitiesInput): Set<string> {
@@ -48,54 +55,54 @@ export function collectNavRoles(input: ResolveNavCapabilitiesInput): Set<string>
     }
     const primary = normalizeNavRole(input.primaryRole);
     if (primary !== "listener") roles.add(primary);
-    const founding = String(input.foundingRole || "").trim().toLowerCase();
-    if (founding === "founding_artist" || founding === "artist") roles.add("artist");
-    if (founding === "founding_producer" || founding === "producer") roles.add("producer");
-    if (input.hasArtistProfile) roles.add("artist");
-    if (input.hasProducerProfile) roles.add("producer");
     if (input.isPlatformOwner || input.isAdmin) roles.add("admin");
     return roles;
 }
 
-export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavCapabilityFlags {
-    const roles = collectNavRoles(input);
-    const isPlatformOwner = Boolean(input.isPlatformOwner);
-    const isAdmin = isPlatformOwner || Boolean(input.isAdmin) || roles.has("admin");
-    const isArtist = isAdmin || roles.has("artist") || roles.has("founding_artist") || Boolean(input.hasArtistProfile);
-    const isProducer = isAdmin || roles.has("producer") || roles.has("founding_producer") || Boolean(input.hasProducerProfile);
-    const isCreator = isArtist || isProducer || Boolean(input.canCreateRingtones)
-        || [...roles].some((role) => CREATOR_ROLES.has(role));
+function toNavFlags(
+    resolved: ResolvedAccountCapabilities,
+    isPlatformOwner: boolean,
+): NavCapabilityFlags {
+    return {
+        isPlatformOwner,
+        isAdmin: resolved.isAdmin,
+        isArtist: resolved.isArtist,
+        isProducer: resolved.isProducer,
+        isListenerOnly: resolved.isListenerOnly,
+        canUpload: resolved.canUpload,
+        canArtistDashboard: resolved.canArtistDashboard,
+        canProducerDashboard: resolved.canProducerDashboard,
+        canPlatformControlCenter: isPlatformOwner,
+        canSales: resolved.canSales,
+        canMyRingtones: resolved.canMyRingtones,
+    };
+}
 
-    if (isPlatformOwner || isAdmin) {
+export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavCapabilityFlags {
+    const isPlatformOwner = Boolean(input.isPlatformOwner);
+    if (!isPlatformOwner && input.rolesReady === false) {
         return {
-            isPlatformOwner,
-            isAdmin: true,
-            isArtist: true,
-            isProducer: true,
-            isListenerOnly: false,
-            canUpload: true,
-            canArtistDashboard: true,
-            canProducerDashboard: true,
-            // PCC UI/API remain platform-owner gated server-side.
-            canPlatformControlCenter: isPlatformOwner,
-            canSales: true,
-            canMyRingtones: true,
+            isPlatformOwner: false,
+            isAdmin: false,
+            isArtist: false,
+            isProducer: false,
+            isListenerOnly: true,
+            canUpload: false,
+            canArtistDashboard: false,
+            canProducerDashboard: false,
+            canPlatformControlCenter: false,
+            canSales: false,
+            canMyRingtones: false,
         };
     }
 
-    return {
-        isPlatformOwner: false,
-        isAdmin: false,
-        isArtist,
-        isProducer,
-        isListenerOnly: !isArtist && !isProducer,
-        canUpload: isCreator,
-        canArtistDashboard: isArtist,
-        canProducerDashboard: isProducer,
-        canPlatformControlCenter: false,
-        canSales: isCreator,
-        canMyRingtones: isCreator || Boolean(input.canCreateRingtones),
-    };
+    const resolved = resolveCapabilitiesFromExplicitRoles({
+        isPlatformOwner,
+        isAdmin: input.isAdmin,
+        primaryRole: input.primaryRole,
+        accountRoles: collectNavRoles(input),
+    });
+    return toNavFlags(resolved, isPlatformOwner);
 }
 
 /**

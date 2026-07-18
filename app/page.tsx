@@ -3731,6 +3731,7 @@ function PageContent() {
     const [canCreateRingtones, setCanCreateRingtones] = useState(false);
     const [ringtoneCreatorAccessChecked, setRingtoneCreatorAccessChecked] = useState(false);
     const [accountNavRoles, setAccountNavRoles] = useState<string[]>([]);
+    const [accountRolesReady, setAccountRolesReady] = useState(false);
     const [accountIsAdmin, setAccountIsAdmin] = useState(false);
     const [activeRingtonePreview, setActiveRingtonePreview] = useState<ActiveRingtonePreview | null>(null);
     const [ringtonePreviewPlaying, setRingtonePreviewPlaying] = useState(false);
@@ -5405,6 +5406,12 @@ function PageContent() {
         uploadInProgressRef.current = false;
         activeUploadKeysRef.current.clear();
         setAccountRole("Listener");
+        setAccountNavRoles([]);
+        setAccountIsAdmin(false);
+        setAccountRolesReady(false);
+        setCanCreateRingtones(false);
+        setCreatorStudio("artist");
+        setUploadMode("song");
         setAuthMode("login");
         setAuthEmail("");
         setAuthPassword("");
@@ -5595,36 +5602,27 @@ function PageContent() {
         [activeUser?.email, foundingAccess?.canUpload],
     );
     const isPlatformOwner = isPlatformOwnerEmail(activeUser?.email);
-    const hasOwnProducerProfile = useMemo(
-        () => Boolean(accountUserId && producerProfiles.some((profile) => profile.userId === accountUserId)),
-        [accountUserId, producerProfiles],
-    );
     const navCapabilities = useMemo(() => resolveNavCapabilities({
         isPlatformOwner,
         isAdmin: accountIsAdmin,
         accountRoles: accountNavRoles,
-        primaryRole: userAuthProfile.role || accountRole,
-        foundingRole: foundingAccess?.foundingRole || null,
-        canCreateRingtones: canCreateRingtones || isPlatformOwner,
-        hasProducerProfile: hasOwnProducerProfile,
+        // Server-backed profile role is authoritative; ignore local accountRole until rolesReady.
+        primaryRole: accountRolesReady ? (userAuthProfile.role || "listener") : "listener",
+        rolesReady: isPlatformOwner || accountRolesReady,
     }), [
         isPlatformOwner,
         accountIsAdmin,
         accountNavRoles,
         userAuthProfile.role,
-        accountRole,
-        foundingAccess?.foundingRole,
-        canCreateRingtones,
-        hasOwnProducerProfile,
+        accountRolesReady,
     ]);
     const desktopNavAccess = useMemo(() => ({
         accountUserId,
         authSession,
         isAuthenticated,
         isPlatformOwner,
-        canCreateRingtones: canCreateRingtones || isPlatformOwner,
         capabilities: navCapabilities,
-    }), [accountUserId, authSession, isAuthenticated, isPlatformOwner, canCreateRingtones, navCapabilities]);
+    }), [accountUserId, authSession, isAuthenticated, isPlatformOwner, navCapabilities]);
     useEffect(() => {
         if (!isAuthenticated || !authReady) return;
         const decision = evaluateDesktopNavAccess(view as DesktopNavView, desktopNavAccess);
@@ -5970,10 +5968,8 @@ function PageContent() {
         const beats = (data.beats || []).map((row) => mapProducerBeatRow(row));
         setProducerProfiles(profiles);
         setProducerBeats(beats);
-        if (!isPlatformOwner && accountUserId && profiles.some((profile) => profile.userId === accountUserId)) {
-            setAccountRole("Producer");
-            setAccountNavRoles((previous) => (previous.includes("producer") ? previous : [...previous, "producer"]));
-        }
+        // Do not elevate Listener → Producer from producer_profiles existence.
+        // Role chrome uses server-backed account_type / user_roles only.
         setActiveProducerId((previous) => (profiles.some((profile) => profile.id === previous) ? previous : profiles[0]?.id || ""));
         return { profiles, beats };
     }
@@ -6266,8 +6262,13 @@ function PageContent() {
                 role: "listener",
                 avatarUrl: "",
             });
+            setAccountNavRoles([]);
+            setAccountIsAdmin(false);
+            setAccountRolesReady(false);
             return null;
         }
+        // Hide creator chrome until the latest server-backed roles arrive.
+        setAccountRolesReady(false);
         let response: Response;
         try {
             response = await desktopActionFetch(`/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, {
@@ -6315,6 +6316,9 @@ function PageContent() {
                     displayName: previous.displayName || fallbackDisplayName,
                 }));
             }
+            setAccountNavRoles([]);
+            setAccountIsAdmin(false);
+            setAccountRolesReady(true);
             return null;
         }
         const fallbackDisplayName = desktopRuntime.resolveDisplayName({
@@ -6334,6 +6338,7 @@ function PageContent() {
             : [nextProfile.role].filter(Boolean);
         setAccountNavRoles(nextRoles);
         setAccountIsAdmin(Boolean(data.isAdmin) || nextRoles.includes("admin"));
+        setAccountRolesReady(true);
         if (!isPlatformOwnerEmail(emailOverride || activeUser?.email)) {
             setAccountRole(normalizeAccountRole(nextProfile.role));
         }
@@ -6352,6 +6357,9 @@ function PageContent() {
           </div>);
     }
     function assertUploadAllowed(uploadUser?: SupabaseUser | null) {
+        if (!shouldShowUploadControl(desktopNavAccess)) {
+            throw new Error("Upload is available for Artist and Producer accounts only.");
+        }
         const message = getUploadLockMessageForUser(uploadUser);
         if (!message) {
             return;
@@ -14159,6 +14167,9 @@ function PageContent() {
         }
     }
     function applyDesktopView(nextView: View) {
+        // Exactly one destination workspace: always unmount upload chrome when leaving via nav.
+        setShowUpload(false);
+        setShowNotificationCenter(false);
         setView(nextView);
         if (nextView === "Artist Dashboard") {
             setCreatorStudio("artist");
@@ -16036,7 +16047,7 @@ function PageContent() {
 
         {renderSharedVideoPlayer()}
 
-        {showUpload && shouldShowUploadControl(desktopNavAccess) && !uploadsBlockedForCurrentUser && (<section className="upload-shell" data-nav-destination="upload" data-creator-studio={creatorStudio}>
+        {showUpload && shouldShowUploadControl(desktopNavAccess) && !uploadsBlockedForCurrentUser && (<section className="upload-shell" data-nav-destination="upload" data-active-workspace="upload" data-creator-studio={creatorStudio}>
             <CreatorStudioUploadChrome
               studio={creatorStudio}
               canArtistStudio={shouldShowArtistDashboardControl(desktopNavAccess)}

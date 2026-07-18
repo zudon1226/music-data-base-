@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
+import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
@@ -92,6 +93,15 @@ async function requireAudioUploadUser(request: Request, body: Record<string, unk
             status: uploadLock.status,
             error: uploadLock.error,
             uploadLockBlocked: uploadLock.status === 503,
+        };
+    }
+
+    const creatorAccess = await requireCreatorUploadAccess(auth.userId, uploadLock.email || "");
+    if (!creatorAccess.ok) {
+        return {
+            ok: false as const,
+            status: creatorAccess.status,
+            error: creatorAccess.error,
         };
     }
 

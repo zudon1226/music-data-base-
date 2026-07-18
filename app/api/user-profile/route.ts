@@ -1,5 +1,9 @@
 import { normalizeLocale } from "@/lib/i18n/registry";
 import { parseProfileEditableFields } from "@/lib/dashboard/profile-fields";
+import {
+    loadResolvedAccountCapabilities,
+    normalizeResolvedAccountRole,
+} from "@/lib/resolved-account-role";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 import { getSessionTokensFromRecord, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { ensureProfileRow, repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
@@ -13,11 +17,7 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 }
 
 function normalizeRole(value: unknown) {
-    const cleanValue = String(value || "").trim().toLowerCase();
-    if (cleanValue === "admin" || cleanValue === "producer" || cleanValue === "artist") {
-        return cleanValue;
-    }
-    return "listener";
+    return normalizeResolvedAccountRole(value);
 }
 
 const PROFILE_SELECT = [
@@ -79,41 +79,13 @@ export async function GET(request: Request) {
         const email = userResult.data.user?.email || "";
         const createdAt = String(profileRow.created_at || userResult.data.user?.created_at || "").trim();
         const displayName = String(profileRow.display_name || email.split("@")[0] || "").trim();
-        const role = normalizeRole(profileRow.account_type);
         const avatarUrl = String(profileRow.avatar_url || "").trim();
-
-        const roleSet = new Set<string>();
-        if (role && role !== "listener") roleSet.add(role);
-        if (profileRow.is_admin === true) roleSet.add("admin");
-        try {
-            const rolesResult = await supabase
-                .from("user_roles")
-                .select("role")
-                .eq("user_id", userId)
-                .eq("status", "active");
-            for (const row of rolesResult.data || []) {
-                const clean = String((row as { role?: string }).role || "").trim().toLowerCase();
-                if (clean) roleSet.add(clean);
-            }
-        }
-        catch {
-            // user_roles may be unavailable in some environments
-        }
-        try {
-            const artist = await supabase.from("artist_profiles").select("id").eq("user_id", userId).limit(1);
-            if (!artist.error && (artist.data || []).length > 0) roleSet.add("artist");
-        }
-        catch {
-            // optional
-        }
-        try {
-            const producer = await supabase.from("producer_profiles").select("id").eq("user_id", userId).limit(1);
-            if (!producer.error && (producer.data || []).length > 0) roleSet.add("producer");
-        }
-        catch {
-            // optional
-        }
-        const roles = [...roleSet];
+        // Authoritative roles only: account_type + active user_roles. Never infer from profile tables.
+        const resolved = await loadResolvedAccountCapabilities(userId, email);
+        const role = normalizeRole(profileRow.account_type) === "listener"
+            ? resolved.primaryRole
+            : normalizeRole(profileRow.account_type);
+        const roles = resolved.roles.length > 0 ? resolved.roles : [role];
 
         let songsCount = 0;
         let videosCount = 0;
@@ -159,9 +131,11 @@ export async function GET(request: Request) {
             username: String(profileRow.username || "").trim(),
             role,
             roles,
-            isArtist: roleSet.has("artist") || roleSet.has("founding_artist"),
-            isProducer: roleSet.has("producer") || roleSet.has("founding_producer"),
-            isAdmin: roleSet.has("admin"),
+            isArtist: resolved.isArtist,
+            isProducer: resolved.isProducer,
+            isAdmin: resolved.isAdmin,
+            canUpload: resolved.canUpload,
+            isListenerOnly: resolved.isListenerOnly,
             avatarUrl,
             biography: String(profileRow.bio || "").trim(),
             city: String(profileRow.city || "").trim(),

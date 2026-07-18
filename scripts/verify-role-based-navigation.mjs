@@ -19,16 +19,30 @@ function read(rel) {
     return readFileSync(full, "utf8");
 }
 
-/** Mirrors lib/role-based-navigation.ts for offline matrix checks. */
+/** Mirrors lib/role-based-navigation.ts + lib/resolved-account-role.ts for offline matrix checks. */
 function normalizeNavRole(value) {
     const normalized = String(value || "").trim().toLowerCase();
     if (normalized === "admin") return "admin";
-    if (normalized === "artist" || normalized === "founding_artist") return "artist";
-    if (normalized === "producer" || normalized === "founding_producer") return "producer";
+    if (normalized === "artist" || normalized === "founding_artist" || normalized === "artist_pro" || normalized === "creator") return "artist";
+    if (normalized === "producer" || normalized === "founding_producer" || normalized === "producer_pro") return "producer";
     return "listener";
 }
 
 function resolveNavCapabilities(input = {}) {
+    if (!input.isPlatformOwner && input.rolesReady === false) {
+        return {
+            isPlatformOwner: false,
+            isAdmin: false,
+            isArtist: false,
+            isProducer: false,
+            canUpload: false,
+            canArtistDashboard: false,
+            canProducerDashboard: false,
+            canPlatformControlCenter: false,
+            canSales: false,
+            canMyRingtones: false,
+        };
+    }
     const roles = new Set();
     for (const role of input.accountRoles || []) {
         const clean = String(role || "").trim().toLowerCase();
@@ -36,18 +50,14 @@ function resolveNavCapabilities(input = {}) {
     }
     const primary = normalizeNavRole(input.primaryRole);
     if (primary !== "listener") roles.add(primary);
-    const founding = String(input.foundingRole || "").trim().toLowerCase();
-    if (founding === "founding_artist" || founding === "artist") roles.add("artist");
-    if (founding === "founding_producer" || founding === "producer") roles.add("producer");
-    if (input.hasArtistProfile) roles.add("artist");
-    if (input.hasProducerProfile) roles.add("producer");
+    // Explicit roles only — foundingRole / profile-table existence must NOT grant creator chrome.
     if (input.isPlatformOwner || input.isAdmin) roles.add("admin");
 
     const isPlatformOwner = Boolean(input.isPlatformOwner);
     const isAdmin = isPlatformOwner || Boolean(input.isAdmin) || roles.has("admin");
-    const isArtist = isAdmin || roles.has("artist") || roles.has("founding_artist") || Boolean(input.hasArtistProfile);
-    const isProducer = isAdmin || roles.has("producer") || roles.has("founding_producer") || Boolean(input.hasProducerProfile);
-    const isCreator = isArtist || isProducer || Boolean(input.canCreateRingtones);
+    const isArtist = isAdmin || roles.has("artist") || roles.has("founding_artist") || roles.has("artist_pro") || roles.has("creator");
+    const isProducer = isAdmin || roles.has("producer") || roles.has("founding_producer") || roles.has("producer_pro");
+    const isCreator = isArtist || isProducer;
 
     if (isPlatformOwner || isAdmin) {
         return {
@@ -73,7 +83,7 @@ function resolveNavCapabilities(input = {}) {
         canProducerDashboard: isProducer,
         canPlatformControlCenter: false,
         canSales: isCreator,
-        canMyRingtones: isCreator || Boolean(input.canCreateRingtones),
+        canMyRingtones: isCreator,
     };
 }
 
@@ -174,7 +184,30 @@ record("page uses CreatorStudioUploadChrome", page.includes("CreatorStudioUpload
     && page.includes('uploadMode === "instrumental"'));
 record("studio copy present", en.includes("producerStudio:") && en.includes("uploadInstrumental:") && en.includes("artistStudio:"));
 
+const resolvedLib = read("lib/resolved-account-role.ts");
+record("authoritative role helper present", resolvedLib.includes("loadResolvedAccountCapabilities") && resolvedLib.includes("requireCreatorUploadAccess"));
+record("profile API does not infer from profile tables", !profileApi.includes('from("artist_profiles")') && !profileApi.includes('from("producer_profiles")'));
+record("nav ignores profile-table elevation", roleLib.includes("hasArtistProfile?: boolean") && roleLib.includes("@deprecated Ignored"));
+record("page clears upload on destination nav", /function applyDesktopView[\s\S]*?setShowUpload\(false\)/.test(page));
+record("page waits for server roles", page.includes("accountRolesReady") && page.includes("rolesReady:"));
+record("upload APIs require creator role", read("app/api/upload-audio/route.ts").includes("requireCreatorUploadAccess")
+    && read("app/api/video-upload/route.ts").includes("requireCreatorUploadAccess")
+    && read("app/api/albums/create/route.ts").includes("requireCreatorUploadAccess"));
+
 const listenerCaps = resolveNavCapabilities({ primaryRole: "listener" });
+const staleProfileCaps = resolveNavCapabilities({
+    primaryRole: "listener",
+    foundingRole: "founding_artist",
+    hasArtistProfile: true,
+    hasProducerProfile: true,
+    canCreateRingtones: true,
+});
+record(
+    "listener not elevated by stale founding/profile/ringtone flags",
+    !staleProfileCaps.canUpload && !staleProfileCaps.canArtistDashboard && !staleProfileCaps.canProducerDashboard,
+);
+const rolesNotReadyCaps = resolveNavCapabilities({ primaryRole: "artist", rolesReady: false });
+record("roles-not-ready forces listener chrome", !rolesNotReadyCaps.canUpload && !rolesNotReadyCaps.canArtistDashboard);
 const artistCaps = resolveNavCapabilities({ primaryRole: "artist" });
 const producerCaps = resolveNavCapabilities({ primaryRole: "producer" });
 const bothCaps = resolveNavCapabilities({ accountRoles: ["artist", "producer"] });

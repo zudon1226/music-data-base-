@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireMatchingUserId } from "@/lib/request-auth";
+import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
@@ -101,6 +102,10 @@ export async function POST(request: Request) {
         const uploadLock = await requireUploadAllowedForUserId(ownerId);
         if (!uploadLock.ok) {
             return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
+        }
+        const creatorAccess = await requireCreatorUploadAccess(ownerId, uploadLock.email || "");
+        if (!creatorAccess.ok) {
+            return jsonResponse({ error: creatorAccess.error }, creatorAccess.status);
         }
         if (!title)
             return jsonResponse({ error: "Album title is required." }, 400);
