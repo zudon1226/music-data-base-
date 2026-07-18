@@ -249,17 +249,17 @@ body {
 @media (max-width: 768px) {
   .fixed-mobile-player.fixed-mobile-player {
     position: fixed !important;
-    left: 96px !important;
+    left: var(--mobile-sidebar-width, 96px) !important;
     right: 0 !important;
     bottom: 0px !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    max-height: 72px !important;
-    width: calc(100vw - 96px) !important;
-    max-width: calc(100vw - 96px) !important;
-    padding: 4px 8px !important;
+    height: var(--global-player-height, 80px) !important;
+    min-height: var(--global-player-height, 80px) !important;
+    max-height: calc(var(--global-player-height, 80px) + env(safe-area-inset-bottom, 0px)) !important;
+    width: calc(100vw - var(--mobile-sidebar-width, 96px)) !important;
+    max-width: calc(100vw - var(--mobile-sidebar-width, 96px)) !important;
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) repeat(5, 42px) !important;
+    grid-template-columns: minmax(0, 1fr) repeat(5, 44px) 44px !important;
     grid-template-rows: 1fr !important;
     gap: 5px !important;
     align-items: center !important;
@@ -268,6 +268,22 @@ body {
     z-index: 9999 !important;
     transform: none !important;
     margin: 0 !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed {
+    height: var(--global-player-height-collapsed, 56px) !important;
+    min-height: var(--global-player-height-collapsed, 56px) !important;
+    max-height: calc(var(--global-player-height-collapsed, 56px) + env(safe-area-inset-bottom, 0px)) !important;
+    grid-template-columns: minmax(0, 1fr) 44px 44px !important;
+  }
+
+  body {
+    padding-bottom: calc(var(--global-player-height, 80px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+  }
+
+  html[data-player-collapsed="true"] body,
+  html.player-collapsed body {
+    padding-bottom: calc(var(--global-player-height-collapsed, 56px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
   }
 
   .fixed-mobile-player.fixed-mobile-player .player-main {
@@ -307,29 +323,64 @@ body {
   .fixed-mobile-player.fixed-mobile-player .player-controls button,
   .fixed-mobile-player.fixed-mobile-player .video-player-controls button,
   .fixed-mobile-player.fixed-mobile-player .player-controls .main-play,
-  .fixed-mobile-player.fixed-mobile-player .video-player-controls .main-play {
-    width: 42px !important;
-    height: 42px !important;
-    min-width: 42px !important;
-    max-width: 42px !important;
-    max-height: 42px !important;
-    flex: 0 0 42px !important;
+  .fixed-mobile-player.fixed-mobile-player .video-player-controls .main-play,
+  .fixed-mobile-player.fixed-mobile-player .player-collapse-toggle {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    max-width: 44px !important;
+    max-height: 44px !important;
+    flex: 0 0 44px !important;
     padding: 0 !important;
   }
 
   .fixed-mobile-player.fixed-mobile-player .player-controls,
   .fixed-mobile-player.fixed-mobile-player .video-player-controls {
-    grid-column: 2 / -1 !important;
+    grid-column: 2 / span 5 !important;
     grid-row: 1 !important;
     display: grid !important;
     grid-auto-flow: column !important;
-    grid-auto-columns: 42px !important;
+    grid-auto-columns: 44px !important;
     align-items: center !important;
     width: 100% !important;
     flex-wrap: nowrap !important;
     min-width: 0 !important;
     gap: 5px !important;
     overflow: hidden !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player .player-collapse-toggle {
+    grid-column: 7 !important;
+    grid-row: 1 !important;
+    justify-self: end !important;
+    z-index: 2 !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .player-center,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .video-player-center,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .player-controls,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .video-player-controls {
+    display: contents !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .player-controls > button:not(.main-play),
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .video-player-controls > button:not(.main-play),
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .player-side,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .video-player-side,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .progress-row,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .video-progress-row {
+    display: none !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .main-play {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .player-collapse-toggle {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
   }
 
   .fixed-mobile-player.fixed-mobile-player .track-title,
@@ -388,10 +439,6 @@ body {
     width: 100% !important;
     max-width: 100% !important;
     height: 4px !important;
-  }
-
-  body {
-    padding-bottom: calc(env(safe-area-inset-bottom) + 56px) !important;
   }
 }
 

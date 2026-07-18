@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
-import { BarChart3, Bell, BookOpen, Check, ArrowLeft, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
+import { BarChart3, Bell, BookOpen, Check, ArrowLeft, ChevronDown, ChevronUp, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, } from "react";
@@ -1072,7 +1072,30 @@ const STORAGE_KEYS = {
     purchaseHistory: "zml_purchase_history",
     downloadVault: "zml_download_vault",
     search: "zml_search_query",
+    playerCollapsed: "zml_player_collapsed",
 };
+
+const GLOBAL_PLAYER_HEIGHT_EXPANDED_PX = 80;
+const GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX = 56;
+
+function readStoredPlayerCollapsedPreference(): boolean | null {
+    if (typeof window === "undefined") return null;
+    try {
+        const stored = window.localStorage.getItem(STORAGE_KEYS.playerCollapsed);
+        if (stored === "1" || stored === "true") return true;
+        if (stored === "0" || stored === "false") return false;
+    } catch {
+        /* ignore */
+    }
+    return null;
+}
+
+function getDefaultPlayerCollapsed(): boolean {
+    if (typeof window === "undefined") return false;
+    const stored = readStoredPlayerCollapsedPreference();
+    if (stored !== null) return stored;
+    return window.matchMedia("(max-width: 768px)").matches;
+}
 const GLOBAL_SEARCH_VIEWS: View[] = ["Home", "Videos", "Library", "Beats", "Artists", "Trending"];
 function usesGlobalSearchScope(view: View, searchQuery: string) {
     return Boolean(searchQuery.trim()) && GLOBAL_SEARCH_VIEWS.includes(view);
@@ -3630,6 +3653,9 @@ function PageContent() {
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(0.9);
+    const [playerCollapsed, setPlayerCollapsed] = useState(false);
+    const [playerCollapsedReady, setPlayerCollapsedReady] = useState(false);
+    const playerBarRef = useRef<HTMLElement | null>(null);
     const [showUpload, setShowUpload] = useState(false);
     const [uploadMode, setUploadMode] = useState<UploadMode>("song");
     const [creatorStudio, setCreatorStudio] = useState<CreatorStudioKind>("artist");
@@ -5488,6 +5514,72 @@ function PageContent() {
     useEffect(() => {
         disableBrowserScrollRestoration();
     }, []);
+    useEffect(() => {
+        setPlayerCollapsed(getDefaultPlayerCollapsed());
+        setPlayerCollapsedReady(true);
+    }, []);
+    useEffect(() => {
+        if (!playerCollapsedReady) return;
+        try {
+            window.localStorage.setItem(STORAGE_KEYS.playerCollapsed, playerCollapsed ? "1" : "0");
+        } catch {
+            /* ignore */
+        }
+        document.documentElement.setAttribute("data-player-collapsed", playerCollapsed ? "true" : "false");
+        document.documentElement.classList.toggle("player-collapsed", playerCollapsed);
+    }, [playerCollapsed, playerCollapsedReady]);
+    useEffect(() => {
+        const root = document.documentElement;
+        const playerVisible = Boolean(
+            (activeMedia?.type === "song" && activeMediaType === "song" && currentSong)
+                || (activeMedia?.type === "video" && activeMediaType === "video" && activeVideo),
+        );
+        const applyHeight = (heightPx: number) => {
+            if (!playerVisible) {
+                root.style.setProperty("--global-player-height", "0px");
+                root.style.setProperty("--mobile-player-height", "0px");
+                root.style.setProperty(
+                    "--mobile-player-reserve",
+                    "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+                );
+                return;
+            }
+            const floor = playerCollapsed
+                ? GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX
+                : GLOBAL_PLAYER_HEIGHT_EXPANDED_PX;
+            const next = Math.max(floor, Math.ceil(heightPx || 0));
+            root.style.setProperty("--global-player-height", `${next}px`);
+            root.style.setProperty("--mobile-player-height", `${next}px`);
+            root.style.setProperty(
+                "--mobile-player-reserve",
+                `calc(${next}px + env(safe-area-inset-bottom, 0px) + 16px)`,
+            );
+        };
+        const el = playerBarRef.current;
+        if (!el) {
+            applyHeight(playerCollapsed ? GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX : GLOBAL_PLAYER_HEIGHT_EXPANDED_PX);
+            return;
+        }
+        const sync = () => applyHeight(el.getBoundingClientRect().height);
+        sync();
+        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(sync) : null;
+        observer?.observe(el);
+        window.addEventListener("resize", sync);
+        return () => {
+            observer?.disconnect();
+            window.removeEventListener("resize", sync);
+        };
+    }, [
+        playerCollapsed,
+        playerCollapsedReady,
+        currentSong?.id,
+        activeVideo?.id,
+        activeMediaType,
+        activeMedia?.type,
+    ]);
+    const togglePlayerCollapsed = () => {
+        setPlayerCollapsed((value) => !value);
+    };
     const activeNavigationKey = useMemo(
         () => buildActiveNavigationKey({ view, showUpload, uploadMode }),
         [view, showUpload, uploadMode],
@@ -15968,6 +16060,7 @@ function PageContent() {
       data-can-upload={navCapabilities.canUpload ? "true" : "false"}
       data-upload-open={canRenderUploadWorkspace ? "true" : "false"}
       data-active-view={view}
+      data-player-collapsed={playerCollapsed ? "true" : "false"}
       dir="ltr"
     >
       <aside className="sidebar" data-sidebar-locale={locale} dir="ltr">
@@ -19487,13 +19580,18 @@ function PageContent() {
           </section>
         </aside>)}
 
-      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer className="video-player-bar video-bottom-player bottom-player mobile-bottom-player fixed-mobile-player" dir="ltr">
+      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer
+          ref={playerBarRef}
+          className={`video-player-bar video-bottom-player bottom-player mobile-bottom-player fixed-mobile-player${playerCollapsed ? " is-collapsed" : ""}`}
+          data-player-collapsed={playerCollapsed ? "true" : "false"}
+          dir="ltr"
+        >
           <div className="video-player-now player-main">
             <img src={activeVideo.cover} alt=""/>
             <div>
               <strong className="track-title">{activeVideo.title}</strong>
               <small className="artist-name">{activeVideo.creator}</small>
-              {activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
+              {!playerCollapsed && activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
             </div>
           </div>
 
@@ -19537,9 +19635,25 @@ function PageContent() {
               <input name="videoVolume" type="range" min="0" max="100" value={Math.round(videoVolume * 100)} onChange={changeVideoVolume} aria-label="Video volume"/>
             </label>
           </div>
+
+          <button
+            className="player-collapse-toggle"
+            onClick={togglePlayerCollapsed}
+            type="button"
+            title={playerCollapsed ? "Expand player" : "Collapse player"}
+            aria-label={playerCollapsed ? "Expand player" : "Collapse player"}
+            aria-expanded={!playerCollapsed}
+          >
+            {playerCollapsed ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
+          </button>
         </footer>)}
 
-      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer className="player music-bottom-player bottom-player mobile-bottom-player fixed-mobile-player" dir="ltr">
+      {activeMedia?.type === "song" && activeMediaType === "song" && currentSong && (<footer
+          ref={playerBarRef}
+          className={`player music-bottom-player bottom-player mobile-bottom-player fixed-mobile-player${playerCollapsed ? " is-collapsed" : ""}`}
+          data-player-collapsed={playerCollapsed ? "true" : "false"}
+          dir="ltr"
+        >
           <div className="player-song player-main" dir="ltr">
             <img src={currentSong.cover} alt=""/>
 
@@ -19550,7 +19664,7 @@ function PageContent() {
               <small className="artist-name">
                 <ArtistNameButton name={currentSong.artist} className="artist-name" onOpen={openArtistProfile}/>
               </small>
-              {activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
+              {!playerCollapsed && activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
             </div>
           </div>
 
@@ -19595,6 +19709,17 @@ function PageContent() {
               <input name="volume" type="range" min="0" max="100" value={Math.round(volume * 100)} onChange={changeVolume} aria-label={t("player.volume")}/>
             </label>
           </div>
+
+          <button
+            className="player-collapse-toggle"
+            onClick={togglePlayerCollapsed}
+            type="button"
+            title={playerCollapsed ? "Expand player" : "Collapse player"}
+            aria-label={playerCollapsed ? "Expand player" : "Collapse player"}
+            aria-expanded={!playerCollapsed}
+          >
+            {playerCollapsed ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
+          </button>
         </footer>)}
 
         <audio ref={audioRef} preload="metadata" onLoadedMetadata={updateDuration} onDurationChange={updateDuration} onTimeUpdate={updateProgress} onPlay={() => {
@@ -19609,6 +19734,21 @@ function PageContent() {
 
         <style jsx global>{`
           ${I18N_GLOBAL_STYLES}
+
+          :root {
+            --global-player-height-expanded: ${GLOBAL_PLAYER_HEIGHT_EXPANDED_PX}px;
+            --global-player-height-collapsed: ${GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX}px;
+            --global-player-height: var(--global-player-height-expanded);
+            --mobile-player-height: var(--global-player-height);
+            --mobile-player-reserve: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
+          }
+
+          html[data-player-collapsed="true"],
+          html.player-collapsed {
+            --global-player-height: var(--global-player-height-collapsed);
+            --mobile-player-height: var(--global-player-height);
+            --mobile-player-reserve: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
+          }
 
           * {
             box-sizing: border-box;
@@ -19642,7 +19782,7 @@ function PageContent() {
             min-height: 100vh;
             display: flex;
             background: #020617;
-            padding-bottom: 132px;
+            padding-bottom: var(--mobile-player-reserve);
           }
 
           .sidebar {
@@ -20059,7 +20199,8 @@ function PageContent() {
             max-width: calc(100vw - 188px);
             min-width: 0;
             overflow-x: hidden;
-            padding: 14px 14px 154px;
+            padding: 14px 14px var(--mobile-player-reserve);
+            scroll-padding-bottom: var(--mobile-player-reserve);
           }
 
           .mobile-player-spacer {
@@ -26741,39 +26882,120 @@ function PageContent() {
             font-weight: 800;
           }
 
-          .player {
-            position: fixed;
-            left: 188px;
-            right: 0;
-            bottom: 0;
-            min-height: 62px;
-            z-index: 20;
-            background: rgba(0, 0, 0, 0.94);
-            border-top: 1px solid rgba(0, 212, 255, 0.25);
-            display: grid;
-            grid-template-columns: minmax(180px, 250px) minmax(300px, 1fr) minmax(128px, 170px);
-            align-items: center;
-            gap: 10px;
-            padding: 7px 14px;
-            overflow: hidden;
-          }
-
+          .player,
           .video-player-bar {
             position: fixed;
             left: 188px;
             right: 0;
             bottom: 0;
-            min-height: 68px;
-            z-index: 30;
+            z-index: 40;
+            overflow: hidden;
+            max-width: 100%;
+            box-sizing: border-box;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+          }
+
+          .player {
+            min-height: var(--global-player-height-expanded);
+            height: auto;
+            background: rgba(0, 0, 0, 0.94);
+            border-top: 1px solid rgba(0, 212, 255, 0.25);
+            display: grid;
+            grid-template-columns: minmax(180px, 250px) minmax(300px, 1fr) minmax(128px, 170px) 44px;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 14px;
+            padding-bottom: calc(7px + env(safe-area-inset-bottom, 0px));
+          }
+
+          .video-player-bar {
+            min-height: var(--global-player-height-expanded);
+            height: auto;
             background: rgba(4, 12, 30, 0.96);
             border-top: 1px solid rgba(34, 211, 238, 0.45);
             box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.24);
             display: grid;
-            grid-template-columns: 280px 1fr 180px;
+            grid-template-columns: 280px 1fr 180px 44px;
             align-items: center;
             gap: 12px;
             padding: 9px 16px;
+            padding-bottom: calc(9px + env(safe-area-inset-bottom, 0px));
+          }
+
+          .player-collapse-toggle {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            min-height: 44px;
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            border-radius: 8px;
+            background: #10204a;
+            color: #22d3ee;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 44px;
+            padding: 0;
+            z-index: 2;
+          }
+
+          .player.is-collapsed,
+          .video-player-bar.is-collapsed {
+            min-height: var(--global-player-height-collapsed);
+            height: var(--global-player-height-collapsed);
+            max-height: calc(var(--global-player-height-collapsed) + env(safe-area-inset-bottom, 0px));
+            grid-template-columns: minmax(0, 1fr) 44px 44px;
+            gap: 8px;
+            padding: 6px 12px;
+            padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+          }
+
+          .player.is-collapsed .player-side,
+          .video-player-bar.is-collapsed .video-player-side,
+          .player.is-collapsed .progress-row,
+          .video-player-bar.is-collapsed .progress-row,
+          .player.is-collapsed .player-album-meta,
+          .video-player-bar.is-collapsed .player-album-meta {
+            display: none !important;
+          }
+
+          /* Keep play/pause in the mini-player; unwrap center so grid is: art | play | expand */
+          .player.is-collapsed .player-center,
+          .video-player-bar.is-collapsed .video-player-center,
+          .player.is-collapsed .player-controls,
+          .video-player-bar.is-collapsed .video-player-controls {
+            display: contents;
+          }
+
+          .player.is-collapsed .player-controls > button:not(.main-play),
+          .video-player-bar.is-collapsed .video-player-controls > button:not(.main-play) {
+            display: none !important;
+          }
+
+          .player.is-collapsed .main-play,
+          .video-player-bar.is-collapsed .main-play {
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            min-height: 44px;
+            grid-column: auto;
+          }
+
+          .player.is-collapsed .player-song,
+          .player.is-collapsed .player-main,
+          .video-player-bar.is-collapsed .video-player-now,
+          .video-player-bar.is-collapsed .player-main {
+            min-width: 0;
             overflow: hidden;
+          }
+
+          .player.is-collapsed .song-title,
+          .player.is-collapsed .artist-name,
+          .video-player-bar.is-collapsed .track-title,
+          .video-player-bar.is-collapsed .artist-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
 
           .video-player-now {
@@ -27421,8 +27643,8 @@ function PageContent() {
             :root {
               --mobile-sidebar-width: 64px;
               --sidebar-width-mobile: var(--mobile-sidebar-width);
-              --mobile-player-height: 72px;
-              --mobile-player-reserve: 110px;
+              --mobile-player-height: var(--global-player-height);
+              --mobile-player-reserve: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
             }
 
             html,
@@ -29333,8 +29555,8 @@ function PageContent() {
             :root {
               --mobile-sidebar-width: 112px;
               --sidebar-width-mobile: var(--mobile-sidebar-width);
-              --mobile-player-height: 72px;
-              --mobile-player-reserve: 110px;
+              --mobile-player-height: var(--global-player-height);
+              --mobile-player-reserve: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px) + 16px);
             }
 
             main,
@@ -32823,27 +33045,81 @@ function PageContent() {
               margin-top: 8px !important;
             }
 
-            .music-bottom-player {
+            .music-bottom-player,
+            .video-bottom-player {
               position: fixed !important;
-              left: 96px !important;
+              left: var(--mobile-sidebar-width) !important;
               right: 0 !important;
               bottom: 0px !important;
-              width: calc(100vw - 96px) !important;
-              max-width: calc(100vw - 96px) !important;
-              height: min(72px, 12dvh) !important;
-              min-height: 0 !important;
-              max-height: 72px !important;
+              width: calc(100vw - var(--mobile-sidebar-width)) !important;
+              max-width: calc(100vw - var(--mobile-sidebar-width)) !important;
+              height: var(--global-player-height) !important;
+              min-height: var(--global-player-height) !important;
+              max-height: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px)) !important;
               margin: 0 !important;
-              padding: 3px 6px 2px !important;
+              padding: 3px 6px calc(2px + env(safe-area-inset-bottom, 0px)) !important;
               transform: none !important;
               z-index: 9999 !important;
               display: grid !important;
-              grid-template-columns: minmax(0, 1fr) repeat(5, 42px) !important;
+              grid-template-columns: minmax(0, 1fr) repeat(5, 44px) 44px !important;
               grid-template-rows: 1fr !important;
               gap: 5px !important;
               align-items: center !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
+            }
+
+            .music-bottom-player.is-collapsed,
+            .video-bottom-player.is-collapsed,
+            .fixed-mobile-player.is-collapsed {
+              height: var(--global-player-height-collapsed) !important;
+              min-height: var(--global-player-height-collapsed) !important;
+              max-height: calc(var(--global-player-height-collapsed) + env(safe-area-inset-bottom, 0px)) !important;
+              grid-template-columns: minmax(0, 1fr) 44px 44px !important;
+              padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            .music-bottom-player .player-collapse-toggle,
+            .video-bottom-player .player-collapse-toggle {
+              grid-column: -2 !important;
+              grid-row: 1 !important;
+              width: 44px !important;
+              height: 44px !important;
+              min-width: 44px !important;
+              min-height: 44px !important;
+              justify-self: end !important;
+            }
+
+            .music-bottom-player.is-collapsed .player-controls > button:not(.main-play),
+            .video-bottom-player.is-collapsed .video-player-controls > button:not(.main-play),
+            .music-bottom-player.is-collapsed .player-side,
+            .video-bottom-player.is-collapsed .video-player-side,
+            .music-bottom-player.is-collapsed .progress-row,
+            .video-bottom-player.is-collapsed .progress-row {
+              display: none !important;
+            }
+
+            .music-bottom-player.is-collapsed .player-center,
+            .video-bottom-player.is-collapsed .video-player-center,
+            .music-bottom-player.is-collapsed .player-controls,
+            .video-bottom-player.is-collapsed .video-player-controls {
+              display: contents !important;
+            }
+
+            .music-bottom-player.is-collapsed .main-play,
+            .video-bottom-player.is-collapsed .main-play {
+              grid-column: 2 !important;
+              grid-row: 1 !important;
+              width: 44px !important;
+              height: 44px !important;
+              min-width: 44px !important;
+              min-height: 44px !important;
+            }
+
+            .music-bottom-player.is-collapsed .player-collapse-toggle,
+            .video-bottom-player.is-collapsed .player-collapse-toggle {
+              grid-column: 3 !important;
+              grid-row: 1 !important;
             }
 
             .music-bottom-player .player-song {
@@ -32923,16 +33199,17 @@ function PageContent() {
               overflow: hidden !important;
             }
 
-            .music-bottom-player .player-controls button {
-              width: 42px !important;
-              height: 42px !important;
-              min-width: 42px !important;
-              min-height: 42px !important;
-              max-width: 42px !important;
-              max-height: 42px !important;
+            .music-bottom-player .player-controls button,
+            .video-bottom-player .video-player-controls button {
+              width: 44px !important;
+              height: 44px !important;
+              min-width: 44px !important;
+              min-height: 44px !important;
+              max-width: 44px !important;
+              max-height: 44px !important;
               padding: 0 !important;
               border-radius: 8px !important;
-              flex: 0 0 42px !important;
+              flex: 0 0 44px !important;
               font-size: 16px !important;
             }
 
@@ -32974,21 +33251,22 @@ function PageContent() {
             }
 
             .video-bottom-player {
+              /* Height/grid come from the shared .music-bottom-player/.video-bottom-player block above. */
               position: fixed !important;
-              left: 96px !important;
+              left: var(--mobile-sidebar-width) !important;
               right: 0 !important;
               bottom: 0px !important;
-              width: calc(100vw - 96px) !important;
-              max-width: calc(100vw - 96px) !important;
-              height: min(72px, 12dvh) !important;
-              min-height: 0 !important;
-              max-height: 72px !important;
+              width: calc(100vw - var(--mobile-sidebar-width)) !important;
+              max-width: calc(100vw - var(--mobile-sidebar-width)) !important;
+              height: var(--global-player-height) !important;
+              min-height: var(--global-player-height) !important;
+              max-height: calc(var(--global-player-height) + env(safe-area-inset-bottom, 0px)) !important;
               margin: 0 !important;
-              padding: 3px 6px 2px !important;
+              padding: 3px 6px calc(2px + env(safe-area-inset-bottom, 0px)) !important;
               transform: none !important;
               z-index: 9999 !important;
               display: grid !important;
-              grid-template-columns: minmax(0, 1fr) repeat(5, 42px) !important;
+              grid-template-columns: minmax(0, 1fr) repeat(5, 44px) 44px !important;
               grid-template-rows: 1fr !important;
               gap: 5px !important;
               align-items: center !important;

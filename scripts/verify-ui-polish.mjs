@@ -34,6 +34,12 @@ record("button touch target 44px", shell.includes("--ui-touch-min: 44px") && she
 record("focus-visible ring", shell.includes(":focus-visible") && shell.includes("--ui-focus-ring"));
 record("card padding tokens", shell.includes("--ui-card-pad") && shell.includes("dashboard-panel"));
 record("bottom player content clearance", shell.includes("padding-bottom: var(--ui-space-4)"));
+record(
+    "global player height clearance token",
+    page.includes("--global-player-height")
+        && page.includes("var(--mobile-player-reserve)")
+        && page.includes("player-collapse-toggle"),
+);
 record("horizontal overflow clip on shell", shell.includes("overflow-x: clip"));
 record("rails keep horizontal scroll", shell.includes("horizontal-rail-track") && shell.includes("overflow-x: auto"));
 record("mobile removes topbar translateY hack", shell.includes("transform: none !important"));
