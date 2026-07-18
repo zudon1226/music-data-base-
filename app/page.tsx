@@ -29588,7 +29588,6 @@ function PageContent() {
             .artist-profile,
             .playlist-songs,
             .add-song-list,
-            .queue-page,
             .video-page,
             .search-results,
             .artist-section,
@@ -32132,37 +32131,13 @@ function PageContent() {
               overflow: visible !important;
             }
 
-            /* Queue — natural content height; no viewport / flex stretch. */
-            .content:has(> .queue-page) {
-              display: block !important;
-              align-content: start !important;
-              height: 100dvh !important;
-              min-height: 0 !important;
-              padding-bottom: 0 !important;
-              scroll-padding-bottom: calc(var(--mobile-player-height, 72px) + 16px) !important;
-            }
-
-            .content:has(> .queue-page) > .section-heading,
-            .content:has(> .queue-page) > .destination-page-heading,
-            .content:has(> .queue-page) > .queue-page {
-              display: flex !important;
-              flex-direction: column !important;
-              align-items: stretch !important;
-              align-content: start !important;
-              justify-content: flex-start !important;
-              flex: 0 0 auto !important;
-              flex-grow: 0 !important;
-              min-height: 0 !important;
-              height: auto !important;
-              max-height: none !important;
-              margin-bottom: 0 !important;
-            }
-
+            /* Queue page content — natural height only (shell override is below). */
             .queue-page {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
               align-content: start !important;
+              align-self: start !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
@@ -32173,7 +32148,7 @@ function PageContent() {
               height: auto !important;
               max-height: none !important;
               gap: 10px !important;
-              padding: 0 0 calc(var(--mobile-player-height, 72px) + 16px) !important;
+              padding: 0 0 calc(var(--mobile-player-height, 112px) + 16px) !important;
               margin: 0 !important;
               overflow-x: hidden !important;
               overflow-y: visible !important;
@@ -32685,6 +32660,88 @@ function PageContent() {
               z-index: 1 !important;
             }
 
+            /*
+              Queue-only: the shared mobile .content shell uses top/bottom/100dvh and
+              fills the viewport. That forced blank route panel must not wrap Queue.
+              Size the workspace to its children; zml-app background fills the rest.
+            */
+            .zml-app[data-active-view="Queue"] .content,
+            .zml-app[data-active-view="Queue"] .content.desktop-content-scroll-root,
+            .content:has(> .queue-page) {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              align-content: start !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              top: 0 !important;
+              bottom: auto !important;
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: 100dvh !important;
+              padding: 8px 10px 0 !important;
+              padding-bottom: 0 !important;
+              margin: 0 !important;
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
+              overscroll-behavior: contain !important;
+              scroll-padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
+              grid-auto-rows: max-content !important;
+            }
+
+            .zml-app[data-active-view="Queue"] .content > .topbar,
+            .content:has(> .queue-page) > .topbar {
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              align-self: stretch !important;
+              min-height: 0 !important;
+              height: auto !important;
+              width: 100% !important;
+              margin-bottom: 0 !important;
+            }
+
+            .zml-app[data-active-view="Queue"] .content > .section-heading,
+            .zml-app[data-active-view="Queue"] .content > .destination-page-heading,
+            .zml-app[data-active-view="Queue"] .content > .queue-page,
+            .content:has(> .queue-page) > .section-heading,
+            .content:has(> .queue-page) > .destination-page-heading,
+            .content:has(> .queue-page) > .queue-page {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              align-content: start !important;
+              align-self: start !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              max-height: none !important;
+              width: 100% !important;
+              margin-bottom: 0 !important;
+            }
+
+            .zml-app[data-active-view="Queue"] .content > .queue-page,
+            .content:has(> .queue-page) > .queue-page {
+              padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
+            }
+
+            .zml-app[data-active-view="Queue"] .content > .mobile-player-spacer,
+            .zml-app[data-active-view="Queue"] .content > .spacer,
+            .zml-app[data-active-view="Queue"] .content > [data-spacer],
+            .content:has(> .queue-page) > .mobile-player-spacer,
+            .content:has(> .queue-page) > .spacer,
+            .content:has(> .queue-page) > [data-spacer] {
+              display: none !important;
+              height: 0 !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              flex: 0 0 0 !important;
+              flex-grow: 0 !important;
+            }
+
             .topbar {
               margin-top: 0 !important;
               padding-top: 0 !important;
@@ -33052,10 +33109,15 @@ function PageContent() {
             }
 
             .content > .queue-page {
-              padding-bottom: calc(var(--mobile-player-height, 72px) + 16px) !important;
+              padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
             }
 
+            .zml-app[data-active-view="Queue"] .content,
             .content:has(> .queue-page) {
+              bottom: auto !important;
+              height: auto !important;
+              min-height: 0 !important;
+              flex-grow: 0 !important;
               padding-bottom: 0 !important;
             }
 

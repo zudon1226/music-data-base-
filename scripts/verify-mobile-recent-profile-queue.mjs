@@ -71,7 +71,8 @@ record(
 
 record(
     "queue natural height no vh stretch",
-    mobileBlock.includes("content:has(> .queue-page)")
+    mobileBlock.includes('data-active-view="Queue"')
+        && /data-active-view="Queue"[\s\S]{0,1200}bottom:\s*auto/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}flex:\s*0\s+0\s+auto/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}flex-grow:\s*0/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}min-height:\s*0/.test(mobileBlock)
@@ -84,8 +85,8 @@ record(
 
 record(
     "queue player-safe padding uses player height + 16px",
-    /queue-page[\s\S]{0,800}padding:\s*0\s+0\s+calc\(var\(--mobile-player-height/.test(mobileBlock)
-        || /content > \.queue-page[\s\S]{0,200}padding-bottom:\s*calc\(var\(--mobile-player-height/.test(mobileBlock),
+    /queue-page[\s\S]{0,800}padding:\s*0\s+0\s+calc\(var\(--mobile-player-height,\s*112px\)/.test(mobileBlock)
+        || /content > \.queue-page[\s\S]{0,200}padding-bottom:\s*calc\(var\(--mobile-player-height,\s*112px\)/.test(mobileBlock),
 );
 
 record(
