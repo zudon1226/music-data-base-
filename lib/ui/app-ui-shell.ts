@@ -109,12 +109,12 @@ export const APP_UI_SHELL_CSS = `
     border-radius: var(--ui-radius-sm);
   }
 
-  .topbar .upload-btn,
-  .topbar .dashboard-btn,
-  .topbar .producer-dashboard-btn,
-  .topbar .profile-btn,
-  .topbar .logout-btn,
-  .topbar .notification-button,
+  .topbar .topbar-account-actions .upload-btn,
+  .topbar .topbar-account-actions .dashboard-btn,
+  .topbar .topbar-account-actions .producer-dashboard-btn,
+  .topbar .topbar-account-actions .profile-btn,
+  .topbar .topbar-account-actions .logout-btn,
+  .topbar .topbar-account-actions .notification-button,
   .sidebar .desktop-sidebar-nav button,
   .sidebar .logo,
   .content .save-upload,

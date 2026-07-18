@@ -16082,66 +16082,68 @@ function PageContent() {
             </button>
           </div>
 
-          <NotificationCenterPanel
-            wrapRef={notificationWrapRef}
-            open={showNotificationCenter}
-            notifications={notifications}
-            unreadCount={unreadNotifications}
-            loading={notificationsLoading}
-            formatTimestamp={formatVideoCreatedAt}
-            onToggle={() => {
-                setShowNotificationCenter((value) => {
-                    const next = !value;
-                    if (next) void reloadNotificationsFromServer();
-                    return next;
-                });
-            }}
-            onMarkRead={(id) => { void markNotificationRead(id); }}
-            onMarkAllRead={() => { markNotificationsRead(); }}
-            onDelete={(id) => { void deleteNotification(id); }}
-            onClearRead={() => { void clearReadNotifications(); }}
-            onNavigate={(notification) => navigateFromNotification({
-                ...notification,
-                itemType: notification.itemType as PlatformNotification["itemType"],
-            })}
-          />
+          <div className="topbar-account-actions" role="toolbar" aria-label={t("nav.mainNavigation")}>
+            <NotificationCenterPanel
+              wrapRef={notificationWrapRef}
+              open={showNotificationCenter}
+              notifications={notifications}
+              unreadCount={unreadNotifications}
+              loading={notificationsLoading}
+              formatTimestamp={formatVideoCreatedAt}
+              onToggle={() => {
+                  setShowNotificationCenter((value) => {
+                      const next = !value;
+                      if (next) void reloadNotificationsFromServer();
+                      return next;
+                  });
+              }}
+              onMarkRead={(id) => { void markNotificationRead(id); }}
+              onMarkAllRead={() => { markNotificationsRead(); }}
+              onDelete={(id) => { void deleteNotification(id); }}
+              onClearRead={() => { void clearReadNotifications(); }}
+              onNavigate={(notification) => navigateFromNotification({
+                  ...notification,
+                  itemType: notification.itemType as PlatformNotification["itemType"],
+              })}
+            />
 
-          {shouldShowUploadControl(desktopNavAccess) ? (
-          <button
-            className="upload-btn"
-            disabled={uploadsBlockedForCurrentUser}
-            onClick={toggleUploadPanel}
-            title={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : t("upload.title")}
-            type="button"
-          >
-            <Upload size={17}/>
-            {t("upload.title")}
-          </button>
-          ) : null}
+            {shouldShowUploadControl(desktopNavAccess) ? (
+            <button
+              className="upload-btn"
+              disabled={uploadsBlockedForCurrentUser}
+              onClick={toggleUploadPanel}
+              title={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : t("upload.title")}
+              type="button"
+            >
+              <Upload size={17}/>
+              {t("upload.title")}
+            </button>
+            ) : null}
 
-          {shouldShowArtistDashboardControl(desktopNavAccess) ? (
-          <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
-            <BarChart3 size={17}/>
-            {t("header.artistShort")}
-          </button>
-          ) : null}
+            {shouldShowArtistDashboardControl(desktopNavAccess) ? (
+            <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
+              <BarChart3 size={17}/>
+              {t("header.artistShort")}
+            </button>
+            ) : null}
 
-          {shouldShowProducerDashboardControl(desktopNavAccess) ? (
-          <button className="dashboard-btn producer-dashboard-btn" onClick={() => handleNav("Producer Dashboard")} title={t("nav.producerDashboard")} type="button">
-            <Disc3 size={17}/>
-            {t("header.producerShort")}
-          </button>
-          ) : null}
+            {shouldShowProducerDashboardControl(desktopNavAccess) ? (
+            <button className="dashboard-btn producer-dashboard-btn" onClick={() => handleNav("Producer Dashboard")} title={t("nav.producerDashboard")} type="button">
+              <Disc3 size={17}/>
+              {t("header.producerShort")}
+            </button>
+            ) : null}
 
-          <button className="profile-btn" onClick={openProfileFromHeader} title={t("nav.profile")} type="button">
-            <User size={17}/>
-            {t("nav.profile")}
-          </button>
+            <button className="profile-btn" onClick={openProfileFromHeader} title={t("nav.profile")} type="button">
+              <User size={17}/>
+              {t("nav.profile")}
+            </button>
 
-          <button className="logout-btn" onClick={logout} title={t("common.logout")} type="button">
-            <LogOut size={17}/>
-            {t("common.logout")}
-          </button>
+            <button className="logout-btn" onClick={logout} title={t("common.logout")} type="button">
+              <LogOut size={17}/>
+              {t("common.logout")}
+            </button>
+          </div>
         </header>
 
         {renderSharedVideoPlayer()}
@@ -20062,7 +20064,8 @@ function PageContent() {
 
           .topbar {
             display: grid;
-            grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.7fr) auto repeat(5, minmax(0, auto));
+            /* Search | Grid/List | visible account actions only (flex child row). */
+            grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.7fr) auto;
             gap: 8px;
             align-items: center;
             position: sticky;
@@ -20074,6 +20077,30 @@ function PageContent() {
             background: rgba(2, 6, 23, 0.92);
             backdrop-filter: blur(8px);
             padding-bottom: 10px;
+          }
+
+          .topbar-account-actions {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: nowrap;
+            min-width: 0;
+            width: auto;
+            margin: 0;
+            padding: 0;
+          }
+
+          .topbar-account-actions > .notification-wrap,
+          .topbar-account-actions > .upload-btn,
+          .topbar-account-actions > .dashboard-btn,
+          .topbar-account-actions > .profile-btn,
+          .topbar-account-actions > .logout-btn {
+            flex: 0 0 auto;
+            position: relative;
+            margin: 0;
+            transform: none;
           }
 
           .search-wrap {
@@ -27226,7 +27253,7 @@ function PageContent() {
 
           @media (max-width: 1180px) {
             .topbar {
-              grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.75fr) auto repeat(5, minmax(0, auto));
+              grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.75fr) auto;
               gap: 6px;
             }
 
@@ -27243,7 +27270,7 @@ function PageContent() {
 
           @media (max-width: 980px) {
             .topbar {
-              grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) auto repeat(5, minmax(0, auto));
+              grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) auto;
               gap: 6px;
             }
 
@@ -27355,16 +27382,11 @@ function PageContent() {
 
           @media (max-width: 900px) and (min-width: 821px) {
             .topbar {
-              grid-template-columns: repeat(4, minmax(0, 1fr));
+              grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) auto;
             }
 
-            .search-wrap,
-            .view-toggle {
-              grid-column: 1 / -1;
-            }
-
-            .notification-wrap {
-              justify-self: start;
+            .topbar-account-actions {
+              justify-content: flex-end;
             }
           }
 
@@ -27444,15 +27466,20 @@ function PageContent() {
             }
 
             .topbar {
-              grid-template-columns: repeat(6, minmax(0, 1fr));
-              gap: 5px;
+              display: grid;
+              grid-template-columns: minmax(0, 1fr);
+              gap: 8px;
               padding-bottom: 5px;
               z-index: 80;
             }
 
             .search-wrap,
-            .view-toggle {
+            .view-toggle,
+            .topbar-account-actions {
               grid-column: 1 / -1;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
             }
 
             .search-wrap {
@@ -27478,54 +27505,89 @@ function PageContent() {
               padding: 0 6px;
             }
 
-            .notification-button,
-            .upload-btn,
-            .dashboard-btn,
-            .profile-btn,
-            .logout-btn {
-              height: 30px;
-              min-height: 30px;
+            /* Visible account actions only — no empty slots from role-gated nulls. */
+            .topbar-account-actions {
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              justify-content: flex-start;
+              gap: 8px;
+              flex-wrap: nowrap;
+              overflow-x: auto;
+              overflow-y: visible;
+              -webkit-overflow-scrolling: touch;
+            }
+
+            .topbar-account-actions > .notification-wrap,
+            .topbar-account-actions > .upload-btn,
+            .topbar-account-actions > .dashboard-btn,
+            .topbar-account-actions > .profile-btn,
+            .topbar-account-actions > .logout-btn {
+              flex: 0 0 auto;
+              position: relative;
+              z-index: 50;
+              margin: 0;
+              transform: none;
+              pointer-events: auto;
+              cursor: pointer;
+              touch-action: manipulation;
+            }
+
+            .topbar-account-actions > .notification-wrap {
+              width: 44px;
+              height: 44px;
+              min-width: 44px;
+              min-height: 44px;
+              overflow: visible;
+            }
+
+            .topbar-account-actions .notification-button,
+            .topbar-account-actions > .upload-btn,
+            .topbar-account-actions > .dashboard-btn,
+            .topbar-account-actions > .profile-btn,
+            .topbar-account-actions > .logout-btn {
+              width: 44px;
+              height: 44px;
+              min-width: 44px;
+              min-height: 44px;
               border-radius: 8px;
               font-size: 0;
               gap: 0;
               padding: 0;
-              width: 100%;
-              min-width: 0;
+              margin: 0;
               justify-content: center;
+              align-items: center;
+              transform: none;
             }
 
-            .notification-wrap,
-            .notification-button {
-              width: 100%;
+            .topbar-account-actions .notification-button {
+              display: grid;
+              place-items: center;
+              overflow: visible;
             }
 
-            .notification-wrap {
-              height: 30px;
-            }
-
-            .notification-button span {
+            .topbar-account-actions .notification-button > span:not(.sr-only) {
+              position: absolute;
+              right: -5px;
+              top: -6px;
+              min-width: 19px;
+              height: 19px;
+              max-height: 19px;
+              line-height: 1;
               font-size: 9px;
+              pointer-events: none;
+              z-index: 2;
             }
 
-            .notification-button svg,
-            .upload-btn svg,
-            .dashboard-btn svg,
-            .profile-btn svg,
-            .logout-btn svg {
+            .topbar-account-actions .notification-button svg,
+            .topbar-account-actions > .upload-btn svg,
+            .topbar-account-actions > .dashboard-btn svg,
+            .topbar-account-actions > .profile-btn svg,
+            .topbar-account-actions > .logout-btn svg {
               width: 17px;
               height: 17px;
-            }
-
-            .topbar > button,
-            .topbar .notification-wrap,
-            .dashboard-btn,
-            .profile-btn,
-            .logout-btn {
-              position: relative;
-              z-index: 50;
-              pointer-events: auto;
-              cursor: pointer;
-              touch-action: manipulation;
+              margin: 0;
+              transform: none;
             }
 
             .upload-shell {
@@ -28772,14 +28834,19 @@ function PageContent() {
             }
 
             .topbar {
-              grid-template-columns: repeat(6, minmax(0, 1fr));
-              gap: 5px;
+              grid-template-columns: minmax(0, 1fr);
+              gap: 8px;
               padding-bottom: 5px;
             }
 
             .search-wrap,
-            .view-toggle {
+            .view-toggle,
+            .topbar-account-actions {
               grid-column: 1 / -1;
+            }
+
+            .topbar-account-actions {
+              justify-content: flex-start;
             }
 
             .dashboard-form .wide,

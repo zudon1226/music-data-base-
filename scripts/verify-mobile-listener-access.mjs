@@ -58,6 +58,30 @@ record("page stamps listener role attrs", page.includes('data-account-role={navC
 record("upload workspace requires non-listener", page.includes("canRenderUploadWorkspace") && page.includes("!navCapabilities.isListenerOnly"));
 record("my ringtones gated by canMyRingtones", page.includes('view === "My Ringtones" && navCapabilities.canMyRingtones'));
 record("header upload still capability gated", page.includes("shouldShowUploadControl(desktopNavAccess)"));
+record("mobile account actions wrap exists", page.includes('className="topbar-account-actions"'));
+record(
+    "mobile account actions flex row contract",
+    page.includes(".topbar-account-actions")
+        && page.includes("justify-content: flex-start")
+        && page.includes("flex-wrap: nowrap")
+        && /topbar-account-actions[\s\S]{0,400}gap:\s*8px/.test(page),
+);
+record(
+    "mobile account action touch targets 44px",
+    /topbar-account-actions[\s\S]{0,900}min-width:\s*44px/.test(page)
+        && /topbar-account-actions[\s\S]{0,900}min-height:\s*44px/.test(page),
+);
+record(
+    "topbar no longer uses 6-column action grid",
+    !page.includes("grid-template-columns: repeat(6, minmax(0, 1fr))"),
+);
+record(
+    "role-gated header controls render null when unauthorized",
+    page.includes("shouldShowUploadControl(desktopNavAccess) ? (")
+        && page.includes("shouldShowArtistDashboardControl(desktopNavAccess) ? (")
+        && page.includes("shouldShowProducerDashboardControl(desktopNavAccess) ? (")
+        && page.includes(") : null}"),
+);
 record("nav uses account-role message only", page.includes("ACCOUNT_ROLE_UNAVAILABLE_MESSAGE")
     && !page.includes("That area is not available for your founding role."));
 record("handleNav omits founding whitelist", !page.includes("protectedViews")
