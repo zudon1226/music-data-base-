@@ -20250,8 +20250,12 @@ function PageContent() {
 
           .notification-wrap {
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             min-width: 0;
             height: 41px;
+            overflow: visible;
           }
 
           .notification-button {
