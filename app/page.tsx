@@ -32148,8 +32148,10 @@ function PageContent() {
               height: auto !important;
               max-height: none !important;
               gap: 10px !important;
-              padding: 0 0 calc(var(--mobile-player-height, 112px) + 16px) !important;
+              padding: 0 !important;
+              padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
               margin: 0 !important;
+              margin-bottom: 0 !important;
               overflow-x: hidden !important;
               overflow-y: visible !important;
               box-sizing: border-box !important;
@@ -32661,10 +32663,54 @@ function PageContent() {
             }
 
             /*
-              Queue-only: the shared mobile .content shell uses top/bottom/100dvh and
-              fills the viewport. That forced blank route panel must not wrap Queue.
-              Size the workspace to its children; zml-app background fills the rest.
+              Queue-only shell collapse:
+              Production still showed a viewport-tall blank under empty Queue because
+              .zml-app { min-height/height: 100dvh } and body { padding-bottom: 56px }
+              kept a full-screen route/app panel + document scroll even after .content
+              was sized to its children. Collapse those parents for Queue only.
             */
+            html:has(.zml-app[data-active-view="Queue"]),
+            html:has(.content > .queue-page) {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              overflow: hidden !important;
+            }
+
+            body:has(.zml-app[data-active-view="Queue"]),
+            body:has(.content > .queue-page) {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              padding-bottom: 0 !important;
+              margin: 0 !important;
+              overflow: hidden !important;
+            }
+
+            .mdb-app-shell:has(.zml-app[data-active-view="Queue"]),
+            .mdb-app-shell:has(.queue-page),
+            .mdb-ltr-shell:has(.zml-app[data-active-view="Queue"]),
+            .mdb-rtl-shell:has(.zml-app[data-active-view="Queue"]) {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              overflow: visible !important;
+            }
+
+            .zml-app[data-active-view="Queue"] {
+              display: block !important;
+              align-items: start !important;
+              align-content: start !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              max-height: none !important;
+              padding-bottom: 0 !important;
+              overflow: visible !important;
+            }
+
             .zml-app[data-active-view="Queue"] .content,
             .zml-app[data-active-view="Queue"] .content.desktop-content-scroll-root,
             .content:has(> .queue-page) {
@@ -32675,16 +32721,17 @@ function PageContent() {
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
+              align-self: start !important;
               top: 0 !important;
               bottom: auto !important;
               height: auto !important;
               min-height: 0 !important;
-              max-height: 100dvh !important;
+              max-height: none !important;
               padding: 8px 10px 0 !important;
               padding-bottom: 0 !important;
               margin: 0 !important;
               overflow-x: hidden !important;
-              overflow-y: auto !important;
+              overflow-y: visible !important;
               overscroll-behavior: contain !important;
               scroll-padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
               grid-auto-rows: max-content !important;
@@ -33112,13 +33159,29 @@ function PageContent() {
               padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
             }
 
+            .zml-app[data-active-view="Queue"],
             .zml-app[data-active-view="Queue"] .content,
             .content:has(> .queue-page) {
               bottom: auto !important;
               height: auto !important;
               min-height: 0 !important;
+              max-height: none !important;
               flex-grow: 0 !important;
               padding-bottom: 0 !important;
+            }
+
+            .zml-app[data-active-view="Queue"] .content > .queue-page,
+            .content:has(> .queue-page) > .queue-page,
+            .content > .queue-page {
+              overflow-y: visible !important;
+            }
+
+            html:has(.zml-app[data-active-view="Queue"]),
+            body:has(.zml-app[data-active-view="Queue"]) {
+              overflow: hidden !important;
+              padding-bottom: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
             }
 
             .content > .recent-panel {

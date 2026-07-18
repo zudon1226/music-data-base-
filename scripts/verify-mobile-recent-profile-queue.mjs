@@ -72,7 +72,9 @@ record(
 record(
     "queue natural height no vh stretch",
     mobileBlock.includes('data-active-view="Queue"')
-        && /data-active-view="Queue"[\s\S]{0,1200}bottom:\s*auto/.test(mobileBlock)
+        && /body:has\(\.zml-app\[data-active-view="Queue"\]\)/.test(mobileBlock)
+        && /zml-app\[data-active-view="Queue"\][\s\S]{0,400}min-height:\s*0/.test(mobileBlock)
+        && /data-active-view="Queue"[\s\S]{0,1600}bottom:\s*auto/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}flex:\s*0\s+0\s+auto/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}flex-grow:\s*0/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}min-height:\s*0/.test(mobileBlock)
