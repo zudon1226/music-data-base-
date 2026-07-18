@@ -29608,15 +29608,26 @@ function PageContent() {
             .artist-album-card,
             .artist-playlist-card,
             .playlist-tile,
-            .discovery-card,
-            .profile-save,
-            .profile-hero {
+            .discovery-card {
               width: calc(100% - 24px) !important;
               max-width: 680px !important;
               margin-left: auto !important;
               margin-right: auto !important;
               justify-self: center !important;
               align-self: center !important;
+              transform: none !important;
+              left: auto !important;
+              scroll-margin-bottom: 0 !important;
+            }
+
+            .profile-save,
+            .profile-hero {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin-left: 0 !important;
+              margin-right: 0 !important;
+              justify-self: stretch !important;
+              align-self: stretch !important;
               transform: none !important;
               left: auto !important;
               scroll-margin-bottom: 0 !important;
@@ -31787,14 +31798,21 @@ function PageContent() {
               margin: 0 !important;
             }
 
+            /* Recently Played — content-sized compact cards (no empty middle stretch). */
             .recent-panel {
-              display: block !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
-              min-height: auto !important;
+              min-height: 0 !important;
               height: auto !important;
-              padding-bottom: 150px !important;
+              gap: 12px !important;
+              padding-bottom: 20px !important;
+              margin: 0 !important;
               overflow-x: hidden !important;
               overflow-y: visible !important;
               box-sizing: border-box !important;
@@ -31806,24 +31824,30 @@ function PageContent() {
               gap: 8px !important;
               width: 100% !important;
               max-width: 100% !important;
+              flex: 0 0 auto !important;
               overflow-x: hidden !important;
             }
 
             .recent-panel .liked-tabs button {
               width: 100% !important;
               min-width: 0 !important;
-              min-height: 40px !important;
+              min-height: 44px !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
             }
 
             .recent-list {
-              display: block !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
-              min-height: auto !important;
+              min-height: 0 !important;
               height: auto !important;
+              gap: 12px !important;
               overflow: visible !important;
               padding: 0 !important;
               margin: 0 !important;
@@ -31834,36 +31858,52 @@ function PageContent() {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
-              gap: 10px !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
+              gap: 12px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
-              min-height: auto !important;
+              min-height: 0 !important;
               height: auto !important;
               padding: 12px !important;
-              margin-bottom: 10px !important;
+              margin: 0 !important;
               overflow: visible !important;
               box-sizing: border-box !important;
             }
 
+            .recent-row > * {
+              flex: 0 0 auto !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+            }
+
             .recent-number {
               align-self: flex-start !important;
+              order: 1 !important;
               width: auto !important;
               min-width: 0 !important;
             }
 
-            .recent-row img {
-              width: 80px !important;
-              height: 80px !important;
-              max-width: 80px !important;
-              flex: 0 0 80px !important;
+            .recent-row > img {
+              order: 2 !important;
+              width: 128px !important;
+              height: 128px !important;
+              max-width: 128px !important;
+              flex: 0 0 128px !important;
               object-fit: cover !important;
+              border-radius: 8px !important;
             }
 
             .recent-copy {
+              order: 3 !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              gap: 4px !important;
               width: 100% !important;
-              max-width: 100% !important;
-              min-width: 0 !important;
+              flex: 0 0 auto !important;
               overflow: visible !important;
             }
 
@@ -31876,60 +31916,87 @@ function PageContent() {
               text-overflow: ellipsis !important;
               word-break: break-word !important;
               overflow-wrap: anywhere !important;
-              line-height: 1.15 !important;
+              line-height: 1.2 !important;
+              margin: 0 !important;
             }
 
             .recent-copy p {
               display: block !important;
               width: 100% !important;
-              max-width: 100% !important;
+              margin: 0 !important;
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
             }
 
-            .recent-copy small,
-            .recent-time {
+            .recent-copy small {
               display: block !important;
               width: 100% !important;
-              max-width: 100% !important;
-              min-width: 0 !important;
+              margin: 0 !important;
               white-space: normal !important;
               overflow: visible !important;
-              text-overflow: clip !important;
               overflow-wrap: anywhere !important;
             }
 
-            .recent-row button {
+            .recent-time {
+              order: 4 !important;
+              display: block !important;
+              width: 100% !important;
+              margin: 0 !important;
+              flex: 0 0 auto !important;
+              white-space: normal !important;
+              overflow: visible !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            .recent-row > button {
+              order: 5 !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 44px !important;
               height: auto !important;
+              flex: 0 0 auto !important;
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
               justify-content: center !important;
+              margin: 0 !important;
+            }
+
+            .recent-list > .recent-row:last-child {
+              margin-bottom: 24px !important;
             }
 
             .recent-panel .empty-state {
               width: 100% !important;
               max-width: 100% !important;
-              min-height: auto !important;
+              min-height: 0 !important;
               height: auto !important;
+              flex: 0 0 auto !important;
               padding: 12px !important;
               margin: 0 !important;
               overflow: visible !important;
             }
 
+            /* Queue — empty/populated content ends naturally; no viewport stretch. */
             .queue-page {
-              display: block !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               width: 100% !important;
               max-width: 100% !important;
-              min-height: auto !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
               height: auto !important;
-              padding-bottom: 150px !important;
-              scroll-padding-bottom: 150px !important;
+              max-height: none !important;
+              gap: 12px !important;
+              padding-bottom: 20px !important;
+              margin: 0 !important;
+              scroll-padding-bottom: var(--mobile-player-reserve) !important;
               overflow-x: hidden !important;
               overflow-y: visible !important;
               box-sizing: border-box !important;
@@ -31938,30 +32005,53 @@ function PageContent() {
             .queue-page .empty-state {
               width: 100% !important;
               max-width: 100% !important;
-              min-height: auto !important;
+              min-height: 0 !important;
               height: auto !important;
-              padding: 12px !important;
-              margin: 0 !important;
+              max-height: none !important;
+              flex: 0 0 auto !important;
+              flex-grow: 0 !important;
+              padding: 16px !important;
+              margin: 0 0 4px !important;
               overflow: visible !important;
               box-sizing: border-box !important;
             }
 
             .queue-toolbar,
-            .queue-manage-list {
+            .queue-manage-sections,
+            .queue-manage-list,
+            .queue-manage-section {
               width: 100% !important;
               max-width: 100% !important;
-              min-height: auto !important;
+              min-height: 0 !important;
               height: auto !important;
+              flex: 0 0 auto !important;
               overflow: visible !important;
+            }
+
+            .queue-toolbar {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+            }
+
+            .queue-toolbar button {
+              width: 100% !important;
+              min-width: 0 !important;
+              min-height: 44px !important;
+              box-sizing: border-box !important;
             }
 
             .queue-manage-row {
               width: 100% !important;
               max-width: 100% !important;
-              min-height: auto !important;
+              min-height: 0 !important;
               height: auto !important;
               overflow: visible !important;
               box-sizing: border-box !important;
+            }
+
+            .queue-page .queue-manage-sections {
+              padding-bottom: 24px !important;
             }
 
             .mobile-queue-btn {
@@ -31971,6 +32061,7 @@ function PageContent() {
               min-width: 0 !important;
               min-height: 44px !important;
               height: auto !important;
+              flex: 0 0 auto !important;
               align-items: center !important;
               justify-content: center !important;
               gap: 6px !important;
@@ -31985,6 +32076,7 @@ function PageContent() {
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
+              box-sizing: border-box !important;
             }
 
             .mobile-queue-btn:disabled {
@@ -31999,16 +32091,23 @@ function PageContent() {
               grid-column: 1 / -1 !important;
             }
 
+            /* Profile — single-column mobile card; controls stay inside. */
             .profile-page {
-              display: grid !important;
-              gap: 10px !important;
+              display: flex !important;
+              flex-direction: column !important;
               align-items: stretch !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
+              gap: 12px !important;
               width: 100% !important;
               max-width: 100% !important;
-              min-height: auto !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
               height: auto !important;
-              padding-bottom: 150px !important;
+              padding-bottom: 20px !important;
+              margin: 0 !important;
               overflow-x: hidden !important;
+              box-sizing: border-box !important;
             }
 
             .profile-page,
@@ -32018,65 +32117,157 @@ function PageContent() {
 
             .profile-hero,
             .profile-save,
-            .profile-grid {
+            .profile-grid,
+            .profile-details,
+            .profile-edit-form {
               width: 100% !important;
               max-width: 100% !important;
+              min-width: 0 !important;
               margin: 0 !important;
-              padding: 12px !important;
-              overflow: hidden !important;
-              text-wrap: balance !important;
+              padding: 14px !important;
+              overflow: visible !important;
             }
 
             .profile-hero {
-              display: grid !important;
-              grid-template-columns: 64px minmax(0, 1fr) !important;
-              gap: 10px !important;
+              display: flex !important;
+              flex-direction: column !important;
               align-items: center !important;
+              justify-content: flex-start !important;
+              gap: 12px !important;
+              min-height: 0 !important;
+              height: auto !important;
             }
 
-            .profile-avatar {
-              width: 64px !important;
-              height: 64px !important;
-              min-width: 64px !important;
-              aspect-ratio: 1 / 1 !important;
-              font-size: 30px !important;
-              border-radius: 8px !important;
-            }
-
-            .profile-hero > div:not(.profile-avatar) {
+            .profile-avatar-wrap {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              justify-content: flex-start !important;
+              gap: 10px !important;
+              width: 100% !important;
+              max-width: 100% !important;
               min-width: 0 !important;
-              display: grid !important;
-              gap: 3px !important;
+            }
+
+            .profile-avatar,
+            .profile-avatar-image {
+              width: 120px !important;
+              height: 120px !important;
+              min-width: 120px !important;
+              max-width: 120px !important;
+              aspect-ratio: 1 / 1 !important;
+              border-radius: 999px !important;
+              font-size: 48px !important;
+            }
+
+            .profile-avatar-upload {
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              flex-wrap: wrap !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: 44px !important;
+              height: auto !important;
+              padding: 10px 12px !important;
+              margin: 0 !important;
+              white-space: normal !important;
+              text-align: center !important;
+              overflow: visible !important;
+              position: relative !important;
+            }
+
+            .profile-avatar-upload span {
+              white-space: normal !important;
+              overflow-wrap: anywhere !important;
+              word-break: break-word !important;
+              line-height: 1.2 !important;
+            }
+
+            .profile-hero-main {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              text-align: left !important;
             }
 
             .profile-hero h2 {
               margin: 0 !important;
               max-width: 100% !important;
-              font-size: 21px !important;
-              line-height: 1.05 !important;
-              white-space: nowrap !important;
-              overflow: hidden !important;
-              text-overflow: ellipsis !important;
+              min-width: 0 !important;
+              font-size: clamp(22px, 7vw, 34px) !important;
+              line-height: 1.15 !important;
+              white-space: normal !important;
+              overflow-wrap: anywhere !important;
+              word-break: break-word !important;
+              overflow: visible !important;
+              text-overflow: clip !important;
             }
 
-            .profile-hero p {
+            .profile-username,
+            .profile-email,
+            .profile-hero-main > p {
               max-width: 100% !important;
-              font-size: 12px !important;
-              line-height: 1.2 !important;
-              white-space: nowrap !important;
-              overflow: hidden !important;
-              text-overflow: ellipsis !important;
+              min-width: 0 !important;
+              margin: 0 !important;
+              font-size: 13px !important;
+              line-height: 1.3 !important;
+              white-space: normal !important;
+              overflow-wrap: anywhere !important;
+              word-break: break-word !important;
+              overflow: visible !important;
+              text-overflow: clip !important;
+            }
+
+            .profile-role-badges {
+              justify-content: flex-start !important;
+              width: 100% !important;
+              min-width: 0 !important;
             }
 
             .profile-actions {
-              grid-column: 1 / -1 !important;
-              margin-top: 8px !important;
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 8px !important;
               width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin-top: 4px !important;
+              position: static !important;
             }
 
             .profile-actions button {
               width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
               min-height: 44px !important;
+              height: auto !important;
+              margin: 0 !important;
+              position: static !important;
+              transform: none !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .profile-details,
+            .profile-bio,
+            .profile-meta-list {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              overflow-wrap: anywhere !important;
+              word-break: break-word !important;
+            }
+
+            .profile-meta-list {
+              grid-template-columns: 1fr !important;
             }
 
             .profile-grid {
@@ -32087,6 +32278,7 @@ function PageContent() {
             }
 
             .profile-grid div {
+              min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
               padding: 10px !important;
@@ -32107,7 +32299,7 @@ function PageContent() {
             .profile-save {
               display: grid !important;
               gap: 6px !important;
-              min-height: auto !important;
+              min-height: 0 !important;
               height: auto !important;
             }
 
@@ -32597,9 +32789,6 @@ function PageContent() {
             .main-content,
             .page-content,
             .app-content,
-            .profile-page,
-            .queue-page,
-            .recent-panel,
             .dashboard-page,
             .playlist-workspace,
             .liked-page,
@@ -32609,6 +32798,22 @@ function PageContent() {
             .producer-profile,
             .search-results {
               padding-bottom: var(--mobile-player-reserve) !important;
+              scroll-padding-bottom: var(--mobile-player-reserve) !important;
+            }
+
+            /* Keep Profile / Queue / Recently Played as real boxes so empty states
+               and compact cards are not stretched by display:contents unwrapping. */
+            .content > .profile-page,
+            .content > .queue-page,
+            .content > .recent-panel {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+              flex: 0 0 auto !important;
+              min-height: 0 !important;
+              height: auto !important;
+              padding-bottom: 20px !important;
               scroll-padding-bottom: var(--mobile-player-reserve) !important;
             }
 
@@ -32624,10 +32829,7 @@ function PageContent() {
 
             .content > .liked-page,
             .content > .following-feed,
-            .content > .recent-panel,
-            .content > .queue-page,
             .content > .playlist-workspace,
-            .content > .profile-page,
             .content > .dashboard-page,
             .content > .video-page,
             .content > .artist-profile,
@@ -32720,6 +32922,12 @@ function PageContent() {
               min-height: 0 !important;
             }
 
+          }
+
+          @media (max-width: 340px) {
+            .profile-actions {
+              grid-template-columns: 1fr !important;
+            }
           }
         `}</style>
     </main>);

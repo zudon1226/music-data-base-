@@ -262,13 +262,13 @@ export function UserProfileDashboard({
                     </label>
                 </div>
 
-                <div>
+                <div className="profile-hero-main">
                     <span className="playlist-kicker">
                         {isPlatformOwner ? "OWNER / ADMIN" : t("profile.userProfile")}
                     </span>
                     <h2>{profile.displayName || t("dashboard.profile.unnamed")}</h2>
                     {profile.username ? <p className="profile-username">@{profile.username}</p> : null}
-                    {email ? <p>{email}</p> : null}
+                    {email ? <p className="profile-email">{email}</p> : null}
                     <div className="profile-role-badges" aria-label={t("profile.role")}>
                         {badges.map((badge) => (
                             <span className="profile-role-badge" key={badge}>{badge}</span>

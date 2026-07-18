@@ -16,6 +16,7 @@
     "verify:listener": "node scripts/verify-listener-nav-workspace.mjs",
     "verify:mobile-listener": "node scripts/verify-mobile-listener-access.mjs",
     "verify:mobile-topbar": "node scripts/verify-mobile-topbar-actions.mjs",
+    "verify:mobile-layout": "node scripts/verify-mobile-recent-profile-queue.mjs",
     "verify:access": "node scripts/verify-account-access-pipeline.mjs",
     "verify:dashboard": "node scripts/verify-user-dashboard-phase1.mjs && node lib/dashboard/profile-fields.test.mjs",
     "verify:dashboard2": "node scripts/verify-user-dashboard-phase2.mjs",
