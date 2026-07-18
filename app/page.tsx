@@ -31873,7 +31873,7 @@ function PageContent() {
               scroll-margin-bottom: var(--mobile-player-reserve) !important;
             }
 
-            /* Recently Played — natural content height only; no blank middle. */
+            /* Recently Played — natural content height; compact 8–12px gaps. */
             .recent-panel {
               display: flex !important;
               flex-direction: column !important;
@@ -31886,7 +31886,7 @@ function PageContent() {
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
-              gap: 12px !important;
+              gap: 10px !important;
               padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px) + 16px) !important;
               margin: 0 !important;
               overflow-x: hidden !important;
@@ -31924,7 +31924,7 @@ function PageContent() {
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
-              gap: 12px !important;
+              gap: 10px !important;
               overflow: visible !important;
               padding: 0 !important;
               margin: 0 !important;
@@ -31938,7 +31938,7 @@ function PageContent() {
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
-              gap: 10px !important;
+              gap: 8px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
@@ -31969,11 +31969,11 @@ function PageContent() {
             }
 
             .recent-row > img {
-              width: 80px !important;
-              height: 80px !important;
-              max-width: 80px !important;
-              max-height: 80px !important;
-              flex: 0 0 80px !important;
+              width: 120px !important;
+              height: 120px !important;
+              max-width: 120px !important;
+              max-height: 120px !important;
+              flex: 0 0 120px !important;
               object-fit: cover !important;
               border-radius: 8px !important;
             }
@@ -32077,7 +32077,7 @@ function PageContent() {
             }
 
             .recent-list > .recent-row:last-child {
-              margin-bottom: 8px !important;
+              margin-bottom: 0 !important;
             }
 
             .recent-panel .empty-state {
@@ -32092,7 +32092,7 @@ function PageContent() {
               overflow: visible !important;
             }
 
-            /* Queue — end after empty state; player clearance only. */
+            /* Queue — natural document height; no viewport stretch. */
             .content:has(> .queue-page) {
               padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
               scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
@@ -32111,8 +32111,8 @@ function PageContent() {
               min-height: 0 !important;
               height: auto !important;
               max-height: none !important;
-              gap: 12px !important;
-              padding-bottom: 16px !important;
+              gap: 10px !important;
+              padding: 0 0 16px !important;
               margin: 0 !important;
               scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
               overflow-x: hidden !important;
@@ -32148,7 +32148,7 @@ function PageContent() {
 
             .queue-toolbar {
               display: grid !important;
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              grid-template-columns: 1fr !important;
               gap: 8px !important;
             }
 
@@ -32156,6 +32156,8 @@ function PageContent() {
               width: 100% !important;
               min-width: 0 !important;
               min-height: 44px !important;
+              height: 44px !important;
+              max-height: 44px !important;
               box-sizing: border-box !important;
             }
 
@@ -32169,7 +32171,7 @@ function PageContent() {
             }
 
             .queue-page .queue-manage-sections {
-              padding-bottom: 24px !important;
+              padding-bottom: 16px !important;
             }
 
             .mobile-queue-btn {
@@ -32209,20 +32211,27 @@ function PageContent() {
               grid-column: 1 / -1 !important;
             }
 
-            /* Profile — single-column mobile card; controls stay inside. */
+            /* Profile — compact single-column card; bio starts immediately below. */
+            .content:has(> .profile-page),
+            .content:has(.profile-page) {
+              padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
+              scroll-padding-bottom: calc(var(--mobile-player-reserve) + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
             .profile-page {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
+              flex-grow: 0 !important;
               gap: 12px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
-              padding-bottom: 20px !important;
+              padding-bottom: 16px !important;
               margin: 0 !important;
               overflow-x: hidden !important;
               box-sizing: border-box !important;
@@ -32233,7 +32242,22 @@ function PageContent() {
               box-sizing: border-box !important;
             }
 
-            .profile-hero,
+            .profile-hero {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              justify-content: flex-start !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+              margin: 0 !important;
+              padding: 12px !important;
+              overflow: visible !important;
+            }
+
             .profile-save,
             .profile-grid,
             .profile-details,
@@ -32242,18 +32266,8 @@ function PageContent() {
               max-width: 100% !important;
               min-width: 0 !important;
               margin: 0 !important;
-              padding: 14px !important;
+              padding: 12px !important;
               overflow: visible !important;
-            }
-
-            .profile-hero {
-              display: flex !important;
-              flex-direction: column !important;
-              align-items: center !important;
-              justify-content: flex-start !important;
-              gap: 12px !important;
-              min-height: 0 !important;
-              height: auto !important;
             }
 
             .profile-avatar-wrap {
@@ -32261,46 +32275,50 @@ function PageContent() {
               flex-direction: column !important;
               align-items: center !important;
               justify-content: flex-start !important;
-              gap: 10px !important;
+              gap: 8px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
+              flex: 0 0 auto !important;
             }
 
             .profile-avatar,
             .profile-avatar-image {
-              width: 120px !important;
-              height: 120px !important;
-              min-width: 120px !important;
-              max-width: 120px !important;
+              width: 104px !important;
+              height: 104px !important;
+              min-width: 104px !important;
+              max-width: 104px !important;
+              min-height: 104px !important;
+              max-height: 104px !important;
               aspect-ratio: 1 / 1 !important;
               border-radius: 999px !important;
-              font-size: 48px !important;
+              font-size: 40px !important;
             }
 
             .profile-avatar-upload {
               display: inline-flex !important;
               align-items: center !important;
               justify-content: center !important;
-              flex-wrap: wrap !important;
-              gap: 8px !important;
+              flex-wrap: nowrap !important;
+              gap: 6px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 44px !important;
-              height: auto !important;
-              padding: 10px 12px !important;
+              height: 44px !important;
+              max-height: 44px !important;
+              padding: 0 12px !important;
               margin: 0 !important;
-              white-space: normal !important;
+              white-space: nowrap !important;
               text-align: center !important;
-              overflow: visible !important;
+              overflow: hidden !important;
               position: relative !important;
             }
 
             .profile-avatar-upload span {
-              white-space: normal !important;
-              overflow-wrap: anywhere !important;
-              word-break: break-word !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
               line-height: 1.2 !important;
             }
 
@@ -32308,18 +32326,25 @@ function PageContent() {
               display: flex !important;
               flex-direction: column !important;
               align-items: stretch !important;
-              gap: 8px !important;
+              gap: 4px !important;
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
               text-align: left !important;
+              flex: 0 0 auto !important;
+            }
+
+            .profile-hero .playlist-kicker {
+              font-size: 11px !important;
+              line-height: 1.2 !important;
+              margin: 0 !important;
             }
 
             .profile-hero h2 {
               margin: 0 !important;
               max-width: 100% !important;
               min-width: 0 !important;
-              font-size: clamp(22px, 7vw, 34px) !important;
+              font-size: clamp(18px, 5.5vw, 26px) !important;
               line-height: 1.15 !important;
               white-space: normal !important;
               overflow-wrap: anywhere !important;
@@ -32334,8 +32359,8 @@ function PageContent() {
               max-width: 100% !important;
               min-width: 0 !important;
               margin: 0 !important;
-              font-size: 13px !important;
-              line-height: 1.3 !important;
+              font-size: 12px !important;
+              line-height: 1.25 !important;
               white-space: normal !important;
               overflow-wrap: anywhere !important;
               word-break: break-word !important;
@@ -32344,9 +32369,18 @@ function PageContent() {
             }
 
             .profile-role-badges {
+              display: flex !important;
+              flex-wrap: wrap !important;
               justify-content: flex-start !important;
+              gap: 6px !important;
               width: 100% !important;
               min-width: 0 !important;
+              margin: 2px 0 0 !important;
+            }
+
+            .profile-role-badge {
+              padding: 4px 10px !important;
+              font-size: 11px !important;
             }
 
             .profile-actions {
@@ -32356,7 +32390,7 @@ function PageContent() {
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
-              margin-top: 4px !important;
+              margin-top: 6px !important;
               position: static !important;
             }
 
@@ -32365,13 +32399,20 @@ function PageContent() {
               max-width: 100% !important;
               min-width: 0 !important;
               min-height: 44px !important;
-              height: auto !important;
+              height: 44px !important;
+              max-height: 44px !important;
               margin: 0 !important;
               position: static !important;
               transform: none !important;
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
+            }
+
+            .profile-details,
+            .profile-edit-form {
+              margin-top: 0 !important;
+              margin-bottom: 0 !important;
             }
 
             .profile-details,
@@ -32384,8 +32425,16 @@ function PageContent() {
               word-break: break-word !important;
             }
 
+            .profile-bio {
+              margin: 0 0 8px !important;
+              font-size: 13px !important;
+              line-height: 1.35 !important;
+            }
+
             .profile-meta-list {
               grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              margin: 0 !important;
             }
 
             .profile-grid {
@@ -32393,23 +32442,24 @@ function PageContent() {
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
               gap: 8px !important;
               padding: 0 !important;
+              margin: 0 !important;
             }
 
             .profile-grid div {
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
-              padding: 10px !important;
+              padding: 8px !important;
               overflow: hidden !important;
             }
 
             .profile-grid strong {
-              font-size: 22px !important;
+              font-size: 18px !important;
               line-height: 1 !important;
             }
 
             .profile-grid span {
-              font-size: 11px !important;
+              font-size: 10.5px !important;
               line-height: 1.15 !important;
               white-space: normal !important;
             }
@@ -32419,6 +32469,7 @@ function PageContent() {
               gap: 6px !important;
               min-height: 0 !important;
               height: auto !important;
+              padding: 12px !important;
             }
 
             .profile-save h3,
@@ -32945,7 +32996,7 @@ function PageContent() {
             }
 
             .content > .profile-page {
-              padding-bottom: 20px !important;
+              padding-bottom: 16px !important;
             }
 
             .content > .mobile-player-spacer:last-child,
