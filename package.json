@@ -19,6 +19,7 @@
     "verify:mobile-layout": "node scripts/verify-mobile-recent-profile-queue.mjs",
     "verify:queue": "node scripts/verify-mobile-queue-height.mjs",
     "verify:playback": "node scripts/verify-global-player-clearance.mjs",
+    "verify:carousel": "node scripts/verify-carousel-card-height.mjs",
     "verify:access": "node scripts/verify-account-access-pipeline.mjs",
     "verify:dashboard": "node scripts/verify-user-dashboard-phase1.mjs && node lib/dashboard/profile-fields.test.mjs",
     "verify:dashboard2": "node scripts/verify-user-dashboard-phase2.mjs",

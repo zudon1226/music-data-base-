@@ -42,6 +42,12 @@ record(
 );
 record("horizontal overflow clip on shell", shell.includes("overflow-x: clip"));
 record("rails keep horizontal scroll", shell.includes("horizontal-rail-track") && shell.includes("overflow-x: auto"));
+record(
+    "rails reject viewport/100% card stretch",
+    !/\.horizontal-rail-track\s*>\s*\*[\s\S]{0,160}min-height:\s*100%/.test(page)
+        && page.includes("grid-auto-rows: auto")
+        && /\.horizontal-rail-track \.song-card[\s\S]{0,500}height:\s*auto/.test(page),
+);
 record("mobile removes topbar translateY hack", shell.includes("transform: none !important"));
 record("destination heading component markers", heading.includes('data-nav-destination="heading"') && heading.includes("data-page-heading"));
 record("scroll root injects ui shell css", scrollRoot.includes("APP_UI_SHELL_CSS") && scrollRoot.includes("data-app-ui-shell"));
