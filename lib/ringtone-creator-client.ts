@@ -1,7 +1,7 @@
 /** Client helpers for Ringtone Platform Phase 2 creator UI. */
 
 import type { Session } from "@supabase/supabase-js";
-import { readAccessTokenFromSession } from "@/lib/client-api-auth";
+import { authFetch, SESSION_EXPIRED_MESSAGE } from "@/lib/client-api-auth";
 import {
     RINGTONE_DEFAULT_DURATION_SECONDS,
     RINGTONE_MAX_DURATION_SECONDS,
@@ -9,6 +9,7 @@ import {
     type RingtoneCurrency,
     type RingtoneStatus,
 } from "@/lib/ringtone-constants";
+import { getDesktopSupabaseClient } from "@/lib/supabase";
 
 export type RingtoneProduct = {
     id: string;
@@ -72,17 +73,36 @@ export type RingtoneSalesSummary = {
     currency: string;
 };
 
-function authHeaders(session: Session | null | undefined, json = true) {
-    const token = readAccessTokenFromSession(session);
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
-    if (json) headers["Content-Type"] = "application/json";
-    return headers;
+/**
+ * Authenticated ringtone API calls.
+ * Uses the live Supabase session (refresh when expired) — never the stale React
+ * session prop access_token alone.
+ */
+async function ringtoneAuthFetch(input: string, init: RequestInit = {}) {
+    const supabase = getDesktopSupabaseClient();
+    return authFetch(supabase, input, {
+        ...init,
+        requireSession: true,
+    });
 }
 
 async function parseJson(response: Response) {
     const body = await response.json().catch(() => ({})) as Record<string, unknown>;
     return { ok: response.ok, status: response.status, body };
+}
+
+async function parseAuthJson(request: () => Promise<Response>) {
+    try {
+        const response = await request();
+        return parseJson(response);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : SESSION_EXPIRED_MESSAGE;
+        return {
+            ok: false,
+            status: 401,
+            body: { error: message || SESSION_EXPIRED_MESSAGE },
+        };
+    }
 }
 
 export function clampRingtoneDuration(sourceDurationSeconds: number, preferred = RINGTONE_DEFAULT_DURATION_SECONDS) {
@@ -119,12 +139,11 @@ export function formatClipClock(seconds: number) {
     return `${mins}:${String(secs).padStart(2, "0")}.${ms}`;
 }
 
-export async function fetchRingtoneEligibility(userId: string, session: Session | null) {
-    const response = await fetch(`/api/ringtones/eligibility?userId=${encodeURIComponent(userId)}`, {
-        headers: authHeaders(session, false),
-        cache: "no-store",
-    });
-    const parsed = await parseJson(response);
+export async function fetchRingtoneEligibility(userId: string, _session: Session | null) {
+    const parsed = await parseAuthJson(() => ringtoneAuthFetch(
+        `/api/ringtones/eligibility?userId=${encodeURIComponent(userId)}`,
+        { cache: "no-store" },
+    ));
     return {
         ok: parsed.ok,
         status: parsed.status,
@@ -133,12 +152,11 @@ export async function fetchRingtoneEligibility(userId: string, session: Session 
     };
 }
 
-export async function fetchMyRingtones(userId: string, session: Session | null) {
-    const response = await fetch(`/api/ringtones?mine=1&userId=${encodeURIComponent(userId)}`, {
-        headers: authHeaders(session, false),
-        cache: "no-store",
-    });
-    const parsed = await parseJson(response);
+export async function fetchMyRingtones(userId: string, _session: Session | null) {
+    const parsed = await parseAuthJson(() => ringtoneAuthFetch(
+        `/api/ringtones?mine=1&userId=${encodeURIComponent(userId)}`,
+        { cache: "no-store" },
+    ));
     return {
         ok: parsed.ok,
         status: parsed.status,
@@ -147,12 +165,11 @@ export async function fetchMyRingtones(userId: string, session: Session | null) 
     };
 }
 
-export async function fetchOwnedSourceSongs(userId: string, session: Session | null) {
-    const response = await fetch(`/api/ringtones/source-songs?userId=${encodeURIComponent(userId)}`, {
-        headers: authHeaders(session, false),
-        cache: "no-store",
-    });
-    const parsed = await parseJson(response);
+export async function fetchOwnedSourceSongs(userId: string, _session: Session | null) {
+    const parsed = await parseAuthJson(() => ringtoneAuthFetch(
+        `/api/ringtones/source-songs?userId=${encodeURIComponent(userId)}`,
+        { cache: "no-store" },
+    ));
     return {
         ok: parsed.ok,
         status: parsed.status,
@@ -161,12 +178,11 @@ export async function fetchOwnedSourceSongs(userId: string, session: Session | n
     };
 }
 
-export async function fetchRingtoneSales(userId: string, session: Session | null) {
-    const response = await fetch(`/api/ringtones/sales?userId=${encodeURIComponent(userId)}`, {
-        headers: authHeaders(session, false),
-        cache: "no-store",
-    });
-    const parsed = await parseJson(response);
+export async function fetchRingtoneSales(userId: string, _session: Session | null) {
+    const parsed = await parseAuthJson(() => ringtoneAuthFetch(
+        `/api/ringtones/sales?userId=${encodeURIComponent(userId)}`,
+        { cache: "no-store" },
+    ));
     return {
         ok: parsed.ok,
         status: parsed.status,
@@ -188,17 +204,16 @@ export async function prepareRingtoneSourceUpload(input: {
     byteLength: number;
     ownershipConfirmed: boolean;
 }) {
-    const response = await fetch("/api/ringtones/upload-source", {
+    return parseAuthJson(() => ringtoneAuthFetch("/api/ringtones/upload-source", {
         method: "POST",
-        headers: authHeaders(input.session),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             userId: input.userId,
             mimeType: input.mimeType,
             byteLength: input.byteLength,
             ownershipConfirmed: input.ownershipConfirmed,
         }),
-    });
-    return parseJson(response);
+    }));
 }
 
 export async function signRingtoneSourceUrl(input: {
@@ -206,15 +221,14 @@ export async function signRingtoneSourceUrl(input: {
     session: Session | null;
     storagePath: string;
 }) {
-    const response = await fetch("/api/ringtones/source-url", {
+    return parseAuthJson(() => ringtoneAuthFetch("/api/ringtones/source-url", {
         method: "POST",
-        headers: authHeaders(input.session),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             userId: input.userId,
             storagePath: input.storagePath,
         }),
-    });
-    return parseJson(response);
+    }));
 }
 
 export async function saveRingtoneDraft(input: {
@@ -224,19 +238,17 @@ export async function saveRingtoneDraft(input: {
     payload: Record<string, unknown>;
 }) {
     if (input.ringtoneId) {
-        const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
+        return parseAuthJson(() => ringtoneAuthFetch(`/api/ringtones/${input.ringtoneId}`, {
             method: "PATCH",
-            headers: authHeaders(input.session),
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userId: input.userId, ...input.payload }),
-        });
-        return parseJson(response);
+        }));
     }
-    const response = await fetch("/api/ringtones", {
+    return parseAuthJson(() => ringtoneAuthFetch("/api/ringtones", {
         method: "POST",
-        headers: authHeaders(input.session),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: input.userId, ...input.payload }),
-    });
-    return parseJson(response);
+    }));
 }
 
 /**
@@ -249,15 +261,14 @@ export async function submitRingtoneForReview(input: {
     ringtoneId: string;
     retry?: boolean;
 }) {
-    const response = await fetch(`/api/ringtones/${input.ringtoneId}/process`, {
+    return parseAuthJson(() => ringtoneAuthFetch(`/api/ringtones/${input.ringtoneId}/process`, {
         method: "POST",
-        headers: authHeaders(input.session),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             userId: input.userId,
             retry: input.retry === true,
         }),
-    });
-    return parseJson(response);
+    }));
 }
 
 export async function retryRingtoneProcessing(input: {
@@ -273,14 +284,10 @@ export async function fetchRingtoneProcessingJob(input: {
     session: Session | null;
     ringtoneId: string;
 }) {
-    const response = await fetch(
+    const parsed = await parseAuthJson(() => ringtoneAuthFetch(
         `/api/ringtones/${input.ringtoneId}/process?userId=${encodeURIComponent(input.userId)}`,
-        {
-            headers: authHeaders(input.session, false),
-            cache: "no-store",
-        },
-    );
-    const parsed = await parseJson(response);
+        { cache: "no-store" },
+    ));
     return {
         ok: parsed.ok,
         status: parsed.status,
@@ -294,12 +301,11 @@ export async function duplicateRingtone(input: {
     session: Session | null;
     ringtoneId: string;
 }) {
-    const response = await fetch(`/api/ringtones/${input.ringtoneId}/duplicate`, {
+    return parseAuthJson(() => ringtoneAuthFetch(`/api/ringtones/${input.ringtoneId}/duplicate`, {
         method: "POST",
-        headers: authHeaders(input.session),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: input.userId }),
-    });
-    return parseJson(response);
+    }));
 }
 
 export async function deleteOrArchiveRingtone(input: {
@@ -319,12 +325,11 @@ export async function deleteOrArchiveRingtone(input: {
 
     // Non-draft lifecycle products archive via PATCH (never hard-delete).
     if (["published", "approved", "suspended", "rejected"].includes(input.status)) {
-        const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
+        const parsed = await parseAuthJson(() => ringtoneAuthFetch(`/api/ringtones/${input.ringtoneId}`, {
             method: "PATCH",
-            headers: authHeaders(input.session),
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userId: input.userId, status: "archived" }),
-        });
-        const parsed = await parseJson(response);
+        }));
         if (parsed.ok) {
             return {
                 ...parsed,
@@ -347,14 +352,10 @@ export async function deleteOrArchiveRingtone(input: {
         };
     }
 
-    const response = await fetch(
+    return parseAuthJson(() => ringtoneAuthFetch(
         `/api/ringtones/${input.ringtoneId}?userId=${encodeURIComponent(input.userId)}`,
-        {
-            method: "DELETE",
-            headers: authHeaders(input.session, false),
-        },
-    );
-    return parseJson(response);
+        { method: "DELETE" },
+    ));
 }
 
 /** Return an archived/published ringtone to an editable draft for re-review. */
@@ -366,19 +367,17 @@ export async function returnRingtoneToReview(input: {
 }) {
     if (["published", "suspended"].includes(input.status)) {
         // Empty PATCH on published/suspended starts a purchase-safe draft revision.
-        const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
+        return parseAuthJson(() => ringtoneAuthFetch(`/api/ringtones/${input.ringtoneId}`, {
             method: "PATCH",
-            headers: authHeaders(input.session),
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userId: input.userId }),
-        });
-        return parseJson(response);
+        }));
     }
-    const response = await fetch(`/api/ringtones/${input.ringtoneId}`, {
+    return parseAuthJson(() => ringtoneAuthFetch(`/api/ringtones/${input.ringtoneId}`, {
         method: "PATCH",
-        headers: authHeaders(input.session),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: input.userId, status: "draft" }),
-    });
-    return parseJson(response);
+    }));
 }
 
 export function formatRingtoneClientError(error: unknown, fallback: string) {

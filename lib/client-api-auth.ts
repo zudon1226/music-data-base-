@@ -338,6 +338,8 @@ export async function authFetch(
         throw new Error(SESSION_EXPIRED_MESSAGE);
     }
 
+    // Always resolve from the live Supabase client (getSession + refresh).
+    // Never trust a caller-cached access token for protected API calls.
     const { session, accessToken } = await readSessionAccessToken(supabase, {
         allowRefresh: true,
     });
@@ -356,10 +358,25 @@ export async function authFetch(
     }
 
     const request = buildAuthenticatedRequest(input, fetchInit, accessToken);
-    const response = await fetch(request.input, request.init);
+    let response = await fetch(request.input, request.init);
+
+    // Expired/invalid bearer: force a refresh once, then retry with the new token.
+    // Do not reuse the first access token on the retry path.
     if (response.status === 401) {
-        engageDesktopAuthRecovery();
-        throw new Error(SESSION_EXPIRED_MESSAGE);
+        resetAuthTokenCache();
+        const refreshed = await readSessionAccessToken(supabase, {
+            allowRefresh: true,
+            forceRefresh: true,
+        });
+        const nextToken = refreshed.accessToken;
+        if (nextToken && nextToken !== accessToken) {
+            const retry = buildAuthenticatedRequest(input, fetchInit, nextToken);
+            response = await fetch(retry.input, retry.init);
+        }
+        if (response.status === 401) {
+            engageDesktopAuthRecovery();
+            throw new Error(SESSION_EXPIRED_MESSAGE);
+        }
     }
     return response;
 }
