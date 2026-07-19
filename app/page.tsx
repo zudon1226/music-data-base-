@@ -21592,14 +21592,18 @@ function PageContent() {
           .horizontal-rail {
             width: 100%;
             min-width: 0;
+            height: auto;
+            min-height: 0;
             display: grid;
             grid-template-columns: 34px minmax(0, 1fr) 34px;
-            align-items: stretch;
+            align-items: start;
             gap: 8px;
           }
 
           .horizontal-rail-track {
             min-width: 0;
+            height: auto;
+            min-height: 0;
             overflow-x: auto;
             overflow-y: hidden;
             scroll-behavior: smooth;
@@ -21607,25 +21611,37 @@ function PageContent() {
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
             padding-bottom: 4px;
+            align-items: start;
           }
 
           .horizontal-rail-track > * {
             scroll-snap-align: start;
-            align-self: stretch;
+            align-self: start;
             height: auto;
-            min-height: 100%;
+            min-height: 0;
           }
 
           .horizontal-rail-track .song-card,
           .horizontal-rail-track .video-card,
-          .horizontal-rail-track .media-card {
-            height: 100%;
-            min-height: 340px;
+          .horizontal-rail-track .media-card,
+          .horizontal-rail-track .discovery-card,
+          .horizontal-rail-track .library-card,
+          .horizontal-rail-track .artist-card,
+          .horizontal-rail-track .artist-album-card,
+          .horizontal-rail-track .artist-playlist-card,
+          .horizontal-rail-track .playlist-tile {
+            height: auto;
+            min-height: 0;
+            align-self: start;
           }
 
           .rail-arrow {
             min-width: 0;
-            min-height: 100%;
+            width: 34px;
+            height: 44px;
+            min-height: 44px;
+            max-height: 44px;
+            align-self: center;
             border: 1px solid rgba(34, 211, 238, 0.28);
             border-radius: 8px;
             background: #14265c;
@@ -21926,7 +21942,10 @@ function PageContent() {
           .horizontal-rail-track.discovery-grid {
             grid-auto-flow: column;
             grid-template-columns: none;
-            align-items: stretch;
+            grid-auto-rows: auto;
+            align-items: start;
+            height: auto;
+            min-height: 0;
           }
 
           .horizontal-rail-track.video-grid,
@@ -22312,15 +22331,17 @@ function PageContent() {
 
           .discovery-card {
             min-width: 0;
-            height: 244px;
+            height: auto;
+            min-height: 0;
             border: 1px solid rgba(34, 211, 238, 0.22);
             border-radius: 8px;
             background: #10204a;
             padding: 8px;
             display: grid;
-            grid-template-rows: 96px minmax(0, 1fr) 34px;
+            grid-template-rows: 96px auto auto;
             gap: 8px;
-            overflow: hidden;
+            overflow: visible;
+            align-self: start;
             transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
           }
 
@@ -22501,7 +22522,7 @@ function PageContent() {
 
           .song-card {
             height: auto;
-            min-height: 340px;
+            min-height: 0;
             background: #122244;
             border: 1px solid rgba(0, 212, 255, 0.22);
             border-radius: 8px;
@@ -22509,7 +22530,7 @@ function PageContent() {
             container-type: inline-size;
             display: grid;
             grid-template-rows: 100px auto;
-            align-self: stretch;
+            align-self: start;
           }
 
           .cover-wrap {

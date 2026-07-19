@@ -21,7 +21,7 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
 
     html[data-player-collapsed="true"],
     html.player-collapsed {
-      --desktop-player-clearance: calc(var(--global-player-height, 0px) + 12px);
+      --desktop-player-clearance: calc(var(--global-player-height-collapsed, 52px) + 12px);
     }
 
     html,
@@ -64,9 +64,67 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
         - var(--player-dock-inset-inline, 12px)
         - max(16px, var(--player-scrollbar-gutter, 20px))
       ) !important;
+    }
+
+    /*
+      Desktop collapse clean replacement:
+      Expanded keeps the live height token.
+      Collapsed MUST physically shrink the dock (not only hide controls).
+      Uses the collapsed height token so JS-measured expanded height cannot lock the bar tall.
+    */
+    .player:not(.is-collapsed),
+    .video-player-bar:not(.is-collapsed) {
       height: var(--global-player-height) !important;
       min-height: var(--global-player-height) !important;
       max-height: var(--global-player-height) !important;
+    }
+
+    .player.is-collapsed,
+    .video-player-bar.is-collapsed {
+      height: var(--global-player-height-collapsed, 52px) !important;
+      min-height: var(--global-player-height-collapsed, 52px) !important;
+      max-height: var(--global-player-height-collapsed, 52px) !important;
+      grid-template-columns: minmax(0, 1fr) 44px 40px !important;
+      gap: 8px !important;
+      padding: 6px 10px !important;
+      align-items: center !important;
+      overflow: hidden !important;
+      box-sizing: border-box !important;
+    }
+
+    .player.is-collapsed .player-side,
+    .video-player-bar.is-collapsed .video-player-side,
+    .player.is-collapsed .progress-row,
+    .video-player-bar.is-collapsed .progress-row,
+    .video-player-bar.is-collapsed .video-progress-row,
+    .player.is-collapsed .player-album-meta,
+    .video-player-bar.is-collapsed .player-album-meta,
+    .player.is-collapsed .artist-name,
+    .video-player-bar.is-collapsed .artist-name,
+    .player.is-collapsed .player-controls > button:not(.main-play),
+    .video-player-bar.is-collapsed .video-player-controls > button:not(.main-play) {
+      display: none !important;
+    }
+
+    .player.is-collapsed .player-center,
+    .video-player-bar.is-collapsed .video-player-center,
+    .player.is-collapsed .player-controls,
+    .video-player-bar.is-collapsed .video-player-controls {
+      display: contents !important;
+    }
+
+    .player.is-collapsed .main-play,
+    .video-player-bar.is-collapsed .main-play {
+      width: 44px !important;
+      height: 44px !important;
+      min-width: 44px !important;
+      min-height: 44px !important;
+    }
+
+    .player.is-collapsed .player-song img,
+    .video-player-bar.is-collapsed .video-player-now img {
+      width: 36px !important;
+      height: 36px !important;
     }
 
     .content.desktop-content-scroll-root .horizontal-rail {
