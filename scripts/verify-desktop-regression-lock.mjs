@@ -107,6 +107,9 @@ const REQUIRED_DESKTOP_MODULES = [
   "lib/desktop-video-upload-completion.ts",
   "lib/desktop-upload-auth-session-guard.ts",
   "docs/desktop-regression-lock.md",
+  "lib/ui/responsive-stability-lock.ts",
+  "docs/responsive-ui-stability-lock.md",
+  "scripts/verify-responsive-stability-lock.mjs",
 ];
 
 for (const mod of REQUIRED_DESKTOP_MODULES) {

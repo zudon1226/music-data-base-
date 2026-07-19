@@ -59,6 +59,13 @@ record("nav scroll system preserved", navScroll.includes("scheduleNavigationScro
 record("RTL/LTR shell preserved", i18nStyles.includes("mdb-rtl-shell") || i18nStyles.includes("direction: ltr"));
 record("playback helpers not cleared by ui shell", !shell.includes(".pause(") && !shell.includes("setCurrentSong"));
 record("package has verify:ui script", pkg.includes("verify:ui"));
+record(
+    "responsive stability lock wired",
+    pkg.includes("verify:layout")
+        && pkg.includes("verify:ui-all")
+        && existsSync(path.join(root, "lib/ui/responsive-stability-lock.ts"))
+        && existsSync(path.join(root, "docs/responsive-ui-stability-lock.md")),
+);
 record("aria-current used in sidebar nav", read("components/desktop-app-sidebar-nav.tsx").includes("aria-current") || page.includes("aria-current"));
 
 const failed = results.filter((row) => !row.ok).length;

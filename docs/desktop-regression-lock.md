@@ -148,14 +148,19 @@ Before manual testing:
 
 ```bash
 npm run verify:desktop
+npm run verify:layout
+# or all UI locks:
+npm run verify:ui-all
 ```
 
-This script checks:
+`verify:desktop` checks:
 
 - Required desktop module files exist
 - Expected exports are present
 - `app/page.tsx` still wires the shared guard/runtime (no reversion to `isAuthenticated`-only gating for protected actions)
 - Forbidden-path list is documented (informational)
+
+`verify:layout` freezes approved responsive chrome (breakpoints, sidebar, topbar, search, language selector, Grid/List, hero, Home cards, player, Profile actions). See `docs/responsive-ui-stability-lock.md`.
 
 **Static verification does not replace manual browser testing** for play, queue, and network behavior.
 

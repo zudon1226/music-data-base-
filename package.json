@@ -9,6 +9,8 @@
     "lint": "eslint",
     "verify:desktop": "node scripts/verify-desktop-regression-lock.mjs",
     "verify:ui": "node scripts/verify-ui-polish.mjs",
+    "verify:layout": "node scripts/verify-responsive-stability-lock.mjs",
+    "verify:ui-all": "npm run verify:layout && npm run verify:desktop && npm run verify:ui && npm run verify:nav && npm run verify:mobile-topbar && npm run verify:mobile-layout && npm run verify:queue && npm run verify:playback && npm run verify:carousel",
     "verify:cleanup-ui": "node scripts/verify-test-account-cleanup-ui.mjs",
     "verify:nav": "node scripts/verify-navigation-scroll.mjs",
     "verify:roles": "node scripts/verify-role-based-navigation.mjs",
