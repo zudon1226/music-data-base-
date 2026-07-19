@@ -24763,6 +24763,10 @@ function PageContent() {
 
           .profile-actions {
             margin-top: 14px;
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 10px;
           }
 
           .profile-actions button {
