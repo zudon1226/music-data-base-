@@ -67,10 +67,10 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
     }
 
     /*
-      Desktop collapse clean replacement:
-      Expanded keeps the live height token.
-      Collapsed MUST physically shrink the dock (not only hide controls).
-      Uses the collapsed height token so JS-measured expanded height cannot lock the bar tall.
+      Desktop collapse — clean replacement at the desktop scroll/player source.
+      Expanded: keep live height token (unchanged dock chrome).
+      Collapsed: physically shrink to the collapsed height token and show only
+      artwork | title | play | expand. Never keep an expanded-tall shell.
     */
     .player:not(.is-collapsed),
     .video-player-bar:not(.is-collapsed) {
@@ -84,7 +84,9 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
       height: var(--global-player-height-collapsed, 52px) !important;
       min-height: var(--global-player-height-collapsed, 52px) !important;
       max-height: var(--global-player-height-collapsed, 52px) !important;
-      grid-template-columns: minmax(0, 1fr) 44px 40px !important;
+      /* art+title | play | expand — no leftover expanded grid tracks */
+      grid-template-columns: minmax(0, 1fr) 40px 36px !important;
+      grid-template-rows: 1fr !important;
       gap: 8px !important;
       padding: 6px 10px !important;
       align-items: center !important;
@@ -113,18 +115,51 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
       display: contents !important;
     }
 
+    .player.is-collapsed .player-song,
+    .player.is-collapsed .player-main,
+    .video-player-bar.is-collapsed .video-player-now,
+    .video-player-bar.is-collapsed .player-main {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      min-width: 0 !important;
+      max-height: 100% !important;
+      overflow: hidden !important;
+    }
+
     .player.is-collapsed .main-play,
     .video-player-bar.is-collapsed .main-play {
-      width: 44px !important;
-      height: 44px !important;
-      min-width: 44px !important;
-      min-height: 44px !important;
+      width: 40px !important;
+      height: 40px !important;
+      min-width: 40px !important;
+      min-height: 40px !important;
+      max-width: 40px !important;
+      max-height: 40px !important;
+    }
+
+    .player.is-collapsed .player-collapse-toggle,
+    .video-player-bar.is-collapsed .player-collapse-toggle {
+      width: 36px !important;
+      height: 36px !important;
+      min-width: 36px !important;
+      min-height: 36px !important;
+      max-width: 36px !important;
+      max-height: 36px !important;
     }
 
     .player.is-collapsed .player-song img,
     .video-player-bar.is-collapsed .video-player-now img {
       width: 36px !important;
       height: 36px !important;
+      flex-shrink: 0 !important;
+    }
+
+    .player.is-collapsed .song-title,
+    .video-player-bar.is-collapsed .track-title {
+      display: block !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
     }
 
     .content.desktop-content-scroll-root .horizontal-rail {
