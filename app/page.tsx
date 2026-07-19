@@ -27747,7 +27747,8 @@ function PageContent() {
             .content {
               margin-left: var(--mobile-sidebar-width);
               width: calc(100% - var(--mobile-sidebar-width));
-              padding: 8px 10px var(--mobile-player-reserve);
+              /* padding-top 0 restores search/action bar flush to the viewport top */
+              padding: 0 10px var(--mobile-player-reserve);
               scroll-padding-bottom: var(--mobile-player-reserve);
             }
 
@@ -32819,7 +32820,8 @@ function PageContent() {
               width: auto !important;
               height: 100dvh !important;
               margin-left: 0 !important;
-              padding: 8px 10px var(--mobile-player-reserve) !important;
+              /* padding-top 0 restores search/action bar to the viewport top edge */
+              padding: 0 10px var(--mobile-player-reserve) !important;
               overflow-y: auto !important;
               overflow-x: hidden !important;
               overscroll-behavior: contain !important;
@@ -32995,7 +32997,8 @@ function PageContent() {
               position: fixed !important;
               left: calc(var(--mobile-sidebar-width) + 8px) !important;
               right: max(8px, env(safe-area-inset-right, 0px)) !important;
-              bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+              /* Restore flush bottom edge (revert dock lift gap) */
+              bottom: 0 !important;
               width: auto !important;
               max-width: calc(
                 100vw

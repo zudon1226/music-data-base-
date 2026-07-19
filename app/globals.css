@@ -251,7 +251,8 @@ body {
     position: fixed !important;
     left: calc(var(--mobile-sidebar-width, 96px) + 8px) !important;
     right: max(8px, env(safe-area-inset-right, 0px)) !important;
-    bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    /* Restore flush bottom edge (revert dock lift gap) */
+    bottom: 0 !important;
     height: var(--global-player-height, 88px) !important;
     min-height: var(--global-player-height, 88px) !important;
     max-height: var(--global-player-height, 88px) !important;
