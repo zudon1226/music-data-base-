@@ -47,6 +47,8 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
       overscroll-behavior: auto;
       scroll-behavior: auto;
       -webkit-overflow-scrolling: touch;
+      /* Restore toolbar flush to content top (undo content padding-top gap only) */
+      padding-top: 0 !important;
       padding-bottom: var(--desktop-player-clearance) !important;
       scroll-padding-bottom: var(--desktop-player-clearance) !important;
     }
