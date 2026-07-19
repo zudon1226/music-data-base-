@@ -22442,6 +22442,134 @@ function PageContent() {
             white-space: nowrap;
           }
 
+          /*
+            Home recommendation cards — clean equal-height layout (desktop).
+            Scoped to Home discovery rails only; does not alter Library/Trending-page
+            shared song cards, player, topbar, or mobile discovery overrides.
+          */
+          @media (min-width: 821px) {
+            .zml-app[data-active-view="Home"] .discovery-section .horizontal-rail-track.discovery-grid {
+              gap: 12px !important;
+              align-items: start !important;
+              grid-auto-rows: 220px !important;
+            }
+
+            .zml-app[data-active-view="Home"] .discovery-section .horizontal-rail-track.discovery-grid > .discovery-card {
+              width: 100% !important;
+              max-width: 218px !important;
+              height: 220px !important;
+              min-height: 220px !important;
+              max-height: 220px !important;
+              box-sizing: border-box !important;
+              align-self: start !important;
+              display: grid !important;
+              grid-template-rows: 96px minmax(0, 1fr) 34px !important;
+              gap: 8px !important;
+              padding: 8px !important;
+              overflow: hidden !important;
+            }
+
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-main {
+              height: 96px !important;
+              min-height: 96px !important;
+              max-height: 96px !important;
+              width: 100% !important;
+            }
+
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-main img {
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: cover !important;
+            }
+
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-copy {
+              min-height: 0 !important;
+              overflow: hidden !important;
+              display: grid !important;
+              grid-template-rows: 34px 16px 16px !important;
+              align-content: start !important;
+              gap: 3px !important;
+            }
+
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-copy strong {
+              min-height: 34px !important;
+              max-height: 34px !important;
+              font-size: 14px !important;
+              line-height: 1.22 !important;
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: normal !important;
+            }
+
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-copy small,
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-copy em {
+              min-height: 16px !important;
+              max-height: 16px !important;
+              line-height: 16px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-action {
+              height: 34px !important;
+              min-height: 34px !important;
+              max-height: 34px !important;
+              width: 100% !important;
+              align-self: end !important;
+            }
+
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .horizontal-rail-track.discovery-grid {
+              grid-auto-rows: 92px !important;
+              gap: 10px !important;
+            }
+
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .horizontal-rail-track.discovery-grid > .discovery-card {
+              width: 100% !important;
+              max-width: none !important;
+              height: 92px !important;
+              min-height: 92px !important;
+              max-height: 92px !important;
+              grid-template-columns: 116px minmax(0, 1fr) minmax(110px, 150px) !important;
+              grid-template-rows: 92px !important;
+              gap: 10px !important;
+              padding: 0 !important;
+              align-items: stretch !important;
+            }
+
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card-main {
+              height: 92px !important;
+              min-height: 92px !important;
+              max-height: 92px !important;
+              width: 116px !important;
+              border-radius: 8px 0 0 8px !important;
+            }
+
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card-copy {
+              grid-template-rows: 20px 16px 16px !important;
+              align-content: center !important;
+              padding: 0 4px !important;
+            }
+
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card-copy strong {
+              min-height: 20px !important;
+              max-height: 20px !important;
+              -webkit-line-clamp: 1 !important;
+              font-size: 15px !important;
+              line-height: 20px !important;
+            }
+
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card-action {
+              align-self: center !important;
+              width: calc(100% - 12px) !important;
+              margin-right: 10px !important;
+              justify-self: end !important;
+            }
+          }
+
           .subscription-section {
             padding: 16px;
           }

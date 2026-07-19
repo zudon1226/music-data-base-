@@ -178,6 +178,9 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
 
     .content.desktop-content-scroll-root .horizontal-rail-track > * {
       scroll-snap-align: unset !important;
+      align-self: start !important;
+      height: auto !important;
+      min-height: 0 !important;
     }
 
     .content.desktop-content-scroll-root .song-card,
