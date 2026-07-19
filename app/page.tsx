@@ -10,6 +10,9 @@ import { AppI18nShell } from "../components/app-i18n-shell";
 import { LanguageSelector } from "../components/language-selector";
 import { FoundingMemberProfileCard } from "../components/founding-member-profile-card";
 import { PlatformControlCenter } from "../components/platform-control-center";
+import { SubscriptionBillingPanel } from "../components/billing/subscription-billing-panel";
+import { AdminSubscriptionPanel } from "../components/billing/admin-subscription-panel";
+import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
@@ -4288,6 +4291,13 @@ function PageContent() {
     const [monetizationTransactions, setMonetizationTransactions] = useState<MonetizationTransaction[]>([]);
     const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
     const [activeSubscriptionPlanId, setActiveSubscriptionPlanId] = useState("creator-free");
+    const [creatorBillingAccess, setCreatorBillingAccess] = useState<{
+        withdrawalsLocked: boolean;
+        uploadsLocked: boolean;
+        withdrawalLockMessage: string | null;
+        uploadLockMessage: string | null;
+        effectiveStatus: string;
+    } | null>(null);
     const [licenseRecords, setLicenseRecords] = useState<LicenseRecord[]>([]);
     const [salesCart, setSalesCart] = useState<SalesCartItem[]>([]);
     const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
@@ -5707,10 +5717,12 @@ function PageContent() {
         });
     }, []);
     const uploadsBlockedForCurrentUser = useMemo(
-        () => isPlatformOwnerEmail(activeUser?.email)
-            ? false
-            : isUploadBlockedForEmail(activeUser?.email, foundingAccess?.canUpload === true),
-        [activeUser?.email, foundingAccess?.canUpload],
+        () => {
+            if (isPlatformOwnerEmail(activeUser?.email)) return false;
+            if (creatorBillingAccess?.uploadsLocked) return true;
+            return isUploadBlockedForEmail(activeUser?.email, foundingAccess?.canUpload === true);
+        },
+        [activeUser?.email, creatorBillingAccess?.uploadsLocked, foundingAccess?.canUpload],
     );
     const isPlatformOwner = isPlatformOwnerEmail(activeUser?.email);
     const navCapabilities = useMemo(() => resolveNavCapabilities({
@@ -6626,6 +6638,13 @@ function PageContent() {
             cancelled = true;
         };
     }, [accountUserId, authLoading, isAuthenticated, resetQueueOnLogout, signOutFromAuthState]);
+    useEffect(() => {
+        if (!isAuthenticated || !accountUserId || !authSessionInitialized) {
+            setCreatorBillingAccess(null);
+            return;
+        }
+        void refreshCreatorBillingAccess(accountUserId);
+    }, [accountUserId, authSessionInitialized, isAuthenticated]);
     useEffect(() => {
         if (authLoading || !isAuthenticated || !authSessionInitialized || !isDesktopApiReady())
             return;
@@ -9265,29 +9284,84 @@ function PageContent() {
             .filter((payout) => payout.creatorType === creatorType && payout.status !== "failed" && payout.status !== "canceled")
             .reduce((sum, payout) => sum + payout.amountCents, 0);
     }
+    async function refreshCreatorBillingAccess(userId = user?.id || accountUserId) {
+        if (!userId) {
+            setCreatorBillingAccess(null);
+            return null;
+        }
+        try {
+            const response = await desktopActionFetch(`/api/subscriptions/access?userId=${encodeURIComponent(userId)}`, {
+                cache: "no-store",
+                requireAuth: true,
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) return null;
+            const access = data.access || null;
+            if (access) {
+                setCreatorBillingAccess({
+                    withdrawalsLocked: Boolean(access.withdrawalsLocked),
+                    uploadsLocked: Boolean(access.uploadsLocked),
+                    withdrawalLockMessage: access.withdrawalLockMessage || null,
+                    uploadLockMessage: access.uploadLockMessage || null,
+                    effectiveStatus: String(access.effectiveStatus || "none"),
+                });
+            }
+            return access;
+        } catch {
+            return null;
+        }
+    }
     function requestCreatorPayout(creatorType: "artist" | "producer") {
         if (!user?.id) {
             showToast("Log in before requesting a payout.", "error");
             return;
         }
-        const availableCents = Math.max(0, getCreatorTransactionRevenueCents(creatorType) - getCreatorRequestedPayoutCents(creatorType));
-        if (availableCents <= 0) {
-            showToast("No payout balance available yet.", "info");
-            return;
-        }
-        const payout: PayoutRequest = {
-            id: createToastId(),
-            userId: user.id,
-            creatorType,
-            creatorName: getCreatorDisplayName(creatorType),
-            amountCents: availableCents,
-            currency: "USD",
-            status: "pending",
-            requestedAt: new Date().toISOString(),
-            notes: "Phase 4 foundation payout request. Payment rail not connected yet.",
-        };
-        setPayoutRequests((previous) => [payout, ...previous].slice(0, 100));
-        showToast("Payout request added for admin review.", "success");
+        void (async () => {
+            const access = await refreshCreatorBillingAccess(user.id);
+            if (access?.withdrawalsLocked) {
+                showToast(access.withdrawalLockMessage || CREATOR_WITHDRAWAL_LOCKED_MESSAGE, "error");
+                return;
+            }
+            const availableCents = Math.max(0, getCreatorTransactionRevenueCents(creatorType) - getCreatorRequestedPayoutCents(creatorType));
+            if (availableCents <= 0) {
+                showToast("No payout balance available yet.", "info");
+                return;
+            }
+            try {
+                const response = await desktopActionFetch("/api/payouts", {
+                    method: "POST",
+                    requireAuth: true,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId: user.id,
+                        creatorType,
+                        creatorName: getCreatorDisplayName(creatorType),
+                        amountCents: availableCents,
+                        currency: "USD",
+                    }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    showToast(String(data.error || CREATOR_WITHDRAWAL_LOCKED_MESSAGE), "error");
+                    return;
+                }
+                const payout: PayoutRequest = {
+                    id: String(data.payout?.id || createToastId()),
+                    userId: user.id,
+                    creatorType,
+                    creatorName: getCreatorDisplayName(creatorType),
+                    amountCents: availableCents,
+                    currency: "USD",
+                    status: "pending",
+                    requestedAt: new Date().toISOString(),
+                    notes: "Creator withdrawal request.",
+                };
+                setPayoutRequests((previous) => [payout, ...previous].slice(0, 100));
+                showToast("Payout request added for admin review.", "success");
+            } catch {
+                showToast("Unable to request payout right now.", "error");
+            }
+        })();
     }
     function updatePayoutReview(payoutId: string, status: PayoutRequest["status"], notes = "") {
         setPayoutRequests((previous) => previous.map((payout) => payout.id === payoutId
@@ -14634,6 +14708,13 @@ function PageContent() {
                 </button>
               </article>))}
           </div>
+          {user?.id && context !== "platform" ? (<SubscriptionBillingPanel
+            audience={context}
+            email={user.email || undefined}
+            fetchFn={desktopActionFetch}
+            onToast={showToast}
+            userId={user.id}
+          />) : null}
         </section>);
     }
     function renderSubscriptionManagement() {
@@ -14688,12 +14769,22 @@ function PageContent() {
               <span>Available foundation balance</span>
             </div>
           </div>
+          {creatorBillingAccess?.withdrawalsLocked ? (
+            <article>
+              <strong>Withdrawals locked</strong>
+              <small>{creatorBillingAccess.withdrawalLockMessage || CREATOR_WITHDRAWAL_LOCKED_MESSAGE}</small>
+            </article>
+          ) : null}
           <div className="monetization-action-row">
-            <button onClick={() => requestCreatorPayout(creatorType)} type="button" disabled={availableCents <= 0}>
+            <button
+              onClick={() => requestCreatorPayout(creatorType)}
+              type="button"
+              disabled={availableCents <= 0 || Boolean(creatorBillingAccess?.withdrawalsLocked)}
+            >
               <Upload size={15}/>
               Request Payout
             </button>
-            <span>No payment rail is connected yet. Requests go to admin review.</span>
+            <span>Earnings keep accumulating. Withdrawals require a current Creator subscription.</span>
           </div>
           {creatorPayouts.length === 0 ? (<div className="dashboard-empty-card">
               <h3>No payout requests yet</h3>
@@ -15045,7 +15136,15 @@ function PageContent() {
         </section>);
     }
     function renderPayoutAdminReview() {
-        return (<section className="stability-panel monetization-panel">
+        return (<>
+        {isPlatformOwner || accountIsAdmin ? (
+          <AdminSubscriptionPanel
+            adminUserId={user?.id || accountUserId || ""}
+            fetchFn={desktopActionFetch}
+            onToast={showToast}
+          />
+        ) : null}
+        <section className="stability-panel monetization-panel">
           <div className="panel-title-row">
             <h3>Admin Review Area for Payouts</h3>
             <span>{pendingPayoutReviews.length} pending</span>
@@ -15071,7 +15170,8 @@ function PageContent() {
                   </div>
                 </article>))}
             </div>)}
-        </section>);
+        </section>
+        </>);
     }
     function renderTrustModerationPanel() {
         const openReports = moderationReports.filter((report) => report.status === "open" || report.status === "reviewing");
@@ -17614,6 +17714,22 @@ function PageContent() {
                 </div>
               </div>
             </div>)}
+
+            {accountUserId ? (
+              <SubscriptionBillingPanel
+                audience={accountRole === "Artist" ? "artist" : accountRole === "Producer" ? "producer" : "listener"}
+                email={activeUser?.email || authEmail || undefined}
+                fetchFn={desktopActionFetch}
+                onToast={showToast}
+                userId={accountUserId}
+              />
+            ) : null}
+            {creatorBillingAccess?.uploadsLocked ? (
+              <div className="profile-save">
+                <h3>Publishing locked</h3>
+                <p>{creatorBillingAccess.uploadLockMessage || CREATOR_UPLOADS_LOCKED_MESSAGE}</p>
+              </div>
+            ) : null}
           </UserProfileDashboard>) : view === "Platform Control Center" && isPlatformOwner && !search.trim() ? (<>
             <PlatformControlCenter
                 userId={accountUserId}
