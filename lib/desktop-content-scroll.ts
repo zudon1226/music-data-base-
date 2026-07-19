@@ -7,9 +7,23 @@ export const DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX = 821;
  * Uses !important so page.tsx shell rules cannot expand .content to full
  * document height (which forces window/document scrolling instead).
  * No wheel listeners, no preventDefault, no synthetic scroll.
+ *
+ * Desktop player clearance (clean replacement):
+ * --desktop-player-clearance tracks --global-player-height (+ 12px) and is
+ * applied ONLY to the shared main scroll container. Player is flush to the
+ * app bottom and stays clear of the browser scrollbar gutter.
  */
 export const DESKTOP_CONTENT_SCROLL_CSS = `
   @media (min-width: ${DESKTOP_CONTENT_SCROLL_MIN_WIDTH_PX}px) {
+    :root {
+      --desktop-player-clearance: calc(var(--global-player-height, 0px) + 12px);
+    }
+
+    html[data-player-collapsed="true"],
+    html.player-collapsed {
+      --desktop-player-clearance: calc(var(--global-player-height, 0px) + 12px);
+    }
+
     html,
     body {
       height: 100% !important;
@@ -33,6 +47,24 @@ export const DESKTOP_CONTENT_SCROLL_CSS = `
       overscroll-behavior: auto;
       scroll-behavior: auto;
       -webkit-overflow-scrolling: touch;
+      padding-bottom: var(--desktop-player-clearance) !important;
+      scroll-padding-bottom: var(--desktop-player-clearance) !important;
+    }
+
+    /* Flush dock at app bottom; never enter the scrollbar gutter (≥16px). */
+    .player,
+    .video-player-bar {
+      bottom: 0 !important;
+      right: max(16px, var(--player-scrollbar-gutter, 20px)) !important;
+      max-width: calc(
+        100vw
+        - var(--desktop-sidebar-width, 188px)
+        - var(--player-dock-inset-inline, 12px)
+        - max(16px, var(--player-scrollbar-gutter, 20px))
+      ) !important;
+      height: var(--global-player-height) !important;
+      min-height: var(--global-player-height) !important;
+      max-height: var(--global-player-height) !important;
     }
 
     .content.desktop-content-scroll-root .horizontal-rail {
