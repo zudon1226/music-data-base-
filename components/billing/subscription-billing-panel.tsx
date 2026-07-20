@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
+import { CHECKOUT_UNAVAILABLE_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
 
 type FetchFn = (path: string, init?: RequestInit & { requireAuth?: boolean }) => Promise<Response>;
 
@@ -27,6 +27,7 @@ type Access = {
 
 type Subscription = {
     id: string;
+    plan_id?: string | null;
     plan_name: string;
     status: string;
     auto_renew?: boolean;
@@ -58,12 +59,19 @@ function featureList(features: Plan["features"]) {
     return [];
 }
 
+function isServerActivePlan(subscription: Subscription | null, planId: string) {
+    if (!subscription?.plan_id || subscription.plan_id !== planId) return false;
+    return String(subscription.status || "").toLowerCase() === "active"
+        && Number(subscription.price_cents || 0) > 0;
+}
+
 export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onToast }: Props) {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [access, setAccess] = useState<Access | null>(null);
-    const [providers, setProviders] = useState<string[]>(["test"]);
-    const [provider, setProvider] = useState("test");
+    const [providers, setProviders] = useState<string[]>([]);
+    const [provider, setProvider] = useState("");
+    const [busyPlanId, setBusyPlanId] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
 
@@ -85,6 +93,9 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
         if (Array.isArray(configured) && configured.length) {
             setProviders(configured);
             setProvider(String(data.providers?.defaultProvider || configured[0]));
+        } else {
+            setProviders([]);
+            setProvider("");
         }
     }, [audience, fetchFn, userId]);
 
@@ -95,8 +106,12 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
     async function startCheckout(planId: string) {
         if (!userId || busy) return;
         setBusy(true);
+        setBusyPlanId(planId);
         setError("");
         try {
+            if (!providers.length || !provider) {
+                throw new Error(CHECKOUT_UNAVAILABLE_MESSAGE);
+            }
             const origin = typeof window !== "undefined" ? window.location.origin : "";
             const response = await fetchFn("/api/subscriptions/checkout", {
                 method: "POST",
@@ -114,20 +129,25 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(String(data.error || "Checkout failed."));
+                throw new Error(String(data.error || CHECKOUT_UNAVAILABLE_MESSAGE));
             }
-            onToast?.(String(data.message || "Checkout ready."), "success");
             if (data.checkoutUrl && data.mode === "live") {
                 window.location.href = String(data.checkoutUrl);
                 return;
             }
-            await load();
+            if (data.mode === "test" && data.subscriptionActive) {
+                onToast?.(String(data.message || "Test checkout completed."), "success");
+                await load();
+                return;
+            }
+            throw new Error(CHECKOUT_UNAVAILABLE_MESSAGE);
         } catch (err) {
-            const message = err instanceof Error ? err.message : "Checkout failed.";
+            const message = err instanceof Error ? err.message : CHECKOUT_UNAVAILABLE_MESSAGE;
             setError(message);
             onToast?.(message, "error");
         } finally {
             setBusy(false);
+            setBusyPlanId("");
         }
     }
 
@@ -166,7 +186,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                 <span>{audience} · monthly · auto-renew</span>
             </div>
 
-            {subscription ? (
+            {subscription && String(subscription.status).toLowerCase() === "active" ? (
                 <div className="monetization-summary-grid">
                     <div>
                         <strong>{subscription.plan_name}</strong>
@@ -220,33 +240,45 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                 </small>
             )}
 
-            <div className="source-row" style={{ marginTop: 10 }}>
-                <span>Provider</span>
-                {providers.map((id) => (
-                    <button
-                        key={id}
-                        className={provider === id ? "active" : ""}
-                        disabled={busy}
-                        onClick={() => setProvider(id)}
-                        type="button"
-                    >
-                        {id}
-                    </button>
-                ))}
-            </div>
+            {providers.length ? (
+                <div className="source-row" style={{ marginTop: 10 }}>
+                    <span>Provider</span>
+                    {providers.map((id) => (
+                        <button
+                            key={id}
+                            className={provider === id ? "active" : ""}
+                            disabled={busy}
+                            onClick={() => setProvider(id)}
+                            type="button"
+                        >
+                            {id}
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <p className="profile-feedback" role="status">{CHECKOUT_UNAVAILABLE_MESSAGE}</p>
+            )}
 
             <div className="monetization-plan-grid">
-                {paidPlans.map((plan) => (
-                    <article className="monetization-plan" key={plan.id}>
-                        <span>{plan.audience}</span>
-                        <strong>{plan.name}</strong>
-                        <b>{formatMoney(plan.price_cents, plan.currency)}/{plan.billing_interval}</b>
-                        <small>{featureList(plan.features).join(" | ")}</small>
-                        <button disabled={busy} onClick={() => void startCheckout(plan.id)} type="button">
-                            {busy ? "Working…" : "Subscribe"}
-                        </button>
-                    </article>
-                ))}
+                {paidPlans.map((plan) => {
+                    const selected = isServerActivePlan(subscription, plan.id);
+                    const opening = busyPlanId === plan.id;
+                    return (
+                        <article className="monetization-plan" key={plan.id}>
+                            <span>{plan.audience}</span>
+                            <strong>{plan.name}</strong>
+                            <b>{formatMoney(plan.price_cents, plan.currency)}/{plan.billing_interval}</b>
+                            <small>{featureList(plan.features).join(" | ")}</small>
+                            <button
+                                disabled={busy || selected || !providers.length}
+                                onClick={() => void startCheckout(plan.id)}
+                                type="button"
+                            >
+                                {selected ? "Selected" : opening ? "Opening checkout…" : "Subscribe"}
+                            </button>
+                        </article>
+                    );
+                })}
             </div>
 
             {subscription && subscription.auto_renew !== false && subscription.status !== "cancelled" ? (

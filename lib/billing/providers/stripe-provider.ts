@@ -1,5 +1,38 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { PaymentProvider } from "@/lib/billing/payment-provider";
+
+function verifyStripeSignature(rawBody: string, signatureHeader: string | null) {
+    const secret = stripeWebhookSecret();
+    if (!secret) {
+        throw new Error("Stripe webhook secret is not configured.");
+    }
+    if (!signatureHeader) {
+        throw new Error("Missing Stripe-Signature header.");
+    }
+    const parts = Object.fromEntries(
+        signatureHeader.split(",").map((part) => {
+            const [key, ...rest] = part.trim().split("=");
+            return [key, rest.join("=")];
+        }),
+    ) as Record<string, string>;
+    const timestamp = parts.t;
+    const signature = parts.v1;
+    if (!timestamp || !signature) {
+        throw new Error("Invalid Stripe-Signature header.");
+    }
+    const ageSeconds = Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp));
+    if (!Number.isFinite(ageSeconds) || ageSeconds > 60 * 5) {
+        throw new Error("Stripe webhook timestamp outside tolerance.");
+    }
+    const expected = createHmac("sha256", secret)
+        .update(`${timestamp}.${rawBody}`, "utf8")
+        .digest("hex");
+    const expectedBuf = Buffer.from(expected, "utf8");
+    const actualBuf = Buffer.from(signature, "utf8");
+    if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) {
+        throw new Error("Stripe webhook signature verification failed.");
+    }
+}
 
 function stripeSecret() {
     return String(process.env.STRIPE_SECRET_KEY || "").trim();
@@ -109,9 +142,9 @@ export function createStripeProvider(): PaymentProvider {
             };
         },
         async parseWebhook(rawBody, signatureHeader) {
-            // Signature verification requires Stripe SDK or manual HMAC; when webhook secret
-            // is set we require a signature header to be present (full verify can use Stripe CLI/SDK later).
-            if (isLiveConfigured() && !signatureHeader) {
+            if (isLiveConfigured()) {
+                verifyStripeSignature(rawBody, signatureHeader);
+            } else if (!signatureHeader) {
                 throw new Error("Missing Stripe-Signature header.");
             }
             const payload = JSON.parse(rawBody || "{}") as {
@@ -121,10 +154,26 @@ export function createStripeProvider(): PaymentProvider {
             const object = payload.data?.object || {};
             const metadata = (object.metadata || {}) as Record<string, string>;
             const type = String(payload.type || "");
-            let status: "succeeded" | "failed" | "refunded" | "cancelled" = "succeeded";
-            if (type.includes("failed") || type.includes("payment_failed")) status = "failed";
-            if (type.includes("refund")) status = "refunded";
-            if (type.includes("deleted") || type.includes("canceled") || type.includes("cancelled")) status = "cancelled";
+            let status: "succeeded" | "failed" | "refunded" | "cancelled" | undefined;
+            if (
+                type.includes("checkout.session.completed")
+                || type.includes("invoice.paid")
+                || type.includes("invoice.payment_succeeded")
+            ) {
+                status = "succeeded";
+            } else if (type.includes("invoice.payment_failed") || type.includes("payment_failed")) {
+                status = "failed";
+            } else if (type.includes("charge.refunded") || type.includes("refund")) {
+                status = "refunded";
+            } else if (type.includes("customer.subscription.deleted") || type.includes("canceled") || type.includes("cancelled")) {
+                status = "cancelled";
+            } else {
+                return {
+                    eventType: type || "stripe.event",
+                    status: undefined,
+                    raw: payload,
+                };
+            }
             return {
                 eventType: type || "stripe.event",
                 providerPaymentId: String(object.payment_intent || object.id || "").trim() || undefined,

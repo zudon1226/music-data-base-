@@ -38,6 +38,9 @@ record("migration seeds Listener/Artist/Producer monthly plans", migration.inclu
 record("public billing statuses defined", constants.includes("BILLING_PUBLIC_STATUSES") && constants.includes("\"current\"") && constants.includes("\"canceled\"") && constants.includes("\"inactive\""));
 record("provider abstraction exports getPaymentProvider", provider.includes("export function getPaymentProvider"));
 record("stripe + paypal + test providers wired", provider.includes("createStripeProvider") && provider.includes("createPayPalProvider") && provider.includes("createTestPaymentProvider"));
+record("production fail-closed for test provider", provider.includes("isBillingTestProviderAllowed") && provider.includes("requireLiveCheckoutProvider"));
+record("checkout unavailable message constant", constants.includes("Checkout is not available yet. Your current plan was not changed."));
+record("paid plan activation requires webhook/applySuccessfulPayment", service.includes("pendingCheckoutPlanId") && service.includes("applySuccessfulPayment"));
 record("withdrawal lock messages for past_due/canceled/inactive/grace", constants.includes("CREATOR_WITHDRAWAL_LOCKED_MESSAGE") && constants.includes("CREATOR_WITHDRAWAL_CANCELED_MESSAGE") && constants.includes("CREATOR_WITHDRAWAL_INACTIVE_MESSAGE") && constants.includes("CREATOR_WITHDRAWAL_GRACE_ARREARS_MESSAGE"));
 record("creator suspend at 3 months", constants.includes("CREATOR_SUSPEND_MONTHS_PAST_DUE = 3"));
 record("earnings continue while locked", access.includes("earningsAccumulate: true") && access.includes("walletUpdates: true"));

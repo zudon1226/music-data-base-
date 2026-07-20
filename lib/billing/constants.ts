@@ -69,6 +69,9 @@ export const CREATOR_WITHDRAWAL_GRACE_ARREARS_MESSAGE =
 export const CREATOR_UPLOADS_LOCKED_MESSAGE =
     "Uploads and new releases are disabled because your Creator subscription is suspended. Update your subscription to restore publishing.";
 
+export const CHECKOUT_UNAVAILABLE_MESSAGE =
+    "Checkout is not available yet. Your current plan was not changed.";
+
 export const LISTENER_PLAN_FEATURES = [
     "Unlimited streaming",
     "Library",

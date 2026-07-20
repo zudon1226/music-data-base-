@@ -134,7 +134,10 @@ export function createPayPalProvider(): PaymentProvider {
                 status: String(json.status || "").toUpperCase() === "COMPLETED" ? "succeeded" : "pending",
             };
         },
-        async parseWebhook(rawBody) {
+        async parseWebhook(rawBody, signatureHeader) {
+            if (isLiveConfigured() && !signatureHeader) {
+                throw new Error("Missing PayPal webhook signature header.");
+            }
             const payload = JSON.parse(rawBody || "{}") as {
                 event_type?: string;
                 resource?: Record<string, unknown>;

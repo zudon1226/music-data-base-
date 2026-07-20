@@ -104,14 +104,18 @@ export type CheckoutSessionResult = {
     subscriptionId: string;
     mode: "live" | "test";
     message: string;
+    subscriptionActive?: boolean;
 };
 
 export type StartCheckoutInput = {
     userId: string;
-    planId: string;
+    planId?: string;
+    planSlug?: string;
     audience: AccountSubscriptionAudience;
     provider?: PaymentProviderId;
     successUrl: string;
     cancelUrl: string;
     customerEmail?: string;
+    /** Rejected when present and not equal to the server plan price. */
+    clientPriceCents?: number;
 };

@@ -13,10 +13,19 @@ import {
     resolveFailedPaymentLifecycle,
     resolveSuccessfulRenewal,
 } from "@/lib/billing/lifecycle";
+import { CHECKOUT_UNAVAILABLE_MESSAGE } from "@/lib/billing/constants";
+import { FREE_PLAN_ACTIVE_SUFFIX } from "@/lib/billing/env";
+import {
+    assertAudienceMaySelectPlan,
+    clientSlugForPlanName,
+    isClientPlanSlug,
+    matchPlanBySlug,
+} from "@/lib/billing/plan-catalog";
 import {
     getDefaultPaymentProviderId,
     getPaymentProvider,
     listConfiguredPaymentProviders,
+    requireLiveCheckoutProvider,
 } from "@/lib/billing/payment-provider";
 import type {
     CheckoutSessionResult,
@@ -26,6 +35,13 @@ import type {
     SubscriptionRow,
 } from "@/lib/billing/types";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+
+function isPaidActiveSubscription(subscription: SubscriptionRow | null | undefined) {
+    if (!subscription) return false;
+    const status = String(subscription.status || "").toLowerCase();
+    return Number(subscription.price_cents || 0) > 0
+        && (status === "active" || status === "grace_period" || status === "past_due");
+}
 
 function addDays(iso: string | Date, days: number) {
     const date = new Date(iso);
@@ -86,6 +102,33 @@ export async function getSubscriptionPlanById(planId: string) {
     return (data || null) as SubscriptionPlanRow | null;
 }
 
+export async function resolveSubscriptionPlanForCheckout(input: {
+    planId?: string;
+    planSlug?: string;
+}) {
+    const planId = String(input.planId || "").trim();
+    const planSlug = String(input.planSlug || "").trim();
+    if (planId) {
+        if (!isUuid(planId)) {
+            throw new Error("Invalid plan id.");
+        }
+        const byId = await getSubscriptionPlanById(planId);
+        if (!byId || !byId.active) {
+            throw new Error("Subscription plan not found.");
+        }
+        return byId;
+    }
+    if (!planSlug || !isClientPlanSlug(planSlug)) {
+        throw new Error("Invalid plan id.");
+    }
+    const plans = await listActiveSubscriptionPlans();
+    const matched = matchPlanBySlug(plans, planSlug);
+    if (!matched) {
+        throw new Error("Subscription plan not found.");
+    }
+    return matched;
+}
+
 export async function getUserSubscription(userId: string) {
     if (!isUuid(userId)) return null;
     const supabase = getSupabaseServerClient();
@@ -106,57 +149,86 @@ export async function getCreatorBillingAccessForUser(userId: string, audience?: 
 }
 
 export async function startSubscriptionCheckout(input: StartCheckoutInput): Promise<CheckoutSessionResult> {
-    const plan = await getSubscriptionPlanById(input.planId);
-    if (!plan || !plan.active) {
-        throw new Error("Subscription plan not found.");
+    const plan = await resolveSubscriptionPlanForCheckout({
+        planId: input.planId,
+        planSlug: input.planSlug,
+    });
+    if (Number(plan.price_cents || 0) <= 0) {
+        throw new Error("Free plans do not use checkout.");
     }
-    const audience = String(plan.audience || "").toLowerCase();
-    if (audience !== input.audience && !(input.audience !== "listener" && audience === "creator")) {
-        // Allow artist/producer to buy their matching paid plans; listener plans for listeners.
-        if (!(input.audience === "listener" && audience === "listener")
-            && !(input.audience === "artist" && (audience === "artist" || audience === "creator"))
-            && !(input.audience === "producer" && (audience === "producer" || audience === "creator"))) {
-            throw new Error("Plan audience does not match account type.");
-        }
+    if (input.clientPriceCents != null && Number(input.clientPriceCents) !== Number(plan.price_cents)) {
+        throw new Error("Client-supplied price rejected.");
     }
 
-    const providerId = (input.provider || getDefaultPaymentProviderId()) as PaymentProviderId;
-    const provider = getPaymentProvider(providerId);
-    if (!provider.isConfigured() && providerId !== "test") {
-        throw new Error(`${providerId} is not configured.`);
+    assertAudienceMaySelectPlan(input.audience, String(plan.audience || ""));
+
+    let provider;
+    try {
+        provider = requireLiveCheckoutProvider(input.provider);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : CHECKOUT_UNAVAILABLE_MESSAGE;
+        throw new Error(message.includes("not changed") ? message : CHECKOUT_UNAVAILABLE_MESSAGE);
     }
 
     const supabase = getSupabaseServerClient();
     const now = new Date().toISOString();
     const existing = await getUserSubscription(input.userId);
+    const audience = String(plan.audience || "").toLowerCase();
+    const keepActivePlan = isPaidActiveSubscription(existing);
 
-    const subscriptionPayload = {
-        user_id: input.userId,
-        plan_id: plan.id,
-        plan_name: plan.name,
-        status: "pending",
-        price_cents: plan.price_cents,
-        currency: plan.currency || "USD",
-        subscription_type: audience === "creator" ? input.audience : audience,
-        creator_type: audience === "creator" ? input.audience : audience,
-        auto_renew: true,
-        cancel_at_period_end: false,
-        payment_provider: provider.id,
-        started_at: existing?.started_at || now,
-        updated_at: now,
-        metadata: {
-            ...(existing?.metadata || {}),
-            audience: input.audience,
-            checkoutStartedAt: now,
-        },
+    const pendingMetadata = {
+        ...(existing?.metadata || {}),
+        audience: input.audience,
+        checkoutStartedAt: now,
+        pendingCheckoutPlanId: plan.id,
+        pendingCheckoutPlanName: plan.name,
+        pendingCheckoutPriceCents: plan.price_cents,
+        pendingCheckoutProvider: provider.id,
     };
 
     let subscriptionId = existing?.id;
-    if (existing?.id) {
-        const { error } = await supabase.from("subscriptions").update(subscriptionPayload).eq("id", existing.id);
+    if (keepActivePlan && existing?.id) {
+        // Preserve the active paid plan until the provider webhook confirms the change.
+        const { error } = await supabase.from("subscriptions").update({
+            updated_at: now,
+            payment_provider: provider.id,
+            metadata: pendingMetadata,
+        }).eq("id", existing.id);
+        if (error) throw new Error(getErrorMessage(error));
+    } else if (existing?.id) {
+        const { error } = await supabase.from("subscriptions").update({
+            user_id: input.userId,
+            plan_id: plan.id,
+            plan_name: plan.name,
+            status: "pending",
+            price_cents: plan.price_cents,
+            currency: plan.currency || "USD",
+            subscription_type: audience === "creator" ? input.audience : audience,
+            creator_type: audience === "creator" ? input.audience : audience,
+            auto_renew: true,
+            cancel_at_period_end: false,
+            payment_provider: provider.id,
+            updated_at: now,
+            metadata: pendingMetadata,
+        }).eq("id", existing.id);
         if (error) throw new Error(getErrorMessage(error));
     } else {
-        const { data, error } = await supabase.from("subscriptions").insert(subscriptionPayload).select("id").single();
+        const { data, error } = await supabase.from("subscriptions").insert({
+            user_id: input.userId,
+            plan_id: plan.id,
+            plan_name: plan.name,
+            status: "pending",
+            price_cents: plan.price_cents,
+            currency: plan.currency || "USD",
+            subscription_type: audience === "creator" ? input.audience : audience,
+            creator_type: audience === "creator" ? input.audience : audience,
+            auto_renew: true,
+            cancel_at_period_end: false,
+            payment_provider: provider.id,
+            started_at: now,
+            updated_at: now,
+            metadata: pendingMetadata,
+        }).select("id").single();
         if (error) throw new Error(getErrorMessage(error));
         subscriptionId = data.id;
     }
@@ -174,15 +246,23 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
         metadata: {
             subscriptionId: String(subscriptionId),
             audience: input.audience,
+            planId: plan.id,
         },
     });
 
     const providerPatch: Record<string, unknown> = {
         provider_customer_id: checkout.customerId || null,
-        provider_subscription_id: checkout.providerSubscriptionId || checkout.sessionId,
         updated_at: now,
+        metadata: {
+            ...pendingMetadata,
+            checkoutSessionId: checkout.sessionId,
+        },
     };
-    if (provider.id === "stripe") {
+    // Do not overwrite an active provider subscription id until payment succeeds.
+    if (!keepActivePlan) {
+        providerPatch.provider_subscription_id = checkout.providerSubscriptionId || checkout.sessionId;
+    }
+    if (provider.id === "stripe" && !keepActivePlan) {
         providerPatch.stripe_customer_id = checkout.customerId || null;
         providerPatch.stripe_subscription_id = checkout.providerSubscriptionId || null;
     }
@@ -198,7 +278,7 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
         payment_provider: provider.id,
         provider_payment_id: checkout.sessionId,
         attempt_number: 1,
-        metadata: { sessionId: checkout.sessionId },
+        metadata: { sessionId: checkout.sessionId, planId: plan.id },
     });
 
     await recordEvent({
@@ -208,8 +288,8 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
         payload: { provider: provider.id, sessionId: checkout.sessionId, planId: plan.id },
     });
 
-    // Test provider completes immediately so local/dev flows work without webhooks.
-    if (provider.id === "test" && plan.price_cents >= 0) {
+    // Local/CI only — never activate paid plans via test provider in production.
+    if (provider.id === "test") {
         await applySuccessfulPayment({
             userId: input.userId,
             subscriptionId: String(subscriptionId),
@@ -218,7 +298,21 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
             amountCents: plan.price_cents,
             currency: plan.currency || "USD",
             provider: "test",
+            planId: plan.id,
         });
+        return {
+            provider: provider.id,
+            checkoutUrl: checkout.checkoutUrl,
+            sessionId: checkout.sessionId,
+            subscriptionId: String(subscriptionId),
+            mode: "test",
+            subscriptionActive: true,
+            message: "Test checkout completed. Subscription is active.",
+        };
+    }
+
+    if (!checkout.checkoutUrl) {
+        throw new Error(CHECKOUT_UNAVAILABLE_MESSAGE);
     }
 
     return {
@@ -226,10 +320,80 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
         checkoutUrl: checkout.checkoutUrl,
         sessionId: checkout.sessionId,
         subscriptionId: String(subscriptionId),
-        mode: provider.id === "test" ? "test" : "live",
-        message: provider.id === "test"
-            ? "Test checkout completed. Subscription is active."
-            : "Checkout session created. Complete payment with the provider.",
+        mode: "live",
+        subscriptionActive: false,
+        message: "Opening checkout…",
+    };
+}
+
+export async function activateFreeSubscriptionPlan(input: {
+    userId: string;
+    audience: AccountSubscriptionAudience;
+    planId?: string;
+    planSlug?: string;
+}) {
+    const plan = await resolveSubscriptionPlanForCheckout({
+        planId: input.planId,
+        planSlug: input.planSlug,
+    });
+    if (Number(plan.price_cents || 0) > 0) {
+        throw new Error("Paid plans require checkout.");
+    }
+    assertAudienceMaySelectPlan(input.audience, String(plan.audience || ""));
+
+    const existing = await getUserSubscription(input.userId);
+    if (isPaidActiveSubscription(existing)) {
+        throw new Error("Cancel your paid subscription renewals before switching to a free plan. Your current plan was not changed.");
+    }
+
+    const supabase = getSupabaseServerClient();
+    const now = new Date().toISOString();
+    const audience = String(plan.audience || "").toLowerCase();
+    const payload = {
+        user_id: input.userId,
+        plan_id: plan.id,
+        plan_name: plan.name,
+        status: "active",
+        price_cents: 0,
+        currency: plan.currency || "USD",
+        subscription_type: audience === "creator" ? input.audience : audience,
+        creator_type: audience === "creator" ? input.audience : audience,
+        auto_renew: false,
+        cancel_at_period_end: false,
+        payment_provider: null,
+        current_period_end: null,
+        started_at: existing?.started_at || now,
+        updated_at: now,
+        metadata: {
+            ...(existing?.metadata || {}),
+            audience: input.audience,
+            freePlanActivatedAt: now,
+            pendingCheckoutPlanId: null,
+            pendingCheckoutPlanName: null,
+            pendingCheckoutPriceCents: null,
+        },
+    };
+
+    if (existing?.id) {
+        const { error } = await supabase.from("subscriptions").update(payload).eq("id", existing.id);
+        if (error) throw new Error(getErrorMessage(error));
+    } else {
+        const { error } = await supabase.from("subscriptions").insert(payload);
+        if (error) throw new Error(getErrorMessage(error));
+    }
+
+    await recordEvent({
+        userId: input.userId,
+        eventType: "plan.free_activated",
+        payload: { planId: plan.id, planName: plan.name, audience: input.audience },
+    });
+
+    const slug = clientSlugForPlanName(plan.name, 0);
+    return {
+        ok: true as const,
+        plan,
+        clientPlanSlug: slug,
+        message: `${plan.name} ${FREE_PLAN_ACTIVE_SUFFIX}`,
     };
 }
 
@@ -241,13 +405,62 @@ export async function applySuccessfulPayment(input: {
     amountCents: number;
     currency: string;
     provider: PaymentProviderId;
+    planId?: string;
+    customerId?: string;
 }) {
     const supabase = getSupabaseServerClient();
+
+    // Idempotent: repeated webhook deliveries must not create duplicate active periods/payments.
+    if (input.providerPaymentId) {
+        const existingPayment = await supabase
+            .from("subscription_payments")
+            .select("id,status")
+            .eq("provider_payment_id", input.providerPaymentId)
+            .eq("status", "succeeded")
+            .maybeSingle();
+        if (existingPayment.data?.id) {
+            return { ok: true as const, duplicate: true };
+        }
+    }
+
+    const { data: subscriptionData, error: subscriptionReadError } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("id", input.subscriptionId)
+        .eq("user_id", input.userId)
+        .maybeSingle();
+    if (subscriptionReadError) throw new Error(getErrorMessage(subscriptionReadError));
+    if (!subscriptionData) throw new Error("Subscription not found.");
+
+    const subscription = subscriptionData as SubscriptionRow;
+    const metadata = (subscription.metadata || {}) as Record<string, unknown>;
+    const pendingPlanId = String(input.planId || metadata.pendingCheckoutPlanId || subscription.plan_id || "").trim();
+    const approvedPlan = pendingPlanId ? await getSubscriptionPlanById(pendingPlanId) : null;
+    if (!approvedPlan || !approvedPlan.active || Number(approvedPlan.price_cents || 0) <= 0) {
+        throw new Error("Approved paid plan not found for payment confirmation.");
+    }
+
     const now = new Date();
     const renewal = resolveSuccessfulRenewal(now);
     const nowIso = now.toISOString();
+    const amountCents = Number(approvedPlan.price_cents);
+    const currency = approvedPlan.currency || input.currency || "USD";
+
+    const nextMetadata = {
+        ...metadata,
+        pendingCheckoutPlanId: null,
+        pendingCheckoutPlanName: null,
+        pendingCheckoutPriceCents: null,
+        pendingCheckoutProvider: null,
+        lastConfirmedPlanId: approvedPlan.id,
+        lastConfirmedAt: nowIso,
+    };
 
     const { error } = await supabase.from("subscriptions").update({
+        plan_id: approvedPlan.id,
+        plan_name: approvedPlan.name,
+        price_cents: amountCents,
+        currency,
         status: renewal.status,
         auto_renew: renewal.autoRenew,
         cancel_at_period_end: renewal.cancelAtPeriodEnd,
@@ -259,8 +472,16 @@ export async function applySuccessfulPayment(input: {
         last_payment_failed_at: null,
         payment_retry_count: renewal.paymentRetryCount,
         payment_provider: input.provider,
-        provider_subscription_id: input.providerSubscriptionId || null,
+        provider_customer_id: input.customerId || subscription.provider_customer_id || null,
+        provider_subscription_id: input.providerSubscriptionId || subscription.provider_subscription_id || null,
+        stripe_customer_id: input.provider === "stripe"
+            ? (input.customerId || subscription.stripe_customer_id || null)
+            : subscription.stripe_customer_id || null,
+        stripe_subscription_id: input.provider === "stripe"
+            ? (input.providerSubscriptionId || subscription.stripe_subscription_id || null)
+            : subscription.stripe_subscription_id || null,
         admin_override_status: null,
+        metadata: nextMetadata,
         updated_at: nowIso,
     }).eq("id", input.subscriptionId).eq("user_id", input.userId);
 
@@ -268,6 +489,9 @@ export async function applySuccessfulPayment(input: {
 
     await supabase.from("subscription_payments").update({
         status: "succeeded",
+        plan_id: approvedPlan.id,
+        amount_cents: amountCents,
+        currency,
         provider_payment_id: input.providerPaymentId,
         updated_at: nowIso,
     }).eq("subscription_id", input.subscriptionId).eq("status", "pending");
@@ -276,19 +500,26 @@ export async function applySuccessfulPayment(input: {
         user_id: input.userId,
         item_id: input.subscriptionId,
         item_type: "subscription",
-        amount_cents: input.amountCents,
-        currency: input.currency,
+        amount_cents: amountCents,
+        currency,
         status: "succeeded",
         transaction_type: "subscription",
-        metadata: { provider: input.provider, providerPaymentId: input.providerPaymentId },
+        metadata: { provider: input.provider, providerPaymentId: input.providerPaymentId, planId: approvedPlan.id },
     });
 
     await recordEvent({
         subscriptionId: input.subscriptionId,
         userId: input.userId,
         eventType: "payment.succeeded",
-        payload: { provider: input.provider, providerPaymentId: input.providerPaymentId, autoRenew: true },
+        payload: {
+            provider: input.provider,
+            providerPaymentId: input.providerPaymentId,
+            planId: approvedPlan.id,
+            autoRenew: true,
+        },
     });
+
+    return { ok: true as const, duplicate: false };
 }
 
 export async function applyFailedPayment(input: {

@@ -155,6 +155,7 @@ export async function adminReactivateSubscription(input: {
         amountCents: sub.price_cents || 0,
         currency: sub.currency || "USD",
         provider: (sub.payment_provider as "stripe" | "paypal" | "test") || "test",
+        planId: sub.plan_id || undefined,
     });
 
     return adminOverrideSubscriptionStatus({

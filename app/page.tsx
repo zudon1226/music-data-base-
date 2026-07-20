@@ -4291,6 +4291,8 @@ function PageContent() {
     const [monetizationTransactions, setMonetizationTransactions] = useState<MonetizationTransaction[]>([]);
     const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
     const [activeSubscriptionPlanId, setActiveSubscriptionPlanId] = useState("creator-free");
+    const [subscriptionCheckoutBusyPlanId, setSubscriptionCheckoutBusyPlanId] = useState("");
+    const subscriptionCheckoutLockRef = useRef(false);
     const [creatorBillingAccess, setCreatorBillingAccess] = useState<{
         withdrawalsLocked: boolean;
         uploadsLocked: boolean;
@@ -8812,20 +8814,106 @@ function PageContent() {
         setMonetizationTransactions((previous) => [nextTransaction, ...previous].slice(0, 150));
         return nextTransaction;
     }
-    function setupSubscriptionPlan(plan: SubscriptionPlan) {
-        setActiveSubscriptionPlanId(plan.id);
-        addMonetizationTransaction({
-            itemId: plan.id,
-            itemType: "subscription",
-            itemTitle: plan.name,
-            transactionType: "subscription",
-            amountCents: plan.priceCents,
-            currency: plan.currency,
-            status: "pending",
-            creatorType: "platform",
-            creatorName: "Music Data Base",
-        });
-        showToast(`${plan.name} subscription setup saved. Checkout gateway can be connected later.`, "success");
+    function resolvePlanCheckoutAudience(plan: SubscriptionPlan): "listener" | "artist" | "producer" {
+        if (plan.audience === "listener") return "listener";
+        if (plan.audience === "artist") return "artist";
+        if (plan.audience === "producer") return "producer";
+        const role = String(userAuthProfile.role || accountRole || "listener").toLowerCase();
+        if (role === "producer") return "producer";
+        if (role === "artist") return "artist";
+        return "listener";
+    }
+
+    async function setupSubscriptionPlan(plan: SubscriptionPlan) {
+        if (subscriptionCheckoutLockRef.current) return;
+
+        // Free plans may activate immediately without checkout.
+        if (Number(plan.priceCents || 0) <= 0) {
+            const audience = resolvePlanCheckoutAudience(plan);
+            if (plan.audience === "listener" && audience !== "listener") {
+                showToast("Listener plans are for listener accounts.", "error");
+                return;
+            }
+            if ((plan.audience === "creator" || plan.audience === "artist" || plan.audience === "producer")
+                && audience === "listener") {
+                showToast("Creator plans require an artist or producer account.", "error");
+                return;
+            }
+            setActiveSubscriptionPlanId(plan.id);
+            addMonetizationTransaction({
+                itemId: plan.id,
+                itemType: "subscription",
+                itemTitle: plan.name,
+                transactionType: "subscription",
+                amountCents: 0,
+                currency: plan.currency,
+                status: "succeeded",
+                creatorType: "platform",
+                creatorName: "Music Data Base",
+            });
+            showToast(`${plan.name} is now active.`, "success");
+            if (user?.id) {
+                void desktopActionFetch("/api/subscriptions", {
+                    method: "POST",
+                    requireAuth: true,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId: user.id,
+                        action: "activate_free",
+                        planSlug: plan.id,
+                        audience,
+                    }),
+                }).catch(() => undefined);
+            }
+            return;
+        }
+
+        // Paid plans must never become Selected or show success before provider confirmation.
+        if (!user?.id) {
+            showToast("Sign in to subscribe to a paid plan.", "error");
+            return;
+        }
+        if (subscriptionCheckoutBusyPlanId) return;
+        subscriptionCheckoutLockRef.current = true;
+        setSubscriptionCheckoutBusyPlanId(plan.id);
+        try {
+            const audience = resolvePlanCheckoutAudience(plan);
+            const origin = typeof window !== "undefined" ? window.location.origin : "";
+            const response = await desktopActionFetch("/api/subscriptions/checkout", {
+                method: "POST",
+                requireAuth: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    planSlug: plan.id,
+                    audience,
+                    customerEmail: user.email || undefined,
+                    successUrl: `${origin}/?billing=success`,
+                    cancelUrl: `${origin}/?billing=cancel`,
+                }),
+            });
+            const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+            if (!response.ok) {
+                showToast(String(data.error || "Checkout is not available yet. Your current plan was not changed."), "error");
+                return;
+            }
+            const checkoutUrl = String(data.checkoutUrl || "");
+            if (checkoutUrl && data.mode === "live") {
+                window.location.href = checkoutUrl;
+                return;
+            }
+            if (data.mode === "test" && data.subscriptionActive) {
+                setActiveSubscriptionPlanId(plan.id);
+                showToast(String(data.message || `${plan.name} is now active.`), "success");
+                return;
+            }
+            showToast("Checkout is not available yet. Your current plan was not changed.", "error");
+        } catch {
+            showToast("Checkout is not available yet. Your current plan was not changed.", "error");
+        } finally {
+            subscriptionCheckoutLockRef.current = false;
+            setSubscriptionCheckoutBusyPlanId("");
+        }
     }
     function recordDownloadFoundation(item: { id: string; title: string; itemType: MonetizationTransaction["itemType"]; creatorType: "artist" | "producer" | "platform"; creatorName: string; }) {
         addMonetizationTransaction({
@@ -14702,9 +14790,17 @@ function PageContent() {
                 <strong>{plan.name}</strong>
                 <b>{formatCurrencyFromCents(plan.priceCents, plan.currency)}/{plan.billingInterval === "one_time" ? "once" : plan.billingInterval}</b>
                 <small>{plan.features.join(" | ")}</small>
-                <button onClick={() => setupSubscriptionPlan(plan)} type="button">
+                <button
+                  disabled={Boolean(subscriptionCheckoutBusyPlanId)}
+                  onClick={() => void setupSubscriptionPlan(plan)}
+                  type="button"
+                >
                   <Check size={15}/>
-                  {activeSubscriptionPlanId === plan.id ? "Selected" : "Select Plan"}
+                  {subscriptionCheckoutBusyPlanId === plan.id
+                      ? "Opening checkout…"
+                      : activeSubscriptionPlanId === plan.id
+                          ? "Selected"
+                          : (plan.priceCents > 0 ? "Subscribe" : "Select Plan")}
                 </button>
               </article>))}
           </div>
@@ -16867,8 +16963,16 @@ function PageContent() {
                     <span>{plan.name}</span>
                     <strong>{formatCurrencyFromCents(plan.priceCents, plan.currency)}/{plan.billingInterval === "one_time" ? "once" : plan.billingInterval}</strong>
                     <p>{plan.features.join(" ")}</p>
-                    <button onClick={() => setupSubscriptionPlan(plan)} type="button">
-                      {activeSubscriptionPlanId === plan.id ? "Selected" : "Subscribe"}
+                    <button
+                      disabled={Boolean(subscriptionCheckoutBusyPlanId)}
+                      onClick={() => void setupSubscriptionPlan(plan)}
+                      type="button"
+                    >
+                      {subscriptionCheckoutBusyPlanId === plan.id
+                          ? "Opening checkout…"
+                          : activeSubscriptionPlanId === plan.id
+                              ? "Selected"
+                              : "Subscribe"}
                     </button>
                   </article>))}
               </div>
