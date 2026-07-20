@@ -585,10 +585,18 @@ export function RingtoneMarketplaceWorkspace({
                                         >
                                             {ringtone.favorited ? t("ringtones.unfavorite") : t("ringtones.favorite")}
                                         </button>
-                                        <button type="button" onClick={() => void handleDownload(ringtoneId, "iphone")}>
+                                        <button
+                                            type="button"
+                                            className="ringtone-device-download"
+                                            onClick={() => void handleDownload(ringtoneId, "iphone")}
+                                        >
                                             {t("ringtones.downloadForIphone")}
                                         </button>
-                                        <button type="button" onClick={() => void handleDownload(ringtoneId, "android")}>
+                                        <button
+                                            type="button"
+                                            className="ringtone-device-download"
+                                            onClick={() => void handleDownload(ringtoneId, "android")}
+                                        >
                                             {t("ringtones.downloadForAndroid")}
                                         </button>
                                     </div>
@@ -699,6 +707,19 @@ export function RingtoneMarketplaceWorkspace({
                     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
                     overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
                 }
+                .ringtone-market-actions button.ringtone-device-download {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-sizing: border-box;
+                    text-align: center;
+                    white-space: normal;
+                    overflow: hidden;
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
+                    line-height: 1.2;
+                    hyphens: auto;
+                }
                 @media (max-width: 820px) {
                     .ringtone-market-card,
                     .ringtone-detail-grid { grid-template-columns: 1fr; }
@@ -706,12 +727,27 @@ export function RingtoneMarketplaceWorkspace({
                         display: grid;
                         grid-template-columns: 1fr 1fr;
                         gap: 10px;
+                        align-items: stretch;
                     }
                     .ringtone-market-actions button,
                     .ringtone-owned-badge {
                         width: 100%;
                         justify-content: center;
                         text-align: center;
+                    }
+                    .ringtone-market-actions button.ringtone-device-download {
+                        width: 100%;
+                        min-width: 0;
+                        height: 100%;
+                        min-height: 48px;
+                        padding: 0.5rem 0.45rem;
+                        font-size: 12px;
+                    }
+                }
+                @media (max-width: 360px) {
+                    .ringtone-market-actions button.ringtone-device-download {
+                        font-size: 11px;
+                        padding: 0.45rem 0.35rem;
                     }
                 }
             `}</style>

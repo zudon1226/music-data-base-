@@ -286,6 +286,34 @@ body {
     min-height: var(--global-player-height-collapsed, 52px) !important;
     max-height: var(--global-player-height-collapsed, 52px) !important;
     grid-template-columns: minmax(0, 1fr) 44px 44px !important;
+    /* Equal side padding; 4+44+4 fits collapsed 52px height for vertical centering */
+    padding: 4px 8px !important;
+    align-items: center !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .player-main,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .player-song,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .video-player-now {
+    max-height: 100% !important;
+    height: 100% !important;
+    align-self: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .main-play,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed .player-collapse-toggle {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    max-width: 44px !important;
+    max-height: 44px !important;
+    align-self: center !important;
+    justify-self: center !important;
   }
 
   body {
@@ -470,6 +498,117 @@ body {
     width: 100% !important;
     max-width: 100% !important;
     height: 4px !important;
+  }
+}
+
+/*
+ * Phone landscape: viewport width often exceeds 820px, so portrait mobile
+ * player rules drop off. Keep the collapsible dock vertically centered without
+ * changing locked width breakpoints or desktop (hover) behavior.
+ */
+@media (orientation: landscape) and (max-height: 500px) and (hover: none) {
+  .player.fixed-mobile-player.is-collapsed,
+  .video-player-bar.fixed-mobile-player.is-collapsed,
+  .music-bottom-player.fixed-mobile-player.is-collapsed,
+  .video-bottom-player.fixed-mobile-player.is-collapsed {
+    left: calc(var(--mobile-sidebar-width, 64px) + 8px) !important;
+    right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    bottom: 0 !important;
+    width: auto !important;
+    max-width: calc(
+      100vw
+      - var(--mobile-sidebar-width, 64px)
+      - 8px
+      - max(8px, env(safe-area-inset-right, 0px))
+    ) !important;
+    height: var(--global-player-height-collapsed, 52px) !important;
+    min-height: var(--global-player-height-collapsed, 52px) !important;
+    max-height: var(--global-player-height-collapsed, 52px) !important;
+    padding: 4px 8px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 44px 44px !important;
+    grid-template-rows: 1fr !important;
+    align-items: center !important;
+    gap: 5px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    z-index: 9999 !important;
+  }
+
+  .player.fixed-mobile-player.is-collapsed .player-center,
+  .video-player-bar.fixed-mobile-player.is-collapsed .video-player-center,
+  .player.fixed-mobile-player.is-collapsed .player-controls,
+  .video-player-bar.fixed-mobile-player.is-collapsed .video-player-controls {
+    display: contents !important;
+  }
+
+  .player.fixed-mobile-player.is-collapsed .player-controls > button:not(.main-play),
+  .video-player-bar.fixed-mobile-player.is-collapsed .video-player-controls > button:not(.main-play),
+  .player.fixed-mobile-player.is-collapsed .player-side,
+  .video-player-bar.fixed-mobile-player.is-collapsed .video-player-side,
+  .player.fixed-mobile-player.is-collapsed .progress-row,
+  .video-player-bar.fixed-mobile-player.is-collapsed .progress-row,
+  .player.fixed-mobile-player.is-collapsed .video-progress-row,
+  .video-player-bar.fixed-mobile-player.is-collapsed .video-progress-row {
+    display: none !important;
+  }
+
+  .player.fixed-mobile-player.is-collapsed .player-song,
+  .player.fixed-mobile-player.is-collapsed .player-main,
+  .video-player-bar.fixed-mobile-player.is-collapsed .video-player-now,
+  .video-player-bar.fixed-mobile-player.is-collapsed .player-main {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    height: 100% !important;
+    align-self: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+
+  .player.fixed-mobile-player.is-collapsed .player-song img,
+  .video-player-bar.fixed-mobile-player.is-collapsed .video-player-now img {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    flex: 0 0 36px !important;
+    object-fit: cover !important;
+    border-radius: 8px !important;
+  }
+
+  .player.fixed-mobile-player.is-collapsed .main-play,
+  .video-player-bar.fixed-mobile-player.is-collapsed .main-play {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    max-width: 44px !important;
+    max-height: 44px !important;
+    align-self: center !important;
+    justify-self: center !important;
+    padding: 0 !important;
+  }
+
+  .player.fixed-mobile-player.is-collapsed .player-collapse-toggle,
+  .video-player-bar.fixed-mobile-player.is-collapsed .player-collapse-toggle {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    max-width: 44px !important;
+    max-height: 44px !important;
+    align-self: center !important;
+    justify-self: center !important;
+    padding: 0 !important;
   }
 }
 
