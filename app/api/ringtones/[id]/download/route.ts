@@ -9,7 +9,7 @@ import {
     extensionFromStoragePath,
 } from "@/lib/ringtone-download-filename";
 import { loadRevisionForPurchase } from "@/lib/ringtone-revisions";
-import { requireMatchingUserId } from "@/lib/request-auth";
+import { ACCESS_TOKEN_BODY_KEYS, getRecordString, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -17,6 +17,24 @@ export const dynamic = "force-dynamic";
 
 function json(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
+}
+
+/** JSON (Android fetch) or form body (iPhone Safari gesture-preserving submit). */
+async function readDownloadRequestBody(request: Request): Promise<Record<string, unknown>> {
+    const contentType = (request.headers.get("content-type") || "").toLowerCase();
+    if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
+        try {
+            const form = await request.formData();
+            const out: Record<string, unknown> = {};
+            form.forEach((value, key) => {
+                if (typeof value === "string") out[key] = value;
+            });
+            return out;
+        } catch {
+            return {};
+        }
+    }
+    return await request.json().catch(() => ({})) as Record<string, unknown>;
 }
 
 type Params = { params: Promise<{ id: string }> };
@@ -31,7 +49,7 @@ export async function POST(request: Request, context: Params) {
         const { id: ringtoneId } = await context.params;
         if (!isUuid(ringtoneId)) return json({ error: "Invalid ringtone id." }, 400);
 
-        const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+        const body = await readDownloadRequestBody(request);
         const userId = String(body.userId || body.sessionUserId || "").trim();
         const deviceTypeRaw = String(body.deviceType || "android").trim().toLowerCase();
         const deviceType = (RINGTONE_DEVICE_TYPES as readonly string[]).includes(deviceTypeRaw)
@@ -40,7 +58,9 @@ export async function POST(request: Request, context: Params) {
         if (!deviceType) return json({ error: "deviceType must be iphone, android, or other." }, 400);
         if (!userId || !isUuid(userId)) return json({ error: "userId is required." }, 400);
 
-        const auth = await requireMatchingUserId(request, "/api/ringtones/[id]/download", userId);
+        // Form posts cannot set Authorization; accept accessToken from the body for iPhone Safari.
+        const accessToken = getRecordString(body, ACCESS_TOKEN_BODY_KEYS);
+        const auth = await requireMatchingUserId(request, "/api/ringtones/[id]/download", userId, { accessToken });
         if (!auth.ok) return json({ error: auth.error }, auth.status);
 
         const supabase = getSupabaseServerClient();

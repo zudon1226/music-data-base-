@@ -45,7 +45,12 @@ record(
 );
 record("no -android.json filename construction", !marketUi.includes("-android.json") && !client.includes("-android.json") && !route.includes("-android.json"));
 record("install guide is UI-only (not a file download)", marketUi.includes("setInstallGuide") && !marketUi.includes("installation.json"));
-record("android helper remains distinct from iphone helper", client.includes("downloadAndroidRingtoneAudio") && client.includes("downloadIphoneRingtoneAudio"));
+record(
+    "android helper remains distinct from iphone helper",
+    client.includes("downloadAndroidRingtoneAudio")
+        && client.includes("startIphoneSecureRingtoneDownload")
+        && client.includes("export async function downloadAndroidRingtoneAudio"),
+);
 record("purchase auth gate unchanged", route.includes("PURCHASE_REQUIRED") && route.includes("buyerHasPaidRingtonePurchase"));
 record("download row insert remains single path", (route.match(/ringtone_downloads\"\)\.insert/g) || []).length === 1);
 

@@ -7,13 +7,13 @@ import { useTranslation } from "@/lib/i18n/provider";
 import {
     confirmRingtonePurchase,
     downloadAndroidRingtoneAudio,
-    downloadIphoneRingtoneAudio,
     fetchFavoriteRingtones,
     fetchMyRingtonePurchases,
     fetchRingtoneDetail,
     fetchRingtoneMarketplace,
     formatRingtonePrice,
     purchaseRingtone,
+    startIphoneSecureRingtoneDownload,
     toggleRingtoneFavorite,
     triggerBrowserAudioDownload,
     type MarketplaceRingtone,
@@ -67,7 +67,7 @@ export function RingtoneMarketplaceWorkspace({
     const [paymentMode, setPaymentMode] = useState<"live" | "test-only" | "safely-disabled" | "">("");
     const [paidCheckoutAvailable, setPaidCheckoutAvailable] = useState(true);
     const [ownerTestCheckout, setOwnerTestCheckout] = useState(false);
-    const [installGuide, setInstallGuide] = useState<{ title: string; steps: string[] } | null>(null);
+    const [installGuide, setInstallGuide] = useState<{ title: string; steps: string[]; error?: string } | null>(null);
     const [pending, startTransition] = useTransition();
     const purchaseLockRef = useRef(false);
     const downloadLockRef = useRef(false);
@@ -304,8 +304,9 @@ export function RingtoneMarketplaceWorkspace({
         if (downloadLockRef.current) return;
         downloadLockRef.current = true;
         setError("");
-        try {
-            if (deviceType === "android") {
+
+        if (deviceType === "android") {
+            try {
                 // One secure audio request → one audio file. No signed URL, no JSON attachment.
                 const result = await downloadAndroidRingtoneAudio({
                     ringtoneId,
@@ -329,36 +330,45 @@ export function RingtoneMarketplaceWorkspace({
                     ],
                 });
                 setStatusMessage(t("ringtones.downloadStarted"));
-                return;
+            } finally {
+                downloadLockRef.current = false;
             }
-
-            // iPhone: one secure audio request → one Files download (never open Supabase URL).
-            const result = await downloadIphoneRingtoneAudio({
-                ringtoneId,
-                userId,
-                session,
-            });
-            if (!result.ok) {
-                setError(String(result.body.error || t("ringtones.downloadFailed")));
-                return;
-            }
-            triggerBrowserAudioDownload(result.blob, result.filename);
-            setInstallGuide({
-                title: t("ringtones.downloadForIphone"),
-                steps: [
-                    "Download the file",
-                    "Save it in Files",
-                    "Open GarageBand",
-                    "Import the audio file",
-                    "Share as Ringtone",
-                    "Export",
-                    "Select Standard Ringtone, Text Tone, or Assign to Contact",
-                ],
-            });
-            setStatusMessage(t("ringtones.downloadStarted"));
-        } finally {
-            downloadLockRef.current = false;
+            return;
         }
+
+        // iPhone: open instructions + open blank download context synchronously, then ticket navigate.
+        const iphoneSteps = [
+            "Download the file",
+            "Save it in Files",
+            "Open GarageBand",
+            "Import the audio file",
+            "Share as Ringtone",
+            "Export",
+            "Select Standard Ringtone, Text Tone, or Assign to Contact",
+        ];
+        setInstallGuide({
+            title: t("ringtones.downloadForIphone"),
+            steps: iphoneSteps,
+        });
+
+        // startIphoneSecureRingtoneDownload calls window.open("about:blank") before any await.
+        startIphoneSecureRingtoneDownload({
+            ringtoneId,
+            userId,
+            session,
+            onFailure: (message) => {
+                setError(message);
+                setInstallGuide((prev) => (
+                    prev
+                        ? { ...prev, error: message }
+                        : { title: t("ringtones.downloadForIphone"), steps: iphoneSteps, error: message }
+                ));
+            },
+            onSettled: () => {
+                downloadLockRef.current = false;
+            },
+        });
+        setStatusMessage(t("ringtones.downloadStarted"));
     }
 
     function renderMarketplaceCard(ringtone: MarketplaceRingtone) {
@@ -662,6 +672,7 @@ export function RingtoneMarketplaceWorkspace({
                     <ol>
                         {installGuide.steps.map((step) => <li key={step}>{step}</li>)}
                     </ol>
+                    {installGuide.error ? <p className="ringtone-error" role="alert">{installGuide.error}</p> : null}
                     <button type="button" onClick={() => setInstallGuide(null)}>{t("ringtones.cancel")}</button>
                 </div>
             ) : null}

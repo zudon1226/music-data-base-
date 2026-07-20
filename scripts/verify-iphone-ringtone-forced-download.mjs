@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * iPhone forced download contracts (attachment audio, no Supabase media page).
+ * iPhone forced download contracts (ticket attachment audio, no Supabase media page).
  * Run: node scripts/verify-iphone-ringtone-forced-download.mjs
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -37,23 +37,44 @@ function buildRingtoneContentDisposition(filename) {
     return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }
 
-const route = read("app/api/ringtones/[id]/download/route.ts");
+const ticketGet = read("app/api/ringtones/download/[ticket]/route.ts");
+const ticketIssue = read("app/api/ringtones/[id]/download-ticket/route.ts");
 const client = read("lib/ringtone-marketplace-client.ts");
 const marketUi = read("components/ringtone-marketplace/ringtone-marketplace-workspace.tsx");
 const helper = read("lib/ringtone-download-filename.ts");
+const androidRoute = read("app/api/ringtones/[id]/download/route.ts");
 
-record("iphone branch streams storage.download", route.includes("// --- iPhone:") && route.includes(".download(storagePath)"));
-record("no createSignedUrl / signedUrl in download route", !route.includes("createSignedUrl") && !route.includes("signedUrl"));
-record("success uses Content-Disposition attachment builder", route.includes("buildRingtoneContentDisposition") && helper.includes('attachment; filename="'));
-record("private no-store + nosniff", route.includes("private, no-store") && route.includes("nosniff"));
-record("missing file returns 404", route.includes('code: "FILE_NOT_FOUND"') && route.includes(", 404)"));
-record("auth + purchase gates remain", route.includes("requireMatchingUserId") && route.includes("PURCHASE_REQUIRED"));
+record("ticket GET streams storage.download", ticketGet.includes(".download(record.storagePath)") && ticketGet.includes("NextResponse(bytes"));
+record("no createSignedUrl / signedUrl in ticket routes", !ticketGet.includes("createSignedUrl") && !ticketGet.includes("signedUrl") && !ticketIssue.includes("signedUrl"));
+record("success uses Content-Disposition attachment builder", ticketGet.includes("buildRingtoneContentDisposition") && helper.includes('attachment; filename="'));
+record("private no-store + nosniff", ticketGet.includes("private, no-store") && ticketGet.includes("nosniff"));
+record(
+    "missing file returns 404",
+    ticketIssue.includes("FILE_NOT_FOUND")
+        && ticketGet.includes("FILE_NOT_FOUND")
+        && (ticketIssue.includes(", 404)") || ticketIssue.includes("404")),
+);
+record("auth + purchase gates remain", ticketIssue.includes("requireMatchingUserId") && ticketIssue.includes("PURCHASE_REQUIRED"));
 record("client never trusts storage path from UI", !marketUi.includes("storage_path") && !client.includes("storagePath:"));
-record("iphone client helper exists", client.includes("downloadIphoneRingtoneAudio") && client.includes('deviceType: "iphone"'));
-record("iphone rejects unexpected JSON", client.includes("UNEXPECTED_JSON_DOWNLOAD"));
-record("iphone clear 401/403/404 errors", client.includes("status === 401") && client.includes("status === 403") && client.includes("status === 404"));
-record("UI does not window.open / location assign storage", !marketUi.includes("window.open") && !marketUi.includes("window.location"));
-record("UI uses downloadIphoneRingtoneAudio + triggerBrowserAudioDownload", marketUi.includes("downloadIphoneRingtoneAudio") && marketUi.includes("triggerBrowserAudioDownload"));
+record(
+    "iphone client helper uses ticket navigation",
+    client.includes("startIphoneSecureRingtoneDownload")
+        && client.includes("/download-ticket")
+        && client.includes('window.open("about:blank", "_blank")'),
+);
+record(
+    "iphone failure messages cover auth/authorization/missing file",
+    client.includes("Your session expired")
+        && client.includes("not authorized to download")
+        && client.includes("ringtone file was not found"),
+);
+record(
+    "UI uses gesture-safe iPhone download starter",
+    marketUi.includes("startIphoneSecureRingtoneDownload")
+        && !marketUi.includes("downloadIphoneRingtoneAudio")
+        && marketUi.includes("setInstallGuide"),
+);
+record("android route still has no signedUrl", !androidRoute.includes("createSignedUrl") && !androidRoute.includes("signedUrl"));
 
 const filename = buildRingtoneDownloadFilename("Cellular Phone", "creator/x-iphone.m4a");
 const cd = buildRingtoneContentDisposition(filename);
@@ -63,7 +84,7 @@ record(
     cd === 'attachment; filename="Cellular Phone.m4a"; filename*=UTF-8\'\'Cellular%20Phone.m4a',
     cd,
 );
-record("no iphone.json naming", !filename.includes("iphone.json") && !route.includes("iphone.json") && !client.includes("iphone.json"));
+record("no iphone.json naming", !filename.includes("iphone.json") && !ticketGet.includes("iphone.json") && !client.includes("iphone.json"));
 
 const failed = results.filter((row) => !row.ok).length;
 console.log(`\nIPHONE_FORCED_DOWNLOAD_FAILS=${failed}`);

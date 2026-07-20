@@ -120,10 +120,12 @@ async function main() {
             && !/deviceType === \"android\"[\s\S]{0,400}window\.open/.test(marketUi),
     );
     record(
-        "marketplace iphone click uses single audio helper",
-        marketUi.includes("downloadIphoneRingtoneAudio")
+        "marketplace iphone click uses gesture-safe secure download",
+        marketUi.includes("startIphoneSecureRingtoneDownload")
             && !marketUi.includes("window.open(signedUrl")
-            && !marketUi.includes("downloadPurchasedRingtone"),
+            && !marketUi.includes("downloadPurchasedRingtone")
+            && !marketUi.includes("downloadIphoneRingtoneAudio")
+            && read("lib/ringtone-marketplace-client.ts").includes("/download-ticket"),
     );
     assertIncludes(read("app/api/ringtones/admin/route.ts"), "requireAdminUserId", "admin purchase route guarded");
     record("exclusive playback wiring", /ActiveMediaType\s*=\s*"song"\s*\|\s*"video"\s*\|\s*"ringtone"/.test(page));

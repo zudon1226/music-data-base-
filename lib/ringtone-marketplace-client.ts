@@ -265,76 +265,77 @@ export async function downloadAndroidRingtoneAudio(input: {
 }
 
 /**
- * iPhone: one POST to the secure download endpoint → one audio blob.
- * Never opens a Supabase signed URL (Safari inline player).
- * Filename comes from Content-Disposition (server title), never client guessing.
+ * iPhone Safari: ticket + top-level same-origin attachment navigation.
+ * Opens a blank window synchronously in the click gesture, then navigates it to the
+ * short-lived ticket URL. Never uses Blob/createObjectURL/temporary anchors, and never
+ * opens a Supabase storage URL.
  */
-export async function downloadIphoneRingtoneAudio(input: {
+export function startIphoneSecureRingtoneDownload(input: {
     ringtoneId: string;
     userId: string;
     session: Session | null;
-    creatorTesting?: boolean;
+    onFailure?: (message: string) => void;
+    onSettled?: () => void;
 }) {
-    const response = await fetch(`/api/ringtones/${input.ringtoneId}/download`, {
-        method: "POST",
-        headers: authHeaders(input.session),
-        body: JSON.stringify({
-            userId: input.userId,
-            deviceType: "iphone",
-            creatorTesting: input.creatorTesting === true,
-        }),
-    });
+    // Must stay synchronous with the original tap so Safari treats navigation as user-initiated.
+    const downloadWindow = typeof window !== "undefined"
+        ? window.open("about:blank", "_blank")
+        : null;
 
-    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
-    if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-        const status = response.status;
-        let fallback = "iPhone download failed.";
-        if (status === 401) fallback = "Your session expired. Please sign in again to download.";
-        else if (status === 403) fallback = "You are not authorized to download this ringtone.";
-        else if (status === 404) fallback = "The iPhone ringtone file was not found.";
-        else if (status >= 500) fallback = "Storage failed while preparing the iPhone download.";
-        return {
-            ok: false as const,
-            status,
-            body: {
-                ...body,
-                error: String(body.error || fallback),
-            },
-        };
-    }
+    void (async () => {
+        try {
+            const response = await fetch(`/api/ringtones/${encodeURIComponent(input.ringtoneId)}/download-ticket`, {
+                method: "POST",
+                headers: authHeaders(input.session),
+                body: JSON.stringify({
+                    userId: input.userId,
+                    deviceType: "iphone",
+                }),
+            });
+            const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+            if (!response.ok) {
+                const status = response.status;
+                let fallback = "iPhone download failed.";
+                if (status === 401) fallback = "Your session expired. Please sign in again to download.";
+                else if (status === 403) fallback = "You are not authorized to download this ringtone.";
+                else if (status === 404) fallback = "The iPhone ringtone file was not found.";
+                else if (status >= 500) fallback = "Storage failed while preparing the iPhone download.";
+                try {
+                    downloadWindow?.close();
+                } catch {
+                    /* ignore */
+                }
+                input.onFailure?.(String(body.error || fallback));
+                return;
+            }
 
-    if (contentType.includes("application/json")) {
-        const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-        return {
-            ok: false as const,
-            status: response.status,
-            body: {
-                error: String(body.error || "iPhone download returned JSON instead of audio."),
-                code: "UNEXPECTED_JSON_DOWNLOAD",
-            },
-        };
-    }
+            const downloadUrl = String(body.downloadUrl || "").trim();
+            if (!downloadUrl.startsWith("/api/ringtones/download/")) {
+                try {
+                    downloadWindow?.close();
+                } catch {
+                    /* ignore */
+                }
+                input.onFailure?.("iPhone download ticket was invalid.");
+                return;
+            }
 
-    const blob = await response.blob();
-    if (!blob || blob.size < 1) {
-        return {
-            ok: false as const,
-            status: 500,
-            body: { error: "iPhone download returned an empty audio file.", code: "EMPTY_AUDIO" },
-        };
-    }
-
-    const filename = parseFilenameFromContentDisposition(response.headers.get("content-disposition"))
-        || "ringtone.m4a";
-
-    return {
-        ok: true as const,
-        status: response.status,
-        blob,
-        filename,
-        contentType,
-    };
+            if (downloadWindow && !downloadWindow.closed) {
+                downloadWindow.location.replace(downloadUrl);
+            } else if (typeof window !== "undefined") {
+                window.location.assign(downloadUrl);
+            }
+        } catch {
+            try {
+                downloadWindow?.close();
+            } catch {
+                /* ignore */
+            }
+            input.onFailure?.("iPhone download failed.");
+        } finally {
+            input.onSettled?.();
+        }
+    })();
 }
 
 /** Trigger exactly one browser file save from an audio blob. */

@@ -52,7 +52,8 @@ function buildRingtoneContentDisposition(filename) {
 }
 
 record("shared filename helper still used by route", route.includes("buildRingtoneDownloadFilename(product.data.title") && Boolean(helper));
-record("iphone fallback filename is ringtone.m4a", client.includes('|| "ringtone.m4a"'));
+const fallbackEmpty = buildRingtoneDownloadFilename("", "creator/iphone-file.m4a");
+record("iphone fallback filename is ringtone.m4a", fallbackEmpty === "ringtone.m4a", fallbackEmpty);
 
 const name = buildRingtoneDownloadFilename("Cellular Phone", "u/abc-iphone.m4a");
 assert.equal(name, "Cellular Phone.m4a");
