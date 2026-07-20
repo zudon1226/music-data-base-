@@ -3571,7 +3571,6 @@ function PageContent() {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
     const videoPreviewRef = useRef<HTMLElement | null>(null);
-    const notificationWrapRef = useRef<HTMLDivElement | null>(null);
     const albumUploadUserRef = useRef<SupabaseUser | null>(null);
     const activeUploadKeysRef = useRef<Set<string>>(new Set());
     const uploadInProgressRef = useRef(false);
@@ -4517,7 +4516,6 @@ function PageContent() {
     });
     const [notifications, setNotifications] = useState<PlatformNotification[]>([]);
     const [notificationsLoading, setNotificationsLoading] = useState(false);
-    const [showNotificationCenter, setShowNotificationCenter] = useState(false);
     useEffect(() => {
         const userId = String(accountUserId || "").trim();
         if (!userId || authLoading || !isDesktopProtectedActionsEnabled()) {
@@ -4714,7 +4712,6 @@ function PageContent() {
         if (destination) {
             handleNav(destination as View);
         }
-        setShowNotificationCenter(false);
     }
     function getCommentKey(itemType: ContentComment["itemType"], itemId: string) {
         return `${itemType}:${itemId}`;
@@ -5507,24 +5504,6 @@ function PageContent() {
         setPayoutRequests([]);
         setActiveSubscriptionPlanId("creator-free");
     }
-    useEffect(() => {
-        if (!showNotificationCenter)
-            return;
-        function closeNotificationOnOutsideTap(event: PointerEvent) {
-            const target = event.target;
-            if (!(target instanceof Node))
-                return;
-            if (notificationWrapRef.current?.contains(target))
-                return;
-            setShowNotificationCenter(false);
-        }
-        document.addEventListener("pointerdown", closeNotificationOnOutsideTap);
-        return () => document.removeEventListener("pointerdown", closeNotificationOnOutsideTap);
-    }, [showNotificationCenter]);
-    useEffect(() => {
-        const timer = window.setTimeout(() => setShowNotificationCenter(false), 0);
-        return () => window.clearTimeout(timer);
-    }, [view]);
     useEffect(() => {
         disableBrowserScrollRestoration();
     }, []);
@@ -14534,7 +14513,6 @@ function PageContent() {
         // Exactly one destination workspace: always unmount upload chrome when leaving via nav.
         setToast(null);
         setShowUpload(false);
-        setShowNotificationCenter(false);
         setView(nextView);
         if (nextView === "Artist Dashboard") {
             setCreatorStudio("artist");
@@ -14571,7 +14549,6 @@ function PageContent() {
         scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
     }
     function handleNav(nextView: View) {
-        setShowNotificationCenter(false);
         setToast(null);
         // FoundingMemberGate already blocks unapproved app access. Navigation uses
         // server-trusted role capabilities only — never founding invite leftovers.
@@ -16377,27 +16354,8 @@ function PageContent() {
 
           <div className="topbar-account-actions" role="toolbar" aria-label={t("nav.mainNavigation")}>
             <NotificationCenterPanel
-              wrapRef={notificationWrapRef}
-              open={showNotificationCenter}
-              notifications={notifications}
               unreadCount={unreadNotifications}
-              loading={notificationsLoading}
-              formatTimestamp={formatVideoCreatedAt}
-              onToggle={() => {
-                  setShowNotificationCenter((value) => {
-                      const next = !value;
-                      if (next) void reloadNotificationsFromServer();
-                      return next;
-                  });
-              }}
-              onMarkRead={(id) => { void markNotificationRead(id); }}
-              onMarkAllRead={() => { markNotificationsRead(); }}
-              onDelete={(id) => { void deleteNotification(id); }}
-              onClearRead={() => { void clearReadNotifications(); }}
-              onNavigate={(notification) => navigateFromNotification({
-                  ...notification,
-                  itemType: notification.itemType as PlatformNotification["itemType"],
-              })}
+              onOpen={() => handleNav("Notifications")}
             />
 
             {shouldShowUploadControl(desktopNavAccess) ? (
@@ -17058,13 +17016,19 @@ function PageContent() {
         ) : null}
 
         {view === "Notifications" ? (
-          <section className="notifications-page dashboard-page" aria-label={t("notifications.title")}>
+          <section
+            className="notifications-page dashboard-page"
+            aria-label={t("notifications.title")}
+            data-notifications-view="canonical"
+            data-page-heading="notifications"
+          >
             <div className="dashboard-panel">
               <div className="notification-head-actions">
                 <button
                   type="button"
                   disabled={unreadNotifications === 0 || notificationsLoading}
                   onClick={() => { markNotificationsRead(); }}
+                  data-notification-action="mark-all-read"
                 >
                   {t("dashboard.notifications.markAllRead")}
                 </button>
@@ -17072,6 +17036,7 @@ function PageContent() {
                   type="button"
                   disabled={notificationsLoading || notifications.every((item) => !item.read)}
                   onClick={() => { void clearReadNotifications(); }}
+                  data-notification-action="clear-read"
                 >
                   {t("dashboard.notifications.clearRead")}
                 </button>
@@ -17095,7 +17060,11 @@ function PageContent() {
                       <span>{notification.body}</span>
                       <time>{formatVideoCreatedAt(notification.createdAt)}</time>
                     </button>
-                    <button type="button" onClick={() => { void deleteNotification(notification.id); }}>
+                    <button
+                      type="button"
+                      onClick={() => { void deleteNotification(notification.id); }}
+                      data-notification-action="delete"
+                    >
                       {t("common.delete")}
                     </button>
                   </li>

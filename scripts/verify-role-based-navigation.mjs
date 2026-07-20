@@ -100,11 +100,11 @@ const LISTENER_NAV_VIEWS = [
     "Recently Played",
     "Queue",
     "Profile",
-    "Notifications",
 ];
 
 const LISTENER_ACCESSIBLE_VIEWS = [
     ...LISTENER_NAV_VIEWS,
+    "Notifications",
     "License History",
     "Trending",
     "Beats",
@@ -148,7 +148,10 @@ record("nav items mark role requirements", navLib.includes("requiresArtistDashbo
     && navLib.includes("requiresProducerDashboard: true")
     && navLib.includes("requiresCreator: true")
     && navLib.includes("requiresOwner: true"));
-record("sidebar includes Favorite Ringtones + Notifications", navLib.includes('"Favorite Ringtones"') && navLib.includes('"Notifications"'));
+record("sidebar includes Favorite Ringtones", navLib.includes('"Favorite Ringtones"'));
+record("sidebar omits Notifications from DESKTOP_NAV_ITEMS", !navLib.includes('{ view: "Notifications" }'));
+record("Notifications remains accessible outside sidebar", roleLib.includes('"Notifications"')
+    && /LISTENER_ACCESSIBLE_VIEWS[\s\S]*"Notifications"/.test(roleLib));
 record("sidebar omits discovery from DESKTOP_NAV_ITEMS", !/DESKTOP_NAV_ITEMS[\s\S]*\{ view: "Trending" \}/.test(navLib)
     && !navLib.includes('{ view: "License History" }')
     && !navLib.includes('{ view: "Beats" }'));

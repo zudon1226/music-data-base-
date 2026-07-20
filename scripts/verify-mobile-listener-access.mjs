@@ -22,6 +22,7 @@ function read(rel) {
 
 const page = read("app/page.tsx");
 const roleLib = read("lib/role-based-navigation.ts");
+const navLib = read("lib/desktop-app-navigation.ts");
 const listenerActions = read("lib/listener-media-actions.ts");
 const accessSession = read("lib/client-access-session.ts");
 const authBoot = read("lib/auth-boot.ts");
@@ -46,6 +47,10 @@ const LISTENER_NAV = [
     "Recently Played",
     "Queue",
     "Profile",
+];
+
+const LISTENER_ACCESSIBLE = [
+    ...LISTENER_NAV,
     "Notifications",
 ];
 
@@ -95,6 +100,8 @@ record("claim gated for listeners", listenerActions.includes("resolveListenerMed
     && mediaCard.includes("canClaim")
     && /\{canClaim \? \(/.test(mediaCard));
 record("listener nav matrix complete", LISTENER_NAV.every((view) => roleLib.includes(`"${view}"`)));
+record("notifications accessible outside sidebar", LISTENER_ACCESSIBLE.every((view) => roleLib.includes(`"${view}"`))
+    && !navLib.includes('{ view: "Notifications" }'));
 record("mobile 430 breakpoint present", page.includes("@media (max-width: 430px)"));
 record("mobile card actions 44px", page.includes("min-height: 44px") && page.includes("@media (max-width: 430px)"));
 record("upload-open hides destinations", page.includes('data-upload-open="true"')
@@ -107,7 +114,7 @@ record("song DELETE returns 403 for non-owner", songDelete.includes("403")
     && songDelete.includes("Only the owner can delete"));
 record(
     "listener destinations listed",
-    LISTENER_NAV.length === 13,
+    LISTENER_NAV.length === 12,
     LISTENER_NAV.join(", "),
 );
 

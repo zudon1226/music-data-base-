@@ -58,6 +58,13 @@ record(
         && /notification-button > span:not\(\.sr-only\)[\s\S]{0,120}position:\s*absolute/.test(page),
 );
 record(
+    "topbar bell opens canonical Notifications view",
+    panel.includes('data-notification-entry="topbar"')
+        && panel.includes("onOpen")
+        && !panel.includes("notification-center")
+        && page.includes('onOpen={() => handleNav("Notifications")}'),
+);
+record(
     "role gates keep null renders",
     page.includes("shouldShowUploadControl(desktopNavAccess)")
         && page.includes("shouldShowArtistDashboardControl(desktopNavAccess)")
