@@ -47,6 +47,7 @@ import { defaultHrefForNotification } from "../lib/dashboard/notification-kinds"
 import {
     buildActiveNavigationKey,
     disableBrowserScrollRestoration,
+    forceMainContentScrollTop,
     isNavigationScrollLocked,
     scheduleNavigationScrollReset,
 } from "../lib/navigation-scroll";
@@ -5598,7 +5599,9 @@ function PageContent() {
         [view, showUpload, uploadMode],
     );
     // Internal view switches do not change the URL — reset scroll from the active view key.
+    // Synchronous main-panel clear runs before paint so iPhone never keeps a blank stale scrollTop.
     useLayoutEffect(() => {
+        forceMainContentScrollTop();
         scheduleNavigationScrollReset({
             focusHeading: !showUpload,
             ensureUploadVisible: showUpload,

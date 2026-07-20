@@ -64,15 +64,13 @@ export function getMainScrollContainer(): HTMLElement | null {
     );
 }
 
-function canElementScroll(el: HTMLElement | null): el is HTMLElement {
-    if (!el) return false;
-    return el.scrollHeight > el.clientHeight + 1;
-}
-
 /**
  * Resolve every scrollport that can currently move vertical content.
- * Prefers the marked main panel; always includes document.scrollingElement
- * when the window/document is the real scroller. Never includes the sidebar.
+ * Always includes the marked main panel first — even when it no longer
+ * overflows. After a long→short navigation, iPhone Safari can keep a stale
+ * scrollTop on `.content` while scrollHeight shrinks; excluding that panel
+ * leaves a blank viewport until something else clamps scroll.
+ * Never includes the sidebar.
  */
 export function getActiveScrollContainers(): HTMLElement[] {
     if (typeof document === "undefined") return [];
@@ -88,19 +86,29 @@ export function getActiveScrollContainers(): HTMLElement[] {
     };
 
     const main = getMainScrollContainer();
-    if (canElementScroll(main)) {
-        push(main);
-    }
+    // Always reset the main content scrollport on navigation (mobile fixed panel).
+    push(main);
 
     const scrolling = document.scrollingElement as HTMLElement | null;
-    if (canElementScroll(scrolling)) {
+    if (
+        scrolling
+        && (scrolling.scrollHeight > scrolling.clientHeight + 1 || scrolling.scrollTop > 0)
+    ) {
         push(scrolling);
     }
 
-    if (typeof document.documentElement !== "undefined" && canElementScroll(document.documentElement)) {
+    if (
+        typeof document.documentElement !== "undefined"
+        && (document.documentElement.scrollHeight > document.documentElement.clientHeight + 1
+            || document.documentElement.scrollTop > 0)
+    ) {
         push(document.documentElement);
     }
-    if (document.body && canElementScroll(document.body) && document.body !== scrolling) {
+    if (
+        document.body
+        && document.body !== scrolling
+        && (document.body.scrollHeight > document.body.clientHeight + 1 || document.body.scrollTop > 0)
+    ) {
         push(document.body);
     }
 
@@ -110,6 +118,19 @@ export function getActiveScrollContainers(): HTMLElement[] {
     }
 
     return found.filter(Boolean);
+}
+
+/** Hard-clear the main content scrollport before paint (stale mobile scrollTop). */
+export function forceMainContentScrollTop() {
+    if (typeof document === "undefined") return false;
+    const main = getMainScrollContainer();
+    if (!main) return false;
+    main.scrollTop = 0;
+    main.scrollLeft = 0;
+    if (typeof main.scrollTo === "function") {
+        main.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+    return true;
 }
 
 /** Measured sticky/fixed header offset (px), synced to --app-header-offset. */
@@ -210,7 +231,20 @@ export function isDestinationBuriedInScrollport(
     const containerRect = container.getBoundingClientRect();
     const destRect = destination.getBoundingClientRect();
     const destinationDocumentTop = container.scrollTop + (destRect.top - containerRect.top);
-    return destinationDocumentTop > container.clientHeight * 0.85;
+    if (destinationDocumentTop > container.clientHeight * 0.85) {
+        return true;
+    }
+    // Home (and similar) place `.hero` above the shared DestinationPageHeading.
+    // Pinning to that heading scrolls past real page content and looks blank.
+    const hero = container.querySelector?.(".hero");
+    if (
+        hero
+        && typeof Node !== "undefined"
+        && (hero.compareDocumentPosition(destination) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    ) {
+        return true;
+    }
+    return false;
 }
 
 function scrollContainerToTop(container: HTMLElement) {
@@ -224,6 +258,8 @@ function scrollContainerToTop(container: HTMLElement) {
 /**
  * Pin the destination (heading or upload) fully below the toolbar on every
  * active scrollport. Syncs --app-header-offset before scrolling.
+ * Always clears the main content scrollport first so a prior long page cannot
+ * leave iPhone Safari staring at empty space below a short destination.
  */
 export function resetNavigationScroll(options: {
     preferUpload?: boolean;
@@ -235,6 +271,10 @@ export function resetNavigationScroll(options: {
 
     const headerOffset = syncAppHeaderOffset();
     const preferUpload = options.preferUpload === true;
+    // Clear stale main-panel scrollTop before measuring destinations.
+    forceMainContentScrollTop();
+    resetDocumentScrollFallback();
+
     const destination = getNavigationDestination(preferUpload);
     const containers = getActiveScrollContainers();
     const main = getMainScrollContainer();
@@ -278,6 +318,7 @@ export function resetNavigationScroll(options: {
             for (const container of getActiveScrollContainers()) {
                 scrollContainerToTop(container);
             }
+            forceMainContentScrollTop();
         }
     }
 
@@ -317,13 +358,17 @@ export type NavigationScrollResetOptions = {
 
 /**
  * After React commits the destination view, pin destination below the toolbar.
- * Double rAF waits for layout without arbitrary long timeouts.
+ * Clears the main scrollport synchronously (before paint) so mobile never
+ * flashes a blank panel from a stale scrollTop, then re-pins after layout.
  */
 export function scheduleNavigationScrollReset(options: NavigationScrollResetOptions = {}) {
     if (typeof window === "undefined") return;
     const { focusHeading = true, ensureUploadVisible = false } = options;
     markNavigationScrollLock();
     syncAppHeaderOffset();
+    // Synchronous pre-paint clear — critical on iPhone fixed `.content` panels.
+    forceMainContentScrollTop();
+    resetDocumentScrollFallback();
 
     const run = () => {
         resetNavigationScroll({

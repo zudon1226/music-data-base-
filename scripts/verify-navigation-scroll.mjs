@@ -29,6 +29,9 @@ function assertSource() {
     record("pins destination under sticky topbar", helper.includes("scrollContainerToElement") && helper.includes("getStickyTopOffset"));
     record("does not treat scrollTop=0 as sufficient alone", helper.includes("scrollTop=0 alone is not enough") || helper.includes("Absolute scrollTop=0 alone is not enough"));
     record("resolves active scroll containers including document", helper.includes("getActiveScrollContainers") && helper.includes("scrollingElement"));
+    record("always includes main scroll container even when short", helper.includes("Always reset the main content scrollport") && helper.includes("forceMainContentScrollTop"));
+    record("sync pre-paint scroll clear on schedule", helper.includes("Synchronous pre-paint clear") && helper.includes("forceMainContentScrollTop()"));
+    record("home hero treated as buried destination", helper.includes('querySelector?.(".hero")') || helper.includes('querySelector(".hero")'));
     record("does not blank document scroll when destination exists", helper.includes("if (destination && containers.length > 0)"));
     record("active navigation key helper", helper.includes("buildActiveNavigationKey"));
     record("navigation scroll lock", helper.includes("isNavigationScrollLocked") && helper.includes("markNavigationScrollLock"));
@@ -46,6 +49,7 @@ function assertSource() {
     record("focus uses preventScroll after offset sync", helper.includes("preventScroll: true") && helper.includes("syncAppHeaderOffset"));
     record("mobile keeps scroll-padding-top from header offset", page.includes("scroll-padding-top: var(--app-header-offset") && !page.includes("scroll-padding-top: 0 !important"));
     record("page uses useLayoutEffect on activeNavigationKey", page.includes("useLayoutEffect") && page.includes("activeNavigationKey"));
+    record("page force-clears main scroll before schedule", page.includes("forceMainContentScrollTop()") && page.includes("scheduleNavigationScrollReset"));
     record("page buildActiveNavigationKey wired", page.includes("buildActiveNavigationKey({ view, showUpload, uploadMode })"));
     record("upload destination marker", page.includes('data-nav-destination="upload"'));
     record("heading destination marker", page.includes('data-nav-destination="heading"'));
