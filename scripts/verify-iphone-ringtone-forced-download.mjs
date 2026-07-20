@@ -21,17 +21,40 @@ function read(rel) {
     return readFileSync(full, "utf8");
 }
 
+function decodeRingtoneFilenameLabel(value) {
+    let text = String(value ?? "");
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        if (!/%[0-9A-Fa-f]{2}/.test(text)) break;
+        try {
+            const next = decodeURIComponent(text.replace(/\+/g, "%20"));
+            if (next === text) break;
+            text = next;
+        } catch {
+            const next = text.replace(/(?:%[0-9A-Fa-f]{2})+/g, (sequence) => {
+                try {
+                    return decodeURIComponent(sequence);
+                } catch {
+                    return sequence;
+                }
+            });
+            if (next === text) break;
+            text = next;
+        }
+    }
+    return text;
+}
+
 function buildRingtoneDownloadFilename(title, storagePath) {
     const baseName = String(storagePath || "").split("/").pop() || "";
     const dot = baseName.lastIndexOf(".");
     const ext = dot > 0 ? baseName.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "") || "m4a" : "m4a";
-    let base = String(title ?? "").replace(/[\u0000-\u001F\u007F]/g, "").replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
+    let base = decodeRingtoneFilenameLabel(title).replace(/[\u0000-\u001F\u007F]/g, "").replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
     base = base.replace(/[. ]+$/g, "").trim() || "ringtone";
     return `${base}.${ext}`;
 }
 
 function buildRingtoneContentDisposition(filename) {
-    const safe = String(filename || "ringtone.m4a");
+    const safe = decodeRingtoneFilenameLabel(filename);
     const asciiFallback = safe.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "") || "ringtone.m4a";
     const encoded = encodeURIComponent(safe).replace(/['()]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`).replace(/\*/g, "%2A");
     return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
@@ -84,6 +107,16 @@ record(
     cd === 'attachment; filename="Cellular Phone.m4a"; filename*=UTF-8\'\'Cellular%20Phone.m4a',
     cd,
 );
+const encodedFilename = buildRingtoneDownloadFilename(
+    "01%20Bounty%20Killer%20-%20Cellular%20Phone",
+    "creator/x-iphone.m4a",
+);
+record(
+    "percent-encoded title becomes human-readable",
+    encodedFilename === "01 Bounty Killer - Cellular Phone.m4a",
+    encodedFilename,
+);
+record("helper source decodes labels", helper.includes("decodeRingtoneFilenameLabel"));
 record("no iphone.json naming", !filename.includes("iphone.json") && !ticketGet.includes("iphone.json") && !client.includes("iphone.json"));
 
 const failed = results.filter((row) => !row.ok).length;

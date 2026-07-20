@@ -23,6 +23,31 @@ function read(rel) {
 }
 
 // Inline mirrors of lib/ringtone-download-filename.ts for node verification without TS transpile.
+const PERCENT_ENCODED_BYTE = /%[0-9A-Fa-f]{2}/;
+
+function decodeRingtoneFilenameLabel(value) {
+    let text = String(value ?? "");
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        if (!PERCENT_ENCODED_BYTE.test(text)) break;
+        try {
+            const next = decodeURIComponent(text.replace(/\+/g, "%20"));
+            if (next === text) break;
+            text = next;
+        } catch {
+            const next = text.replace(/(?:%[0-9A-Fa-f]{2})+/g, (sequence) => {
+                try {
+                    return decodeURIComponent(sequence);
+                } catch {
+                    return sequence;
+                }
+            });
+            if (next === text) break;
+            text = next;
+        }
+    }
+    return text;
+}
+
 function extensionFromStoragePath(storagePath) {
     const base = String(storagePath || "").split("/").pop() || "";
     const dot = base.lastIndexOf(".");
@@ -34,7 +59,7 @@ function extensionFromStoragePath(storagePath) {
 
 function buildRingtoneDownloadFilename(title, storagePath) {
     const ext = extensionFromStoragePath(storagePath);
-    let base = String(title ?? "")
+    let base = decodeRingtoneFilenameLabel(title)
         .replace(/[\u0000-\u001F\u007F]/g, "")
         .replace(/[<>:"/\\|?*]/g, "")
         .replace(/\s+/g, " ")
@@ -54,7 +79,7 @@ function buildRingtoneDownloadFilename(title, storagePath) {
 }
 
 function buildRingtoneContentDisposition(filename) {
-    const safe = String(filename || "ringtone.mp3").replace(/[\u0000-\u001F\u007F]/g, "").trim() || "ringtone.mp3";
+    const safe = decodeRingtoneFilenameLabel(filename).replace(/[\u0000-\u001F\u007F]/g, "").trim() || "ringtone.mp3";
     const asciiFallback = safe
         .replace(/[^\x20-\x7E]/g, "_")
         .replace(/"/g, "")
@@ -98,11 +123,22 @@ record(
     cd,
 );
 
+const encodedAndroid = buildRingtoneDownloadFilename(
+    "01%20Bounty%20Killer%20-%20Cellular%20Phone",
+    "creator/android-file.mp3",
+);
+record(
+    "android also decodes percent-encoded title (shared helper)",
+    encodedAndroid === "01 Bounty Killer - Cellular Phone.mp3",
+    encodedAndroid,
+);
+
 record(
     "client parses Content-Disposition filename",
     client.includes("parseFilenameFromContentDisposition")
         && client.includes("downloadAndroidRingtoneAudio"),
 );
+record("android download path still streams bytes (behavior unchanged)", route.includes("// --- Android:") && route.includes("NextResponse(bytes"));
 
 const failed = results.filter((row) => !row.ok).length;
 console.log(`\nANDROID_FILENAME_FAILS=${failed}`);

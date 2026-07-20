@@ -10,6 +10,36 @@ const AUDIO_EXT_MIME: Record<string, string> = {
     opus: "audio/opus",
 };
 
+const PERCENT_ENCODED_BYTE = /%[0-9A-Fa-f]{2}/;
+
+/**
+ * Decode percent-encoded titles/filenames before display sanitization.
+ * Handles stored titles like `01%20Bounty%20Killer` and accidental double-encoding
+ * (`%2520`) without leaving literal `%20` in the user-visible name.
+ */
+export function decodeRingtoneFilenameLabel(value: unknown) {
+    let text = String(value ?? "");
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        if (!PERCENT_ENCODED_BYTE.test(text)) break;
+        try {
+            const next = decodeURIComponent(text.replace(/\+/g, "%20"));
+            if (next === text) break;
+            text = next;
+        } catch {
+            const next = text.replace(/(?:%[0-9A-Fa-f]{2})+/g, (sequence) => {
+                try {
+                    return decodeURIComponent(sequence);
+                } catch {
+                    return sequence;
+                }
+            });
+            if (next === text) break;
+            text = next;
+        }
+    }
+    return text;
+}
+
 export function extensionFromStoragePath(storagePath: string) {
     const base = String(storagePath || "").split("/").pop() || "";
     const dot = base.lastIndexOf(".");
@@ -30,7 +60,7 @@ export function mimeTypeForAudioExtension(extension: string) {
  */
 export function buildRingtoneDownloadFilename(title: unknown, storagePath: string) {
     const ext = extensionFromStoragePath(storagePath);
-    let base = String(title ?? "")
+    let base = decodeRingtoneFilenameLabel(title)
         .replace(/[\u0000-\u001F\u007F]/g, "")
         .replace(/[<>:"/\\|?*]/g, "")
         .replace(/\s+/g, " ")
@@ -52,12 +82,16 @@ export function buildRingtoneDownloadFilename(title: unknown, storagePath: strin
 
 /** RFC 6266 / 5987 Content-Disposition for audio attachment downloads. */
 export function buildRingtoneContentDisposition(filename: string) {
-    const safe = String(filename || "ringtone.mp3").replace(/[\u0000-\u001F\u007F]/g, "").trim() || "ringtone.mp3";
+    // Decode first so stored ticket filenames with literal %20 never appear in filename=.
+    const safe = decodeRingtoneFilenameLabel(filename)
+        .replace(/[\u0000-\u001F\u007F]/g, "")
+        .trim() || "ringtone.mp3";
     const asciiFallback = safe
         .replace(/[^\x20-\x7E]/g, "_")
         .replace(/"/g, "")
         .replace(/[. ]+$/g, "")
         || "ringtone.mp3";
+    // Encode exactly once for filename* — never feed an already-encoded string.
     const encoded = encodeURIComponent(safe)
         .replace(/['()]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`)
         .replace(/\*/g, "%2A");
