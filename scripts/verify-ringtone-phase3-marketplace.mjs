@@ -94,17 +94,23 @@ async function main() {
     assertIncludes(marketUi, "onBrowseMarketplace", "browse marketplace CTA wiring");
     record("no internal ringtone tabs", !marketUi.includes("ringtone-market-tabs"));
     record("no duplicate workspace h1", !/<h1>/.test(marketUi));
-    assertIncludes(downloadRoute, "expiresInSeconds: 60", "signed-URL expiry contract");
     assertIncludes(downloadRoute, "creatorTesting", "creator testing download path");
-    assertIncludes(downloadRoute, "Open GarageBand", "iphone install steps");
-    assertIncludes(downloadRoute, "buildRingtoneContentDisposition", "android Content-Disposition builder");
-    assertIncludes(downloadRoute, "Cache-Control\": \"private, no-store\"", "android no-store cache");
-    assertIncludes(downloadRoute, "X-Content-Type-Options\": \"nosniff\"", "android nosniff");
+    assertIncludes(downloadRoute, "buildRingtoneContentDisposition", "Content-Disposition builder");
+    assertIncludes(downloadRoute, "Cache-Control\": \"private, no-store\"", "no-store cache");
+    assertIncludes(downloadRoute, "X-Content-Type-Options\": \"nosniff\"", "nosniff");
+    record(
+        "download route has no createSignedUrl redirect",
+        !downloadRoute.includes("createSignedUrl") && !downloadRoute.includes("signedUrl"),
+    );
     record(
         "android streams storage.download audio (not signedUrl redirect)",
         downloadRoute.includes(".download(storagePath)")
-            && downloadRoute.includes('deviceType === "android"')
-            && /deviceType === \"android\"[\s\S]{0,800}createSignedUrl/.test(downloadRoute) === false,
+            && downloadRoute.includes('deviceType === "android"'),
+    );
+    record(
+        "iphone streams storage.download audio (not signedUrl redirect)",
+        downloadRoute.includes('// --- iPhone:')
+            && downloadRoute.includes(".download(storagePath)"),
     );
     record(
         "marketplace android click uses single audio helper",
@@ -112,6 +118,12 @@ async function main() {
             && marketUi.includes("triggerBrowserAudioDownload")
             && marketUi.includes("downloadLockRef")
             && !/deviceType === \"android\"[\s\S]{0,400}window\.open/.test(marketUi),
+    );
+    record(
+        "marketplace iphone click uses single audio helper",
+        marketUi.includes("downloadIphoneRingtoneAudio")
+            && !marketUi.includes("window.open(signedUrl")
+            && !marketUi.includes("downloadPurchasedRingtone"),
     );
     assertIncludes(read("app/api/ringtones/admin/route.ts"), "requireAdminUserId", "admin purchase route guarded");
     record("exclusive playback wiring", /ActiveMediaType\s*=\s*"song"\s*\|\s*"video"\s*\|\s*"ringtone"/.test(page));

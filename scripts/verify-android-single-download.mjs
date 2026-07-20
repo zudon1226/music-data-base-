@@ -30,7 +30,7 @@ record("android branch calls downloadAndroidRingtoneAudio once", marketUi.includ
 record("android branch triggers one browser audio download", marketUi.includes("triggerBrowserAudioDownload(result.blob, result.filename)"));
 record(
     "android branch does not window.open signed URL",
-    /deviceType === \"android\"[\s\S]*?return;[\s\S]*?downloadPurchasedRingtone/.test(marketUi)
+    marketUi.includes("downloadAndroidRingtoneAudio")
         && !/deviceType === \"android\"[\s\S]{0,900}window\.open/.test(marketUi),
 );
 record(
@@ -45,7 +45,7 @@ record(
 );
 record("no -android.json filename construction", !marketUi.includes("-android.json") && !client.includes("-android.json") && !route.includes("-android.json"));
 record("install guide is UI-only (not a file download)", marketUi.includes("setInstallGuide") && !marketUi.includes("installation.json"));
-record("iphone still uses downloadPurchasedRingtone + window.open", marketUi.includes("downloadPurchasedRingtone") && marketUi.includes("window.open(signedUrl"));
+record("android helper remains distinct from iphone helper", client.includes("downloadAndroidRingtoneAudio") && client.includes("downloadIphoneRingtoneAudio"));
 record("purchase auth gate unchanged", route.includes("PURCHASE_REQUIRED") && route.includes("buyerHasPaidRingtonePurchase"));
 record("download row insert remains single path", (route.match(/ringtone_downloads\"\)\.insert/g) || []).length === 1);
 

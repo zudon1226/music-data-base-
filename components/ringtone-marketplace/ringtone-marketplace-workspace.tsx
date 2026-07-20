@@ -7,7 +7,7 @@ import { useTranslation } from "@/lib/i18n/provider";
 import {
     confirmRingtonePurchase,
     downloadAndroidRingtoneAudio,
-    downloadPurchasedRingtone,
+    downloadIphoneRingtoneAudio,
     fetchFavoriteRingtones,
     fetchMyRingtonePurchases,
     fetchRingtoneDetail,
@@ -332,25 +332,28 @@ export function RingtoneMarketplaceWorkspace({
                 return;
             }
 
-            // iPhone flow unchanged: signed URL JSON + install steps.
-            const result = await downloadPurchasedRingtone({
+            // iPhone: one secure audio request → one Files download (never open Supabase URL).
+            const result = await downloadIphoneRingtoneAudio({
                 ringtoneId,
                 userId,
                 session,
-                deviceType,
             });
             if (!result.ok) {
                 setError(String(result.body.error || t("ringtones.downloadFailed")));
                 return;
             }
-            const signedUrl = String(result.body.signedUrl || "");
-            if (signedUrl) {
-                window.open(signedUrl, "_blank", "noopener,noreferrer");
-            }
-            const installation = result.body.installation as { summary?: string; steps?: string[] } | undefined;
+            triggerBrowserAudioDownload(result.blob, result.filename);
             setInstallGuide({
                 title: t("ringtones.downloadForIphone"),
-                steps: installation?.steps || [],
+                steps: [
+                    "Download the file",
+                    "Save it in Files",
+                    "Open GarageBand",
+                    "Import the audio file",
+                    "Share as Ringtone",
+                    "Export",
+                    "Select Standard Ringtone, Text Tone, or Assign to Contact",
+                ],
             });
             setStatusMessage(t("ringtones.downloadStarted"));
         } finally {

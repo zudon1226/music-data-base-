@@ -75,8 +75,8 @@ record("route uses title-based filename builder", route.includes("buildRingtoneD
 record("route sets private no-store + nosniff", route.includes("private, no-store") && route.includes("nosniff"));
 record("route never appends -android.json", !route.includes("-android.json") && !helper.includes("-android.json"));
 record("android path downloads storage bytes", route.includes(".download(storagePath)") && route.includes("NextResponse(bytes"));
-record("android path does not createSignedUrl", /deviceType === \"android\"[\s\S]{0,1200}createSignedUrl/.test(route) === false);
-record("iphone signed-url path preserved", route.includes("createSignedUrl") && route.includes("Open GarageBand"));
+record("android path does not createSignedUrl", !route.includes("createSignedUrl"));
+record("iphone also streams audio (no signed URL)", route.includes("// --- iPhone:") && !route.includes("signedUrl"));
 
 const cellular = buildRingtoneDownloadFilename("Cellular Phone", "creator/abc-android.mp3");
 assert.equal(cellular, "Cellular Phone.mp3");
