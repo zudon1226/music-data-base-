@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
 import { buyerHasPaidRingtonePurchase } from "@/lib/ringtone-access";
 import { RINGTONE_DEVICE_TYPES, RINGTONE_STORAGE_BUCKETS, type RingtoneDeviceType } from "@/lib/ringtone-constants";
+import {
+    buildRingtoneContentDisposition,
+    buildRingtoneDownloadFilename,
+    mimeTypeForAudioExtension,
+    extensionFromStoragePath,
+} from "@/lib/ringtone-download-filename";
 import { loadRevisionForPurchase } from "@/lib/ringtone-revisions";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
@@ -16,8 +22,9 @@ function json(body: Record<string, unknown>, status = 200) {
 type Params = { params: Promise<{ id: string }> };
 
 /**
- * Issues a short-lived signed download URL only after paid purchase verification.
- * Owner/admin may request a signed URL for documented testing only (explicit flag).
+ * Ringtone download authorization + delivery.
+ * - Android: streams exactly one audio attachment with a title-based filename (no JSON body).
+ * - iPhone: unchanged signed-URL JSON contract + install steps (do not alter yet).
  */
 export async function POST(request: Request, context: Params) {
     try {
@@ -39,7 +46,7 @@ export async function POST(request: Request, context: Params) {
         const supabase = getSupabaseServerClient();
         const product = await supabase
             .from("ringtone_products")
-            .select("id,creator_id,status,android_storage_path,iphone_storage_path,download_storage_path")
+            .select("id,creator_id,status,title,android_storage_path,iphone_storage_path,download_storage_path")
             .eq("id", ringtoneId)
             .maybeSingle();
         if (product.error) return json({ error: getErrorMessage(product.error) }, 500);
@@ -75,13 +82,6 @@ export async function POST(request: Request, context: Params) {
             }, 409);
         }
 
-        const signed = await supabase.storage
-            .from(RINGTONE_STORAGE_BUCKETS.downloads)
-            .createSignedUrl(storagePath, 60);
-        if (signed.error || !signed.data?.signedUrl) {
-            return json({ error: getErrorMessage(signed.error) || "Unable to sign download URL." }, 500);
-        }
-
         if (purchase?.id) {
             await supabase.from("ringtone_downloads").insert({
                 ringtone_id: ringtoneId,
@@ -91,6 +91,44 @@ export async function POST(request: Request, context: Params) {
             });
         }
 
+        // --- Android: stream one audio file with a readable Content-Disposition filename ---
+        if (deviceType === "android" || deviceType === "other") {
+            const downloaded = await supabase.storage
+                .from(RINGTONE_STORAGE_BUCKETS.downloads)
+                .download(storagePath);
+            if (downloaded.error || !downloaded.data) {
+                return json({
+                    error: getErrorMessage(downloaded.error) || "Unable to load ringtone audio.",
+                    code: "AUDIO_FETCH_FAILED",
+                }, 500);
+            }
+
+            const bytes = Buffer.from(await downloaded.data.arrayBuffer());
+            const filename = buildRingtoneDownloadFilename(product.data.title, storagePath);
+            const ext = extensionFromStoragePath(storagePath);
+            const contentType = mimeTypeForAudioExtension(ext);
+            const contentDisposition = buildRingtoneContentDisposition(filename);
+
+            return new NextResponse(bytes, {
+                status: 200,
+                headers: {
+                    "Content-Type": contentType,
+                    "Content-Disposition": contentDisposition,
+                    "Cache-Control": "private, no-store",
+                    "X-Content-Type-Options": "nosniff",
+                    "Content-Length": String(bytes.byteLength),
+                },
+            });
+        }
+
+        // --- iPhone (unchanged): short-lived signed URL + install guidance JSON ---
+        const signed = await supabase.storage
+            .from(RINGTONE_STORAGE_BUCKETS.downloads)
+            .createSignedUrl(storagePath, 60);
+        if (signed.error || !signed.data?.signedUrl) {
+            return json({ error: getErrorMessage(signed.error) || "Unable to sign download URL." }, 500);
+        }
+
         return json({
             signedUrl: signed.data.signedUrl,
             expiresInSeconds: 60,
@@ -98,32 +136,19 @@ export async function POST(request: Request, context: Params) {
             purchaseId: purchase?.id || null,
             ownerTesting,
             creatorTesting,
-            installation: deviceType === "iphone"
-                ? {
-                    summary: "Download the file, save it in Files, then use GarageBand to export a ringtone. This web app cannot set an iPhone ringtone directly.",
-                    cannotSetDirectly: true,
-                    steps: [
-                        "Download the file",
-                        "Save it in Files",
-                        "Open GarageBand",
-                        "Import the audio file",
-                        "Share as Ringtone",
-                        "Export",
-                        "Select Standard Ringtone, Text Tone, or Assign to Contact",
-                    ],
-                }
-                : {
-                    summary: "Save the audio file, then assign it as a ringtone in your Android sound settings. Steps vary by manufacturer.",
-                    cannotSetDirectly: false,
-                    steps: [
-                        "Download the audio file",
-                        "Open your device Files or Downloads app",
-                        "Move or keep the file in an accessible folder",
-                        "Open Settings → Sound & vibration (or Sounds)",
-                        "Choose Phone ringtone / Ringtone",
-                        "Select the downloaded file if your manufacturer allows custom ringtones",
-                    ],
-                },
+            installation: {
+                summary: "Download the file, save it in Files, then use GarageBand to export a ringtone. This web app cannot set an iPhone ringtone directly.",
+                cannotSetDirectly: true,
+                steps: [
+                    "Download the file",
+                    "Save it in Files",
+                    "Open GarageBand",
+                    "Import the audio file",
+                    "Share as Ringtone",
+                    "Export",
+                    "Select Standard Ringtone, Text Tone, or Assign to Contact",
+                ],
+            },
         });
     } catch (error) {
         console.error("[api/ringtones/:id/download] failed:", error);

@@ -97,6 +97,22 @@ async function main() {
     assertIncludes(downloadRoute, "expiresInSeconds: 60", "signed-URL expiry contract");
     assertIncludes(downloadRoute, "creatorTesting", "creator testing download path");
     assertIncludes(downloadRoute, "Open GarageBand", "iphone install steps");
+    assertIncludes(downloadRoute, "buildRingtoneContentDisposition", "android Content-Disposition builder");
+    assertIncludes(downloadRoute, "Cache-Control\": \"private, no-store\"", "android no-store cache");
+    assertIncludes(downloadRoute, "X-Content-Type-Options\": \"nosniff\"", "android nosniff");
+    record(
+        "android streams storage.download audio (not signedUrl redirect)",
+        downloadRoute.includes(".download(storagePath)")
+            && downloadRoute.includes('deviceType === "android"')
+            && /deviceType === \"android\"[\s\S]{0,800}createSignedUrl/.test(downloadRoute) === false,
+    );
+    record(
+        "marketplace android click uses single audio helper",
+        marketUi.includes("downloadAndroidRingtoneAudio")
+            && marketUi.includes("triggerBrowserAudioDownload")
+            && marketUi.includes("downloadLockRef")
+            && !/deviceType === \"android\"[\s\S]{0,400}window\.open/.test(marketUi),
+    );
     assertIncludes(read("app/api/ringtones/admin/route.ts"), "requireAdminUserId", "admin purchase route guarded");
     record("exclusive playback wiring", /ActiveMediaType\s*=\s*"song"\s*\|\s*"video"\s*\|\s*"ringtone"/.test(page));
 

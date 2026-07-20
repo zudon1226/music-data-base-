@@ -6,6 +6,7 @@ import type { RingtonePreviewRequest } from "@/components/ringtone-creator/ringt
 import { useTranslation } from "@/lib/i18n/provider";
 import {
     confirmRingtonePurchase,
+    downloadAndroidRingtoneAudio,
     downloadPurchasedRingtone,
     fetchFavoriteRingtones,
     fetchMyRingtonePurchases,
@@ -14,6 +15,7 @@ import {
     formatRingtonePrice,
     purchaseRingtone,
     toggleRingtoneFavorite,
+    triggerBrowserAudioDownload,
     type MarketplaceRingtone,
 } from "@/lib/ringtone-marketplace-client";
 
@@ -68,6 +70,7 @@ export function RingtoneMarketplaceWorkspace({
     const [installGuide, setInstallGuide] = useState<{ title: string; steps: string[] } | null>(null);
     const [pending, startTransition] = useTransition();
     const purchaseLockRef = useRef(false);
+    const downloadLockRef = useRef(false);
 
     useEffect(() => {
         setDetailId(initialRingtoneId);
@@ -298,26 +301,61 @@ export function RingtoneMarketplaceWorkspace({
             onRequireLogin();
             return;
         }
-        const result = await downloadPurchasedRingtone({
-            ringtoneId,
-            userId,
-            session,
-            deviceType,
-        });
-        if (!result.ok) {
-            setError(String(result.body.error || t("ringtones.downloadFailed")));
-            return;
+        if (downloadLockRef.current) return;
+        downloadLockRef.current = true;
+        setError("");
+        try {
+            if (deviceType === "android") {
+                // One secure audio request → one audio file. No signed URL, no JSON attachment.
+                const result = await downloadAndroidRingtoneAudio({
+                    ringtoneId,
+                    userId,
+                    session,
+                });
+                if (!result.ok) {
+                    setError(String(result.body.error || t("ringtones.downloadFailed")));
+                    return;
+                }
+                triggerBrowserAudioDownload(result.blob, result.filename);
+                setInstallGuide({
+                    title: t("ringtones.downloadForAndroid"),
+                    steps: [
+                        "Download the audio file",
+                        "Open your device Files or Downloads app",
+                        "Move or keep the file in an accessible folder",
+                        "Open Settings → Sound & vibration (or Sounds)",
+                        "Choose Phone ringtone / Ringtone",
+                        "Select the downloaded file if your manufacturer allows custom ringtones",
+                    ],
+                });
+                setStatusMessage(t("ringtones.downloadStarted"));
+                return;
+            }
+
+            // iPhone flow unchanged: signed URL JSON + install steps.
+            const result = await downloadPurchasedRingtone({
+                ringtoneId,
+                userId,
+                session,
+                deviceType,
+            });
+            if (!result.ok) {
+                setError(String(result.body.error || t("ringtones.downloadFailed")));
+                return;
+            }
+            const signedUrl = String(result.body.signedUrl || "");
+            if (signedUrl) {
+                window.open(signedUrl, "_blank", "noopener,noreferrer");
+            }
+            const installation = result.body.installation as { summary?: string; steps?: string[] } | undefined;
+            setInstallGuide({
+                title: t("ringtones.downloadForIphone"),
+                steps: installation?.steps || [],
+            });
+            setStatusMessage(t("ringtones.downloadStarted"));
+        } finally {
+            downloadLockRef.current = false;
         }
-        const signedUrl = String(result.body.signedUrl || "");
-        if (signedUrl) {
-            window.open(signedUrl, "_blank", "noopener,noreferrer");
-        }
-        const installation = result.body.installation as { summary?: string; steps?: string[] } | undefined;
-        setInstallGuide({
-            title: deviceType === "iphone" ? t("ringtones.downloadForIphone") : t("ringtones.downloadForAndroid"),
-            steps: installation?.steps || [],
-        });
-        setStatusMessage(t("ringtones.downloadStarted"));
     }
 
     function renderMarketplaceCard(ringtone: MarketplaceRingtone) {

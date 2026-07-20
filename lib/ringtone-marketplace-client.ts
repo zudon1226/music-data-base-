@@ -2,6 +2,7 @@
 
 import type { Session } from "@supabase/supabase-js";
 import { readAccessTokenFromSession } from "@/lib/client-api-auth";
+import { parseFilenameFromContentDisposition } from "@/lib/ringtone-download-filename";
 import { randomUUID } from "@/lib/ringtone-marketplace-id";
 
 function authHeaders(session: Session | null | undefined, json = true) {
@@ -198,6 +199,83 @@ export async function downloadPurchasedRingtone(input: {
         }),
     });
     return parseJson(response);
+}
+
+/**
+ * Android: one POST to the secure download endpoint → one audio blob.
+ * Filename comes from Content-Disposition (server title), never client guessing.
+ */
+export async function downloadAndroidRingtoneAudio(input: {
+    ringtoneId: string;
+    userId: string;
+    session: Session | null;
+    creatorTesting?: boolean;
+}) {
+    const response = await fetch(`/api/ringtones/${input.ringtoneId}/download`, {
+        method: "POST",
+        headers: authHeaders(input.session),
+        body: JSON.stringify({
+            userId: input.userId,
+            deviceType: "android",
+            creatorTesting: input.creatorTesting === true,
+        }),
+    });
+
+    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+        return {
+            ok: false as const,
+            status: response.status,
+            body,
+        };
+    }
+
+    if (contentType.includes("application/json")) {
+        const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+        return {
+            ok: false as const,
+            status: response.status,
+            body: {
+                error: String(body.error || "Android download returned JSON instead of audio."),
+                code: "UNEXPECTED_JSON_DOWNLOAD",
+            },
+        };
+    }
+
+    const blob = await response.blob();
+    if (!blob || blob.size < 1) {
+        return {
+            ok: false as const,
+            status: 500,
+            body: { error: "Android download returned an empty audio file.", code: "EMPTY_AUDIO" },
+        };
+    }
+
+    const filename = parseFilenameFromContentDisposition(response.headers.get("content-disposition"))
+        || "ringtone.mp3";
+
+    return {
+        ok: true as const,
+        status: response.status,
+        blob,
+        filename,
+        contentType,
+    };
+}
+
+/** Trigger exactly one browser file save from an audio blob. */
+export function triggerBrowserAudioDownload(blob: Blob, filename: string) {
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    anchor.rel = "noopener";
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
 }
 
 export function formatRingtonePrice(cents: number, currency = "USD") {
