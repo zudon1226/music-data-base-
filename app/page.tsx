@@ -16828,6 +16828,32 @@ function PageContent() {
               </div>
             </section>
 
+            <section className="subscription-section" aria-label="Subscriptions">
+              <div className="subscription-head">
+                <p className="section-kicker">Subscriptions</p>
+                <h2>Choose Your Music Data Base Plan</h2>
+              </div>
+
+              <div className="plan-grid">
+                {SUBSCRIPTION_PLANS.map((plan) => (<article className="plan-card" key={plan.name}>
+                    <span>{plan.name}</span>
+                    <strong>{formatCurrencyFromCents(plan.priceCents, plan.currency)}/{plan.billingInterval === "one_time" ? "once" : plan.billingInterval}</strong>
+                    <p>{plan.features.join(" ")}</p>
+                    <button
+                      disabled={Boolean(subscriptionCheckoutBusyPlanId)}
+                      onClick={() => void setupSubscriptionPlan(plan)}
+                      type="button"
+                    >
+                      {subscriptionCheckoutBusyPlanId === plan.id
+                          ? "Opening checkout…"
+                          : activeSubscriptionPlanId === plan.id
+                              ? "Selected"
+                              : "Subscribe"}
+                    </button>
+                  </article>))}
+              </div>
+            </section>
+
             {discoveryForYouItems.length > 0 && (<section className="artist-section discovery-section">
                 <div className="artist-section-title">
                   <div>
@@ -16949,32 +16975,6 @@ function PageContent() {
                     </button>
                   </div>
                 </div>
-              </div>
-            </section>
-
-            <section className="subscription-section" aria-label="Subscriptions">
-              <div className="subscription-head">
-                <p className="section-kicker">Subscriptions</p>
-                <h2>Choose Your Music Data Base Plan</h2>
-              </div>
-
-              <div className="plan-grid">
-                {SUBSCRIPTION_PLANS.map((plan) => (<article className="plan-card" key={plan.name}>
-                    <span>{plan.name}</span>
-                    <strong>{formatCurrencyFromCents(plan.priceCents, plan.currency)}/{plan.billingInterval === "one_time" ? "once" : plan.billingInterval}</strong>
-                    <p>{plan.features.join(" ")}</p>
-                    <button
-                      disabled={Boolean(subscriptionCheckoutBusyPlanId)}
-                      onClick={() => void setupSubscriptionPlan(plan)}
-                      type="button"
-                    >
-                      {subscriptionCheckoutBusyPlanId === plan.id
-                          ? "Opening checkout…"
-                          : activeSubscriptionPlanId === plan.id
-                              ? "Selected"
-                              : "Subscribe"}
-                    </button>
-                  </article>))}
               </div>
             </section>
           </>)}
