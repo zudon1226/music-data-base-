@@ -3,6 +3,7 @@
 import {
     Bell,
     BookOpen,
+    Download,
     Film,
     ListMusic,
     MessageCircle,
@@ -105,6 +106,7 @@ function DesktopMediaCardPrimaryActions({
     isFollowed,
     isSaved,
     isQueued,
+    isDownloading,
     canDelete,
     deleteClassName,
     onPlay,
@@ -113,6 +115,7 @@ function DesktopMediaCardPrimaryActions({
     onToggleSave,
     onToggleQueue,
     onOpenPlaylist,
+    onDownload,
     onDelete,
 }: {
     playLabel: string;
@@ -121,6 +124,7 @@ function DesktopMediaCardPrimaryActions({
     isFollowed: boolean;
     isSaved: boolean;
     isQueued: boolean;
+    isDownloading?: boolean;
     canDelete: boolean;
     deleteClassName?: string;
     onPlay: () => void;
@@ -129,6 +133,7 @@ function DesktopMediaCardPrimaryActions({
     onToggleSave: () => void;
     onToggleQueue: () => void;
     onOpenPlaylist: () => void;
+    onDownload: () => void;
     onDelete: () => void;
 }) {
     return (
@@ -184,6 +189,19 @@ function DesktopMediaCardPrimaryActions({
             >
                 <ListMusic size={15} />
                 <span>{isQueued ? "Remove" : "Queue"}</span>
+            </button>
+
+            <button
+                className={isDownloading ? "download-btn is-busy" : "download-btn"}
+                onClick={onDownload}
+                disabled={Boolean(isDownloading)}
+                title="Download"
+                type="button"
+                data-media-action="download"
+                aria-label={isDownloading ? "Preparing download…" : "Download"}
+            >
+                <Download size={15} aria-hidden="true" />
+                <span>{isDownloading ? "Preparing download…" : "Download"}</span>
             </button>
 
             {canDelete ? (
@@ -268,6 +286,7 @@ export function DesktopSongMediaCard({
                         isFollowed={state.isFollowed}
                         isSaved={state.isSaved}
                         isQueued={state.isQueued}
+                        isDownloading={state.isDownloading}
                         canDelete={state.canDelete}
                         deleteClassName={variant === "library" ? "library-song-delete-btn" : undefined}
                         onPlay={handlers.onPlay}
@@ -276,6 +295,7 @@ export function DesktopSongMediaCard({
                         onToggleSave={handlers.onToggleSave}
                         onToggleQueue={handlers.onToggleQueue}
                         onOpenPlaylist={handlers.onOpenPlaylist}
+                        onDownload={handlers.onDownload}
                         onDelete={handlers.onDelete}
                     />
                 </div>
@@ -352,6 +372,7 @@ export function DesktopVideoMediaCard({
                         isFollowed={state.isFollowed}
                         isSaved={state.isSaved}
                         isQueued={state.isQueued}
+                        isDownloading={state.isDownloading}
                         canDelete={state.canDelete}
                         onPlay={handlers.onPlay}
                         onToggleLike={handlers.onToggleLike}
@@ -359,6 +380,7 @@ export function DesktopVideoMediaCard({
                         onToggleSave={handlers.onToggleSave}
                         onToggleQueue={handlers.onToggleQueue}
                         onOpenPlaylist={handlers.onOpenPlaylist}
+                        onDownload={handlers.onDownload}
                         onDelete={handlers.onDelete}
                     />
                 </div>

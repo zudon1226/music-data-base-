@@ -68,6 +68,7 @@ export const LISTENER_MEDIA_PRIMARY_ACTION_ORDER = [
     "save",
     "playlist",
     "queue",
+    "download",
 ] as const;
 
 /** Stable Listener secondary action order. */

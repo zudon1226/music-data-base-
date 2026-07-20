@@ -35,6 +35,8 @@ export type DesktopSongCardState = {
     canDelete: boolean;
     /** Copyright Claim — creator/owner only; never for Listeners. */
     canClaim: boolean;
+    /** True while an authorized download request is in flight for this card. */
+    isDownloading?: boolean;
     producerCredit: string | null;
     commentCount: number;
     verifiedBadge?: ReactNode;
@@ -48,6 +50,8 @@ export type DesktopVideoCardState = {
     canDelete: boolean;
     /** Copyright Claim — creator/owner only; never for Listeners. */
     canClaim: boolean;
+    /** True while an authorized download request is in flight for this card. */
+    isDownloading?: boolean;
     commentCount: number;
     verifiedBadge?: ReactNode;
     mobileIncompatible?: boolean;
@@ -62,6 +66,7 @@ export type DesktopSongCardHandlers = {
     /** Add when not queued; remove when already queued. */
     onToggleQueue: () => void;
     onOpenPlaylist: () => void;
+    onDownload: () => void;
     onDelete: () => void;
     onOpenComments: () => void;
     onShare: () => void;
@@ -78,6 +83,7 @@ export type DesktopVideoCardHandlers = {
     /** Add when not queued; remove when already queued. */
     onToggleQueue: () => void;
     onOpenPlaylist: () => void;
+    onDownload: () => void;
     onDelete: () => void;
     onOpenComments: () => void;
     onShare: () => void;

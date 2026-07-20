@@ -45,6 +45,10 @@ import {
 } from "../lib/dashboard/recently-played-sync";
 import { defaultHrefForNotification } from "../lib/dashboard/notification-kinds";
 import {
+    downloadAuthorizedMediaFile,
+    PREMIUM_LISTENER_DOWNLOAD_REQUIRED_MESSAGE,
+} from "../lib/media-download-client";
+import {
     buildActiveNavigationKey,
     disableBrowserScrollRestoration,
     forceMainContentScrollTop,
@@ -3586,6 +3590,7 @@ function PageContent() {
     const selectedVideoFileRef = useRef<File | null>(null);
     const pendingVideoPlayRef = useRef(false);
     const videoCompatibilityScanRef = useRef<Set<string>>(new Set());
+    const mediaDownloadLockRef = useRef(false);
     const remoteMusicStateSaveSnapshotRef = useRef("");
     const initialDataReloadRef = useRef<InitialDataReloadActions>({
         clearRemovedPlaceholderArtwork: () => undefined,
@@ -3636,6 +3641,7 @@ function PageContent() {
     const [savedVideoIds, setSavedVideoIds] = useState<string[]>([]);
     const [savedAlbumIds, setSavedAlbumIds] = useState<string[]>([]);
     const [likedIds, setLikedIds] = useState<string[]>([]);
+    const [mediaDownloadBusyKey, setMediaDownloadBusyKey] = useState("");
     const [libraryTab, setLibraryTab] = useState<LibraryTab>("Songs");
     const [libraryLoadError, setLibraryLoadError] = useState("");
     const [likedTab, setLikedTab] = useState<LikedTab>("All");
@@ -11168,6 +11174,47 @@ function PageContent() {
         <span>Playlist</span>
       </button>);
     }
+    function openSubscriptionPlansForMediaDownload() {
+        handleNav("Home");
+        window.setTimeout(() => {
+            const section = document.querySelector<HTMLElement>(".subscription-section");
+            section?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
+    }
+    async function downloadMediaFromCard(kind: "music" | "video", contentId: string, title: string) {
+        const busyKey = `${kind}:${contentId}`;
+        if (mediaDownloadLockRef.current) return;
+        const userId = String(accountUserId || "").trim();
+        if (!userId || !authSession?.access_token) {
+            showToast(PREMIUM_LISTENER_DOWNLOAD_REQUIRED_MESSAGE, "error");
+            openSubscriptionPlansForMediaDownload();
+            return;
+        }
+        mediaDownloadLockRef.current = true;
+        setMediaDownloadBusyKey(busyKey);
+        showToast("Preparing download…", "info");
+        try {
+            const result = await downloadAuthorizedMediaFile({
+                kind,
+                contentId,
+                userId,
+                session: authSession,
+            });
+            if (!result.ok) {
+                showToast(result.error || PREMIUM_LISTENER_DOWNLOAD_REQUIRED_MESSAGE, "error");
+                if (result.openSubscriptions || result.code === "PREMIUM_LISTENER_REQUIRED" || result.status === 401) {
+                    openSubscriptionPlansForMediaDownload();
+                }
+                return;
+            }
+            showToast(`Download started: ${result.filename || title}`, "success");
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : "Download failed.", "error");
+        } finally {
+            mediaDownloadLockRef.current = false;
+            setMediaDownloadBusyKey("");
+        }
+    }
     function renderDesktopSongCard(song: Song, options: { variant?: "default" | "library" } = {}) {
         const isSaved = libraryIds.includes(song.id);
         const isLiked = likedIds.includes(song.id);
@@ -11176,6 +11223,7 @@ function PageContent() {
         const isQueued = isMediaQueued("song", song.id);
         const producerCredit = getProducerCreditForSong(song);
         const canDeleteTrack = canDeleteUploadedSong(song);
+        const downloadBusyKey = `music:${song.id}`;
         return (<DesktopSongMediaCard
             key={song.id}
             song={song}
@@ -11185,6 +11233,7 @@ function PageContent() {
                 isSaved,
                 isFollowed,
                 isQueued,
+                isDownloading: mediaDownloadBusyKey === downloadBusyKey,
                 canDelete: canDeleteTrack,
                 canClaim: canClaimMedia,
                 producerCredit,
@@ -11210,6 +11259,7 @@ function PageContent() {
                     addToQueue(song);
                 },
                 onOpenPlaylist: () => openPlaylistMenu(song),
+                onDownload: () => { void downloadMediaFromCard("music", song.id, song.title); },
                 onDelete: () => permanentDeleteSong(song.id, "Permanently delete this song?"),
                 onOpenComments: () => openComments("song", song),
                 onShare: () => copyShareLink("song", song.id, song.title),
@@ -11228,6 +11278,7 @@ function PageContent() {
         const isQueued = isMediaQueued("video", video.id);
         const canDeleteVideo = canDeleteUploadedVideo(video);
         const mobileIncompatible = isVideoMarkedMobileIncompatible(video);
+        const downloadBusyKey = `video:${video.id}`;
         return (<DesktopVideoMediaCard
             key={video.id}
             video={{
@@ -11247,6 +11298,7 @@ function PageContent() {
                 isSaved,
                 isFollowed: isFollowing,
                 isQueued,
+                isDownloading: mediaDownloadBusyKey === downloadBusyKey,
                 canDelete: canDeleteVideo,
                 canClaim: canClaimMedia,
                 commentCount: getCommentsForItem("video", video.id).length,
@@ -11273,6 +11325,7 @@ function PageContent() {
                     addVideoToQueue(video);
                 },
                 onOpenPlaylist: () => handleVideoPlaylist(video.id),
+                onDownload: () => { void downloadMediaFromCard("video", video.id, video.title); },
                 onDelete: () => handlePermanentDeleteVideo(video.id),
                 onOpenComments: () => openComments("video", video),
                 onShare: () => copyShareLink("video", video.id, video.title),
@@ -23087,7 +23140,8 @@ function PageContent() {
 
           .card-actions .library-btn,
           .card-actions .queue-btn,
-          .card-actions .playlist-btn {
+          .card-actions .playlist-btn,
+          .card-actions .download-btn {
             min-width: 0;
           }
 
@@ -23273,6 +23327,15 @@ function PageContent() {
             background: #33446f;
           }
 
+          .download-btn {
+            background: #1d4ed8;
+          }
+
+          .download-btn.is-busy {
+            opacity: 0.78;
+            cursor: wait;
+          }
+
           .card-secondary-actions {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -23313,7 +23376,8 @@ function PageContent() {
 
             .card-actions .library-btn,
             .card-actions .queue-btn,
-            .card-actions .playlist-btn {
+            .card-actions .playlist-btn,
+            .card-actions .download-btn {
               min-width: 0;
             }
           }
