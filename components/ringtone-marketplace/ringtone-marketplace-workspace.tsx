@@ -681,6 +681,11 @@ export function RingtoneMarketplaceWorkspace({
                 .ringtone-marketplace-page {
                     display: grid;
                     gap: 16px;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                    overflow-x: hidden;
                     padding-bottom: calc(var(--mobile-player-reserve, 110px) + 28px);
                 }
                 .ringtone-market-controls,
@@ -703,13 +708,22 @@ export function RingtoneMarketplaceWorkspace({
                 .ringtone-purchased-list {
                     display: grid;
                     gap: 12px;
-                    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
                 }
                 .ringtone-market-card {
                     display: grid;
-                    grid-template-columns: 120px 1fr;
+                    grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
                     gap: 12px;
                     align-items: start;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                    overflow-x: hidden;
                 }
                 .ringtone-market-cover,
                 .ringtone-market-actions button,
@@ -777,15 +791,21 @@ export function RingtoneMarketplaceWorkspace({
                     .ringtone-detail-grid { grid-template-columns: 1fr; }
                     .ringtone-market-actions {
                         display: grid;
-                        grid-template-columns: 1fr 1fr;
+                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
                         gap: 10px;
                         align-items: stretch;
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
                     }
                     .ringtone-market-actions button,
                     .ringtone-owned-badge {
                         width: 100%;
+                        min-width: 0;
+                        max-width: 100%;
                         justify-content: center;
                         text-align: center;
+                        box-sizing: border-box;
                     }
                     .ringtone-market-actions button.ringtone-device-download {
                         width: 100%;
@@ -795,8 +815,15 @@ export function RingtoneMarketplaceWorkspace({
                         padding: 0.5rem 0.45rem;
                         font-size: 12px;
                     }
+                    .ringtone-market-controls label {
+                        min-width: 0;
+                        flex: 1 1 100%;
+                    }
                 }
                 @media (max-width: 360px) {
+                    .ringtone-market-actions {
+                        grid-template-columns: 1fr;
+                    }
                     .ringtone-market-actions button.ringtone-device-download {
                         font-size: 11px;
                         padding: 0.45rem 0.35rem;

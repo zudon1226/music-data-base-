@@ -104,6 +104,7 @@ export function RingtoneCreatorWorkspace({
     const [processState, setProcessState] = useState<ProcessState>("idle");
     const [loading, setLoading] = useState(true);
     const [pending, startTransition] = useTransition();
+    const [sourceFileName, setSourceFileName] = useState("");
     const submitLockRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -196,6 +197,7 @@ export function RingtoneCreatorWorkspace({
     function beginCreate() {
         setEditingId("");
         setForm(createEmptyRingtoneForm());
+        setSourceFileName("");
         setStep(1);
         setProcessState("idle");
         setError("");
@@ -261,6 +263,7 @@ export function RingtoneCreatorWorkspace({
 
     async function handleSourceUpload(file: File | null) {
         if (!file) return;
+        setSourceFileName(file.name);
         if (!form.ownershipConfirmed) {
             setError(t("ringtones.ownershipRequired"));
             return;
@@ -762,7 +765,11 @@ export function RingtoneCreatorWorkspace({
 
             {mode === "create" ? (
                 <div className="upload-shell ringtone-wizard" data-ringtone-wizard-step={step}>
-                    <div className="upload-mode-tabs" role="tablist" aria-label={t("ringtones.create")}>
+                    <div
+                        className="upload-mode-tabs ringtone-wizard-steps"
+                        role="tablist"
+                        aria-label={t("ringtones.create")}
+                    >
                         {[1, 2, 3, 4, 5].map((value) => (
                             <button
                                 key={value}
@@ -793,7 +800,7 @@ export function RingtoneCreatorWorkspace({
                         {step === 1 ? (
                             <div className="ringtone-step">
                                 <h2>{t("ringtones.chooseSource")}</h2>
-                                <div className="upload-mode-tabs">
+                                <div className="upload-mode-tabs ringtone-source-tabs">
                                     <button
                                         type="button"
                                         className={form.sourceKind === "owned_song" ? "active" : ""}
@@ -841,13 +848,20 @@ export function RingtoneCreatorWorkspace({
                                             />
                                             <span>{t("ringtones.ownershipConfirmation")}</span>
                                         </label>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept={RINGTONE_ALLOWED_AUDIO_MIME_TYPES.join(",")}
-                                            disabled={!form.ownershipConfirmed || processState === "uploading"}
-                                            onChange={(event) => void handleSourceUpload(event.target.files?.[0] || null)}
-                                        />
+                                        <div className="ringtone-file-row">
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept={RINGTONE_ALLOWED_AUDIO_MIME_TYPES.join(",")}
+                                                disabled={!form.ownershipConfirmed || processState === "uploading"}
+                                                onChange={(event) => void handleSourceUpload(event.target.files?.[0] || null)}
+                                            />
+                                            {sourceFileName ? (
+                                                <span className="ringtone-file-name" title={sourceFileName}>
+                                                    {sourceFileName}
+                                                </span>
+                                            ) : null}
+                                        </div>
                                         {processState === "failed" ? (
                                             <button type="button" onClick={() => fileInputRef.current?.click()}>
                                                 {t("ringtones.retryUpload")}
@@ -1057,11 +1071,40 @@ export function RingtoneCreatorWorkspace({
             ) : null}
 
             <style jsx>{`
+                .ringtone-creator-page,
+                .ringtone-wizard,
+                .ringtone-wizard-card,
+                .ringtone-step,
+                .ringtone-list-shell,
+                .ringtone-upload-source,
+                .ringtone-source-list,
+                .ringtone-details-grid,
+                .ringtone-review,
+                .ringtone-file-row {
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                }
+
                 .ringtone-creator-page {
                     display: grid;
                     gap: 16px;
+                    overflow-x: hidden;
                     padding-bottom: calc(var(--mobile-player-reserve, 110px) + 24px);
                 }
+
+                .ringtone-wizard {
+                    display: grid;
+                    gap: 12px;
+                    overflow-x: hidden;
+                    padding-bottom: calc(var(--mobile-player-reserve, 110px) + 12px);
+                }
+
+                .ringtone-wizard-card {
+                    overflow-x: hidden;
+                }
+
                 .ringtone-creator-header,
                 .ringtone-creator-actions,
                 .ringtone-list-controls,
@@ -1072,80 +1115,186 @@ export function RingtoneCreatorWorkspace({
                     flex-wrap: wrap;
                     gap: 10px;
                     align-items: center;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
                 }
+
                 .ringtone-creator-header {
                     justify-content: space-between;
                 }
+
+                .ringtone-creator-header > div,
+                .ringtone-creator-actions,
+                .ringtone-card-body,
+                .ringtone-source-list span {
+                    min-width: 0;
+                    max-width: 100%;
+                }
+
                 .ringtone-creator-actions button,
                 .ringtone-list-controls button,
                 .ringtone-card-actions button,
                 .ringtone-wizard-nav button,
-                .ringtone-source-list button {
+                .ringtone-final-actions button,
+                .ringtone-source-list button,
+                .ringtone-step > button,
+                .ringtone-upload-source > button {
                     min-height: 44px;
-                    min-width: 44px;
+                    min-width: 0;
+                    max-width: 100%;
                     border-radius: 8px;
                     border: 1px solid rgba(0, 212, 255, 0.28);
                     background: #0b1736;
                     color: #e8f7ff;
-                    padding: 0.55rem 0.9rem;
+                    padding: 0.55rem 0.75rem;
                     cursor: pointer;
+                    box-sizing: border-box;
+                    white-space: normal;
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
                 }
+
                 .ringtone-creator-actions button.active,
-                .upload-mode-tabs button.active,
+                .ringtone-wizard-steps button.active,
+                .ringtone-source-tabs button.active,
                 .ringtone-source-list button.selected {
                     background: #22d3ee;
                     color: #062033;
                     font-weight: 800;
                 }
+
+                .ringtone-wizard .ringtone-wizard-steps,
+                .ringtone-wizard .ringtone-source-tabs,
+                .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps),
+                .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs) {
+                    display: grid !important;
+                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+                    flex-wrap: unset !important;
+                    gap: 10px;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                    overflow-x: hidden;
+                    border: 1px solid rgba(0, 212, 255, 0.28);
+                    border-radius: 8px;
+                    background: #071631;
+                    padding: 10px;
+                }
+
+                .ringtone-wizard .ringtone-wizard-steps button,
+                .ringtone-wizard .ringtone-source-tabs button,
+                .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps) button,
+                .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs) button {
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    max-width: 100% !important;
+                    min-height: 44px;
+                    justify-content: center;
+                    text-align: center;
+                    white-space: normal !important;
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
+                    line-height: 1.2;
+                    padding: 0.5rem 0.55rem !important;
+                    border: 0;
+                    border-radius: 8px;
+                    background: #152d66;
+                    color: white;
+                    font-size: 13px;
+                    font-weight: 900;
+                    cursor: pointer;
+                    box-sizing: border-box;
+                }
+
                 .ringtone-list-controls,
                 .ringtone-details-grid,
                 .ringtone-source-list,
-                .ringtone-card-grid {
+                .ringtone-card-grid,
+                .ringtone-step {
                     display: grid;
                     gap: 12px;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
                 }
+
                 .ringtone-list-controls {
-                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
                 }
+
                 .ringtone-card-grid {
-                    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
                 }
+
                 .ringtone-card {
                     display: grid;
-                    grid-template-columns: 72px 1fr;
+                    grid-template-columns: 72px minmax(0, 1fr);
                     gap: 12px;
                     align-items: start;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                    overflow-x: hidden;
                 }
+
                 .ringtone-card img,
                 .ringtone-source-list img,
                 .ringtone-review img {
                     border-radius: 8px;
                     object-fit: cover;
                     background: #08122b;
+                    max-width: 100%;
                 }
+
                 .ringtone-source-list button {
                     display: grid;
-                    grid-template-columns: 48px 1fr;
+                    grid-template-columns: 48px minmax(0, 1fr);
                     gap: 10px;
                     text-align: left;
                     width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
                 }
+
+                .ringtone-source-list strong,
+                .ringtone-source-list small,
+                .ringtone-card-body h3,
+                .ringtone-card-body p,
+                .ringtone-review p,
+                .ringtone-process-state {
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
+                }
+
                 .ringtone-field {
                     display: grid;
                     gap: 6px;
+                    min-width: 0;
+                    max-width: 100%;
                 }
+
                 .ringtone-checkbox-stack {
                     display: grid;
                     gap: 12px;
                     margin-top: 4px;
                     padding-bottom: 8px;
+                    min-width: 0;
+                    max-width: 100%;
                 }
+
                 .ringtone-checkbox {
                     display: flex;
-                    align-items: center;
+                    align-items: flex-start;
                     gap: 14px;
                     min-height: 48px;
                     width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
                     margin: 0;
                     padding: 10px 12px;
                     border-radius: 10px;
@@ -1154,22 +1303,33 @@ export function RingtoneCreatorWorkspace({
                     color: #e8f7ff;
                     cursor: pointer;
                     user-select: none;
+                    box-sizing: border-box;
+                    overflow-x: hidden;
                     transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
                 }
+
                 .ringtone-checkbox:hover {
                     border-color: rgba(34, 211, 238, 0.65);
                     background: #0b1736;
                 }
+
                 .ringtone-checkbox:focus-within {
                     outline: 2px solid #22d3ee;
                     outline-offset: 2px;
                     box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.22);
                 }
+
                 .ringtone-checkbox span {
                     flex: 1 1 auto;
+                    min-width: 0;
+                    max-width: 100%;
                     line-height: 1.35;
                     font-weight: 700;
+                    white-space: normal;
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
                 }
+
                 .ringtone-checkbox input[type="checkbox"] {
                     appearance: none;
                     -webkit-appearance: none;
@@ -1178,7 +1338,7 @@ export function RingtoneCreatorWorkspace({
                     height: 24px;
                     min-width: 24px;
                     min-height: 24px;
-                    margin: 0;
+                    margin: 2px 0 0;
                     border-radius: 6px;
                     border: 2px solid rgba(34, 211, 238, 0.75);
                     background: #020617;
@@ -1186,6 +1346,7 @@ export function RingtoneCreatorWorkspace({
                     place-content: center;
                     cursor: pointer;
                 }
+
                 .ringtone-checkbox input[type="checkbox"]::before {
                     content: "";
                     width: 12px;
@@ -1197,74 +1358,152 @@ export function RingtoneCreatorWorkspace({
                     border-radius: 2px;
                     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0, 43% 62%);
                 }
+
                 .ringtone-checkbox input[type="checkbox"]:checked {
                     background: #083344;
                     border-color: #22d3ee;
                 }
+
                 .ringtone-checkbox input[type="checkbox"]:checked::before {
                     transform: scale(1);
                 }
+
                 .ringtone-checkbox input[type="checkbox"]:focus-visible {
                     outline: 2px solid #67e8f9;
                     outline-offset: 2px;
                 }
+
                 .ringtone-checkbox:has(input:disabled) {
                     opacity: 0.65;
                     cursor: not-allowed;
                 }
+
                 .ringtone-checkbox input[type="checkbox"]:disabled {
                     cursor: not-allowed;
                 }
+
                 .ringtone-field input,
                 .ringtone-field textarea,
                 .ringtone-field select,
                 .ringtone-list-controls input,
                 .ringtone-list-controls select {
                     width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
                     min-height: 44px;
                     border-radius: 8px;
                     border: 1px solid rgba(0, 212, 255, 0.28);
                     background: #08122b;
                     color: #e8f7ff;
                     padding: 0.65rem 0.8rem;
+                    box-sizing: border-box;
                 }
+
                 .ringtone-upload-source {
                     display: grid;
                     gap: 12px;
                 }
+
+                .ringtone-file-row {
+                    display: grid;
+                    gap: 8px;
+                    overflow-x: hidden;
+                }
+
+                .ringtone-file-row input[type="file"] {
+                    display: block;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                    overflow: hidden;
+                    color: #e8f7ff;
+                }
+
+                .ringtone-file-name {
+                    display: block;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    color: #9ec9e6;
+                    font-size: 13px;
+                    line-height: 1.35;
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
+                }
+
+                .ringtone-wizard-nav,
+                .ringtone-final-actions {
+                    display: grid;
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                    gap: 10px;
+                    align-items: stretch;
+                }
+
+                .ringtone-wizard-nav button,
+                .ringtone-final-actions button {
+                    width: 100%;
+                    justify-content: center;
+                    text-align: center;
+                }
+
+                .ringtone-final-actions {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
                 .ringtone-error,
                 .ringtone-access-denied,
                 .ringtone-rejection {
                     color: #fecaca;
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
                 }
+
                 .ringtone-process-state {
                     color: #67e8f9;
                     font-weight: 700;
                 }
+
                 :global(.ringtone-clip-timeline) {
                     display: grid;
                     gap: 12px;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                    overflow-x: hidden;
                 }
+
                 :global(.ringtone-clip-meta) {
                     display: flex;
                     flex-wrap: wrap;
                     gap: 10px;
                     color: #a5f3fc;
+                    min-width: 0;
+                    max-width: 100%;
+                    overflow-wrap: anywhere;
                 }
+
                 :global(.ringtone-timeline-track) {
                     position: relative;
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
                     height: 28px;
                     border-radius: 999px;
                     background: rgba(8, 18, 43, 0.95);
                     border: 1px solid rgba(0, 212, 255, 0.28);
                     overflow: hidden;
+                    box-sizing: border-box;
                 }
+
                 :global(.ringtone-timeline-window) {
                     position: absolute;
                     top: 0;
                     bottom: 0;
                     background: rgba(34, 211, 238, 0.45);
                 }
+
                 .sr-only {
                     position: absolute;
                     width: 1px;
@@ -1275,12 +1514,60 @@ export function RingtoneCreatorWorkspace({
                     clip: rect(0, 0, 0, 0);
                     border: 0;
                 }
+
                 @media (max-width: 820px) {
                     .ringtone-creator-header {
                         align-items: stretch;
                     }
+
+                    .ringtone-creator-actions {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                        width: 100%;
+                    }
+
                     .ringtone-card {
                         grid-template-columns: 1fr;
+                    }
+
+                    .ringtone-card-actions {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                    }
+
+                    .ringtone-wizard .ringtone-source-tabs,
+                    .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs) {
+                        grid-template-columns: 1fr !important;
+                    }
+
+                    .ringtone-wizard .ringtone-source-tabs button,
+                    .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs) button {
+                        width: 100% !important;
+                    }
+                }
+
+                @media (max-width: 430px) {
+                    .ringtone-wizard .ringtone-wizard-steps,
+                    .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps) {
+                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+                    }
+
+                    .ringtone-wizard-nav,
+                    .ringtone-final-actions {
+                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                    }
+                }
+
+                @media (max-width: 360px) {
+                    .ringtone-wizard .ringtone-wizard-steps,
+                    .ringtone-wizard .ringtone-source-tabs,
+                    .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps),
+                    .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs),
+                    .ringtone-wizard-nav,
+                    .ringtone-final-actions,
+                    .ringtone-creator-actions,
+                    .ringtone-card-actions {
+                        grid-template-columns: 1fr !important;
                     }
                 }
             `}</style>

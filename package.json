@@ -20,6 +20,7 @@
     "verify:producer-playlist-panel-mobile-fit": "node scripts/verify-producer-playlist-panel-mobile-fit.mjs",
     "verify:producer-song-delete-action": "node scripts/verify-producer-song-delete-action.mjs",
     "verify:producer-song-delete-auth": "node scripts/verify-producer-song-delete-auth.mjs",
+    "verify:ringtone-workflow-mobile-fit": "node scripts/verify-ringtone-workflow-mobile-fit.mjs",
     "verify:listener": "node scripts/verify-listener-nav-workspace.mjs",
     "verify:mobile-listener": "node scripts/verify-mobile-listener-access.mjs",
     "verify:mobile-topbar": "node scripts/verify-mobile-topbar-actions.mjs",
