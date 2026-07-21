@@ -162,8 +162,14 @@ record(
 );
 record(
     "mobile dropdown stays in content area away from sidebar",
-    page.includes("calc(100vw - var(--mobile-sidebar-width, 64px) - 24px)")
+    page.includes("--notification-dropdown-gutter: calc(var(--mobile-sidebar-width, 64px) + 24px)")
         && panel.includes('data-notification-panel="dropdown"'),
+);
+record(
+    "dropdown header layout avoids truncated title",
+    panel.includes("notification-head-heading")
+        && page.includes("--notification-dropdown-width: 400px")
+        && page.includes("grid-template-columns: 1fr 1fr"),
 );
 record("package exposes verify:notifications-nav", pkg.includes("verify:notifications-nav"));
 record("responsive layout lock script still present", layoutLock.includes("Responsive UI stability lock"));

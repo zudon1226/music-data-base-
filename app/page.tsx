@@ -20735,10 +20735,13 @@ function PageContent() {
           }
 
           .notification-center {
+            --notification-dropdown-width: 400px;
+            --notification-dropdown-gutter: 28px;
             position: absolute;
             right: 0;
             top: calc(100% + 8px);
-            width: min(330px, calc(100vw - 28px));
+            width: min(var(--notification-dropdown-width), calc(100vw - var(--notification-dropdown-gutter)));
+            max-width: calc(100vw - var(--notification-dropdown-gutter));
             max-height: min(410px, calc(100vh - 120px));
             overflow: hidden;
             border: 1px solid rgba(34, 211, 238, 0.45);
@@ -20748,17 +20751,19 @@ function PageContent() {
             padding: 12px;
             display: flex;
             flex-direction: column;
-            gap: 9px;
+            gap: 10px;
             z-index: 80;
             box-sizing: border-box;
           }
 
           .notification-head {
             display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            gap: 10px;
             flex: 0 0 auto;
+            min-width: 0;
           }
 
           .notification-head-title {
@@ -20767,14 +20772,54 @@ function PageContent() {
             min-width: 0;
           }
 
-          .notification-head button {
+          .notification-head-heading,
+          .notification-head-unread {
+            margin: 0;
+            min-width: 0;
+            overflow: visible;
+            text-overflow: clip;
+            white-space: nowrap;
+          }
+
+          .notification-head-heading {
+            color: white;
+            font-size: 15px;
+            font-weight: 900;
+            line-height: 1.2;
+          }
+
+          .notification-head-unread {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.2;
+          }
+
+          .notification-head-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+          }
+
+          .notification-head-actions button {
+            box-sizing: border-box;
+            width: 100%;
+            min-width: 0;
+            min-height: 40px;
+            height: 40px;
             border: 0;
             border-radius: 8px;
             background: #33446f;
             color: white;
             font-size: 12px;
             font-weight: 900;
-            padding: 7px 10px;
+            line-height: 1;
+            padding: 0 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: clip;
           }
 
           .notification-center-body {
@@ -20793,26 +20838,28 @@ function PageContent() {
             padding: 9px;
             display: grid;
             gap: 3px;
+            width: 100%;
+            box-sizing: border-box;
           }
 
-          .notification-center strong,
-          .notification-center span,
-          .notification-center small,
-          .notification-center p {
+          .notification-center .notification-item-main strong,
+          .notification-center .notification-item-main span,
+          .notification-center .notification-item-main small,
+          .notification-center-body p {
             margin: 0;
             min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
           }
 
-          .notification-center span {
+          .notification-center .notification-item-main span {
             color: #dbeafe;
             font-size: 12px;
             line-height: 1.3;
           }
 
-          .notification-center small,
-          .notification-center p {
+          .notification-center .notification-item-main small,
+          .notification-center-body p {
             color: #9bdcf0;
             font-size: 11px;
             font-weight: 800;
@@ -20823,6 +20870,9 @@ function PageContent() {
             color: #9bdcf0;
             font-size: 13px;
             font-weight: 700;
+            overflow: visible;
+            text-overflow: clip;
+            white-space: normal;
           }
 
           .notification-view-all {
@@ -20843,14 +20893,6 @@ function PageContent() {
             color: #020617;
           }
 
-          .notification-head-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            justify-content: flex-end;
-          }
-
-          .notification-head-actions button,
           .notification-item-actions button,
           .notification-item-main,
           .profile-actions button,
@@ -33976,13 +34018,15 @@ function PageContent() {
             }
 
             .notification-center {
+              --notification-dropdown-width: 400px;
+              --notification-dropdown-gutter: calc(var(--mobile-sidebar-width, 64px) + 24px);
               position: fixed !important;
               top: calc(var(--app-header-offset, 96px) + 8px) !important;
               left: auto !important;
               right: 12px !important;
-              width: min(330px, calc(100vw - var(--mobile-sidebar-width, 64px) - 24px)) !important;
-              min-width: min(280px, calc(100vw - var(--mobile-sidebar-width, 64px) - 24px)) !important;
-              max-width: calc(100vw - var(--mobile-sidebar-width, 64px) - 24px) !important;
+              width: min(var(--notification-dropdown-width), calc(100vw - var(--notification-dropdown-gutter))) !important;
+              min-width: 0 !important;
+              max-width: calc(100vw - var(--notification-dropdown-gutter)) !important;
               max-height: min(410px, calc(100dvh - var(--app-header-offset, 96px) - var(--mobile-player-reserve, 110px) - 24px)) !important;
               min-height: 80px !important;
               padding: 12px !important;
@@ -33992,7 +34036,8 @@ function PageContent() {
               flex-direction: column !important;
               gap: 10px !important;
               box-sizing: border-box !important;
-              overflow: hidden !important;
+              overflow-x: hidden !important;
+              overflow-y: hidden !important;
             }
 
             .notification-center-body {
@@ -34003,34 +34048,55 @@ function PageContent() {
 
             .notification-head {
               display: flex !important;
-              justify-content: space-between !important;
-              align-items: flex-start !important;
-              gap: 12px !important;
+              flex-direction: column !important;
+              justify-content: flex-start !important;
+              align-items: stretch !important;
+              gap: 10px !important;
               min-width: 0 !important;
               flex: 0 0 auto !important;
             }
 
-            .notification-head button {
-              position: static !important;
-              flex-shrink: 0 !important;
-              white-space: nowrap !important;
+            .notification-head-actions {
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              gap: 8px !important;
+              width: 100% !important;
             }
 
-            .notification-center p,
-            .notification-center article,
-            .notification-center strong,
-            .notification-center span,
-            .notification-center small {
+            .notification-head-actions button {
+              position: static !important;
+              width: 100% !important;
+              height: 40px !important;
+              min-height: 40px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: clip !important;
+            }
+
+            .notification-head-heading,
+            .notification-head-unread {
+              max-width: none !important;
+              white-space: nowrap !important;
+              overflow: visible !important;
+              text-overflow: clip !important;
+            }
+
+            .notification-center .notification-item-main strong,
+            .notification-center .notification-item-main span,
+            .notification-center .notification-item-main small {
               max-width: 100% !important;
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
             }
 
-            .notification-center p {
+            .notification-center-body p {
               min-height: 0 !important;
               padding: 0 !important;
               line-height: 1.2 !important;
+              white-space: normal !important;
+              overflow: visible !important;
+              text-overflow: clip !important;
             }
 
             .notification-center.notification-empty {
@@ -34039,6 +34105,7 @@ function PageContent() {
 
             .notification-view-all {
               flex: 0 0 auto !important;
+              width: 100% !important;
             }
 
           }

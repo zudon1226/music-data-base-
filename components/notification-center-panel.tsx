@@ -118,8 +118,10 @@ export function NotificationCenterPanel({
                 >
                     <div className="notification-head">
                         <div className="notification-head-title">
-                            <strong>{t("notifications.title")}</strong>
-                            <small>{t("dashboard.notifications.unreadCount", { count: unreadCount })}</small>
+                            <strong className="notification-head-heading">{t("notifications.title")}</strong>
+                            <small className="notification-head-unread">
+                                {t("dashboard.notifications.unreadCount", { count: unreadCount })}
+                            </small>
                         </div>
                         <div className="notification-head-actions">
                             <button
