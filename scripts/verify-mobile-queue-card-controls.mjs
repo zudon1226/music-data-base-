@@ -58,8 +58,10 @@ record(
 );
 record(
     "disabled Up/Down preserved",
-    pageSrc.includes("disabled={index <= 0}")
-        && pageSrc.includes("disabled={index < 0 || index >= mediaQueueItems.length - 1}"),
+    pageSrc.includes("canMoveUp")
+        && pageSrc.includes("canMoveDown")
+        && /disabled=\{!canMoveUp\}/.test(pageSrc)
+        && /disabled=\{!canMoveDown\}/.test(pageSrc),
 );
 record("package exposes verify:queue-controls", pkg.includes("verify:queue-controls"));
 

@@ -3672,6 +3672,10 @@ function PageContent() {
     const [addSource, setAddSource] = useState<AddSource>("Library");
     const [playlistSearch, setPlaylistSearch] = useState("");
     const [playlistTarget, setPlaylistTarget] = useState<PlaylistTarget>(null);
+    const [showSaveQueuePlaylistDialog, setShowSaveQueuePlaylistDialog] = useState(false);
+    const [saveQueuePlaylistName, setSaveQueuePlaylistName] = useState("");
+    const [saveQueuePlaylistBusy, setSaveQueuePlaylistBusy] = useState(false);
+    const saveQueuePlaylistLockRef = useRef(false);
     const [currentSong, setCurrentSong] = useState<Song | null>(DEFAULT_SONGS[2]);
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -11008,40 +11012,69 @@ function PageContent() {
             }).catch(() => undefined);
         }
     }
+    function openSaveQueueAsPlaylistDialog() {
+        if (!isAuthenticated || !String(accountUserId || "").trim()) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
+            return;
+        }
+        if (queueCount === 0 || mediaQueueItems.length === 0) {
+            showToast("Queue is empty.", "info");
+            return;
+        }
+        if (saveQueuePlaylistBusy || saveQueuePlaylistLockRef.current) {
+            return;
+        }
+        setSaveQueuePlaylistName(`Queue ${new Date().toLocaleDateString()}`);
+        setShowSaveQueuePlaylistDialog(true);
+    }
     async function saveQueueAsPlaylist() {
+        if (saveQueuePlaylistLockRef.current || saveQueuePlaylistBusy) {
+            return;
+        }
         if (!guardDesktopProtectedAction("save-queue-playlist")) {
             showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
             return;
         }
-        if (queueCount === 0) {
+        if (!isAuthenticated || !String(accountUserId || "").trim()) {
+            showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error");
+            return;
+        }
+        if (queueCount === 0 || mediaQueueItems.length === 0) {
             showToast("Queue is empty.", "info");
             return;
         }
-        if (mediaQueueItems.some((item) => item.mediaType === "video")) {
-            showToast("Save Queue as Playlist is unavailable while videos are in the queue.", "info");
+        const name = String(saveQueuePlaylistName || "").trim();
+        if (!name) {
+            showToast("Name the playlist first.", "info");
             return;
         }
-        if (cleanQueue.length === 0) {
-            showToast("Queue is empty.", "info");
-            return;
-        }
-        const name = window.prompt("Save queue as playlist", `Queue ${new Date().toLocaleDateString()}`)?.trim();
-        if (!name)
-            return;
+
+        const orderedItems = mediaQueueItems.slice();
+        const songIds = orderedItems.filter((item) => item.mediaType === "song").map((item) => item.id);
+        const videoIds = orderedItems.filter((item) => item.mediaType === "video").map((item) => item.id);
+        const playlistType = songIds.length > 0 && videoIds.length > 0
+            ? "mixed"
+            : videoIds.length > 0
+                ? "video"
+                : "song";
+        const cover = orderedItems[0]?.artworkUrl || orderedItems[0]?.thumbnail || DEFAULT_PLAYLIST_COVER;
         const now = new Date().toISOString();
         const playlist: Playlist = {
             id: crypto.randomUUID(),
             name,
-            cover: cleanQueue[0]?.cover || DEFAULT_PLAYLIST_COVER,
-            playlistType: "song",
-            songIds: cleanQueue.map((song) => song.id),
-            videoIds: [],
+            cover,
+            playlistType,
+            songIds,
+            videoIds,
             createdAt: now,
             updatedAt: now,
         };
+
+        saveQueuePlaylistLockRef.current = true;
+        setSaveQueuePlaylistBusy(true);
         setPlaylists((previous) => [playlist, ...previous]);
         setActivePlaylistId(playlist.id);
-        setPlaylistContentTab("Songs");
+        setPlaylistContentTab(playlistType === "video" ? "Videos" : "Songs");
         try {
             const response = await dispatchDesktopCreatePlaylist({
                 id: playlist.id,
@@ -11055,23 +11088,42 @@ function PageContent() {
             };
             if (!response.ok || !data.playlist) {
                 showToast(data.error || "Queue playlist saved locally.", "info");
+                setShowSaveQueuePlaylistDialog(false);
                 return;
             }
             const savedPlaylist = data.playlist as Playlist;
-            setPlaylists((previous) => previous.map((item) => (item.id === playlist.id ? { ...savedPlaylist, songIds: playlist.songIds, videoIds: [] } : item)));
-            await Promise.all(cleanQueue.map((song) => desktopActionFetch("/api/playlist-items", {
-                requireAuth: true,
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                injectAuthenticatedUserId: true,
-                body: JSON.stringify({ playlistId: savedPlaylist.id, itemId: song.id, itemType: "song" }),
-            })));
+            setPlaylists((previous) => previous.map((item) => (item.id === playlist.id
+                ? { ...savedPlaylist, songIds, videoIds, playlistType }
+                : item)));
+            // Preserve queue order with sequential inserts.
+            for (const item of orderedItems) {
+                await desktopActionFetch("/api/playlist-items", {
+                    requireAuth: true,
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    injectAuthenticatedUserId: true,
+                    body: JSON.stringify({
+                        playlistId: savedPlaylist.id,
+                        itemId: item.id,
+                        itemType: item.mediaType === "video" ? "video" : "song",
+                    }),
+                });
+            }
             setActivePlaylistId(savedPlaylist.id);
+            await reloadPlaylistsFromSupabase().catch(() => undefined);
             showToast("Queue saved as playlist.", "success");
+            setShowSaveQueuePlaylistDialog(false);
         }
         catch (error) {
-            reportPlatformError("playlist", "save-queue", error instanceof Error ? error.message : String(error), { songCount: cleanQueue.length });
+            reportPlatformError("playlist", "save-queue", error instanceof Error ? error.message : String(error), {
+                itemCount: orderedItems.length,
+            });
             showToast("Queue playlist saved locally.", "info");
+            setShowSaveQueuePlaylistDialog(false);
+        }
+        finally {
+            saveQueuePlaylistLockRef.current = false;
+            setSaveQueuePlaylistBusy(false);
         }
     }
     async function createPlaylist(event: FormEvent<HTMLFormElement>) {
@@ -19446,10 +19498,16 @@ function PageContent() {
           </section>) : view === "Queue" && !search.trim() ? (() => {
             const queuedSongs = mediaQueueItems.filter((item) => item.mediaType === "song");
             const queuedVideos = mediaQueueItems.filter((item) => item.mediaType === "video");
+            const canSaveQueueAsPlaylist = isAuthenticated
+                && Boolean(String(accountUserId || "").trim())
+                && queueCount > 0
+                && !saveQueuePlaylistBusy;
             const renderQueueManageRow = (item: (typeof mediaQueueItems)[number]) => {
                 const index = mediaQueueItems.findIndex((entry) => entry.mediaType === item.mediaType && entry.id === item.id);
                 const thumbnail = item.thumbnail || item.artworkUrl || BRAND_LOGO;
                 const artist = item.artist || item.artistName;
+                const canMoveUp = index > 0;
+                const canMoveDown = index >= 0 && index < mediaQueueItems.length - 1;
                 return (<article className="queue-manage-row" key={`${item.mediaType}-${item.id}`}>
                     <span className="recent-number">{index + 1}</span>
                     <img src={thumbnail} alt=""/>
@@ -19467,10 +19525,22 @@ function PageContent() {
                         <X size={16}/>
                         Remove
                       </button>
-                      <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, -1)} disabled={index <= 0} type="button" title="Move up">
+                      <button
+                        onClick={() => moveSharedQueueItem(item.mediaType, item.id, -1)}
+                        disabled={!canMoveUp}
+                        aria-disabled={!canMoveUp}
+                        type="button"
+                        title={canMoveUp ? "Move up" : "Already at the top"}
+                      >
                         Up
                       </button>
-                      <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, 1)} disabled={index < 0 || index >= mediaQueueItems.length - 1} type="button" title="Move down">
+                      <button
+                        onClick={() => moveSharedQueueItem(item.mediaType, item.id, 1)}
+                        disabled={!canMoveDown}
+                        aria-disabled={!canMoveDown}
+                        type="button"
+                        title={canMoveDown ? "Move down" : "Already at the bottom"}
+                      >
                         Down
                       </button>
                     </div>
@@ -19482,9 +19552,21 @@ function PageContent() {
                 <Trash2 size={15}/>
                 Clear Queue
               </button>
-              <button onClick={saveQueueAsPlaylist} disabled={queueCount === 0 || queuedVideos.length > 0} type="button" title={queuedVideos.length > 0 ? "Unavailable while videos are in the queue" : "Save queue as playlist"}>
+              <button
+                onClick={openSaveQueueAsPlaylistDialog}
+                disabled={!canSaveQueueAsPlaylist}
+                aria-disabled={!canSaveQueueAsPlaylist}
+                type="button"
+                title={!isAuthenticated || !String(accountUserId || "").trim()
+                    ? "Sign in to save the queue as a playlist"
+                    : queueCount === 0
+                        ? "Queue is empty"
+                        : saveQueuePlaylistBusy
+                            ? "Saving playlist…"
+                            : "Save queue as playlist"}
+              >
                 <ListMusic size={15}/>
-                Save Queue as Playlist
+                {saveQueuePlaylistBusy ? "Saving…" : "Save Queue as Playlist"}
               </button>
             </div>
 
@@ -19858,6 +19940,65 @@ function PageContent() {
             </div>
           </section>
         </div>)}
+
+      {showSaveQueuePlaylistDialog ? (<div className="modal-backdrop" role="presentation" onClick={() => {
+          if (!saveQueuePlaylistBusy) setShowSaveQueuePlaylistDialog(false);
+        }}>
+          <section
+            className="playlist-modal save-queue-playlist-modal"
+            aria-label="Save queue as playlist"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="playlist-modal-head">
+              <div>
+                <span className="playlist-kicker">Save queue</span>
+                <h3>Save Queue as Playlist</h3>
+              </div>
+              <button
+                className="icon-action"
+                onClick={() => setShowSaveQueuePlaylistDialog(false)}
+                title="Cancel"
+                type="button"
+                disabled={saveQueuePlaylistBusy}
+              >
+                <X size={17}/>
+              </button>
+            </div>
+            <form
+              className="save-queue-playlist-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveQueueAsPlaylist();
+              }}
+            >
+              <label htmlFor="save-queue-playlist-name">Playlist name</label>
+              <input
+                id="save-queue-playlist-name"
+                value={saveQueuePlaylistName}
+                onChange={(event) => setSaveQueuePlaylistName(event.target.value)}
+                placeholder="Queue playlist name"
+                autoFocus
+                disabled={saveQueuePlaylistBusy}
+              />
+              <p className="empty-small">{queueCount} queued item{queueCount === 1 ? "" : "s"} will be saved in current order.</p>
+              <div className="save-queue-playlist-actions">
+                <button
+                  type="button"
+                  className="danger-btn"
+                  disabled={saveQueuePlaylistBusy}
+                  onClick={() => setShowSaveQueuePlaylistDialog(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" disabled={saveQueuePlaylistBusy || !String(saveQueuePlaylistName || "").trim()}>
+                  {saveQueuePlaylistBusy ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>) : null}
 
       {playlistTarget && (<div className="modal-backdrop" role="presentation" onClick={() => setPlaylistTarget(null)}>
           <section className="playlist-modal" aria-label={`Add ${playlistTarget.item.title} to playlist`} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
@@ -23967,9 +24108,68 @@ function PageContent() {
           }
 
           .queue-toolbar button:disabled,
-          .queue-manage-row button:disabled {
-            opacity: 0.45;
+          .queue-manage-row button:disabled,
+          .queue-manage-actions > button:disabled {
+            opacity: 0.42;
             cursor: not-allowed;
+            pointer-events: none;
+            transform: none;
+            box-shadow: none;
+            filter: none;
+          }
+
+          .queue-toolbar button:disabled:active,
+          .queue-toolbar button:disabled:hover,
+          .queue-manage-row button:disabled:active,
+          .queue-manage-row button:disabled:hover,
+          .queue-manage-actions > button:disabled:active,
+          .queue-manage-actions > button:disabled:hover {
+            opacity: 0.42;
+            transform: none;
+            box-shadow: none;
+          }
+
+          .save-queue-playlist-form {
+            display: grid;
+            gap: 10px;
+            padding: 4px 2px 2px;
+          }
+
+          .save-queue-playlist-form label {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .save-queue-playlist-form input {
+            width: 100%;
+            min-height: 44px;
+            border: 1px solid rgba(0, 212, 255, 0.28);
+            border-radius: 8px;
+            background: #0b1736;
+            color: #fff;
+            padding: 0 12px;
+            box-sizing: border-box;
+          }
+
+          .save-queue-playlist-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+
+          .save-queue-playlist-actions button {
+            min-height: 44px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-weight: 900;
+          }
+
+          .save-queue-playlist-actions .danger-btn {
+            background: #64748b;
+            color: #fff;
           }
 
           .queue-manage-list {

@@ -28,6 +28,8 @@
     "verify:queue": "node scripts/verify-mobile-queue-height.mjs",
     "verify:queue-controls": "node scripts/verify-mobile-queue-card-controls.mjs",
     "verify:queue-scroll": "node scripts/verify-queue-vertical-scroll.mjs",
+    "verify:save-queue": "node scripts/verify-save-queue-enablement.mjs",
+    "verify:queue-boundaries": "node scripts/verify-queue-boundary-controls.mjs",
     "verify:playback": "node scripts/verify-global-player-clearance.mjs",
     "verify:carousel": "node scripts/verify-carousel-card-height.mjs",
     "verify:access": "node scripts/verify-account-access-pipeline.mjs",
