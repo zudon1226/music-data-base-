@@ -80,6 +80,7 @@ import {
 import { resolveNavCapabilities } from "../lib/role-based-navigation";
 import {
     ACCOUNT_ROLE_UNAVAILABLE_MESSAGE,
+    canRenderCreatorMediaControls,
     isCreatorOnlyNavView,
     resolveListenerMediaCardCanClaim,
     resolveListenerMediaCardCanDelete,
@@ -516,6 +517,10 @@ type PlaylistTarget = {
 } | {
     type: "album";
     item: ResolvedAlbum;
+} | null;
+type SongDeleteConfirmTarget = {
+    songId: string;
+    title: string;
 } | null;
 type AlbumOwnerType = "artist" | "producer";
 type Album = {
@@ -3683,6 +3688,9 @@ function PageContent() {
     const [addSource, setAddSource] = useState<AddSource>("Library");
     const [playlistSearch, setPlaylistSearch] = useState("");
     const [playlistTarget, setPlaylistTarget] = useState<PlaylistTarget>(null);
+    const [songDeleteConfirm, setSongDeleteConfirm] = useState<SongDeleteConfirmTarget>(null);
+    const [songDeleteBusy, setSongDeleteBusy] = useState(false);
+    const songDeleteLockRef = useRef(false);
     const [showSaveQueuePlaylistDialog, setShowSaveQueuePlaylistDialog] = useState(false);
     const [saveQueuePlaylistName, setSaveQueuePlaylistName] = useState("");
     const [saveQueuePlaylistBusy, setSaveQueuePlaylistBusy] = useState(false);
@@ -10565,25 +10573,41 @@ function PageContent() {
         await removeLibraryItem(albumId, "album");
     }
     function canDeleteUploadedSong(song: Song) {
-        const ownershipAllowsDelete = canDeleteDesktopUploadedItem({
-            itemId: song.id,
-            ownerUserId: song.ownerId,
-            producerUserId: song.producerId,
-            producerProfileId: song.producerId,
-            artistName: song.artist,
-            accountUserId: desktopActionAuthGuard.getUserId() || accountUserId,
-            authSession: authSessionRef.current,
-            isPlatformOwner,
-            currentProducerProfileId: currentProducerProfile.id,
-            selectedArtistProfileId: selectedDashboardArtist?.id,
-            resolveArtistId: createArtistId,
-            isDatabaseUuid,
-        });
-        return resolveListenerMediaCardCanDelete({
-            ownershipAllowsDelete,
+        // Match DELETE /api/songs/:id — owner or platform admin only (not producer credit alone).
+        if (!resolveListenerMediaCardCanDelete({
+            ownershipAllowsDelete: true,
             canUpload: navCapabilities.canUpload,
             isPlatformOwner,
-        });
+        })) {
+            return false;
+        }
+        if (!isDatabaseUuid(song.id)) {
+            return false;
+        }
+        if (isPlatformOwner) {
+            return true;
+        }
+        const userId = desktopActionAuthGuard.getUserId() || accountUserId;
+        return Boolean(userId && song.ownerId && song.ownerId === userId);
+    }
+    function canManageSongProducerCredit(song: Song) {
+        if (!canRenderCreatorMediaControls({
+            canUpload: navCapabilities.canUpload,
+            isPlatformOwner,
+        })) {
+            return false;
+        }
+        if (!getProducerCreditForSong(song)) {
+            return false;
+        }
+        if (isPlatformOwner) {
+            return true;
+        }
+        const userId = desktopActionAuthGuard.getUserId() || accountUserId;
+        if (userId && song.ownerId && song.ownerId === userId) {
+            return true;
+        }
+        return Boolean(currentProducerProfile.id && song.producerId && song.producerId === currentProducerProfile.id);
     }
     function canDeleteUploadedVideo(video: VideoItem) {
         if (isPlatformOwner) {
@@ -13503,16 +13527,26 @@ function PageContent() {
             : previous);
         cancelEditingSong();
     }
-    async function permanentlyDeleteSong(songId: string, confirmMessage = "Delete this song everywhere? This cannot be undone.") {
-        const song = songs.find((item) => item.id === songId);
-        if (!song)
-            return;
-        if (!canDeleteUploadedSong(song)) {
-            showToast("Only the owner can delete this uploaded track.", "error");
+    async function permanentlyDeleteSong(songId: string, _confirmMessage = "Delete this song everywhere? This cannot be undone.") {
+        permanentDeleteSong(songId);
+    }
+    async function executePermanentSongDelete(songId: string) {
+        const fullSong = songs.find((item) => item.id === songId);
+        if (!fullSong) {
+            showToast("Song could not be found for deletion.", "error");
+            setSongDeleteConfirm(null);
             return;
         }
-        if (!window.confirm(confirmMessage))
+        if (!canDeleteUploadedSong(fullSong)) {
+            showToast("Only the owner can delete this uploaded track.", "error");
+            setSongDeleteConfirm(null);
             return;
+        }
+        if (songDeleteLockRef.current || songDeleteBusy) {
+            return;
+        }
+        songDeleteLockRef.current = true;
+        setSongDeleteBusy(true);
         const previousState = {
             songs,
             libraryIds,
@@ -13541,8 +13575,9 @@ function PageContent() {
                 showToast(data.error || "Track could not be deleted from Supabase.", "error");
                 return;
             }
+            setSongDeleteConfirm(null);
             purgeDeletedSongFromUi(songId);
-            await reloadSongLibraryFromSupabase().catch((refreshError) => {
+            await reloadSongLibraryFromSupabase().catch(() => {
                 showToast("Track deleted, but the refreshed song list could not load yet.", "error");
             });
             showToast("Track deleted everywhere.", "success");
@@ -13566,8 +13601,12 @@ function PageContent() {
             const message = error instanceof Error ? error.message : "Track could not be deleted. Check your connection and try again.";
             showToast(message, "error");
         }
+        finally {
+            setSongDeleteBusy(false);
+            songDeleteLockRef.current = false;
+        }
     }
-    function permanentDeleteSong(songId: string, confirmMessage?: string) {
+    function permanentDeleteSong(songId: string, _confirmMessage?: string) {
         const song = songs.find((item) => item.id === songId);
         const isUploader = Boolean(song?.ownerId && accountUserId && song.ownerId === accountUserId);
         console.log("[delete-song] tapped", {
@@ -13581,17 +13620,18 @@ function PageContent() {
             showToast("Song could not be found for deletion.", "error");
             return;
         }
-        void permanentlyDeleteSong(song.id, confirmMessage);
-    }
-    function handlePermanentDeleteSong(songId: string) {
-        const song = songs.find((item) => item.id === songId);
-        alert("SONG DELETE BUTTON CLICKED");
-        console.log("DELETE SONG CLICKED", songId, song?.title || "");
-        if (!song) {
-            showToast("Song could not be found for deletion.", "error");
+        if (!canDeleteUploadedSong(song)) {
+            showToast("Only the owner can delete this uploaded track.", "error");
             return;
         }
-        permanentDeleteSong(song.id, "Permanently delete this song?");
+        setSongDeleteConfirm({ songId: song.id, title: song.title });
+    }
+    function handlePermanentDeleteSong(songId: string) {
+        permanentDeleteSong(songId);
+    }
+    function cancelSongDeleteConfirm() {
+        if (songDeleteBusy) return;
+        setSongDeleteConfirm(null);
     }
     function handlePermanentDeleteVideo(videoId: string) {
         const video = videos.find((item) => item.id === videoId);
@@ -14328,7 +14368,7 @@ function PageContent() {
                 <Edit3 size={15}/>
                 Edit
               </button>
-              {canDeleteTrack && producerCredit && (<button onClick={() => removeSongProducerCredit(song)} type="button">
+              {canManageSongProducerCredit(song) && (<button onClick={() => removeSongProducerCredit(song)} type="button">
                   <X size={15}/>
                   Remove Credit
                 </button>)}
@@ -20047,7 +20087,7 @@ function PageContent() {
           </section>
         </div>) : null}
 
-      {playlistTarget && (<div className="modal-backdrop" role="presentation" onClick={() => setPlaylistTarget(null)}>
+      {playlistTarget && (<div className="modal-backdrop playlist-modal-backdrop" role="presentation" onClick={() => setPlaylistTarget(null)}>
           <section className="playlist-modal" aria-label={`Add ${playlistTarget.item.title} to playlist`} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="playlist-modal-head">
               <div>
@@ -20107,6 +20147,43 @@ function PageContent() {
                     </button>);
                 })}
               </div>)}
+          </section>
+        </div>)}
+
+      {songDeleteConfirm && (<div className="modal-backdrop song-delete-modal-backdrop" role="presentation" onClick={cancelSongDeleteConfirm}>
+          <section
+            className="song-delete-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Delete ${songDeleteConfirm.title}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="playlist-modal-head">
+              <div>
+                <span className="playlist-kicker">Delete song</span>
+                <h3>{songDeleteConfirm.title}</h3>
+              </div>
+              <button className="icon-action" onClick={cancelSongDeleteConfirm} title="Close" type="button" disabled={songDeleteBusy}>
+                <X size={17}/>
+              </button>
+            </div>
+            <p className="song-delete-modal-copy">
+              Permanently delete this song? This cannot be undone.
+            </p>
+            <div className="song-delete-modal-actions">
+              <button type="button" onClick={cancelSongDeleteConfirm} disabled={songDeleteBusy}>
+                Cancel
+              </button>
+              <button
+                className="danger-btn"
+                type="button"
+                disabled={songDeleteBusy}
+                aria-busy={songDeleteBusy}
+                onClick={() => void executePermanentSongDelete(songDeleteConfirm.songId)}
+              >
+                {songDeleteBusy ? "Deleting..." : "Delete"}
+              </button>
+            </div>
           </section>
         </div>)}
 
@@ -28177,8 +28254,56 @@ function PageContent() {
             box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
             padding: 14px;
             display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
             gap: 12px;
             overflow: hidden;
+            min-width: 0;
+            box-sizing: border-box;
+          }
+
+          .song-delete-modal {
+            width: min(420px, 100%);
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            border-radius: 8px;
+            background: #0b1736;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+            padding: 14px;
+            display: grid;
+            gap: 12px;
+            min-width: 0;
+            box-sizing: border-box;
+          }
+
+          .song-delete-modal-copy {
+            margin: 0;
+            color: #9bdcf0;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+          }
+
+          .song-delete-modal-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+
+          .song-delete-modal-actions button {
+            min-height: 40px;
+            border: 0;
+            border-radius: 8px;
+            background: #33446f;
+            color: white;
+            font-weight: 900;
+          }
+
+          .song-delete-modal-actions .danger-btn {
+            background: #ef4444;
+            color: white;
+          }
+
+          .song-delete-modal-actions button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
           }
 
           .comments-modal {
@@ -29161,6 +29286,58 @@ function PageContent() {
               font-size: 12px;
               line-height: 1.35;
               z-index: 120;
+            }
+
+            .modal-backdrop.playlist-modal-backdrop,
+            .modal-backdrop.song-delete-modal-backdrop {
+              left: var(--mobile-sidebar-width);
+              right: 0;
+              top: 0;
+              bottom: 0;
+              width: auto;
+              inset: unset;
+              z-index: 130;
+              padding: 12px;
+              padding-bottom: calc(var(--mobile-player-reserve) + 12px);
+              place-items: start center;
+              align-content: start;
+              overflow-x: hidden;
+              overflow-y: auto;
+              box-sizing: border-box;
+            }
+
+            .playlist-modal,
+            .song-delete-modal {
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              margin: 0;
+              max-height: calc(100dvh - var(--mobile-player-reserve) - 36px);
+            }
+
+            .playlist-modal-list {
+              min-height: 0;
+              overflow-x: hidden;
+              overflow-y: auto;
+              padding-bottom: 4px;
+              -webkit-overflow-scrolling: touch;
+            }
+
+            .playlist-modal-head h3,
+            .playlist-modal-list strong,
+            .playlist-modal-list small,
+            .song-delete-modal-copy {
+              overflow-wrap: anywhere;
+              word-break: break-word;
+            }
+
+            .song-delete-modal-actions {
+              grid-template-columns: 1fr;
+            }
+
+            .song-delete-modal-actions button {
+              width: 100%;
+              min-height: 44px;
             }
 
             .queue-drawer {
@@ -32420,7 +32597,7 @@ function PageContent() {
             .dashboard-page .dashboard-song-row {
               min-height: 0 !important;
               height: auto !important;
-              overflow: hidden !important;
+              overflow: visible !important;
             }
 
             .dashboard-page .dashboard-song-actions {
@@ -32428,12 +32605,18 @@ function PageContent() {
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
               gap: 8px !important;
               width: 100% !important;
+              position: relative !important;
+              z-index: 2 !important;
+              pointer-events: auto !important;
             }
 
             .dashboard-page .dashboard-song-actions button {
               width: 100% !important;
               min-width: 0 !important;
               white-space: normal !important;
+              pointer-events: auto !important;
+              position: relative !important;
+              z-index: 2 !important;
             }
 
             .producer-dashboard {
@@ -32467,6 +32650,10 @@ function PageContent() {
               padding: 10px !important;
               margin-bottom: 0 !important;
               overflow-x: hidden !important;
+            }
+
+            .producer-dashboard .dashboard-song-row {
+              overflow: visible !important;
             }
 
             .producer-dashboard .dashboard-grid {
