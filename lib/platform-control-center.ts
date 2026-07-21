@@ -16,6 +16,7 @@ export type PlatformOverviewStats = {
     producers: number;
     totalSongs: number;
     totalVideos: number;
+    totalRingtones: number;
     totalPlaylists: number;
     totalAlbums: number;
     totalMusicPlays: number;

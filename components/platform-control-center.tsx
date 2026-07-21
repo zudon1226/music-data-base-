@@ -146,6 +146,7 @@ export function PlatformControlCenter({
                         ["Producers", overview?.producers],
                         ["Songs", overview?.totalSongs],
                         ["Videos", overview?.totalVideos],
+                        ["Ringtones", overview?.totalRingtones],
                         ["Playlists", overview?.totalPlaylists],
                         ["Albums", overview?.totalAlbums],
                         ["Music plays", overview?.totalMusicPlays],

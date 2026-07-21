@@ -7,6 +7,7 @@ import type {
     PlatformHealthLabel,
     PlatformOverviewStats,
 } from "@/lib/platform-control-center";
+import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
 import { getErrorMessage, getPublicSiteUrl } from "@/lib/server-supabase";
 
 function healthStatus(ok: boolean, warning = false): PlatformHealthLabel {
@@ -20,6 +21,7 @@ async function countRows(supabase: SupabaseClient, table: string, filters: Array
     for (const [column, operator, value] of filters) {
         if (operator === "eq") query = query.eq(column, value);
         if (operator === "in") query = query.in(column, value as string[]);
+        if (operator === "not_is") query = query.not(column, "is", value);
     }
     const result = await query;
     if (result.error) return { count: 0, error: getErrorMessage(result.error) };
@@ -59,6 +61,7 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         producerProfilesResult,
         songsResult,
         videosResult,
+        ringtonesResult,
         playlistsResult,
         albumsResult,
         songLikesResult,
@@ -85,6 +88,10 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         countRows(supabase, "profiles", [["account_type", "in", ["producer", "founding_producer", "producer_pro"]]]),
         countRows(supabase, "songs"),
         countRows(supabase, "videos"),
+        countRows(supabase, "ringtone_products", [
+            ["status", "in", [...PUBLIC_RINGTONE_STATUSES]],
+            ["published_at", "not_is", null],
+        ]),
         countRows(supabase, "playlists"),
         countRows(supabase, "albums"),
         countRows(supabase, "song_likes"),
@@ -118,6 +125,7 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         producers: producerProfilesResult.count,
         totalSongs: songsResult.count,
         totalVideos: videosResult.count,
+        totalRingtones: ringtonesResult.count,
         totalPlaylists: playlistsResult.count,
         totalAlbums: albumsResult.count,
         totalMusicPlays,
