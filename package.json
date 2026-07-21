@@ -19,6 +19,7 @@
     "verify:listener": "node scripts/verify-listener-nav-workspace.mjs",
     "verify:mobile-listener": "node scripts/verify-mobile-listener-access.mjs",
     "verify:mobile-topbar": "node scripts/verify-mobile-topbar-actions.mjs",
+    "verify:mobile-topbar-fit": "node scripts/verify-mobile-topbar-fit.mjs",
     "verify:notifications-nav": "node scripts/verify-notification-nav-canonical.mjs",
     "verify:media-download": "node scripts/verify-paid-listener-media-download.mjs",
     "verify:homepage-card-grid": "node scripts/verify-homepage-card-grid.mjs",

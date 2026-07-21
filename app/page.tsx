@@ -28402,17 +28402,25 @@ function PageContent() {
               padding: 0 6px;
             }
 
-            /* Visible account actions only — no empty slots from role-gated nulls. */
+            /*
+              Mobile portrait/landscape (≤820): six equal flex cells in one row.
+              Fixed 44px × 6 + gaps overflowed the content column and clipped Logout.
+            */
             .topbar-account-actions {
               display: flex;
               flex-direction: row;
               align-items: center;
               justify-content: flex-start;
-              gap: 8px;
+              gap: 4px;
               flex-wrap: nowrap;
-              overflow-x: auto;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0 2px 0 0;
+              overflow-x: hidden;
               overflow-y: visible;
-              -webkit-overflow-scrolling: touch;
             }
 
             .topbar-account-actions > .notification-wrap,
@@ -28420,7 +28428,12 @@ function PageContent() {
             .topbar-account-actions > .dashboard-btn,
             .topbar-account-actions > .profile-btn,
             .topbar-account-actions > .logout-btn {
-              flex: 0 0 auto;
+              flex: 1 1 0;
+              min-width: 0;
+              max-width: none;
+              width: auto;
+              height: 40px;
+              min-height: 40px;
               position: relative;
               z-index: 50;
               margin: 0;
@@ -28428,25 +28441,23 @@ function PageContent() {
               pointer-events: auto;
               cursor: pointer;
               touch-action: manipulation;
+              box-sizing: border-box;
             }
 
             .topbar-account-actions > .notification-wrap {
-              width: 44px;
-              height: 44px;
-              min-width: 44px;
-              min-height: 44px;
               overflow: visible;
             }
 
-            .topbar-account-actions .notification-button,
-            .topbar-account-actions > .upload-btn,
-            .topbar-account-actions > .dashboard-btn,
-            .topbar-account-actions > .profile-btn,
-            .topbar-account-actions > .logout-btn {
-              width: 44px;
-              height: 44px;
-              min-width: 44px;
-              min-height: 44px;
+            .topbar .topbar-account-actions .notification-button,
+            .topbar .topbar-account-actions > .upload-btn,
+            .topbar .topbar-account-actions > .dashboard-btn,
+            .topbar .topbar-account-actions > .profile-btn,
+            .topbar .topbar-account-actions > .logout-btn {
+              width: 100%;
+              max-width: 100%;
+              height: 40px;
+              min-width: 0 !important;
+              min-height: 40px;
               border-radius: 8px;
               font-size: 0;
               gap: 0;
@@ -28455,6 +28466,7 @@ function PageContent() {
               justify-content: center;
               align-items: center;
               transform: none;
+              box-sizing: border-box;
             }
 
             .topbar-account-actions .notification-button {
@@ -28463,13 +28475,14 @@ function PageContent() {
               overflow: visible;
             }
 
+            /* Badge overlays the bell; must not widen the flex item. */
             .topbar-account-actions .notification-button > span:not(.sr-only) {
               position: absolute;
-              right: -5px;
-              top: -6px;
-              min-width: 19px;
-              height: 19px;
-              max-height: 19px;
+              right: 0;
+              top: -4px;
+              min-width: 16px;
+              height: 16px;
+              max-height: 16px;
               line-height: 1;
               font-size: 9px;
               pointer-events: none;
@@ -28481,10 +28494,11 @@ function PageContent() {
             .topbar-account-actions > .dashboard-btn svg,
             .topbar-account-actions > .profile-btn svg,
             .topbar-account-actions > .logout-btn svg {
-              width: 17px;
-              height: 17px;
+              width: 16px;
+              height: 16px;
               margin: 0;
               transform: none;
+              flex-shrink: 0;
             }
 
             .upload-shell {

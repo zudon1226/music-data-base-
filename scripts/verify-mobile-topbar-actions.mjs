@@ -25,6 +25,15 @@ const shell = read("lib/ui/app-ui-shell.ts");
 const panel = read("components/notification-center-panel.tsx");
 const pkg = read("package.json");
 
+const mobileAccountBlock = (() => {
+    const start = page.indexOf("/* Visible account actions only");
+    const alt = page.indexOf("Mobile portrait/landscape (≤820): six equal flex cells");
+    const from = start >= 0 ? start : alt;
+    if (from < 0) return "";
+    const end = page.indexOf(".upload-shell {", from);
+    return end > from ? page.slice(from, end) : page.slice(from, from + 3500);
+})();
+
 record("account actions wrapper markup", page.includes('className="topbar-account-actions"'));
 record(
     "desktop topbar is 3-track grid",
@@ -32,25 +41,32 @@ record(
 );
 record("no fixed 6-column topbar action grid", !page.includes("grid-template-columns: repeat(6, minmax(0, 1fr))"));
 record(
-    "mobile flex contract",
-    page.includes("display: flex")
-        && /topbar-account-actions[\s\S]{0,240}flex-direction:\s*row/.test(page)
-        && /topbar-account-actions[\s\S]{0,320}align-items:\s*center/.test(page)
-        && /topbar-account-actions[\s\S]{0,400}justify-content:\s*flex-start/.test(page)
-        && /topbar-account-actions[\s\S]{0,480}gap:\s*8px/.test(page)
-        && /topbar-account-actions[\s\S]{0,560}flex-wrap:\s*nowrap/.test(page),
+    "mobile flex contract stays one row",
+    mobileAccountBlock.includes("display: flex")
+        && mobileAccountBlock.includes("flex-direction: row")
+        && mobileAccountBlock.includes("flex-wrap: nowrap")
+        && mobileAccountBlock.includes("width: 100%")
+        && mobileAccountBlock.includes("max-width: 100%")
+        && mobileAccountBlock.includes("min-width: 0")
+        && mobileAccountBlock.includes("box-sizing: border-box"),
 );
 record(
-    "mobile 44px icon buttons",
-    /topbar-account-actions[\s\S]{0,1200}min-width:\s*44px/.test(page)
-        && /topbar-account-actions[\s\S]{0,1200}min-height:\s*44px/.test(page)
-        && /topbar-account-actions[\s\S]{0,1200}height:\s*44px/.test(page),
+    "mobile equal flex cells shrink",
+    mobileAccountBlock.includes("flex: 1 1 0")
+        && mobileAccountBlock.includes("min-width: 0 !important")
+        && !/topbar-account-actions > \.notification-wrap[\s\S]{0,400}flex:\s*0 0 auto/.test(mobileAccountBlock)
+        && !/width:\s*44px/.test(mobileAccountBlock),
+);
+record(
+    "mobile no horizontal overflow scroll on action row",
+    mobileAccountBlock.includes("overflow-x: hidden")
+        && !mobileAccountBlock.includes("overflow-x: auto"),
 );
 record(
     "mobile no absolute/transform offsets on action children",
     page.includes("topbar-account-actions > .notification-wrap")
-        && /topbar-account-actions[\s\S]{0,900}transform:\s*none/.test(page)
-        && !/topbar-account-actions[\s\S]{0,900}transform:\s*translate/.test(page),
+        && mobileAccountBlock.includes("transform: none")
+        && !/transform:\s*translate/.test(mobileAccountBlock),
 );
 record(
     "badge remains absolute on bell only",
