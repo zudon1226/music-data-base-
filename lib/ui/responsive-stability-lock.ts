@@ -83,13 +83,17 @@ export const RESPONSIVE_STABILITY_LOCK = {
 
     homeDiscoveryCards: {
         gridCardHeightPx: 220,
-        gridCardMaxWidthPx: 218,
+        /** Cards fill responsive grid tracks; no fixed pixel cap. */
+        gridCardMaxWidth: "none",
         gridArtHeightPx: 96,
         gridActionHeightPx: 34,
         gridGapPx: 12,
         listCardHeightPx: 92,
         listArtWidthPx: 116,
         listGapPx: 10,
+        gridColumnsTablet: 2,
+        gridColumnsDesktop: 3,
+        gridColumnsWide: 4,
     },
 
     profileActions: {

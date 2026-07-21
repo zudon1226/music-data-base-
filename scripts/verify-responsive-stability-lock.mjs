@@ -186,11 +186,13 @@ const homeDiscovery = extractBetween(
 record(
     "Home recommendation grid card geometry frozen",
     lockFile.includes("gridCardHeightPx: 220")
+        && lockFile.includes('gridCardMaxWidth: "none"')
         && homeDiscovery.includes("grid-auto-rows: 220px !important")
         && homeDiscovery.includes("height: 220px !important")
-        && homeDiscovery.includes("max-width: 218px !important")
+        && homeDiscovery.includes("max-width: none !important")
         && homeDiscovery.includes("grid-template-rows: 96px minmax(0, 1fr) 34px !important")
-        && homeDiscovery.includes("gap: 12px !important"),
+        && homeDiscovery.includes("gap: 12px !important")
+        && homeDiscovery.includes("grid-template-columns: repeat(2, minmax(0, 1fr)) !important"),
 );
 record(
     "Home recommendation list card geometry frozen",

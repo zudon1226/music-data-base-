@@ -16909,9 +16909,9 @@ function PageContent() {
                   </div>
                   <span>{discoveryForYouItems.length} picks</span>
                 </div>
-                <DesktopHorizontalRail className="discovery-grid" label="For You Recommendations">
+                <section className="discovery-grid home-discovery-grid" aria-label="For You Recommendations">
                   {discoveryForYouItems.map(renderDiscoveryItemCard)}
-                </DesktopHorizontalRail>
+                </section>
               </section>)}
 
             {trendingDiscoveryItems.length > 0 && (<section className="artist-section discovery-section">
@@ -16922,9 +16922,9 @@ function PageContent() {
                   </div>
                   <span>{trendingPeriod}</span>
                 </div>
-                <DesktopHorizontalRail className="discovery-grid" label="Trending Discovery">
+                <section className="discovery-grid home-discovery-grid" aria-label="Trending Discovery">
                   {trendingDiscoveryItems.map(renderDiscoveryItemCard)}
-                </DesktopHorizontalRail>
+                </section>
               </section>)}
 
             {newReleaseDiscoveryItems.length > 0 && (<section className="artist-section discovery-section">
@@ -16935,9 +16935,9 @@ function PageContent() {
                   </div>
                   <span>{newReleaseDiscoveryItems.length} new</span>
                 </div>
-                <DesktopHorizontalRail className="discovery-grid" label="New Release Discovery">
+                <section className="discovery-grid home-discovery-grid" aria-label="New Release Discovery">
                   {newReleaseDiscoveryItems.map(renderDiscoveryItemCard)}
-                </DesktopHorizontalRail>
+                </section>
               </section>)}
 
             {suggestedCreatorItems.length > 0 && (<section className="artist-section discovery-section">
@@ -16948,9 +16948,9 @@ function PageContent() {
                   </div>
                   <span>{suggestedCreatorItems.length} creators</span>
                 </div>
-                <DesktopHorizontalRail className="discovery-grid" label="Suggested Artists and Producers">
+                <section className="discovery-grid home-discovery-grid" aria-label="Suggested Artists and Producers">
                   {suggestedCreatorItems.map(renderDiscoveryItemCard)}
-                </DesktopHorizontalRail>
+                </section>
               </section>)}
 
             {creatorGrowthItems.length > 0 && (<section className="artist-section discovery-section">
@@ -16961,9 +16961,9 @@ function PageContent() {
                   </div>
                   <span>{creatorGrowthItems.length} signals</span>
                 </div>
-                <DesktopHorizontalRail className="discovery-grid" label="Creator Growth Tools">
+                <section className="discovery-grid home-discovery-grid" aria-label="Creator Growth Tools">
                   {creatorGrowthItems.map(renderDiscoveryItemCard)}
-                </DesktopHorizontalRail>
+                </section>
               </section>)}
 
             <div className="tabs">
@@ -22308,12 +22308,24 @@ function PageContent() {
           .horizontal-rail-track.artist-playlist-grid,
           .horizontal-rail-track.playlist-list,
           .horizontal-rail-track.discovery-grid {
+            display: grid;
             grid-auto-flow: column;
             grid-template-columns: none;
             grid-auto-rows: auto;
             align-items: start;
             height: auto;
             min-height: 0;
+          }
+
+          /* Home discovery wrapping grid (not a horizontal carousel). */
+          .home-discovery-grid {
+            display: grid;
+            width: 100%;
+            min-width: 0;
+            grid-auto-flow: row;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            overflow: visible;
           }
 
           .horizontal-rail-track.video-grid,
@@ -22812,24 +22824,52 @@ function PageContent() {
 
           /*
             Home recommendation cards — clean equal-height layout (desktop).
-            Scoped to Home discovery rails only; does not alter Library/Trending-page
-            shared song cards, player, topbar, or mobile discovery overrides.
+            Scoped to Home discovery + Home media grids only; does not alter Library
+            carousel rails, player, topbar, or mobile discovery overrides.
           */
           @media (min-width: 821px) {
-            .zml-app[data-active-view="Home"] .discovery-section .horizontal-rail-track.discovery-grid {
+            .zml-app.view-grid[data-active-view="Home"] .discovery-section .home-discovery-grid,
+            .zml-app.view-grid[data-active-view="Home"] .discovery-section .discovery-grid {
+              display: grid !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              grid-auto-flow: row !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
               gap: 12px !important;
               align-items: start !important;
               grid-auto-rows: 220px !important;
+              overflow: visible !important;
             }
 
-            .zml-app[data-active-view="Home"] .discovery-section .horizontal-rail-track.discovery-grid > .discovery-card {
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail {
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 0 !important;
+            }
+
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .rail-arrow {
+              display: none !important;
+            }
+
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.song-grid,
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.video-grid,
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.artist-album-grid {
+              display: grid !important;
               width: 100% !important;
-              max-width: 218px !important;
+              grid-auto-flow: row !important;
+              grid-auto-columns: unset !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 12px !important;
+              overflow: visible !important;
+            }
+
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-grid > .discovery-card {
+              width: 100% !important;
+              max-width: none !important;
               height: 220px !important;
               min-height: 220px !important;
               max-height: 220px !important;
               box-sizing: border-box !important;
-              align-self: start !important;
+              align-self: stretch !important;
               display: grid !important;
               grid-template-rows: 96px minmax(0, 1fr) 34px !important;
               gap: 8px !important;
@@ -22890,12 +22930,16 @@ function PageContent() {
               align-self: end !important;
             }
 
-            .zml-app.view-list[data-active-view="Home"] .discovery-section .horizontal-rail-track.discovery-grid {
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-grid {
+              display: grid !important;
+              grid-auto-flow: row !important;
+              grid-template-columns: 1fr !important;
               grid-auto-rows: 92px !important;
               gap: 10px !important;
+              overflow: visible !important;
             }
 
-            .zml-app.view-list[data-active-view="Home"] .discovery-section .horizontal-rail-track.discovery-grid > .discovery-card {
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-grid > .discovery-card {
               width: 100% !important;
               max-width: none !important;
               height: 92px !important;
@@ -22935,6 +22979,26 @@ function PageContent() {
               width: calc(100% - 12px) !important;
               margin-right: 10px !important;
               justify-self: end !important;
+            }
+          }
+
+          @media (min-width: 1100px) {
+            .zml-app.view-grid[data-active-view="Home"] .discovery-section .home-discovery-grid,
+            .zml-app.view-grid[data-active-view="Home"] .discovery-section .discovery-grid,
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.song-grid,
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.video-grid,
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.artist-album-grid {
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            }
+          }
+
+          @media (min-width: 1440px) {
+            .zml-app.view-grid[data-active-view="Home"] .discovery-section .home-discovery-grid,
+            .zml-app.view-grid[data-active-view="Home"] .discovery-section .discovery-grid,
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.song-grid,
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.video-grid,
+            .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.artist-album-grid {
+              grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
             }
           }
 
