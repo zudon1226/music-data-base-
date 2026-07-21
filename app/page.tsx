@@ -28697,6 +28697,31 @@ function PageContent() {
               scroll-margin-bottom: var(--mobile-player-reserve);
             }
 
+            /* Platform Overview: one full-width metric card per row so Videos → Ringtones → Playlists stays readable. */
+            .platform-control-center {
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+            }
+
+            .control-center-header {
+              flex-direction: column;
+              align-items: stretch;
+            }
+
+            .control-overview-grid {
+              grid-template-columns: 1fr;
+              width: 100%;
+              min-width: 0;
+            }
+
+            .control-overview-card {
+              width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+            }
+
             .topbar {
               display: grid;
               grid-template-columns: minmax(0, 1fr);

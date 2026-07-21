@@ -154,7 +154,11 @@ export function PlatformControlCenter({
                         ["Likes", overview?.totalLikes],
                         ["Followers", overview?.totalFollowers],
                     ].map(([label, value]) => (
-                        <article className="control-overview-card" key={String(label)}>
+                        <article
+                            className="control-overview-card"
+                            data-overview-metric={String(label)}
+                            key={String(label)}
+                        >
                             <strong>{formatCount(Number(value || 0))}</strong>
                             <span>{label}</span>
                         </article>
