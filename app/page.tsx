@@ -819,6 +819,19 @@ type DownloadVaultItem = {
     licenseId?: string;
     licensePdfFileName?: string;
 };
+type MediaDownloadVaultItem = {
+    id: string;
+    userId: string;
+    contentId: string;
+    contentType: "music" | "video";
+    mediaType: "song" | "video";
+    title: string;
+    filename: string;
+    accessSource: string;
+    sourceLabel: string;
+    downloadCount: number;
+    downloadedAt: string;
+};
 type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Platform Control Center";
 type PlatformErrorRow = {
     id: string;
@@ -4311,6 +4324,7 @@ function PageContent() {
     const [salesCart, setSalesCart] = useState<SalesCartItem[]>([]);
     const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
     const [downloadVault, setDownloadVault] = useState<DownloadVaultItem[]>([]);
+    const [mediaDownloadVault, setMediaDownloadVault] = useState<MediaDownloadVaultItem[]>([]);
     const normalizeLicenseRecord = useCallback((value: unknown): LicenseRecord | null => {
         if (!value || typeof value !== "object")
             return null;
@@ -4430,6 +4444,56 @@ function PageContent() {
         }
         catch (error) {
             console.error("SALES SYNC ERROR", error);
+        }
+    }, []);
+    const reloadMediaDownloadVault = useCallback(async (userId: string, accessToken?: string | null) => {
+        const cleanUserId = String(userId || "").trim();
+        const token = String(accessToken || "").trim();
+        if (!cleanUserId || !token) {
+            setMediaDownloadVault([]);
+            return;
+        }
+        try {
+            const response = await fetch(`/api/media-downloads?userId=${encodeURIComponent(cleanUserId)}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store",
+            });
+            const result = await response.json().catch(() => ({})) as {
+                items?: unknown[];
+                error?: string;
+            };
+            if (!response.ok) {
+                console.error("MEDIA DOWNLOAD VAULT SYNC ERROR", result.error || response.statusText);
+                return;
+            }
+            const items = (Array.isArray(result.items) ? result.items : [])
+                .map((value) => {
+                    if (!value || typeof value !== "object") return null;
+                    const row = value as Record<string, unknown>;
+                    const contentId = String(row.contentId || "").trim();
+                    const contentType = row.contentType === "video" ? "video" : row.contentType === "music" ? "music" : "";
+                    if (!contentId || !contentType) return null;
+                    const filename = String(row.filename || "").trim() || "Download";
+                    return {
+                        id: String(row.id || `${cleanUserId}-${contentType}-${contentId}`),
+                        userId: String(row.userId || cleanUserId),
+                        contentId,
+                        contentType,
+                        mediaType: contentType === "video" ? "video" as const : "song" as const,
+                        title: String(row.title || filename),
+                        filename,
+                        accessSource: String(row.accessSource || "paid_listener"),
+                        sourceLabel: String(row.sourceLabel || "Paid listener download"),
+                        downloadCount: Math.max(1, Number(row.downloadCount || 1)),
+                        downloadedAt: String(row.downloadedAt || new Date().toISOString()),
+                    } satisfies MediaDownloadVaultItem;
+                })
+                .filter((item): item is MediaDownloadVaultItem => Boolean(item))
+                .sort((a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime())
+                .slice(0, 200);
+            setMediaDownloadVault(items);
+        } catch (error) {
+            console.error("MEDIA DOWNLOAD VAULT SYNC ERROR", error);
         }
     }, []);
     const postSalesAction = useCallback(async (action: string, payload: Record<string, unknown>) => {
@@ -5859,6 +5923,15 @@ function PageContent() {
                 salesLoadInFlightUserRef.current = "";
         };
     }, [accountUserId, authLoading, reloadSalesFromApi]);
+    useEffect(() => {
+        if (authLoading)
+            return;
+        if (!accountUserId || !authSession?.access_token) {
+            setMediaDownloadVault([]);
+            return;
+        }
+        void reloadMediaDownloadVault(accountUserId, authSession.access_token);
+    }, [accountUserId, authLoading, authSession?.access_token, reloadMediaDownloadVault]);
     const mergedArtistProfiles = useMemo(() => {
         const profiles = buildArtistProfiles(songs, artistProfiles);
         videos.forEach((video) => {
@@ -8707,6 +8780,10 @@ function PageContent() {
     const visibleDownloadVault = useMemo(() => downloadVault
         .filter((item) => !activeUserId || item.userId === activeUserId)
         .sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()), [activeUserId, downloadVault]);
+    const visibleMediaDownloadVault = useMemo(() => mediaDownloadVault
+        .filter((item) => !activeUserId || item.userId === activeUserId)
+        .sort((a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime()), [activeUserId, mediaDownloadVault]);
+    const downloadVaultTotalCount = visibleDownloadVault.length + visibleMediaDownloadVault.length;
     const salesCartSubtotalCents = useMemo(() => visibleSalesCart.reduce((sum, item) => sum + item.priceCents, 0), [visibleSalesCart]);
     const purchaseHistoryTotalCents = useMemo(() => visiblePurchaseHistory.reduce((sum, item) => sum + item.priceCents, 0), [visiblePurchaseHistory]);
     const artistProfileValues: ArtistProfileForm = selectedDashboardArtist
@@ -11216,6 +11293,28 @@ function PageContent() {
                 return;
             }
             showToast(`Download started: ${result.filename || title}`, "success");
+            // Optimistic vault sync, then refetch authoritative media_downloads history.
+            const downloadedAt = new Date().toISOString();
+            setMediaDownloadVault((previous) => {
+                const prior = previous.find((item) => item.contentType === kind && item.contentId === contentId);
+                const nextItem: MediaDownloadVaultItem = {
+                    id: prior?.id || `${userId}-${kind}-${contentId}`,
+                    userId,
+                    contentId,
+                    contentType: kind,
+                    mediaType: kind === "video" ? "video" : "song",
+                    title: title || result.filename || prior?.title || "Download",
+                    filename: result.filename || prior?.filename || title || "Download",
+                    accessSource: prior?.accessSource || "paid_listener",
+                    sourceLabel: prior?.sourceLabel || "Paid listener download",
+                    downloadCount: prior ? prior.downloadCount + 1 : 1,
+                    downloadedAt,
+                };
+                return [nextItem, ...previous.filter((item) => !(item.contentType === kind && item.contentId === contentId))]
+                    .sort((a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime())
+                    .slice(0, 200);
+            });
+            void reloadMediaDownloadVault(userId, authSession.access_token);
         } catch (error) {
             showToast(error instanceof Error ? error.message : "Download failed.", "error");
         } finally {
@@ -17171,7 +17270,7 @@ function PageContent() {
                 <span><strong>{visibleSalesCart.length}</strong> Cart</span>
                 <span><strong>{formatCurrencyFromCents(salesCartSubtotalCents)}</strong> Subtotal</span>
                 <span><strong>{visiblePurchaseHistory.length}</strong> Purchases</span>
-                <span><strong>{visibleDownloadVault.length}</strong> Vault</span>
+                <span><strong>{downloadVaultTotalCount}</strong> Vault</span>
               </div>
             </section>
 
@@ -17225,14 +17324,39 @@ function PageContent() {
             <section className="sales-panel">
               <div className="artist-section-title">
                 <h3>Download Vault</h3>
-                <span>{visibleDownloadVault.length} items</span>
+                <span>{downloadVaultTotalCount} items</span>
               </div>
-              {visibleDownloadVault.length === 0 ? (<p className="empty-small">Purchased downloads will appear here.</p>) : (<div className="sales-row-list">
-                  {visibleDownloadVault.map((item) => (<article className="sales-row" key={`${item.userId}-${item.itemType}-${item.itemId}`}>
+              {downloadVaultTotalCount === 0 ? (<p className="empty-small">Purchased packages and paid-listener music/video downloads will appear here.</p>) : (<div className="sales-row-list">
+                  {visibleMediaDownloadVault.map((item) => (<article className="sales-row" key={`media-${item.userId}-${item.contentType}-${item.contentId}`}>
+                      <img src={getArtworkUrl("")} alt=""/>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <small>
+                          {item.mediaType === "video" ? "Video" : "Song"}
+                          {" | "}
+                          {item.filename}
+                          {" | "}
+                          {item.sourceLabel}
+                          {" | Downloaded "}
+                          {formatPlayedAt(item.downloadedAt)}
+                        </small>
+                      </div>
+                      <button
+                        onClick={() => {
+                          void downloadMediaFromCard(item.contentType, item.contentId, item.title);
+                        }}
+                        type="button"
+                        disabled={mediaDownloadBusyKey === `${item.contentType}:${item.contentId}`}
+                      >
+                        <Upload size={15}/>
+                        Re-download
+                      </button>
+                    </article>))}
+                  {visibleDownloadVault.map((item) => (<article className="sales-row" key={`purchase-${item.userId}-${item.itemType}-${item.itemId}`}>
                       <img src={getArtworkUrl(item.cover)} alt=""/>
                       <div>
                         <strong>{item.title}</strong>
-                        <small>{item.creatorName} | {item.itemType}{item.licenseType ? ` | ${item.licenseType} license` : ""} | Added {formatPlayedAt(item.addedAt)}</small>
+                        <small>{item.creatorName} | Purchased {item.itemType}{item.licenseType ? ` | ${item.licenseType} license` : ""} | Added {formatPlayedAt(item.addedAt)}</small>
                       </div>
                       <button onClick={() => openDownloadVaultItem(item)} type="button">
                         <Upload size={15}/>
@@ -19334,20 +19458,22 @@ function PageContent() {
                       <p>{artist}</p>
                       <small>{item.mediaType === "song" ? "Song" : "Video"}{item.duration != null ? ` | ${formatDurationLabel(item.duration)}` : ""}</small>
                     </div>
-                    <button onClick={() => playQueuedMediaItem(item)} type="button" title={`Play ${item.title}`}>
-                      <Play size={16} fill="currentColor"/>
-                      Play
-                    </button>
-                    <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, -1)} disabled={index <= 0} type="button" title="Move up">
-                      Up
-                    </button>
-                    <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, 1)} disabled={index < 0 || index >= mediaQueueItems.length - 1} type="button" title="Move down">
-                      Down
-                    </button>
-                    <button onClick={() => removeMediaFromQueue(item.mediaType, item.id)} type="button" title="Remove">
-                      <X size={16}/>
-                      Remove
-                    </button>
+                    <div className="queue-manage-actions" role="group" aria-label={`Queue controls for ${item.title}`}>
+                      <button onClick={() => playQueuedMediaItem(item)} type="button" title={`Play ${item.title}`}>
+                        <Play size={16} fill="currentColor"/>
+                        Play
+                      </button>
+                      <button onClick={() => removeMediaFromQueue(item.mediaType, item.id)} type="button" title="Remove">
+                        <X size={16}/>
+                        Remove
+                      </button>
+                      <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, -1)} disabled={index <= 0} type="button" title="Move up">
+                        Up
+                      </button>
+                      <button onClick={() => moveSharedQueueItem(item.mediaType, item.id, 1)} disabled={index < 0 || index >= mediaQueueItems.length - 1} type="button" title="Move down">
+                        Down
+                      </button>
+                    </div>
                   </article>);
             };
             return (<section className="queue-page">
@@ -23853,13 +23979,22 @@ function PageContent() {
 
           .queue-manage-row {
             display: grid;
-            grid-template-columns: 36px 54px minmax(0, 1fr) minmax(72px, auto) repeat(3, minmax(54px, auto));
+            grid-template-columns: 36px 54px minmax(0, 1fr) auto;
             align-items: center;
             gap: 8px;
             border: 1px solid rgba(0, 212, 255, 0.18);
             border-radius: 8px;
             background: #10204a;
             padding: 8px;
+          }
+
+          .queue-manage-actions {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            min-width: 0;
           }
 
           .queue-manage-row img {
@@ -31504,11 +31639,11 @@ function PageContent() {
             .queue-manage-row {
               width: 100% !important;
               display: grid !important;
-              grid-template-columns: 28px 44px minmax(0, 1fr) 36px 36px !important;
+              grid-template-columns: 28px 44px minmax(0, 1fr) !important;
               grid-template-rows: auto auto !important;
-              gap: 6px !important;
-              align-items: center !important;
-              overflow: hidden !important;
+              gap: 8px !important;
+              align-items: start !important;
+              overflow: visible !important;
               box-sizing: border-box !important;
             }
 
@@ -31538,39 +31673,30 @@ function PageContent() {
               text-overflow: ellipsis !important;
             }
 
-            .queue-manage-row button {
+            .queue-manage-actions {
+              grid-column: 1 / -1 !important;
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+              grid-template-rows: auto auto !important;
+              gap: 8px !important;
+              width: 100% !important;
+              max-width: 100% !important;
               min-width: 0 !important;
-              width: 36px !important;
-              height: 34px !important;
-              min-height: 34px !important;
-              padding: 0 !important;
-              font-size: 11px !important;
+              box-sizing: border-box !important;
             }
 
-            .queue-manage-row button:nth-of-type(1),
-            .queue-manage-row button:nth-of-type(4) {
-              grid-row: 1 !important;
-            }
-
-            .queue-manage-row button:nth-of-type(1) {
-              grid-column: 4 !important;
-            }
-
-            .queue-manage-row button:nth-of-type(4) {
-              grid-column: 5 !important;
-            }
-
-            .queue-manage-row button:nth-of-type(2),
-            .queue-manage-row button:nth-of-type(3) {
-              grid-row: 2 !important;
-            }
-
-            .queue-manage-row button:nth-of-type(2) {
-              grid-column: 4 !important;
-            }
-
-            .queue-manage-row button:nth-of-type(3) {
-              grid-column: 5 !important;
+            .queue-manage-actions > button {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              min-height: 44px !important;
+              height: 44px !important;
+              padding: 0 10px !important;
+              font-size: 12px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              box-sizing: border-box !important;
             }
 
             .video-page {
@@ -32926,7 +33052,7 @@ function PageContent() {
               max-height: none !important;
               gap: 10px !important;
               padding: 0 !important;
-              padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
+              padding-bottom: calc(var(--mobile-player-height, 112px) + 24px) !important;
               margin: 0 !important;
               margin-bottom: 0 !important;
               overflow-x: hidden !important;
@@ -33441,25 +33567,24 @@ function PageContent() {
             }
 
             /*
-              Queue-only shell collapse:
-              Production still showed a viewport-tall blank under empty Queue because
-              .zml-app { min-height/height: 100dvh } and body { padding-bottom: 56px }
-              kept a full-screen route/app panel + document scroll even after .content
-              was sized to its children. Collapse those parents for Queue only.
+              Queue mobile scrollport:
+              Keep html/body from scrolling, but restore .content as the single
+              vertical scroll container so filled queues can reach every card
+              above the fixed bottom player.
             */
             html:has(.zml-app[data-active-view="Queue"]),
             html:has(.content > .queue-page) {
-              height: auto !important;
+              height: 100% !important;
               min-height: 0 !important;
-              max-height: none !important;
+              max-height: 100% !important;
               overflow: hidden !important;
             }
 
             body:has(.zml-app[data-active-view="Queue"]),
             body:has(.content > .queue-page) {
-              height: auto !important;
+              height: 100% !important;
               min-height: 0 !important;
-              max-height: none !important;
+              max-height: 100% !important;
               padding-bottom: 0 !important;
               margin: 0 !important;
               overflow: hidden !important;
@@ -33469,24 +33594,20 @@ function PageContent() {
             .mdb-app-shell:has(.queue-page),
             .mdb-ltr-shell:has(.zml-app[data-active-view="Queue"]),
             .mdb-rtl-shell:has(.zml-app[data-active-view="Queue"]) {
-              height: auto !important;
+              height: 100% !important;
               min-height: 0 !important;
-              max-height: none !important;
-              overflow: visible !important;
+              max-height: 100% !important;
+              overflow: hidden !important;
             }
 
             .zml-app[data-active-view="Queue"] {
               display: block !important;
-              align-items: start !important;
-              align-content: start !important;
-              justify-content: flex-start !important;
-              flex: 0 0 auto !important;
-              flex-grow: 0 !important;
+              position: relative !important;
               min-height: 0 !important;
-              height: auto !important;
-              max-height: none !important;
+              height: 100dvh !important;
+              max-height: 100dvh !important;
               padding-bottom: 0 !important;
-              overflow: visible !important;
+              overflow: hidden !important;
             }
 
             .zml-app[data-active-view="Queue"] .content,
@@ -33497,22 +33618,24 @@ function PageContent() {
               align-items: stretch !important;
               align-content: start !important;
               justify-content: flex-start !important;
-              flex: 0 0 auto !important;
-              flex-grow: 0 !important;
-              align-self: start !important;
+              position: fixed !important;
               top: 0 !important;
-              bottom: auto !important;
-              height: auto !important;
+              bottom: 0 !important;
+              left: var(--mobile-sidebar-width) !important;
+              right: 0 !important;
+              width: auto !important;
+              height: 100dvh !important;
+              max-height: 100dvh !important;
               min-height: 0 !important;
-              max-height: none !important;
               padding: 8px 10px 0 !important;
-              padding-bottom: 0 !important;
               margin: 0 !important;
               overflow-x: hidden !important;
-              overflow-y: visible !important;
+              overflow-y: auto !important;
+              -webkit-overflow-scrolling: touch !important;
               overscroll-behavior: contain !important;
-              scroll-padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
+              scroll-padding-bottom: calc(var(--mobile-player-height, 112px) + 24px) !important;
               grid-auto-rows: max-content !important;
+              z-index: 1 !important;
             }
 
             .zml-app[data-active-view="Queue"] .content > .topbar,
@@ -33536,7 +33659,7 @@ function PageContent() {
               flex-direction: column !important;
               align-items: stretch !important;
               align-content: start !important;
-              align-self: start !important;
+              align-self: stretch !important;
               justify-content: flex-start !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
@@ -33549,7 +33672,8 @@ function PageContent() {
 
             .zml-app[data-active-view="Queue"] .content > .queue-page,
             .content:has(> .queue-page) > .queue-page {
-              padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
+              padding-bottom: calc(var(--mobile-player-height, 112px) + 24px) !important;
+              overflow: visible !important;
             }
 
             .zml-app[data-active-view="Queue"] .content > .mobile-player-spacer,
@@ -34008,17 +34132,18 @@ function PageContent() {
             }
 
             .content > .queue-page {
-              padding-bottom: calc(var(--mobile-player-height, 112px) + 16px) !important;
+              padding-bottom: calc(var(--mobile-player-height, 112px) + 24px) !important;
             }
 
-            .zml-app[data-active-view="Queue"],
             .zml-app[data-active-view="Queue"] .content,
             .content:has(> .queue-page) {
-              bottom: auto !important;
-              height: auto !important;
+              bottom: 0 !important;
+              height: 100dvh !important;
+              max-height: 100dvh !important;
               min-height: 0 !important;
-              max-height: none !important;
-              flex-grow: 0 !important;
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
+              -webkit-overflow-scrolling: touch !important;
               padding-bottom: 0 !important;
             }
 
@@ -34033,7 +34158,7 @@ function PageContent() {
               overflow: hidden !important;
               padding-bottom: 0 !important;
               min-height: 0 !important;
-              height: auto !important;
+              height: 100% !important;
             }
 
             .content > .recent-panel {

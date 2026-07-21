@@ -78,28 +78,122 @@ export async function authorizeMediaDownload(input: {
     };
 }
 
+function mapAccessSource(accessMode: MediaDownloadAuthOk["accessMode"] | string | null | undefined) {
+    const mode = String(accessMode || "").trim().toLowerCase();
+    if (mode === "owner") return "owner";
+    if (mode === "admin") return "admin";
+    return "paid_listener";
+}
+
+/**
+ * Records one logical Download Vault entry per user/media.
+ * First download inserts; later intentional downloads bump count + last_downloaded_at.
+ * Never blocks a successful authorized file delivery.
+ */
 export async function recordMediaDownloadEvent(input: {
     userId: string;
     contentId: string;
     contentType: MediaDownloadContentType;
     filename: string;
+    title?: string | null;
+    accessMode?: MediaDownloadAuthOk["accessMode"] | string | null;
     planName: string | null;
     planSlug: string | null;
     deliveryStatus?: "delivered" | "failed";
 }) {
     const supabase = getSupabaseServerClient();
-    const { error } = await supabase.from("media_downloads").insert({
-        user_id: input.userId,
-        content_id: input.contentId,
-        content_type: input.contentType,
-        filename: input.filename,
-        plan_name: input.planName,
-        plan_slug: input.planSlug,
-        delivery_status: input.deliveryStatus || "delivered",
-    });
-    if (error) {
-        // History must not block a successful authorized download.
-        console.error("[media_downloads] insert failed:", getErrorMessage(error));
+    const now = new Date().toISOString();
+    const title = String(input.title || "").trim() || String(input.filename || "").trim() || "Download";
+    const accessSource = mapAccessSource(input.accessMode);
+    const deliveryStatus = input.deliveryStatus || "delivered";
+
+    try {
+        const { data: prior, error: lookupError } = await supabase
+            .from("media_downloads")
+            .select("id,download_count")
+            .eq("user_id", input.userId)
+            .eq("content_id", input.contentId)
+            .eq("content_type", input.contentType)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (lookupError) {
+            console.error("[media_downloads] lookup failed:", getErrorMessage(lookupError));
+        }
+
+        if (prior?.id) {
+            const nextCount = Math.max(1, Number(prior.download_count || 1)) + 1;
+            const { error: updateError } = await supabase
+                .from("media_downloads")
+                .update({
+                    filename: input.filename,
+                    title,
+                    access_source: accessSource,
+                    plan_name: input.planName,
+                    plan_slug: input.planSlug,
+                    delivery_status: deliveryStatus,
+                    last_downloaded_at: now,
+                    download_count: nextCount,
+                })
+                .eq("id", prior.id);
+
+            if (!updateError) return;
+
+            // Pre-migration DBs may lack new columns — still refresh filename/status.
+            if (/column|access_source|last_downloaded_at|download_count|title/i.test(getErrorMessage(updateError))) {
+                const { error: legacyUpdateError } = await supabase
+                    .from("media_downloads")
+                    .update({
+                        filename: input.filename,
+                        plan_name: input.planName,
+                        plan_slug: input.planSlug,
+                        delivery_status: deliveryStatus,
+                    })
+                    .eq("id", prior.id);
+                if (!legacyUpdateError) return;
+                console.error("[media_downloads] legacy update failed:", getErrorMessage(legacyUpdateError));
+                return;
+            }
+
+            console.error("[media_downloads] update failed:", getErrorMessage(updateError));
+            return;
+        }
+
+        const { error: insertError } = await supabase.from("media_downloads").insert({
+            user_id: input.userId,
+            content_id: input.contentId,
+            content_type: input.contentType,
+            filename: input.filename,
+            title,
+            access_source: accessSource,
+            plan_name: input.planName,
+            plan_slug: input.planSlug,
+            delivery_status: deliveryStatus,
+            last_downloaded_at: now,
+            download_count: 1,
+        });
+
+        if (!insertError) return;
+
+        if (/column|access_source|last_downloaded_at|download_count|title/i.test(getErrorMessage(insertError))) {
+            const { error: legacyInsertError } = await supabase.from("media_downloads").insert({
+                user_id: input.userId,
+                content_id: input.contentId,
+                content_type: input.contentType,
+                filename: input.filename,
+                plan_name: input.planName,
+                plan_slug: input.planSlug,
+                delivery_status: deliveryStatus,
+            });
+            if (!legacyInsertError) return;
+            console.error("[media_downloads] legacy insert failed:", getErrorMessage(legacyInsertError));
+            return;
+        }
+
+        console.error("[media_downloads] insert failed:", getErrorMessage(insertError));
+    } catch (error) {
+        console.error("[media_downloads] record failed:", getErrorMessage(error));
     }
 }
 

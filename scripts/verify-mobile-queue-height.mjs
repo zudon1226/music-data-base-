@@ -1,6 +1,6 @@
 /**
- * Mobile empty Queue height contract.
- * Fails when shared shells (content / zml-app / body) still viewport-stretch Queue.
+ * Mobile Queue height / scrollport contract.
+ * Empty Queue must not force document scroll; filled Queue must scroll inside .content.
  * Run: node scripts/verify-mobile-queue-height.mjs
  */
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -31,21 +31,21 @@ const mobileBlock = start >= 0 ? pageSrc.slice(start, end > start ? end : undefi
 
 record("mobile 768 breakpoint present", Boolean(mobileBlock));
 record(
-    "queue collapses zml-app / body / html shells",
-    /zml-app\[data-active-view="Queue"\][\s\S]{0,400}min-height:\s*0/.test(mobileBlock)
-        && /body:has\(\.zml-app\[data-active-view="Queue"\]\)[\s\S]{0,300}padding-bottom:\s*0/.test(mobileBlock)
-        && /html:has\(\.zml-app\[data-active-view="Queue"\]\)/.test(mobileBlock),
+    "queue locks document scroll on html/body",
+    /html:has\(\.zml-app\[data-active-view="Queue"\]\)/.test(mobileBlock)
+        && /body:has\(\.zml-app\[data-active-view="Queue"\]\)[\s\S]{0,300}overflow:\s*hidden/.test(mobileBlock),
 );
 record(
-    "queue content shell kills bottom/100dvh fill",
-    /data-active-view="Queue"[\s\S]{0,1600}bottom:\s*auto/.test(mobileBlock)
-        && /data-active-view="Queue"[\s\S]{0,1600}height:\s*auto/.test(mobileBlock)
-        && /data-active-view="Queue"[\s\S]{0,1600}flex-grow:\s*0/.test(mobileBlock),
+    "queue content is the vertical scrollport",
+    /data-active-view="Queue"[\s\S]{0,2400}overflow-y:\s*auto/.test(mobileBlock)
+        && /data-active-view="Queue"[\s\S]{0,2400}height:\s*100dvh/.test(mobileBlock)
+        && /data-active-view="Queue"[\s\S]{0,2400}-webkit-overflow-scrolling:\s*touch/.test(mobileBlock)
+        && /data-active-view="Queue"[\s\S]{0,2400}bottom:\s*0/.test(mobileBlock),
 );
 record(
     "queue page natural height + player clearance",
     /queue-page[\s\S]{0,700}flex:\s*0\s+0\s+auto/.test(mobileBlock)
-        && /queue-page[\s\S]{0,900}padding-bottom:\s*calc\(var\(--mobile-player-height,\s*112px\)\s*\+\s*16px\)/.test(mobileBlock),
+        && /queue-page[\s\S]{0,900}padding-bottom:\s*calc\(var\(--mobile-player-height,\s*112px\)\s*\+\s*24px\)/.test(mobileBlock),
 );
 record("package script verify:queue", pkg.includes("verify:queue"));
 
@@ -70,14 +70,13 @@ async function assertComputed() {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root {
-    --mobile-sidebar-width: 112px;
+    --mobile-sidebar-width: 64px;
     --mobile-player-height: 112px;
     --mobile-player-reserve: 110px;
     --app-header-offset: 0px;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: #020617; color: #fff; font-family: Arial, sans-serif; }
-  /* Reproduce shells that caused production blank + document scroll. */
   body { min-height: 100%; padding-bottom: calc(env(safe-area-inset-bottom) + 56px); overflow: auto; }
   .mdb-app-shell { display: block; }
   .zml-app { min-height: 100dvh; height: 100dvh; background: #12365f; overflow: hidden; outline: 2px solid #fbbf24; }
@@ -111,10 +110,13 @@ async function assertComputed() {
     border: 1px solid rgba(0, 212, 255, 0.28);
     border-radius: 8px; background: #0b1736; padding: 12px;
   }
-  .empty-state h2 { margin: 0 0 6px; }
-  .empty-state p { margin: 0; }
+  .queue-manage-row {
+    border: 1px solid rgba(0, 212, 255, 0.18);
+    border-radius: 8px; background: #10204a; padding: 8px; margin-bottom: 8px;
+    min-height: 120px;
+  }
   .fixed-mobile-player {
-    position: fixed; left: 112px; right: 0; bottom: 0; height: 72px;
+    position: fixed; left: 64px; right: 0; bottom: 0; height: 72px;
     background: #0f274f; z-index: 9999;
   }
   ${css}
@@ -141,6 +143,7 @@ async function assertComputed() {
             <h2>No media queued</h2>
             <p>Add songs or videos to the queue from any card.</p>
           </div>
+          <div id="filled-list" style="display:none"></div>
         </section>
       </section>
       <div class="fixed-mobile-player" id="player"></div>
@@ -179,150 +182,122 @@ async function assertComputed() {
                 const queue = document.getElementById("queue-page");
                 const empty = document.getElementById("queue-empty");
                 const heading = document.getElementById("queue-heading");
-                const app = document.getElementById("app");
                 const player = document.getElementById("player");
                 const ws = getComputedStyle(workspace);
                 const qs = getComputedStyle(queue);
-                const as = getComputedStyle(app);
                 const bs = getComputedStyle(document.body);
-                const headingTop = heading.getBoundingClientRect().top;
-                const emptyBottom = empty.getBoundingClientRect().bottom;
-                const queueBottom = queue.getBoundingClientRect().bottom;
-                const workspaceBottom = workspace.getBoundingClientRect().bottom;
+                const hs = getComputedStyle(document.documentElement);
                 const padBottom = parseFloat(qs.paddingBottom) || 0;
-                const gapAfterEmpty = queueBottom - emptyBottom - padBottom;
-                const contentSpan = emptyBottom - headingTop;
-                const parents = [];
-                let node = empty;
-                while (node && node !== document.documentElement) {
-                    const s = getComputedStyle(node);
-                    const r = node.getBoundingClientRect();
-                    parents.push({
-                        sel: node.id ? `#${node.id}` : (node.className || node.tagName),
-                        h: Math.round(r.height),
-                        minH: s.minHeight,
-                        flexGrow: s.flexGrow,
-                        bottom: s.bottom,
-                        height: s.height,
-                        gridRows: s.gridTemplateRows,
-                    });
-                    node = node.parentElement;
-                }
+                const emptyBottom = empty.getBoundingClientRect().bottom;
+                const headingTop = heading.getBoundingClientRect().top;
                 return {
                     workspace: {
+                        overflowY: ws.overflowY,
                         height: ws.height,
-                        minHeight: ws.minHeight,
-                        flexGrow: ws.flexGrow,
                         bottom: ws.bottom,
                         h: workspace.getBoundingClientRect().height,
                         scrollHeight: workspace.scrollHeight,
                         clientHeight: workspace.clientHeight,
-                    },
-                    app: {
-                        height: as.height,
-                        minHeight: as.minHeight,
-                        flexGrow: as.flexGrow,
-                        h: app.getBoundingClientRect().height,
+                        webkitOverflow: ws.webkitOverflowScrolling || "",
                     },
                     body: {
-                        height: bs.height,
-                        minHeight: bs.minHeight,
+                        overflow: bs.overflow,
                         paddingBottom: bs.paddingBottom,
-                        scrollHeight: document.documentElement.scrollHeight,
-                        clientHeight: document.documentElement.clientHeight,
+                    },
+                    html: {
+                        overflow: hs.overflow,
                     },
                     queue: {
-                        height: qs.height,
-                        minHeight: qs.minHeight,
-                        flexGrow: qs.flexGrow,
-                        h: queue.getBoundingClientRect().height,
                         padBottom,
+                        flexGrow: qs.flexGrow,
+                        minHeight: qs.minHeight,
                     },
-                    contentSpan,
-                    gapAfterEmpty,
-                    emptyBottom,
-                    queueBottom,
-                    workspaceBottom,
+                    contentSpan: emptyBottom - headingTop,
                     playerTop: player.getBoundingClientRect().top,
-                    overflowY: workspace.scrollHeight > workspace.clientHeight + 1,
                     docOverflow: document.documentElement.scrollHeight > document.documentElement.clientHeight + 1,
                     viewportH: window.innerHeight,
-                    parents,
                 };
             });
 
             record(
-                `${viewport.name} workspace flex-grow is 0`,
-                Number(m.workspace.flexGrow || 0) === 0,
-                `flex-grow=${m.workspace.flexGrow}`,
+                `${viewport.name} content overflow-y auto`,
+                m.workspace.overflowY === "auto" || m.workspace.overflowY === "scroll",
+                `overflowY=${m.workspace.overflowY}`,
             );
             record(
-                `${viewport.name} workspace min-height not viewport`,
-                m.workspace.minHeight === "0px" || m.workspace.minHeight === "auto",
-                `min-height=${m.workspace.minHeight}`,
-            );
-            record(
-                `${viewport.name} workspace not viewport fill`,
-                m.workspace.bottom !== "0px"
-                    && m.workspace.h < m.viewportH - 40
-                    && !/dvh|vh|%/.test(m.workspace.height),
+                `${viewport.name} content fills viewport height`,
+                m.workspace.bottom === "0px"
+                    && (m.workspace.height.includes("dvh") || Math.abs(m.workspace.h - m.viewportH) <= 2),
                 `bottom=${m.workspace.bottom} height=${m.workspace.height} boxH=${m.workspace.h.toFixed(1)} vh=${m.viewportH}`,
             );
             record(
-                `${viewport.name} zml-app not viewport-tall`,
-                m.app.h < m.viewportH - 40
-                    && (m.app.minHeight === "0px" || m.app.minHeight === "auto")
-                    && Number(m.app.flexGrow || 0) === 0,
-                `appH=${m.app.h.toFixed(1)} minH=${m.app.minHeight} flexGrow=${m.app.flexGrow}`,
+                `${viewport.name} html/body overflow hidden`,
+                m.html.overflow === "hidden" && m.body.overflow === "hidden",
+                `html=${m.html.overflow} body=${m.body.overflow}`,
             );
             record(
-                `${viewport.name} queue wrapper flex-grow 0 / min-height 0`,
-                m.queue.flexGrow === "0" && (m.queue.minHeight === "0px" || m.queue.minHeight === "auto"),
-                `flex-grow=${m.queue.flexGrow} min-height=${m.queue.minHeight}`,
+                `${viewport.name} no document scroll`,
+                !m.docOverflow,
+                `docOverflow=${m.docOverflow}`,
             );
             record(
-                `${viewport.name} queue height within content+clearance+24`,
-                m.gapAfterEmpty <= 16 && m.queue.h <= m.queue.padBottom + (m.emptyBottom - (m.queueBottom - m.queue.h)) + m.contentSpan + 40,
-                `queueH=${m.queue.h.toFixed(1)} pad=${m.queue.padBottom.toFixed(1)} gapAfterEmpty=${m.gapAfterEmpty.toFixed(1)}`,
+                `${viewport.name} queue player padding >= 120`,
+                m.queue.padBottom >= 120,
+                `pad=${m.queue.padBottom.toFixed(1)}`,
             );
             record(
-                `${viewport.name} gap after empty before player padding <= 16`,
-                m.gapAfterEmpty >= -1 && m.gapAfterEmpty <= 16,
-                `gap=${m.gapAfterEmpty.toFixed(1)}`,
-            );
-            record(
-                `${viewport.name} heading→empty span compact (<=520)`,
-                m.contentSpan >= 160 && m.contentSpan <= 520,
+                `${viewport.name} empty content span compact`,
+                m.contentSpan >= 120 && m.contentSpan <= 560,
                 `span=${m.contentSpan.toFixed(1)}`,
             );
+
+            // Filled queue must be able to scroll inside workspace.
+            await page.evaluate(() => {
+                document.getElementById("queue-empty").style.display = "none";
+                const list = document.getElementById("filled-list");
+                list.style.display = "block";
+                list.innerHTML = Array.from({ length: 12 }, (_, i) => (
+                    `<article class="queue-manage-row">Queue item ${i + 1}</article>`
+                )).join("");
+            });
+            const filled = await page.evaluate(async () => {
+                const workspace = document.getElementById("workspace");
+                const first = document.querySelector("#filled-list .queue-manage-row");
+                const last = document.querySelector("#filled-list .queue-manage-row:last-child");
+                const canScroll = workspace.scrollHeight > workspace.clientHeight + 8;
+                workspace.scrollTop = workspace.scrollHeight;
+                await new Promise((r) => requestAnimationFrame(r));
+                const lastRect = last.getBoundingClientRect();
+                const playerTop = document.getElementById("player").getBoundingClientRect().top;
+                const lastClearsPlayer = lastRect.bottom <= playerTop - 4;
+                workspace.scrollTop = 0;
+                await new Promise((r) => requestAnimationFrame(r));
+                const firstTop = first.getBoundingClientRect().top;
+                return {
+                    canScroll,
+                    lastClearsPlayer,
+                    firstTop,
+                    scrollHeight: workspace.scrollHeight,
+                    clientHeight: workspace.clientHeight,
+                };
+            });
             record(
-                `${viewport.name} no unnecessary workspace scroll`,
-                !m.overflowY,
-                `scrollH=${m.workspace.scrollHeight} clientH=${m.workspace.clientHeight}`,
+                `${viewport.name} filled queue scrolls in content`,
+                filled.canScroll,
+                `scrollH=${filled.scrollHeight} clientH=${filled.clientHeight}`,
             );
             record(
-                `${viewport.name} no unnecessary document scroll`,
-                !m.docOverflow,
-                `docScrollH=${m.body.scrollHeight} docClientH=${m.body.clientHeight} bodyPad=${m.body.paddingBottom}`,
+                `${viewport.name} final card can clear player`,
+                filled.lastClearsPlayer,
+                `lastClearsPlayer=${filled.lastClearsPlayer}`,
             );
             record(
-                `${viewport.name} no 1fr grid row on queue parents`,
-                m.parents.every((p) => !/\b1fr\b/.test(p.gridRows || "")),
-                m.parents.map((p) => `${p.sel}:${p.gridRows}`).join(" | ").slice(0, 180),
+                `${viewport.name} scroll returns toward top`,
+                filled.firstTop < 220,
+                `firstTop=${filled.firstTop.toFixed(1)}`,
             );
 
             if (viewport.name === "390x844") {
-                console.log("DIAG_SUMMARY", JSON.stringify({
-                    workspace: m.workspace,
-                    app: m.app,
-                    body: m.body,
-                    queue: m.queue,
-                    contentSpan: m.contentSpan,
-                    gapAfterEmpty: m.gapAfterEmpty,
-                    emptyBottom: m.emptyBottom,
-                    queueBottom: m.queueBottom,
-                    workspaceBottom: m.workspaceBottom,
-                }, null, 2));
                 await page.screenshot({
                     path: path.join(evidenceDir, "empty-queue-390.png"),
                     fullPage: false,

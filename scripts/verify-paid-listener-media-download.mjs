@@ -59,6 +59,11 @@ record("routes reject download_disabled", songRoute.includes("DOWNLOAD_DISABLED"
 record("routes reject invalid id substitution", songRoute.includes("INVALID_ID") && videoRoute.includes("INVALID_ID"));
 record("history recorded only after successful fetch", /storage\.from[\s\S]*download[\s\S]*recordMediaDownloadEvent/.test(songRoute)
     && /storage\.from[\s\S]*download[\s\S]*recordMediaDownloadEvent/.test(videoRoute));
+record("history stores title + access source for vault sync", authLib.includes("access_source")
+    && authLib.includes("last_downloaded_at")
+    && authLib.includes("download_count")
+    && songRoute.includes("title: song.title")
+    && songRoute.includes("accessMode: entitlement.accessMode"));
 record("filename helper builds readable titles", filenameLib.includes("buildMediaDownloadFilename")
     && filenameLib.includes("buildMediaContentDisposition"));
 record("client one-request download helper", clientLib.includes("downloadAuthorizedMediaFile")

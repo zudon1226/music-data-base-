@@ -148,6 +148,8 @@ export async function POST(request: Request, context: Params) {
             contentId: videoId,
             contentType: "video",
             filename,
+            title: typeof videoData.title === "string" ? videoData.title : null,
+            accessMode: entitlement.accessMode,
             planName: entitlement.planName,
             planSlug: entitlement.planSlug,
             deliveryStatus: "delivered",

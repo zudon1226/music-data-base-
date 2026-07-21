@@ -119,6 +119,8 @@ export async function POST(request: Request, context: Params) {
             contentId: songId,
             contentType: "music",
             filename,
+            title: song.title,
+            accessMode: entitlement.accessMode,
             planName: entitlement.planName,
             planSlug: entitlement.planSlug,
             deliveryStatus: "delivered",

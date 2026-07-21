@@ -70,11 +70,13 @@ record(
 );
 
 record(
-    "queue natural height no vh stretch",
+    "queue content is mobile scrollport above fixed player",
     mobileBlock.includes('data-active-view="Queue"')
         && /body:has\(\.zml-app\[data-active-view="Queue"\]\)/.test(mobileBlock)
-        && /zml-app\[data-active-view="Queue"\][\s\S]{0,400}min-height:\s*0/.test(mobileBlock)
-        && /data-active-view="Queue"[\s\S]{0,1600}bottom:\s*auto/.test(mobileBlock)
+        && /html:has\(\.zml-app\[data-active-view="Queue"\]\)[\s\S]{0,220}overflow:\s*hidden/.test(mobileBlock)
+        && /data-active-view="Queue"[\s\S]{0,2200}overflow-y:\s*auto/.test(mobileBlock)
+        && /data-active-view="Queue"[\s\S]{0,2200}height:\s*100dvh/.test(mobileBlock)
+        && /data-active-view="Queue"[\s\S]{0,2200}-webkit-overflow-scrolling:\s*touch/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}flex:\s*0\s+0\s+auto/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}flex-grow:\s*0/.test(mobileBlock)
         && /queue-page[\s\S]{0,600}min-height:\s*0/.test(mobileBlock)
@@ -86,8 +88,8 @@ record(
 );
 
 record(
-    "queue player-safe padding uses player height + 16px",
-    /queue-page[\s\S]{0,800}padding:\s*0\s+0\s+calc\(var\(--mobile-player-height,\s*112px\)/.test(mobileBlock)
+    "queue player-safe padding uses player height + clearance",
+    /queue-page[\s\S]{0,800}padding-bottom:\s*calc\(var\(--mobile-player-height,\s*112px\)\s*\+\s*24px\)/.test(mobileBlock)
         || /content > \.queue-page[\s\S]{0,200}padding-bottom:\s*calc\(var\(--mobile-player-height,\s*112px\)/.test(mobileBlock),
 );
 
