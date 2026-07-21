@@ -1,6 +1,7 @@
 /**
- * Canonical Notifications navigation + layering contracts.
- * Ensures one topbar entry point, no sidebar duplicate, no overlay panel over Home.
+ * Notification bell dropdown + full page contracts.
+ * Bell opens a popover without changing the current page view.
+ * Full Notifications page opens only via "View all" (or equivalent intentional nav).
  * Run: node scripts/verify-notification-nav-canonical.mjs
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -30,7 +31,8 @@ const pkg = read("package.json");
 const layoutLock = read("scripts/verify-responsive-stability-lock.mjs");
 
 // --- Single visible notification control ---
-const topbarBellCount = (page.match(/<NotificationCenterPanel[\s\S]*?\/>/g) || []).length;
+const topbarBellCount = (page.match(/<NotificationCenterPanel[\s\S]*?\/>/g) || []).length
+    || (page.match(/<NotificationCenterPanel[\s\S]*?<\/NotificationCenterPanel>/g) || []).length;
 record("exactly one NotificationCenterPanel mount site", topbarBellCount === 1);
 record("topbar bell remains visible entry", panel.includes('data-notification-entry="topbar"')
     && panel.includes('className="notification-button"')
@@ -48,26 +50,58 @@ record(
         && /notification-button[\s\S]{0,400}\{unreadCount > 0/.test(panel),
 );
 
-// --- Canonical view, not overlay ---
+// --- Dropdown popover (not page navigation) ---
 record(
-    "topbell opens canonical Notifications section",
-    page.includes('onOpen={() => handleNav("Notifications")}')
-        && panel.includes("onOpen")
-        && !panel.includes("onToggle"),
+    "topbell toggles dropdown without handleNav",
+    panel.includes("onToggle")
+        && panel.includes('role="dialog"')
+        && panel.includes("notification-center")
+        && panel.includes("aria-haspopup")
+        && page.includes("showNotificationCenter")
+        && page.includes("setShowNotificationCenter")
+        && !page.includes('onOpen={() => handleNav("Notifications")}'),
 );
 record(
-    "overlay/dropdown notification panel eliminated",
-    !panel.includes("notification-center")
-        && !panel.includes('role="dialog"')
-        && !panel.includes("aria-haspopup")
-        && !page.includes("showNotificationCenter")
-        && !page.includes("setShowNotificationCenter"),
+    "dropdown open does not set Notifications view",
+    page.includes("onToggle={() => {")
+        && page.includes("setShowNotificationCenter((value) => {")
+        && !/onToggle=\{\(\) => \{\s*handleNav\("Notifications"\)/.test(page),
 );
 record(
-    "canonical Notifications page replaces main content",
-    page.includes('view === "Notifications"')
-        && page.includes('data-notifications-view="canonical"')
-        && /\{view === "Notifications" \? \(/.test(page),
+    "outside click and Escape close dropdown",
+    panel.includes('event.key === "Escape"')
+        && panel.includes('pointerdown')
+        && panel.includes("onClose"),
+);
+record(
+    "dropdown reuses shared notifications state",
+    page.includes("notifications={notifications}")
+        && page.includes("unreadCount={unreadNotifications}")
+        && page.includes("onMarkAllRead={() => { markNotificationsRead(); }}")
+        && page.includes("onClearRead={() => { void clearReadNotifications(); }}"),
+);
+record(
+    "dropdown limits recent items and scrolls body",
+    panel.includes("DROPDOWN_ITEM_LIMIT")
+        && panel.includes("notification-center-body")
+        && page.includes(".notification-center-body")
+        && /overflow-y:\s*auto/.test(page),
+);
+record(
+    "dropdown stacks above page content and player",
+    /z-index:\s*80/.test(page)
+        && page.includes(".topbar:has(.notification-center)")
+        && /z-index:\s*9999/.test(page),
+);
+
+// --- Full page only via View all ---
+record(
+    "View all opens canonical Notifications page",
+    panel.includes('data-notification-action="view-all"')
+        && page.includes("onViewAll={() => {")
+        && page.includes('handleNav("Notifications")')
+        && page.includes('view === "Notifications"')
+        && page.includes('data-notifications-view="canonical"'),
 );
 record(
     "Home hero not mounted under Notifications",
@@ -84,26 +118,20 @@ record(
     (page.match(/data-notifications-view="canonical"/g) || []).length === 1
         && (page.match(/className="notifications-page dashboard-page"/g) || []).length === 1,
 );
-
-// --- Navigation cleanup / no stale overlay ---
 record(
-    "section nav uses applyDesktopView / handleNav (replaces Notifications)",
+    "section nav closes dropdown via applyDesktopView / handleNav",
     page.includes("function applyDesktopView")
         && page.includes("function handleNav")
+        && page.includes("setShowNotificationCenter(false)")
         && page.includes("setView(nextView)"),
 );
 record(
-    "rapid Home → Notifications → Library path uses same setView switch",
-    (page.includes('onOpen={() => handleNav("Notifications")}') || page.includes('handleNav("Notifications")'))
-        && page.includes('handleNav("Library")'),
-);
-record(
-    "Notifications reload on enter, no overlay state",
-    /if \(nextView === "Notifications"\) \{\s*void reloadNotificationsFromServer\(\);/.test(page)
-        && !page.includes("notificationWrapRef"),
+    "Notifications reload on dropdown open and full page enter",
+    page.includes("if (next) void reloadNotificationsFromServer()")
+        && /if \(nextView === "Notifications"\) \{\s*void reloadNotificationsFromServer\(\);/.test(page),
 );
 
-// --- Actions preserved on page view ---
+// --- Actions preserved ---
 record(
     "notification actions remain on canonical page",
     page.includes('data-notification-action="mark-all-read"')
@@ -114,17 +142,28 @@ record(
         && page.includes("deleteNotification"),
 );
 record(
+    "dropdown exposes mark-all and clear-read",
+    panel.includes('data-notification-action="mark-all-read"')
+        && panel.includes('data-notification-action="clear-read"')
+        && panel.includes('notifications.empty'),
+);
+record(
     "Notifications stays role-accessible outside sidebar",
     /LISTENER_ACCESSIBLE_VIEWS[\s\S]*"Notifications"/.test(roleLib)
         && !/LISTENER_NAV_VIEWS[\s\S]*"Notifications"/.test(roleLib.split("LISTENER_ACCESSIBLE_VIEWS")[0]),
 );
 
-// --- Responsive / viewport contracts (static markers; layout lock remains separate) ---
+// --- Responsive / viewport contracts ---
 record(
     "mobile portrait / landscape / desktop still share topbar account actions",
     page.includes("topbar-account-actions")
         && page.includes("@media (max-width: 820px)")
         && page.includes("@media (max-width: 430px)"),
+);
+record(
+    "mobile dropdown stays in content area away from sidebar",
+    page.includes("calc(100vw - var(--mobile-sidebar-width, 64px) - 24px)")
+        && panel.includes('data-notification-panel="dropdown"'),
 );
 record("package exposes verify:notifications-nav", pkg.includes("verify:notifications-nav"));
 record("responsive layout lock script still present", layoutLock.includes("Responsive UI stability lock"));

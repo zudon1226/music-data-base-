@@ -166,7 +166,7 @@ export const LISTENER_NAV_VIEWS = [
 /**
  * Extra consumer destinations still reachable via topbar / Home tabs / deep links
  * without appearing in the Listener sidebar.
- * Notifications is opened from the top action-row bell only.
+ * Notifications page is opened from the topbar dropdown "View all" control.
  */
 export const LISTENER_ACCESSIBLE_VIEWS = [
     ...LISTENER_NAV_VIEWS,

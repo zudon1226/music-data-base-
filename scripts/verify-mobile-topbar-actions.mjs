@@ -58,11 +58,13 @@ record(
         && /notification-button > span:not\(\.sr-only\)[\s\S]{0,120}position:\s*absolute/.test(page),
 );
 record(
-    "topbar bell opens canonical Notifications view",
+    "topbar bell opens notification dropdown popover",
     panel.includes('data-notification-entry="topbar"')
-        && panel.includes("onOpen")
-        && !panel.includes("notification-center")
-        && page.includes('onOpen={() => handleNav("Notifications")}'),
+        && panel.includes("onToggle")
+        && panel.includes("notification-center")
+        && panel.includes('data-notification-panel="dropdown"')
+        && page.includes("showNotificationCenter")
+        && !page.includes('onOpen={() => handleNav("Notifications")}'),
 );
 record(
     "role gates keep null renders",

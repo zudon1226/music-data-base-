@@ -3575,6 +3575,7 @@ function PageContent() {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
     const videoPreviewRef = useRef<HTMLElement | null>(null);
+    const notificationWrapRef = useRef<HTMLDivElement | null>(null);
     const albumUploadUserRef = useRef<SupabaseUser | null>(null);
     const activeUploadKeysRef = useRef<Set<string>>(new Set());
     const uploadInProgressRef = useRef(false);
@@ -4522,6 +4523,7 @@ function PageContent() {
     });
     const [notifications, setNotifications] = useState<PlatformNotification[]>([]);
     const [notificationsLoading, setNotificationsLoading] = useState(false);
+    const [showNotificationCenter, setShowNotificationCenter] = useState(false);
     useEffect(() => {
         const userId = String(accountUserId || "").trim();
         if (!userId || authLoading || !isDesktopProtectedActionsEnabled()) {
@@ -4715,6 +4717,7 @@ function PageContent() {
     }
     function navigateFromNotification(notification: PlatformNotification) {
         const destination = String(notification.href || defaultHrefForNotification(notification.kind, notification.itemType, notification.itemId));
+        setShowNotificationCenter(false);
         if (destination) {
             handleNav(destination as View);
         }
@@ -5496,6 +5499,7 @@ function PageContent() {
         initialDataLoadInFlightKeyRef.current = "";
         setAlbums([]);
         setNotifications([]);
+        setShowNotificationCenter(false);
         setCommentsByItem({});
         setCommentTarget(null);
         setCommentDraft("");
@@ -5513,6 +5517,10 @@ function PageContent() {
     useEffect(() => {
         disableBrowserScrollRestoration();
     }, []);
+    useEffect(() => {
+        const timer = window.setTimeout(() => setShowNotificationCenter(false), 0);
+        return () => window.clearTimeout(timer);
+    }, [view]);
     useEffect(() => {
         setPlayerCollapsed(getDefaultPlayerCollapsed());
         setPlayerCollapsedReady(true);
@@ -14566,6 +14574,7 @@ function PageContent() {
         // Exactly one destination workspace: always unmount upload chrome when leaving via nav.
         setToast(null);
         setShowUpload(false);
+        setShowNotificationCenter(false);
         setView(nextView);
         if (nextView === "Artist Dashboard") {
             setCreatorStudio("artist");
@@ -14602,6 +14611,7 @@ function PageContent() {
         scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
     }
     function handleNav(nextView: View) {
+        setShowNotificationCenter(false);
         setToast(null);
         // FoundingMemberGate already blocks unapproved app access. Navigation uses
         // server-trusted role capabilities only — never founding invite leftovers.
@@ -16407,8 +16417,31 @@ function PageContent() {
 
           <div className="topbar-account-actions" role="toolbar" aria-label={t("nav.mainNavigation")}>
             <NotificationCenterPanel
+              wrapRef={notificationWrapRef}
+              open={showNotificationCenter}
+              notifications={notifications}
               unreadCount={unreadNotifications}
-              onOpen={() => handleNav("Notifications")}
+              loading={notificationsLoading}
+              formatTimestamp={formatVideoCreatedAt}
+              onToggle={() => {
+                setShowNotificationCenter((value) => {
+                  const next = !value;
+                  if (next) void reloadNotificationsFromServer();
+                  return next;
+                });
+              }}
+              onClose={() => setShowNotificationCenter(false)}
+              onMarkRead={(id) => { void markNotificationRead(id); }}
+              onMarkAllRead={() => { markNotificationsRead(); }}
+              onClearRead={() => { void clearReadNotifications(); }}
+              onNavigate={(notification) => navigateFromNotification({
+                ...notification,
+                itemType: notification.itemType as PlatformNotification["itemType"],
+              })}
+              onViewAll={() => {
+                setShowNotificationCenter(false);
+                handleNav("Notifications");
+              }}
             />
 
             {shouldShowUploadControl(desktopNavAccess) ? (
@@ -20664,6 +20697,10 @@ function PageContent() {
             overflow: visible;
           }
 
+          .topbar:has(.notification-center) {
+            z-index: 80;
+          }
+
           .notification-button {
             width: 41px;
             height: 41px;
@@ -20702,23 +20739,32 @@ function PageContent() {
             right: 0;
             top: calc(100% + 8px);
             width: min(330px, calc(100vw - 28px));
-            max-height: 410px;
-            overflow: auto;
+            max-height: min(410px, calc(100vh - 120px));
+            overflow: hidden;
             border: 1px solid rgba(34, 211, 238, 0.45);
             border-radius: 8px;
             background: #0b1736;
             box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
             padding: 12px;
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 9px;
-            z-index: 20;
+            z-index: 80;
+            box-sizing: border-box;
           }
 
           .notification-head {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 12px;
+            flex: 0 0 auto;
+          }
+
+          .notification-head-title {
+            display: grid;
+            gap: 2px;
+            min-width: 0;
           }
 
           .notification-head button {
@@ -20729,6 +20775,16 @@ function PageContent() {
             font-size: 12px;
             font-weight: 900;
             padding: 7px 10px;
+          }
+
+          .notification-center-body {
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+            display: grid;
+            gap: 9px;
+            -webkit-overflow-scrolling: touch;
           }
 
           .notification-center article {
@@ -20760,6 +20816,31 @@ function PageContent() {
             color: #9bdcf0;
             font-size: 11px;
             font-weight: 800;
+          }
+
+          .notification-empty-copy {
+            margin: 0;
+            color: #9bdcf0;
+            font-size: 13px;
+            font-weight: 700;
+          }
+
+          .notification-view-all {
+            flex: 0 0 auto;
+            width: 100%;
+            min-height: 44px;
+            border: 1px solid rgba(34, 211, 238, 0.38);
+            border-radius: 8px;
+            background: #14265c;
+            color: white;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+          }
+
+          .notification-view-all:hover {
+            background: #22d3ee;
+            color: #020617;
           }
 
           .notification-head-actions {
@@ -28812,8 +28893,8 @@ function PageContent() {
             }
 
             .notification-center {
-              left: 0;
-              right: auto;
+              right: 0;
+              left: auto;
             }
 
             .verification-admin-grid,
@@ -33896,29 +33977,37 @@ function PageContent() {
 
             .notification-center {
               position: fixed !important;
-              top: 105px !important;
+              top: calc(var(--app-header-offset, 96px) + 8px) !important;
               left: auto !important;
-              right: 16px !important;
-              width: clamp(280px, calc(100vw - 240px), 420px) !important;
-              min-width: 280px !important;
+              right: 12px !important;
+              width: min(330px, calc(100vw - var(--mobile-sidebar-width, 64px) - 24px)) !important;
+              min-width: min(280px, calc(100vw - var(--mobile-sidebar-width, 64px) - 24px)) !important;
+              max-width: calc(100vw - var(--mobile-sidebar-width, 64px) - 24px) !important;
+              max-height: min(410px, calc(100dvh - var(--app-header-offset, 96px) - var(--mobile-player-reserve, 110px) - 24px)) !important;
               min-height: 80px !important;
-              max-width: none !important;
-              padding: 16px !important;
-              border-radius: 16px !important;
+              padding: 12px !important;
+              border-radius: 12px !important;
               z-index: 9999 !important;
               display: flex !important;
               flex-direction: column !important;
-              gap: 12px !important;
+              gap: 10px !important;
               box-sizing: border-box !important;
-              overflow: visible !important;
+              overflow: hidden !important;
+            }
+
+            .notification-center-body {
+              min-height: 0 !important;
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
             }
 
             .notification-head {
               display: flex !important;
               justify-content: space-between !important;
-              align-items: center !important;
+              align-items: flex-start !important;
               gap: 12px !important;
               min-width: 0 !important;
+              flex: 0 0 auto !important;
             }
 
             .notification-head button {
@@ -33946,6 +34035,10 @@ function PageContent() {
 
             .notification-center.notification-empty {
               min-height: 0 !important;
+            }
+
+            .notification-view-all {
+              flex: 0 0 auto !important;
             }
 
           }

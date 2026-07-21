@@ -73,7 +73,7 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Recently Played" },
     { view: "Queue" },
     { view: "Profile" },
-    // Notifications is topbar-only (not a sidebar item) — opened via NotificationCenterPanel.
+    // Notifications page is topbar-only (not a sidebar item) — full page via dropdown "View all".
     { view: "Sales", requiresCreator: true },
     { view: "Artist Dashboard", requiresArtistDashboard: true },
     { view: "Producer Dashboard", requiresProducerDashboard: true },
