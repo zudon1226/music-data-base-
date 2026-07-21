@@ -3,7 +3,7 @@
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, ChevronDown, ChevronUp, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
-import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, } from "react";
+import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
 import { FoundingMemberGate } from "../components/founding-member-gate";
 import { AppI18nShell } from "../components/app-i18n-shell";
@@ -674,6 +674,20 @@ type MarketplaceFilters = {
     content: MarketplaceContentFilter;
     price: MarketplacePriceFilter;
 };
+const DEFAULT_MARKETPLACE_FILTERS: MarketplaceFilters = {
+    genre: "All Genres",
+    artist: "All Artists",
+    producer: "All Producers",
+    content: "All",
+    price: "All Prices",
+};
+function marketplaceFiltersEqual(left: MarketplaceFilters, right: MarketplaceFilters) {
+    return left.genre === right.genre
+        && left.artist === right.artist
+        && left.producer === right.producer
+        && left.content === right.content
+        && left.price === right.price;
+}
 type MarketplaceReleaseType = "song" | "video" | "album" | "beat";
 type MarketplaceRelease = {
     id: string;
@@ -3634,13 +3648,10 @@ function PageContent() {
     const [searchInput, setSearchInput] = useState("");
     const [searchFocused, setSearchFocused] = useState(false);
     const [compactSearchPlaceholder, setCompactSearchPlaceholder] = useState(false);
-    const [marketplaceFilters, setMarketplaceFilters] = useState<MarketplaceFilters>({
-        genre: "All Genres",
-        artist: "All Artists",
-        producer: "All Producers",
-        content: "All",
-        price: "All Prices",
-    });
+    const [marketplaceFilters, setMarketplaceFilters] = useState<MarketplaceFilters>(DEFAULT_MARKETPLACE_FILTERS);
+    const [marketplacePendingFilters, setMarketplacePendingFilters] = useState<MarketplaceFilters>(DEFAULT_MARKETPLACE_FILTERS);
+    const [marketplaceFiltersApplying, setMarketplaceFiltersApplying] = useState(false);
+    const marketplaceFilterApplyLockRef = useRef(false);
     const [selectedBeatLicenses, setSelectedBeatLicenses] = useState<Record<string, LicenseType>>({});
     const [activeBeatDetailId, setActiveBeatDetailId] = useState("");
     const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
@@ -8103,6 +8114,37 @@ function PageContent() {
             ...resolvedAlbums.map((album) => album.producerName),
         ].map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     ], [audioSongs, producerBeats, producerProfiles, resolvedAlbums, videos]);
+    const marketplaceFiltersDirty = !marketplaceFiltersEqual(marketplacePendingFilters, marketplaceFilters);
+    const marketplaceApplyFiltersEnabled = marketplaceFiltersDirty && !marketplaceFiltersApplying;
+    const scrollMarketplaceResultsIntoView = useCallback(() => {
+        const target = document.getElementById("marketplace-results");
+        if (!target) return;
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, []);
+    const applyMarketplaceFilters = useCallback(() => {
+        if (marketplaceFilterApplyLockRef.current || marketplaceFiltersApplying) return;
+        if (marketplaceFiltersEqual(marketplacePendingFilters, marketplaceFilters)) return;
+        marketplaceFilterApplyLockRef.current = true;
+        setMarketplaceFiltersApplying(true);
+        const nextFilters = { ...marketplacePendingFilters };
+        startTransition(() => {
+            setMarketplaceFilters(nextFilters);
+        });
+        window.setTimeout(() => {
+            scrollMarketplaceResultsIntoView();
+            setMarketplaceFiltersApplying(false);
+            marketplaceFilterApplyLockRef.current = false;
+        }, 180);
+    }, [marketplaceFilters, marketplaceFiltersApplying, marketplacePendingFilters, scrollMarketplaceResultsIntoView]);
+    const resetMarketplaceFilters = useCallback(() => {
+        marketplaceFilterApplyLockRef.current = false;
+        setMarketplaceFiltersApplying(false);
+        setMarketplacePendingFilters(DEFAULT_MARKETPLACE_FILTERS);
+        setMarketplaceFilters(DEFAULT_MARKETPLACE_FILTERS);
+        window.setTimeout(() => {
+            scrollMarketplaceResultsIntoView();
+        }, 0);
+    }, [scrollMarketplaceResultsIntoView]);
     const marketplaceReleases = useMemo<MarketplaceRelease[]>(() => {
         const keyword = search.trim().toLowerCase();
         const matchesText = (parts: string[]) => !keyword || parts.some((part) => part.toLowerCase().includes(keyword));
@@ -17470,43 +17512,48 @@ function PageContent() {
             <section className="marketplace-filters" aria-label="Marketplace search filters">
               <label>
                 <span>Genre</span>
-                <select value={marketplaceFilters.genre} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, genre: event.target.value }))}>
+                <select value={marketplacePendingFilters.genre} onChange={(event) => setMarketplacePendingFilters((previous) => ({ ...previous, genre: event.target.value }))}>
                   {marketplaceGenreOptions.map((genre) => (<option key={genre} value={genre}>{genre}</option>))}
                 </select>
               </label>
               <label>
                 <span>Artist</span>
-                <select value={marketplaceFilters.artist} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, artist: event.target.value }))}>
+                <select value={marketplacePendingFilters.artist} onChange={(event) => setMarketplacePendingFilters((previous) => ({ ...previous, artist: event.target.value }))}>
                   {marketplaceArtistOptions.map((artist) => (<option key={artist} value={artist}>{artist}</option>))}
                 </select>
               </label>
               <label>
                 <span>Producer</span>
-                <select value={marketplaceFilters.producer} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, producer: event.target.value }))}>
+                <select value={marketplacePendingFilters.producer} onChange={(event) => setMarketplacePendingFilters((previous) => ({ ...previous, producer: event.target.value }))}>
                   {marketplaceProducerOptions.map((producer) => (<option key={producer} value={producer}>{producer}</option>))}
                 </select>
               </label>
               <label>
                 <span>Format</span>
-                <select value={marketplaceFilters.content} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, content: event.target.value as MarketplaceContentFilter }))}>
+                <select value={marketplacePendingFilters.content} onChange={(event) => setMarketplacePendingFilters((previous) => ({ ...previous, content: event.target.value as MarketplaceContentFilter }))}>
                   {(["All", "Songs", "Videos", "Albums", "Beats"] as MarketplaceContentFilter[]).map((content) => (<option key={content} value={content}>{content}</option>))}
                 </select>
               </label>
               <label>
                 <span>Price</span>
-                <select value={marketplaceFilters.price} onChange={(event) => setMarketplaceFilters((previous) => ({ ...previous, price: event.target.value as MarketplacePriceFilter }))}>
+                <select value={marketplacePendingFilters.price} onChange={(event) => setMarketplacePendingFilters((previous) => ({ ...previous, price: event.target.value as MarketplacePriceFilter }))}>
                   {(["All Prices", "Free", "Paid", "Premium"] as MarketplacePriceFilter[]).map((price) => (<option key={price} value={price}>{price}</option>))}
                 </select>
               </label>
-              <button onClick={() => setMarketplaceFilters({
-                genre: "All Genres",
-                artist: "All Artists",
-                producer: "All Producers",
-                content: "All",
-                price: "All Prices",
-            })} type="button">
-                Reset Filters
-              </button>
+              <div className="marketplace-filter-actions">
+                <button
+                  className="marketplace-apply-filters"
+                  onClick={applyMarketplaceFilters}
+                  type="button"
+                  disabled={!marketplaceApplyFiltersEnabled}
+                  aria-busy={marketplaceFiltersApplying}
+                >
+                  {marketplaceFiltersApplying ? "Applying Filters..." : "Apply Filters"}
+                </button>
+                <button className="marketplace-reset-filters" onClick={resetMarketplaceFilters} type="button">
+                  Reset Filters
+                </button>
+              </div>
             </section>
 
             <section className="marketplace-advanced-grid">
@@ -17596,10 +17643,10 @@ function PageContent() {
                 </div>
               </section>)}
 
-            {marketplaceReleases.length === 0 ? (<div className="empty-state">
+            {marketplaceReleases.length === 0 ? (<div className="empty-state" id="marketplace-results">
                 <h2>No marketplace results</h2>
                 <p>Try a different genre, artist, producer, format, or price filter.</p>
-              </div>) : (<>
+              </div>) : (<div id="marketplace-results" className="marketplace-results">
                 <section className="artist-section">
                   <div className="artist-section-title">
                     <h3>Featured Releases</h3>
@@ -17692,7 +17739,7 @@ function PageContent() {
                     {marketplaceTopCharts.map(renderMarketplaceChartRow)}
                   </div>
                 </section>
-              </>)}
+              </div>)}
 
             <section className="artist-section">
               <div className="artist-section-title">
@@ -24719,7 +24766,7 @@ function PageContent() {
 
           .marketplace-filters {
             display: grid;
-            grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+            grid-template-columns: repeat(5, minmax(130px, 1fr));
             gap: 10px;
             align-items: end;
           }
@@ -24749,9 +24796,38 @@ function PageContent() {
             padding: 0 10px;
           }
 
-          .marketplace-filters button {
+          .marketplace-filter-actions {
+            grid-column: 1 / -1;
+            display: grid;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+          }
+
+          .marketplace-filters button.marketplace-apply-filters {
             background: #22d3ee;
             color: #020617;
+          }
+
+          .marketplace-filters button.marketplace-apply-filters:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+          }
+
+          .marketplace-filters button.marketplace-reset-filters {
+            background: #020617;
+            color: white;
+          }
+
+          .marketplace-results {
+            display: grid;
+            gap: 18px;
+            min-width: 0;
+            scroll-margin-bottom: var(--mobile-player-reserve, 120px);
+          }
+
+          #marketplace-results {
+            scroll-margin-bottom: var(--mobile-player-reserve, 120px);
           }
 
           .marketplace-advanced-grid {
@@ -28560,6 +28636,7 @@ function PageContent() {
               grid-template-columns: 1fr 1fr;
             }
 
+            .marketplace-filter-actions,
             .marketplace-filters button {
               grid-column: 1 / -1;
             }
@@ -29386,6 +29463,18 @@ function PageContent() {
             .license-history-hero,
             .comment-compose {
               grid-template-columns: 1fr;
+            }
+
+            .marketplace-filter-actions {
+              grid-column: 1 / -1;
+              width: 100%;
+              min-width: 0;
+            }
+
+            .marketplace-filters button.marketplace-apply-filters,
+            .marketplace-filters button.marketplace-reset-filters {
+              width: 100%;
+              min-height: 44px;
             }
 
             .featured-store-list article {
