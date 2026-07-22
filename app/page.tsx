@@ -6336,7 +6336,14 @@ function PageContent() {
             return albums;
         }
         const nextAlbums = (data.albums || []).map((album) => normalizeAlbumRecord(album));
-        setAlbums(nextAlbums);
+        // Preserve saved albums that catalog reload may omit (RLS / timing), so Library → Albums
+        // does not go empty after play/refresh while savedAlbumIds remains correct.
+        const savedIdsSnapshot = uniqueIds(savedAlbumIds);
+        setAlbums((previous) => {
+            const incomingIds = new Set(nextAlbums.map((album) => album.id));
+            const preservedSaved = previous.filter((album) => savedIdsSnapshot.includes(album.id) && !incomingIds.has(album.id));
+            return preservedSaved.length > 0 ? [...nextAlbums, ...preservedSaved] : nextAlbums;
+        });
         return nextAlbums;
     }
     async function loadAlbums(userIdOverride = "") {
@@ -7232,8 +7239,23 @@ function PageContent() {
     }, [hasLoaded, audioSongs, albumVideoPool, resolvedAlbums]);
     const libraryAlbums = useMemo(() => {
         const savedIds = new Set(savedAlbumIds);
-        return resolvedAlbums.filter((album) => savedIds.has(album.id) || Boolean(accountUserId && album.userId === accountUserId));
-    }, [accountUserId, resolvedAlbums, savedAlbumIds]);
+        const fromResolved = resolvedAlbums.filter((album) => savedIds.has(album.id) || Boolean(accountUserId && album.userId === accountUserId));
+        const presentIds = new Set(fromResolved.map((album) => album.id));
+        // Recover saved albums still held in Recently Played snapshots when catalog state dropped them.
+        const recoveredFromRecent = recentlyPlayed.flatMap((entry) => {
+            if (entry.itemType !== "album" || !entry.album) return [];
+            const albumId = entry.album.id || entry.itemId || "";
+            if (!albumId || !savedIds.has(albumId) || presentIds.has(albumId)) return [];
+            presentIds.add(albumId);
+            const normalized = normalizeAlbumRecord(entry.album);
+            return [{
+                ...normalized,
+                songs: Array.isArray((entry.album as ResolvedAlbum).songs) ? (entry.album as ResolvedAlbum).songs : [],
+                videos: Array.isArray((entry.album as ResolvedAlbum).videos) ? (entry.album as ResolvedAlbum).videos : [],
+            } as ResolvedAlbum];
+        });
+        return [...fromResolved, ...recoveredFromRecent];
+    }, [accountUserId, recentlyPlayed, resolvedAlbums, savedAlbumIds]);
     const producerDashboardAlbums = useMemo(() => resolvedAlbums.filter((album) => album.ownerType === "producer" &&
         ((accountUserId && album.userId === accountUserId) ||
             (accountUserId && album.producerId === accountUserId) ||
@@ -10664,6 +10686,10 @@ function PageContent() {
     }
     async function saveAlbumToLibrary(album: Album | ResolvedAlbum) {
         const normalizedAlbum = normalizeAlbumRecord(album);
+        if (!isDatabaseUuid(normalizedAlbum.id)) {
+            showToast("Saved Library requires a real Supabase album id.", "error");
+            return;
+        }
         const saved = await saveLibraryItem(normalizedAlbum, "album");
         if (!saved)
             return;
@@ -10675,7 +10701,16 @@ function PageContent() {
             const remaining = previous.filter((item) => item.id !== normalizedAlbum.id);
             return [normalizedAlbum, ...remaining];
         });
-        await loadLibrary();
+        const reloaded = await loadLibrary();
+        const reloadedAlbumIds = uniqueIds(reloaded?.albumIds || []);
+        if (!reloadedAlbumIds.includes(normalizedAlbum.id)) {
+            // Keep optimistic saved state if reload raced; still surface the album locally.
+            setSavedAlbumIds((previous) => uniqueIds([...previous, normalizedAlbum.id]));
+            setAlbums((previous) => {
+                const remaining = previous.filter((item) => item.id !== normalizedAlbum.id);
+                return [normalizedAlbum, ...remaining];
+            });
+        }
         showToast("Album saved to Library", "success");
         pushNotification("Album saved", `${normalizedAlbum.title} was saved to your library.`, "album", normalizedAlbum.id);
     }
@@ -14726,13 +14761,18 @@ function PageContent() {
                 <Play size={15} fill="currentColor"/>
                 Play Album
               </button>
-              <button className={isSaved ? "saved" : ""} onClick={() => {
+              <button
+                className={isSaved ? "saved" : ""}
+                data-album-save="true"
+                onClick={() => {
                     if (isSaved) {
-                        removeAlbumFromLibrary(album.id);
+                        void removeAlbumFromLibrary(album.id);
                         return;
                     }
-                    saveAlbumToLibrary(album);
-                }} type="button">
+                    void saveAlbumToLibrary(album);
+                }}
+                type="button"
+              >
                 {isSaved ? <Check size={15}/> : <Plus size={15}/>}
                 {isSaved ? "Saved" : "Save Album"}
               </button>
@@ -20097,6 +20137,28 @@ function PageContent() {
                           <Trash2 size={16}/>
                           <span>{t("dashboard.recentlyPlayed.removeOne")}</span>
                         </button>
+                        {itemType === "album" && entry.album ? (() => {
+                            const recentAlbum = normalizeAlbumRecord(entry.album);
+                            const isAlbumSaved = savedAlbumIds.includes(recentAlbum.id);
+                            return (
+                              <button
+                                className={isAlbumSaved ? "saved" : ""}
+                                data-recent-album-save="true"
+                                onClick={() => {
+                                    if (isAlbumSaved) {
+                                        void removeAlbumFromLibrary(recentAlbum.id);
+                                        return;
+                                    }
+                                    void saveAlbumToLibrary(recentAlbum);
+                                }}
+                                title={isAlbumSaved ? "Saved" : "Save Album"}
+                                type="button"
+                              >
+                                {isAlbumSaved ? <Check size={16}/> : <Plus size={16}/>}
+                                <span>{isAlbumSaved ? "Saved" : "Save Album"}</span>
+                              </button>
+                            );
+                        })() : null}
                         {itemType === "song" && entry.song ? renderMobileSongQueueButton(entry.song) : itemType === "video" && entry.video ? renderMobileVideoQueueButton(entry.video) : itemType === "album" && entry.album ? renderMobileAlbumQueueButton(entry.album) : null}
                       </div>
                     </article>);
@@ -34135,7 +34197,8 @@ function PageContent() {
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
-              max-height: 110px !important;
+              /* Play + Remove + Save Album + Queue needs three rows on album entries. */
+              max-height: 170px !important;
               flex: 0 0 auto !important;
               flex-grow: 0 !important;
               margin: 0 !important;

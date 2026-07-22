@@ -44,6 +44,7 @@
     "verify:media-download": "node scripts/verify-paid-listener-media-download.mjs",
     "verify:download-vault": "node scripts/verify-download-vault-sync.mjs",
     "verify:platform-overview-downloads": "node scripts/verify-platform-overview-download-counters.mjs",
+    "verify:library-album-save": "node scripts/verify-library-album-save.mjs",
     "verify:signup-account-type": "node scripts/verify-signup-account-type.mjs",
     "verify:signup-multi-role": "node scripts/verify-signup-multi-role.mjs",
     "verify:signup-role-auth": "node scripts/verify-signup-role-auth.mjs",
