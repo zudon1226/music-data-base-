@@ -486,11 +486,39 @@ export function RingtoneMarketplaceWorkspace({
                         </button>
                     </div>
 
-                    <div className="ringtone-section-links" aria-label={t("ringtones.marketplace")}>
-                        <button type="button" onClick={() => { setFilter("featured"); void loadMarketplace(1); }}>{t("ringtones.featuredRingtones")}</button>
-                        <button type="button" onClick={() => { setSort("most_purchased"); void loadMarketplace(1); }}>{t("ringtones.trendingRingtones")}</button>
-                        <button type="button" onClick={() => { setSort("newest"); void loadMarketplace(1); }}>{t("ringtones.newRingtones")}</button>
-                        <button type="button" onClick={() => { setFilter("free"); void loadMarketplace(1); }}>{t("ringtones.freeRingtones")}</button>
+                    <div className="ringtone-section-links" role="group" aria-label={t("ringtones.marketplace")}>
+                        <button
+                            type="button"
+                            aria-pressed={filter === "featured"}
+                            className={filter === "featured" ? "active" : ""}
+                            onClick={() => { setFilter("featured"); void loadMarketplace(1); }}
+                        >
+                            {t("ringtones.featuredRingtones")}
+                        </button>
+                        <button
+                            type="button"
+                            aria-pressed={sort === "most_purchased"}
+                            className={sort === "most_purchased" ? "active" : ""}
+                            onClick={() => { setSort("most_purchased"); void loadMarketplace(1); }}
+                        >
+                            {t("ringtones.trendingRingtones")}
+                        </button>
+                        <button
+                            type="button"
+                            aria-pressed={sort === "newest"}
+                            className={sort === "newest" ? "active" : ""}
+                            onClick={() => { setSort("newest"); void loadMarketplace(1); }}
+                        >
+                            {t("ringtones.newRingtones")}
+                        </button>
+                        <button
+                            type="button"
+                            aria-pressed={filter === "free"}
+                            className={filter === "free" ? "active" : ""}
+                            onClick={() => { setFilter("free"); void loadMarketplace(1); }}
+                        >
+                            {t("ringtones.freeRingtones")}
+                        </button>
                     </div>
 
                     {popularCreators.length > 0 ? (
@@ -732,7 +760,8 @@ export function RingtoneMarketplaceWorkspace({
                 .ringtone-pagination button,
                 .ringtone-purchased-empty button,
                 .ringtone-detail > button,
-                .ringtone-install-guide button {
+                .ringtone-install-guide button,
+                .ringtone-market-controls button {
                     min-height: 44px;
                     min-width: 44px;
                     padding: 0.65rem 0.9rem;
@@ -742,6 +771,55 @@ export function RingtoneMarketplaceWorkspace({
                     color: #e8f7ff;
                     cursor: pointer;
                     white-space: nowrap;
+                    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.08s ease, filter 0.08s ease, opacity 0.12s ease;
+                    -webkit-tap-highlight-color: rgba(34, 211, 238, 0.28);
+                    touch-action: manipulation;
+                }
+                .ringtone-section-links button.active,
+                .ringtone-section-links button[aria-pressed="true"] {
+                    background: #22d3ee;
+                    color: #062033;
+                    font-weight: 800;
+                    border-color: #67e8f9;
+                }
+                .ringtone-market-actions button:not(:disabled):active,
+                .ringtone-section-links button:not(.active):active,
+                .ringtone-creator-chips button:active,
+                .ringtone-pagination button:not(:disabled):active,
+                .ringtone-purchased-empty button:active,
+                .ringtone-detail > button:active,
+                .ringtone-install-guide button:active,
+                .ringtone-market-controls button:active {
+                    background: #67e8f9;
+                    color: #062033;
+                    transform: scale(0.98);
+                    filter: brightness(1.05);
+                }
+                .ringtone-market-actions button:focus-visible,
+                .ringtone-section-links button:focus-visible,
+                .ringtone-creator-chips button:focus-visible,
+                .ringtone-pagination button:focus-visible,
+                .ringtone-purchased-empty button:focus-visible,
+                .ringtone-detail > button:focus-visible,
+                .ringtone-install-guide button:focus-visible,
+                .ringtone-market-controls button:focus-visible,
+                .ringtone-market-controls select:focus-visible,
+                .ringtone-market-controls input:focus-visible {
+                    outline: 2px solid #67e8f9;
+                    outline-offset: 2px;
+                }
+                .ringtone-pagination button:disabled,
+                .ringtone-market-actions button:disabled {
+                    opacity: 0.45;
+                    cursor: not-allowed;
+                    background: #152d66;
+                    color: #7f9db8;
+                    border-color: rgba(0, 212, 255, 0.14);
+                    transform: none;
+                    filter: none;
+                }
+                .ringtone-market-controls select {
+                    accent-color: #22d3ee;
                 }
                 .ringtone-market-controls label { display: grid; gap: 6px; min-width: 160px; flex: 1; }
                 .ringtone-market-controls input,

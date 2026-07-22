@@ -22,25 +22,31 @@ export async function assertOwnsSourceSong(userId: string, songId: string) {
         return { ok: false as const, error: "Invalid song or user id." };
     }
     const supabase = getSupabaseServerClient();
+    // Canonical ownership fields on public.songs: user_id (uploader) and producer_id (credit).
     const { data, error } = await supabase
         .from("songs")
-        .select("id,user_id,duration,duration_seconds")
+        .select("id,user_id,producer_id,duration,audio_url,storage_path")
         .eq("id", songId)
         .maybeSingle();
     if (error) return { ok: false as const, error: getErrorMessage(error) };
     if (!data) return { ok: false as const, error: "Source song was not found." };
-    if (String(data.user_id || "") !== userId) {
+
+    const ownerId = String(data.user_id || "");
+    const producerId = String((data as { producer_id?: unknown }).producer_id || "");
+    const isOwner = ownerId === userId || producerId === userId;
+    const isAdmin = await isAdminUserId(userId);
+    if (!isOwner && !isAdmin) {
         return { ok: false as const, error: "You may only create ringtones from songs you own." };
     }
-    const duration = Number(
-        (data as { duration_seconds?: unknown; duration?: unknown }).duration_seconds
-        ?? (data as { duration?: unknown }).duration
-        ?? NaN,
-    );
+
+    const duration = Number((data as { duration?: unknown }).duration ?? NaN);
     return {
         ok: true as const,
         songId,
         sourceDurationSeconds: Number.isFinite(duration) ? duration : null,
+        ownerUserId: ownerId || null,
+        producerId: producerId || null,
+        adminOverride: isAdmin && !isOwner,
     };
 }
 

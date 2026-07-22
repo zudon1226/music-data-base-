@@ -21,6 +21,7 @@
     "verify:producer-song-delete-action": "node scripts/verify-producer-song-delete-action.mjs",
     "verify:producer-song-delete-auth": "node scripts/verify-producer-song-delete-auth.mjs",
     "verify:ringtone-workflow-mobile-fit": "node scripts/verify-ringtone-workflow-mobile-fit.mjs",
+    "verify:ringtone-source-songs-admin": "node scripts/verify-ringtone-source-songs-admin.mjs",
     "verify:listener": "node scripts/verify-listener-nav-workspace.mjs",
     "verify:mobile-listener": "node scripts/verify-mobile-listener-access.mjs",
     "verify:mobile-topbar": "node scripts/verify-mobile-topbar-actions.mjs",

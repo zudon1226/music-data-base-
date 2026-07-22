@@ -63,6 +63,8 @@ export type RingtoneSourceSong = {
     storagePath: string;
     durationSeconds: number;
     createdAt: string | null;
+    ownerUserId?: string;
+    producerId?: string;
 };
 
 export type RingtoneSalesSummary = {

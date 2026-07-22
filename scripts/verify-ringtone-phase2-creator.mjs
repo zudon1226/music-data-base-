@@ -103,6 +103,13 @@ async function main() {
     assertIncludes(workspace, "padding-bottom: calc(var(--mobile-player-reserve", "bottom player clearance");
     assertIncludes(workspace, "@media (max-width: 820px)", "responsive markers");
     assertIncludes(client, "/process", "client process submit path");
+    assertIncludes(read("app/api/ringtones/source-songs/route.ts"), "isAdminUserId", "source-songs admin catalog path");
+    assertIncludes(read("app/api/ringtones/source-songs/route.ts"), "resolveSongPlayableUrl", "source-songs playable url helper");
+    record(
+        "source-songs omits missing duration_seconds column",
+        !/\.select\([^)]*duration_seconds/.test(read("app/api/ringtones/source-songs/route.ts")),
+    );
+    assertIncludes(read("lib/ringtone-access.ts"), "adminOverride", "admin source ownership override");
 
     const requiredFiles = [
         "app/api/ringtones/eligibility/route.ts",

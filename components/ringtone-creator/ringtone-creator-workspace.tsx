@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
     RINGTONE_ALLOWED_AUDIO_MIME_TYPES,
+    RINGTONE_DEFAULT_DURATION_SECONDS,
     RINGTONE_SOURCE_MAX_BYTES,
     RINGTONE_STATUSES,
     type RingtoneStatus,
@@ -105,6 +106,8 @@ export function RingtoneCreatorWorkspace({
     const [loading, setLoading] = useState(true);
     const [pending, startTransition] = useTransition();
     const [sourceFileName, setSourceFileName] = useState("");
+    const [sourceSongsLoading, setSourceSongsLoading] = useState(false);
+    const [sourceSongsError, setSourceSongsError] = useState("");
     const submitLockRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -141,7 +144,9 @@ export function RingtoneCreatorWorkspace({
 
     async function reloadAll() {
         setLoading(true);
+        setSourceSongsLoading(true);
         setError("");
+        setSourceSongsError("");
         const [mine, songs, sales] = await Promise.all([
             fetchMyRingtones(userId, session),
             fetchOwnedSourceSongs(userId, session),
@@ -153,8 +158,23 @@ export function RingtoneCreatorWorkspace({
         } else {
             setRingtones(mine.ringtones);
         }
-        if (songs.ok) setSourceSongs(songs.songs);
+        if (!songs.ok) {
+            setSourceSongs([]);
+            setSourceSongsError(songs.error || t("ringtones.actionCouldNotComplete"));
+            console.warn("[ringtone-creator] source-songs load failed", {
+                userId,
+                status: songs.status,
+                error: songs.error,
+            });
+        } else {
+            setSourceSongs(songs.songs);
+            console.info("[ringtone-creator] source-songs loaded", {
+                userId,
+                eligibleCount: songs.songs.length,
+            });
+        }
         if (sales.ok) setSalesSummary(sales.summary);
+        setSourceSongsLoading(false);
         setLoading(false);
     }
 
@@ -238,27 +258,52 @@ export function RingtoneCreatorWorkspace({
     }
 
     async function selectOwnedSong(song: RingtoneSourceSong) {
+        if (!song.audioUrl && !song.storagePath) {
+            setError(t("ringtones.previewUnavailable"));
+            return;
+        }
         if (song.durationSeconds > 0 && song.durationSeconds < 15) {
             setError(t("ringtones.sourceTooShort"));
             return;
         }
-        const duration = clampRingtoneDuration(song.durationSeconds || 30);
+        const duration = clampRingtoneDuration(song.durationSeconds || RINGTONE_DEFAULT_DURATION_SECONDS);
         updateForm({
             sourceKind: "owned_song",
             sourceSongId: song.id,
             sourceSongTitle: song.title,
             sourceAudioUrl: song.audioUrl,
-            sourceStoragePath: "",
+            sourceStoragePath: song.storagePath || "",
             sourceDurationSeconds: song.durationSeconds,
             ownershipConfirmed: true,
             artworkUrl: form.artworkUrl || song.artworkUrl,
             title: form.title || `${song.title} Ringtone`,
             durationSeconds: duration,
-            clipStartSeconds: Math.min(form.clipStartSeconds, maxClipStartSeconds(song.durationSeconds, duration)),
+            clipStartSeconds: Math.min(form.clipStartSeconds, maxClipStartSeconds(song.durationSeconds || duration, duration)),
         });
+        setSourceFileName("");
         setProcessState("ready");
         setError("");
         setStep(2);
+    }
+
+    function switchSourceKind(nextKind: "owned_song" | "upload") {
+        if (form.sourceKind === nextKind) return;
+        updateForm({
+            sourceKind: nextKind,
+            sourceSongId: "",
+            sourceSongTitle: "",
+            sourceAudioUrl: "",
+            sourceStoragePath: "",
+            sourceDurationSeconds: 0,
+            ownershipConfirmed: nextKind === "owned_song",
+            clipStartSeconds: 0,
+            durationSeconds: RINGTONE_DEFAULT_DURATION_SECONDS,
+        });
+        setSourceFileName("");
+        setProcessState("idle");
+        setError("");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        onStopRingtonePreview();
     }
 
     async function handleSourceUpload(file: File | null) {
@@ -452,14 +497,35 @@ export function RingtoneCreatorWorkspace({
                     <h1>{t("ringtones.myRingtones")}</h1>
                     <p>{t("ringtones.creatorSubtitle")}</p>
                 </div>
-                <div className="ringtone-creator-actions">
-                    <button type="button" className={mode === "list" ? "active" : ""} onClick={() => setMode("list")}>
+                <div className="ringtone-creator-actions" role="tablist" aria-label={t("ringtones.myRingtones")}>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "list"}
+                        aria-current={mode === "list" ? "page" : undefined}
+                        className={mode === "list" ? "active" : ""}
+                        onClick={() => setMode("list")}
+                    >
                         {t("ringtones.myRingtones")}
                     </button>
-                    <button type="button" className={mode === "create" ? "active" : ""} onClick={beginCreate}>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "create"}
+                        aria-current={mode === "create" ? "page" : undefined}
+                        className={mode === "create" ? "active" : ""}
+                        onClick={beginCreate}
+                    >
                         {t("ringtones.create")}
                     </button>
-                    <button type="button" className={mode === "sales" ? "active" : ""} onClick={() => setMode("sales")}>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "sales"}
+                        aria-current={mode === "sales" ? "page" : undefined}
+                        className={mode === "sales" ? "active" : ""}
+                        onClick={() => setMode("sales")}
+                    >
                         {t("ringtones.sales")}
                     </button>
                 </div>
@@ -776,6 +842,7 @@ export function RingtoneCreatorWorkspace({
                                 type="button"
                                 role="tab"
                                 aria-selected={step === value}
+                                aria-current={step === value ? "step" : undefined}
                                 className={step === value ? "active" : ""}
                                 onClick={() => setStep(value as WizardStep)}
                             >
@@ -800,18 +867,20 @@ export function RingtoneCreatorWorkspace({
                         {step === 1 ? (
                             <div className="ringtone-step">
                                 <h2>{t("ringtones.chooseSource")}</h2>
-                                <div className="upload-mode-tabs ringtone-source-tabs">
+                                <div className="upload-mode-tabs ringtone-source-tabs" role="group" aria-label={t("ringtones.chooseSource")}>
                                     <button
                                         type="button"
+                                        aria-pressed={form.sourceKind === "owned_song"}
                                         className={form.sourceKind === "owned_song" ? "active" : ""}
-                                        onClick={() => updateForm({ sourceKind: "owned_song" })}
+                                        onClick={() => switchSourceKind("owned_song")}
                                     >
                                         {t("ringtones.createFromSong")}
                                     </button>
                                     <button
                                         type="button"
+                                        aria-pressed={form.sourceKind === "upload"}
                                         className={form.sourceKind === "upload" ? "active" : ""}
-                                        onClick={() => updateForm({ sourceKind: "upload" })}
+                                        onClick={() => switchSourceKind("upload")}
                                     >
                                         {t("ringtones.uploadSource")}
                                     </button>
@@ -819,23 +888,39 @@ export function RingtoneCreatorWorkspace({
 
                                 {form.sourceKind === "owned_song" ? (
                                     <div className="ringtone-source-list" role="listbox" aria-label={t("ringtones.existingSong")}>
-                                        {sourceSongs.length === 0 ? <p>{t("ringtones.noOwnedSongs")}</p> : null}
-                                        {sourceSongs.map((song) => (
-                                            <button
+                                        {sourceSongsLoading ? <p>{t("ringtones.loading")}</p> : null}
+                                        {!sourceSongsLoading && sourceSongsError ? (
+                                            <p className="ringtone-error" role="alert">{sourceSongsError}</p>
+                                        ) : null}
+                                        {!sourceSongsLoading && !sourceSongsError && sourceSongs.length === 0 ? (
+                                            <p>{t("ringtones.noOwnedSongs")}</p>
+                                        ) : null}
+                                        {!sourceSongsLoading && !sourceSongsError
+                                            ? sourceSongs.map((song) => (
+                                            <article
                                                 key={song.id}
-                                                type="button"
+                                                className={`ringtone-source-card${form.sourceSongId === song.id ? " selected" : ""}`}
                                                 role="option"
                                                 aria-selected={form.sourceSongId === song.id}
-                                                className={form.sourceSongId === song.id ? "selected" : ""}
-                                                onClick={() => void selectOwnedSong(song)}
                                             >
                                                 <img src={song.artworkUrl || "/music-data-base-logo.png"} alt="" width={48} height={48} />
-                                                <span>
+                                                <div className="ringtone-source-card-body">
                                                     <strong>{song.title}</strong>
-                                                    <small>{formatClipClock(song.durationSeconds)}</small>
-                                                </span>
-                                            </button>
-                                        ))}
+                                                    <small>
+                                                        {song.artist || t("ringtones.existingSong")}
+                                                        {song.durationSeconds > 0 ? ` · ${formatClipClock(song.durationSeconds)}` : ""}
+                                                    </small>
+                                                    <button
+                                                        type="button"
+                                                        className="ringtone-use-song-btn"
+                                                        onClick={() => void selectOwnedSong(song)}
+                                                    >
+                                                        {t("ringtones.create")}
+                                                    </button>
+                                                </div>
+                                            </article>
+                                            ))
+                                            : null}
                                     </div>
                                 ) : (
                                     <div className="ringtone-upload-source">
@@ -1138,9 +1223,9 @@ export function RingtoneCreatorWorkspace({
                 .ringtone-card-actions button,
                 .ringtone-wizard-nav button,
                 .ringtone-final-actions button,
-                .ringtone-source-list button,
                 .ringtone-step > button,
-                .ringtone-upload-source > button {
+                .ringtone-upload-source > button,
+                .ringtone-use-song-btn {
                     min-height: 44px;
                     min-width: 0;
                     max-width: 100%;
@@ -1154,15 +1239,66 @@ export function RingtoneCreatorWorkspace({
                     white-space: normal;
                     overflow-wrap: anywhere;
                     word-break: break-word;
+                    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.08s ease, filter 0.08s ease, opacity 0.12s ease;
+                    -webkit-tap-highlight-color: rgba(34, 211, 238, 0.28);
+                    touch-action: manipulation;
                 }
 
                 .ringtone-creator-actions button.active,
                 .ringtone-wizard-steps button.active,
                 .ringtone-source-tabs button.active,
-                .ringtone-source-list button.selected {
+                .ringtone-creator-actions button[aria-selected="true"],
+                .ringtone-wizard-steps button[aria-selected="true"],
+                .ringtone-source-tabs button[aria-pressed="true"] {
                     background: #22d3ee;
                     color: #062033;
                     font-weight: 800;
+                    border-color: #67e8f9;
+                    box-shadow: inset 0 0 0 1px rgba(6, 32, 51, 0.2);
+                }
+
+                .ringtone-creator-actions button:not(.active):active,
+                .ringtone-wizard-steps button:not(.active):active,
+                .ringtone-source-tabs button:not(.active):active,
+                .ringtone-list-controls button:active,
+                .ringtone-card-actions button:active,
+                .ringtone-wizard-nav button:not(:disabled):active,
+                .ringtone-final-actions button:not(:disabled):active,
+                .ringtone-step > button:active,
+                .ringtone-upload-source > button:active,
+                .ringtone-use-song-btn:active {
+                    background: #67e8f9;
+                    color: #062033;
+                    transform: scale(0.98);
+                    filter: brightness(1.05);
+                }
+
+                .ringtone-creator-actions button:focus-visible,
+                .ringtone-wizard-steps button:focus-visible,
+                .ringtone-source-tabs button:focus-visible,
+                .ringtone-list-controls button:focus-visible,
+                .ringtone-card-actions button:focus-visible,
+                .ringtone-wizard-nav button:focus-visible,
+                .ringtone-final-actions button:focus-visible,
+                .ringtone-step > button:focus-visible,
+                .ringtone-upload-source > button:focus-visible,
+                .ringtone-use-song-btn:focus-visible {
+                    outline: 2px solid #67e8f9;
+                    outline-offset: 2px;
+                }
+
+                .ringtone-wizard-nav button:disabled,
+                .ringtone-final-actions button:disabled,
+                .ringtone-list-controls button:disabled,
+                .ringtone-card-actions button:disabled,
+                .ringtone-use-song-btn:disabled {
+                    opacity: 0.45;
+                    cursor: not-allowed;
+                    background: #152d66;
+                    color: #7f9db8;
+                    border-color: rgba(0, 212, 255, 0.14);
+                    transform: none;
+                    filter: none;
                 }
 
                 .ringtone-wizard .ringtone-wizard-steps,
@@ -1207,6 +1343,29 @@ export function RingtoneCreatorWorkspace({
                     font-weight: 900;
                     cursor: pointer;
                     box-sizing: border-box;
+                    transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease, filter 0.08s ease;
+                    -webkit-tap-highlight-color: rgba(34, 211, 238, 0.28);
+                    touch-action: manipulation;
+                }
+
+                .ringtone-wizard .ringtone-wizard-steps button.active,
+                .ringtone-wizard .ringtone-source-tabs button.active,
+                .ringtone-wizard .ringtone-wizard-steps button[aria-selected="true"],
+                .ringtone-wizard .ringtone-source-tabs button[aria-pressed="true"],
+                .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps) button.active,
+                .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs) button.active {
+                    background: #22d3ee !important;
+                    color: #062033 !important;
+                    font-weight: 900;
+                }
+
+                .ringtone-wizard .ringtone-wizard-steps button:not(.active):active,
+                .ringtone-wizard .ringtone-source-tabs button:not(.active):active,
+                .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps) button:not(.active):active,
+                .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs) button:not(.active):active {
+                    background: #67e8f9 !important;
+                    color: #062033 !important;
+                    transform: scale(0.98);
                 }
 
                 .ringtone-list-controls,
@@ -1251,7 +1410,7 @@ export function RingtoneCreatorWorkspace({
                     max-width: 100%;
                 }
 
-                .ringtone-source-list button {
+                .ringtone-source-card {
                     display: grid;
                     grid-template-columns: 48px minmax(0, 1fr);
                     gap: 10px;
@@ -1259,6 +1418,29 @@ export function RingtoneCreatorWorkspace({
                     width: 100%;
                     max-width: 100%;
                     min-width: 0;
+                    align-items: center;
+                    padding: 10px;
+                    border-radius: 8px;
+                    border: 1px solid rgba(0, 212, 255, 0.28);
+                    background: #0b1736;
+                    box-sizing: border-box;
+                }
+
+                .ringtone-source-card.selected {
+                    border-color: #22d3ee;
+                    box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.35);
+                }
+
+                .ringtone-source-card-body {
+                    display: grid;
+                    gap: 6px;
+                    min-width: 0;
+                }
+
+                .ringtone-use-song-btn {
+                    justify-self: start;
+                    background: #152d66;
+                    font-weight: 800;
                 }
 
                 .ringtone-source-list strong,
