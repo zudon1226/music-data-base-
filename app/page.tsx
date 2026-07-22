@@ -3770,6 +3770,29 @@ function PageContent() {
         media.addEventListener("change", update);
         return () => media.removeEventListener("change", update);
     }, []);
+    useEffect(() => {
+        if (typeof window === "undefined" || !searchFocused) {
+            if (typeof document !== "undefined") {
+                document.documentElement.style.removeProperty("--search-suggestions-vv-max");
+            }
+            return undefined;
+        }
+        const viewport = window.visualViewport;
+        if (!viewport) return undefined;
+        const updateSuggestionViewportMax = () => {
+            // Keep the panel inside the visible area above the iOS keyboard without changing query/scroll.
+            const available = Math.max(140, Math.floor(viewport.height * 0.42));
+            document.documentElement.style.setProperty("--search-suggestions-vv-max", `${available}px`);
+        };
+        updateSuggestionViewportMax();
+        viewport.addEventListener("resize", updateSuggestionViewportMax);
+        viewport.addEventListener("scroll", updateSuggestionViewportMax);
+        return () => {
+            viewport.removeEventListener("resize", updateSuggestionViewportMax);
+            viewport.removeEventListener("scroll", updateSuggestionViewportMax);
+            document.documentElement.style.removeProperty("--search-suggestions-vv-max");
+        };
+    }, [searchFocused]);
     const desktopActionFetch = useCallback(async (path: string, init?: Parameters<typeof desktopRuntime.fetch>[1]) => {
         const requireAuth = init?.requireAuth !== false;
         if (requireAuth && !isDesktopProtectedActionsEnabled()) {
@@ -16621,13 +16644,40 @@ function PageContent() {
 
         <DesktopContentScrollRoot>
         <header className="topbar" data-topbar-locale={locale} dir="ltr">
-          <div className="search-wrap" dir="ltr">
+          <div
+            className={`search-wrap${searchFocused && searchSuggestions.length > 0 ? " search-wrap--suggestions-open" : ""}`}
+            data-search-suggestions-open={searchFocused && searchSuggestions.length > 0 ? "true" : "false"}
+            dir="ltr"
+          >
             <label className="search-box">
               <Search size={18}/>
-              <input name="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)} placeholder={compactSearchPlaceholder ? t("search.placeholder") : t("search.extendedPlaceholder")}/>
+              <input
+                name="search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setSearchFocused(false);
+                    event.currentTarget.blur();
+                  }
+                }}
+                placeholder={compactSearchPlaceholder ? t("search.placeholder") : t("search.extendedPlaceholder")}
+                autoComplete="off"
+                enterKeyHint="search"
+              />
             </label>
             <LanguageSelector compact className="topbar-language-selector"/>
-            {searchFocused && searchSuggestions.length > 0 && (<div className="search-suggestions" role="listbox" aria-label={searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}>
+            {searchFocused && searchSuggestions.length > 0 && (<div
+                className="search-suggestions"
+                role="listbox"
+                aria-label={searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}
+                onMouseDown={(event) => {
+                  // Keep input focused while interacting with suggestions (prevents premature close).
+                  event.preventDefault();
+                }}
+              >
                 <span>{searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}</span>
                 {searchSuggestions.map((suggestion) => (<button key={`${suggestion.type}-${suggestion.id}`} onClick={() => selectSearchSuggestion(suggestion)} type="button">
                     <img src={getArtworkUrl(suggestion.cover)} alt=""/>
@@ -20975,12 +21025,20 @@ function PageContent() {
             font-size: 14px;
           }
 
+          .search-wrap--suggestions-open {
+            z-index: 40;
+          }
+
           .search-suggestions {
             position: absolute;
             left: 0;
             right: 0;
             top: calc(100% + 8px);
             z-index: 30;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
             border: 1px solid rgba(34, 211, 238, 0.45);
             border-radius: 8px;
             background: #0b1736;
@@ -20988,6 +21046,11 @@ function PageContent() {
             padding: 9px;
             display: grid;
             gap: 7px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            max-height: min(42vh, 320px);
           }
 
           .search-suggestions > span {
@@ -28943,15 +29006,52 @@ function PageContent() {
 
             .search-wrap {
               gap: 6px;
+              position: relative;
+              z-index: 1;
             }
 
             .search-box {
               height: 34px;
               border-radius: 8px;
+              position: relative;
+              z-index: 2;
             }
 
+            /*
+              iOS Safari zooms focused inputs when computed font-size is below 16px.
+              Keep desktop at 14px; mobile editable input must be >= 16px.
+            */
             .search-box input {
-              font-size: 13px;
+              font-size: 16px;
+            }
+
+            .view-toggle,
+            .topbar-account-actions {
+              position: relative;
+              z-index: 1;
+            }
+
+            .search-wrap.search-wrap--suggestions-open {
+              z-index: 130;
+            }
+
+            .search-wrap.search-wrap--suggestions-open .search-box {
+              z-index: 131;
+            }
+
+            .search-wrap.search-wrap--suggestions-open .search-suggestions {
+              z-index: 130;
+              left: 0;
+              right: 0;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+              overflow-x: hidden;
+              overflow-y: auto;
+              overscroll-behavior: contain;
+              -webkit-overflow-scrolling: touch;
+              max-height: min(var(--search-suggestions-vv-max, 42dvh), 280px);
             }
 
             .view-toggle {
