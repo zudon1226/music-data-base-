@@ -9,6 +9,7 @@ export type PlatformHealthItem = {
 
 export type PlatformOverviewStats = {
     totalUsers: number;
+    listeners: number;
     approvedUsers: number;
     pendingUsers: number;
     rejectedUsers: number;

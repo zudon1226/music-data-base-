@@ -4,6 +4,7 @@ import { FOUNDING_INVITE_REQUIRED_MESSAGE } from "@/lib/founding-onboarding";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isPlatformOwnerEmail, isUuid } from "@/lib/server-supabase";
 import { isFoundingBetaLocked } from "@/lib/founding-onboarding";
+import { parseSignupAccountTypeInput } from "@/lib/signup-account-type";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,10 @@ export async function POST(request: Request) {
         const userId = typeof body.userId === "string" ? body.userId.trim() : "";
         const inviteCode = typeof body.inviteCode === "string" ? body.inviteCode : "";
         const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+        const parsedAccountType = parseSignupAccountTypeInput(body.accountType);
+        if (!parsedAccountType.ok) {
+            return NextResponse.json({ error: parsedAccountType.error }, { status: 400 });
+        }
 
         if (!userId || !isUuid(userId)) {
             return NextResponse.json({ error: "Log in before redeeming an invite." }, { status: 401 });
@@ -42,14 +47,17 @@ export async function POST(request: Request) {
             email,
             displayName: displayName || email.split("@")[0] || "Founding Member",
             rawCode: inviteCode,
+            accountType: parsedAccountType.accountType,
         });
         if (!redeemed.ok) {
             return NextResponse.json({ error: redeemed.error }, { status: 400 });
         }
+        const member = redeemed.member as { approval_status?: string } | null | undefined;
         return NextResponse.json({
             ok: true,
             intendedRole: redeemed.intendedRole,
-            approvalStatus: redeemed.member.approval_status,
+            accountType: redeemed.accountType,
+            approvalStatus: member?.approval_status || "pending",
         });
     }
     catch (error) {

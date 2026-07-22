@@ -5,11 +5,18 @@ import {
     type FoundingInviteRecord,
     type FoundingRole,
     isInviteExpired,
-    mapFoundingRoleToAccountType,
     normalizeInviteCode,
     resolveInviteStatus,
 } from "@/lib/founding-onboarding";
 import { getErrorMessage } from "@/lib/server-supabase";
+import {
+    type SignupAccountType,
+    decodeSignupAccountTypeMarker,
+    encodeSignupAccountTypeMarker,
+    normalizeSignupAccountType,
+    parseSignupAccountTypeInput,
+    resolveSignupAccountTypeGrants,
+} from "@/lib/signup-account-type";
 import { repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
 
 function generateInviteCode() {
@@ -71,14 +78,42 @@ export async function validateInviteCode(supabase: SupabaseClient, rawCode: stri
     };
 }
 
+async function persistRequestedSignupAccountType(options: {
+    supabase: SupabaseClient;
+    userId: string;
+    displayName: string;
+    accountType: SignupAccountType;
+}) {
+    const marker = encodeSignupAccountTypeMarker(options.accountType);
+    await options.supabase
+        .from("founding_members")
+        .update({
+            social_link: marker,
+            updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", options.userId)
+        .then(() => undefined, () => undefined);
+    await repairAuthUserMetadata(options.supabase, options.userId, {
+        displayName: options.displayName,
+        role: "listener",
+        requestedAccountType: options.accountType,
+    }).catch(() => undefined);
+}
+
 export async function redeemFoundingInvite(options: {
     supabase: SupabaseClient;
     userId: string;
     email: string;
     displayName: string;
     rawCode: string;
+    accountType?: unknown;
 }) {
     const displayName = String(options.displayName || "").trim() || options.email.split("@")[0] || "Founding Member";
+    const parsedAccountType = parseSignupAccountTypeInput(options.accountType);
+    if (!parsedAccountType.ok) {
+        return { ok: false as const, error: parsedAccountType.error };
+    }
+    const accountType = parsedAccountType.accountType;
 
     const rpc = await options.supabase.rpc("redeem_founding_invite_atomic", {
         p_user_id: options.userId,
@@ -101,13 +136,21 @@ export async function redeemFoundingInvite(options: {
                 id: options.userId,
                 user_id: options.userId,
                 display_name: displayName,
+                account_type: "listener",
                 updated_at: new Date().toISOString(),
             }, { onConflict: "id" })
             .then(() => undefined, () => undefined);
+        await persistRequestedSignupAccountType({
+            supabase: options.supabase,
+            userId: options.userId,
+            displayName,
+            accountType,
+        });
         return {
             ok: true as const,
             member: payload.member,
             intendedRole: (payload.intended_role || payload.member?.founding_role) as FoundingRole,
+            accountType,
         };
     }
 
@@ -136,10 +179,17 @@ export async function redeemFoundingInvite(options: {
     if (existingMember.data) {
         const member = existingMember.data as { invite_id?: string | null; approval_status?: string; founding_role?: FoundingRole };
         if (member.invite_id === invite.id && member.approval_status === "pending") {
+            await persistRequestedSignupAccountType({
+                supabase: options.supabase,
+                userId: options.userId,
+                displayName,
+                accountType,
+            });
             return {
                 ok: true as const,
                 member: existingMember.data,
                 intendedRole: (member.founding_role || invite.intended_role) as FoundingRole,
+                accountType,
             };
         }
         return { ok: false as const, error: "A founding membership is already linked to this account." };
@@ -154,6 +204,7 @@ export async function redeemFoundingInvite(options: {
                 approval_status: "pending",
                 invite_id: invite.id,
                 display_name: displayName,
+                social_link: encodeSignupAccountTypeMarker(accountType),
                 joined_at: invite.redeemed_at || new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             }, { onConflict: "user_id" })
@@ -162,10 +213,17 @@ export async function redeemFoundingInvite(options: {
         if (repaired.error) {
             return { ok: false as const, error: getErrorMessage(repaired.error) };
         }
+        await persistRequestedSignupAccountType({
+            supabase: options.supabase,
+            userId: options.userId,
+            displayName,
+            accountType,
+        });
         return {
             ok: true as const,
             member: repaired.data,
             intendedRole: invite.intended_role as FoundingRole,
+            accountType,
         };
     }
 
@@ -183,6 +241,7 @@ export async function redeemFoundingInvite(options: {
             approval_status: "pending",
             invite_id: invite.id,
             display_name: displayName,
+            social_link: encodeSignupAccountTypeMarker(accountType),
             joined_at: now,
             updated_at: now,
         })
@@ -217,14 +276,23 @@ export async function redeemFoundingInvite(options: {
             id: options.userId,
             user_id: options.userId,
             display_name: displayName,
+            account_type: "listener",
             updated_at: now,
         }, { onConflict: "id" })
         .then(() => undefined, () => undefined);
+
+    await persistRequestedSignupAccountType({
+        supabase: options.supabase,
+        userId: options.userId,
+        displayName,
+        accountType,
+    });
 
     return {
         ok: true as const,
         member: memberInsert.data,
         intendedRole: validation.intendedRole,
+        accountType,
     };
 }
 
@@ -303,30 +371,49 @@ export async function setFoundingMemberApproval(options: {
         founding_role: FoundingRole;
         display_name?: string | null;
         invite_id?: string | null;
+        social_link?: string | null;
     };
-    const accountType = mapFoundingRoleToAccountType(member.founding_role);
+
+    const userLookup = await options.supabase.auth.admin.getUserById(options.userId);
+    const metadata = (userLookup.data.user?.user_metadata || {}) as Record<string, unknown>;
+    const requestedType = decodeSignupAccountTypeMarker(member.social_link)
+        || normalizeSignupAccountType(metadata.requestedAccountType)
+        || (member.founding_role === "founding_producer" ? "producer" : "artist");
+    const grants = resolveSignupAccountTypeGrants(requestedType, { founding: true });
+
     if (options.approvalStatus === "approved") {
-        await options.supabase
-            .from("user_roles")
-            .upsert({
-                user_id: options.userId,
-                role: member.founding_role,
-                status: "active",
-                granted_by: options.reviewerId,
-                updated_at: now,
-            }, { onConflict: "user_id,role" });
+        for (const role of grants.userRoles) {
+            await options.supabase
+                .from("user_roles")
+                .upsert({
+                    user_id: options.userId,
+                    role,
+                    status: "active",
+                    granted_by: options.reviewerId,
+                    updated_at: now,
+                }, { onConflict: "user_id,role" });
+        }
+        // Listener selection keeps listener account_type and does not grant creator roles.
+        if (grants.userRoles.length === 0) {
+            await options.supabase
+                .from("user_roles")
+                .update({ status: "disabled", updated_at: now })
+                .eq("user_id", options.userId)
+                .in("role", ["founding_artist", "founding_producer", "artist", "producer"]);
+        }
         await options.supabase
             .from("profiles")
             .upsert({
                 id: options.userId,
                 user_id: options.userId,
-                account_type: accountType,
+                account_type: grants.primaryAccountType,
                 display_name: String(member.display_name || "").trim() || undefined,
                 updated_at: now,
             }, { onConflict: "id" });
         await repairAuthUserMetadata(options.supabase, options.userId, {
             displayName: String(member.display_name || "").trim() || undefined,
-            role: member.founding_role,
+            role: grants.primaryAccountType,
+            requestedAccountType: requestedType,
         }).catch(() => undefined);
     }
     else {
@@ -335,7 +422,7 @@ export async function setFoundingMemberApproval(options: {
             .from("user_roles")
             .update({ status: "disabled", updated_at: now })
             .eq("user_id", options.userId)
-            .eq("role", member.founding_role);
+            .in("role", ["founding_artist", "founding_producer", "artist", "producer", member.founding_role]);
         if (member.invite_id) {
             await options.supabase
                 .from("founding_invites")

@@ -2,6 +2,7 @@ export const ALLOWED_AUTH_USER_METADATA_KEYS = [
     "displayName",
     "role",
     "avatarUrl",
+    "requestedAccountType",
 ] as const;
 
 /** Keys GoTrue may mirror into user_metadata; ignore for size/forbidden checks. */
@@ -35,6 +36,7 @@ export type MinimalAuthUserMetadata = {
     displayName?: string;
     role?: string;
     avatarUrl?: string;
+    requestedAccountType?: string;
 };
 
 function cleanString(value: unknown) {
@@ -55,6 +57,8 @@ export function sanitizeAuthUserMetadata(
         || cleanString(source.account_type)
         || "listener").toLowerCase();
     const avatarUrl = cleanString(source.avatarUrl) || cleanString(source.avatar_url);
+    const requestedAccountType = cleanString(source.requestedAccountType)
+        || cleanString(source.requested_account_type);
 
     if (displayName) {
         sanitized.displayName = displayName;
@@ -65,13 +69,21 @@ export function sanitizeAuthUserMetadata(
     if (avatarUrl) {
         sanitized.avatarUrl = avatarUrl;
     }
+    if (requestedAccountType) {
+        sanitized.requestedAccountType = requestedAccountType.toLowerCase();
+    }
     return sanitized;
 }
 
-export function buildSignupUserMetadata(input: { displayName: string }) {
+export function buildSignupUserMetadata(input: {
+    displayName: string;
+    requestedAccountType?: string;
+}) {
     return sanitizeAuthUserMetadata({
         displayName: input.displayName,
+        // Signup always starts as listener until approval grants creator roles.
         role: "listener",
+        requestedAccountType: input.requestedAccountType || "listener",
     });
 }
 

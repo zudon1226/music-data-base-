@@ -139,6 +139,7 @@ export function PlatformControlCenter({
                 <div className="control-overview-grid">
                     {[
                         ["Total users", overview?.totalUsers],
+                        ["Listeners", overview?.listeners],
                         ["Approved users", overview?.approvedUsers],
                         ["Pending users", overview?.pendingUsers],
                         ["Rejected users", overview?.rejectedUsers],

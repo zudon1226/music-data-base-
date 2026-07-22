@@ -27,6 +27,7 @@ function main() {
 
     const expected = [
         "Total users",
+        "Listeners",
         "Approved users",
         "Pending users",
         "Rejected users",
@@ -63,6 +64,13 @@ function main() {
         lastIdx = idx;
     }
     if (orderOk) record("full mobile metric order Videos→Ringtones→Playlists", true, expected.join(" → "));
+
+    record(
+        "Listeners appears before Artists and Producers",
+        cardBlock.indexOf('["Listeners"') > cardBlock.indexOf('["Total users"')
+            && cardBlock.indexOf('["Listeners"') < cardBlock.indexOf('["Artists"')
+            && cardBlock.indexOf('["Artists"') < cardBlock.indexOf('["Producers"'),
+    );
 
     const videosIdx = cardBlock.indexOf('["Videos"');
     const ringtonesIdx = cardBlock.indexOf('["Ringtones"');

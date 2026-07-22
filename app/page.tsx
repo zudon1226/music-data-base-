@@ -14,6 +14,13 @@ import { SubscriptionBillingPanel } from "../components/billing/subscription-bil
 import { AdminSubscriptionPanel } from "../components/billing/admin-subscription-panel";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
+import {
+    DEFAULT_SIGNUP_ACCOUNT_TYPE,
+    SIGNUP_ACCOUNT_TYPES,
+    type SignupAccountType,
+    normalizeSignupAccountType,
+    signupAccountTypeLabel,
+} from "../lib/signup-account-type";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
 import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
@@ -3913,6 +3920,7 @@ function PageContent() {
     const [authMessage, setAuthMessage] = useState("");
     const [authBusy, setAuthBusy] = useState(false);
     const [authInviteCode, setAuthInviteCode] = useState("");
+    const [authAccountType, setAuthAccountType] = useState<SignupAccountType>(DEFAULT_SIGNUP_ACCOUNT_TYPE);
     const [gateRedeemBusy, setGateRedeemBusy] = useState(false);
     const [gateRedeemMessage, setGateRedeemMessage] = useState("");
     const [gateRedeemMessageTone, setGateRedeemMessageTone] = useState<"success" | "error" | "">("");
@@ -14812,6 +14820,12 @@ function PageContent() {
         }
         try {
             const signupDisplayName = authName.trim() || email.split("@")[0];
+            const signupAccountType = normalizeSignupAccountType(authAccountType) || DEFAULT_SIGNUP_ACCOUNT_TYPE;
+            if (authMode === "signup" && !normalizeSignupAccountType(authAccountType)) {
+                setAuthMessage("Choose a valid account type.");
+                setAuthBusy(false);
+                return;
+            }
             if (authMode === "signup" && foundingBetaLocked && !isPlatformOwnerEmail(email)) {
                 if (!authInviteCode.trim()) {
                     setAuthMessage(FOUNDING_INVITE_REQUIRED_MESSAGE);
@@ -14833,7 +14847,10 @@ function PageContent() {
                     email,
                     password,
                     options: {
-                        data: buildSignupUserMetadata({ displayName: signupDisplayName }),
+                        data: buildSignupUserMetadata({
+                            displayName: signupDisplayName,
+                            requestedAccountType: signupAccountType,
+                        }),
                     },
                 })
                 : await supabase.auth.signInWithPassword({ email, password });
@@ -14880,6 +14897,7 @@ function PageContent() {
                         sessionRefreshToken: activeSession.refresh_token,
                         inviteCode: authInviteCode,
                         displayName: signupDisplayName,
+                        accountType: signupAccountType,
                     }),
                 });
                 const redeemJson = await redeem.json().catch(() => ({}));
@@ -14898,6 +14916,7 @@ function PageContent() {
             setAuthPassword("");
             setAuthName("");
             setAuthInviteCode("");
+            setAuthAccountType(DEFAULT_SIGNUP_ACCOUNT_TYPE);
             setAuthMessage(authMode === "signup"
                 ? "Account created. Your founding application is pending owner approval."
                 : "Welcome back.");
@@ -14963,6 +14982,9 @@ function PageContent() {
                 return;
             }
 
+            const metadataAccountType = normalizeSignupAccountType(
+                (session?.user?.user_metadata as Record<string, unknown> | undefined)?.requestedAccountType,
+            ) || DEFAULT_SIGNUP_ACCOUNT_TYPE;
             const redeem = await fetch("/api/founding-invites/redeem", {
                 method: "POST",
                 headers: {
@@ -14978,6 +15000,7 @@ function PageContent() {
                     sessionRefreshToken: refreshToken,
                     inviteCode,
                     displayName: getAccountDisplayName(),
+                    accountType: metadataAccountType,
                 }),
             });
             const redeemJson = await redeem.json().catch(() => ({}));
@@ -16496,17 +16519,48 @@ function PageContent() {
 
             {authMode === "signup" && foundingBetaLocked && (<label>
                 <span>{t("auth.inviteCode")}</span>
-                <input name="inviteCode" value={authInviteCode} onChange={(event) => setAuthInviteCode(event.target.value.toUpperCase())} placeholder={t("auth.inviteCodePlaceholder")}/>
+                <input name="inviteCode" value={authInviteCode} onChange={(event) => setAuthInviteCode(event.target.value.toUpperCase())} placeholder={t("auth.inviteCodePlaceholder")} autoComplete="off"/>
               </label>)}
+
+            {authMode === "signup" && (
+              <fieldset className="auth-account-type" data-signup-account-type="true">
+                <legend>{t("auth.accountType")}</legend>
+                <p className="auth-account-type-help">{t("auth.accountTypeHelp")}</p>
+                <div className="auth-account-type-grid" role="radiogroup" aria-label={t("auth.accountType")}>
+                  {SIGNUP_ACCOUNT_TYPES.map((type) => {
+                    const selected = authAccountType === type;
+                    const optionId = `signup-account-type-${type}`;
+                    return (
+                      <label
+                        key={type}
+                        className={`auth-account-type-option${selected ? " is-selected" : ""}`}
+                        htmlFor={optionId}
+                        data-account-type={type}
+                      >
+                        <input
+                          id={optionId}
+                          type="radio"
+                          name="accountType"
+                          value={type}
+                          checked={selected}
+                          onChange={() => setAuthAccountType(type)}
+                        />
+                        <span>{signupAccountTypeLabel(type)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
 
             <label>
               <span>{t("auth.email")}</span>
-              <input name="email" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder={t("auth.emailPlaceholder")}/>
+              <input name="email" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder={t("auth.emailPlaceholder")} autoComplete="email"/>
             </label>
 
             <label>
               <span>{t("auth.password")}</span>
-              <input name="password" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("auth.passwordPlaceholder")}/>
+              <input name="password" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("auth.passwordPlaceholder")} autoComplete={authMode === "signup" ? "new-password" : "current-password"}/>
             </label>
 
             {authMessage && <p className="auth-message">{authMessage}</p>}
@@ -16626,6 +16680,79 @@ function PageContent() {
             color: white;
             padding: 0 12px;
             outline: none;
+            font-size: 16px;
+          }
+
+          .auth-account-type {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            min-width: 0;
+          }
+
+          .auth-account-type legend {
+            color: #9bdcf0;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            padding: 0;
+          }
+
+          .auth-account-type-help {
+            margin: 0;
+            color: #a9bed6;
+            font-size: 12px;
+            line-height: 1.35;
+            font-weight: 600;
+            text-transform: none;
+          }
+
+          .auth-account-type-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+
+          .auth-account-type-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 44px;
+            margin: 0;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #263c78;
+            background: #020617;
+            cursor: pointer;
+          }
+
+          .auth-account-type-option.is-selected {
+            border-color: #22d3ee;
+            box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.45);
+          }
+
+          .auth-account-type-option input {
+            width: 16px;
+            height: 16px;
+            min-height: 16px;
+            margin: 0;
+            flex: 0 0 auto;
+            accent-color: #22d3ee;
+          }
+
+          .auth-account-type-option span {
+            color: #e2e8f0;
+            font-size: 13px;
+            font-weight: 800;
+            text-transform: none;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+          }
+
+          @media (max-width: 360px) {
+            .auth-account-type-grid {
+              grid-template-columns: 1fr;
+            }
           }
 
           .auth-form button,

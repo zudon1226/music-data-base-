@@ -14,7 +14,17 @@ type ProfileRow = {
 
 function normalizeRole(value: unknown) {
     const cleanValue = String(value || "").trim().toLowerCase();
-    if (cleanValue === "admin" || cleanValue === "producer" || cleanValue === "artist") {
+    if (
+        cleanValue === "admin"
+        || cleanValue === "producer"
+        || cleanValue === "artist"
+        || cleanValue === "founding_artist"
+        || cleanValue === "founding_producer"
+        || cleanValue === "artist_pro"
+        || cleanValue === "producer_pro"
+        || cleanValue === "creator_free"
+        || cleanValue === "creator"
+    ) {
         return cleanValue;
     }
     return "listener";
@@ -32,7 +42,12 @@ async function loadProfileRow(supabase: SupabaseClient, userId: string) {
 export async function ensureProfileRow(
     supabase: SupabaseClient,
     userId: string,
-    patch: { displayName?: string; role?: string; avatarUrl?: string } = {},
+    patch: {
+        displayName?: string;
+        role?: string;
+        avatarUrl?: string;
+        requestedAccountType?: string;
+    } = {},
 ) {
     const userResult = await supabase.auth.admin.getUserById(userId);
     const email = userResult.data.user?.email || "";
@@ -63,7 +78,12 @@ export async function ensureProfileRow(
 export async function repairAuthUserMetadata(
     supabase: SupabaseClient,
     userId: string,
-    patch: { displayName?: string; role?: string; avatarUrl?: string } = {},
+    patch: {
+        displayName?: string;
+        role?: string;
+        avatarUrl?: string;
+        requestedAccountType?: string;
+    } = {},
 ) {
     const userResult = await supabase.auth.admin.getUserById(userId);
     const currentMetadata = (userResult.data.user?.user_metadata || {}) as Record<string, unknown>;
@@ -72,6 +92,9 @@ export async function repairAuthUserMetadata(
         displayName: patch.displayName || profileFields.displayName,
         role: patch.role || profileFields.role,
         avatarUrl: patch.avatarUrl || profileFields.avatarUrl,
+        requestedAccountType: patch.requestedAccountType
+            || String(currentMetadata.requestedAccountType || currentMetadata.requested_account_type || "").trim()
+            || undefined,
     });
 
     const comparableCurrent = sanitizeAuthUserMetadata(currentMetadata);
