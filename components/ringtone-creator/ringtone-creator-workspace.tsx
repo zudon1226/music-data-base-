@@ -22,6 +22,7 @@ import {
     formToSavePayload,
     formatClipClock,
     formatRingtoneMoney,
+    mapRingtoneSaveError,
     maxClipStartSeconds,
     prepareRingtoneSourceUpload,
     saveRingtoneDraft,
@@ -32,6 +33,7 @@ import {
     type RingtoneSalesSummary,
     type RingtoneSourceSong,
 } from "@/lib/ringtone-creator-client";
+import { validateRingtoneSubmitRequirements } from "@/lib/ringtone-validation";
 import { useTranslation } from "@/lib/i18n/provider";
 import { getDesktopSupabaseClient } from "@/lib/supabase";
 import { RingtoneClipTimeline } from "./ringtone-clip-timeline";
@@ -105,11 +107,13 @@ export function RingtoneCreatorWorkspace({
     const [processState, setProcessState] = useState<ProcessState>("idle");
     const [loading, setLoading] = useState(true);
     const [pending, startTransition] = useTransition();
+    const [saving, setSaving] = useState(false);
     const [sourceFileName, setSourceFileName] = useState("");
     const [sourceSongsLoading, setSourceSongsLoading] = useState(false);
     const [sourceSongsError, setSourceSongsError] = useState("");
     const submitLockRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const actionsBusy = pending || saving;
 
     const statusLabel = (ringtone: RingtoneProduct | string) => {
         if (typeof ringtone === "string") {
@@ -421,17 +425,55 @@ export function RingtoneCreatorWorkspace({
     }
 
     async function persist(submitForReview: boolean) {
-        if (submitLockRef.current || pending) return;
+        if (submitLockRef.current || saving) return;
         submitLockRef.current = true;
+        setSaving(true);
         setError("");
-        setStatusMessage(submitForReview ? t("ringtones.submitting") : t("ringtones.savingDraft"));
-        setProcessState("processing");
+
+        if (submitForReview) {
+            const dollars = Number(form.priceDollars);
+            const priceCents = Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN;
+            const requirements = validateRingtoneSubmitRequirements({
+                sourceKind: form.sourceKind,
+                sourceSongId: form.sourceSongId,
+                sourceStoragePath: form.sourceStoragePath,
+                ownershipConfirmed: form.ownershipConfirmed || form.sourceKind === "owned_song",
+                title: form.title,
+                clipStartSeconds: form.clipStartSeconds,
+                durationSeconds: form.durationSeconds,
+                sourceDurationSeconds: form.sourceDurationSeconds > 0
+                    ? form.sourceDurationSeconds
+                    : undefined,
+                priceCents,
+                currency: form.currency,
+                iphoneAvailable: form.iphoneAvailable,
+                androidAvailable: form.androidAvailable,
+            });
+            if (!requirements.ok) {
+                setStep(requirements.step);
+                setError(requirements.error);
+                setProcessState("idle");
+                setStatusMessage("");
+                submitLockRef.current = false;
+                setSaving(false);
+                return;
+            }
+            setStatusMessage(t("ringtones.submitting"));
+            setProcessState("processing");
+        } else {
+            setStatusMessage(t("ringtones.savingDraft"));
+            // Draft save must not look like audio processing.
+            setProcessState("idle");
+        }
 
         startTransition(async () => {
             try {
-                const payload = formToSavePayload(form, !editingId && submitForReview);
-                if (!Number.isFinite(Number(payload.priceCents)) || Number(payload.priceCents) < 0) {
-                    throw new Error(t("ringtones.invalidPrice"));
+                const payload = formToSavePayload(form, false);
+                if (submitForReview) {
+                    if (!Number.isFinite(Number(payload.priceCents)) || Number(payload.priceCents) < 0) {
+                        setStep(3);
+                        throw new Error(t("ringtones.invalidPrice"));
+                    }
                 }
                 const saved = await saveRingtoneDraft({
                     userId,
@@ -440,7 +482,13 @@ export function RingtoneCreatorWorkspace({
                     payload,
                 });
                 if (!saved.ok) {
-                    throw new Error(String(saved.body.error || t("ringtones.saveFailed")));
+                    const diagnostic = String(saved.body.code || saved.status || "SAVE_FAILED");
+                    console.error(`[ringtone-creator] save failed diag=${diagnostic}`);
+                    throw new Error(mapRingtoneSaveError(
+                        saved.body,
+                        saved.status,
+                        t("ringtones.saveFailed"),
+                    ));
                 }
                 const ringtone = saved.body.ringtone as RingtoneProduct;
                 setEditingId(ringtone.id);
@@ -452,7 +500,13 @@ export function RingtoneCreatorWorkspace({
                         ringtoneId: ringtone.id,
                     });
                     if (!submitted.ok) {
-                        throw new Error(String(submitted.body.error || t("ringtones.submitFailed")));
+                        const diagnostic = String(submitted.body.code || submitted.status || "SUBMIT_FAILED");
+                        console.error(`[ringtone-creator] submit failed diag=${diagnostic}`);
+                        throw new Error(mapRingtoneSaveError(
+                            submitted.body,
+                            submitted.status,
+                            t("ringtones.submitFailed"),
+                        ));
                     }
                     const next = (submitted.body.ringtone || {}) as RingtoneProduct;
                     if (next.status === "pending_review") {
@@ -462,21 +516,24 @@ export function RingtoneCreatorWorkspace({
                     } else {
                         setStatusMessage(t("ringtones.processingCompleted"));
                     }
+                    setProcessState("ready");
                 } else {
                     setStatusMessage(t("ringtones.draftSaved"));
+                    setProcessState("ready");
                 }
 
-                setProcessState("ready");
                 await reloadAll();
-                if (submitForReview) {
-                    setMode("list");
-                    onStopRingtonePreview();
-                }
+                setMode("list");
+                onStopRingtonePreview();
             } catch (saveError) {
-                setProcessState("failed");
-                setError(saveError instanceof Error ? saveError.message : t("ringtones.saveFailed"));
+                if (submitForReview) setProcessState("failed");
+                else setProcessState("idle");
+                setError(saveError instanceof Error
+                    ? saveError.message
+                    : (submitForReview ? t("ringtones.submitFailed") : t("ringtones.saveFailed")));
             } finally {
                 submitLockRef.current = false;
+                setSaving(false);
             }
         });
     }
@@ -532,6 +589,7 @@ export function RingtoneCreatorWorkspace({
             </header>
 
             <div className="sr-only" aria-live="polite">{statusMessage}</div>
+            {statusMessage ? <p className="ringtone-status-message" role="status">{statusMessage}</p> : null}
             {error ? <p className="ringtone-error" role="alert">{error}</p> : null}
 
             {mode === "sales" ? (
@@ -1115,7 +1173,7 @@ export function RingtoneCreatorWorkspace({
                                     <button
                                         type="button"
                                         className="save-upload"
-                                        disabled={pending || submitLockRef.current}
+                                        disabled={actionsBusy}
                                         onClick={() => void persist(false)}
                                     >
                                         {t("ringtones.saveDraft")}
@@ -1123,7 +1181,7 @@ export function RingtoneCreatorWorkspace({
                                     <button
                                         type="button"
                                         className="save-upload"
-                                        disabled={pending || submitLockRef.current}
+                                        disabled={actionsBusy}
                                         onClick={() => void persist(true)}
                                     >
                                         {t("ringtones.submitForReview")}
@@ -1631,6 +1689,12 @@ export function RingtoneCreatorWorkspace({
 
                 .ringtone-final-actions {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
+                .ringtone-status-message {
+                    color: #bbf7d0;
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
                 }
 
                 .ringtone-error,

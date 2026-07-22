@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
-import { requireRingtoneCreator } from "@/lib/ringtone-access";
+import { assertOwnsSourceSong, requireRingtoneCreator } from "@/lib/ringtone-access";
 import {
     RINGTONE_ACTION_FAILED_CODE,
     RINGTONE_ACTION_FAILED_MESSAGE,
     logRingtoneActionFailure,
     toPublicRingtoneActionError,
 } from "@/lib/ringtone-action-errors";
-import { type RingtoneStatus } from "@/lib/ringtone-constants";
+import { RINGTONE_DEFAULT_DURATION_SECONDS, type RingtoneStatus } from "@/lib/ringtone-constants";
 import { deleteOrArchiveRingtoneProduct } from "@/lib/ringtone-delete-lifecycle";
 import { writeRingtoneModerationLog } from "@/lib/ringtone-moderation-log";
 import { beginPublishedRingtoneRevision } from "@/lib/ringtone-revisions";
@@ -137,8 +137,8 @@ export async function PATCH(request: Request, context: Params) {
         if (creatorMayEditFields) {
             if (body.title != null) {
                 const title = sanitizeRingtoneText(body.title, 160);
-                if (!title) return json({ error: "Title is required." }, 400);
-                updates.title = title;
+                // Draft updates may clear the title temporarily; keep a schema-safe placeholder.
+                updates.title = title || "Untitled draft";
             }
             if (body.description != null) {
                 updates.description = sanitizeRingtoneText(body.description, 4000);
@@ -146,16 +146,44 @@ export async function PATCH(request: Request, context: Params) {
             if (body.artworkUrl != null) {
                 updates.artwork_url = sanitizeRingtoneText(body.artworkUrl, 1000);
             }
+            if (body.sourceKind === "owned_song" || body.sourceKind === "upload") {
+                updates.source_kind = body.sourceKind;
+            }
+            if (body.sourceSongId !== undefined) {
+                const songId = String(body.sourceSongId || "").trim();
+                if (!songId) {
+                    updates.source_song_id = null;
+                } else {
+                    if (!isUuid(songId)) return json({ error: "sourceSongId must be a valid owned song UUID." }, 400);
+                    const ownership = await assertOwnsSourceSong(userId, songId);
+                    if (!ownership.ok) return json({ error: ownership.error }, 403);
+                    updates.source_song_id = songId;
+                    updates.source_kind = "owned_song";
+                    updates.ownership_confirmed = true;
+                }
+            }
+            if (body.ownershipConfirmed != null) {
+                updates.ownership_confirmed = body.ownershipConfirmed === true;
+            }
             if (body.sourceStoragePath != null) {
                 const path = sanitizeRingtoneText(body.sourceStoragePath, 500);
-                if (path && !path.startsWith(`${userId}/`)) {
-                    return json({ error: "sourceStoragePath must be owner-scoped under the creator id." }, 400);
+                const nextKind = String(updates.source_kind || existing.data.source_kind || "");
+                // Only ringtone-source upload paths are stored here; owned songs resolve at process time.
+                if (nextKind === "upload" || body.sourceKind === "upload") {
+                    if (path && !path.startsWith(`${userId}/`)) {
+                        return json({ error: "sourceStoragePath must be owner-scoped under the creator id." }, 400);
+                    }
+                    updates.source_storage_path = path;
+                } else if (body.sourceKind === "owned_song" || nextKind === "owned_song") {
+                    updates.source_storage_path = "";
                 }
-                updates.source_storage_path = path;
             }
             if (body.priceCents != null) {
-                const price = validateRingtonePriceCents(body.priceCents);
-                if (!price.ok) return json({ error: price.error }, 400);
+                let price = validateRingtonePriceCents(body.priceCents);
+                if (!price.ok && (currentStatus === "draft" || currentStatus === "rejected")) {
+                    price = validateRingtonePriceCents(0);
+                }
+                if (!price.ok) return json({ error: price.error, code: "VALIDATION_FAILED" }, 400);
                 updates.price_cents = price.priceCents;
             }
             if (body.currency != null) {
@@ -172,7 +200,7 @@ export async function PATCH(request: Request, context: Params) {
                 || body.durationSeconds != null
                 || body.clipEndSeconds != null
             ) {
-                const clip = validateRingtoneClip({
+                let clip = validateRingtoneClip({
                     clipStartSeconds: Number(body.clipStartSeconds ?? existing.data.clip_start_seconds),
                     durationSeconds: body.durationSeconds == null
                         ? Number(existing.data.duration_seconds)
@@ -184,7 +212,17 @@ export async function PATCH(request: Request, context: Params) {
                         ? null
                         : Number(body.sourceDurationSeconds),
                 });
-                if (!clip.ok) return json({ error: clip.error }, 400);
+                if (!clip.ok) {
+                    // Draft updates keep a schema-safe 0–30s window; submit validates strictly.
+                    if (currentStatus === "draft" || currentStatus === "rejected") {
+                        clip = validateRingtoneClip({
+                            clipStartSeconds: 0,
+                            durationSeconds: RINGTONE_DEFAULT_DURATION_SECONDS,
+                            sourceDurationSeconds: null,
+                        });
+                    }
+                    if (!clip.ok) return json({ error: clip.error, code: "VALIDATION_FAILED" }, 400);
+                }
                 updates.clip_start_seconds = clip.clipStartSeconds;
                 updates.clip_end_seconds = clip.clipEndSeconds;
                 updates.duration_seconds = clip.durationSeconds;

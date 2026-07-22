@@ -67,9 +67,13 @@ export async function POST(request: Request) {
         const creator = await requireRingtoneCreator(userId);
         if (!creator.ok) return json({ error: creator.error }, creator.status);
 
+        // Create always stores draft. Submit-for-review runs through /process after save.
+        const mode = body.submitForReview === true ? "submit" as const : "draft" as const;
+
         let sourceDurationSeconds = body.sourceDurationSeconds;
-        if (String(body.sourceKind || "") === "owned_song") {
-            const ownership = await assertOwnsSourceSong(userId, String(body.sourceSongId || ""));
+        const sourceSongId = String(body.sourceSongId || "").trim();
+        if (String(body.sourceKind || "") === "owned_song" && sourceSongId) {
+            const ownership = await assertOwnsSourceSong(userId, sourceSongId);
             if (!ownership.ok) return json({ error: ownership.error }, 403);
             if (ownership.sourceDurationSeconds != null) {
                 sourceDurationSeconds = ownership.sourceDurationSeconds;
@@ -94,14 +98,11 @@ export async function POST(request: Request) {
             sourceStoragePath: body.sourceStoragePath,
             iphoneAvailable: body.iphoneAvailable,
             androidAvailable: body.androidAvailable,
-        });
-        if (!built.ok) return json({ error: built.error }, 400);
+        }, { mode });
+        if (!built.ok) return json({ error: built.error, code: "VALIDATION_FAILED" }, 400);
 
-        const row = { ...built.row };
-        const submitForReview = body.submitForReview === true;
-        if (submitForReview) {
-            row.status = "pending_review";
-        }
+        // Never publish or pending_review on create — processing owns that transition.
+        const row = { ...built.row, status: "draft" as const };
 
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase
@@ -109,10 +110,13 @@ export async function POST(request: Request) {
             .insert(row)
             .select("*")
             .single();
-        if (error) return json({ error: getErrorMessage(error) }, 500);
+        if (error) {
+            console.error("[api/ringtones] POST insert failed:", getErrorMessage(error));
+            return json({ error: getErrorMessage(error), code: "DB_REJECTED" }, 500);
+        }
         return json({ ringtone: data }, 201);
     } catch (error) {
         console.error("[api/ringtones] POST failed:", error);
-        return json({ error: getErrorMessage(error) }, 500);
+        return json({ error: getErrorMessage(error), code: "SERVER_ERROR" }, 500);
     }
 }

@@ -13,6 +13,8 @@ import {
 import { notifyRingtoneEvent } from "@/lib/ringtone-notifications";
 import { snapshotRingtoneRevision } from "@/lib/ringtone-revisions";
 import { writeRingtoneModerationLog } from "@/lib/ringtone-moderation-log";
+import { validateRingtoneSubmitRequirements } from "@/lib/ringtone-validation";
+import { SONGS_BUCKET } from "@/lib/song-storage-path";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const RINGTONE_JOB_STATUSES = [
@@ -136,15 +138,57 @@ export async function enqueueRingtoneProcessingJob(input: {
         }
     }
 
-    const sourcePath = String(row.source_storage_path || "");
+    const submitReady = validateRingtoneSubmitRequirements({
+        sourceKind: row.source_kind,
+        sourceSongId: row.source_song_id,
+        sourceStoragePath: row.source_storage_path,
+        ownershipConfirmed: row.ownership_confirmed,
+        title: row.title,
+        clipStartSeconds: row.clip_start_seconds,
+        durationSeconds: row.duration_seconds,
+        clipEndSeconds: row.clip_end_seconds,
+        priceCents: row.price_cents,
+        currency: row.currency,
+        iphoneAvailable: row.iphone_available,
+        androidAvailable: row.android_available,
+    });
+    if (!submitReady.ok) {
+        return {
+            ok: false as const,
+            error: submitReady.error,
+            status: 400,
+            code: "VALIDATION_FAILED",
+        };
+    }
+
+    let sourcePath = String(row.source_storage_path || "").trim();
+    let sourceBucket: string = RINGTONE_STORAGE_BUCKETS.source;
+    // Owned-song drafts store source_song_id and resolve the songs-bucket path at process time.
+    if (!sourcePath && row.source_song_id) {
+        const song = await supabase
+            .from("songs")
+            .select("id,storage_path")
+            .eq("id", String(row.source_song_id))
+            .maybeSingle();
+        if (song.error) {
+            return { ok: false as const, error: getErrorMessage(song.error), status: 500, code: "DB_ERROR" };
+        }
+        sourcePath = String(song.data?.storage_path || "").trim();
+        if (sourcePath) sourceBucket = SONGS_BUCKET;
+    }
     if (!sourcePath) {
-        return { ok: false as const, error: "Source audio is required before processing.", status: 400, code: "SOURCE_MISSING" };
+        return {
+            ok: false as const,
+            error: "Choose source audio before submitting for review.",
+            status: 400,
+            code: "SOURCE_MISSING",
+        };
     }
 
     const plan = planRingtoneProcessing({
         ringtoneId: input.ringtoneId,
         creatorId: String(row.creator_id),
-        sourceBucket: RINGTONE_STORAGE_BUCKETS.source,
+        sourceBucket,
         sourcePath,
         clipStartSeconds: Number(row.clip_start_seconds),
         clipEndSeconds: Number(row.clip_end_seconds),
@@ -184,7 +228,7 @@ export async function enqueueRingtoneProcessingJob(input: {
         processing_version: RINGTONE_PROCESSING_VERSION,
         source_storage_path: sourcePath,
         source_checksum: String(row.source_checksum || ""),
-        source_bucket: RINGTONE_STORAGE_BUCKETS.source,
+        source_bucket: sourceBucket,
         clip_start_seconds: Number(row.clip_start_seconds),
         clip_end_seconds: Number(row.clip_end_seconds),
         duration_seconds: Number(row.duration_seconds),

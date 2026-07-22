@@ -185,6 +185,81 @@ export function canAdminTransitionStatus(from: RingtoneStatus, to: RingtoneStatu
     return (allowed[from] || []).includes(to);
 }
 
+const RINGTONE_DRAFT_DEFAULT_TITLE = "Untitled draft";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type RingtoneSaveMode = "draft" | "submit";
+
+/** Submit-for-review field checks shared by client wizard and server create/update. */
+export function validateRingtoneSubmitRequirements(input: {
+    sourceKind: unknown;
+    sourceSongId?: unknown;
+    sourceStoragePath?: unknown;
+    ownershipConfirmed?: unknown;
+    title?: unknown;
+    clipStartSeconds?: unknown;
+    durationSeconds?: unknown;
+    clipEndSeconds?: unknown;
+    sourceDurationSeconds?: unknown;
+    priceCents?: unknown;
+    currency?: unknown;
+    iphoneAvailable?: unknown;
+    androidAvailable?: unknown;
+}): { ok: true } | { ok: false; error: string; step: 1 | 2 | 3 | 4 | 5 } {
+    const sourceKind = normalizeRingtoneSourceKind(input.sourceKind);
+    if (!sourceKind) {
+        return { ok: false, error: "Choose source audio before submitting for review.", step: 1 };
+    }
+    if (sourceKind === "owned_song") {
+        const songId = String(input.sourceSongId || "").trim();
+        if (!UUID_RE.test(songId)) {
+            return { ok: false, error: "Choose source audio before submitting for review.", step: 1 };
+        }
+    } else {
+        if (input.ownershipConfirmed !== true) {
+            return {
+                ok: false,
+                error: "Confirm ownership of the uploaded source audio before submitting for review.",
+                step: 1,
+            };
+        }
+        const sourceStoragePath = sanitizeRingtoneText(input.sourceStoragePath, 500);
+        if (!sourceStoragePath) {
+            return { ok: false, error: "Choose source audio before submitting for review.", step: 1 };
+        }
+    }
+
+    const clip = validateRingtoneClip({
+        clipStartSeconds: Number(input.clipStartSeconds ?? 0),
+        durationSeconds: input.durationSeconds == null ? undefined : Number(input.durationSeconds),
+        clipEndSeconds: input.clipEndSeconds == null ? undefined : Number(input.clipEndSeconds),
+        sourceDurationSeconds: input.sourceDurationSeconds == null
+            ? null
+            : Number(input.sourceDurationSeconds),
+    });
+    if (!clip.ok) return { ok: false, error: clip.error, step: 2 };
+
+    const title = sanitizeRingtoneText(input.title, 160);
+    if (!title || title.toLowerCase() === RINGTONE_DRAFT_DEFAULT_TITLE.toLowerCase()) {
+        return { ok: false, error: "Add a title before submitting for review.", step: 3 };
+    }
+
+    const price = validateRingtonePriceCents(input.priceCents ?? 0);
+    if (!price.ok) return { ok: false, error: price.error, step: 3 };
+    const currency = normalizeRingtoneCurrency(input.currency ?? "USD");
+    if (!currency) return { ok: false, error: "Unsupported currency.", step: 3 };
+
+    if (input.iphoneAvailable === false && input.androidAvailable === false) {
+        return {
+            ok: false,
+            error: "Enable iPhone or Android availability before submitting for review.",
+            step: 4,
+        };
+    }
+
+    return { ok: true };
+}
+
 export function buildCreateRingtonePayload(input: {
     creatorId: string;
     title: unknown;
@@ -203,34 +278,70 @@ export function buildCreateRingtonePayload(input: {
     sourceStoragePath?: unknown;
     iphoneAvailable?: unknown;
     androidAvailable?: unknown;
-}) {
-    const title = sanitizeRingtoneText(input.title, 160);
-    if (!title) return { ok: false as const, error: "Title is required." };
+}, options?: { mode?: RingtoneSaveMode }) {
+    const mode: RingtoneSaveMode = options?.mode === "submit" ? "submit" : "draft";
 
-    const sourceKind = normalizeRingtoneSourceKind(input.sourceKind);
+    if (mode === "submit") {
+        const requirements = validateRingtoneSubmitRequirements(input);
+        if (!requirements.ok) return { ok: false as const, error: requirements.error };
+    }
+
+    let title = sanitizeRingtoneText(input.title, 160);
+    if (!title) {
+        if (mode === "draft") title = RINGTONE_DRAFT_DEFAULT_TITLE;
+        else return { ok: false as const, error: "Title is required." };
+    }
+
+    const sourceKind = normalizeRingtoneSourceKind(input.sourceKind)
+        || (mode === "draft" ? "owned_song" as RingtoneSourceKind : null);
     if (!sourceKind) return { ok: false as const, error: "sourceKind must be owned_song or upload." };
 
+    let sourceSongId: string | null = null;
     if (sourceKind === "owned_song") {
         const songId = String(input.sourceSongId || "").trim();
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(songId)) {
-            return { ok: false as const, error: "sourceSongId must be a valid owned song UUID." };
+        if (songId) {
+            if (!UUID_RE.test(songId)) {
+                return { ok: false as const, error: "sourceSongId must be a valid owned song UUID." };
+            }
+            sourceSongId = songId;
+        } else if (mode === "submit") {
+            return { ok: false as const, error: "Choose source audio before submitting for review." };
         }
-    } else if (input.ownershipConfirmed !== true) {
+    } else if (mode === "submit" && input.ownershipConfirmed !== true) {
+        return { ok: false as const, error: "Ownership confirmation is required for ringtone-only uploads." };
+    } else if (mode === "draft" && String(input.sourceStoragePath || "").trim() && input.ownershipConfirmed !== true) {
         return { ok: false as const, error: "Ownership confirmation is required for ringtone-only uploads." };
     }
 
-    const clip = validateRingtoneClip({
-        clipStartSeconds: Number(input.clipStartSeconds),
+    const rawSourceDuration = asFiniteNumber(input.sourceDurationSeconds ?? null);
+    const sourceDurationSeconds = rawSourceDuration != null && rawSourceDuration > 0
+        ? rawSourceDuration
+        : null;
+
+    let clip = validateRingtoneClip({
+        clipStartSeconds: Number(input.clipStartSeconds ?? 0),
         durationSeconds: input.durationSeconds == null ? undefined : Number(input.durationSeconds),
         clipEndSeconds: input.clipEndSeconds == null ? undefined : Number(input.clipEndSeconds),
-        sourceDurationSeconds: input.sourceDurationSeconds == null
-            ? null
-            : Number(input.sourceDurationSeconds),
+        sourceDurationSeconds,
     });
-    if (!clip.ok) return clip;
+    if (!clip.ok) {
+        if (mode === "submit") return clip;
+        // Drafts keep a schema-safe default 0–30s window when clip data is incomplete/invalid.
+        clip = validateRingtoneClip({
+            clipStartSeconds: 0,
+            durationSeconds: RINGTONE_DEFAULT_DURATION_SECONDS,
+            sourceDurationSeconds: null,
+        });
+        if (!clip.ok) return clip;
+    }
 
-    const price = validateRingtonePriceCents(input.priceCents ?? 0);
-    if (!price.ok) return price;
+    let price = validateRingtonePriceCents(input.priceCents ?? 0);
+    if (!price.ok) {
+        if (mode === "submit") return price;
+        // Drafts fall back to $0.00 when price is blank/invalid.
+        price = validateRingtonePriceCents(0);
+        if (!price.ok) return price;
+    }
 
     const currency = normalizeRingtoneCurrency(input.currency ?? "USD");
     if (!currency) return { ok: false as const, error: "Unsupported currency." };
@@ -246,7 +357,7 @@ export function buildCreateRingtonePayload(input: {
         ok: true as const,
         row: {
             creator_id: input.creatorId,
-            source_song_id: sourceKind === "owned_song" ? String(input.sourceSongId).trim() : null,
+            source_song_id: sourceKind === "owned_song" ? sourceSongId : null,
             title,
             description: sanitizeRingtoneText(input.description, 4000),
             artwork_url: sanitizeRingtoneText(input.artworkUrl, 1000),
@@ -257,8 +368,11 @@ export function buildCreateRingtonePayload(input: {
             currency,
             status: "draft" as RingtoneStatus,
             is_explicit: input.isExplicit === true,
-            ownership_confirmed: sourceKind === "owned_song" ? true : input.ownershipConfirmed === true,
+            ownership_confirmed: sourceKind === "owned_song"
+                ? Boolean(sourceSongId) || input.ownershipConfirmed === true
+                : input.ownershipConfirmed === true,
             source_kind: sourceKind,
+            // Upload drafts store ringtone-source paths; owned songs resolve from songs at process time.
             source_storage_path: sourceKind === "upload" ? sourceStoragePath : "",
             iphone_available: input.iphoneAvailable !== false,
             android_available: input.androidAvailable !== false,

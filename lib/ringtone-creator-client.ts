@@ -397,6 +397,44 @@ export function formatRingtoneClientError(error: unknown, fallback: string) {
     return message;
 }
 
+/** Map API failures to clear UI copy while preserving the real server message when safe. */
+export function mapRingtoneSaveError(
+    body: Record<string, unknown>,
+    status: number,
+    fallback: string,
+): string {
+    const code = String(body.code || "").trim();
+    const error = typeof body.error === "string" ? body.error.trim() : "";
+    const safeError = error
+        && !/ringtone_moderation_logs|is immutable|violates foreign key|PGRST|postgres|sqlstate|relation /i.test(error)
+        ? error
+        : "";
+
+    if (status === 401 || code === "AUTH_REQUIRED" || /sign in|authentication|session expired/i.test(safeError)) {
+        return safeError || "Authentication required. Sign in again and retry.";
+    }
+    if (
+        status === 403
+        || code === "SOURCE_NOT_AUTHORIZED"
+        || /not authorized|only manage your own|ownership|forbidden/i.test(safeError)
+    ) {
+        return safeError || "Source audio is not authorized for this account.";
+    }
+    if (code === "VALIDATION_FAILED" || code === "SOURCE_MISSING" || status === 400) {
+        return safeError || "Missing required submit fields. Complete the form and retry.";
+    }
+    if (code === "DB_REJECTED" || /row-level security|rls|permission denied/i.test(safeError)) {
+        return safeError || "Database rejected the save. Check ownership and try again.";
+    }
+    if (code === "DUPLICATE_DRAFT" || /duplicate|unique/i.test(safeError)) {
+        return safeError || "A matching draft already exists. Open it from My Ringtones.";
+    }
+    if (status === 0 || /network|failed to fetch|load failed/i.test(safeError)) {
+        return safeError || "Network failure. Check your connection and retry.";
+    }
+    return safeError || fallback;
+}
+
 export type CreateRingtoneFormState = {
     sourceKind: "owned_song" | "upload";
     sourceSongId: string;
@@ -441,23 +479,28 @@ export function createEmptyRingtoneForm(): CreateRingtoneFormState {
 
 export function formToSavePayload(form: CreateRingtoneFormState, submitForReview = false) {
     const dollars = Number(form.priceDollars);
-    const priceCents = Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN;
+    let priceCents = Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN;
+    // Draft saves tolerate blank/invalid pricing with a schema-safe $0 fallback.
+    if (!submitForReview && (!Number.isFinite(priceCents) || priceCents < 0)) {
+        priceCents = 0;
+    }
     return {
         sourceKind: form.sourceKind,
-        sourceSongId: form.sourceKind === "owned_song" ? form.sourceSongId : undefined,
+        sourceSongId: form.sourceKind === "owned_song" ? (form.sourceSongId || undefined) : undefined,
         ownershipConfirmed: form.ownershipConfirmed || form.sourceKind === "owned_song",
         clipStartSeconds: form.clipStartSeconds,
         durationSeconds: form.durationSeconds,
-        sourceDurationSeconds: form.sourceDurationSeconds || undefined,
+        sourceDurationSeconds: form.sourceDurationSeconds > 0 ? form.sourceDurationSeconds : undefined,
         title: form.title,
         description: form.description,
         artworkUrl: form.artworkUrl,
         priceCents,
         currency: form.currency,
         isExplicit: form.isExplicit,
-        sourceStoragePath: form.sourceKind === "upload" ? form.sourceStoragePath : undefined,
+        sourceStoragePath: form.sourceKind === "upload" ? (form.sourceStoragePath || undefined) : undefined,
         iphoneAvailable: form.iphoneAvailable,
         androidAvailable: form.androidAvailable,
-        submitForReview,
+        // Never request processing from the save endpoint; submit uses /process.
+        submitForReview: false,
     };
 }
