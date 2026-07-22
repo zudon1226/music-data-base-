@@ -71,8 +71,10 @@ function main() {
     );
 
     record(
-        "service does not count download tickets for overview",
-        !/countRows\(\s*supabase,\s*"ringtone_download/.test(service)
+        "product totalRingtones does not use ringtone_downloads",
+        /totalRingtones:\s*ringtonesResult\.count/.test(service)
+            && !/totalRingtones:\s*ringtoneDownloads/.test(service)
+            && !/ringtonesResult[\s\S]{0,120}ringtone_downloads/.test(service)
             && !/totalRingtones[\s\S]{0,200}download_ticket/.test(service),
     );
 

@@ -37,6 +37,39 @@ async function sumColumn(supabase: SupabaseClient, table: string, column: string
     }, 0);
 }
 
+/**
+ * Platform-wide completed media downloads.
+ * Canonical source: public.media_downloads (one row per user+content; re-downloads bump download_count).
+ * Only delivery_status = 'delivered' rows are included.
+ */
+async function sumDeliveredMediaDownloadCounts(
+    supabase: SupabaseClient,
+    contentType: "music" | "video" | "album",
+): Promise<{ total: number; error: string }> {
+    const pageSize = 1000;
+    let from = 0;
+    let total = 0;
+    for (;;) {
+        const result = await supabase
+            .from("media_downloads")
+            .select("id,download_count")
+            .eq("content_type", contentType)
+            .eq("delivery_status", "delivered")
+            .range(from, from + pageSize - 1);
+        if (result.error) {
+            return { total: 0, error: getErrorMessage(result.error) };
+        }
+        const rows = result.data || [];
+        for (const row of rows) {
+            const record = row as { download_count?: number | null };
+            total += Math.max(0, Number(record.download_count ?? 1));
+        }
+        if (rows.length < pageSize) break;
+        from += pageSize;
+    }
+    return { total, error: "" };
+}
+
 function toActivity(
     id: string,
     kind: string,
@@ -111,10 +144,31 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         supabase.from("founding_invites").select("id,invite_code,status,intended_role,updated_at,created_by").order("updated_at", { ascending: false }).limit(8),
     ]);
 
-    const [totalMusicPlays, totalVideoViews] = await Promise.all([
+    const [
+        totalMusicPlays,
+        totalVideoViews,
+        musicDownloadsResult,
+        videoDownloadsResult,
+        albumDownloadsResult,
+        ringtoneDownloadsResult,
+    ] = await Promise.all([
         sumColumn(supabase, "songs", "plays"),
         sumColumn(supabase, "videos", "views"),
+        sumDeliveredMediaDownloadCounts(supabase, "music"),
+        sumDeliveredMediaDownloadCounts(supabase, "video"),
+        sumDeliveredMediaDownloadCounts(supabase, "album"),
+        countRows(supabase, "ringtone_downloads"),
     ]);
+
+    const downloadQueryError = [
+        musicDownloadsResult.error,
+        videoDownloadsResult.error,
+        albumDownloadsResult.error,
+        ringtoneDownloadsResult.error,
+    ].find(Boolean);
+    if (downloadQueryError) {
+        throw new Error(`Platform download metrics unavailable: ${downloadQueryError}`);
+    }
 
     const overview: PlatformOverviewStats = {
         totalUsers: totalUsersResult.count,
@@ -128,6 +182,10 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         totalRingtones: ringtonesResult.count,
         totalPlaylists: playlistsResult.count,
         totalAlbums: albumsResult.count,
+        musicDownloads: musicDownloadsResult.total,
+        videoDownloads: videoDownloadsResult.total,
+        ringtoneDownloads: ringtoneDownloadsResult.count,
+        albumDownloads: albumDownloadsResult.total,
         totalMusicPlays,
         totalVideoViews,
         totalLikes: songLikesResult.count + videoLikesResult.count,

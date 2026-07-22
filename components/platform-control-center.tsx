@@ -149,6 +149,10 @@ export function PlatformControlCenter({
                         ["Ringtones", overview?.totalRingtones],
                         ["Playlists", overview?.totalPlaylists],
                         ["Albums", overview?.totalAlbums],
+                        ["Music Downloads", overview?.musicDownloads],
+                        ["Video Downloads", overview?.videoDownloads],
+                        ["Ringtone Downloads", overview?.ringtoneDownloads],
+                        ["Album Downloads", overview?.albumDownloads],
                         ["Music plays", overview?.totalMusicPlays],
                         ["Video views", overview?.totalVideoViews],
                         ["Likes", overview?.totalLikes],
@@ -159,7 +163,11 @@ export function PlatformControlCenter({
                             data-overview-metric={String(label)}
                             key={String(label)}
                         >
-                            <strong>{formatCount(Number(value || 0))}</strong>
+                            <strong>
+                                {overview
+                                    ? formatCount(Number(value ?? 0))
+                                    : (loading ? t("common.loading") : (error ? "—" : formatCount(0)))}
+                            </strong>
                             <span>{label}</span>
                         </article>
                     ))}

@@ -19,6 +19,10 @@ export type PlatformOverviewStats = {
     totalRingtones: number;
     totalPlaylists: number;
     totalAlbums: number;
+    musicDownloads: number;
+    videoDownloads: number;
+    ringtoneDownloads: number;
+    albumDownloads: number;
     totalMusicPlays: number;
     totalVideoViews: number;
     totalLikes: number;

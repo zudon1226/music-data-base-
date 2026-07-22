@@ -33,6 +33,7 @@
     "verify:notifications-nav": "node scripts/verify-notification-nav-canonical.mjs",
     "verify:media-download": "node scripts/verify-paid-listener-media-download.mjs",
     "verify:download-vault": "node scripts/verify-download-vault-sync.mjs",
+    "verify:platform-overview-downloads": "node scripts/verify-platform-overview-download-counters.mjs",
     "verify:homepage-card-grid": "node scripts/verify-homepage-card-grid.mjs",
     "verify:mobile-layout": "node scripts/verify-mobile-recent-profile-queue.mjs",
     "verify:queue": "node scripts/verify-mobile-queue-height.mjs",
