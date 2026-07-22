@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { BarChart3, Bell, BookOpen, Check, ArrowLeft, ChevronDown, ChevronUp, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, } from "react";
 import { flushSync } from "react-dom";
@@ -3604,6 +3604,7 @@ export default function Page() {
 function PageContent() {
     const { t, locale } = useTranslation();
     const router = useRouter();
+    const pathname = usePathname();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
     const videoPreviewRef = useRef<HTMLElement | null>(null);
@@ -5726,6 +5727,7 @@ function PageContent() {
         () => buildActiveNavigationKey({ view, showUpload, uploadMode }),
         [view, showUpload, uploadMode],
     );
+    const playlistModalNavigationKeyRef = useRef(activeNavigationKey);
     // Internal view switches do not change the URL — reset scroll from the active view key.
     // Synchronous main-panel clear runs before paint so iPhone never keeps a blank stale scrollTop.
     useLayoutEffect(() => {
@@ -5735,6 +5737,59 @@ function PageContent() {
             ensureUploadVisible: showUpload,
         });
     }, [activeNavigationKey, showUpload]);
+    // Close Add to Playlist on any major workspace/nav change (sidebar, upload toggle, etc.).
+    useEffect(() => {
+        if (playlistModalNavigationKeyRef.current === activeNavigationKey) {
+            return;
+        }
+        playlistModalNavigationKeyRef.current = activeNavigationKey;
+        setPlaylistTarget(null);
+    }, [activeNavigationKey]);
+    // Close on real Next.js route changes (covers paths outside in-app view state).
+    useEffect(() => {
+        setPlaylistTarget(null);
+    }, [pathname]);
+    // Browser Back/Forward and hash navigations (e.g. /#profile) must clear the stale modal.
+    useEffect(() => {
+        if (typeof window === "undefined") return undefined;
+        const closeAddToPlaylistModal = () => setPlaylistTarget(null);
+        window.addEventListener("popstate", closeAddToPlaylistModal);
+        window.addEventListener("hashchange", closeAddToPlaylistModal);
+        return () => {
+            window.removeEventListener("popstate", closeAddToPlaylistModal);
+            window.removeEventListener("hashchange", closeAddToPlaylistModal);
+        };
+    }, []);
+    // Desktop Escape closes the open Add to Playlist dialog without affecting playlist data.
+    useEffect(() => {
+        if (!playlistTarget) return undefined;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            setPlaylistTarget(null);
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [playlistTarget]);
+    // Drop the modal if the selected media was deleted/removed while it was open.
+    useEffect(() => {
+        if (!playlistTarget) return;
+        if (playlistTarget.type === "song") {
+            if (!songs.some((song) => song.id === playlistTarget.item.id)) {
+                setPlaylistTarget(null);
+            }
+            return;
+        }
+        if (playlistTarget.type === "video") {
+            if (!videos.some((video) => video.id === playlistTarget.item.id)) {
+                setPlaylistTarget(null);
+            }
+            return;
+        }
+        if (!albums.some((album) => album.id === playlistTarget.item.id)) {
+            setPlaylistTarget(null);
+        }
+    }, [playlistTarget, songs, videos, albums]);
     useEffect(() => {
         migrateClientAccessSession();
     }, []);
@@ -11491,6 +11546,9 @@ function PageContent() {
             reportPlatformError("playlist", "delete-playlist", error instanceof Error ? error.message : String(error), { playlistId });
             showToast("Playlist removed locally, but cloud delete failed.", "error");
         }
+    }
+    function closeAddToPlaylistModal() {
+        setPlaylistTarget(null);
     }
     function openPlaylistMenu(song: Song) {
         setPlaylistTarget({ type: "song", item: song });
@@ -20379,14 +20437,14 @@ function PageContent() {
         </div>);
       })() : null}
 
-      {playlistTarget && (<div className="modal-backdrop playlist-modal-backdrop" role="presentation" onClick={() => setPlaylistTarget(null)}>
+      {playlistTarget && (<div className="modal-backdrop playlist-modal-backdrop" role="presentation" onClick={closeAddToPlaylistModal}>
           <section className="playlist-modal" aria-label={`Add ${playlistTarget.item.title} to playlist`} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="playlist-modal-head">
               <div>
                 <span className="playlist-kicker">Add to playlist</span>
                 <h3>{playlistTarget.item.title}</h3>
               </div>
-              <button className="icon-action" onClick={() => setPlaylistTarget(null)} title="Close" type="button">
+              <button className="icon-action" onClick={closeAddToPlaylistModal} title="Close" type="button">
                 <X size={17}/>
               </button>
             </div>
@@ -20394,7 +20452,7 @@ function PageContent() {
             {playlists.length === 0 ? (<div className="playlist-modal-empty">
                 <p>Create a playlist first, then add songs or videos.</p>
                 <button onClick={() => {
-                    setPlaylistTarget(null);
+                    closeAddToPlaylistModal();
                     setView("Playlists");
                     setPlaylistForm((current) => ({
                         ...current,
