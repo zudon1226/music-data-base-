@@ -1,5 +1,5 @@
 /**
- * Save Queue as Playlist enablement contracts.
+ * Add Queue to Playlist enablement contracts.
  * Run: node scripts/verify-save-queue-enablement.mjs
  * Or: npm run verify:save-queue
  */
@@ -25,55 +25,67 @@ const page = read("app/page.tsx");
 const pkg = read("package.json");
 
 record(
+    "action label is Add Queue to Playlist",
+    page.includes("Add Queue to Playlist")
+        && !/>Save Queue as Playlist</.test(page),
+);
+
+record(
     "save button no longer disables solely because videos exist",
-    !/Save Queue as Playlist[\s\S]{0,220}queuedVideos\.length\s*>\s*0/.test(page)
+    !/Add Queue to Playlist[\s\S]{0,220}queuedVideos\.length\s*>\s*0/.test(page)
         && !/unavailable while videos are in the queue/i.test(page),
 );
 
 record(
-    "save enablement requires auth + non-empty queue + not busy",
-    page.includes("canSaveQueueAsPlaylist")
-        && /canSaveQueueAsPlaylist\s*=\s*isAuthenticated/.test(page)
+    "enablement requires auth + non-empty queue + not busy",
+    page.includes("canAddQueueToPlaylist")
+        && /canAddQueueToPlaylist\s*=\s*isAuthenticated/.test(page)
         && /queueCount\s*>\s*0/.test(page)
         && /!saveQueuePlaylistBusy/.test(page),
 );
 
 record(
-    "opens name dialog instead of window.prompt",
+    "opens two-mode dialog instead of window.prompt",
     page.includes("openSaveQueueAsPlaylistDialog")
         && page.includes("showSaveQueuePlaylistDialog")
+        && page.includes("saveQueuePlaylistMode")
+        && page.includes("Existing Playlist")
+        && page.includes("Create New Playlist")
         && page.includes("save-queue-playlist-name")
         && !/window\.prompt\(\s*["']Save queue as playlist/.test(page),
 );
 
 record(
-    "dialog exposes Cancel + Save and busy lock",
+    "dialog exposes Cancel + primary actions and busy lock",
     page.includes("saveQueuePlaylistBusy")
         && page.includes("saveQueuePlaylistLockRef")
         && page.includes("save-queue-playlist-actions")
-        && page.includes(">Cancel<")
-        && /save-queue-playlist-actions[\s\S]{0,600}\{saveQueuePlaylistBusy \? "Saving…" : "Save"\}/.test(page),
+        && page.includes("closeSaveQueuePlaylistDialog")
+        && /Cancel/.test(page.slice(page.indexOf("save-queue-playlist-actions"), page.indexOf("save-queue-playlist-actions") + 800))
+        && page.includes('"Add Queue"')
+        && page.includes('"Create Playlist"'),
 );
 
 record(
-    "save preserves mediaQueueItems order including videos",
-    /orderedItems\s*=\s*mediaQueueItems\.slice\(\)/.test(page)
+    "create path preserves mediaQueueItems order including videos",
+    /orderedItems[\s\S]{0,160}mediaQueueItems/.test(page)
         && /itemType:\s*item\.mediaType\s*===\s*"video"\s*\?\s*"video"\s*:\s*"song"/.test(page)
-        && /for\s*\(\s*const\s+item\s+of\s+orderedItems\s*\)/.test(page),
+        && page.includes("playlistId: savedPlaylist.id")
+        && page.includes("items: orderedItems.map"),
 );
 
 record(
     "success keeps queue and refreshes playlists",
-    /Queue saved as playlist[\s\S]{0,200}reloadPlaylistsFromSupabase/.test(page)
-        || (/showToast\("Queue saved as playlist\."/.test(page) && page.includes("reloadPlaylistsFromSupabase")),
+    page.includes("reloadPlaylistsFromSupabase")
+        && (/Queue saved as playlist/.test(page) || /Added \$\{added\}/.test(page) || /Added \$\{added\} item/.test(page)),
 );
 
 record(
-    "queue remains intact after save (no clearQueue in save path)",
+    "queue remains intact after save (no clearQueue in save paths)",
     (() => {
-        const start = page.indexOf("async function saveQueueAsPlaylist");
+        const start = page.indexOf("async function addQueueToExistingPlaylist");
         const end = page.indexOf("async function createPlaylist", start);
-        const slice = start >= 0 ? page.slice(start, end > start ? end : start + 3500) : "";
+        const slice = start >= 0 ? page.slice(start, end > start ? end : start + 8000) : "";
         return slice.length > 0 && !/clearQueue|clearSharedMediaQueue|replaceSharedMediaQueue\(\s*\[\]/.test(slice);
     })(),
 );
