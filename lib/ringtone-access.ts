@@ -1,5 +1,6 @@
 import { isAdminUserId } from "@/lib/admin-auth";
 import { loadResolvedAccountCapabilities } from "@/lib/resolved-account-role";
+import { normalizeRingtoneSourceDurationSeconds } from "@/lib/ringtone-validation";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export async function canUserCreateRingtones(userId: string) {
@@ -23,30 +24,36 @@ export async function assertOwnsSourceSong(userId: string, songId: string) {
     }
     const supabase = getSupabaseServerClient();
     // Canonical ownership fields on public.songs: user_id (uploader) and producer_id (credit).
+    // Songs store length in `duration` (seconds integer or legacy mm:ss text) — not duration_seconds.
     const { data, error } = await supabase
         .from("songs")
         .select("id,user_id,producer_id,duration,audio_url,storage_path")
         .eq("id", songId)
         .maybeSingle();
     if (error) return { ok: false as const, error: getErrorMessage(error) };
-    if (!data) return { ok: false as const, error: "Source song was not found." };
+    if (!data) return { ok: false as const, error: "Source audio could not be found." };
 
     const ownerId = String(data.user_id || "");
     const producerId = String((data as { producer_id?: unknown }).producer_id || "");
     const isOwner = ownerId === userId || producerId === userId;
     const isAdmin = await isAdminUserId(userId);
     if (!isOwner && !isAdmin) {
-        return { ok: false as const, error: "You may only create ringtones from songs you own." };
+        return { ok: false as const, error: "Source audio is not authorized." };
     }
 
-    const duration = Number((data as { duration?: unknown }).duration ?? NaN);
+    const sourceDurationSeconds = normalizeRingtoneSourceDurationSeconds(
+        (data as { duration?: unknown }).duration,
+    );
     return {
         ok: true as const,
         songId,
-        sourceDurationSeconds: Number.isFinite(duration) ? duration : null,
+        // null when metadata is missing — never return 0 (Number(null) trap).
+        sourceDurationSeconds,
         ownerUserId: ownerId || null,
         producerId: producerId || null,
         adminOverride: isAdmin && !isOwner,
+        storagePath: String((data as { storage_path?: unknown }).storage_path || "").trim() || null,
+        audioUrl: String((data as { audio_url?: unknown }).audio_url || "").trim() || null,
     };
 }
 

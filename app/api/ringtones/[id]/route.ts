@@ -21,6 +21,7 @@ import {
     validateRingtoneClip,
     validateRingtonePriceCents,
     normalizeRingtoneCurrency,
+    normalizeRingtoneSourceDurationSeconds,
 } from "@/lib/ringtone-validation";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
@@ -200,6 +201,19 @@ export async function PATCH(request: Request, context: Params) {
                 || body.durationSeconds != null
                 || body.clipEndSeconds != null
             ) {
+                let trustedSourceDuration = normalizeRingtoneSourceDurationSeconds(body.sourceDurationSeconds);
+                const nextKind = String(updates.source_kind || existing.data.source_kind || "");
+                const nextSongId = updates.source_song_id != null
+                    ? String(updates.source_song_id || "")
+                    : String(existing.data.source_song_id || "");
+                if (nextKind === "owned_song" && nextSongId && isUuid(nextSongId)) {
+                    const ownership = await assertOwnsSourceSong(userId, nextSongId);
+                    if (!ownership.ok) return json({ error: ownership.error, code: "SOURCE_NOT_AUTHORIZED" }, 403);
+                    if (ownership.sourceDurationSeconds != null) {
+                        trustedSourceDuration = ownership.sourceDurationSeconds;
+                    }
+                }
+
                 let clip = validateRingtoneClip({
                     clipStartSeconds: Number(body.clipStartSeconds ?? existing.data.clip_start_seconds),
                     durationSeconds: body.durationSeconds == null
@@ -208,9 +222,7 @@ export async function PATCH(request: Request, context: Params) {
                     clipEndSeconds: body.clipEndSeconds == null
                         ? undefined
                         : Number(body.clipEndSeconds),
-                    sourceDurationSeconds: body.sourceDurationSeconds == null
-                        ? null
-                        : Number(body.sourceDurationSeconds),
+                    sourceDurationSeconds: trustedSourceDuration,
                 });
                 if (!clip.ok) {
                     // Draft updates keep a schema-safe 0–30s window; submit validates strictly.

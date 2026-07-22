@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertOwnsSourceSong, requireRingtoneCreator } from "@/lib/ringtone-access";
 import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
-import { buildCreateRingtonePayload } from "@/lib/ringtone-validation";
+import { buildCreateRingtonePayload, normalizeRingtoneSourceDurationSeconds } from "@/lib/ringtone-validation";
 import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -70,11 +70,13 @@ export async function POST(request: Request) {
         // Create always stores draft. Submit-for-review runs through /process after save.
         const mode = body.submitForReview === true ? "submit" as const : "draft" as const;
 
-        let sourceDurationSeconds = body.sourceDurationSeconds;
+        const fromBody = normalizeRingtoneSourceDurationSeconds(body.sourceDurationSeconds);
+        let sourceDurationSeconds: number | null = fromBody;
         const sourceSongId = String(body.sourceSongId || "").trim();
         if (String(body.sourceKind || "") === "owned_song" && sourceSongId) {
             const ownership = await assertOwnsSourceSong(userId, sourceSongId);
-            if (!ownership.ok) return json({ error: ownership.error }, 403);
+            if (!ownership.ok) return json({ error: ownership.error, code: "SOURCE_NOT_AUTHORIZED" }, 403);
+            // Trusted catalog duration wins when present; never overwrite with 0/null from Number(null).
             if (ownership.sourceDurationSeconds != null) {
                 sourceDurationSeconds = ownership.sourceDurationSeconds;
             }

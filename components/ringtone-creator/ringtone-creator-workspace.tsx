@@ -33,7 +33,12 @@ import {
     type RingtoneSalesSummary,
     type RingtoneSourceSong,
 } from "@/lib/ringtone-creator-client";
-import { validateRingtoneSubmitRequirements } from "@/lib/ringtone-validation";
+import { validateRingtoneSubmitRequirements, normalizeRingtoneSourceDurationSeconds } from "@/lib/ringtone-validation";
+import {
+    getMainScrollContainer,
+    markNavigationScrollLock,
+    scrollContainerToElement,
+} from "@/lib/navigation-scroll";
 import { useTranslation } from "@/lib/i18n/provider";
 import { getDesktopSupabaseClient } from "@/lib/supabase";
 import { RingtoneClipTimeline } from "./ringtone-clip-timeline";
@@ -113,7 +118,46 @@ export function RingtoneCreatorWorkspace({
     const [sourceSongsError, setSourceSongsError] = useState("");
     const submitLockRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const workspaceRef = useRef<HTMLElement | null>(null);
+    const pendingSourceScrollRef = useRef(false);
     const actionsBusy = pending || saving;
+
+    useEffect(() => {
+        if (!pendingSourceScrollRef.current) return;
+        if (mode !== "create") return;
+        pendingSourceScrollRef.current = false;
+        const frame = window.requestAnimationFrame(() => {
+            const target = workspaceRef.current;
+            const main = getMainScrollContainer();
+            if (!target || !main) return;
+            markNavigationScrollLock(500);
+            scrollContainerToElement(main, target, 0);
+            main.scrollLeft = 0;
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [mode, step, form.sourceSongId, form.sourceStoragePath]);
+
+    async function probeAudioDurationSeconds(audioUrl: string): Promise<number | null> {
+        if (!audioUrl || typeof window === "undefined") return null;
+        return new Promise((resolve) => {
+            const audio = new Audio();
+            let settled = false;
+            const finish = (value: number | null) => {
+                if (settled) return;
+                settled = true;
+                audio.removeAttribute("src");
+                audio.load();
+                resolve(value);
+            };
+            audio.preload = "metadata";
+            audio.onloadedmetadata = () => {
+                finish(normalizeRingtoneSourceDurationSeconds(audio.duration));
+            };
+            audio.onerror = () => finish(null);
+            window.setTimeout(() => finish(null), 8000);
+            audio.src = audioUrl;
+        });
+    }
 
     const statusLabel = (ringtone: RingtoneProduct | string) => {
         if (typeof ringtone === "string") {
@@ -232,6 +276,7 @@ export function RingtoneCreatorWorkspace({
 
     function beginEdit(ringtone: RingtoneProduct) {
         const sourceSong = sourceSongs.find((song) => song.id === ringtone.source_song_id);
+        const sourceDurationSeconds = normalizeRingtoneSourceDurationSeconds(sourceSong?.durationSeconds) || 0;
         setEditingId(ringtone.id);
         setForm({
             sourceKind: ringtone.source_kind,
@@ -239,9 +284,7 @@ export function RingtoneCreatorWorkspace({
             sourceSongTitle: sourceSong?.title || "",
             sourceAudioUrl: sourceSong?.audioUrl || ringtone.preview_url || "",
             sourceStoragePath: ringtone.source_storage_path || "",
-            sourceDurationSeconds: sourceSong?.durationSeconds
-                || Number((ringtone.clip_end_seconds || 0) + 1)
-                || ringtone.duration_seconds,
+            sourceDurationSeconds,
             ownershipConfirmed: Boolean(ringtone.ownership_confirmed),
             clipStartSeconds: Number(ringtone.clip_start_seconds) || 0,
             durationSeconds: Number(ringtone.duration_seconds) || 30,
@@ -259,6 +302,7 @@ export function RingtoneCreatorWorkspace({
         setError("");
         setStatusMessage("");
         setProcessState("ready");
+        pendingSourceScrollRef.current = true;
     }
 
     async function selectOwnedSong(song: RingtoneSourceSong) {
@@ -266,28 +310,39 @@ export function RingtoneCreatorWorkspace({
             setError(t("ringtones.previewUnavailable"));
             return;
         }
-        if (song.durationSeconds > 0 && song.durationSeconds < 15) {
+        let sourceDurationSeconds = normalizeRingtoneSourceDurationSeconds(song.durationSeconds) || 0;
+        if (sourceDurationSeconds <= 0 && song.audioUrl) {
+            const probed = await probeAudioDurationSeconds(song.audioUrl);
+            if (probed != null) sourceDurationSeconds = probed;
+        }
+        if (sourceDurationSeconds > 0 && sourceDurationSeconds < 15) {
             setError(t("ringtones.sourceTooShort"));
             return;
         }
-        const duration = clampRingtoneDuration(song.durationSeconds || RINGTONE_DEFAULT_DURATION_SECONDS);
+        if (sourceDurationSeconds <= 0) {
+            setError("This source is missing audio duration metadata. Reprocess or choose another source.");
+            return;
+        }
+        const duration = clampRingtoneDuration(sourceDurationSeconds);
         updateForm({
             sourceKind: "owned_song",
             sourceSongId: song.id,
             sourceSongTitle: song.title,
             sourceAudioUrl: song.audioUrl,
             sourceStoragePath: song.storagePath || "",
-            sourceDurationSeconds: song.durationSeconds,
+            sourceDurationSeconds,
             ownershipConfirmed: true,
             artworkUrl: form.artworkUrl || song.artworkUrl,
             title: form.title || `${song.title} Ringtone`,
             durationSeconds: duration,
-            clipStartSeconds: Math.min(form.clipStartSeconds, maxClipStartSeconds(song.durationSeconds || duration, duration)),
+            clipStartSeconds: 0,
         });
         setSourceFileName("");
         setProcessState("ready");
         setError("");
+        setStatusMessage("");
         setStep(2);
+        pendingSourceScrollRef.current = true;
     }
 
     function switchSourceKind(nextKind: "owned_song" | "upload") {
@@ -392,6 +447,9 @@ export function RingtoneCreatorWorkspace({
             });
             setProcessState("ready");
             setStatusMessage(t("ringtones.ready"));
+            setError("");
+            setStep(2);
+            pendingSourceScrollRef.current = true;
             setStep(2);
         } catch (uploadError) {
             setProcessState("failed");
@@ -430,7 +488,15 @@ export function RingtoneCreatorWorkspace({
         setSaving(true);
         setError("");
 
+        let resolvedSourceDuration = normalizeRingtoneSourceDurationSeconds(form.sourceDurationSeconds);
+
         if (submitForReview) {
+            if (resolvedSourceDuration == null && form.sourceAudioUrl) {
+                resolvedSourceDuration = await probeAudioDurationSeconds(form.sourceAudioUrl);
+            }
+            if (resolvedSourceDuration != null && resolvedSourceDuration !== form.sourceDurationSeconds) {
+                updateForm({ sourceDurationSeconds: resolvedSourceDuration });
+            }
             const dollars = Number(form.priceDollars);
             const priceCents = Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN;
             const requirements = validateRingtoneSubmitRequirements({
@@ -441,9 +507,7 @@ export function RingtoneCreatorWorkspace({
                 title: form.title,
                 clipStartSeconds: form.clipStartSeconds,
                 durationSeconds: form.durationSeconds,
-                sourceDurationSeconds: form.sourceDurationSeconds > 0
-                    ? form.sourceDurationSeconds
-                    : undefined,
+                sourceDurationSeconds: resolvedSourceDuration,
                 priceCents,
                 currency: form.currency,
                 iphoneAvailable: form.iphoneAvailable,
@@ -466,9 +530,14 @@ export function RingtoneCreatorWorkspace({
             setProcessState("idle");
         }
 
+        const formForSave = {
+            ...form,
+            sourceDurationSeconds: resolvedSourceDuration || form.sourceDurationSeconds,
+        };
+
         startTransition(async () => {
             try {
-                const payload = formToSavePayload(form, false);
+                const payload = formToSavePayload(formForSave, false);
                 if (submitForReview) {
                     if (!Number.isFinite(Number(payload.priceCents)) || Number(payload.priceCents) < 0) {
                         setStep(3);
@@ -547,8 +616,12 @@ export function RingtoneCreatorWorkspace({
         );
     }
 
-    return (
-        <section className="ringtone-creator-page dashboard-page" data-ringtone-creator="workspace">
+        return (
+            <section
+                ref={workspaceRef}
+                className="ringtone-creator-page dashboard-page"
+                data-ringtone-creator="workspace"
+            >
             <header className="ringtone-creator-header">
                 <div>
                     <h1>{t("ringtones.myRingtones")}</h1>

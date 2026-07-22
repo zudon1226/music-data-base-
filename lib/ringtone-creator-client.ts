@@ -484,13 +484,16 @@ export function formToSavePayload(form: CreateRingtoneFormState, submitForReview
     if (!submitForReview && (!Number.isFinite(priceCents) || priceCents < 0)) {
         priceCents = 0;
     }
+    const sourceDurationSeconds = Number(form.sourceDurationSeconds);
     return {
         sourceKind: form.sourceKind,
         sourceSongId: form.sourceKind === "owned_song" ? (form.sourceSongId || undefined) : undefined,
         ownershipConfirmed: form.ownershipConfirmed || form.sourceKind === "owned_song",
         clipStartSeconds: form.clipStartSeconds,
         durationSeconds: form.durationSeconds,
-        sourceDurationSeconds: form.sourceDurationSeconds > 0 ? form.sourceDurationSeconds : undefined,
+        sourceDurationSeconds: Number.isFinite(sourceDurationSeconds) && sourceDurationSeconds > 0
+            ? sourceDurationSeconds
+            : undefined,
         title: form.title,
         description: form.description,
         artworkUrl: form.artworkUrl,

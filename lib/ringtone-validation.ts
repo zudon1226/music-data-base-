@@ -18,7 +18,7 @@ export type RingtoneClipInput = {
     clipStartSeconds: number;
     durationSeconds?: number;
     clipEndSeconds?: number;
-    sourceDurationSeconds?: number | null;
+    sourceDurationSeconds?: number | string | null;
 };
 
 export type RingtoneClipResult = {
@@ -35,6 +35,48 @@ function asFiniteNumber(value: unknown) {
     const numberValue = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numberValue) ? numberValue : null;
 }
+
+/**
+ * Canonical ringtone source duration in seconds.
+ * Accepts numeric seconds and mm:ss / hh:mm:ss strings used by catalog records.
+ * Returns null when duration is missing or not a positive finite length.
+ * Does not guess milliseconds from large numeric values (songs.duration is seconds).
+ */
+export function normalizeRingtoneSourceDurationSeconds(value: unknown): number | null {
+    if (value == null || value === "") return null;
+
+    if (typeof value === "number") {
+        if (!Number.isFinite(value) || value <= 0) return null;
+        return value;
+    }
+
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+
+        const asNumber = Number(trimmed);
+        if (Number.isFinite(asNumber) && asNumber > 0 && !trimmed.includes(":")) {
+            return asNumber;
+        }
+
+        const parts = trimmed.split(":").map((part) => Number(part));
+        if (parts.length === 2 && parts.every((part) => Number.isFinite(part))) {
+            const seconds = parts[0] * 60 + parts[1];
+            return seconds > 0 ? seconds : null;
+        }
+        if (parts.length === 3 && parts.every((part) => Number.isFinite(part))) {
+            const seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+            return seconds > 0 ? seconds : null;
+        }
+        return null;
+    }
+
+    return null;
+}
+
+export const RINGTONE_SOURCE_DURATION_MISSING_MESSAGE =
+    "This source is missing audio duration metadata. Reprocess or choose another source.";
+
 
 export function sanitizeRingtoneText(value: unknown, maxLength: number) {
     const text = String(value ?? "")
@@ -95,13 +137,13 @@ export function validateRingtoneFileSize(byteLength: unknown, maxBytes = RINGTON
 export function validateRingtoneClip(input: RingtoneClipInput): RingtoneClipResult {
     const clipStartSeconds = asFiniteNumber(input.clipStartSeconds);
     if (clipStartSeconds == null || clipStartSeconds < 0) {
-        return { ok: false, error: "Clip start must be zero or greater." };
+        return { ok: false, error: "Selected clip starts before the audio." };
     }
 
     let durationSeconds = asFiniteNumber(input.durationSeconds);
     if (durationSeconds == null && input.clipEndSeconds != null) {
         const end = asFiniteNumber(input.clipEndSeconds);
-        if (end == null) return { ok: false, error: "Clip end must be a finite number." };
+        if (end == null) return { ok: false, error: "Selected clip length is invalid." };
         durationSeconds = Number((end - clipStartSeconds).toFixed(3));
     }
     if (durationSeconds == null) {
@@ -112,23 +154,23 @@ export function validateRingtoneClip(input: RingtoneClipInput): RingtoneClipResu
     if (durationSeconds < RINGTONE_MIN_DURATION_SECONDS || durationSeconds > RINGTONE_MAX_DURATION_SECONDS) {
         return {
             ok: false,
-            error: `Ringtone duration must be between ${RINGTONE_MIN_DURATION_SECONDS} and ${RINGTONE_MAX_DURATION_SECONDS} seconds.`,
+            error: `Selected clip length is invalid. Ringtone duration must be between ${RINGTONE_MIN_DURATION_SECONDS} and ${RINGTONE_MAX_DURATION_SECONDS} seconds.`,
         };
     }
 
     const clipEndSeconds = Number((clipStartSeconds + durationSeconds).toFixed(3));
     if (clipEndSeconds <= clipStartSeconds) {
-        return { ok: false, error: "Clip end must be after clip start." };
+        return { ok: false, error: "Selected clip length is invalid." };
     }
 
-    const sourceDurationSeconds = asFiniteNumber(input.sourceDurationSeconds ?? null);
-    if (sourceDurationSeconds != null) {
-        if (sourceDurationSeconds <= 0) {
-            return { ok: false, error: "Source song duration is invalid." };
-        }
-        if (clipEndSeconds > sourceDurationSeconds + 0.001) {
-            return { ok: false, error: "Clip end cannot exceed the source song duration." };
-        }
+    const rawSourceDuration = input.sourceDurationSeconds;
+    const sourceDurationSeconds = normalizeRingtoneSourceDurationSeconds(rawSourceDuration);
+    // A provided but non-normalizable duration (0, NaN, "", bad string) is missing metadata — not a vague "invalid".
+    if (rawSourceDuration != null && rawSourceDuration !== "" && sourceDurationSeconds == null) {
+        return { ok: false, error: RINGTONE_SOURCE_DURATION_MISSING_MESSAGE };
+    }
+    if (sourceDurationSeconds != null && clipEndSeconds > sourceDurationSeconds + 0.001) {
+        return { ok: false, error: "Selected clip ends after the source audio." };
     }
 
     return {
@@ -229,13 +271,16 @@ export function validateRingtoneSubmitRequirements(input: {
         }
     }
 
+    const sourceDurationSeconds = normalizeRingtoneSourceDurationSeconds(input.sourceDurationSeconds);
+    if (sourceKind === "owned_song" && sourceDurationSeconds == null) {
+        return { ok: false, error: RINGTONE_SOURCE_DURATION_MISSING_MESSAGE, step: 1 };
+    }
+
     const clip = validateRingtoneClip({
         clipStartSeconds: Number(input.clipStartSeconds ?? 0),
         durationSeconds: input.durationSeconds == null ? undefined : Number(input.durationSeconds),
         clipEndSeconds: input.clipEndSeconds == null ? undefined : Number(input.clipEndSeconds),
-        sourceDurationSeconds: input.sourceDurationSeconds == null
-            ? null
-            : Number(input.sourceDurationSeconds),
+        sourceDurationSeconds,
     });
     if (!clip.ok) return { ok: false, error: clip.error, step: 2 };
 
@@ -313,10 +358,8 @@ export function buildCreateRingtonePayload(input: {
         return { ok: false as const, error: "Ownership confirmation is required for ringtone-only uploads." };
     }
 
-    const rawSourceDuration = asFiniteNumber(input.sourceDurationSeconds ?? null);
-    const sourceDurationSeconds = rawSourceDuration != null && rawSourceDuration > 0
-        ? rawSourceDuration
-        : null;
+    const rawSourceDuration = normalizeRingtoneSourceDurationSeconds(input.sourceDurationSeconds);
+    const sourceDurationSeconds = rawSourceDuration;
 
     let clip = validateRingtoneClip({
         clipStartSeconds: Number(input.clipStartSeconds ?? 0),

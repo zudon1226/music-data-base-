@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
 import { resolveSongPlayableUrl } from "@/lib/desktop-media-queue";
 import { requireRingtoneCreator } from "@/lib/ringtone-access";
+import { normalizeRingtoneSourceDurationSeconds } from "@/lib/ringtone-validation";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -10,22 +11,6 @@ export const dynamic = "force-dynamic";
 
 function json(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
-}
-
-function parseDurationSeconds(value: unknown) {
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim()) {
-        const asNumber = Number(value);
-        if (Number.isFinite(asNumber)) return asNumber;
-        const parts = value.trim().split(":").map((part) => Number(part));
-        if (parts.length === 2 && parts.every((part) => Number.isFinite(part))) {
-            return parts[0] * 60 + parts[1];
-        }
-        if (parts.length === 3 && parts.every((part) => Number.isFinite(part))) {
-            return parts[0] * 3600 + parts[1] * 60 + parts[2];
-        }
-    }
-    return 0;
 }
 
 /** Eligible platform songs for ringtone source selection (owned for creators, catalog for admin). */
@@ -76,7 +61,7 @@ export async function GET(request: Request) {
                 excluded.noPlayableAudio += 1;
                 continue;
             }
-            const durationSeconds = parseDurationSeconds(record.duration);
+            const durationSeconds = normalizeRingtoneSourceDurationSeconds(record.duration) || 0;
             // Keep songs with unknown duration; only drop known sub-15s sources.
             if (durationSeconds > 0 && durationSeconds < 15) {
                 excluded.knownTooShort += 1;
@@ -89,7 +74,7 @@ export async function GET(request: Request) {
                 artworkUrl: String(record.cover_url || ""),
                 audioUrl: resolved.playableUrl || String(record.audio_url || ""),
                 storagePath: resolved.storagePath || String(record.storage_path || ""),
-                durationSeconds: Number.isFinite(durationSeconds) ? durationSeconds : 0,
+                durationSeconds,
                 createdAt: record.created_at ? String(record.created_at) : null,
                 ownerUserId: record.user_id ? String(record.user_id) : "",
                 producerId: record.producer_id ? String(record.producer_id) : "",

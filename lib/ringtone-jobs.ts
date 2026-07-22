@@ -13,9 +13,13 @@ import {
 import { notifyRingtoneEvent } from "@/lib/ringtone-notifications";
 import { snapshotRingtoneRevision } from "@/lib/ringtone-revisions";
 import { writeRingtoneModerationLog } from "@/lib/ringtone-moderation-log";
-import { validateRingtoneSubmitRequirements } from "@/lib/ringtone-validation";
+import {
+    RINGTONE_SOURCE_DURATION_MISSING_MESSAGE,
+    validateRingtoneSubmitRequirements,
+} from "@/lib/ringtone-validation";
 import { SONGS_BUCKET } from "@/lib/song-storage-path";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import { assertOwnsSourceSong } from "@/lib/ringtone-access";
 
 export const RINGTONE_JOB_STATUSES = [
     "queued",
@@ -138,6 +142,28 @@ export async function enqueueRingtoneProcessingJob(input: {
         }
     }
 
+    let trustedSourceDuration: number | null = null;
+    if (String(row.source_kind || "") === "owned_song" && row.source_song_id) {
+        const ownership = await assertOwnsSourceSong(String(row.creator_id), String(row.source_song_id));
+        if (!ownership.ok) {
+            return {
+                ok: false as const,
+                error: ownership.error,
+                status: 403,
+                code: "SOURCE_NOT_AUTHORIZED",
+            };
+        }
+        trustedSourceDuration = ownership.sourceDurationSeconds;
+        if (trustedSourceDuration == null) {
+            return {
+                ok: false as const,
+                error: RINGTONE_SOURCE_DURATION_MISSING_MESSAGE,
+                status: 400,
+                code: "SOURCE_DURATION_MISSING",
+            };
+        }
+    }
+
     const submitReady = validateRingtoneSubmitRequirements({
         sourceKind: row.source_kind,
         sourceSongId: row.source_song_id,
@@ -147,6 +173,7 @@ export async function enqueueRingtoneProcessingJob(input: {
         clipStartSeconds: row.clip_start_seconds,
         durationSeconds: row.duration_seconds,
         clipEndSeconds: row.clip_end_seconds,
+        sourceDurationSeconds: trustedSourceDuration,
         priceCents: row.price_cents,
         currency: row.currency,
         iphoneAvailable: row.iphone_available,
