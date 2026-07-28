@@ -1,0 +1,210 @@
+/* Shared desktop List View row — exact compact ringtone Marketplace geometry.
+   Applies whenever List View is active (not gated on viewport), so narrow
+   desktop panes still use the shared Play + overflow row chrome. */
+.zml-app.view-list [data-desktop-media-list-row="true"],
+[data-desktop-media-list-row="true"].desktop-media-list-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 56px !important;
+  height: auto !important;
+  max-height: 62px !important;
+  padding: 6px 10px !important;
+  margin: 0 !important;
+  border: 1px solid rgba(34, 211, 238, 0.28) !important;
+  border-radius: 10px !important;
+  background: rgba(11, 23, 54, 0.62) !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  grid-auto-rows: unset !important;
+  container-type: normal !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__play:disabled,
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__more:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"].active {
+  border-color: rgba(34, 211, 238, 0.55) !important;
+  background: rgba(14, 32, 72, 0.88) !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__leading {
+  flex: 0 0 28px !important;
+  width: 28px !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  opacity: 0.75 !important;
+  line-height: 1 !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__art {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  max-width: 44px !important;
+  max-height: 44px !important;
+  flex: 0 0 44px !important;
+  border-radius: 6px !important;
+  object-fit: cover !important;
+  display: block !important;
+  margin: 0 !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__copy {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 1px !important;
+  align-content: center !important;
+  width: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__title,
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__secondary,
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__meta {
+  margin: 0 !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.2 !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #e8f7ff !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__secondary {
+  font-size: 12px !important;
+  opacity: 0.78 !important;
+  color: #9bdcf0 !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__meta {
+  font-size: 11px !important;
+  opacity: 0.65 !important;
+  color: #7eb6cb !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__play,
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__more {
+  flex: 0 0 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__play {
+  background: rgba(34, 211, 238, 0.16) !important;
+  color: #67e8f9 !important;
+}
+
+.zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__more {
+  background: transparent !important;
+  color: #9bdcf0 !important;
+}
+
+/* Vertical stack collections — no horizontal rails / empty columns. */
+.zml-app.view-list .content,
+.zml-app.view-list .desktop-content-scroll-root {
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+}
+
+.zml-app.view-list .horizontal-rail {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  width: 100% !important;
+  overflow: visible !important;
+}
+
+.zml-app.view-list .rail-arrow {
+  display: none !important;
+}
+
+/* Beat .content.desktop-content-scroll-root .horizontal-rail-track overflow-x:auto */
+.zml-app.view-list .content.desktop-content-scroll-root .horizontal-rail-track,
+.zml-app.view-list .content .horizontal-rail-track,
+.zml-app.view-list .horizontal-rail-track,
+.zml-app.view-list [data-desktop-media-list="true"],
+.zml-app.view-list .desktop-media-list,
+.zml-app.view-list .song-grid,
+.zml-app.view-list .video-grid,
+.zml-app.view-list .artist-album-grid,
+.zml-app.view-list .artist-playlist-grid,
+.zml-app.view-list .artist-grid,
+.zml-app.view-list .discovery-grid,
+.zml-app.view-list .home-discovery-grid,
+.zml-app.view-list .marketplace-release-grid,
+.zml-app.view-list .recent-list,
+.zml-app.view-list .queue-manage-list,
+.zml-app.view-list .artist-song-list,
+.zml-app.view-list .dashboard-song-list,
+.zml-app.view-list .playlist-songs,
+.zml-app.view-list .playlist-songs > div,
+.zml-app.view-list .ringtone-market-grid,
+.zml-app.view-list .ringtone-purchased-list,
+.zml-app.view-list .ringtone-card-grid,
+.zml-app.view-list .playlist-list,
+.zml-app.view-list .ringtone-favorites-grid {
+  display: grid !important;
+  grid-auto-flow: row !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-auto-columns: unset !important;
+  grid-auto-rows: auto !important;
+  gap: 6px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+  overflow: hidden visible !important;
+}
+
+.zml-app.view-list .horizontal-rail-track > *,
+.zml-app.view-list [data-desktop-media-list="true"] > *,
+.zml-app.view-list .desktop-media-list > *,
+.zml-app.view-list .song-grid > *,
+.zml-app.view-list .video-grid > *,
+.zml-app.view-list .artist-album-grid > *,
+.zml-app.view-list .discovery-grid > *,
+.zml-app.view-list .marketplace-release-grid > *,
+.zml-app.view-list .playlist-list > *,
+.zml-app.view-list .ringtone-market-grid > *,
+.zml-app.view-list .ringtone-purchased-list > *,
+.zml-app.view-list .ringtone-card-grid > * {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}

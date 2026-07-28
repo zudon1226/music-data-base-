@@ -39,7 +39,15 @@ import {
     markNavigationScrollLock,
     scrollContainerToElement,
 } from "@/lib/navigation-scroll";
+import { DesktopFloatingActionMenu } from "@/components/desktop-floating-action-menu";
+import { DesktopMediaGridCard } from "@/components/desktop-media-grid-card";
+import { DesktopMediaListRow } from "@/components/desktop-media-list-row";
 import { useTranslation } from "@/lib/i18n/provider";
+import {
+    buildRingtoneOverflowActions,
+    type MobileContentAction,
+    type MobileContentSheetMeta,
+} from "@/lib/mobile-content-actions";
 import { getDesktopSupabaseClient } from "@/lib/supabase";
 import { RingtoneClipTimeline } from "./ringtone-clip-timeline";
 
@@ -62,6 +70,8 @@ type RingtoneCreatorWorkspaceProps = {
     onStopRingtonePreview: () => void;
     activeRingtonePreviewId: string | null;
     ringtonePreviewPlaying: boolean;
+    /** Desktop Grid/List toggle from page; list uses shared DesktopMediaListRow. */
+    layout?: "grid" | "list";
 };
 
 type WizardStep = 1 | 2 | 3 | 4 | 5;
@@ -90,8 +100,16 @@ export function RingtoneCreatorWorkspace({
     onStopRingtonePreview,
     activeRingtonePreviewId,
     ringtonePreviewPlaying,
+    layout = "grid",
 }: RingtoneCreatorWorkspaceProps) {
     const { t } = useTranslation();
+    const [isDesktop, setIsDesktop] = useState(false);
+    const [listOverflow, setListOverflow] = useState<{
+        open: boolean;
+        meta: MobileContentSheetMeta | null;
+        actions: MobileContentAction[];
+        trigger: HTMLElement | null;
+    }>({ open: false, meta: null, actions: [], trigger: null });
     const [mode, setMode] = useState<"list" | "create" | "sales">("list");
     const [ringtones, setRingtones] = useState<RingtoneProduct[]>([]);
     const [sourceSongs, setSourceSongs] = useState<RingtoneSourceSong[]>([]);
@@ -121,6 +139,14 @@ export function RingtoneCreatorWorkspace({
     const workspaceRef = useRef<HTMLElement | null>(null);
     const pendingSourceScrollRef = useRef(false);
     const actionsBusy = pending || saving;
+
+    useEffect(() => {
+        const mq = window.matchMedia("(min-width: 821px)");
+        const sync = () => setIsDesktop(mq.matches);
+        sync();
+        mq.addEventListener("change", sync);
+        return () => mq.removeEventListener("change", sync);
+    }, []);
 
     useEffect(() => {
         if (!pendingSourceScrollRef.current) return;
@@ -621,6 +647,8 @@ export function RingtoneCreatorWorkspace({
                 ref={workspaceRef}
                 className="ringtone-creator-page dashboard-page"
                 data-ringtone-creator="workspace"
+                data-ringtone-subpage={mode === "list" ? "collection" : mode}
+                data-ringtone-layout={layout}
             >
             <header className="ringtone-creator-header">
                 <div>
@@ -735,17 +763,257 @@ export function RingtoneCreatorWorkspace({
                         </div>
                     ) : null}
 
-                    <div className="ringtone-card-grid">
+                    <div
+                        className={isDesktop && layout === "list" ? "ringtone-collection-list" : "ringtone-card-grid"}
+                        data-ringtone-collection-grid={isDesktop && layout === "grid" ? "true" : undefined}
+                    >
                         {filteredRingtones.map((ringtone) => {
                             const sourceLabel = ringtone.source_kind === "owned_song"
                                 ? (sourceSongs.find((song) => song.id === ringtone.source_song_id)?.title
                                     || t("ringtones.existingSong"))
                                 : t("ringtones.uploadSource");
                             const canEdit = ["draft", "processing", "pending_review", "rejected", "archived"].includes(ringtone.status);
+                            const cover = ringtone.artwork_url || "/music-data-base-logo.png";
+                            const metaLine = [
+                                `${ringtone.duration_seconds}s · ${formatRingtoneMoney(ringtone.price_cents, ringtone.currency)} · ${statusLabel(ringtone)}`,
+                                ringtone.revision_number ? `${t("ringtones.revision")} ${ringtone.revision_number}` : "",
+                            ].filter(Boolean).join(" · ");
+                            const datesLine = `${t("ringtones.created")}: ${new Date(ringtone.created_at).toLocaleDateString()} · ${t("ringtones.updated")}: ${new Date(ringtone.updated_at).toLocaleDateString()}`;
+
+                            const previewRingtone = () => {
+                                const song = sourceSongs.find((item) => item.id === ringtone.source_song_id);
+                                const audioUrl = ringtone.preview_url || song?.audioUrl || "";
+                                if (!audioUrl) {
+                                    setError(t("ringtones.previewUnavailable"));
+                                    return;
+                                }
+                                onPreviewRingtone({
+                                    id: ringtone.id,
+                                    title: ringtone.title,
+                                    artworkUrl: ringtone.artwork_url,
+                                    audioUrl,
+                                    clipStartSeconds: Number(ringtone.clip_start_seconds) || 0,
+                                    clipEndSeconds: Number(ringtone.clip_end_seconds) || Number(ringtone.duration_seconds) || 30,
+                                    durationSeconds: Number(ringtone.duration_seconds) || 30,
+                                });
+                            };
+
+                            const requestRevision = () => {
+                                startTransition(async () => {
+                                    const result = await returnRingtoneToReview({
+                                        userId,
+                                        session,
+                                        ringtoneId: ringtone.id,
+                                        status: ringtone.status,
+                                    });
+                                    if (!result.ok) {
+                                        setError(formatRingtoneClientError(
+                                            result.body.error || t("ringtones.actionCouldNotComplete"),
+                                            t("ringtones.actionCouldNotComplete"),
+                                        ));
+                                        return;
+                                    }
+                                    setStatusMessage(t("ringtones.requestRevision"));
+                                    await reloadAll();
+                                });
+                            };
+
+                            const duplicate = () => {
+                                startTransition(async () => {
+                                    const result = await duplicateRingtone({
+                                        userId,
+                                        session,
+                                        ringtoneId: ringtone.id,
+                                    });
+                                    if (!result.ok) {
+                                        setError(formatRingtoneClientError(
+                                            result.body.error || t("ringtones.duplicateFailed"),
+                                            t("ringtones.actionCouldNotComplete"),
+                                        ));
+                                        return;
+                                    }
+                                    await reloadAll();
+                                });
+                            };
+
+                            const submitForReview = () => {
+                                if (submitLockRef.current) return;
+                                submitLockRef.current = true;
+                                startTransition(async () => {
+                                    try {
+                                        const result = await submitRingtoneForReview({
+                                            userId,
+                                            session,
+                                            ringtoneId: ringtone.id,
+                                            retry: Boolean(ringtone.last_processing_error_code),
+                                        });
+                                        if (!result.ok) {
+                                            setError(String(result.body.error || t("ringtones.submitFailed")));
+                                            return;
+                                        }
+                                        setStatusMessage(t("ringtones.submittedForReview"));
+                                        await reloadAll();
+                                    } finally {
+                                        submitLockRef.current = false;
+                                    }
+                                });
+                            };
+
+                            const deleteDraft = () => {
+                                if (!window.confirm(t("ringtones.confirmDeleteRingtone"))) return;
+                                startTransition(async () => {
+                                    const result = await deleteOrArchiveRingtone({
+                                        userId,
+                                        session,
+                                        ringtoneId: ringtone.id,
+                                        status: ringtone.status,
+                                    });
+                                    if (!result.ok) {
+                                        setError(formatRingtoneClientError(
+                                            result.body.error || t("ringtones.deleteFailed"),
+                                            t("ringtones.actionCouldNotComplete"),
+                                        ));
+                                        return;
+                                    }
+                                    const action = String(result.body.action || "");
+                                    if (action === "archived") {
+                                        setStatusMessage(t("ringtones.ringtoneArchivedInstead"));
+                                    } else if (action === "already_archived") {
+                                        setStatusMessage(t("ringtones.ringtoneAlreadyArchived"));
+                                    } else {
+                                        setStatusMessage(t("ringtones.ringtoneDeleted"));
+                                    }
+                                    await reloadAll();
+                                });
+                            };
+
+                            const archiveRingtone = () => {
+                                startTransition(async () => {
+                                    const result = await deleteOrArchiveRingtone({
+                                        userId,
+                                        session,
+                                        ringtoneId: ringtone.id,
+                                        status: ringtone.status,
+                                    });
+                                    if (!result.ok) {
+                                        setError(formatRingtoneClientError(
+                                            result.body.error || t("ringtones.deleteFailed"),
+                                            t("ringtones.actionCouldNotComplete"),
+                                        ));
+                                        return;
+                                    }
+                                    setStatusMessage(t("ringtones.archived"));
+                                    await reloadAll();
+                                });
+                            };
+
+                            if (layout === "list" && isDesktop) {
+                                const extraActions: MobileContentAction[] = [];
+                                if (["published", "suspended", "archived"].includes(ringtone.status)) {
+                                    extraActions.push({
+                                        id: "edit",
+                                        label: t("ringtones.requestRevision"),
+                                        onClick: requestRevision,
+                                    });
+                                }
+                                if (["draft", "rejected"].includes(ringtone.status)) {
+                                    extraActions.push({
+                                        id: "save",
+                                        label: ringtone.last_processing_error_code
+                                            ? t("ringtones.retryProcessing")
+                                            : t("ringtones.submitForReview"),
+                                        onClick: submitForReview,
+                                    });
+                                }
+                                return (
+                                    <DesktopMediaListRow
+                                        key={ringtone.id}
+                                        kind="ringtone"
+                                        cover={cover}
+                                        title={ringtone.title}
+                                        secondary={sourceLabel}
+                                        tertiary={`${metaLine} · ${datesLine}`}
+                                        onPlay={previewRingtone}
+                                        overflowLabel={`More actions for ${ringtone.title}`}
+                                        onOpenOverflow={(trigger) => setListOverflow({
+                                            open: true,
+                                            trigger,
+                                            meta: {
+                                                kind: "ringtone",
+                                                id: ringtone.id,
+                                                title: ringtone.title,
+                                                subtitle: sourceLabel,
+                                                cover,
+                                            },
+                                            actions: [
+                                                ...buildRingtoneOverflowActions({
+                                                    onPreview: previewRingtone,
+                                                    onEdit: canEdit && ringtone.status !== "archived"
+                                                        ? () => beginEdit(ringtone)
+                                                        : undefined,
+                                                    onDuplicate: duplicate,
+                                                    onDelete: ringtone.status === "draft" ? deleteDraft : undefined,
+                                                    onArchive: ["published", "approved", "suspended", "rejected"].includes(ringtone.status)
+                                                        ? archiveRingtone
+                                                        : undefined,
+                                                }),
+                                                ...extraActions,
+                                            ],
+                                        })}
+                                    />
+                                );
+                            }
+
+                            if (isDesktop && layout === "grid") {
+                                const gridActions: MobileContentAction[] = [
+                                    ...buildRingtoneOverflowActions({
+                                        onPreview: previewRingtone,
+                                        onEdit: canEdit && ringtone.status !== "archived"
+                                            ? () => beginEdit(ringtone)
+                                            : undefined,
+                                        onDuplicate: duplicate,
+                                        onDelete: ringtone.status === "draft" ? deleteDraft : undefined,
+                                        onArchive: ["published", "approved", "suspended", "rejected"].includes(ringtone.status)
+                                            ? archiveRingtone
+                                            : undefined,
+                                    }),
+                                ];
+                if (["published", "suspended", "archived"].includes(ringtone.status)) {
+                                    gridActions.push({
+                                        id: "details",
+                                        label: t("ringtones.requestRevision"),
+                                        onClick: requestRevision,
+                                    });
+                                }
+                                if (["draft", "rejected"].includes(ringtone.status)) {
+                                    gridActions.push({
+                                        id: "save",
+                                        label: ringtone.last_processing_error_code
+                                            ? t("ringtones.retryProcessing")
+                                            : t("ringtones.submitForReview"),
+                                        onClick: submitForReview,
+                                    });
+                                }
+                                return (
+                                    <DesktopMediaGridCard
+                                        key={ringtone.id}
+                                        kind="ringtone"
+                                        cover={cover}
+                                        badge={statusLabel(ringtone)}
+                                        title={ringtone.title}
+                                        secondary={sourceLabel}
+                                        tertiary={metaLine}
+                                        onPlay={previewRingtone}
+                                        overflowLabel={`More actions for ${ringtone.title}`}
+                                        menuActions={gridActions}
+                                    />
+                                );
+                            }
+
                             return (
                                 <article key={ringtone.id} className="dashboard-panel ringtone-card">
                                     <img
-                                        src={ringtone.artwork_url || "/music-data-base-logo.png"}
+                                        src={cover}
                                         alt=""
                                         width={72}
                                         height={72}
@@ -753,15 +1021,8 @@ export function RingtoneCreatorWorkspace({
                                     <div className="ringtone-card-body">
                                         <h3>{ringtone.title}</h3>
                                         <p>{sourceLabel}</p>
-                                        <p>
-                                            {ringtone.duration_seconds}s · {formatRingtoneMoney(ringtone.price_cents, ringtone.currency)} · {statusLabel(ringtone)}
-                                            {ringtone.revision_number ? ` · ${t("ringtones.revision")} ${ringtone.revision_number}` : ""}
-                                        </p>
-                                        <p className="ringtone-card-dates">
-                                            {t("ringtones.created")}: {new Date(ringtone.created_at).toLocaleDateString()}
-                                            {" · "}
-                                            {t("ringtones.updated")}: {new Date(ringtone.updated_at).toLocaleDateString()}
-                                        </p>
+                                        <p>{metaLine}</p>
+                                        <p className="ringtone-card-dates">{datesLine}</p>
                                         {ringtone.status === "processing" ? (
                                             <p className="ringtone-processing" role="status" aria-live="polite">
                                                 {t("ringtones.processingStarted")}
@@ -778,26 +1039,7 @@ export function RingtoneCreatorWorkspace({
                                             </p>
                                         ) : null}
                                         <div className="ringtone-card-actions">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const song = sourceSongs.find((item) => item.id === ringtone.source_song_id);
-                                                    const audioUrl = ringtone.preview_url || song?.audioUrl || "";
-                                                    if (!audioUrl) {
-                                                        setError(t("ringtones.previewUnavailable"));
-                                                        return;
-                                                    }
-                                                    onPreviewRingtone({
-                                                        id: ringtone.id,
-                                                        title: ringtone.title,
-                                                        artworkUrl: ringtone.artwork_url,
-                                                        audioUrl,
-                                                        clipStartSeconds: Number(ringtone.clip_start_seconds) || 0,
-                                                        clipEndSeconds: Number(ringtone.clip_end_seconds) || Number(ringtone.duration_seconds) || 30,
-                                                        durationSeconds: Number(ringtone.duration_seconds) || 30,
-                                                    });
-                                                }}
-                                            >
+                                            <button type="button" onClick={previewRingtone}>
                                                 {activeRingtonePreviewId === ringtone.id && ringtonePreviewPlaying
                                                     ? t("ringtones.pausePreview")
                                                     : t("ringtones.previewRingtone")}
@@ -808,141 +1050,27 @@ export function RingtoneCreatorWorkspace({
                                                 </button>
                                             ) : null}
                                             {["published", "suspended", "archived"].includes(ringtone.status) ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        startTransition(async () => {
-                                                            const result = await returnRingtoneToReview({
-                                                                userId,
-                                                                session,
-                                                                ringtoneId: ringtone.id,
-                                                                status: ringtone.status,
-                                                            });
-                                                            if (!result.ok) {
-                                                                setError(formatRingtoneClientError(
-                                                                    result.body.error || t("ringtones.actionCouldNotComplete"),
-                                                                    t("ringtones.actionCouldNotComplete"),
-                                                                ));
-                                                                return;
-                                                            }
-                                                            setStatusMessage(t("ringtones.requestRevision"));
-                                                            await reloadAll();
-                                                        });
-                                                    }}
-                                                >
+                                                <button type="button" onClick={requestRevision}>
                                                     {t("ringtones.requestRevision")}
                                                 </button>
                                             ) : null}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    startTransition(async () => {
-                                                        const result = await duplicateRingtone({
-                                                            userId,
-                                                            session,
-                                                            ringtoneId: ringtone.id,
-                                                        });
-                                                        if (!result.ok) {
-                                                            setError(formatRingtoneClientError(
-                                                                result.body.error || t("ringtones.duplicateFailed"),
-                                                                t("ringtones.actionCouldNotComplete"),
-                                                            ));
-                                                            return;
-                                                        }
-                                                        await reloadAll();
-                                                    });
-                                                }}
-                                            >
+                                            <button type="button" onClick={duplicate}>
                                                 {t("ringtones.duplicate")}
                                             </button>
                                             {["draft", "rejected"].includes(ringtone.status) ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (submitLockRef.current) return;
-                                                        submitLockRef.current = true;
-                                                        startTransition(async () => {
-                                                            try {
-                                                                const result = await submitRingtoneForReview({
-                                                                    userId,
-                                                                    session,
-                                                                    ringtoneId: ringtone.id,
-                                                                    retry: Boolean(ringtone.last_processing_error_code),
-                                                                });
-                                                                if (!result.ok) {
-                                                                    setError(String(result.body.error || t("ringtones.submitFailed")));
-                                                                    return;
-                                                                }
-                                                                setStatusMessage(t("ringtones.submittedForReview"));
-                                                                await reloadAll();
-                                                            } finally {
-                                                                submitLockRef.current = false;
-                                                            }
-                                                        });
-                                                    }}
-                                                >
+                                                <button type="button" onClick={submitForReview}>
                                                     {ringtone.last_processing_error_code
                                                         ? t("ringtones.retryProcessing")
                                                         : t("ringtones.submitForReview")}
                                                 </button>
                                             ) : null}
                                             {ringtone.status === "draft" ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (!window.confirm(t("ringtones.confirmDeleteRingtone"))) return;
-                                                        startTransition(async () => {
-                                                            const result = await deleteOrArchiveRingtone({
-                                                                userId,
-                                                                session,
-                                                                ringtoneId: ringtone.id,
-                                                                status: ringtone.status,
-                                                            });
-                                                            if (!result.ok) {
-                                                                setError(formatRingtoneClientError(
-                                                                    result.body.error || t("ringtones.deleteFailed"),
-                                                                    t("ringtones.actionCouldNotComplete"),
-                                                                ));
-                                                                return;
-                                                            }
-                                                            const action = String(result.body.action || "");
-                                                            if (action === "archived") {
-                                                                setStatusMessage(t("ringtones.ringtoneArchivedInstead"));
-                                                            } else if (action === "already_archived") {
-                                                                setStatusMessage(t("ringtones.ringtoneAlreadyArchived"));
-                                                            } else {
-                                                                setStatusMessage(t("ringtones.ringtoneDeleted"));
-                                                            }
-                                                            await reloadAll();
-                                                        });
-                                                    }}
-                                                >
+                                                <button type="button" onClick={deleteDraft}>
                                                     {t("ringtones.delete")}
                                                 </button>
                                             ) : null}
                                             {["published", "approved", "suspended", "rejected"].includes(ringtone.status) ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        startTransition(async () => {
-                                                            const result = await deleteOrArchiveRingtone({
-                                                                userId,
-                                                                session,
-                                                                ringtoneId: ringtone.id,
-                                                                status: ringtone.status,
-                                                            });
-                                                            if (!result.ok) {
-                                                                setError(formatRingtoneClientError(
-                                                                    result.body.error || t("ringtones.deleteFailed"),
-                                                                    t("ringtones.actionCouldNotComplete"),
-                                                                ));
-                                                                return;
-                                                            }
-                                                            setStatusMessage(t("ringtones.archived"));
-                                                            await reloadAll();
-                                                        });
-                                                    }}
-                                                >
+                                                <button type="button" onClick={archiveRingtone}>
                                                     {t("ringtones.archiveRingtone")}
                                                 </button>
                                             ) : null}
@@ -1286,6 +1414,14 @@ export function RingtoneCreatorWorkspace({
                 </div>
             ) : null}
 
+            <DesktopFloatingActionMenu
+                open={listOverflow.open}
+                anchorEl={listOverflow.trigger}
+                label={listOverflow.meta ? `More actions for ${listOverflow.meta.title}` : "More actions"}
+                actions={listOverflow.actions}
+                onClose={() => setListOverflow({ open: false, meta: null, actions: [], trigger: null })}
+            />
+
             <style jsx>{`
                 .ringtone-creator-page,
                 .ringtone-wizard,
@@ -1520,7 +1656,15 @@ export function RingtoneCreatorWorkspace({
                     grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
                 }
 
-                .ringtone-card {
+                .ringtone-collection-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                    width: 100%;
+                    min-width: 0;
+                }
+
+                .ringtone-card.dashboard-panel {
                     display: grid;
                     grid-template-columns: 72px minmax(0, 1fr);
                     gap: 12px;

@@ -1,0 +1,180 @@
+/* Desktop floating three-dot action menu — visual chrome only.
+   Grid + List already portal here; do not touch card/row geometry. */
+
+.desktop-floating-action-menu[data-desktop-floating-action-menu="true"] {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 6px;
+  width: 208px;
+  max-width: calc(100vw - 24px);
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  border-radius: 10px;
+  background: #0b1736;
+  box-shadow:
+    0 0 0 1px rgba(2, 6, 23, 0.55),
+    0 16px 36px rgba(0, 0, 0, 0.58);
+  color: #e8f7ff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 1.3;
+  overflow: visible;
+  max-height: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.desktop-floating-action-menu__item {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: rgba(148, 163, 184, 0.06) !important;
+  color: #e8f7ff !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  font-style: normal !important;
+  line-height: 1.3 !important;
+  letter-spacing: normal !important;
+  text-align: left !important;
+  text-decoration: none !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  transition:
+    background-color 90ms ease,
+    color 90ms ease,
+    box-shadow 90ms ease !important;
+}
+
+/* Single-item hover highlight */
+.desktop-floating-action-menu__item:hover {
+  outline: none !important;
+  background: rgba(34, 211, 238, 0.26) !important;
+  color: #f5fcff !important;
+}
+
+.desktop-floating-action-menu__item:focus {
+  outline: none !important;
+}
+
+/* Keyboard focus — visible ring on the focused item only */
+.desktop-floating-action-menu__item:focus-visible {
+  outline: none !important;
+  background: rgba(34, 211, 238, 0.26) !important;
+  color: #f5fcff !important;
+  box-shadow: inset 0 0 0 2px rgba(34, 211, 238, 0.7) !important;
+}
+
+/* Pressed */
+.desktop-floating-action-menu__item:active {
+  background: rgba(34, 211, 238, 0.36) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* Selected / current (when marked by ARIA) */
+.desktop-floating-action-menu__item[aria-selected="true"],
+.desktop-floating-action-menu__item[aria-current="true"],
+.desktop-floating-action-menu__item--selected {
+  background: rgba(34, 211, 238, 0.18) !important;
+  color: #f0fbff !important;
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.35) !important;
+}
+
+.desktop-floating-action-menu__item[aria-selected="true"]:hover,
+.desktop-floating-action-menu__item[aria-current="true"]:hover,
+.desktop-floating-action-menu__item--selected:hover,
+.desktop-floating-action-menu__item[aria-selected="true"]:focus-visible,
+.desktop-floating-action-menu__item[aria-current="true"]:focus-visible,
+.desktop-floating-action-menu__item--selected:focus-visible {
+  background: rgba(34, 211, 238, 0.3) !important;
+  color: #ffffff !important;
+}
+
+/* Disabled */
+.desktop-floating-action-menu__item:disabled,
+.desktop-floating-action-menu__item[aria-disabled="true"] {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background: rgba(148, 163, 184, 0.04) !important;
+  color: rgba(232, 247, 255, 0.55) !important;
+  box-shadow: none !important;
+}
+
+/* Separator before first destructive action */
+.desktop-floating-action-menu__item:not(.desktop-floating-action-menu__item--danger)
+  + .desktop-floating-action-menu__item--danger {
+  position: relative;
+  margin-top: 6px !important;
+}
+
+.desktop-floating-action-menu__item:not(.desktop-floating-action-menu__item--danger)
+  + .desktop-floating-action-menu__item--danger::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.32);
+  pointer-events: none;
+}
+
+/* Destructive */
+.desktop-floating-action-menu__item--danger {
+  color: #fda4af !important;
+  background: rgba(244, 63, 94, 0.06) !important;
+}
+
+.desktop-floating-action-menu__item--danger:hover {
+  background: rgba(244, 63, 94, 0.26) !important;
+  color: #fecdd3 !important;
+}
+
+.desktop-floating-action-menu__item--danger:focus-visible {
+  background: rgba(244, 63, 94, 0.26) !important;
+  color: #fecdd3 !important;
+  box-shadow: inset 0 0 0 2px rgba(251, 113, 133, 0.7) !important;
+}
+
+.desktop-floating-action-menu__item--danger:active {
+  background: rgba(244, 63, 94, 0.36) !important;
+  color: #ffe4e6 !important;
+  box-shadow: none !important;
+}
+
+.desktop-floating-action-menu__item--danger[aria-selected="true"],
+.desktop-floating-action-menu__item--danger[aria-current="true"],
+.desktop-floating-action-menu__item--danger.desktop-floating-action-menu__item--selected {
+  background: rgba(244, 63, 94, 0.16) !important;
+  color: #fecdd3 !important;
+  box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.4) !important;
+}
+
+.desktop-floating-action-menu__item--danger:disabled,
+.desktop-floating-action-menu__item--danger[aria-disabled="true"] {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background: rgba(244, 63, 94, 0.04) !important;
+  color: rgba(253, 164, 175, 0.55) !important;
+  box-shadow: none !important;
+}

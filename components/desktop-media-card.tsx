@@ -4,13 +4,13 @@ import {
     Bell,
     BookOpen,
     Download,
-    Film,
     ListMusic,
     MessageCircle,
     Plus,
     Share2,
     Trash2,
 } from "lucide-react";
+import { useState } from "react";
 import type {
     DesktopSongCardHandlers,
     DesktopSongCardModel,
@@ -19,12 +19,17 @@ import type {
     DesktopVideoCardModel,
     DesktopVideoCardState,
 } from "../lib/desktop-media-card-types";
+import { buildSongVideoOverflowActions } from "../lib/mobile-content-actions";
+import { DesktopFloatingActionMenu } from "./desktop-floating-action-menu";
+import { DesktopMediaGridCard } from "./desktop-media-grid-card";
+import { DesktopMediaListRow } from "./desktop-media-list-row";
 
 type DesktopSongMediaCardProps = {
     song: DesktopSongCardModel;
     state: DesktopSongCardState;
     handlers: DesktopSongCardHandlers;
     variant?: "default" | "library";
+    layout?: "grid" | "list";
 };
 
 type DesktopVideoMediaCardProps = {
@@ -33,6 +38,7 @@ type DesktopVideoMediaCardProps = {
     handlers: DesktopVideoCardHandlers;
     variant?: "default" | "library";
     likeLabel?: string;
+    layout?: "grid" | "list";
 };
 
 function DesktopArtistNameButton({
@@ -157,7 +163,7 @@ function DesktopMediaCardPrimaryActions({
                 onClick={onToggleFollow}
                 type="button"
             >
-                <span aria-hidden="true">{isFollowed ? "✓" : "👤"}</span>
+                <span aria-hidden="true">{isFollowed ? "✓" : "+"}</span>
                 <span>{isFollowed ? "Following" : "Follow"}</span>
             </button>
 
@@ -224,93 +230,72 @@ export function DesktopSongMediaCard({
     state,
     handlers,
     variant = "default",
+    layout = "grid",
 }: DesktopSongMediaCardProps) {
+    const [overflowOpen, setOverflowOpen] = useState(false);
+    const [overflowTrigger, setOverflowTrigger] = useState<HTMLElement | null>(null);
     const cardClassName =
         variant === "library"
             ? "song-card library-card media-card"
             : "song-card media-card";
 
-    return (
-        <article className={cardClassName}>
-            <div className="cover-wrap">
-                <img className="cover" src={song.cover} alt="" />
-                <span className="badge">{song.category}</span>
-                <span className="duration">{song.time}</span>
-                <div className="card-header-actions">
-                    <button
-                        className={state.isQueued ? "card-icon-btn queued" : "card-icon-btn"}
-                        onClick={handlers.onToggleQueue}
-                        title={state.isQueued ? "Remove from queue" : "Add to queue"}
-                        type="button"
-                    >
-                        <ListMusic size={15} />
-                    </button>
-                </div>
-            </div>
-
-            <div className="song-body media-card-content">
-                <div className="song-head">
-                    <img src={song.cover} alt="" />
-                    <div>
-                        <h3 className="media-card-title">
-                            {song.title}
-                            {state.verifiedBadge}
-                        </h3>
-                        <p className="media-card-artist">
-                            <DesktopArtistNameButton
-                                name={song.artist}
-                                onOpen={handlers.onOpenArtist}
-                            />
-                        </p>
-                    </div>
-                </div>
-
-                <p className="desc">
-                    {state.producerCredit
-                        ? `Produced by ${state.producerCredit}`
-                        : "No producer assigned."}
-                </p>
-
-                <div className="stats">
-                    <span>{song.mediaKind === "video" ? "video" : "audio"}</span>
-                    <span>{song.plays} plays</span>
-                    <span>{song.likes + (state.isLiked ? 1 : 0)} likes</span>
-                    <span>{song.uploaded}</span>
-                </div>
-
-                <div className="card-actions media-card-actions">
-                    <DesktopMediaCardPrimaryActions
-                        playLabel={song.mediaKind === "video" ? "Open" : "Play"}
-                        isLiked={state.isLiked}
-                        likeLabel={state.isLiked ? "Liked" : "Like"}
-                        isFollowed={state.isFollowed}
-                        isSaved={state.isSaved}
-                        isQueued={state.isQueued}
-                        isDownloading={state.isDownloading}
-                        canDelete={state.canDelete}
-                        deleteClassName={variant === "library" ? "library-song-delete-btn" : undefined}
-                        onPlay={handlers.onPlay}
-                        onToggleLike={handlers.onToggleLike}
-                        onToggleFollow={handlers.onToggleFollow}
-                        onToggleSave={handlers.onToggleSave}
-                        onToggleQueue={handlers.onToggleQueue}
-                        onOpenPlaylist={handlers.onOpenPlaylist}
-                        onDownload={handlers.onDownload}
-                        onDelete={handlers.onDelete}
-                    />
-                </div>
-
-                <DesktopMediaCardSecondaryActions
-                    commentCount={state.commentCount}
-                    canClaim={state.canClaim}
-                    onOpenComments={handlers.onOpenComments}
-                    onShare={handlers.onShare}
-                    shareLabel="Share Song"
-                    onReport={handlers.onReport}
-                    onClaim={handlers.onClaim}
+    if (layout === "list") {
+        return (
+            <>
+                <DesktopMediaListRow
+                    kind="song"
+                    cover={song.cover}
+                    title={<>{song.title}{state.verifiedBadge}</>}
+                    secondary={song.artist}
+                    tertiary={state.producerCredit ? `Produced by ${state.producerCredit}` : `${song.plays} plays · ${song.time}`}
+                    onPlay={handlers.onPlay}
+                    onOpenOverflow={(trigger) => {
+                        setOverflowTrigger(trigger);
+                        setOverflowOpen(true);
+                    }}
+                    overflowLabel={`More actions for ${song.title}`}
                 />
-            </div>
-        </article>
+                <DesktopFloatingActionMenu
+                    open={overflowOpen}
+                    anchorEl={overflowTrigger}
+                    label={`More actions for ${song.title}`}
+                    actions={buildSongVideoOverflowActions("song", state, handlers)}
+                    onClose={() => {
+                        setOverflowOpen(false);
+                        setOverflowTrigger(null);
+                    }}
+                />
+            </>
+        );
+    }
+
+    return (
+        <DesktopMediaGridCard
+            kind="song"
+            className={cardClassName}
+            cover={song.cover}
+            badge={song.category}
+            title={
+                <>
+                    {song.title}
+                    {state.verifiedBadge}
+                </>
+            }
+            secondary={
+                <DesktopArtistNameButton
+                    name={song.artist}
+                    onOpen={handlers.onOpenArtist}
+                />
+            }
+            tertiary={
+                state.producerCredit
+                    ? `Produced by ${state.producerCredit} · ${song.time}`
+                    : `${song.plays} plays · ${song.time}`
+            }
+            onPlay={handlers.onPlay}
+            overflowLabel={`More actions for ${song.title}`}
+            menuActions={buildSongVideoOverflowActions("song", state, handlers)}
+        />
     );
 }
 
@@ -321,81 +306,72 @@ export function DesktopVideoMediaCard({
     handlers,
     variant = "default",
     likeLabel,
+    layout = "grid",
 }: DesktopVideoMediaCardProps) {
+    const [overflowOpen, setOverflowOpen] = useState(false);
+    const [overflowTrigger, setOverflowTrigger] = useState<HTMLElement | null>(null);
     const cardClassName =
         variant === "library"
             ? "video-card library-card media-card"
             : "video-card media-card";
 
-    return (
-        <article className={cardClassName}>
-            <div className="video-cover-wrap">
-                <button className="video-cover" onClick={handlers.onPlay} type="button">
-                    <img src={video.cover} alt="" />
-                    <span>{video.category}</span>
-                    <Film size={34} />
-                </button>
-                {state.mobileIncompatible ? (
-                    <span className="video-compat-badge">Conversion required</span>
-                ) : null}
-            </div>
-
-            <div className="video-card-body media-card-content">
-                <div className="card-meta">
-                    <h3 className="media-card-title">
-                        {video.title}
-                        {state.verifiedBadge}
-                    </h3>
-                    <p className="media-card-artist">
-                        <DesktopArtistNameButton
-                            name={video.creator}
-                            onOpen={handlers.onOpenArtist}
-                        />
-                    </p>
-                </div>
-
-                <div className="stats">
-                    <span>{video.views} views</span>
-                    <span>{video.likes || 0} likes</span>
-                    <span>{video.uploaded}</span>
-                </div>
-
-                {state.mobileCompatibilityWarning ? (
-                    <p className="video-compat-warning">{state.mobileCompatibilityWarning}</p>
-                ) : null}
-
-                <div className="card-actions media-card-actions">
-                    <DesktopMediaCardPrimaryActions
-                        playLabel="Play"
-                        isLiked={state.isLiked}
-                        likeLabel={likeLabel || (state.isLiked ? "Liked" : "Like")}
-                        isFollowed={state.isFollowed}
-                        isSaved={state.isSaved}
-                        isQueued={state.isQueued}
-                        isDownloading={state.isDownloading}
-                        canDelete={state.canDelete}
-                        onPlay={handlers.onPlay}
-                        onToggleLike={handlers.onToggleLike}
-                        onToggleFollow={handlers.onToggleFollow}
-                        onToggleSave={handlers.onToggleSave}
-                        onToggleQueue={handlers.onToggleQueue}
-                        onOpenPlaylist={handlers.onOpenPlaylist}
-                        onDownload={handlers.onDownload}
-                        onDelete={handlers.onDelete}
-                    />
-                </div>
-
-                <DesktopMediaCardSecondaryActions
-                    commentCount={state.commentCount}
-                    canClaim={state.canClaim}
-                    onOpenComments={handlers.onOpenComments}
-                    onShare={handlers.onShare}
-                    shareLabel="Share Video"
-                    onReport={handlers.onReport}
-                    onClaim={handlers.onClaim}
+    if (layout === "list") {
+        return (
+            <>
+                <DesktopMediaListRow
+                    kind="video"
+                    cover={video.cover}
+                    title={<>{video.title}{state.verifiedBadge}</>}
+                    secondary={video.creator}
+                    tertiary={`${video.views} views · ${video.uploaded}`}
+                    onPlay={handlers.onPlay}
+                    onOpenOverflow={(trigger) => {
+                        setOverflowTrigger(trigger);
+                        setOverflowOpen(true);
+                    }}
+                    overflowLabel={`More actions for ${video.title}`}
                 />
-            </div>
-        </article>
+                <DesktopFloatingActionMenu
+                    open={overflowOpen}
+                    anchorEl={overflowTrigger}
+                    label={`More actions for ${video.title}`}
+                    actions={buildSongVideoOverflowActions("video", state, handlers)}
+                    onClose={() => {
+                        setOverflowOpen(false);
+                        setOverflowTrigger(null);
+                    }}
+                />
+            </>
+        );
+    }
+
+    return (
+        <DesktopMediaGridCard
+            kind="video"
+            className={cardClassName}
+            cover={video.cover}
+            badge={
+                state.mobileIncompatible
+                    ? "Conversion required"
+                    : video.category
+            }
+            title={
+                <>
+                    {video.title}
+                    {state.verifiedBadge}
+                </>
+            }
+            secondary={
+                <DesktopArtistNameButton
+                    name={video.creator}
+                    onOpen={handlers.onOpenArtist}
+                />
+            }
+            tertiary={`${video.views} views · ${video.uploaded}`}
+            onPlay={handlers.onPlay}
+            overflowLabel={`More actions for ${video.title}`}
+            menuActions={buildSongVideoOverflowActions("video", state, handlers)}
+        />
     );
 }
 

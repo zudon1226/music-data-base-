@@ -1,0 +1,404 @@
+/* =============================================================================
+   DesktopMediaGridCard — ONE source of truth for Desktop Grid media tiles.
+   Scoped under .view-grid + [data-desktop-media-grid-card]. List View untouched.
+   Fixed card geometry: 168px wide, square art, stable copy block.
+   ============================================================================= */
+
+:root {
+  --dmg-card-w: 168px;
+  --dmg-gap: 10px;
+  --dmg-pad: 8px;
+  --dmg-radius: 10px;
+  --dmg-art-radius: 8px;
+  --dmg-title-h: 34px;
+  --dmg-secondary-h: 16px;
+  --dmg-meta-h: 15px;
+  --dmg-copy-gap: 2px;
+  --dmg-menu-z: 70;
+}
+
+/* ---- Grid tracks (identical everywhere) ---- */
+html body .zml-app.view-grid .horizontal-rail-track.song-grid,
+html body .zml-app.view-grid .horizontal-rail-track.video-grid,
+html body .zml-app.view-grid .horizontal-rail-track.artist-album-grid,
+html body .zml-app.view-grid .horizontal-rail-track.artist-playlist-grid,
+html body .zml-app.view-grid .horizontal-rail-track.discovery-grid,
+html body .zml-app.view-grid .horizontal-rail-track.artist-grid,
+html body .zml-app.view-grid .horizontal-rail-track.marketplace-release-grid,
+html body .zml-app.view-grid .horizontal-rail-track.marketplace-bundle-grid,
+html body .zml-app.view-grid .horizontal-rail-track.marketplace-limited-grid,
+html body .zml-app.view-grid .horizontal-rail-track.marketplace-preorder-grid,
+html body .zml-app.view-grid .discovery-grid,
+html body .zml-app.view-grid .home-discovery-grid,
+html body .zml-app.view-grid .ringtone-market-grid,
+html body .zml-app.view-grid .ringtone-purchased-list,
+html body .zml-app.view-grid .ringtone-card-grid[data-ringtone-collection-grid="true"],
+html body .zml-app.view-grid .desktop-media-grid,
+html body .zml-app.view-grid .playlist-detail-grid,
+html body .zml-app.view-grid .song-grid,
+html body .zml-app.view-grid .video-grid,
+html body .zml-app.view-grid[data-active-view="Home"] .discovery-section .home-discovery-grid,
+html body .zml-app.view-grid[data-active-view="Home"] .discovery-section .discovery-grid,
+html body .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.song-grid,
+html body .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.video-grid,
+html body .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.artist-album-grid {
+  display: grid !important;
+  grid-auto-flow: row !important;
+  grid-auto-columns: unset !important;
+  grid-template-columns: repeat(auto-fill, var(--dmg-card-w)) !important;
+  grid-auto-rows: auto !important;
+  gap: var(--dmg-gap) !important;
+  justify-content: start !important;
+  align-items: start !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+  scroll-snap-type: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+html body .zml-app.view-grid .horizontal-rail {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+html body .zml-app.view-grid .horizontal-rail .rail-arrow {
+  display: none !important;
+}
+
+html body .zml-app.view-grid .horizontal-rail-track {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* ---- Card shell (identical dimensions; no resize on hover/menu) ---- */
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"].desktop-media-grid-card {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+  width: var(--dmg-card-w) !important;
+  min-width: var(--dmg-card-w) !important;
+  max-width: var(--dmg-card-w) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: var(--dmg-pad) !important;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: var(--dmg-radius);
+  background: rgba(11, 23, 54, 0.62);
+  box-shadow: none;
+  overflow: visible !important;
+  flex: none !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  transform: none !important;
+  transition: none !important;
+  z-index: 1;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"][data-grid-menu-open="true"] {
+  z-index: 2;
+}
+
+/* Beat mobile display:contents / 96×72 collisions */
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] > .desktop-media-grid-card__art {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: var(--dmg-art-radius);
+  overflow: hidden !important;
+  background: rgba(15, 23, 42, 0.35);
+  flex: 0 0 auto !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__art-btn {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: var(--dmg-art-radius);
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] > .desktop-media-grid-card__copy {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: var(--dmg-copy-gap);
+  min-width: 0 !important;
+  height: calc(var(--dmg-title-h) + var(--dmg-secondary-h) + var(--dmg-meta-h) + var(--dmg-copy-gap) * 2) !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__title,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] h3.desktop-media-grid-card__title {
+  margin: 0 !important;
+  height: var(--dmg-title-h) !important;
+  min-height: var(--dmg-title-h) !important;
+  max-height: var(--dmg-title-h) !important;
+  font-size: 13px !important;
+  font-weight: 600;
+  line-height: 1.25 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  white-space: normal !important;
+  color: #e8f7ff;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__secondary,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] p.desktop-media-grid-card__secondary {
+  margin: 0 !important;
+  height: var(--dmg-secondary-h) !important;
+  min-height: var(--dmg-secondary-h) !important;
+  max-height: var(--dmg-secondary-h) !important;
+  font-size: 12px !important;
+  line-height: var(--dmg-secondary-h) !important;
+  opacity: 0.78;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  color: #9bdcf0;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__meta {
+  display: block !important;
+  height: var(--dmg-meta-h) !important;
+  min-height: var(--dmg-meta-h) !important;
+  max-height: var(--dmg-meta-h) !important;
+  font-size: 11px !important;
+  line-height: var(--dmg-meta-h) !important;
+  opacity: 0.6;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  color: #7eb6cb;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__badge {
+  position: absolute !important;
+  left: 6px !important;
+  bottom: 6px !important;
+  z-index: 2 !important;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(8, 12, 24, 0.72);
+  color: #f8fafc;
+  max-width: calc(100% - 48px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ---- Hover controls (this card only; no layout change) ---- */
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__play {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 3 !important;
+  width: 36px !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.92);
+  color: #041018;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.16s ease, visibility 0.16s ease;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__more {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 4 !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(8, 12, 24, 0.72);
+  color: #f8fafc;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.16s ease, visibility 0.16s ease;
+}
+
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"][data-grid-card-hover="true"] .desktop-media-grid-card__play,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"][data-grid-card-hover="true"] .desktop-media-grid-card__more,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"]:focus-within .desktop-media-grid-card__play,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"]:focus-within .desktop-media-grid-card__more,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"][data-grid-menu-open="true"] .desktop-media-grid-card__more {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__more {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+}
+
+/* Hide legacy action strips if a page still passes those class names */
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .media-card-actions,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .artist-album-actions,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .discovery-card-action,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .card-secondary-actions,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .ringtone-card-actions,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .stats,
+html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desc {
+  display: none !important;
+}
+
+html body .zml-app.view-list .playlist-detail-grid.desktop-media-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: none !important;
+  gap: 6px !important;
+}
+
+/* =============================================================================
+   Recently Played Grid only (.recent-list / .recent-row are unique to that page).
+   Legacy .recent-row { flex-wrap: wrap; overflow from list chrome } + long nowrap
+   meta let copy expand past the 168px card while overflow:visible painted outside.
+   Contain text inside existing compact card geometry — do not change other grids.
+   ============================================================================= */
+html body .zml-app.view-grid .recent-list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, var(--dmg-card-w)) !important;
+  grid-auto-rows: auto !important;
+  gap: var(--dmg-gap) !important;
+  justify-content: start !important;
+  align-items: start !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+}
+
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"].desktop-media-grid-card.recent-row {
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
+  /* Keep shared 8px sides/top; extra bottom room so meta is not flush to the border. */
+  padding-top: var(--dmg-pad) !important;
+  padding-left: var(--dmg-pad) !important;
+  padding-right: var(--dmg-pad) !important;
+  padding-bottom: 14px !important;
+}
+
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] > .desktop-media-grid-card__copy {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  /* Reserve full title + creator + meta; do not clip the final line. */
+  height: calc(
+    var(--dmg-title-h) + var(--dmg-secondary-h) + var(--dmg-meta-h) + var(--dmg-copy-gap) * 2
+  ) !important;
+  max-height: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+}
+
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] .desktop-media-grid-card__meta {
+  display: block !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] .desktop-media-grid-card__title,
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] h3.desktop-media-grid-card__title,
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] .desktop-media-grid-card__secondary,
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] p.desktop-media-grid-card__secondary,
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] .desktop-media-grid-card__meta {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] .desktop-media-grid-card__title,
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"] h3.desktop-media-grid-card__title {
+  text-overflow: ellipsis !important;
+  word-break: break-word !important;
+}
+
+/* Neutralize list-era .recent-row img / button rules on grid tiles only. */
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"].recent-row .desktop-media-grid-card__art > img,
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"].recent-row .desktop-media-grid-card__img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  flex: none !important;
+  object-fit: cover !important;
+  border-radius: inherit !important;
+}
+
+html body .zml-app.view-grid .recent-list > [data-desktop-media-grid-card="true"].recent-row .desktop-media-grid-card__play {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  max-width: 36px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  white-space: nowrap !important;
+}

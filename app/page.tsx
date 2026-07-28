@@ -64,7 +64,19 @@ import {
 } from "../lib/navigation-scroll";
 import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
 import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail";
+import { DesktopMediaGridCard } from "../components/desktop-media-grid-card";
 import { DesktopSongMediaCard, DesktopVideoMediaCard } from "../components/desktop-media-card";
+import { DesktopMediaList } from "../components/desktop-media-list";
+import { DesktopMediaListRow } from "../components/desktop-media-list-row";
+import { DesktopFloatingActionMenu } from "../components/desktop-floating-action-menu";
+import { closeAllDesktopGridMenus } from "../lib/desktop-grid-menu-registry";
+import {
+    buildAlbumOverflowActions,
+    buildPlaylistOverflowActions,
+    buildSongVideoOverflowActions,
+    type MobileContentAction,
+    type MobileContentSheetMeta,
+} from "../lib/mobile-content-actions";
 import {
     RingtoneCreatorWorkspace,
     type RingtonePreviewRequest,
@@ -3667,12 +3679,33 @@ function PageContent() {
     const marketplaceFilterApplyLockRef = useRef(false);
     const [selectedBeatLicenses, setSelectedBeatLicenses] = useState<Record<string, LicenseType>>({});
     const [activeBeatDetailId, setActiveBeatDetailId] = useState("");
+    const [desktopListOverflow, setDesktopListOverflow] = useState<{
+        open: boolean;
+        meta: MobileContentSheetMeta | null;
+        actions: MobileContentAction[];
+        trigger: HTMLElement | null;
+    }>({ open: false, meta: null, actions: [], trigger: null });
+    const openDesktopListOverflow = (
+        meta: MobileContentSheetMeta,
+        actions: MobileContentAction[],
+    ) => (trigger: HTMLElement) => {
+        setDesktopListOverflow({
+            open: true,
+            meta,
+            actions: actions.filter(Boolean),
+            trigger,
+        });
+    };
     const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
         if (typeof window === "undefined")
             return "grid";
         const savedMode = window.localStorage.getItem(STORAGE_KEYS.displayMode);
         return savedMode === "list" ? "list" : "grid";
     });
+    useEffect(() => {
+        closeAllDesktopGridMenus();
+        setDesktopListOverflow({ open: false, meta: null, actions: [], trigger: null });
+    }, [view, displayMode]);
     const [recentlyPlayed, setRecentlyPlayed] = useState<RecentPlay[]>([]);
     const [recentTab, setRecentTab] = useState<RecentTab>("Songs");
     const [libraryIds, setLibraryIds] = useState<string[]>([]);
@@ -3696,6 +3729,7 @@ function PageContent() {
     const [addSource, setAddSource] = useState<AddSource>("Library");
     const [playlistSearch, setPlaylistSearch] = useState("");
     const [playlistTarget, setPlaylistTarget] = useState<PlaylistTarget>(null);
+    const [albumDetailsTarget, setAlbumDetailsTarget] = useState<ResolvedAlbum | null>(null);
     const [songDeleteConfirm, setSongDeleteConfirm] = useState<SongDeleteConfirmTarget>(null);
     const [songDeleteBusy, setSongDeleteBusy] = useState(false);
     const songDeleteLockRef = useRef(false);
@@ -5779,6 +5813,17 @@ function PageContent() {
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [playlistTarget]);
+    // Escape closes the album-details panel.
+    useEffect(() => {
+        if (!albumDetailsTarget) return undefined;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            setAlbumDetailsTarget(null);
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [albumDetailsTarget]);
     // Drop the modal if the selected media was deleted/removed while it was open.
     useEffect(() => {
         if (!playlistTarget) return;
@@ -11715,6 +11760,7 @@ function PageContent() {
             key={song.id}
             song={song}
             variant={options.variant}
+            layout={displayMode}
             state={{
                 isLiked,
                 isSaved,
@@ -11780,6 +11826,7 @@ function PageContent() {
             }}
             variant={options.isLibraryCard ? "library" : "default"}
             likeLabel={options.unlikeLabel}
+            layout={displayMode}
             state={{
                 isLiked,
                 isSaved,
@@ -14044,21 +14091,42 @@ function PageContent() {
         return "Open";
     }
     function renderDiscoveryItemCard(item: DiscoveryFeedItem) {
-        return (<article className="discovery-card" key={`${item.badge}-${item.type}-${item.id}`}>
-        <button className="discovery-card-main" onClick={() => openDiscoveryItem(item)} type="button">
-          <img src={getArtworkUrl(item.cover)} alt=""/>
-          <span>{item.badge}</span>
-        </button>
-        <div className="discovery-card-copy">
-          <strong>{item.title}</strong>
-          <small>{item.subtitle}</small>
-          <em>{item.metric}</em>
-        </div>
-        <button className="discovery-card-action" onClick={() => openDiscoveryItem(item)} type="button">
-          <Play size={14} fill="currentColor"/>
-          {getDiscoveryActionLabel(item.type)}
-        </button>
-      </article>);
+        if (displayMode === "list") {
+            return (
+                <DesktopMediaListRow
+                    key={`${item.badge}-${item.type}-${item.id}`}
+                    kind={item.type}
+                    cover={getArtworkUrl(item.cover)}
+                    title={item.title}
+                    secondary={item.subtitle}
+                    tertiary={`${item.badge} · ${item.metric}`}
+                    onPlay={() => openDiscoveryItem(item)}
+                    overflowLabel={`More actions for ${item.title}`}
+                    onOpenOverflow={openDesktopListOverflow(
+                        { kind: item.type === "video" ? "video" : item.type === "album" ? "album" : item.type === "playlist" ? "playlist" : "song", id: item.id, title: item.title, subtitle: item.subtitle, cover: getArtworkUrl(item.cover) },
+                        [{ id: "play", label: getDiscoveryActionLabel(item.type), onClick: () => openDiscoveryItem(item) }],
+                    )}
+                />
+            );
+        }
+        return (
+            <DesktopMediaGridCard
+                key={`${item.badge}-${item.type}-${item.id}`}
+                kind={item.type}
+                className="discovery-card"
+                cover={getArtworkUrl(item.cover)}
+                badge={item.badge}
+                title={item.title}
+                secondary={item.subtitle}
+                tertiary={item.metric}
+                onPlay={() => openDiscoveryItem(item)}
+                onOpen={() => openDiscoveryItem(item)}
+                overflowLabel={`More actions for ${item.title}`}
+                menuActions={[
+                    { id: "play", label: getDiscoveryActionLabel(item.type), onClick: () => openDiscoveryItem(item) },
+                ]}
+            />
+        );
     }
     function renderBeatLicenseButtons(beat: ProducerBeat, className = "") {
         const selectedLicense = getSelectedBeatLicense(beat);
@@ -14071,40 +14139,49 @@ function PageContent() {
     }
     function renderMarketplaceReleaseCard(release: MarketplaceRelease) {
         const beat = release.releaseType === "beat" ? release.item as ProducerBeat : null;
-        return (<article className="marketplace-release-card" key={`${release.releaseType}-${release.id}`}>
-        <button className="marketplace-release-cover" onClick={() => playMarketplaceRelease(release)} type="button">
-          <img src={getArtworkUrl(release.cover)} alt=""/>
-          <span>{release.releaseType}</span>
-        </button>
-        <div className="marketplace-release-copy">
-          <strong>{release.title}</strong>
-          <button onClick={() => openMarketplaceReleaseStore(release)} type="button">
-            {release.creatorName}
-          </button>
-          <small>{release.producerName ? `Produced by ${release.producerName}` : release.genre}</small>
-          <small>{release.metricLabel}</small>
-          <small>{formatCurrencyFromCents(release.priceCents)}{release.premium ? " | Premium" : ""}</small>
-        </div>
-        <div className="marketplace-release-actions">
-          <button onClick={() => playMarketplaceRelease(release)} type="button">
-            <Play size={15} fill="currentColor"/>
-            Play
-          </button>
-          {getMarketplaceSalesType(release) ? (<button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
-              <Disc3 size={15}/>
-              {beat ? `Buy ${getSelectedBeatLicense(beat)}` : release.releaseType === "album" ? "Buy Album" : "Buy Song"}
-            </button>) : (<button onClick={() => openMarketplaceReleaseStore(release)} type="button">
-              <UserCircle size={15}/>
-              Store
-            </button>)}
-          {beat ? (<button onClick={() => setActiveBeatDetailId(beat.id)} type="button">
-              <BookOpen size={15}/>
-              Details
-            </button>) : null}
-        </div>
-        {beat ? (<small className="license-selection-note">{getBeatLicenseSummary(beat, getSelectedBeatLicense(beat))}</small>) : null}
-        {beat ? renderBeatLicenseButtons(beat, "marketplace-license-actions") : null}
-      </article>);
+        if (displayMode === "list") {
+            return (
+                <DesktopMediaListRow
+                    key={`${release.releaseType}-${release.id}`}
+                    kind={release.releaseType}
+                    cover={getArtworkUrl(release.cover)}
+                    title={release.title}
+                    secondary={release.creatorName}
+                    tertiary={`${release.metricLabel} · ${formatCurrencyFromCents(release.priceCents)}`}
+                    onPlay={() => playMarketplaceRelease(release)}
+                    overflowLabel={`More actions for ${release.title}`}
+                    onOpenOverflow={openDesktopListOverflow(
+                        { kind: release.releaseType === "album" ? "album" : "song", id: release.id, title: release.title, subtitle: release.creatorName, cover: getArtworkUrl(release.cover) },
+                        [
+                            { id: "play", label: "Play", onClick: () => playMarketplaceRelease(release) },
+                            { id: "profile", label: "Store", onClick: () => openMarketplaceReleaseStore(release) },
+                            ...(getMarketplaceSalesType(release) ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
+                        ],
+                    )}
+                />
+            );
+        }
+        return (
+            <DesktopMediaGridCard
+                key={`${release.releaseType}-${release.id}`}
+                kind={release.releaseType}
+                className="marketplace-release-card"
+                cover={getArtworkUrl(release.cover)}
+                badge={release.releaseType}
+                title={release.title}
+                secondary={release.creatorName}
+                tertiary={`${release.metricLabel} · ${formatCurrencyFromCents(release.priceCents)}${release.premium ? " · Premium" : ""}`}
+                onPlay={() => playMarketplaceRelease(release)}
+                onOpen={() => openMarketplaceReleaseStore(release)}
+                overflowLabel={`More actions for ${release.title}`}
+                menuActions={[
+                    { id: "play", label: "Play", onClick: () => playMarketplaceRelease(release) },
+                    { id: "profile", label: "Store", onClick: () => openMarketplaceReleaseStore(release) },
+                    ...(getMarketplaceSalesType(release) ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
+                    ...(beat ? [{ id: "details" as const, label: "Details", onClick: () => setActiveBeatDetailId(beat.id) }] : []),
+                ]}
+            />
+        );
     }
     function renderMarketplaceChartRow(release: MarketplaceRelease, index: number) {
         return (<article className="marketplace-chart-row" key={`chart-${release.releaseType}-${release.id}`}>
@@ -14350,6 +14427,13 @@ function PageContent() {
         }
         setPlaylistTarget({ type: "album", item: resolvedAlbum });
     }
+    async function openAlbumDetails(album: ResolvedAlbum) {
+        const resolvedAlbum = await resolveAlbumTracksForAction(album);
+        setAlbumDetailsTarget(resolvedAlbum);
+    }
+    function closeAlbumDetails() {
+        setAlbumDetailsTarget(null);
+    }
     function startEditingAlbum(album: ResolvedAlbum) {
         setEditingAlbumId(album.id);
         setEditAlbumForm({
@@ -14519,6 +14603,28 @@ function PageContent() {
         const songCount = getAlbumSongCount(album);
         const videoCount = getAlbumVideoCount(album);
         const canDeleteAlbum = canDeleteUploadedAlbum(album);
+        if (!isEditing && displayMode === "list") {
+            return (
+                <DesktopMediaListRow
+                    key={album.id}
+                    kind="album"
+                    cover={getAlbumDisplayCover(album)}
+                    title={<>{album.title}{renderVerifiedBadge(album.ownerType === "producer" ? isProducerVerified(album.producerId || album.creatorName) : isArtistVerified(album.creatorName), album.ownerType === "producer" ? "Verified Producer" : "Verified Artist")}</>}
+                    secondary={<ArtistNameButton name={album.creatorName} onOpen={openArtistProfile}/>}
+                    tertiary={`${songCount} songs · ${videoCount} videos`}
+                    onPlay={() => playAlbum(album, "Recent Uploaded Albums")}
+                    overflowLabel={`More actions for ${album.title}`}
+                    onOpenOverflow={openDesktopListOverflow(
+                        { kind: "album", id: album.id, title: album.title, subtitle: album.creatorName, cover: getAlbumDisplayCover(album) },
+                        buildAlbumOverflowActions({ canDelete: canDeleteAlbum, canEdit: true }, {
+                            onPlay: () => playAlbum(album, "Recent Uploaded Albums"),
+                            onEdit: () => startEditingAlbum(album),
+                            onDelete: canDeleteAlbum ? () => handlePermanentDelete(album) : undefined,
+                        }),
+                    )}
+                />
+            );
+        }
         return (<article className="dashboard-song-row" key={album.id}>
         <img src={getAlbumDisplayCover(album)} alt=""/>
 
@@ -14569,6 +14675,29 @@ function PageContent() {
         const isEditing = editingSongId === song.id;
         const producerCredit = getProducerCreditForSong(song);
         const canDeleteTrack = canDeleteUploadedSong(song);
+        if (!isEditing && displayMode === "list") {
+            return (
+                <DesktopMediaListRow
+                    key={song.id}
+                    kind="song"
+                    cover={song.cover}
+                    title={<>{song.title}{renderVerifiedBadge(isArtistVerified(song.artist), "Verified Artist")}</>}
+                    secondary={<ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>}
+                    tertiary={producerCredit ? `Produced by ${producerCredit}` : `${formatCount(song.plays)} plays · ${song.uploaded || ""}`}
+                    onPlay={() => playSong(song)}
+                    overflowLabel={`More actions for ${song.title}`}
+                    onOpenOverflow={openDesktopListOverflow(
+                        { kind: "song", id: song.id, title: song.title, subtitle: song.artist, cover: song.cover },
+                        buildSongVideoOverflowActions("song", { canDelete: canDeleteTrack, canEdit: true }, {
+                            onPlay: () => playSong(song),
+                            onOpenPlaylist: () => openPlaylistMenu(song),
+                            onEdit: () => startEditingSong(song),
+                            onDelete: canDeleteTrack ? () => permanentDeleteSong(song.id) : undefined,
+                        }),
+                    )}
+                />
+            );
+        }
         return (<article className="dashboard-song-row" key={song.id}>
         <img src={song.cover} alt=""/>
 
@@ -14647,6 +14776,30 @@ function PageContent() {
         const producerCredit = getProducerCreditForVideo(video);
         const isSaved = savedVideoIds.includes(video.id);
         const canDeleteVideo = canDeleteUploadedVideo(video);
+        if (!isEditing && displayMode === "list") {
+            return (
+                <DesktopMediaListRow
+                    key={video.id}
+                    kind="video"
+                    cover={video.cover}
+                    title={<>{video.title}{renderVerifiedBadge(isArtistVerified(video.creator), "Verified Artist")}</>}
+                    secondary={<ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>}
+                    tertiary={`${formatCount(video.views)} views · ${video.uploaded || ""}`}
+                    onPlay={() => playVideo(video, sourceLabel)}
+                    overflowLabel={`More actions for ${video.title}`}
+                    onOpenOverflow={openDesktopListOverflow(
+                        { kind: "video", id: video.id, title: video.title, subtitle: video.creator, cover: video.cover },
+                        buildSongVideoOverflowActions("video", { canDelete: canDeleteVideo, canEdit: true, isSaved }, {
+                            onPlay: () => playVideo(video, sourceLabel),
+                            onToggleSave: () => { if (isSaved) { removeVideoFromLibrary(video.id); return; } saveVideoToLibrary(video); },
+                            onOpenPlaylist: () => handleVideoPlaylist(video.id),
+                            onEdit: () => startEditingVideo(video),
+                            onDelete: canDeleteVideo ? () => handlePermanentDelete(video) : undefined,
+                        }),
+                    )}
+                />
+            );
+        }
         return (<article className="dashboard-song-row" key={video.id}>
         <img src={video.cover} alt=""/>
 
@@ -14735,79 +14888,109 @@ function PageContent() {
         const videoCount = getAlbumVideoCount(album);
         const runtimeLabel = formatRuntimeLabel(getAlbumRuntimeSeconds(album));
         const canManageAlbum = canDeleteUploadedAlbum(album);
-        return (<article className="artist-album-card media-card" key={album.id}>
-        <img src={getAlbumDisplayCover(album)} alt=""/>
-        {isEditing ? (<div className="album-inline-edit">
-            <input name={`cardEditAlbumTitle-${album.id}`} value={editAlbumForm.title} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, title: event.target.value })} placeholder="Album title"/>
-            <input name={`cardEditAlbumCreator-${album.id}`} value={editAlbumForm.creatorName} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, creatorName: event.target.value })} placeholder="Creator"/>
-            <input name={`cardEditAlbumCategory-${album.id}`} value={editAlbumForm.category} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, category: event.target.value })} placeholder="Category"/>
-            <div className="artist-album-actions">
-              <button onClick={() => saveEditedAlbum(album.id)} type="button">Save</button>
-              <button onClick={cancelEditingAlbum} type="button">Cancel</button>
-            </div>
-          </div>) : (<>
-            <div className="media-card-content">
-              <Disc3 size={18}/>
-              <strong className="media-card-title">{album.title}{renderVerifiedBadge(album.ownerType === "producer" ? isProducerVerified(album.producerId || album.creatorName) : isArtistVerified(album.creatorName), album.ownerType === "producer" ? "Verified Producer" : "Verified Artist")}</strong>
-              <span className="media-card-artist">{album.creatorName}</span>
-              <span>{songCount} Songs | {videoCount} Videos</span>
-              <span>Total runtime {runtimeLabel}</span>
-              <span>{album.category} | {formatAlbumCreatedDate(album.createdAt)}</span>
-            </div>
-            <div className="artist-album-actions media-card-actions">
-              <button onClick={() => {
-                    playAlbum(album, sourceLabel);
-                }} type="button">
-                <Play size={15} fill="currentColor"/>
-                Play Album
-              </button>
-              <button
-                className={isSaved ? "saved" : ""}
-                data-album-save="true"
-                onClick={() => {
-                    if (isSaved) {
-                        void removeAlbumFromLibrary(album.id);
-                        return;
+        if (displayMode === "list" && !isEditing) {
+            return (
+                <DesktopMediaListRow
+                    key={album.id}
+                    kind="album"
+                    cover={getAlbumDisplayCover(album)}
+                    title={
+                        <button
+                            type="button"
+                            className="album-open-title"
+                            onClick={() => { void openAlbumDetails(album); }}
+                        >
+                            {album.title}
+                            {renderVerifiedBadge(album.ownerType === "producer" ? isProducerVerified(album.producerId || album.creatorName) : isArtistVerified(album.creatorName), album.ownerType === "producer" ? "Verified Producer" : "Verified Artist")}
+                        </button>
                     }
-                    void saveAlbumToLibrary(album);
-                }}
-                type="button"
-              >
-                {isSaved ? <Check size={15}/> : <Plus size={15}/>}
-                {isSaved ? "Saved" : "Save Album"}
-              </button>
-              <button onClick={() => openAlbumPlaylistPicker(album)} type="button">
-                <ListMusic size={15}/>
-                Playlist
-              </button>
-              {renderMobileAlbumQueueButton(album)}
-              <button onClick={() => openComments("album", album)} type="button">
-                <MessageCircle size={15}/>
-                {getCommentsForItem("album", album.id).length}
-              </button>
-              <button onClick={() => copyShareLink("album", album.id, album.title)} type="button">
-                <Share2 size={15}/>
-                Share
-              </button>
-              <button onClick={() => createModerationReport("album", album.id, album.title, "Community album report", album.creatorName, album.artistId || album.producerId)} type="button">
-                <Bell size={15}/>
-                Report
-              </button>
-              <button onClick={() => createCopyrightClaim("album", album.id, album.title, album.creatorName)} type="button">
-                <BookOpen size={15}/>
-                Claim
-              </button>
-              {canManageAlbum && (<button onClick={() => startEditingAlbum(album)} type="button">
-                  <Edit3 size={15}/>
-                  Edit
-                </button>)}
-              {canManageAlbum && (<button className="danger-btn" onClick={() => handlePermanentDelete(album)} type="button">
-                  <Trash2 size={15}/>
-                  Delete
-                </button>)}
-            </div>
-          </>)}
-      </article>);
+                    secondary={album.creatorName}
+                    tertiary={`${songCount} Songs · ${videoCount} Videos · ${runtimeLabel}`}
+                    onPlay={() => playAlbum(album, sourceLabel)}
+                    overflowLabel={`More actions for ${album.title}`}
+                    onOpenOverflow={openDesktopListOverflow(
+                        { kind: "album", id: album.id, title: album.title, subtitle: album.creatorName, cover: getAlbumDisplayCover(album) },
+                        buildAlbumOverflowActions(
+                            { isSaved, canDelete: canManageAlbum, canEdit: canManageAlbum, canClaim: canClaimMedia },
+                            {
+                                onViewSongs: () => { void openAlbumDetails(album); },
+                                onPlay: () => playAlbum(album, sourceLabel),
+                                onToggleSave: () => {
+                                    if (isSaved) { void removeAlbumFromLibrary(album.id); return; }
+                                    void saveAlbumToLibrary(album);
+                                },
+                                onOpenPlaylist: () => openAlbumPlaylistPicker(album),
+                                onToggleQueue: () => addAlbumToQueue(album),
+                                onShare: () => copyShareLink("album", album.id, album.title),
+                                onOpenComments: () => openComments("album", album),
+                                onReport: () => createModerationReport("album", album.id, album.title, "Community album report", album.creatorName, album.artistId || album.producerId),
+                                onClaim: () => createCopyrightClaim("album", album.id, album.title, album.creatorName),
+                                onEdit: canManageAlbum ? () => startEditingAlbum(album) : undefined,
+                                onDelete: canManageAlbum ? () => handlePermanentDelete(album) : undefined,
+                            },
+                        ),
+                    )}
+                />
+            );
+        }
+        if (isEditing) {
+            return (
+                <article className="artist-album-card media-card desktop-compact-card" data-desktop-media-card="album" key={album.id}>
+                    <img className="desktop-compact-art" src={getAlbumDisplayCover(album)} alt="" />
+                    <div className="album-inline-edit">
+                        <input name={`cardEditAlbumTitle-${album.id}`} value={editAlbumForm.title} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, title: event.target.value })} placeholder="Album title"/>
+                        <input name={`cardEditAlbumCreator-${album.id}`} value={editAlbumForm.creatorName} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, creatorName: event.target.value })} placeholder="Creator"/>
+                        <input name={`cardEditAlbumCategory-${album.id}`} value={editAlbumForm.category} onChange={(event) => setEditAlbumForm({ ...editAlbumForm, category: event.target.value })} placeholder="Category"/>
+                        <div className="artist-album-actions">
+                            <button onClick={() => saveEditedAlbum(album.id)} type="button">Save</button>
+                            <button onClick={cancelEditingAlbum} type="button">Cancel</button>
+                        </div>
+                    </div>
+                </article>
+            );
+        }
+        return (
+            <DesktopMediaGridCard
+                key={album.id}
+                kind="album"
+                className="artist-album-card media-card"
+                cover={getAlbumDisplayCover(album)}
+                title={
+                    <button
+                        type="button"
+                        className="album-open-title"
+                        onClick={() => { void openAlbumDetails(album); }}
+                    >
+                        {album.title}
+                        {renderVerifiedBadge(album.ownerType === "producer" ? isProducerVerified(album.producerId || album.creatorName) : isArtistVerified(album.creatorName), album.ownerType === "producer" ? "Verified Producer" : "Verified Artist")}
+                    </button>
+                }
+                secondary={album.creatorName}
+                tertiary={`${songCount} songs · ${videoCount} videos · ${runtimeLabel}`}
+                onOpen={() => { void openAlbumDetails(album); }}
+                onPlay={() => { void playAlbum(album, sourceLabel); }}
+                overflowLabel={`More actions for ${album.title}`}
+                menuActions={buildAlbumOverflowActions(
+                    { isSaved, canDelete: canManageAlbum, canEdit: canManageAlbum, canClaim: canClaimMedia },
+                    {
+                        onViewSongs: () => { void openAlbumDetails(album); },
+                        onPlay: () => playAlbum(album, sourceLabel),
+                        onToggleSave: () => {
+                            if (isSaved) { void removeAlbumFromLibrary(album.id); return; }
+                            void saveAlbumToLibrary(album);
+                        },
+                        onOpenPlaylist: () => openAlbumPlaylistPicker(album),
+                        onToggleQueue: () => addAlbumToQueue(album),
+                        onShare: () => copyShareLink("album", album.id, album.title),
+                        onOpenComments: () => openComments("album", album),
+                        onReport: () => createModerationReport("album", album.id, album.title, "Community album report", album.creatorName, album.artistId || album.producerId),
+                        onClaim: () => createCopyrightClaim("album", album.id, album.title, album.creatorName),
+                        onEdit: canManageAlbum ? () => startEditingAlbum(album) : undefined,
+                        onDelete: canManageAlbum ? () => handlePermanentDelete(album) : undefined,
+                    },
+                )}
+            />
+        );
     }
     function saveArtistProfile(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -17062,7 +17245,16 @@ function PageContent() {
           </div>
 
           <div className="topbar-account-actions" role="toolbar" aria-label={t("nav.mainNavigation")}>
-            <NotificationCenterPanel
+            {displayMode === "list" && desktopListOverflow.open && desktopListOverflow.trigger ? (
+            <DesktopFloatingActionMenu
+                open={desktopListOverflow.open}
+                anchorEl={desktopListOverflow.trigger}
+                label={desktopListOverflow.meta ? `More actions for ${desktopListOverflow.meta.title}` : "More actions"}
+                actions={desktopListOverflow.actions}
+                onClose={() => setDesktopListOverflow({ open: false, meta: null, actions: [], trigger: null })}
+            />
+        ) : null}
+        <NotificationCenterPanel
               wrapRef={notificationWrapRef}
               open={showNotificationCenter}
               notifications={notifications}
@@ -17717,6 +17909,7 @@ function PageContent() {
             onStopRingtonePreview={stopRingtonePreviewPlayback}
             activeRingtonePreviewId={activeRingtonePreview?.id || null}
             ringtonePreviewPlaying={ringtonePreviewPlaying}
+            layout={displayMode}
           />
         ) : null}
 
@@ -17744,6 +17937,7 @@ function PageContent() {
             ringtonePreviewPlaying={ringtonePreviewPlaying}
             onRequireLogin={() => showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error")}
             onBrowseMarketplace={() => handleNav("Ringtone Marketplace")}
+            layout={displayMode}
           />
         ) : null}
 
@@ -19816,18 +20010,68 @@ function PageContent() {
                     <span>{playlists.length} playlists</span>
                   </div>
                   <div className="playlist-list">
-                    {playlists.map((playlist) => (<button key={playlist.id} className={activePlaylist?.id === playlist.id ? "playlist-tile media-card active" : "playlist-tile media-card"} onClick={() => {
-                        setActivePlaylistId(playlist.id);
-                        setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
-                    }}>
-                      <img src={playlist.cover || DEFAULT_PLAYLIST_COVER} alt=""/>
-                      <span>
-                        <strong>{playlist.name}</strong>
-                        <small>
-                          {getPlaylistSummary(playlist)}
-                        </small>
-                      </span>
-                    </button>))}
+                    {playlists.map((playlist) => (
+                      displayMode === "list" ? (
+                        <DesktopMediaListRow
+                          key={playlist.id}
+                          kind="playlist"
+                          className={activePlaylist?.id === playlist.id ? "active" : undefined}
+                          cover={playlist.cover || DEFAULT_PLAYLIST_COVER}
+                          title={playlist.name}
+                          secondary={getPlaylistSummary(playlist)}
+                          onPlay={() => {
+                            setActivePlaylistId(playlist.id);
+                            setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                          }}
+                          overflowLabel={`More actions for ${playlist.name}`}
+                          onOpenOverflow={openDesktopListOverflow(
+                            { kind: "playlist", id: playlist.id, title: playlist.name, subtitle: getPlaylistSummary(playlist), cover: playlist.cover || DEFAULT_PLAYLIST_COVER },
+                            buildPlaylistOverflowActions({
+                              onOpen: () => {
+                                setActivePlaylistId(playlist.id);
+                                setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                              },
+                              onPlay: () => {
+                                setActivePlaylistId(playlist.id);
+                                setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                              },
+                              onRename: () => renamePlaylist(playlist.id),
+                              onDelete: () => deletePlaylist(playlist.id),
+                            }),
+                          )}
+                        />
+                      ) : (
+                        <DesktopMediaGridCard
+                          key={playlist.id}
+                          kind="playlist"
+                          className={activePlaylist?.id === playlist.id ? "playlist-tile media-card active" : "playlist-tile media-card"}
+                          cover={playlist.cover || DEFAULT_PLAYLIST_COVER}
+                          title={playlist.name}
+                          secondary={getPlaylistSummary(playlist)}
+                          onPlay={() => {
+                            setActivePlaylistId(playlist.id);
+                            setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                          }}
+                          onOpen={() => {
+                            setActivePlaylistId(playlist.id);
+                            setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                          }}
+                          overflowLabel={`More actions for ${playlist.name}`}
+                          menuActions={buildPlaylistOverflowActions({
+                            onOpen: () => {
+                              setActivePlaylistId(playlist.id);
+                              setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                            },
+                            onPlay: () => {
+                              setActivePlaylistId(playlist.id);
+                              setPlaylistContentTab(playlist.playlistType === "video" ? "Videos" : "Songs");
+                            },
+                            onRename: () => renamePlaylist(playlist.id),
+                            onDelete: () => deletePlaylist(playlist.id),
+                          })}
+                        />
+                      )
+                    ))}
                   </div>
                 </aside>
 
@@ -19942,56 +20186,94 @@ function PageContent() {
                     {playlistContentTab === "Songs" ? (<div className="playlist-songs">
                       <h3>{activePlaylistSongs.length} Songs</h3>
 
-                      {activePlaylistSongs.length === 0 ? (<p className="empty-small">No songs in this playlist yet.</p>) : (activePlaylistSongs.map((song, index) => {
+                      {activePlaylistSongs.length === 0 ? (<p className="empty-small">No songs in this playlist yet.</p>) : (
+                      <div className="playlist-detail-grid desktop-media-grid">
+                      {activePlaylistSongs.map((song, index) => {
                         const producerCredit = getProducerCreditForSong(song);
                         const songMetadata = [song.category || song.type, song.time, producerCredit ? `Produced by ${producerCredit}` : ""].filter(Boolean).join(" | ");
-                        return (<div className="playlist-song-row playlist-track-row" key={song.id}>
-                            <div className="playlist-track-top">
-                              <span className="recent-number">{index + 1}</span>
-                              <div className="playlist-song-main">
-                                <img className="playlist-song-artwork" src={song.cover} alt=""/>
-                                <div className="playlist-track-info playlist-song-info">
-                                  <strong className="playlist-song-title">{song.title}</strong>
-                                  <small className="playlist-track-artist">
-                                    <ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>
-                                  </small>
-                                  {songMetadata && <small className="playlist-track-meta">{songMetadata}</small>}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="playlist-track-actions playlist-song-actions">
-                              <button className="playlist-track-button playlist-track-play" onClick={() => playSong(song)} title={`Play ${song.title}`}>
-                                <Play size={16} fill="currentColor"/>
-                                Play
-                              </button>
-                              {renderMobileSongQueueButton(song)}
-                              <button className="playlist-track-button playlist-track-remove" onClick={() => removeSongFromPlaylist(activePlaylist.id, song.id)} title="Remove from playlist">
-                                <X size={16}/>
-                                Remove
-                              </button>
-                            </div>
-                          </div>);
-                    }))}
+                        if (displayMode === "list") {
+                          return (
+                            <DesktopMediaListRow
+                              key={song.id}
+                              kind="song"
+                              leading={<span className="recent-number">{index + 1}</span>}
+                              cover={song.cover}
+                              title={song.title}
+                              secondary={<ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>}
+                              tertiary={songMetadata || undefined}
+                              onPlay={() => playSong(song)}
+                              overflowLabel={`More actions for ${song.title}`}
+                              onOpenOverflow={openDesktopListOverflow(
+                                { kind: "song", id: song.id, title: song.title, subtitle: song.artist, cover: song.cover },
+                                [
+                                  { id: "play", label: "Play", onClick: () => playSong(song) },
+                                  { id: "delete", label: "Remove from playlist", onClick: () => removeSongFromPlaylist(activePlaylist.id, song.id), destructive: true },
+                                ],
+                              )}
+                            />
+                          );
+                        }
+                        return (
+                          <DesktopMediaGridCard
+                            key={song.id}
+                            kind="song"
+                            cover={song.cover}
+                            badge={`#${index + 1}`}
+                            title={song.title}
+                            secondary={<ArtistNameButton name={song.artist} onOpen={openArtistProfile}/>}
+                            tertiary={songMetadata || undefined}
+                            onPlay={() => playSong(song)}
+                            overflowLabel={`More actions for ${song.title}`}
+                            menuActions={[
+                              { id: "play", label: "Play", onClick: () => playSong(song) },
+                              { id: "delete", label: "Remove from playlist", onClick: () => removeSongFromPlaylist(activePlaylist.id, song.id), destructive: true },
+                            ]}
+                          />
+                        );
+                    })}
+                    </div>)}
                     </div>) : (<div className="playlist-songs">
                       <h3>{activePlaylistVideos.length} Videos</h3>
 
-                      {activePlaylistVideos.length === 0 ? (<p className="empty-small">No videos in this playlist yet.</p>) : (activePlaylistVideos.map((video, index) => (<div className="playlist-song-row" key={video.id}>
-                            <span className="recent-number">{index + 1}</span>
-                            <img src={video.cover} alt=""/>
-                            <span>
-                              <strong>{video.title}</strong>
-                              <small>
-                                <ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>
-                              </small>
-                            </span>
-                            <button onClick={() => playVideoList(activePlaylistVideos, video)} title={`Play ${video.title}`} type="button">
-                              <Play size={16} fill="currentColor"/>
-                            </button>
-                            {renderMobileVideoQueueButton(video)}
-                            <button onClick={() => removeVideoFromPlaylist(activePlaylist.id, video.id)} title="Remove video from playlist" type="button">
-                              <X size={16}/>
-                            </button>
-                          </div>)))}
+                      {activePlaylistVideos.length === 0 ? (<p className="empty-small">No videos in this playlist yet.</p>) : (
+                      <div className="playlist-detail-grid desktop-media-grid">
+                      {activePlaylistVideos.map((video, index) => (
+                        displayMode === "list" ? (
+                          <DesktopMediaListRow
+                            key={video.id}
+                            kind="video"
+                            leading={<span className="recent-number">{index + 1}</span>}
+                            cover={video.cover}
+                            title={video.title}
+                            secondary={<ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>}
+                            onPlay={() => playVideoList(activePlaylistVideos, video)}
+                            overflowLabel={`More actions for ${video.title}`}
+                            onOpenOverflow={openDesktopListOverflow(
+                              { kind: "video", id: video.id, title: video.title, subtitle: video.creator, cover: video.cover },
+                              [
+                                { id: "play", label: "Play", onClick: () => playVideoList(activePlaylistVideos, video) },
+                                { id: "delete", label: "Remove from playlist", onClick: () => removeVideoFromPlaylist(activePlaylist.id, video.id), destructive: true },
+                              ],
+                            )}
+                          />
+                        ) : (
+                          <DesktopMediaGridCard
+                            key={video.id}
+                            kind="video"
+                            cover={video.cover}
+                            badge={`#${index + 1}`}
+                            title={video.title}
+                            secondary={<ArtistNameButton name={video.creator} onOpen={openArtistProfile}/>}
+                            onPlay={() => playVideoList(activePlaylistVideos, video)}
+                            overflowLabel={`More actions for ${video.title}`}
+                            menuActions={[
+                              { id: "play", label: "Play", onClick: () => playVideoList(activePlaylistVideos, video) },
+                              { id: "delete", label: "Remove from playlist", onClick: () => removeVideoFromPlaylist(activePlaylist.id, video.id), destructive: true },
+                            ]}
+                          />
+                        )
+                      ))}
+                      </div>)}
                     </div>)}
                   </section>)}
               </div>)}
@@ -20009,43 +20291,50 @@ function PageContent() {
                 const artist = item.artist || item.artistName;
                 const canMoveUp = index > 0;
                 const canMoveDown = index >= 0 && index < mediaQueueItems.length - 1;
-                return (<article className="queue-manage-row" key={`${item.mediaType}-${item.id}`}>
-                    <span className="recent-number">{index + 1}</span>
-                    <img src={thumbnail} alt=""/>
-                    <div className="recent-copy">
-                      <h3>{item.title}</h3>
-                      <p>{artist}</p>
-                      <small>{item.mediaType === "song" ? "Song" : "Video"}{item.duration != null ? ` | ${formatDurationLabel(item.duration)}` : ""}</small>
-                    </div>
-                    <div className="queue-manage-actions" role="group" aria-label={`Queue controls for ${item.title}`}>
-                      <button onClick={() => playQueuedMediaItem(item)} type="button" title={`Play ${item.title}`}>
-                        <Play size={16} fill="currentColor"/>
-                        Play
-                      </button>
-                      <button onClick={() => removeMediaFromQueue(item.mediaType, item.id)} type="button" title="Remove">
-                        <X size={16}/>
-                        Remove
-                      </button>
-                      <button
-                        onClick={() => moveSharedQueueItem(item.mediaType, item.id, -1)}
-                        disabled={!canMoveUp}
-                        aria-disabled={!canMoveUp}
-                        type="button"
-                        title={canMoveUp ? "Move up" : "Already at the top"}
-                      >
-                        Up
-                      </button>
-                      <button
-                        onClick={() => moveSharedQueueItem(item.mediaType, item.id, 1)}
-                        disabled={!canMoveDown}
-                        aria-disabled={!canMoveDown}
-                        type="button"
-                        title={canMoveDown ? "Move down" : "Already at the bottom"}
-                      >
-                        Down
-                      </button>
-                    </div>
-                  </article>);
+                if (displayMode === "list") {
+                    return (
+                        <DesktopMediaListRow
+                            key={`${item.mediaType}-${item.id}`}
+                            kind={item.mediaType}
+                            leading={<span className="recent-number">{index + 1}</span>}
+                            cover={thumbnail}
+                            title={item.title}
+                            secondary={artist}
+                            tertiary={`${item.mediaType === "song" ? "Song" : "Video"}${item.duration != null ? ` · ${formatDurationLabel(item.duration)}` : ""}`}
+                            onPlay={() => playQueuedMediaItem(item)}
+                            overflowLabel={`More actions for ${item.title}`}
+                            onOpenOverflow={openDesktopListOverflow(
+                                { kind: item.mediaType, id: item.id, title: item.title, subtitle: artist || "", cover: thumbnail },
+                                [
+                                    { id: "play", label: "Play", onClick: () => playQueuedMediaItem(item) },
+                                    { id: "remove-queue", label: "Remove", onClick: () => removeMediaFromQueue(item.mediaType, item.id), destructive: true },
+                                    ...(canMoveUp ? [{ id: "details" as const, label: "Move up", onClick: () => moveSharedQueueItem(item.mediaType, item.id, -1) }] : []),
+                                    ...(canMoveDown ? [{ id: "details" as const, label: "Move down", onClick: () => moveSharedQueueItem(item.mediaType, item.id, 1) }] : []),
+                                ],
+                            )}
+                        />
+                    );
+                }
+                return (
+                    <DesktopMediaGridCard
+                        key={`${item.mediaType}-${item.id}`}
+                        kind="queue"
+                        className="queue-manage-row"
+                        cover={thumbnail}
+                        badge={`#${index + 1}`}
+                        title={item.title}
+                        secondary={artist || ""}
+                        tertiary={`${item.mediaType === "song" ? "Song" : "Video"}${item.duration != null ? ` · ${formatDurationLabel(item.duration)}` : ""}`}
+                        onPlay={() => playQueuedMediaItem(item)}
+                        overflowLabel={`More actions for ${item.title}`}
+                        menuActions={[
+                            { id: "play", label: "Play", onClick: () => playQueuedMediaItem(item) },
+                            { id: "remove-queue", label: "Remove", onClick: () => removeMediaFromQueue(item.mediaType, item.id), destructive: true },
+                            ...(canMoveUp ? [{ id: "details" as const, label: "Move up", onClick: () => moveSharedQueueItem(item.mediaType, item.id, -1) }] : []),
+                            ...(canMoveDown ? [{ id: "details" as const, label: "Move down", onClick: () => moveSharedQueueItem(item.mediaType, item.id, 1) }] : []),
+                        ]}
+                    />
+                );
             };
             return (<section className="queue-page">
             <div className="queue-toolbar">
@@ -20113,55 +20402,63 @@ function PageContent() {
                     const creator = itemType === "video" ? entry.video?.creator : itemType === "album" ? entry.album?.creatorName : entry.song?.artist;
                     const cover = itemType === "video" ? entry.video?.cover : itemType === "album" ? entry.album?.cover : entry.song?.cover;
                     const resumeLabel = entry.position && entry.position > 0 ? `Resume ${formatRuntimeLabel(entry.position)}` : "Play";
-                    return (<article className="recent-row" key={entry.playId}>
-                      <div className="recent-card-header">
-                        <span className="recent-number">{index + 1}</span>
-                        <img className="recent-art" src={cover || BRAND_LOGO} alt="" width={112} height={112}/>
-                        <div className="recent-copy">
-                          <h3>{title}</h3>
-                          <p>{creator}</p>
-                          <small>{itemType} | {formatRuntimeLabel(entry.position || 0)} / {formatRuntimeLabel(entry.duration || 0)}</small>
-                          <span className="recent-time">{formatPlayedAt(entry.playedAt)}</span>
-                        </div>
-                      </div>
-                      <div className="recent-actions">
-                        <button onClick={() => resumeRecentPlay(entry)} title={`${resumeLabel} ${title || ""}`} type="button">
-                          <Play size={17} fill="currentColor"/>
-                          <span>{resumeLabel}</span>
-                        </button>
-                        <button
-                          onClick={() => removeRecentlyPlayedEntry(entry)}
-                          title={t("dashboard.recentlyPlayed.removeOne")}
-                          type="button"
-                        >
-                          <Trash2 size={16}/>
-                          <span>{t("dashboard.recentlyPlayed.removeOne")}</span>
-                        </button>
-                        {itemType === "album" && entry.album ? (() => {
-                            const recentAlbum = normalizeAlbumRecord(entry.album);
-                            const isAlbumSaved = savedAlbumIds.includes(recentAlbum.id);
-                            return (
-                              <button
-                                className={isAlbumSaved ? "saved" : ""}
-                                data-recent-album-save="true"
-                                onClick={() => {
-                                    if (isAlbumSaved) {
-                                        void removeAlbumFromLibrary(recentAlbum.id);
-                                        return;
-                                    }
-                                    void saveAlbumToLibrary(recentAlbum);
-                                }}
-                                title={isAlbumSaved ? "Saved" : "Save Album"}
-                                type="button"
-                              >
-                                {isAlbumSaved ? <Check size={16}/> : <Plus size={16}/>}
-                                <span>{isAlbumSaved ? "Saved" : "Save Album"}</span>
-                              </button>
-                            );
-                        })() : null}
-                        {itemType === "song" && entry.song ? renderMobileSongQueueButton(entry.song) : itemType === "video" && entry.video ? renderMobileVideoQueueButton(entry.video) : itemType === "album" && entry.album ? renderMobileAlbumQueueButton(entry.album) : null}
-                      </div>
-                    </article>);
+                    if (displayMode === "list") {
+                        return (
+                            <DesktopMediaListRow
+                                key={entry.playId}
+                                kind={itemType}
+                                leading={<span className="recent-number">{index + 1}</span>}
+                                cover={cover || BRAND_LOGO}
+                                title={title || "Untitled"}
+                                secondary={creator || ""}
+                                tertiary={`${itemType} · ${formatRuntimeLabel(entry.position || 0)} / ${formatRuntimeLabel(entry.duration || 0)}`}
+                                onPlay={() => resumeRecentPlay(entry)}
+                                overflowLabel={`More actions for ${title || "item"}`}
+                                onOpenOverflow={openDesktopListOverflow(
+                                    { kind: itemType === "video" ? "video" : itemType === "album" ? "album" : "song", id: String(entry.playId), title: title || "Untitled", subtitle: creator || "", cover: cover || BRAND_LOGO },
+                                    [
+                                        { id: "play", label: resumeLabel, onClick: () => resumeRecentPlay(entry) },
+                                        { id: "delete", label: t("dashboard.recentlyPlayed.removeOne"), onClick: () => removeRecentlyPlayedEntry(entry), destructive: true },
+                                    ],
+                                )}
+                            />
+                        );
+                    }
+                    return (
+                        <DesktopMediaGridCard
+                            key={entry.playId}
+                            kind="recent"
+                            className="recent-row"
+                            cover={cover || BRAND_LOGO}
+                            badge={`#${index + 1}`}
+                            title={title || "Untitled"}
+                            secondary={creator || ""}
+                            tertiary={`${itemType} · ${formatRuntimeLabel(entry.position || 0)} / ${formatRuntimeLabel(entry.duration || 0)} · ${formatPlayedAt(entry.playedAt)}`}
+                            onPlay={() => resumeRecentPlay(entry)}
+                            overflowLabel={`More actions for ${title || "item"}`}
+                            menuActions={[
+                                { id: "play", label: resumeLabel, onClick: () => resumeRecentPlay(entry) },
+                                ...(itemType === "album" && entry.album
+                                    ? (() => {
+                                        const recentAlbum = normalizeAlbumRecord(entry.album);
+                                        const isAlbumSaved = savedAlbumIds.includes(recentAlbum.id);
+                                        return [{
+                                            id: isAlbumSaved ? "unsave" as const : "save" as const,
+                                            label: isAlbumSaved ? "Remove from Library" : "Add to Library",
+                                            onClick: () => {
+                                                if (isAlbumSaved) {
+                                                    void removeAlbumFromLibrary(recentAlbum.id);
+                                                    return;
+                                                }
+                                                void saveAlbumToLibrary(recentAlbum);
+                                            },
+                                        }];
+                                    })()
+                                    : []),
+                                { id: "delete", label: t("dashboard.recentlyPlayed.removeOne"), onClick: () => removeRecentlyPlayedEntry(entry), destructive: true },
+                            ]}
+                        />
+                    );
                 })}
                 </section>)}
             </section>)) : view === "Library" && !search.trim() ? (<section className="liked-page">
@@ -20186,7 +20483,9 @@ function PageContent() {
                       <span>{libraryContentSongs.length} tracks</span>
                     </div>
 
-                    {libraryContentSongs.length === 0 ? (<p className="empty-small">No songs available yet.</p>) : (<DesktopLibraryCardRail className="song-grid" label="Library Songs">
+                    {libraryContentSongs.length === 0 ? (<p className="empty-small">No songs available yet.</p>) : displayMode === "list" ? (<DesktopMediaList label="Library Songs">
+                        {libraryContentSongs.map((song) => renderDesktopSongCard(song, { variant: "library" }))}
+                      </DesktopMediaList>) : (<DesktopLibraryCardRail className="song-grid" label="Library Songs">
                         {libraryContentSongs.map((song) => renderDesktopSongCard(song, { variant: "library" }))}
                       </DesktopLibraryCardRail>)}
                   </section>)}
@@ -20197,7 +20496,9 @@ function PageContent() {
                       <span>{libraryContentVideos.length} videos</span>
                     </div>
 
-                    {libraryContentVideos.length === 0 ? (<p className="empty-small">No videos available yet.</p>) : (<DesktopLibraryCardRail className="video-grid" label="Library Videos">
+                    {libraryContentVideos.length === 0 ? (<p className="empty-small">No videos available yet.</p>) : displayMode === "list" ? (<DesktopMediaList label="Library Videos">
+                        {libraryContentVideos.map((video) => renderVideoCard(video, { isLibraryCard: true, sourceLabel: "Library Videos" }))}
+                      </DesktopMediaList>) : (<DesktopLibraryCardRail className="video-grid" label="Library Videos">
                         {libraryContentVideos.map((video) => renderVideoCard(video, { isLibraryCard: true, sourceLabel: "Library Videos" }))}
                       </DesktopLibraryCardRail>)}
                   </section>)}
@@ -20208,7 +20509,9 @@ function PageContent() {
                       <span>{libraryAlbums.length} albums</span>
                     </div>
 
-                    {libraryAlbums.length === 0 ? (<p className="empty-small">No saved albums yet.</p>) : (<DesktopLibraryCardRail className="artist-album-grid" label="Library Albums">
+                    {libraryAlbums.length === 0 ? (<p className="empty-small">No saved albums yet.</p>) : displayMode === "list" ? (<DesktopMediaList label="Library Albums">
+                        {libraryAlbums.map((album) => renderAlbumCard(album, "Library Albums"))}
+                      </DesktopMediaList>) : (<DesktopLibraryCardRail className="artist-album-grid" label="Library Albums">
                         {libraryAlbums.map((album) => renderAlbumCard(album, "Library Albums"))}
                       </DesktopLibraryCardRail>)}
                   </section>)}
@@ -20230,7 +20533,9 @@ function PageContent() {
                       <span>{likedSongs.length} songs</span>
                     </div>
 
-                    {likedSongs.length === 0 ? (<p className="empty-small">No liked songs yet.</p>) : (<DesktopHorizontalRail className="song-grid" label="Liked Songs">
+                    {likedSongs.length === 0 ? (<p className="empty-small">No liked songs yet.</p>) : displayMode === "list" ? (<DesktopMediaList label="Liked Songs">
+                        {likedSongs.map((song) => renderDesktopSongCard(song))}
+                      </DesktopMediaList>) : (<DesktopHorizontalRail className="song-grid" label="Liked Songs">
                         {likedSongs.map((song) => renderDesktopSongCard(song))}
                       </DesktopHorizontalRail>)}
                   </section>)}
@@ -20241,7 +20546,9 @@ function PageContent() {
                       <span>{likedVideos.length} videos</span>
                     </div>
 
-                    {likedVideos.length === 0 ? (<p className="empty-small">No liked videos yet.</p>) : (<DesktopHorizontalRail className="video-grid" label="Liked Videos">
+                    {likedVideos.length === 0 ? (<p className="empty-small">No liked videos yet.</p>) : displayMode === "list" ? (<DesktopMediaList label="Liked Videos">
+                        {likedVideos.map((video) => renderVideoCard(video, { unlikeLabel: "Liked", sourceLabel: "Liked Videos" }))}
+                      </DesktopMediaList>) : (<DesktopHorizontalRail className="video-grid" label="Liked Videos">
                         {likedVideos.map((video) => renderVideoCard(video, { unlikeLabel: "Liked", sourceLabel: "Liked Videos" }))}
                       </DesktopHorizontalRail>)}
                   </section>)}
@@ -20463,6 +20770,98 @@ function PageContent() {
             </div>
           </section>
         </div>)}
+
+      {albumDetailsTarget ? (() => {
+        const detailAlbum = albumDetailsTarget;
+        const detailSongCount = detailAlbum.songs.length;
+        const detailVideoCount = detailAlbum.videos.length;
+        const detailTracks: Array<{ key: string; type: "song" | "video"; title: string; subtitle: string; play: () => void }> = [
+          ...detailAlbum.songs.map((song) => ({
+            key: `song-${song.id}`,
+            type: "song" as const,
+            title: song.title,
+            subtitle: song.artist || detailAlbum.creatorName,
+            play: () => playSong(song),
+          })),
+          ...detailAlbum.videos.map((video) => ({
+            key: `video-${video.id}`,
+            type: "video" as const,
+            title: video.title,
+            subtitle: video.creator || detailAlbum.creatorName,
+            play: () => playVideo(normalizeVideoForPlayback(video), `${detailAlbum.title} Album`),
+          })),
+        ];
+        return (
+          <div
+            className="modal-backdrop album-details-backdrop"
+            role="presentation"
+            onClick={closeAlbumDetails}
+          >
+            <section
+              className="album-details-modal"
+              aria-label={`${detailAlbum.title} album songs`}
+              role="dialog"
+              aria-modal="true"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="playlist-modal-head album-details-head">
+                <div className="album-details-hero">
+                  <img src={getAlbumDisplayCover(detailAlbum)} alt="" />
+                  <div>
+                    <span className="playlist-kicker">Album</span>
+                    <h3>{detailAlbum.title}</h3>
+                    <p>{detailAlbum.creatorName}</p>
+                    <small>
+                      {detailSongCount} song{detailSongCount === 1 ? "" : "s"}
+                      {detailVideoCount > 0 ? ` · ${detailVideoCount} video${detailVideoCount === 1 ? "" : "s"}` : ""}
+                    </small>
+                  </div>
+                </div>
+                <button className="icon-action" onClick={closeAlbumDetails} title="Close" type="button">
+                  <X size={17}/>
+                </button>
+              </div>
+
+              <div className="album-details-actions">
+                <button
+                  type="button"
+                  onClick={() => { void playAlbum(detailAlbum, "Album Details"); }}
+                  disabled={detailTracks.length === 0}
+                >
+                  <Play size={15} fill="currentColor"/>
+                  Play Album
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addAlbumToQueue(detailAlbum)}
+                  disabled={detailTracks.length === 0}
+                >
+                  <ListMusic size={15}/>
+                  Add Album to Queue
+                </button>
+              </div>
+
+              <div className="album-details-track-list" role="list" aria-label={`${detailAlbum.title} tracks`}>
+                {detailTracks.length === 0 ? (
+                  <p className="album-details-empty">This album has no songs yet.</p>
+                ) : detailTracks.map((track, index) => (
+                  <div className="album-details-track" key={track.key} role="listitem">
+                    <span className="album-details-track-index">{index + 1}</span>
+                    <div className="album-details-track-copy">
+                      <strong>{track.title}</strong>
+                      <small>{track.subtitle}{track.type === "video" ? " · Video" : ""}</small>
+                    </div>
+                    <button type="button" aria-label={`Play ${track.title}`} onClick={track.play}>
+                      <Play size={14} fill="currentColor"/>
+                      Play
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        );
+      })() : null}
 
       {showSaveQueuePlaylistDialog ? (() => {
         const selectedPlaylist = playlists.find((playlist) => playlist.id === saveQueueSelectedPlaylistId) || null;
@@ -23766,9 +24165,9 @@ function PageContent() {
           }
 
           /*
-            Home recommendation cards — clean equal-height layout (desktop).
-            Scoped to Home discovery + Home media grids only; does not alter Library
-            carousel rails, player, topbar, or mobile discovery overrides.
+            Home Grid View — compact 150–180px cards (auto-fill, left-aligned).
+            List View rules below are untouched. Legacy discovery-card geometry
+            excludes [data-desktop-media-grid-card] so shared grid cards stay square.
           */
           @media (min-width: 821px) {
             .zml-app.view-grid[data-active-view="Home"] .discovery-section .home-discovery-grid,
@@ -23777,10 +24176,11 @@ function PageContent() {
               width: 100% !important;
               min-width: 0 !important;
               grid-auto-flow: row !important;
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-              gap: 12px !important;
+              grid-template-columns: repeat(auto-fill, var(--dmg-card-w, 168px)) !important;
+              gap: 8px !important;
+              justify-content: start !important;
               align-items: start !important;
-              grid-auto-rows: 220px !important;
+              grid-auto-rows: auto !important;
               overflow: visible !important;
             }
 
@@ -23800,12 +24200,14 @@ function PageContent() {
               width: 100% !important;
               grid-auto-flow: row !important;
               grid-auto-columns: unset !important;
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-              gap: 12px !important;
+              grid-template-columns: repeat(auto-fill, var(--dmg-card-w, 168px)) !important;
+              gap: 8px !important;
+              justify-content: start !important;
+              align-items: start !important;
               overflow: visible !important;
             }
 
-            .zml-app[data-active-view="Home"] .discovery-section .discovery-grid > .discovery-card {
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-grid > .discovery-card:not([data-desktop-media-grid-card="true"]) {
               width: 100% !important;
               max-width: none !important;
               height: 220px !important;
@@ -23820,20 +24222,20 @@ function PageContent() {
               overflow: hidden !important;
             }
 
-            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-main {
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-grid-card="true"]) .discovery-card-main {
               height: 96px !important;
               min-height: 96px !important;
               max-height: 96px !important;
               width: 100% !important;
             }
 
-            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-main img {
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-grid-card="true"]) .discovery-card-main img {
               width: 100% !important;
               height: 100% !important;
               object-fit: cover !important;
             }
 
-            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-copy {
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-grid-card="true"]) .discovery-card-copy {
               min-height: 0 !important;
               overflow: hidden !important;
               display: grid !important;
@@ -23842,7 +24244,7 @@ function PageContent() {
               gap: 3px !important;
             }
 
-            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-copy strong {
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-grid-card="true"]) .discovery-card-copy strong {
               min-height: 34px !important;
               max-height: 34px !important;
               font-size: 14px !important;
@@ -23855,8 +24257,8 @@ function PageContent() {
               white-space: normal !important;
             }
 
-            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-copy small,
-            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-copy em {
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-grid-card="true"]) .discovery-card-copy small,
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-grid-card="true"]) .discovery-card-copy em {
               min-height: 16px !important;
               max-height: 16px !important;
               line-height: 16px !important;
@@ -23865,7 +24267,7 @@ function PageContent() {
               text-overflow: ellipsis !important;
             }
 
-            .zml-app[data-active-view="Home"] .discovery-section .discovery-card-action {
+            .zml-app[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-grid-card="true"]) .discovery-card-action {
               height: 34px !important;
               min-height: 34px !important;
               max-height: 34px !important;
@@ -23877,12 +24279,12 @@ function PageContent() {
               display: grid !important;
               grid-auto-flow: row !important;
               grid-template-columns: 1fr !important;
-              grid-auto-rows: 92px !important;
-              gap: 10px !important;
+              grid-auto-rows: auto !important;
+              gap: 6px !important;
               overflow: visible !important;
             }
 
-            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-grid > .discovery-card {
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-grid > .discovery-card:not([data-desktop-media-list-row]) {
               width: 100% !important;
               max-width: none !important;
               height: 92px !important;
@@ -23895,7 +24297,7 @@ function PageContent() {
               align-items: stretch !important;
             }
 
-            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card-main {
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-list-row]) .discovery-card-main {
               height: 92px !important;
               min-height: 92px !important;
               max-height: 92px !important;
@@ -23903,13 +24305,13 @@ function PageContent() {
               border-radius: 8px 0 0 8px !important;
             }
 
-            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card-copy {
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-list-row]) .discovery-card-copy {
               grid-template-rows: 20px 16px 16px !important;
               align-content: center !important;
               padding: 0 4px !important;
             }
 
-            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card-copy strong {
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-list-row]) .discovery-card-copy strong {
               min-height: 20px !important;
               max-height: 20px !important;
               -webkit-line-clamp: 1 !important;
@@ -23917,7 +24319,7 @@ function PageContent() {
               line-height: 20px !important;
             }
 
-            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card-action {
+            .zml-app.view-list[data-active-view="Home"] .discovery-section .discovery-card:not([data-desktop-media-list-row]) .discovery-card-action {
               align-self: center !important;
               width: calc(100% - 12px) !important;
               margin-right: 10px !important;
@@ -23925,13 +24327,15 @@ function PageContent() {
             }
           }
 
+          /* Home Grid stays auto-fill 150–180px at all desktop widths (no 1fr stretch). */
           @media (min-width: 1100px) {
             .zml-app.view-grid[data-active-view="Home"] .discovery-section .home-discovery-grid,
             .zml-app.view-grid[data-active-view="Home"] .discovery-section .discovery-grid,
             .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.song-grid,
             .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.video-grid,
             .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.artist-album-grid {
-              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              grid-template-columns: repeat(auto-fill, var(--dmg-card-w, 168px)) !important;
+              justify-content: start !important;
             }
           }
 
@@ -23941,7 +24345,8 @@ function PageContent() {
             .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.song-grid,
             .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.video-grid,
             .zml-app.view-grid[data-active-view="Home"] .artist-section:not(.discovery-section) .horizontal-rail-track.artist-album-grid {
-              grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+              grid-template-columns: repeat(auto-fill, var(--dmg-card-w, 168px)) !important;
+              justify-content: start !important;
             }
           }
 
@@ -24584,64 +24989,67 @@ function PageContent() {
             overflow: visible;
           }
 
-          .view-list .song-card,
-          .view-list .video-card {
+          .view-list .song-card:not([data-desktop-media-list-row]),
+          .view-list .video-card:not([data-desktop-media-list-row]) {
             height: auto;
             min-height: 92px;
             grid-template-columns: 116px minmax(0, 1fr);
             grid-template-rows: 1fr;
           }
 
-          .view-list .cover-wrap,
-          .view-list .video-cover-wrap,
-          .view-list .video-cover,
-          .view-list .song-card .cover {
+          .view-list .song-card:not([data-desktop-media-list-row]) .cover-wrap,
+          .view-list .video-card:not([data-desktop-media-list-row]) .video-cover-wrap,
+          .view-list .video-card:not([data-desktop-media-list-row]) .video-cover,
+          .view-list .song-card:not([data-desktop-media-list-row]) .cover {
             height: 92px;
             min-height: 92px;
           }
 
-          .view-list .song-body,
-          .view-list .video-card-body {
+          .view-list .song-card:not([data-desktop-media-list-row]) .song-body,
+          .view-list .video-card:not([data-desktop-media-list-row]) .video-card-body {
             grid-template-rows: auto auto auto auto;
             min-height: 92px;
             padding: 8px 10px;
           }
 
-          .view-list .song-head {
+          .view-list .song-card:not([data-desktop-media-list-row]) .song-head {
             grid-template-columns: 0 minmax(0, 1fr);
             gap: 0;
           }
 
-          .view-list .song-head img {
+          .view-list .song-card:not([data-desktop-media-list-row]) .song-head img {
             display: none;
           }
 
-          .view-list .song-head h3,
-          .view-list .video-card-body h3 {
+          .view-list .song-card:not([data-desktop-media-list-row]) .song-head h3,
+          .view-list .video-card:not([data-desktop-media-list-row]) .video-card-body h3 {
             min-height: 0;
             max-height: none;
             font-size: 15px;
             -webkit-line-clamp: 1;
           }
 
-          .view-list .stats {
+          .view-list .song-card:not([data-desktop-media-list-row]) .stats,
+          .view-list .video-card:not([data-desktop-media-list-row]) .stats {
             display: flex;
             flex-wrap: nowrap;
             overflow: hidden;
           }
 
-          .view-list .stats span {
+          .view-list .song-card:not([data-desktop-media-list-row]) .stats span,
+          .view-list .video-card:not([data-desktop-media-list-row]) .stats span {
             min-width: max-content;
           }
 
-          .view-list .card-actions {
+          .view-list .song-card:not([data-desktop-media-list-row]) .card-actions,
+          .view-list .video-card:not([data-desktop-media-list-row]) .card-actions {
             grid-template-columns: repeat(5, minmax(74px, 1fr));
             grid-auto-rows: minmax(31px, 1fr);
           }
 
-          .view-list .video-card .card-actions,
-          .view-list .video-card-body .card-actions,
-          .view-list .library-card.video-card .card-actions {
+          .view-list .video-card:not([data-desktop-media-list-row]) .card-actions,
+          .view-list .video-card:not([data-desktop-media-list-row]) .video-card-body .card-actions,
+          .view-list .library-card.video-card:not([data-desktop-media-list-row]) .card-actions {
             display: flex;
             flex-wrap: wrap;
             height: auto;
@@ -24649,63 +25057,66 @@ function PageContent() {
             overflow: visible;
           }
 
-          .view-list .card-actions .playlist-btn {
+          .view-list .song-card:not([data-desktop-media-list-row]) .card-actions .playlist-btn,
+          .view-list .video-card:not([data-desktop-media-list-row]) .card-actions .playlist-btn {
             grid-column: auto;
           }
 
-          .view-list .card-secondary-actions {
+          .view-list .song-card:not([data-desktop-media-list-row]) .card-secondary-actions,
+          .view-list .video-card:not([data-desktop-media-list-row]) .card-secondary-actions {
             grid-template-columns: repeat(2, minmax(92px, 140px));
             justify-content: start;
           }
 
-          .view-list .card-secondary-actions button {
+          .view-list .song-card:not([data-desktop-media-list-row]) .card-secondary-actions button,
+          .view-list .video-card:not([data-desktop-media-list-row]) .card-secondary-actions button {
             justify-content: center;
           }
 
-          .view-list .artist-album-card,
-          .view-list .artist-card,
-          .view-list .discovery-card,
-          .view-list .artist-playlist-card,
-          .view-list .playlist-tile {
+          .view-list .artist-album-card:not([data-desktop-media-list-row]),
+          .view-list .artist-card:not([data-desktop-media-list-row]),
+          .view-list .discovery-card:not([data-desktop-media-list-row]),
+          .view-list .artist-playlist-card:not([data-desktop-media-list-row]),
+          .view-list .playlist-tile:not([data-desktop-media-list-row]) {
             min-height: 92px;
           }
 
-          .view-list .discovery-card {
+          .view-list .discovery-card:not([data-desktop-media-list-row]) {
             height: auto;
             grid-template-columns: 116px minmax(0, 1fr) minmax(100px, 150px);
             grid-template-rows: 92px;
             align-items: stretch;
           }
 
-          .view-list .discovery-card-copy {
+          .view-list .discovery-card:not([data-desktop-media-list-row]) .discovery-card-copy {
             align-content: center;
           }
 
-          .view-list .discovery-card-action {
+          .view-list .discovery-card:not([data-desktop-media-list-row]) .discovery-card-action {
             align-self: center;
           }
 
-          .view-list .artist-album-card,
-          .view-list .artist-playlist-card {
+          .view-list .artist-album-card:not([data-desktop-media-list-row]),
+          .view-list .artist-playlist-card:not([data-desktop-media-list-row]) {
             display: grid;
             grid-template-columns: 116px minmax(0, 1fr);
             align-items: start;
             gap: 10px;
           }
 
-          .view-list .artist-album-card {
+          .view-list .artist-album-card:not([data-desktop-media-list-row]) {
             grid-template-rows: auto;
           }
 
-          .view-list .artist-album-card > img,
-          .view-list .artist-playlist-card > img {
+          .view-list .artist-album-card:not([data-desktop-media-list-row]) > img,
+          .view-list .artist-playlist-card:not([data-desktop-media-list-row]) > img {
             grid-row: 1 / span 2;
             aspect-ratio: 1;
             max-height: 116px;
             margin-bottom: 0;
           }
 
-          .view-list .artist-album-card .artist-album-actions {
+          .view-list .artist-album-card:not([data-desktop-media-list-row]) .artist-album-actions {
             grid-column: 2;
           }
 
@@ -25120,6 +25531,29 @@ function PageContent() {
           .playlist-sidebar .playlist-tile {
             max-width: none;
             justify-self: stretch;
+          }
+
+          /* Playlists Grid only — pack compact 168px tracks left-aligned.
+             Do not stretch 1fr columns (that was spreading cards ~100px+ apart).
+             List View and other pages keep the rules above untouched. */
+          .zml-app.view-grid .playlist-workspace .playlist-sidebar .playlist-list,
+          .zml-app.view-grid .playlist-workspace .playlist-list {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, var(--dmg-card-w, 168px)) !important;
+            grid-auto-rows: auto !important;
+            justify-content: start !important;
+            align-items: start !important;
+            gap: 16px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+          }
+
+          .zml-app.view-grid .playlist-workspace .playlist-sidebar .playlist-tile,
+          .zml-app.view-grid .playlist-workspace .playlist-tile {
+            max-width: var(--dmg-card-w, 168px) !important;
+            justify-self: start !important;
           }
 
           .playlist-sidebar .playlist-tile img {
@@ -28874,6 +29308,166 @@ function PageContent() {
             place-items: center;
             padding: 18px;
             background: rgba(2, 6, 23, 0.72);
+          }
+
+          .modal-backdrop.album-details-backdrop {
+            z-index: 90;
+            padding:
+              max(18px, env(safe-area-inset-top, 0px))
+              max(18px, env(safe-area-inset-right, 0px))
+              max(18px, calc(var(--global-player-height, 90px) + 18px))
+              max(18px, env(safe-area-inset-left, 0px));
+            align-items: center;
+            justify-items: center;
+            overflow: auto;
+          }
+
+          .album-details-modal {
+            width: min(560px, 100%);
+            max-height: min(720px, calc(100vh - var(--global-player-height, 90px) - 48px));
+            border: 1px solid rgba(34, 211, 238, 0.45);
+            border-radius: 8px;
+            background: #0b1736;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+            padding: 14px;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr);
+            gap: 12px;
+            overflow: hidden;
+            min-width: 0;
+            box-sizing: border-box;
+          }
+
+          .album-details-hero {
+            display: grid;
+            grid-template-columns: 88px minmax(0, 1fr);
+            gap: 12px;
+            align-items: center;
+            min-width: 0;
+          }
+
+          .album-details-hero img {
+            width: 88px;
+            height: 88px;
+            border-radius: 8px;
+            object-fit: cover;
+          }
+
+          .album-details-hero h3 {
+            margin: 4px 0 0;
+            font-size: 20px;
+            line-height: 1.15;
+            overflow-wrap: anywhere;
+          }
+
+          .album-details-hero p,
+          .album-details-hero small {
+            margin: 4px 0 0;
+            color: #9bdcf0;
+          }
+
+          .album-details-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .album-details-actions button {
+            min-height: 36px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 12px;
+          }
+
+          .album-details-actions button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+          }
+
+          .album-details-track-list {
+            min-height: 0;
+            overflow: auto;
+            display: grid;
+            gap: 6px;
+            padding-right: 2px;
+          }
+
+          .album-details-empty {
+            margin: 0;
+            color: #9bdcf0;
+          }
+
+          .album-details-track {
+            display: grid;
+            grid-template-columns: 28px minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+            padding: 8px 10px;
+            border: 1px solid rgba(0, 212, 255, 0.18);
+            border-radius: 8px;
+            background: #10204a;
+            min-width: 0;
+          }
+
+          .album-details-track-index {
+            color: #9bdcf0;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+          }
+
+          .album-details-track-copy {
+            min-width: 0;
+          }
+
+          .album-details-track-copy strong,
+          .album-details-track-copy small {
+            display: block;
+            margin: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .album-details-track-copy small {
+            color: #9bdcf0;
+            font-size: 11px;
+          }
+
+          .album-details-track > button {
+            min-height: 32px;
+            border: 0;
+            border-radius: 8px;
+            background: #22d3ee;
+            color: #020617;
+            font-size: 12px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0 10px;
+            white-space: nowrap;
+          }
+
+          .album-open-title {
+            appearance: none;
+            background: transparent;
+            border: 0;
+            padding: 0;
+            margin: 0;
+            color: inherit;
+            font: inherit;
+            font-weight: inherit;
+            text-align: left;
+            cursor: pointer;
+            max-width: 100%;
           }
 
           .playlist-modal {
