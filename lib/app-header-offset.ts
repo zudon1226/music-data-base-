@@ -21,7 +21,9 @@ export const APP_HEADER_OFFSET_CSS = `
     scroll-padding-top: var(${APP_HEADER_OFFSET_VAR}, 0px);
   }
 
-  ${MAIN_SCROLL_CONTAINER_SELECTOR} > .topbar {
+  ${MAIN_SCROLL_CONTAINER_SELECTOR} > .topbar,
+  ${MAIN_SCROLL_CONTAINER_SELECTOR} > .mobile-app-chrome > .topbar,
+  ${MAIN_SCROLL_CONTAINER_SELECTOR} > .mobile-app-chrome {
     margin-bottom: ${APP_HEADER_OFFSET_BREATHING_PX}px;
   }
 
@@ -46,11 +48,13 @@ function getScrollContainerForHeaderMeasure(): HTMLElement | null {
 /** Stuck sticky-header height (for --app-header-offset / scroll-padding). */
 export function measureAppHeaderOffset(): number {
     if (typeof document === "undefined") return 0;
+    const chrome = document.querySelector<HTMLElement>("[data-mobile-app-chrome], [data-mobile-sticky-chrome]");
     const topbar = document.querySelector<HTMLElement>(".topbar");
-    if (!topbar) return 0;
+    const measureEl = chrome && chrome.offsetHeight > 0 ? chrome : topbar;
+    if (!measureEl) return 0;
 
-    const barRect = topbar.getBoundingClientRect();
-    const layoutHeight = Math.ceil(topbar.offsetHeight || 0);
+    const barRect = measureEl.getBoundingClientRect();
+    const layoutHeight = Math.ceil(measureEl.offsetHeight || 0);
     const visualHeight = Math.ceil(barRect.height || 0);
     const coverage = Math.max(layoutHeight, visualHeight, 0);
     return Math.max(0, coverage + APP_HEADER_OFFSET_BREATHING_PX);
@@ -63,12 +67,14 @@ export function measureAppHeaderOffset(): number {
  */
 export function measureLiveHeaderClearance(container?: HTMLElement | null): number {
     if (typeof document === "undefined") return 0;
+    const chrome = document.querySelector<HTMLElement>("[data-mobile-app-chrome], [data-mobile-sticky-chrome]");
     const topbar = document.querySelector<HTMLElement>(".topbar");
-    if (!topbar) return measureAppHeaderOffset();
+    const measureEl = chrome && chrome.offsetHeight > 0 ? chrome : topbar;
+    if (!measureEl) return measureAppHeaderOffset();
 
     const port = container || getScrollContainerForHeaderMeasure();
     const portTop = port?.getBoundingClientRect().top ?? 0;
-    const barBottom = topbar.getBoundingClientRect().bottom;
+    const barBottom = measureEl.getBoundingClientRect().bottom;
     const live = Math.ceil(barBottom - portTop) + APP_HEADER_OFFSET_BREATHING_PX;
     // Never under-clear relative to the stuck header height.
     return Math.max(live, measureAppHeaderOffset());

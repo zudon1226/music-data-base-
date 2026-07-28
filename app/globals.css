@@ -249,7 +249,7 @@ body {
 @media (max-width: 768px) {
   .fixed-mobile-player.fixed-mobile-player {
     position: fixed !important;
-    left: calc(var(--mobile-sidebar-width, 96px) + 8px) !important;
+    left: calc(var(--mobile-sidebar-width, 0px) + 8px) !important;
     right: max(8px, env(safe-area-inset-right, 0px)) !important;
     /* Restore flush bottom edge (revert dock lift gap) */
     bottom: 0 !important;
@@ -259,7 +259,7 @@ body {
     width: auto !important;
     max-width: calc(
       100vw
-      - var(--mobile-sidebar-width, 96px)
+      - var(--mobile-sidebar-width, 0px)
       - 8px
       - max(8px, env(safe-area-inset-right, 0px))
     ) !important;
@@ -511,13 +511,13 @@ body {
   .video-player-bar.fixed-mobile-player.is-collapsed,
   .music-bottom-player.fixed-mobile-player.is-collapsed,
   .video-bottom-player.fixed-mobile-player.is-collapsed {
-    left: calc(var(--mobile-sidebar-width, 64px) + 8px) !important;
+    left: calc(var(--mobile-sidebar-width, 0px) + 8px) !important;
     right: max(8px, env(safe-area-inset-right, 0px)) !important;
     bottom: 0 !important;
     width: auto !important;
     max-width: calc(
       100vw
-      - var(--mobile-sidebar-width, 64px)
+      - var(--mobile-sidebar-width, 0px)
       - 8px
       - max(8px, env(safe-area-inset-right, 0px))
     ) !important;

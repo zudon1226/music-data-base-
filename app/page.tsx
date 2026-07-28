@@ -39,6 +39,12 @@ import {
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
+import { MobileAppHorizontalNav } from "../components/mobile-app-horizontal-nav";
+import { MobileContentActionSheet } from "../components/mobile-content-action-sheet";
+import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
+import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
+import { useMobileAutoHideHeader } from "../lib/use-mobile-auto-hide-header";
+import { useMobileCompactLayout } from "../lib/use-mobile-compact-layout";
 import { DestinationPageHeading } from "../components/destination-page-heading";
 import { UserProfileDashboard } from "../components/user-profile-dashboard";
 import { NotificationCenterPanel, type DashboardNotification } from "../components/notification-center-panel";
@@ -3706,6 +3712,16 @@ function PageContent() {
         closeAllDesktopGridMenus();
         setDesktopListOverflow({ open: false, meta: null, actions: [], trigger: null });
     }, [view, displayMode]);
+    const isMobileCompact = useMobileCompactLayout();
+    const mobileAppChromeRef = useRef<HTMLDivElement | null>(null);
+    const { chromeProps: mobileChromeProps } = useMobileAutoHideHeader({
+        forceVisible: desktopListOverflow.open || !isMobileCompact,
+        enabled: isMobileCompact,
+        chromeRef: mobileAppChromeRef,
+        resetKey: view,
+    });
+    const showMobileViewToggle = isMobileCompact
+        && (MOBILE_VIEW_TOGGLE_VIEWS as readonly string[]).includes(view);
     const [recentlyPlayed, setRecentlyPlayed] = useState<RecentPlay[]>([]);
     const [recentTab, setRecentTab] = useState<RecentTab>("Songs");
     const [libraryIds, setLibraryIds] = useState<string[]>([]);
@@ -17189,6 +17205,13 @@ function PageContent() {
       </aside>
 
         <DesktopContentScrollRoot>
+        <MobileDisplayModeProvider mode={displayMode}>
+        <div
+          ref={mobileAppChromeRef}
+          data-mobile-app-chrome={mobileChromeProps["data-mobile-app-chrome"]}
+          data-header-hidden={mobileChromeProps["data-header-hidden"]}
+          className={`${mobileChromeProps.className}${isMobileCompact ? "" : " mobile-app-chrome--desktop"}`}
+        >
         <header className="topbar" data-topbar-locale={locale} dir="ltr">
           <div
             className={`search-wrap${searchFocused && searchSuggestions.length > 0 ? " search-wrap--suggestions-open" : ""}`}
@@ -17233,6 +17256,15 @@ function PageContent() {
               </div>)}
           </div>
 
+          {showMobileViewToggle ? (
+          <MobileViewToggle
+            mode={displayMode}
+            onChange={setDisplayMode}
+            gridLabel={t("header.gridView")}
+            listLabel={t("header.listView")}
+            ariaLabel={t("header.cardViewMode")}
+          />
+          ) : (
           <div className="view-toggle" role="group" aria-label={t("header.cardViewMode")}>
             <button className={displayMode === "grid" ? "active" : ""} onClick={() => setDisplayMode("grid")} type="button">
               <span aria-hidden="true">□</span>
@@ -17243,6 +17275,7 @@ function PageContent() {
               {t("header.listView")}
             </button>
           </div>
+          )}
 
           <div className="topbar-account-actions" role="toolbar" aria-label={t("nav.mainNavigation")}>
             {displayMode === "list" && desktopListOverflow.open && desktopListOverflow.trigger ? (
@@ -17320,6 +17353,25 @@ function PageContent() {
             </button>
           </div>
         </header>
+
+        <MobileAppHorizontalNav
+          key={`mobile-nav-${locale}`}
+          activeView={view as DesktopNavView}
+          access={desktopNavAccess}
+          onNavigate={(nextView) => {
+            handleNav(nextView as View);
+          }}
+          onOwnerRequired={() => {
+            denyUnauthorizedDesktopNav();
+          }}
+          onRingtoneCreatorRequired={() => {
+            denyUnauthorizedDesktopNav();
+          }}
+          onRoleRequired={() => {
+            denyUnauthorizedDesktopNav();
+          }}
+        />
+        </div>
 
         {renderSharedVideoPlayer()}
 
@@ -20606,7 +20658,7 @@ function PageContent() {
                     {followingVideos.map((video) => renderVideoCard(video, { sourceLabel: "Following Videos" }))}
                   </DesktopHorizontalRail>)}
               </section>
-            </section>)) : visibleSongs.length === 0 &&
+            </section>)) : (view === "Ringtone Marketplace" || view === "My Purchased Ringtones" || view === "Favorite Ringtones" || view === "My Ringtones") ? null : visibleSongs.length === 0 &&
             inlineVideos.length === 0 &&
             visibleAlbums.length === 0 &&
             searchArtistResults.length === 0 &&
@@ -20719,7 +20771,18 @@ function PageContent() {
                 </DesktopHorizontalRail>
               </section>)}
           </>)}
+        </MobileDisplayModeProvider>
       </DesktopContentScrollRoot>
+
+      {isMobileCompact ? (
+        <MobileContentActionSheet
+          open={desktopListOverflow.open}
+          meta={desktopListOverflow.meta}
+          actions={desktopListOverflow.actions}
+          restoreFocusEl={desktopListOverflow.trigger}
+          onClose={() => setDesktopListOverflow({ open: false, meta: null, actions: [], trigger: null })}
+        />
+      ) : null}
 
       {toast && (<div className={`toast toast-${toast.tone}`} role="status" aria-live="polite">
           {toast.message}
@@ -30043,9 +30106,23 @@ function PageContent() {
             }
           }
 
+          /* Mobile horizontal nav — hidden on desktop/tablet (≥821px) */
+          .mobile-horizontal-nav {
+            display: none;
+          }
+
+          .mobile-app-chrome,
+          .mobile-sticky-chrome {
+            display: contents;
+          }
+
+          .mobile-app-chrome--desktop {
+            display: contents;
+          }
+
           @media (max-width: 820px) {
             :root {
-              --mobile-sidebar-width: 64px;
+              --mobile-sidebar-width: 0px;
               --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: var(--global-player-height);
               --mobile-player-reserve: calc(
@@ -30059,15 +30136,19 @@ function PageContent() {
             html,
             body {
               scroll-padding-bottom: var(--mobile-player-reserve);
+              overflow-x: hidden;
             }
 
             .zml-app {
               padding-bottom: var(--mobile-player-reserve);
+              overflow-x: hidden;
             }
 
             .sidebar {
-              width: var(--mobile-sidebar-width);
-              padding: 8px 6px 90px;
+              display: none !important;
+              width: 0 !important;
+              padding: 0 !important;
+              pointer-events: none !important;
             }
 
             .nav {
@@ -30103,14 +30184,100 @@ function PageContent() {
             }
 
             .content {
-              margin-left: var(--mobile-sidebar-width);
-              width: calc(100% - var(--mobile-sidebar-width));
+              margin-left: 0;
+              width: 100%;
+              max-width: 100%;
               /* padding-top 0 restores search/action bar flush to the viewport top */
               padding: 0 10px var(--mobile-player-reserve);
               scroll-padding-bottom: var(--mobile-player-reserve);
+              overflow-x: hidden;
             }
 
-            .mobile-player-spacer {
+            .mobile-app-chrome,
+            .mobile-sticky-chrome {
+              display: block !important;
+              position: sticky !important;
+              top: 0 !important;
+              z-index: 80 !important;
+              background: rgba(2, 6, 23, 0.96);
+              transform: none !important;
+              overflow: hidden !important;
+              contain: layout style !important;
+            }
+
+            .mobile-app-chrome.is-header-hidden,
+            .mobile-app-chrome[data-header-hidden="true"] {
+              transform: none !important;
+              margin-top: calc(-1 * var(--mobile-chrome-height, 0px)) !important;
+              opacity: 0 !important;
+              pointer-events: none !important;
+              visibility: hidden !important;
+            }
+
+            .mobile-horizontal-nav {
+              display: block !important;
+              position: relative;
+              margin: 0;
+              padding: 0 0 8px;
+              overflow: hidden;
+            }
+
+            .mobile-horizontal-nav-scroller {
+              display: flex;
+              gap: 8px;
+              overflow-x: auto;
+              overflow-y: hidden;
+              -webkit-overflow-scrolling: touch;
+              scrollbar-width: none;
+              padding: 0 2px 2px;
+            }
+
+            .mobile-horizontal-nav-scroller::-webkit-scrollbar {
+              display: none;
+            }
+
+            .mobile-nav-pill {
+              flex: 0 0 auto;
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              min-height: 36px;
+              padding: 6px 12px;
+              border-radius: 999px;
+              border: 1px solid rgba(148, 163, 184, 0.35);
+              background: rgba(15, 23, 42, 0.92);
+              color: #e2e8f0;
+              font-size: 12px;
+              font-weight: 700;
+              white-space: nowrap;
+            }
+
+            .mobile-nav-pill.is-active {
+              border-color: rgba(34, 211, 238, 0.7);
+              color: #22d3ee;
+              background: rgba(8, 47, 73, 0.95);
+            }
+
+            .zml-app.view-grid .song-grid:not(.horizontal-rail-track),
+            .zml-app.view-grid .video-grid:not(.horizontal-rail-track),
+            .zml-app.view-grid .artist-album-grid:not(.horizontal-rail-track),
+            .zml-app.view-grid .playlist-list {
+              display: grid !important;
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+              justify-content: start !important;
+            }
+
+            @media (orientation: landscape) {
+              .zml-app.view-grid .song-grid:not(.horizontal-rail-track),
+              .zml-app.view-grid .video-grid:not(.horizontal-rail-track),
+              .zml-app.view-grid .artist-album-grid:not(.horizontal-rail-track),
+              .zml-app.view-grid .playlist-list {
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+              }
+            }
+
+.mobile-player-spacer {
               display: block;
               width: 100%;
               height: var(--mobile-player-reserve);
@@ -32038,7 +32205,7 @@ function PageContent() {
 
           @media (max-width: 768px) {
             :root {
-              --mobile-sidebar-width: 112px;
+              --mobile-sidebar-width: 0px;
               --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: var(--global-player-height);
               --mobile-player-reserve: calc(
