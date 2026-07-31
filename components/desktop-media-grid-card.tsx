@@ -11,6 +11,8 @@ import {
 import type { MobileContentAction } from "../lib/mobile-content-actions";
 import { DesktopFloatingActionMenu } from "./desktop-floating-action-menu";
 import "./desktop-media-grid-card.css";
+import "./card-system/card-system.css";
+import "./mobile-compact-layout.css";
 
 export type DesktopMediaGridCardProps = {
     kind: string;
@@ -25,6 +27,8 @@ export type DesktopMediaGridCardProps = {
     onOpen?: () => void;
     menuActions?: MobileContentAction[];
     overflowLabel?: string;
+    /** Card-system family tag. Defaults to media; use ringtone for ringtone grids. */
+    cardFamily?: "media" | "ringtone";
 };
 
 /**
@@ -44,6 +48,7 @@ export function DesktopMediaGridCard({
     onOpen,
     menuActions,
     overflowLabel,
+    cardFamily = "media",
 }: DesktopMediaGridCardProps) {
     const [hovered, setHovered] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -61,10 +66,12 @@ export function DesktopMediaGridCard({
     const actions = menuActions || [];
     const showOverflow = actions.length > 0;
     const controlsVisible = hovered || menuOpen;
+    const family = kind === "ringtone" ? "ringtone" : cardFamily;
 
     return (
         <article
-            className={["desktop-media-grid-card", className].filter(Boolean).join(" ")}
+            className={["desktop-media-grid-card", "cs-media-card", className].filter(Boolean).join(" ")}
+            data-card-family={family}
             data-desktop-media-card={kind}
             data-desktop-layout="grid"
             data-desktop-media-grid-card="true"

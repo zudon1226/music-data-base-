@@ -127,6 +127,18 @@ export const APP_UI_SHELL_CSS = `
     min-width: var(--ui-touch-min);
   }
 
+  @media (max-width: 820px) {
+    .topbar .topbar-account-actions .upload-btn,
+    .topbar .topbar-account-actions .dashboard-btn,
+    .topbar .topbar-account-actions .producer-dashboard-btn,
+    .topbar .topbar-account-actions .profile-btn,
+    .topbar .topbar-account-actions .logout-btn,
+    .topbar .topbar-account-actions .notification-button {
+      min-height: 36px;
+      min-width: 0;
+    }
+  }
+
   .content .song-card button,
   .content .video-card button,
   .content .media-card button,
@@ -252,13 +264,23 @@ export const APP_UI_SHELL_CSS = `
     overflow-x: clip;
   }
 
-  /* Horizontal rails remain intentionally scrollable */
+  /* Horizontal rails: desktop keeps intentional x-scroll; mobile grid uses page scroll */
   .content .horizontal-rail-track,
   .content .desktop-horizontal-rail,
   .content [data-horizontal-rail] {
     overflow-x: auto;
     overflow-y: clip;
     max-width: 100%;
+  }
+
+  @media (max-width: 820px) {
+    .zml-app.view-grid .content .horizontal-rail-track,
+    .zml-app.view-grid .content .desktop-horizontal-rail,
+    .zml-app.view-grid .content [data-horizontal-rail] {
+      overflow: visible;
+      max-height: none;
+      height: auto;
+    }
   }
 
   @media (max-width: 1024px) {

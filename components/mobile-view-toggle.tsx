@@ -30,24 +30,28 @@ export function MobileViewToggle({
             data-mobile-view-toggle="true"
         >
             <button
-                className={mode === "grid" ? "active" : ""}
+                className={`topbar-mobile-control-btn${mode === "grid" ? " active" : ""}`}
                 onClick={() => onChange("grid")}
                 type="button"
                 data-display-mode="grid"
                 aria-pressed={mode === "grid"}
+                aria-label={gridLabel}
+                title={gridLabel}
             >
                 <span aria-hidden="true">□</span>
-                {gridLabel}
+                <span className="view-toggle-label">{gridLabel}</span>
             </button>
             <button
-                className={mode === "list" ? "active" : ""}
+                className={`topbar-mobile-control-btn${mode === "list" ? " active" : ""}`}
                 onClick={() => onChange("list")}
                 type="button"
                 data-display-mode="list"
                 aria-pressed={mode === "list"}
+                aria-label={listLabel}
+                title={listLabel}
             >
                 <span aria-hidden="true">☰</span>
-                {listLabel}
+                <span className="view-toggle-label">{listLabel}</span>
             </button>
         </div>
     );

@@ -1674,9 +1674,22 @@ export function RingtoneCreatorWorkspace({
                     min-width: 0;
                     box-sizing: border-box;
                     overflow-x: hidden;
+                    height: auto;
                 }
 
-                .ringtone-card img,
+                .ringtone-card > img {
+                    width: 72px;
+                    height: 72px;
+                    min-width: 72px;
+                    min-height: 72px;
+                    max-width: 72px;
+                    max-height: 72px;
+                    border-radius: 8px;
+                    object-fit: cover;
+                    background: #08122b;
+                    display: block;
+                }
+
                 .ringtone-source-list img,
                 .ringtone-review img {
                     border-radius: 8px;
@@ -1989,13 +2002,44 @@ export function RingtoneCreatorWorkspace({
                         width: 100%;
                     }
 
+                    /* Creator management cards stay compact horizontal rows — not marketplace tiles. */
+                    .ringtone-card.dashboard-panel,
                     .ringtone-card {
-                        grid-template-columns: 1fr;
+                        display: grid;
+                        grid-template-columns: 72px minmax(0, 1fr);
+                        gap: 10px;
+                        align-items: start;
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
+                        height: auto;
+                    }
+
+                    .ringtone-card-body {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                        min-width: 0;
+                        width: 100%;
                     }
 
                     .ringtone-card-actions {
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 6px;
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
+                        margin-top: 4px;
+                    }
+
+                    .ringtone-card-actions button {
+                        flex: 0 1 auto;
+                        width: auto;
+                        max-width: 100%;
+                        min-height: 32px;
+                        padding: 0.35rem 0.6rem;
+                        white-space: normal;
                     }
 
                     .ringtone-wizard .ringtone-source-tabs,
@@ -2028,8 +2072,7 @@ export function RingtoneCreatorWorkspace({
                     .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs),
                     .ringtone-wizard-nav,
                     .ringtone-final-actions,
-                    .ringtone-creator-actions,
-                    .ringtone-card-actions {
+                    .ringtone-creator-actions {
                         grid-template-columns: 1fr !important;
                     }
                 }

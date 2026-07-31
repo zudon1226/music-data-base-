@@ -249,20 +249,14 @@ body {
 @media (max-width: 768px) {
   .fixed-mobile-player.fixed-mobile-player {
     position: fixed !important;
-    left: calc(var(--mobile-sidebar-width, 0px) + 8px) !important;
-    right: max(8px, env(safe-area-inset-right, 0px)) !important;
-    /* Restore flush bottom edge (revert dock lift gap) */
-    bottom: 0 !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: calc(0px + env(safe-area-inset-bottom, 0px)) !important;
     height: var(--global-player-height, 88px) !important;
     min-height: var(--global-player-height, 88px) !important;
     max-height: var(--global-player-height, 88px) !important;
     width: auto !important;
-    max-width: calc(
-      100vw
-      - var(--mobile-sidebar-width, 0px)
-      - 8px
-      - max(8px, env(safe-area-inset-right, 0px))
-    ) !important;
+    max-width: none !important;
     padding: 6px 8px !important;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) repeat(3, 44px) 44px !important;
@@ -319,7 +313,7 @@ body {
   body {
     padding-bottom: calc(
       var(--global-player-height, 88px)
-      + var(--player-dock-inset-bottom, 12px)
+      + 8px
       + env(safe-area-inset-bottom, 0px)
       + 8px
     ) !important;
@@ -329,7 +323,7 @@ body {
   html.player-collapsed body {
     padding-bottom: calc(
       var(--global-player-height-collapsed, 52px)
-      + var(--player-dock-inset-bottom, 12px)
+      + 8px
       + env(safe-area-inset-bottom, 0px)
       + 8px
     ) !important;
@@ -502,25 +496,40 @@ body {
 }
 
 /*
- * Phone landscape: viewport width often exceeds 820px, so portrait mobile
- * player rules drop off. Keep the collapsible dock vertically centered without
- * changing locked width breakpoints or desktop (hover) behavior.
+ * Phone landscape only.
+ * Portrait mobile (max-width: 768px) owns its own player geometry — do not change it.
+ * Wide phone landscape falls outside portrait max-width, so desktop dock left/max-width
+ * would otherwise shrink the player; override that conflict here once.
+ * max-width + max-height keep tablet/desktop out without relying on hover:none alone.
  */
-@media (orientation: landscape) and (max-height: 500px) and (hover: none) {
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 950px) {
+  .player.fixed-mobile-player,
+  .video-player-bar.fixed-mobile-player,
+  .music-bottom-player.fixed-mobile-player,
+  .video-bottom-player.fixed-mobile-player,
+  .fixed-mobile-player.fixed-mobile-player {
+    left: 8px !important;
+    right: 8px !important;
+    /* 2px lower than prior landscape bottom (2px) → 0px + safe-area */
+    bottom: calc(0px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+    z-index: 9999 !important;
+  }
+
   .player.fixed-mobile-player.is-collapsed,
   .video-player-bar.fixed-mobile-player.is-collapsed,
   .music-bottom-player.fixed-mobile-player.is-collapsed,
-  .video-bottom-player.fixed-mobile-player.is-collapsed {
-    left: calc(var(--mobile-sidebar-width, 0px) + 8px) !important;
-    right: max(8px, env(safe-area-inset-right, 0px)) !important;
-    bottom: 0 !important;
+  .video-bottom-player.fixed-mobile-player.is-collapsed,
+  .fixed-mobile-player.fixed-mobile-player.is-collapsed {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: calc(0px + env(safe-area-inset-bottom, 0px)) !important;
     width: auto !important;
-    max-width: calc(
-      100vw
-      - var(--mobile-sidebar-width, 0px)
-      - 8px
-      - max(8px, env(safe-area-inset-right, 0px))
-    ) !important;
+    max-width: none !important;
     height: var(--global-player-height-collapsed, 52px) !important;
     min-height: var(--global-player-height-collapsed, 52px) !important;
     max-height: var(--global-player-height-collapsed, 52px) !important;
@@ -533,6 +542,8 @@ body {
     overflow: hidden !important;
     box-sizing: border-box !important;
     z-index: 9999 !important;
+    margin: 0 !important;
+    transform: none !important;
   }
 
   .player.fixed-mobile-player.is-collapsed .player-center,

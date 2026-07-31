@@ -244,9 +244,12 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
             setStatus("unauthenticated");
         };
 
+        // Hard ceiling: never leave the UI on "Checking your session…".
+        // INITIAL_SESSION / getSession can stall on slow LAN or token refresh.
+        const AUTH_BOOT_TIMEOUT_MS = 2500;
         const bootTimer = window.setTimeout(() => {
             finishBoot(null);
-        }, 300);
+        }, AUTH_BOOT_TIMEOUT_MS);
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
             if (!isMounted) {
@@ -267,6 +270,31 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
                 }
             }
         });
+
+        // Parallel resolve: do not wait only on INITIAL_SESSION (can hang on refresh).
+        void (async () => {
+            try {
+                const result = await Promise.race([
+                    supabase.auth.getSession(),
+                    new Promise<null>((resolve) => {
+                        window.setTimeout(() => resolve(null), AUTH_BOOT_TIMEOUT_MS);
+                    }),
+                ]);
+                if (!isMounted || bootFinishedRef.current || !result) {
+                    return;
+                }
+                const session = "data" in result ? result.data.session : null;
+                window.clearTimeout(bootTimer);
+                finishBoot(session);
+            }
+            catch {
+                if (!isMounted || bootFinishedRef.current) {
+                    return;
+                }
+                window.clearTimeout(bootTimer);
+                finishBoot(null);
+            }
+        })();
 
         return () => {
             isMounted = false;
