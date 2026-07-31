@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { DesktopFloatingActionMenu } from "@/components/desktop-floating-action-menu";
-import { DesktopMediaGridCard } from "@/components/desktop-media-grid-card";
+import { RingtoneCard } from "@/components/card-system";
 import { DesktopMediaList } from "@/components/desktop-media-list";
 import { DesktopMediaListRow } from "@/components/desktop-media-list-row";
 import type { RingtonePreviewRequest } from "@/components/ringtone-creator/ringtone-creator-workspace";
@@ -438,7 +438,7 @@ export function RingtoneMarketplaceWorkspace({
         }
 
         return (
-            <DesktopMediaGridCard
+            <RingtoneCard
                 key={ringtone.id}
                 kind="ringtone"
                 className="ringtone-market-card"
@@ -725,7 +725,7 @@ export function RingtoneMarketplaceWorkspace({
                         }
 
                         return (
-                            <DesktopMediaGridCard
+                            <RingtoneCard
                                 key={String(purchase.id)}
                                 kind="ringtone"
                                 className="ringtone-market-card"

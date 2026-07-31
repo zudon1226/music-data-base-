@@ -9,6 +9,7 @@ import { RingtoneReviewQueue } from "./ringtone-review/ringtone-review-queue";
 import { useTranslation } from "../lib/i18n/provider";
 import type { PlatformControlCenterSnapshot, PlatformHealthLabel } from "../lib/platform-control-center";
 import { healthLabelClass } from "../lib/platform-control-center";
+import "./card-system/card-system.css";
 
 type RingtonePreviewRequest = {
     id: string;
@@ -50,7 +51,7 @@ function HealthBadge({ status }: { status: PlatformHealthLabel }) {
 function ActivityList({ title, items }: { title: string; items: Array<{ id: string; title: string; detail: string; createdAt: string }> }) {
     const { t } = useTranslation();
     return (
-        <article className="control-center-card">
+        <article className="control-center-card" data-card-family="control">
             <h4>{title}</h4>
             {items.length === 0 ? <p className="control-center-empty">{t("platformControlCenter.noRecentActivity")}</p> : (
                 <ul className="control-activity-list">
@@ -161,6 +162,7 @@ export function PlatformControlCenter({
                     ].map(([label, value]) => (
                         <article
                             className="control-overview-card"
+                            data-card-family="control"
                             data-overview-metric={String(label)}
                             key={String(label)}
                         >
@@ -182,7 +184,7 @@ export function PlatformControlCenter({
                 </div>
                 <div className="control-health-grid">
                     {(snapshot?.health || []).map((item) => (
-                        <article className="control-health-card" key={item.id}>
+                        <article className="control-health-card" data-card-family="control" key={item.id}>
                             <div className="control-health-card-head">
                                 <strong>{item.label}</strong>
                                 <HealthBadge status={item.status}/>

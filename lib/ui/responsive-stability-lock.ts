@@ -22,8 +22,8 @@ export const RESPONSIVE_STABILITY_LOCK = {
 
     sidebar: {
         desktopWidthPx: 188,
-        /** `--mobile-sidebar-width` at max-width 820px */
-        mobileWidthPx: 64,
+        /** `--mobile-sidebar-width` at max-width 820px — permanent sidebar removed */
+        mobileWidthPx: 0,
         desktopPosition: "fixed" as const,
         desktopLeftPx: 0,
         desktopTopPx: 0,

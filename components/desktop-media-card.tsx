@@ -21,7 +21,7 @@ import type {
 } from "../lib/desktop-media-card-types";
 import { buildSongVideoOverflowActions } from "../lib/mobile-content-actions";
 import { DesktopFloatingActionMenu } from "./desktop-floating-action-menu";
-import { DesktopMediaGridCard } from "./desktop-media-grid-card";
+import { MediaCard } from "./card-system/MediaCard";
 import { DesktopMediaListRow } from "./desktop-media-list-row";
 
 type DesktopSongMediaCardProps = {
@@ -270,7 +270,7 @@ export function DesktopSongMediaCard({
     }
 
     return (
-        <DesktopMediaGridCard
+        <MediaCard
             kind="song"
             className={cardClassName}
             cover={song.cover}
@@ -346,7 +346,7 @@ export function DesktopVideoMediaCard({
     }
 
     return (
-        <DesktopMediaGridCard
+        <MediaCard
             kind="video"
             className={cardClassName}
             cover={video.cover}

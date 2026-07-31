@@ -39,6 +39,12 @@ import {
 import { resolveUserMusicStateBootstrapAfterLocalHydration } from "../lib/desktop-user-music-state-bootstrap";
 import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
+import { MobileAppHorizontalNav } from "../components/mobile-app-horizontal-nav";
+import { MobileContentActionSheet } from "../components/mobile-content-action-sheet";
+import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
+import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
+import { useMobileAutoHideHeader } from "../lib/use-mobile-auto-hide-header";
+import { useMobileCompactLayout } from "../lib/use-mobile-compact-layout";
 import { DestinationPageHeading } from "../components/destination-page-heading";
 import { UserProfileDashboard } from "../components/user-profile-dashboard";
 import { NotificationCenterPanel, type DashboardNotification } from "../components/notification-center-panel";
@@ -64,11 +70,12 @@ import {
 } from "../lib/navigation-scroll";
 import { DesktopHorizontalRail } from "../components/desktop-horizontal-rail";
 import { DesktopLibraryCardRail } from "../components/desktop-library-card-rail";
-import { DesktopMediaGridCard } from "../components/desktop-media-grid-card";
 import { DesktopSongMediaCard, DesktopVideoMediaCard } from "../components/desktop-media-card";
 import { DesktopMediaList } from "../components/desktop-media-list";
 import { DesktopMediaListRow } from "../components/desktop-media-list-row";
 import { DesktopFloatingActionMenu } from "../components/desktop-floating-action-menu";
+import { ListCard, MediaCard, PromotionCard, StoreCard } from "../components/card-system";
+import "../components/card-system/card-system.css";
 import { closeAllDesktopGridMenus } from "../lib/desktop-grid-menu-registry";
 import {
     buildAlbumOverflowActions,
@@ -3706,6 +3713,18 @@ function PageContent() {
         closeAllDesktopGridMenus();
         setDesktopListOverflow({ open: false, meta: null, actions: [], trigger: null });
     }, [view, displayMode]);
+    const isMobileCompact = useMobileCompactLayout();
+    const mobileAppChromeRef = useRef<HTMLDivElement | null>(null);
+    const previousViewRef = useRef<View>("Home");
+    const QUEUE_PREVIOUS_VIEW_KEY = "mdb_queue_previous_view";
+    const { chromeProps: mobileChromeProps } = useMobileAutoHideHeader({
+        forceVisible: desktopListOverflow.open || !isMobileCompact || view === "Queue",
+        enabled: isMobileCompact,
+        chromeRef: mobileAppChromeRef,
+        resetKey: view,
+    });
+    const showMobileViewToggle = isMobileCompact
+        && (MOBILE_VIEW_TOGGLE_VIEWS as readonly string[]).includes(view);
     const [recentlyPlayed, setRecentlyPlayed] = useState<RecentPlay[]>([]);
     const [recentTab, setRecentTab] = useState<RecentTab>("Songs");
     const [libraryIds, setLibraryIds] = useState<string[]>([]);
@@ -14110,7 +14129,7 @@ function PageContent() {
             );
         }
         return (
-            <DesktopMediaGridCard
+            <MediaCard
                 key={`${item.badge}-${item.type}-${item.id}`}
                 kind={item.type}
                 className="discovery-card"
@@ -14162,7 +14181,7 @@ function PageContent() {
             );
         }
         return (
-            <DesktopMediaGridCard
+            <MediaCard
                 key={`${release.releaseType}-${release.id}`}
                 kind={release.releaseType}
                 className="marketplace-release-card"
@@ -14184,25 +14203,31 @@ function PageContent() {
         );
     }
     function renderMarketplaceChartRow(release: MarketplaceRelease, index: number) {
-        return (<article className="marketplace-chart-row" key={`chart-${release.releaseType}-${release.id}`}>
-        <strong>{index + 1}</strong>
-        <img src={getArtworkUrl(release.cover)} alt=""/>
-        <span>
-          <b>{release.title}</b>
-          <small>{release.creatorName}</small>
-        </span>
-        <em>{formatCurrencyFromCents(release.priceCents)}</em>
-        <div className="marketplace-chart-actions">
-          <button onClick={() => playMarketplaceRelease(release)} type="button">
-            <Play size={14} fill="currentColor"/>
-            Play
-          </button>
-          {getMarketplaceSalesType(release) ? (<button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
-              <Disc3 size={14}/>
-              Buy
-            </button>) : null}
-        </div>
-      </article>);
+        return (
+            <ListCard
+                key={`chart-${release.releaseType}-${release.id}`}
+                className="marketplace-chart-row"
+                rank={index + 1}
+                cover={getArtworkUrl(release.cover)}
+                title={release.title}
+                secondary={release.creatorName}
+                price={formatCurrencyFromCents(release.priceCents)}
+                actions={(
+                    <>
+                        <button onClick={() => playMarketplaceRelease(release)} type="button">
+                            <Play size={14} fill="currentColor"/>
+                            Play
+                        </button>
+                        {getMarketplaceSalesType(release) ? (
+                            <button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
+                                <Disc3 size={14}/>
+                                Buy
+                            </button>
+                        ) : null}
+                    </>
+                )}
+            />
+        );
     }
     function getAlbumDisplayCover(album: Album | ResolvedAlbum) {
         const record = album as unknown as Record<string, unknown>;
@@ -14950,7 +14975,7 @@ function PageContent() {
             );
         }
         return (
-            <DesktopMediaGridCard
+            <MediaCard
                 key={album.id}
                 kind="album"
                 className="artist-album-card media-card"
@@ -15270,6 +15295,15 @@ function PageContent() {
     }
     function applyDesktopView(nextView: View) {
         // Exactly one destination workspace: always unmount upload chrome when leaving via nav.
+        if (nextView === "Queue" && view !== "Queue") {
+            previousViewRef.current = view;
+            try {
+                window.sessionStorage.setItem(QUEUE_PREVIOUS_VIEW_KEY, view);
+            }
+            catch {
+                /* ignore */
+            }
+        }
         setToast(null);
         setShowUpload(false);
         setShowNotificationCenter(false);
@@ -15307,6 +15341,20 @@ function PageContent() {
             return;
         }
         scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
+    }
+    function closeQueueView() {
+        let previous: View = previousViewRef.current;
+        try {
+            const stored = window.sessionStorage.getItem(QUEUE_PREVIOUS_VIEW_KEY);
+            if (stored) {
+                previous = stored as View;
+            }
+        }
+        catch {
+            /* ignore */
+        }
+        const nextView = previous && previous !== "Queue" ? previous : "Home";
+        handleNav(nextView);
     }
     function handleNav(nextView: View) {
         setShowNotificationCenter(false);
@@ -17189,6 +17237,13 @@ function PageContent() {
       </aside>
 
         <DesktopContentScrollRoot>
+        <MobileDisplayModeProvider mode={displayMode}>
+        <div
+          ref={mobileAppChromeRef}
+          data-mobile-app-chrome={mobileChromeProps["data-mobile-app-chrome"]}
+          data-header-hidden={mobileChromeProps["data-header-hidden"]}
+          className={`${mobileChromeProps.className}${isMobileCompact ? "" : " mobile-app-chrome--desktop"}`}
+        >
         <header className="topbar" data-topbar-locale={locale} dir="ltr">
           <div
             className={`search-wrap${searchFocused && searchSuggestions.length > 0 ? " search-wrap--suggestions-open" : ""}`}
@@ -17233,6 +17288,16 @@ function PageContent() {
               </div>)}
           </div>
 
+          <div className={isMobileCompact ? "topbar-mobile-action-row" : undefined}>
+          {showMobileViewToggle ? (
+          <MobileViewToggle
+            mode={displayMode}
+            onChange={setDisplayMode}
+            gridLabel={t("header.gridView")}
+            listLabel={t("header.listView")}
+            ariaLabel={t("header.cardViewMode")}
+          />
+          ) : (
           <div className="view-toggle" role="group" aria-label={t("header.cardViewMode")}>
             <button className={displayMode === "grid" ? "active" : ""} onClick={() => setDisplayMode("grid")} type="button">
               <span aria-hidden="true">□</span>
@@ -17243,6 +17308,7 @@ function PageContent() {
               {t("header.listView")}
             </button>
           </div>
+          )}
 
           <div className="topbar-account-actions" role="toolbar" aria-label={t("nav.mainNavigation")}>
             {displayMode === "list" && desktopListOverflow.open && desktopListOverflow.trigger ? (
@@ -17284,42 +17350,71 @@ function PageContent() {
 
             {shouldShowUploadControl(desktopNavAccess) ? (
             <button
-              className="upload-btn"
+              className="upload-btn topbar-mobile-control-btn"
               disabled={uploadsBlockedForCurrentUser}
               onClick={toggleUploadPanel}
               title={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : t("upload.title")}
+              aria-label={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : t("upload.title")}
               type="button"
             >
               <Upload size={17}/>
-              {t("upload.title")}
+              <span className="topbar-control-label">{t("upload.title")}</span>
             </button>
             ) : null}
 
-            {shouldShowArtistDashboardControl(desktopNavAccess) ? (
+            {!isMobileCompact && shouldShowArtistDashboardControl(desktopNavAccess) ? (
             <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
               <BarChart3 size={17}/>
               {t("header.artistShort")}
             </button>
             ) : null}
 
-            {shouldShowProducerDashboardControl(desktopNavAccess) ? (
+            {!isMobileCompact && shouldShowProducerDashboardControl(desktopNavAccess) ? (
             <button className="dashboard-btn producer-dashboard-btn" onClick={() => handleNav("Producer Dashboard")} title={t("nav.producerDashboard")} type="button">
               <Disc3 size={17}/>
               {t("header.producerShort")}
             </button>
             ) : null}
 
+            {!isMobileCompact ? (
             <button className="profile-btn" onClick={openProfileFromHeader} title={t("nav.profile")} type="button">
               <User size={17}/>
               {t("nav.profile")}
             </button>
+            ) : null}
 
-            <button className="logout-btn" onClick={logout} title={t("common.logout")} type="button">
+            <button
+              className="logout-btn topbar-mobile-control-btn"
+              onClick={logout}
+              title={t("common.logout")}
+              aria-label={t("common.logout")}
+              type="button"
+            >
               <LogOut size={17}/>
-              {t("common.logout")}
+              <span className="topbar-control-label">{t("common.logout")}</span>
             </button>
           </div>
+          </div>
         </header>
+
+        <MobileAppHorizontalNav
+          key={`mobile-nav-${locale}`}
+          activeView={view as DesktopNavView}
+          access={desktopNavAccess}
+          onNavigate={(nextView) => {
+            handleNav(nextView as View);
+          }}
+          onOwnerRequired={() => {
+            denyUnauthorizedDesktopNav();
+          }}
+          onRingtoneCreatorRequired={() => {
+            denyUnauthorizedDesktopNav();
+          }}
+          onRoleRequired={() => {
+            denyUnauthorizedDesktopNav();
+          }}
+        />
+        </div>
 
         {renderSharedVideoPlayer()}
 
@@ -17638,22 +17733,24 @@ function PageContent() {
               <h3>Trending Artists</h3>
               <span>{trendingArtists.length} artists</span>
             </div>
-            <DesktopHorizontalRail className="artist-grid" label="Trending Artists">
-              {trendingArtists.map((artist) => (<article className="artist-card" key={artist.id}>
-                  <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
-                    <img src={getArtworkUrl(artist.avatar)} alt=""/>
-                    <span>
-                      <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
-                      <small>{formatCount(artist.totalPlays)} plays | {formatCount(artist.followers)} followers</small>
-                    </span>
-                  </button>
-                  <div className="artist-card-actions">
+            <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Trending Artists">
+              {trendingArtists.map((artist) => (
+                <StoreCard
+                  key={artist.id}
+                  className="artist-card"
+                  cover={getArtworkUrl(artist.avatar)}
+                  name={<>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</>}
+                  meta={`${formatCount(artist.totalPlays)} plays | ${formatCount(artist.followers)} followers`}
+                  onOpen={() => openArtistProfile(artist.name)}
+                  openLabel={`Open ${artist.name}`}
+                  primaryAction={(
                     <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
                       <UserCircle size={16}/>
                       Profile
                     </button>
-                  </div>
-                </article>))}
+                  )}
+                />
+              ))}
             </DesktopHorizontalRail>
           </section>)}
 
@@ -18319,19 +18416,20 @@ function PageContent() {
                       <h3>Bundle Sales</h3>
                       <span>{marketplaceBundles.length} bundles</span>
                     </div>
-                    <DesktopHorizontalRail className="marketplace-bundle-grid" label="Marketplace Bundles">
-                      {marketplaceBundles.map((bundle) => (<article className="marketplace-bundle-card" key={bundle.id}>
-                          <img src={getArtworkUrl(bundle.cover)} alt=""/>
-                          <div>
-                            <span>{bundle.bundleType} bundle</span>
-                            <strong>{bundle.title}</strong>
-                            <small>{bundle.releases.length} items | {formatCurrencyFromCents(bundle.priceCents)} bundle | {formatCurrencyFromCents(bundle.originalPriceCents)} value</small>
-                          </div>
-                          <button onClick={() => addMarketplaceBundleToCart(bundle)} type="button">
-                            <Disc3 size={15}/>
-                            Add Bundle
-                          </button>
-                        </article>))}
+                    <DesktopHorizontalRail className="marketplace-bundle-grid cs-grid--promotion" label="Marketplace Bundles">
+                      {marketplaceBundles.map((bundle) => (
+                        <PromotionCard
+                          key={bundle.id}
+                          className="marketplace-bundle-card"
+                          cover={getArtworkUrl(bundle.cover)}
+                          label={`${bundle.bundleType} bundle`}
+                          title={bundle.title}
+                          meta={`${bundle.releases.length} items | ${formatCurrencyFromCents(bundle.priceCents)} bundle | ${formatCurrencyFromCents(bundle.originalPriceCents)} value`}
+                          actionLabel="Add Bundle"
+                          actionIcon={<Disc3 size={15}/>}
+                          onAction={() => addMarketplaceBundleToCart(bundle)}
+                        />
+                      ))}
                     </DesktopHorizontalRail>
                   </section>)}
 
@@ -18340,19 +18438,20 @@ function PageContent() {
                       <h3>Limited Releases</h3>
                       <span>{marketplaceLimitedReleases.length} drops</span>
                     </div>
-                    <DesktopHorizontalRail className="marketplace-limited-grid" label="Limited Releases">
-                      {marketplaceLimitedReleases.map((drop) => (<article className="marketplace-limited-card" key={drop.id}>
-                          <img src={getArtworkUrl(drop.release.cover)} alt=""/>
-                          <div>
-                            <span>{drop.label}</span>
-                            <strong>{drop.release.title}</strong>
-                            <small>{drop.remaining} left | Ends {formatAlbumCreatedDate(drop.endsAt)}</small>
-                          </div>
-                          <button onClick={() => addMarketplaceReleaseToCart(drop.release)} type="button">
-                            <Disc3 size={15}/>
-                            Buy
-                          </button>
-                        </article>))}
+                    <DesktopHorizontalRail className="marketplace-limited-grid cs-grid--promotion" label="Limited Releases">
+                      {marketplaceLimitedReleases.map((drop) => (
+                        <PromotionCard
+                          key={drop.id}
+                          className="marketplace-limited-card"
+                          cover={getArtworkUrl(drop.release.cover)}
+                          label={drop.label}
+                          title={drop.release.title}
+                          meta={`${drop.remaining} left | Ends ${formatAlbumCreatedDate(drop.endsAt)}`}
+                          actionLabel="Buy"
+                          actionIcon={<Disc3 size={15}/>}
+                          onAction={() => addMarketplaceReleaseToCart(drop.release)}
+                        />
+                      ))}
                     </DesktopHorizontalRail>
                   </section>)}
 
@@ -18361,19 +18460,20 @@ function PageContent() {
                       <h3>Pre-Order Foundation</h3>
                       <span>{marketplacePreorders.length} upcoming</span>
                     </div>
-                    <DesktopHorizontalRail className="marketplace-preorder-grid" label="Marketplace Preorders">
-                      {marketplacePreorders.map((preorder) => (<article className="marketplace-preorder-card" key={preorder.id}>
-                          <img src={getArtworkUrl(preorder.cover)} alt=""/>
-                          <div>
-                            <span>{preorder.releaseType}</span>
-                            <strong>{preorder.title}</strong>
-                            <small>{preorder.creatorName} | Releases {formatAlbumCreatedDate(preorder.releaseDate)} | {formatCurrencyFromCents(preorder.priceCents)}</small>
-                          </div>
-                          <button onClick={() => reserveMarketplacePreorder(preorder)} type="button">
-                            <Clock3 size={15}/>
-                            Reserve
-                          </button>
-                        </article>))}
+                    <DesktopHorizontalRail className="marketplace-preorder-grid cs-grid--promotion" label="Marketplace Preorders">
+                      {marketplacePreorders.map((preorder) => (
+                        <PromotionCard
+                          key={preorder.id}
+                          className="marketplace-preorder-card"
+                          cover={getArtworkUrl(preorder.cover)}
+                          label={preorder.releaseType}
+                          title={preorder.title}
+                          meta={`${preorder.creatorName} | Releases ${formatAlbumCreatedDate(preorder.releaseDate)} | ${formatCurrencyFromCents(preorder.priceCents)}`}
+                          actionLabel="Reserve"
+                          actionIcon={<Clock3 size={15}/>}
+                          onAction={() => reserveMarketplacePreorder(preorder)}
+                        />
+                      ))}
                     </DesktopHorizontalRail>
                   </section>)}
 
@@ -18393,26 +18493,30 @@ function PageContent() {
                 <h3>Artist Store Pages</h3>
                 <span>{marketplaceArtistStores.length} stores</span>
               </div>
-              <DesktopHorizontalRail className="artist-grid" label="Artist Store Pages">
-                {marketplaceArtistStores.map((artist) => (<article className="artist-card" key={`market-artist-${artist.id}`}>
-                    <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
-                      <img src={getArtworkUrl(artist.avatar)} alt=""/>
-                      <span>
-                        <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
-                        <small>{formatCount(artist.totalPlays)} plays | {formatCount(artist.followers)} followers</small>
-                      </span>
-                    </button>
-                    <div className="artist-card-actions">
+              <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Artist Store Pages">
+                {marketplaceArtistStores.map((artist) => (
+                  <StoreCard
+                    key={`market-artist-${artist.id}`}
+                    className="artist-card"
+                    cover={getArtworkUrl(artist.avatar)}
+                    name={<>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</>}
+                    meta={`${formatCount(artist.totalPlays)} plays | ${formatCount(artist.followers)} followers`}
+                    onOpen={() => openArtistProfile(artist.name)}
+                    openLabel={`Open ${artist.name} store`}
+                    primaryAction={(
                       <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
                         <UserCircle size={16}/>
                         Store
                       </button>
+                    )}
+                    secondaryAction={(
                       <button className={followedArtistIds.includes(artist.id) ? "follow-btn followed" : "follow-btn"} disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
                         <UserPlus size={16}/>
                         {followedArtistIds.includes(artist.id) ? "Following" : "Follow"}
                       </button>
-                    </div>
-                  </article>))}
+                    )}
+                  />
+                ))}
               </DesktopHorizontalRail>
             </section>
 
@@ -18421,22 +18525,24 @@ function PageContent() {
                 <h3>Producer Store Pages</h3>
                 <span>{marketplaceProducerStores.length} stores</span>
               </div>
-              <DesktopHorizontalRail className="artist-grid" label="Producer Store Pages">
-                {marketplaceProducerStores.map((producer) => (<article className="artist-card" key={`market-producer-${producer.id}`}>
-                    <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
-                      <img src={getArtworkUrl(producer.avatar)} alt=""/>
-                      <span>
-                        <strong>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</strong>
-                        <small>{producer.tagline || producer.bio}</small>
-                      </span>
-                    </button>
-                    <div className="artist-card-actions">
+              <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Producer Store Pages">
+                {marketplaceProducerStores.map((producer) => (
+                  <StoreCard
+                    key={`market-producer-${producer.id}`}
+                    className="artist-card"
+                    cover={getArtworkUrl(producer.avatar)}
+                    name={<>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</>}
+                    meta={producer.tagline || producer.bio}
+                    onOpen={() => openProducerProfile(producer.id)}
+                    openLabel={`Open ${producer.name} store`}
+                    primaryAction={(
                       <button className="play-btn" onClick={() => openProducerProfile(producer.id)} type="button">
                         <UserCircle size={16}/>
                         Store
                       </button>
-                    </div>
-                  </article>))}
+                    )}
+                  />
+                ))}
               </DesktopHorizontalRail>
             </section>
 
@@ -18445,22 +18551,24 @@ function PageContent() {
                 <h3>Top Producers</h3>
                 <span>{adminTopProducers.length} producers</span>
               </div>
-              <DesktopHorizontalRail className="artist-grid" label="Top Producers">
-                {adminTopProducers.map((producer) => (<article className="artist-card" key={`market-top-producer-${producer.id}`}>
-                    <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
-                      <img src={getArtworkUrl(producer.avatar)} alt=""/>
-                      <span>
-                        <strong>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</strong>
-                        <small>{formatCount(producer.followers)} followers | {formatCurrencyFromCents(producer.revenueCents || 0)} tracked</small>
-                      </span>
-                    </button>
-                    <div className="artist-card-actions">
+              <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Top Producers">
+                {adminTopProducers.map((producer) => (
+                  <StoreCard
+                    key={`market-top-producer-${producer.id}`}
+                    className="artist-card"
+                    cover={getArtworkUrl(producer.avatar)}
+                    name={<>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</>}
+                    meta={`${formatCount(producer.followers)} followers | ${formatCurrencyFromCents(producer.revenueCents || 0)} tracked`}
+                    onOpen={() => openProducerProfile(producer.id)}
+                    openLabel={`Open ${producer.name} store`}
+                    primaryAction={(
                       <button className="play-btn" onClick={() => openProducerProfile(producer.id)} type="button">
                         <UserCircle size={16}/>
                         Store
                       </button>
-                    </div>
-                  </article>))}
+                    )}
+                  />
+                ))}
               </DesktopHorizontalRail>
             </section>
 
@@ -18469,22 +18577,24 @@ function PageContent() {
                 <h3>Trending Artists</h3>
                 <span>{trendingArtists.length} artists</span>
               </div>
-              <DesktopHorizontalRail className="artist-grid" label="Marketplace Trending Artists">
-                {trendingArtists.map((artist) => (<article className="artist-card" key={`market-trending-${artist.id}`}>
-                    <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
-                      <img src={getArtworkUrl(artist.avatar)} alt=""/>
-                      <span>
-                        <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
-                        <small>{formatCount(artist.totalPlays)} plays | {formatCount(artist.followers)} followers</small>
-                      </span>
-                    </button>
-                    <div className="artist-card-actions">
+              <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Marketplace Trending Artists">
+                {trendingArtists.map((artist) => (
+                  <StoreCard
+                    key={`market-trending-${artist.id}`}
+                    className="artist-card"
+                    cover={getArtworkUrl(artist.avatar)}
+                    name={<>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</>}
+                    meta={`${formatCount(artist.totalPlays)} plays | ${formatCount(artist.followers)} followers`}
+                    onOpen={() => openArtistProfile(artist.name)}
+                    openLabel={`Open ${artist.name} store`}
+                    primaryAction={(
                       <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
                         <UserCircle size={16}/>
                         Store
                       </button>
-                    </div>
-                  </article>))}
+                    )}
+                  />
+                ))}
               </DesktopHorizontalRail>
             </section>
           </section>) : view === "Videos" && !search.trim() ? (<section className="video-page">
@@ -18588,37 +18698,34 @@ function PageContent() {
             {mergedArtistProfiles.length === 0 ? (<div className="empty-state">
                 <h2>No artist profiles yet</h2>
                 <p>Upload songs or videos and artist profiles will appear here.</p>
-              </div>) : (<DesktopHorizontalRail className="artist-grid" label="Artists">
+              </div>) : (<DesktopHorizontalRail className="artist-grid cs-grid--store" label="Artists">
                 {mergedArtistProfiles.map((artist) => {
                     const artistSongs = audioSongs.filter((song) => createArtistId(song.artist) === artist.id);
                     const artistVideos = uniqueVideos(videos).filter((video) => createArtistId(video.creator) === artist.id);
                     const isFollowing = followedArtistIds.includes(artist.id);
-                    return (<article className="artist-card" key={artist.id}>
-                      <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
-                        <img src={getArtworkUrl(artist.avatar)} alt=""/>
-                        <span>
-                          <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
-                          <small>{artist.bio}</small>
-                        </span>
-                      </button>
-
-                      <div className="artist-card-stats">
-                        <span>{artistSongs.length} songs</span>
-                        <span>{artistVideos.length} videos</span>
-                        <span>{formatCount(artist.followers)} followers</span>
-                      </div>
-
-                      <div className="artist-card-actions">
+                    return (
+                    <StoreCard
+                      key={artist.id}
+                      className="artist-card"
+                      cover={getArtworkUrl(artist.avatar)}
+                      name={<>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</>}
+                      meta={`${artistSongs.length} songs · ${artistVideos.length} videos · ${formatCount(artist.followers)} followers${artist.bio ? ` · ${artist.bio}` : ""}`}
+                      onOpen={() => openArtistProfile(artist.name)}
+                      openLabel={`Open ${artist.name}`}
+                      primaryAction={(
                         <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
                           <UserCircle size={16}/>
                           Profile
                         </button>
+                      )}
+                      secondaryAction={(
                         <button className={isFollowing ? "follow-btn followed" : "follow-btn"} disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
                           <UserPlus size={16}/>
                           {isFollowing ? "Following" : "Follow"}
                         </button>
-                      </div>
-                    </article>);
+                      )}
+                    />
+                  );
                 })}
               </DesktopHorizontalRail>)}
           </section>) : view === "Profile" && !search.trim() ? (
@@ -20041,7 +20148,7 @@ function PageContent() {
                           )}
                         />
                       ) : (
-                        <DesktopMediaGridCard
+                        <MediaCard
                           key={playlist.id}
                           kind="playlist"
                           className={activePlaylist?.id === playlist.id ? "playlist-tile media-card active" : "playlist-tile media-card"}
@@ -20214,7 +20321,7 @@ function PageContent() {
                           );
                         }
                         return (
-                          <DesktopMediaGridCard
+                          <MediaCard
                             key={song.id}
                             kind="song"
                             cover={song.cover}
@@ -20257,7 +20364,7 @@ function PageContent() {
                             )}
                           />
                         ) : (
-                          <DesktopMediaGridCard
+                          <MediaCard
                             key={video.id}
                             kind="video"
                             cover={video.cover}
@@ -20291,6 +20398,7 @@ function PageContent() {
                 const artist = item.artist || item.artistName;
                 const canMoveUp = index > 0;
                 const canMoveDown = index >= 0 && index < mediaQueueItems.length - 1;
+                // Mobile Queue List View uses full-width list rows (Grid View keeps compact cards).
                 if (displayMode === "list") {
                     return (
                         <DesktopMediaListRow
@@ -20316,7 +20424,7 @@ function PageContent() {
                     );
                 }
                 return (
-                    <DesktopMediaGridCard
+                    <MediaCard
                         key={`${item.mediaType}-${item.id}`}
                         kind="queue"
                         className="queue-manage-row"
@@ -20336,7 +20444,19 @@ function PageContent() {
                     />
                 );
             };
-            return (<section className="queue-page">
+            return (<section className="queue-page" data-queue-page="true">
+            <div className="queue-exit-bar" data-queue-exit="true">
+              <button
+                className="queue-back-btn"
+                onClick={closeQueueView}
+                type="button"
+                title="Back"
+                aria-label="Back"
+              >
+                <ArrowLeft size={16} aria-hidden="true"/>
+                Back
+              </button>
+            </div>
             <div className="queue-toolbar">
               <button onClick={clearQueue} disabled={queueCount === 0} type="button">
                 <Trash2 size={15}/>
@@ -20425,7 +20545,7 @@ function PageContent() {
                         );
                     }
                     return (
-                        <DesktopMediaGridCard
+                        <MediaCard
                             key={entry.playId}
                             kind="recent"
                             className="recent-row"
@@ -20558,26 +20678,30 @@ function PageContent() {
                       <h3>Liked Artists</h3>
                       <span>{likedArtists.length} artists</span>
                     </div>
-                    <DesktopHorizontalRail className="artist-grid" label="Liked Artists">
-                      {likedArtists.map((artist) => (<article className="artist-card" key={artist.id}>
-                          <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
-                            <img src={getArtworkUrl(artist.avatar)} alt=""/>
-                            <span>
-                              <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
-                              <small>{artist.bio}</small>
-                            </span>
-                          </button>
-                          <div className="artist-card-actions">
+                    <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Liked Artists">
+                      {likedArtists.map((artist) => (
+                        <StoreCard
+                          key={artist.id}
+                          className="artist-card"
+                          cover={getArtworkUrl(artist.avatar)}
+                          name={<>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</>}
+                          meta={artist.bio}
+                          onOpen={() => openArtistProfile(artist.name)}
+                          openLabel={`Open ${artist.name}`}
+                          primaryAction={(
                             <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
                               <UserCircle size={16}/>
                               Profile
                             </button>
+                          )}
+                          secondaryAction={(
                             <button className="follow-btn followed" disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
                               <UserPlus size={16}/>
                               Following
                             </button>
-                          </div>
-                        </article>))}
+                          )}
+                        />
+                      ))}
                     </DesktopHorizontalRail>
                   </section>)}
               </section>)}
@@ -20606,7 +20730,7 @@ function PageContent() {
                     {followingVideos.map((video) => renderVideoCard(video, { sourceLabel: "Following Videos" }))}
                   </DesktopHorizontalRail>)}
               </section>
-            </section>)) : visibleSongs.length === 0 &&
+            </section>)) : (view === "Ringtone Marketplace" || view === "My Purchased Ringtones" || view === "Favorite Ringtones" || view === "My Ringtones") ? null : visibleSongs.length === 0 &&
             inlineVideos.length === 0 &&
             visibleAlbums.length === 0 &&
             searchArtistResults.length === 0 &&
@@ -20630,26 +20754,30 @@ function PageContent() {
                   <h3>Artist Results</h3>
                   <span>{searchArtistResults.length} artists</span>
                 </div>
-                <DesktopHorizontalRail className="artist-grid" label="Artist Search Results">
-                  {searchArtistResults.map((artist) => (<article className="artist-card" key={artist.id}>
-                      <button className="artist-card-main" onClick={() => openArtistProfile(artist.name)} type="button">
-                        <img src={getArtworkUrl(artist.avatar)} alt=""/>
-                        <span>
-                          <strong>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</strong>
-                          <small>{artist.bio}</small>
-                        </span>
-                      </button>
-                      <div className="artist-card-actions">
+                <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Artist Search Results">
+                  {searchArtistResults.map((artist) => (
+                    <StoreCard
+                      key={artist.id}
+                      className="artist-card"
+                      cover={getArtworkUrl(artist.avatar)}
+                      name={<>{artist.name}{renderVerifiedBadge(isArtistVerified(artist.id), "Verified Artist")}</>}
+                      meta={artist.bio}
+                      onOpen={() => openArtistProfile(artist.name)}
+                      openLabel={`Open ${artist.name}`}
+                      primaryAction={(
                         <button className="play-btn" onClick={() => openArtistProfile(artist.name)} type="button">
                           <UserCircle size={16}/>
                           Profile
                         </button>
+                      )}
+                      secondaryAction={(
                         <button className={followedArtistIds.includes(artist.id) ? "follow-btn followed" : "follow-btn"} disabled={!protectedActionsReady} onClick={() => toggleArtistFollow(artist.id, artist.name)} type="button">
                           <UserPlus size={16}/>
                           {followedArtistIds.includes(artist.id) ? "Following" : "Follow"}
                         </button>
-                      </div>
-                    </article>))}
+                      )}
+                    />
+                  ))}
                 </DesktopHorizontalRail>
               </section>)}
 
@@ -20658,22 +20786,24 @@ function PageContent() {
                   <h3>Producer Results</h3>
                   <span>{searchProducerResults.length} producers</span>
                 </div>
-                <DesktopHorizontalRail className="artist-grid" label="Producer Search Results">
-                  {searchProducerResults.map((producer) => (<article className="artist-card" key={producer.id}>
-                      <button className="artist-card-main" onClick={() => openProducerProfile(producer.id)} type="button">
-                        <img src={getArtworkUrl(producer.avatar)} alt=""/>
-                        <span>
-                          <strong>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</strong>
-                          <small>{producer.tagline || producer.bio}</small>
-                        </span>
-                      </button>
-                      <div className="artist-card-actions">
+                <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Producer Search Results">
+                  {searchProducerResults.map((producer) => (
+                    <StoreCard
+                      key={producer.id}
+                      className="artist-card"
+                      cover={getArtworkUrl(producer.avatar)}
+                      name={<>{producer.name}{renderVerifiedBadge(isProducerVerified(producer.id), "Verified Producer")}</>}
+                      meta={producer.tagline || producer.bio}
+                      onOpen={() => openProducerProfile(producer.id)}
+                      openLabel={`Open ${producer.name}`}
+                      primaryAction={(
                         <button className="play-btn" onClick={() => openProducerProfile(producer.id)} type="button">
                           <UserCircle size={16}/>
                           Profile
                         </button>
-                      </div>
-                    </article>))}
+                      )}
+                    />
+                  ))}
                 </DesktopHorizontalRail>
               </section>)}
 
@@ -20719,7 +20849,18 @@ function PageContent() {
                 </DesktopHorizontalRail>
               </section>)}
           </>)}
+        </MobileDisplayModeProvider>
       </DesktopContentScrollRoot>
+
+      {isMobileCompact ? (
+        <MobileContentActionSheet
+          open={desktopListOverflow.open}
+          meta={desktopListOverflow.meta}
+          actions={desktopListOverflow.actions}
+          restoreFocusEl={desktopListOverflow.trigger}
+          onClose={() => setDesktopListOverflow({ open: false, meta: null, actions: [], trigger: null })}
+        />
+      ) : null}
 
       {toast && (<div className={`toast toast-${toast.tone}`} role="status" aria-live="polite">
           {toast.message}
@@ -26008,9 +26149,9 @@ function PageContent() {
           }
 
           .featured-store-list img,
-          .marketplace-bundle-card img,
-          .marketplace-limited-card img,
-          .marketplace-preorder-card img {
+          .marketplace-bundle-card:not([data-card-family="promotion"]) img,
+          .marketplace-limited-card:not([data-card-family="promotion"]) img,
+          .marketplace-preorder-card:not([data-card-family="promotion"]) img {
             width: 100%;
             aspect-ratio: 1;
             border-radius: 8px;
@@ -26020,9 +26161,9 @@ function PageContent() {
 
           .featured-store-list span,
           .discount-code-grid span,
-          .marketplace-bundle-card span,
-          .marketplace-limited-card span,
-          .marketplace-preorder-card span {
+          .marketplace-bundle-card:not([data-card-family="promotion"]) span,
+          .marketplace-limited-card:not([data-card-family="promotion"]) span,
+          .marketplace-preorder-card:not([data-card-family="promotion"]) span {
             color: #22d3ee;
             font-size: 10px;
             font-weight: 900;
@@ -26031,12 +26172,12 @@ function PageContent() {
 
           .featured-store-list strong,
           .featured-store-list small,
-          .marketplace-bundle-card strong,
-          .marketplace-bundle-card small,
-          .marketplace-limited-card strong,
-          .marketplace-limited-card small,
-          .marketplace-preorder-card strong,
-          .marketplace-preorder-card small {
+          .marketplace-bundle-card:not([data-card-family="promotion"]) strong,
+          .marketplace-bundle-card:not([data-card-family="promotion"]) small,
+          .marketplace-limited-card:not([data-card-family="promotion"]) strong,
+          .marketplace-limited-card:not([data-card-family="promotion"]) small,
+          .marketplace-preorder-card:not([data-card-family="promotion"]) strong,
+          .marketplace-preorder-card:not([data-card-family="promotion"]) small {
             display: block;
             min-width: 0;
             overflow: hidden;
@@ -26049,18 +26190,18 @@ function PageContent() {
           }
 
           .featured-store-list strong,
-          .marketplace-bundle-card strong,
-          .marketplace-limited-card strong,
-          .marketplace-preorder-card strong {
+          .marketplace-bundle-card:not([data-card-family="promotion"]) strong,
+          .marketplace-limited-card:not([data-card-family="promotion"]) strong,
+          .marketplace-preorder-card:not([data-card-family="promotion"]) strong {
             color: white;
             font-size: 14px;
             font-weight: 900;
           }
 
           .featured-store-list small,
-          .marketplace-bundle-card small,
-          .marketplace-limited-card small,
-          .marketplace-preorder-card small {
+          .marketplace-bundle-card:not([data-card-family="promotion"]) small,
+          .marketplace-limited-card:not([data-card-family="promotion"]) small,
+          .marketplace-preorder-card:not([data-card-family="promotion"]) small {
             color: #9bdcf0;
             font-size: 11px;
             font-weight: 800;
@@ -26068,9 +26209,9 @@ function PageContent() {
 
           .featured-store-list button,
           .discount-code-grid button,
-          .marketplace-bundle-card button,
-          .marketplace-limited-card button,
-          .marketplace-preorder-card button {
+          .marketplace-bundle-card:not([data-card-family="promotion"]) button,
+          .marketplace-limited-card:not([data-card-family="promotion"]) button,
+          .marketplace-preorder-card:not([data-card-family="promotion"]) button {
             min-height: 34px;
             border: 0;
             border-radius: 8px;
@@ -26137,12 +26278,13 @@ function PageContent() {
           .marketplace-bundle-grid,
           .marketplace-limited-grid,
           .marketplace-preorder-grid {
-            grid-auto-columns: minmax(230px, 260px);
+            /* Card-system owns promotion grid columns. */
           }
 
-          .marketplace-bundle-card,
-          .marketplace-limited-card,
-          .marketplace-preorder-card {
+          /* Legacy promotion shells — disabled when card-system family is present. */
+          .marketplace-bundle-card:not([data-card-family="promotion"]),
+          .marketplace-limited-card:not([data-card-family="promotion"]),
+          .marketplace-preorder-card:not([data-card-family="promotion"]) {
             min-height: 250px;
             border: 1px solid rgba(0, 212, 255, 0.28);
             border-radius: 8px;
@@ -26154,9 +26296,9 @@ function PageContent() {
             transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
           }
 
-          .marketplace-bundle-card:hover,
-          .marketplace-limited-card:hover,
-          .marketplace-preorder-card:hover {
+          .marketplace-bundle-card:not([data-card-family="promotion"]):hover,
+          .marketplace-limited-card:not([data-card-family="promotion"]):hover,
+          .marketplace-preorder-card:not([data-card-family="promotion"]):hover {
             transform: scale(1.02);
             border-color: #22d3ee;
             box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), 0 16px 34px rgba(0, 0, 0, 0.28);
@@ -28490,7 +28632,7 @@ function PageContent() {
             gap: 14px;
           }
 
-          .artist-card {
+          .artist-card:not([data-card-family="store"]) {
             min-width: 0;
             border: 1px solid rgba(0, 212, 255, 0.28);
             border-radius: 8px;
@@ -28501,7 +28643,7 @@ function PageContent() {
             padding: 12px;
           }
 
-          .artist-card-main {
+          .artist-card:not([data-card-family="store"]) .artist-card-main {
             min-width: 0;
             border: 0;
             border-radius: 8px;
@@ -28705,7 +28847,7 @@ function PageContent() {
 
           .artist-actions button,
           .artist-song-row button,
-          .artist-album-card button {
+          .artist-album-card .artist-album-actions button {
             min-height: 32px;
             border: 0;
             border-radius: 8px;
@@ -28833,8 +28975,8 @@ function PageContent() {
             text-align: left;
           }
 
-          .artist-album-card img,
-          .artist-playlist-card img {
+          .artist-album-card:not([data-desktop-media-grid-card]) img,
+          .artist-playlist-card:not([data-desktop-media-grid-card]) img {
             width: 100%;
             aspect-ratio: 16 / 7;
             border-radius: 8px;
@@ -29465,9 +29607,32 @@ function PageContent() {
             color: inherit;
             font: inherit;
             font-weight: inherit;
+            font-size: inherit;
+            line-height: inherit;
             text-align: left;
             cursor: pointer;
             max-width: 100%;
+            min-height: 0;
+            height: auto;
+            width: auto;
+            display: inline;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+            box-shadow: none;
+          }
+
+          .artist-album-card .album-open-title,
+          [data-desktop-media-grid-card="true"].artist-album-card .album-open-title,
+          [data-desktop-media-grid-card="true"] .desktop-media-grid-card__title .album-open-title {
+            background: transparent;
+            color: inherit;
+            min-height: 0;
+            padding: 0;
+            border-radius: 0;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
           }
 
           .playlist-modal {
@@ -30043,14 +30208,29 @@ function PageContent() {
             }
           }
 
+          /* Mobile horizontal nav — hidden on desktop/tablet (≥821px) */
+          .mobile-horizontal-nav {
+            display: none;
+          }
+
+          .mobile-app-chrome,
+          .mobile-sticky-chrome {
+            display: contents;
+          }
+
+          .mobile-app-chrome--desktop {
+            display: contents;
+          }
+
           @media (max-width: 820px) {
             :root {
-              --mobile-sidebar-width: 64px;
+              --mobile-sidebar-width: 0px;
               --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: var(--global-player-height);
+              --mobile-player-bottom-inset: 8px;
               --mobile-player-reserve: calc(
                 var(--global-player-height)
-                + var(--player-dock-inset-bottom, 12px)
+                + var(--mobile-player-bottom-inset)
                 + env(safe-area-inset-bottom, 0px)
                 + 16px
               );
@@ -30059,15 +30239,19 @@ function PageContent() {
             html,
             body {
               scroll-padding-bottom: var(--mobile-player-reserve);
+              overflow-x: hidden;
             }
 
             .zml-app {
               padding-bottom: var(--mobile-player-reserve);
+              overflow-x: hidden;
             }
 
             .sidebar {
-              width: var(--mobile-sidebar-width);
-              padding: 8px 6px 90px;
+              display: none !important;
+              width: 0 !important;
+              padding: 0 !important;
+              pointer-events: none !important;
             }
 
             .nav {
@@ -30103,11 +30287,230 @@ function PageContent() {
             }
 
             .content {
-              margin-left: var(--mobile-sidebar-width);
-              width: calc(100% - var(--mobile-sidebar-width));
+              margin-left: 0;
+              width: 100%;
+              max-width: 100%;
               /* padding-top 0 restores search/action bar flush to the viewport top */
-              padding: 0 10px var(--mobile-player-reserve);
+              padding: 0 8px var(--mobile-player-reserve);
               scroll-padding-bottom: var(--mobile-player-reserve);
+              overflow-x: hidden;
+            }
+
+            .mobile-app-chrome,
+            .mobile-sticky-chrome {
+              display: block !important;
+              position: sticky !important;
+              top: 0 !important;
+              z-index: 80 !important;
+              background: rgba(2, 6, 23, 0.96);
+              transform: none !important;
+              overflow: hidden !important;
+              contain: layout style !important;
+            }
+
+            .mobile-app-chrome.is-header-hidden,
+            .mobile-app-chrome[data-header-hidden="true"] {
+              transform: none !important;
+              margin-top: calc(-1 * var(--mobile-chrome-height, 0px)) !important;
+              opacity: 0 !important;
+              pointer-events: none !important;
+              visibility: hidden !important;
+            }
+
+            .mobile-horizontal-nav {
+              display: block !important;
+              position: relative;
+              margin: 0;
+              padding: 0 0 4px;
+              overflow: hidden;
+            }
+
+            .mobile-horizontal-nav-scroller {
+              display: flex;
+              gap: 5px;
+              overflow-x: auto;
+              overflow-y: hidden;
+              -webkit-overflow-scrolling: touch;
+              scrollbar-width: none;
+              padding: 0 2px 0;
+            }
+
+            .mobile-horizontal-nav-scroller::-webkit-scrollbar {
+              display: none;
+            }
+
+            .mobile-nav-pill {
+              flex: 0 0 auto;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              min-height: 28px;
+              padding: 3px 10px;
+              border-radius: 999px;
+              border: 1px solid rgba(148, 163, 184, 0.35);
+              background: rgba(15, 23, 42, 0.92);
+              color: #e2e8f0;
+              font-size: 11px;
+              font-weight: 700;
+              white-space: nowrap;
+            }
+
+            .mobile-nav-pill svg {
+              width: 14px;
+              height: 14px;
+            }
+
+            .mobile-nav-pill.is-active {
+              border-color: rgba(34, 211, 238, 0.7);
+              color: #22d3ee;
+              background: rgba(8, 47, 73, 0.95);
+            }
+
+            /* Mobile media Grid: 3 equal columns — geometry owned by card-system.css */
+            html body main.zml-app.view-grid .horizontal-rail-track.song-grid,
+            html body main.zml-app.view-grid .horizontal-rail-track.video-grid,
+            html body main.zml-app.view-grid .horizontal-rail-track.artist-album-grid,
+            html body main.zml-app.view-grid .horizontal-rail-track.artist-playlist-grid,
+            html body main.zml-app.view-grid .horizontal-rail-track.discovery-grid,
+            html body main.zml-app.view-grid .horizontal-rail-track.artist-grid,
+            html body main.zml-app.view-grid .discovery-grid,
+            html body main.zml-app.view-grid .home-discovery-grid,
+            html body main.zml-app.view-grid .desktop-media-grid,
+            html body main.zml-app.view-grid .playlist-detail-grid,
+            html body main.zml-app.view-grid .song-grid,
+            html body main.zml-app.view-grid .video-grid,
+            html body main.zml-app.view-grid .recent-list,
+            html body main.zml-app.view-grid[data-active-view] .discovery-section .home-discovery-grid,
+            html body main.zml-app.view-grid[data-active-view] .discovery-section .discovery-grid {
+              display: grid !important;
+              grid-auto-flow: row !important;
+              grid-auto-columns: unset !important;
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              gap: 6px !important;
+              justify-content: stretch !important;
+              justify-items: stretch !important;
+              align-items: stretch !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              box-sizing: border-box !important;
+              overflow: visible !important;
+            }
+
+            html body main.zml-app.view-grid [data-desktop-media-grid-card="true"].desktop-media-grid-card {
+              width: 100% !important;
+              min-width: 0 !important;
+              max-width: none !important;
+              justify-self: stretch !important;
+              padding: 6px !important;
+              gap: 6px !important;
+            }
+
+            html body main.zml-app.view-grid [data-desktop-media-grid-card="true"] > .desktop-media-grid-card__art {
+              width: 100% !important;
+              aspect-ratio: 1 / 1 !important;
+              overflow: hidden !important;
+            }
+
+            html body main.zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__img {
+              width: 100% !important;
+              height: 100% !important;
+              max-width: none !important;
+              object-fit: cover !important;
+              object-position: center center !important;
+            }
+
+            html body main.zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__title,
+            html body main.zml-app.view-grid [data-desktop-media-grid-card="true"] h3.desktop-media-grid-card__title {
+              height: auto !important;
+              max-height: calc(1.2em * 2) !important;
+              font-size: 11px !important;
+              line-height: 1.2 !important;
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+              white-space: normal !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            html body main.zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__secondary,
+            html body main.zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-media-grid-card__meta {
+              font-size: 10px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            /* Queue Grid View only (List View uses full-width rows). */
+            html body main.zml-app.view-grid[data-active-view="Queue"] .queue-manage-list {
+              display: grid !important;
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              gap: 6px !important;
+              justify-items: stretch !important;
+              width: 100% !important;
+              overflow: visible !important;
+            }
+
+            html body main.zml-app.view-list[data-active-view="Queue"] .queue-manage-list {
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) !important;
+              grid-auto-rows: auto !important;
+              gap: 6px !important;
+              width: 100% !important;
+              overflow: visible !important;
+            }
+
+            html body main.zml-app.view-grid[data-active-view="Queue"] [data-desktop-media-grid-card="true"].queue-manage-row {
+              width: 100% !important;
+              max-width: none !important;
+              justify-self: stretch !important;
+              display: flex !important;
+              flex-direction: column !important;
+              grid-template-columns: none !important;
+              height: auto !important;
+              padding: 6px !important;
+              gap: 6px !important;
+            }
+
+            .queue-page .queue-exit-bar {
+              position: sticky;
+              top: var(--app-header-offset, 0px);
+              z-index: 60;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin: 0 0 8px;
+              padding: max(6px, env(safe-area-inset-top, 0px)) 0 8px;
+              background: rgba(2, 6, 23, 0.96);
+              border-bottom: 1px solid rgba(0, 212, 255, 0.22);
+            }
+
+            .queue-page .queue-exit-bar .queue-back-btn {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              gap: 6px;
+              min-height: 44px;
+              height: 44px;
+              min-width: 44px;
+              padding: 0 14px;
+              font-size: 13px;
+              font-weight: 800;
+            }
+
+            @media (max-width: 340px) {
+              html body main.zml-app[data-active-view="Queue"] .queue-manage-list {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              }
+            }
+
+
+            /* Avoid double inset: content already pads 12px; section side pads caused uneven leftover. */
+            html body main.zml-app.view-grid .artist-section,
+            html body main.zml-app.view-grid .discovery-section {
+              padding-left: 0 !important;
+              padding-right: 0 !important;
             }
 
             .mobile-player-spacer {
@@ -30124,67 +30527,164 @@ function PageContent() {
               scroll-margin-bottom: var(--mobile-player-reserve);
             }
 
-            /* Platform Overview: one full-width metric card per row so Videos → Ringtones → Playlists stays readable. */
+            /* Platform Overview: fit mobile content width; 2 equal metric columns. */
             .platform-control-center {
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+              margin-left: 0;
+              margin-right: 0;
+              transform: none;
+              overflow-x: hidden;
+            }
+
+            .control-center-header {
+              flex-direction: column;
+              align-items: stretch;
               width: 100%;
               max-width: 100%;
               min-width: 0;
               box-sizing: border-box;
             }
 
-            .control-center-header {
-              flex-direction: column;
-              align-items: stretch;
+            .control-overview-grid,
+            .control-health-grid,
+            .control-activity-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              margin-left: 0;
+              transform: none;
+              box-sizing: border-box;
             }
 
-            .control-overview-grid {
-              grid-template-columns: 1fr;
+            .control-overview-card,
+            .control-center-card,
+            .control-health-card {
               width: 100%;
               min-width: 0;
-            }
-
-            .control-overview-card {
-              width: 100%;
-              min-width: 0;
+              max-width: 100%;
               box-sizing: border-box;
             }
 
             .topbar {
               display: grid;
               grid-template-columns: minmax(0, 1fr);
-              gap: 8px;
-              padding-bottom: 5px;
+              gap: 6px;
+              padding-bottom: 4px;
               z-index: 80;
             }
 
             .search-wrap,
-            .view-toggle,
-            .topbar-account-actions {
+            .topbar-mobile-action-row {
               grid-column: 1 / -1;
               width: 100%;
               max-width: 100%;
               min-width: 0;
+              box-sizing: border-box;
             }
 
+            /* Row 1: search + language */
             .search-wrap {
+              display: flex;
+              flex-direction: row;
+              flex-wrap: nowrap;
+              align-items: center;
               gap: 6px;
               position: relative;
               z-index: 1;
             }
 
-            .search-box {
-              height: 34px;
-              border-radius: 8px;
+            .search-wrap .search-box {
+              flex: 1 1 auto;
+              min-width: 0;
+              width: auto;
+              height: 40px;
+              min-height: 40px;
+              max-height: 40px;
+              padding: 0;
+              box-sizing: border-box;
+              display: block;
               position: relative;
               z-index: 2;
+              border-radius: 8px;
+              overflow: hidden;
+              gap: 0;
+            }
+
+            /* Search icon: left inside field, vertically centered */
+            .search-wrap .search-box > svg {
+              position: absolute;
+              left: 10px;
+              top: 50%;
+              margin-top: -9px;
+              width: 18px;
+              height: 18px;
+              flex: none;
+              pointer-events: none;
+              z-index: 1;
+              display: block;
             }
 
             /*
-              iOS Safari zooms focused inputs when computed font-size is below 16px.
-              Keep desktop at 14px; mobile editable input must be >= 16px.
+              iOS: font-size >= 16px avoids focus zoom.
+              Equal vertical padding + line-height keeps placeholder centered (no transforms).
             */
-            .search-box input {
+            .search-wrap .search-box input,
+            .topbar .search-box input {
+              display: block;
+              width: 100%;
+              height: 40px;
+              min-height: 40px;
+              max-height: 40px;
+              margin: 0;
+              padding: 10px 12px 10px 36px;
+              border: 0;
+              background: transparent;
+              color: white;
+              outline: none;
               font-size: 16px;
+              line-height: 20px;
+              box-sizing: border-box;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              transform: none;
+            }
+
+            .search-wrap .topbar-language-selector {
+              flex: 0 0 auto;
+              width: auto;
+              max-width: none;
+              min-width: 0;
+            }
+
+            .search-wrap .topbar-language-selector .language-selector-trigger {
+              height: 40px;
+              min-height: 40px;
+              max-height: 40px;
+              padding: 0 8px;
+              box-sizing: border-box;
+            }
+
+            /*
+              Mobile control row shell (shared).
+              Portrait ≤768px: one 5-col icon row (display:contents flattens wrappers).
+              Landscape / wider mobile: keep Grid|List then actions as separate rows.
+            */
+            .topbar-mobile-action-row {
+              display: grid;
+              grid-template-columns: minmax(0, 1fr);
+              gap: 6px;
+              margin: 0;
+              padding: 0;
+              min-height: 0;
+              align-items: stretch;
+              width: 100%;
+              max-width: 100%;
+              box-sizing: border-box;
             }
 
             .view-toggle,
@@ -30216,35 +30716,61 @@ function PageContent() {
               max-height: min(var(--search-suggestions-vv-max, 42dvh), 280px);
             }
 
-            .view-toggle {
-              height: 31px;
+            /* Landscape / non-portrait compact: Grid|List row + actions row */
+            .topbar-mobile-action-row .view-toggle,
+            .topbar-mobile-action-row [data-mobile-view-toggle="true"] {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 6px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              height: auto;
+              min-height: 0;
+              margin: 0;
+              flex: none;
             }
 
-            .view-toggle button {
-              font-size: 11.5px;
-              gap: 4px;
-              padding: 0 6px;
-            }
-
-            /*
-              Mobile portrait/landscape (≤820): six equal flex cells in one row.
-              Fixed 44px × 6 + gaps overflowed the content column and clipped Logout.
-            */
-            .topbar-account-actions {
-              display: flex;
-              flex-direction: row;
+            .topbar-mobile-action-row .view-toggle button,
+            .topbar-mobile-action-row [data-mobile-view-toggle="true"] button {
+              width: 100%;
+              max-width: none;
+              min-width: 0;
+              height: 36px;
+              min-height: 36px;
+              max-height: 36px;
+              padding: 0 8px;
+              margin: 0;
+              font-size: 12px;
+              font-weight: 800;
+              line-height: 1.1;
+              gap: 5px;
+              display: inline-flex;
+              justify-content: center;
               align-items: center;
-              justify-content: flex-start;
-              gap: 4px;
-              flex-wrap: nowrap;
+              border-radius: 8px;
+              box-sizing: border-box;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              flex: none;
+            }
+
+            .topbar-account-actions {
+              display: grid;
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+              align-items: stretch;
+              justify-content: stretch;
+              gap: 6px;
               width: 100%;
               max-width: 100%;
               min-width: 0;
               box-sizing: border-box;
               margin: 0;
-              padding: 0 2px 0 0;
+              padding: 0;
               overflow-x: hidden;
               overflow-y: visible;
+              flex: none;
             }
 
             .topbar-account-actions > .notification-wrap,
@@ -30252,12 +30778,12 @@ function PageContent() {
             .topbar-account-actions > .dashboard-btn,
             .topbar-account-actions > .profile-btn,
             .topbar-account-actions > .logout-btn {
-              flex: 1 1 0;
+              width: 100%;
               min-width: 0;
               max-width: none;
-              width: auto;
-              height: 40px;
-              min-height: 40px;
+              height: 36px;
+              min-height: 36px;
+              max-height: 36px;
               position: relative;
               z-index: 50;
               margin: 0;
@@ -30266,6 +30792,7 @@ function PageContent() {
               cursor: pointer;
               touch-action: manipulation;
               box-sizing: border-box;
+              flex: none;
             }
 
             .topbar-account-actions > .notification-wrap {
@@ -30279,14 +30806,16 @@ function PageContent() {
             .topbar .topbar-account-actions > .logout-btn {
               width: 100%;
               max-width: 100%;
-              height: 40px;
+              height: 36px;
               min-width: 0 !important;
-              min-height: 40px;
+              min-height: 36px !important;
+              max-height: 36px;
               border-radius: 8px;
               font-size: 0;
               gap: 0;
               padding: 0;
               margin: 0;
+              display: inline-flex;
               justify-content: center;
               align-items: center;
               transform: none;
@@ -30299,7 +30828,6 @@ function PageContent() {
               overflow: visible;
             }
 
-            /* Badge overlays the bell; must not widen the flex item. */
             .topbar-account-actions .notification-button > span:not(.sr-only) {
               position: absolute;
               right: 0;
@@ -30323,6 +30851,105 @@ function PageContent() {
               margin: 0;
               transform: none;
               flex-shrink: 0;
+            }
+
+            /* Portrait phone only: one 5-equal icon control row */
+            @media (max-width: 768px) and (orientation: portrait) {
+              .topbar-mobile-action-row {
+                display: grid !important;
+                grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                gap: 6px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                align-items: stretch !important;
+                flex-wrap: nowrap !important;
+              }
+
+              .topbar-mobile-action-row .view-toggle,
+              .topbar-mobile-action-row [data-mobile-view-toggle="true"],
+              .topbar-mobile-action-row .topbar-account-actions {
+                display: contents !important;
+              }
+
+              .topbar-mobile-action-row .topbar-mobile-control-btn,
+              .topbar-mobile-action-row .notification-wrap {
+                width: 100% !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                height: 36px !important;
+                min-height: 36px !important;
+                max-height: 36px !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border-radius: 8px !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex: none !important;
+                gap: 0 !important;
+                font-size: 0 !important;
+                overflow: hidden !important;
+                white-space: nowrap !important;
+              }
+
+              .topbar-mobile-action-row .notification-wrap {
+                overflow: visible !important;
+                position: relative !important;
+                z-index: 50 !important;
+              }
+
+              .topbar-mobile-action-row .notification-wrap .notification-button {
+                width: 100% !important;
+                height: 36px !important;
+                min-width: 0 !important;
+                min-height: 36px !important;
+                max-height: 36px !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border-radius: 8px !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                font-size: 0 !important;
+                gap: 0 !important;
+              }
+
+              .topbar-mobile-action-row .view-toggle-label,
+              .topbar-mobile-action-row .topbar-control-label {
+                display: none !important;
+              }
+
+              .topbar-mobile-action-row .topbar-mobile-control-btn span[aria-hidden="true"] {
+                font-size: 14px !important;
+                line-height: 1 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+
+              .topbar-mobile-action-row .notification-button svg,
+              .topbar-mobile-action-row .topbar-mobile-control-btn svg {
+                width: 16px !important;
+                height: 16px !important;
+                margin: 0 !important;
+                flex-shrink: 0 !important;
+              }
+
+              .topbar-mobile-action-row .notification-button > span:not(.sr-only) {
+                position: absolute !important;
+                right: 0 !important;
+                top: -4px !important;
+                min-width: 16px !important;
+                height: 16px !important;
+                max-height: 16px !important;
+                line-height: 1 !important;
+                font-size: 9px !important;
+                pointer-events: none !important;
+                z-index: 2 !important;
+              }
             }
 
             .upload-shell {
@@ -31011,12 +31638,12 @@ function PageContent() {
               display: grid;
               grid-auto-flow: row;
               grid-auto-columns: unset;
-              grid-template-columns: 1fr;
-              gap: 10px;
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+              gap: 6px;
               overflow: visible;
             }
 
-            .marketplace-preorder-card {
+            .marketplace-preorder-card:not([data-card-family="promotion"]) {
               min-height: 0;
               display: grid;
               grid-template-rows: 180px auto auto;
@@ -31025,20 +31652,20 @@ function PageContent() {
               overflow: hidden;
             }
 
-            .marketplace-preorder-card img {
+            .marketplace-preorder-card:not([data-card-family="promotion"]) img {
               width: 100%;
               height: 180px;
               aspect-ratio: auto;
               object-fit: cover;
             }
 
-            .marketplace-preorder-card > div {
+            .marketplace-preorder-card:not([data-card-family="promotion"]) > div {
               min-width: 0;
               display: grid;
               gap: 2px;
             }
 
-            .marketplace-preorder-card strong {
+            .marketplace-preorder-card:not([data-card-family="promotion"]) strong {
               display: -webkit-box;
               white-space: normal;
               overflow: hidden;
@@ -31046,7 +31673,7 @@ function PageContent() {
               -webkit-box-orient: vertical;
             }
 
-            .marketplace-preorder-card small {
+            .marketplace-preorder-card:not([data-card-family="promotion"]) small {
               display: -webkit-box;
               white-space: normal;
               overflow: hidden;
@@ -31054,7 +31681,7 @@ function PageContent() {
               -webkit-box-orient: vertical;
             }
 
-            .marketplace-preorder-card button {
+            .marketplace-preorder-card:not([data-card-family="promotion"]) button {
               width: 100%;
             }
 
@@ -31596,18 +32223,17 @@ function PageContent() {
 
             .topbar {
               grid-template-columns: minmax(0, 1fr);
-              gap: 8px;
-              padding-bottom: 5px;
+              gap: 6px;
+              padding-bottom: 4px;
             }
 
             .search-wrap,
-            .view-toggle,
-            .topbar-account-actions {
+            .topbar-mobile-action-row {
               grid-column: 1 / -1;
             }
 
             .topbar-account-actions {
-              justify-content: flex-start;
+              justify-content: stretch;
             }
 
             .dashboard-form .wide,
@@ -32038,12 +32664,13 @@ function PageContent() {
 
           @media (max-width: 768px) {
             :root {
-              --mobile-sidebar-width: 112px;
+              --mobile-sidebar-width: 0px;
               --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: var(--global-player-height);
+              --mobile-player-bottom-inset: 8px;
               --mobile-player-reserve: calc(
                 var(--global-player-height)
-                + var(--player-dock-inset-bottom, 12px)
+                + var(--mobile-player-bottom-inset)
                 + env(safe-area-inset-bottom, 0px)
                 + 16px
               );
@@ -32064,11 +32691,11 @@ function PageContent() {
               min-height: 0 !important;
             }
 
-            .media-card,
-            .song-card,
-            .artist-album-card,
-            .artist-playlist-card,
-            .playlist-tile {
+            .view-list .media-card,
+            .view-list .song-card,
+            .view-list .artist-album-card,
+            .view-list .artist-playlist-card,
+            .view-list .playlist-tile {
               width: 100% !important;
               max-width: 100% !important;
               height: auto !important;
@@ -32082,8 +32709,8 @@ function PageContent() {
               box-sizing: border-box !important;
             }
 
-            .video-card,
-            .library-card.video-card {
+            .view-list .video-card,
+            .view-list .library-card.video-card {
               overflow: visible !important;
             }
 
@@ -32118,22 +32745,22 @@ function PageContent() {
               overflow: visible !important;
             }
 
-            .media-card,
-            .song-card,
-            .video-card,
-            .artist-album-card,
-            .artist-playlist-card,
-            .playlist-tile {
+            .view-list .media-card,
+            .view-list .song-card,
+            .view-list .video-card,
+            .view-list .artist-album-card,
+            .view-list .artist-playlist-card,
+            .view-list .playlist-tile {
               grid-template-columns: 96px minmax(0, 1fr) !important;
               gap: 10px !important;
             }
 
-            .media-card img,
-            .media-card .cover,
-            .media-card .video-cover,
-            .media-card > img,
-            .media-card .cover-wrap img,
-            .media-card .video-cover-wrap img {
+            .view-list .media-card img,
+            .view-list .media-card .cover,
+            .view-list .media-card .video-cover,
+            .view-list .media-card > img,
+            .view-list .media-card .cover-wrap img,
+            .view-list .media-card .video-cover-wrap img {
               width: 96px !important;
               height: 72px !important;
               object-fit: cover !important;
@@ -32141,8 +32768,8 @@ function PageContent() {
               min-height: 0 !important;
             }
 
-            .media-card .cover-wrap,
-            .media-card .video-cover-wrap {
+            .view-list .media-card .cover-wrap,
+            .view-list .media-card .video-cover-wrap {
               width: 96px !important;
               height: 72px !important;
               min-height: 0 !important;
@@ -33432,11 +34059,12 @@ function PageContent() {
 
             .queue-manage-list {
               display: grid !important;
-              gap: 8px !important;
+              gap: 4px !important;
               padding-bottom: 0 !important;
             }
 
-            .queue-manage-row {
+            /* When queue rows are DesktopMediaGridCard tiles, do not force legacy 1-row layout. */
+            .queue-manage-row:not([data-desktop-media-grid-card="true"]) {
               width: 100% !important;
               display: grid !important;
               grid-template-columns: 28px 44px minmax(0, 1fr) !important;
@@ -33447,9 +34075,28 @@ function PageContent() {
               box-sizing: border-box !important;
             }
 
-            .queue-manage-row img {
+            .queue-manage-row:not([data-desktop-media-grid-card="true"]) img {
               width: 44px !important;
               height: 44px !important;
+            }
+
+            .queue-manage-row[data-desktop-media-grid-card="true"] {
+              width: 100% !important;
+              max-width: none !important;
+              display: flex !important;
+              flex-direction: column !important;
+              grid-template-columns: none !important;
+              grid-template-rows: none !important;
+              height: auto !important;
+              justify-self: stretch !important;
+            }
+
+            .queue-manage-row[data-desktop-media-grid-card="true"] img,
+            .queue-manage-row[data-desktop-media-grid-card="true"] .desktop-media-grid-card__img {
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: cover !important;
+              object-position: center center !important;
             }
 
             .queue-manage-row .recent-copy {
@@ -34913,7 +35560,7 @@ function PageContent() {
               box-sizing: border-box !important;
             }
 
-            .queue-manage-row {
+            .queue-manage-row:not([data-desktop-media-grid-card="true"]) {
               width: 100% !important;
               max-width: 100% !important;
               min-height: 0 !important;
@@ -35378,112 +36025,60 @@ function PageContent() {
             }
 
             /*
-              Queue mobile scrollport:
-              Keep html/body from scrolling, but restore .content as the single
-              vertical scroll container so filled queues can reach every card
-              above the fixed bottom player.
+              Queue mobile: stay inside the normal content shell (do NOT use a
+              fixed full-viewport scrollport). Sticky .queue-exit-bar provides
+              a permanent Back control; chrome + horizontal nav remain available.
             */
-            html:has(.zml-app[data-active-view="Queue"]),
-            html:has(.content > .queue-page) {
-              height: 100% !important;
-              min-height: 0 !important;
-              max-height: 100% !important;
-              overflow: hidden !important;
+            .zml-app[data-active-view="Queue"] {
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              padding-bottom: 0 !important;
             }
 
-            body:has(.zml-app[data-active-view="Queue"]),
-            body:has(.content > .queue-page) {
-              height: 100% !important;
+            .zml-app[data-active-view="Queue"] .content,
+            .zml-app[data-active-view="Queue"] .content.desktop-content-scroll-root,
+            .content:has(> .queue-page) {
+              position: relative !important;
+              top: auto !important;
+              bottom: auto !important;
+              left: auto !important;
+              right: auto !important;
+              height: auto !important;
+              max-height: none !important;
               min-height: 0 !important;
-              max-height: 100% !important;
-              padding-bottom: 0 !important;
-              margin: 0 !important;
-              overflow: hidden !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
+              padding-bottom: var(--mobile-player-reserve) !important;
+            }
+
+            .zml-app[data-active-view="Queue"] .content > .queue-page,
+            .content:has(> .queue-page) > .queue-page {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              width: 100% !important;
+              height: auto !important;
+              max-height: none !important;
+              padding-bottom: var(--mobile-player-reserve, 120px) !important;
+              overflow: visible !important;
+            }
+
+            html:has(.zml-app[data-active-view="Queue"]),
+            body:has(.zml-app[data-active-view="Queue"]),
+            html:has(.content > .queue-page),
+            body:has(.content > .queue-page) {
+              height: auto !important;
+              max-height: none !important;
+              overflow: auto !important;
             }
 
             .mdb-app-shell:has(.zml-app[data-active-view="Queue"]),
             .mdb-app-shell:has(.queue-page),
             .mdb-ltr-shell:has(.zml-app[data-active-view="Queue"]),
             .mdb-rtl-shell:has(.zml-app[data-active-view="Queue"]) {
-              height: 100% !important;
-              min-height: 0 !important;
-              max-height: 100% !important;
-              overflow: hidden !important;
-            }
-
-            .zml-app[data-active-view="Queue"] {
-              display: block !important;
-              position: relative !important;
-              min-height: 0 !important;
-              height: 100dvh !important;
-              max-height: 100dvh !important;
-              padding-bottom: 0 !important;
-              overflow: hidden !important;
-            }
-
-            .zml-app[data-active-view="Queue"] .content,
-            .zml-app[data-active-view="Queue"] .content.desktop-content-scroll-root,
-            .content:has(> .queue-page) {
-              display: flex !important;
-              flex-direction: column !important;
-              align-items: stretch !important;
-              align-content: start !important;
-              justify-content: flex-start !important;
-              position: fixed !important;
-              top: 0 !important;
-              bottom: 0 !important;
-              left: var(--mobile-sidebar-width) !important;
-              right: 0 !important;
-              width: auto !important;
-              height: 100dvh !important;
-              max-height: 100dvh !important;
-              min-height: 0 !important;
-              padding: 8px 10px 0 !important;
-              margin: 0 !important;
-              overflow-x: hidden !important;
-              overflow-y: auto !important;
-              -webkit-overflow-scrolling: touch !important;
-              overscroll-behavior: contain !important;
-              scroll-padding-bottom: calc(var(--mobile-player-height, 112px) + 24px) !important;
-              grid-auto-rows: max-content !important;
-              z-index: 1 !important;
-            }
-
-            .zml-app[data-active-view="Queue"] .content > .topbar,
-            .content:has(> .queue-page) > .topbar {
-              flex: 0 0 auto !important;
-              flex-grow: 0 !important;
-              align-self: stretch !important;
-              min-height: 0 !important;
-              height: auto !important;
-              width: 100% !important;
-              margin-bottom: 0 !important;
-            }
-
-            .zml-app[data-active-view="Queue"] .content > .section-heading,
-            .zml-app[data-active-view="Queue"] .content > .destination-page-heading,
-            .zml-app[data-active-view="Queue"] .content > .queue-page,
-            .content:has(> .queue-page) > .section-heading,
-            .content:has(> .queue-page) > .destination-page-heading,
-            .content:has(> .queue-page) > .queue-page {
-              display: flex !important;
-              flex-direction: column !important;
-              align-items: stretch !important;
-              align-content: start !important;
-              align-self: stretch !important;
-              justify-content: flex-start !important;
-              flex: 0 0 auto !important;
-              flex-grow: 0 !important;
-              min-height: 0 !important;
               height: auto !important;
               max-height: none !important;
-              width: 100% !important;
-              margin-bottom: 0 !important;
-            }
-
-            .zml-app[data-active-view="Queue"] .content > .queue-page,
-            .content:has(> .queue-page) > .queue-page {
-              padding-bottom: calc(var(--mobile-player-height, 112px) + 24px) !important;
               overflow: visible !important;
             }
 
@@ -35540,17 +36135,11 @@ function PageContent() {
             .video-bottom-player,
             .fixed-mobile-player {
               position: fixed !important;
-              left: calc(var(--mobile-sidebar-width) + 8px) !important;
-              right: max(8px, env(safe-area-inset-right, 0px)) !important;
-              /* Restore flush bottom edge (revert dock lift gap) */
-              bottom: 0 !important;
+              left: 8px !important;
+              right: 8px !important;
+              bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
               width: auto !important;
-              max-width: calc(
-                100vw
-                - var(--mobile-sidebar-width)
-                - 8px
-                - max(8px, env(safe-area-inset-right, 0px))
-              ) !important;
+              max-width: none !important;
               height: var(--global-player-height, 88px) !important;
               min-height: var(--global-player-height, 88px) !important;
               max-height: var(--global-player-height, 88px) !important;
@@ -35943,19 +36532,19 @@ function PageContent() {
             }
 
             .content > .queue-page {
-              padding-bottom: calc(var(--mobile-player-height, 112px) + 24px) !important;
+              padding-bottom: var(--mobile-player-reserve, calc(var(--mobile-player-height, 112px) + 24px)) !important;
             }
 
             .zml-app[data-active-view="Queue"] .content,
             .content:has(> .queue-page) {
-              bottom: 0 !important;
-              height: 100dvh !important;
-              max-height: 100dvh !important;
+              position: relative !important;
+              bottom: auto !important;
+              height: auto !important;
+              max-height: none !important;
               min-height: 0 !important;
               overflow-x: hidden !important;
-              overflow-y: auto !important;
-              -webkit-overflow-scrolling: touch !important;
-              padding-bottom: 0 !important;
+              overflow-y: visible !important;
+              padding-bottom: var(--mobile-player-reserve) !important;
             }
 
             .zml-app[data-active-view="Queue"] .content > .queue-page,
@@ -35966,10 +36555,10 @@ function PageContent() {
 
             html:has(.zml-app[data-active-view="Queue"]),
             body:has(.zml-app[data-active-view="Queue"]) {
-              overflow: hidden !important;
+              overflow: auto !important;
               padding-bottom: 0 !important;
               min-height: 0 !important;
-              height: 100% !important;
+              height: auto !important;
             }
 
             .content > .recent-panel {

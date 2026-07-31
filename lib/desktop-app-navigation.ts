@@ -126,6 +126,49 @@ export function listVisibleDesktopNavItems(context: DesktopNavAccessContext) {
     return DESKTOP_NAV_ITEMS.filter((item) => canAccessNavView(item.view, capabilities));
 }
 
+/** Mobile horizontal nav order (≤820px). Home → Marketplace → Library first. */
+export const MOBILE_NAV_VIEW_ORDER: DesktopNavView[] = [
+    "Home",
+    "Marketplace",
+    "Library",
+    "Liked",
+    "Following",
+    "Playlists",
+    "Ringtone Marketplace",
+    "My Purchased Ringtones",
+    "Favorite Ringtones",
+    "Recently Played",
+    "Queue",
+    "Profile",
+    "Artist Dashboard",
+    "Producer Dashboard",
+    "My Ringtones",
+    "Sales",
+    "Platform Control Center",
+];
+
+export function listVisibleMobileNavItems(context: DesktopNavAccessContext) {
+    const visible = new Map(
+        listVisibleDesktopNavItems(context).map((item) => [item.view, item] as const),
+    );
+    const ordered: DesktopNavItemDefinition[] = [];
+    for (const view of MOBILE_NAV_VIEW_ORDER) {
+        const item = visible.get(view);
+        if (item) ordered.push(item);
+    }
+    for (const item of visible.values()) {
+        if (!MOBILE_NAV_VIEW_ORDER.includes(item.view)) ordered.push(item);
+    }
+    return ordered;
+}
+
+export function mobileNavShortLabel(view: DesktopNavView, fullLabel: string): string {
+    if (view === "Liked") return "Favorites";
+    if (view === "Artist Dashboard") return "Artist Studio";
+    if (view === "Producer Dashboard") return "Producer Studio";
+    return fullLabel;
+}
+
 export function shouldShowUploadControl(context: DesktopNavAccessContext) {
     return resolveDesktopNavCapabilities(context).canUpload;
 }
