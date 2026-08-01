@@ -114,11 +114,30 @@ export function isShortLivedSignedStorageUrl(value: string) {
     }
 }
 
+export function isArtworkOrNonVideoUrl(value: string) {
+    const cleanUrl = value.trim();
+    if (!cleanUrl) return true;
+    const lower = cleanUrl.toLowerCase();
+    if (lower.includes("music-data-base-logo")) return true;
+    if (/\.(png|jpe?g|gif|webp|svg|bmp|ico)(\?|#|$)/i.test(lower)) return true;
+    if (lower.startsWith("data:image/")) return true;
+    return false;
+}
+
+export function isAudioOnlyUrl(value: string) {
+    const cleanUrl = value.trim().toLowerCase();
+    if (!cleanUrl) return false;
+    return /\.(mp3|wav|m4a|aac|ogg|flac)(\?|#|$)/i.test(cleanUrl)
+        || cleanUrl.includes("/storage/v1/object/public/songs/");
+}
+
 export function isBlockedVideoPlaybackUrl(value: string) {
     const cleanUrl = value.trim();
     if (!cleanUrl) return true;
     if (cleanUrl.includes("/api/video-upload") || cleanUrl.includes("/api/upload-video")) return true;
     if (isShortLivedSignedStorageUrl(cleanUrl)) return true;
+    if (isArtworkOrNonVideoUrl(cleanUrl)) return true;
+    if (isAudioOnlyUrl(cleanUrl)) return true;
     return false;
 }
 
@@ -174,10 +193,14 @@ export function resolveVideoPlaybackUrl(
 
     const considerDirect = (candidate: string, source: "playableUrl" | "videoUrl"): VideoPlaybackUrlResult | null => {
         if (!candidate) return null;
+        // Never treat artwork/audio URLs as the video element src.
+        if (isArtworkOrNonVideoUrl(candidate) || isAudioOnlyUrl(candidate)) {
+            return null;
+        }
         if (isBlockedVideoPlaybackUrl(candidate)) {
             if (storagePath) {
                 const rebuilt = buildPublicVideoUrlFromStoragePath(storagePath);
-                if (rebuilt) {
+                if (rebuilt && !isArtworkOrNonVideoUrl(rebuilt) && !isAudioOnlyUrl(rebuilt)) {
                     return { ok: true, playableUrl: rebuilt, source: "publicFromStoragePath" };
                 }
             }
@@ -187,13 +210,22 @@ export function resolveVideoPlaybackUrl(
             const fromUrl = extractStoragePathFromPublicUrl(candidate);
             const path = storagePath || normalizeVideoStoragePath(fromUrl);
             const rebuilt = path ? buildPublicVideoUrlFromStoragePath(path) : candidate;
-            return { ok: true, playableUrl: rebuilt, source };
+            if (rebuilt && !isArtworkOrNonVideoUrl(rebuilt) && !isAudioOnlyUrl(rebuilt)) {
+                return { ok: true, playableUrl: rebuilt, source };
+            }
+            return null;
         }
         if (isLikelyStoragePath(candidate)) {
             const rebuilt = buildPublicVideoUrlFromStoragePath(candidate);
-            if (rebuilt) return { ok: true, playableUrl: rebuilt, source: "publicFromStoragePath" };
+            if (rebuilt && !isArtworkOrNonVideoUrl(rebuilt) && !isAudioOnlyUrl(rebuilt)) {
+                return { ok: true, playableUrl: rebuilt, source: "publicFromStoragePath" };
+            }
         }
-        if (/^https?:\/\//i.test(candidate) || candidate.startsWith("/")) {
+        if (/^https?:\/\//i.test(candidate)) {
+            return { ok: true, playableUrl: candidate, source };
+        }
+        // Relative paths are only valid when they look like video files, never posters/logos.
+        if (candidate.startsWith("/") && /\.(mp4|m4v|mov|webm)(\?|#|$)/i.test(candidate)) {
             return { ok: true, playableUrl: candidate, source };
         }
         return null;
