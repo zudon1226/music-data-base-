@@ -7,6 +7,7 @@ import { FoundingOnboardingAdminPanel } from "./founding-onboarding-admin-panel"
 import { TestAccountCleanupCenter } from "./test-account-cleanup-center";
 import { RingtoneReviewQueue } from "./ringtone-review/ringtone-review-queue";
 import { useTranslation } from "../lib/i18n/provider";
+import { useMobileDisplayMode } from "../lib/mobile-display-mode";
 import type { PlatformControlCenterSnapshot, PlatformHealthLabel } from "../lib/platform-control-center";
 import { healthLabelClass } from "../lib/platform-control-center";
 import "./card-system/card-system.css";
@@ -81,6 +82,7 @@ export function PlatformControlCenter({
     ringtonePreviewPlaying = false,
 }: PlatformControlCenterProps) {
     const { t } = useTranslation();
+    const controlViewMode = useMobileDisplayMode();
     const [snapshot, setSnapshot] = useState<PlatformControlCenterSnapshot | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -116,7 +118,11 @@ export function PlatformControlCenter({
     const overview = snapshot?.overview;
 
     return (
-        <section className="platform-control-center">
+        <section
+            className={`platform-control-center control-layout--${controlViewMode}`}
+            data-control-view={controlViewMode}
+            data-platform-control-view={controlViewMode}
+        >
             <div className="control-center-header">
                 <div>
                     <span className="control-center-kicker">{t("platformControlCenter.ownerOnly")}</span>
@@ -137,7 +143,7 @@ export function PlatformControlCenter({
                     <h3><BarChart3 size={16}/> {t("platformControlCenter.platformOverview")}</h3>
                     <span>{overview ? `${formatCount(overview.totalUsers)} total users` : t("common.loading")}</span>
                 </div>
-                <div className="control-overview-grid">
+                <div className={`control-overview-grid control-layout--${controlViewMode}`} data-control-view={controlViewMode}>
                     {[
                         ["Total users", overview?.totalUsers],
                         ["Listeners", overview?.listeners],
@@ -182,7 +188,7 @@ export function PlatformControlCenter({
                     <h3><ShieldAlert size={16}/> {t("platformControlCenter.systemHealth")}</h3>
                     <span>{snapshot?.health.filter((item) => item.status === "Healthy").length || 0} healthy checks</span>
                 </div>
-                <div className="control-health-grid">
+                <div className={`control-health-grid control-layout--${controlViewMode}`} data-control-view={controlViewMode}>
                     {(snapshot?.health || []).map((item) => (
                         <article className="control-health-card" data-card-family="control" key={item.id}>
                             <div className="control-health-card-head">
@@ -200,7 +206,7 @@ export function PlatformControlCenter({
                     <h3><Activity size={16}/> {t("platformControlCenter.recentActivity")}</h3>
                     <span>{snapshot?.flaggedUploadCount || 0} flagged uploads</span>
                 </div>
-                <div className="control-activity-grid">
+                <div className={`control-activity-grid control-layout--${controlViewMode}`} data-control-view={controlViewMode}>
                     <ActivityList title="Latest signups" items={snapshot?.activity.latestSignups || []}/>
                     <ActivityList title="Latest uploads" items={snapshot?.activity.latestUploads || []}/>
                     <ActivityList title="Latest deletions" items={snapshot?.activity.latestDeletions || []}/>
