@@ -55,6 +55,7 @@ import { CreatorInsightsPanel } from "../components/dashboard/creator-insights-p
 import { FollowButton } from "../components/dashboard/follow-button";
 import {
     clearRecentlyPlayedRecords,
+    fetchRecentlyPlayedRecords,
     removeRecentlyPlayedRecord,
     syncRecentlyPlayedRecord,
 } from "../lib/dashboard/recently-played-sync";
@@ -2771,12 +2772,15 @@ function readJson<T>(key: string, fallback: T): T {
 function clearOversizedMediaStorageKeys() {
     try {
         const blockedKeys = new Set([STORAGE_KEYS.songs, STORAGE_KEYS.videos]);
+        const protectedKeys = new Set([STORAGE_KEYS.recent, STORAGE_KEYS.library, STORAGE_KEYS.liked]);
         for (let index = localStorage.length - 1; index >= 0; index -= 1) {
             const key = localStorage.key(index);
             if (!key)
                 continue;
             // Never delete or touch the canonical shared media queue.
             if (key.startsWith("music-data-base:media-queue:"))
+                continue;
+            if (protectedKeys.has(key))
                 continue;
             const value = localStorage.getItem(key) || "";
             const lowerValue = value.slice(0, 400).toLowerCase();
@@ -5907,8 +5911,7 @@ function PageContent() {
     }, []);
     useEffect(() => {
         startDesktopLocalBootstrap(() => {
-            setHasLoaded(true);
-            resolveUserMusicStateBootstrapAfterLocalHydration(() => setRemoteMusicStateReady(true));
+            // Ready flags are set at the end of hydrate so empty [] cannot wipe localStorage.
         }, () => {
             clearOversizedMediaStorageKeys();
             clearRemovedPlaceholderArtworkFromLocalStorage();
@@ -6014,6 +6017,9 @@ function PageContent() {
             const savedSearchQuery = localStorage.getItem(STORAGE_KEYS.search) || "";
             setSearchInput(savedSearchQuery);
             setSearch(savedSearchQuery.trim());
+            // Mark ready only after recently played (and other local state) are restored.
+            setHasLoaded(true);
+            resolveUserMusicStateBootstrapAfterLocalHydration(() => setRemoteMusicStateReady(true));
         });
     }, []);
     const uploadsBlockedForCurrentUser = useMemo(
@@ -6865,14 +6871,51 @@ function PageContent() {
         if (data.setupRequired) {
             return null;
         }
-        if (!data.hasState) {
+
+        let apiRecent: RecentPlay[] = [];
+        try {
+            const remoteRows = await fetchRecentlyPlayedRecords(desktopActionFetch, accountUserId, 100);
+            apiRecent = normalizeRecentForSongs(
+                remoteRows.map((row) => {
+                    const itemType = (row.mediaType === "video" || row.mediaType === "album" || row.mediaType === "song"
+                        ? row.mediaType
+                        : "song") as RecentPlay["itemType"];
+                    return {
+                        playId: row.id || `${itemType}-${row.mediaId}-${row.lastPlayedAt}`,
+                        songId: itemType === "song" ? row.mediaId : "",
+                        itemId: row.mediaId,
+                        itemType,
+                        playedAt: row.lastPlayedAt || new Date().toISOString(),
+                        position: Math.max(0, Number(row.playbackPosition) || 0),
+                        duration: 0,
+                        song: itemType === "song"
+                            ? { id: row.mediaId, title: row.title || "Untitled", artist: row.artist || "", cover: row.coverUrl || "" } as Song
+                            : undefined,
+                        video: itemType === "video"
+                            ? { id: row.mediaId, title: row.title || "Untitled", creator: row.artist || "", cover: row.coverUrl || "" } as VideoItem
+                            : undefined,
+                        album: itemType === "album"
+                            ? { id: row.mediaId, title: row.title || "Untitled", creatorName: row.artist || "", cover: row.coverUrl || "" } as Album
+                            : undefined,
+                    } as RecentPlay;
+                }),
+                availableSongs,
+                availableVideos,
+                availableAlbums,
+            );
+        }
+        catch {
+            apiRecent = [];
+        }
+
+        if (!data.hasState && apiRecent.length === 0) {
             return null;
         }
         const remoteRecent = normalizeRecentForSongs(data.recentlyPlayed || [], availableSongs, availableVideos, availableAlbums);
         let mergedRecent = remoteRecent;
         setRecentlyPlayed((previous) => {
             const localRecent = normalizeRecentForSongs(previous, availableSongs, availableVideos, availableAlbums);
-            mergedRecent = mergeRecentPlays(localRecent, remoteRecent);
+            mergedRecent = mergeRecentPlays(localRecent, remoteRecent, apiRecent);
             return mergedRecent;
         });
         await confirmAuthenticatedFromApi(accountUserId);
@@ -11309,6 +11352,12 @@ function PageContent() {
         }
         setRecentlyPlayed([]);
         remoteMusicStateSaveSnapshotRef.current = "";
+        try {
+            localStorage.setItem(STORAGE_KEYS.recent, "[]");
+        }
+        catch {
+            // ignore quota / private mode
+        }
         const userId = String(accountUserId || "").trim();
         if (userId && isDesktopProtectedActionsEnabled()) {
             void clearRecentlyPlayedRecords(desktopActionFetch, userId).catch(() => undefined);
