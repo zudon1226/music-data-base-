@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ACCESS_TOKEN_BODY_KEYS, getBearerToken, getSessionTokensFromRecord, REFRESH_TOKEN_BODY_KEYS, requireBearerOnlyMatchingUserId } from "@/lib/request-auth";
 import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
 import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked, UPLOAD_LOCK_OWNER_EMAIL } from "@/lib/upload-lock";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
 import {
     describeSupabaseApiKey,
@@ -966,7 +967,7 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
     const albumId = getNullableUuid(getNullableRecordString(body, ["album_id", "albumId"]));
     const coverUrl = getRecordString(body, ["cover_url", "coverUrl", "cover", "thumbnail_url", "thumbnailUrl"], "/music-data-base-logo.png");
     const videoRow: Record<string, unknown> = {
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         user_id: authUserId,
         artist_id: getNullableUuid(getRecordString(body, ["artist_id", "artistId"], authUserId)) || authUserId,
         title: videoTitle,

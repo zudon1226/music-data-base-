@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { repairDeadAlbumVideoReferences } from "@/lib/album-video-refs";
 import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { getSupabaseLibraryClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -151,7 +152,7 @@ async function insertAlbumItems(supabase: SupabaseServerClient, albumId: string,
         return { error: null };
     }
     const itemRows = items.map((item, index) => ({
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         album_id: albumId,
         item_id: item.itemId,
         item_type: item.itemType,
@@ -512,7 +513,7 @@ export async function POST(request: Request) {
             return jsonResponse({ error: "Upload at least one song for the album." }, 400);
         }
         const now = new Date().toISOString();
-        const albumId = crypto.randomUUID();
+        const albumId = safeRandomUUID();
         const albumRow = {
             id: albumId,
             user_id: userId,

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { safeRandomUUID } from "./safe-random-uuid";
 
 export type AlbumVideoRefRepairStats = {
     deadFound: number;
@@ -78,7 +79,7 @@ function findRepairVideoCandidates(album: Record<string, unknown>, validVideoRow
 
 async function insertAlbumVideoReference(supabase: SupabaseClient, albumId: string, videoId: string, position: number) {
     const row = {
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         album_id: albumId,
         item_id: videoId,
         item_type: "video",

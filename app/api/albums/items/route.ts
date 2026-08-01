@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { repairDeadAlbumVideoReferences } from "@/lib/album-video-refs";
 import { requireMatchingUserId } from "@/lib/request-auth";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -222,7 +223,7 @@ export async function POST(request: Request) {
         }
         const now = new Date().toISOString();
         const itemRows = items.map((item, index) => ({
-            id: crypto.randomUUID(),
+            id: safeRandomUUID(),
             album_id: albumId,
             item_id: item.itemId,
             item_type: item.itemType,

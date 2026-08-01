@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { getErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
                 return jsonResponse({ error: "Producer name and user id are required." }, 400);
             }
             const row = {
-                id: String(body.id || "").trim() || crypto.randomUUID(),
+                id: String(body.id || "").trim() || safeRandomUUID(),
                 user_id: userId,
                 name,
                 avatar_url: String(body.avatar || "").trim(),
@@ -200,7 +201,7 @@ export async function POST(request: Request) {
             let producerProfile: Record<string, unknown> | null = null;
             if (accountType === "producer" && !skipProducerProfile) {
                 const row = {
-                    id: String(body.producerProfileId || "").trim() || crypto.randomUUID(),
+                    id: String(body.producerProfileId || "").trim() || safeRandomUUID(),
                     user_id: userId,
                     name: displayName,
                     avatar_url: String(body.avatar || "").trim(),
@@ -245,7 +246,7 @@ export async function POST(request: Request) {
                 return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
             }
             const row = {
-                id: String(body.id || "").trim() || crypto.randomUUID(),
+                id: String(body.id || "").trim() || safeRandomUUID(),
                 song_id: songId,
                 producer_id: String(body.producerId || "").trim() || null,
                 producer_user_id: producerUserId,

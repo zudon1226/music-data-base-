@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
         const body = await readJsonBody(request);
         const ownerId = getBodyUserId(body);
         const requestedAlbumId = getBodyAlbumId(body);
-        const albumId = isUuid(requestedAlbumId) ? requestedAlbumId : crypto.randomUUID();
+        const albumId = isUuid(requestedAlbumId) ? requestedAlbumId : safeRandomUUID();
         const title = getString(body.title);
         const creatorName = getString(body.creatorName);
         const ownerType = normalizeOwnerType(body.ownerType);

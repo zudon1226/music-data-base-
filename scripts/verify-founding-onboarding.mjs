@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { createClient } from "@supabase/supabase-js";
+import { safeRandomUUID } from "../lib/safe-random-uuid.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidenceDir = path.join(root, "tmp");
@@ -364,7 +365,7 @@ async function main() {
         });
         record("unauthorized role-change blocked", roleChange.status === 403, String(roleChange.status));
 
-        const songId = crypto.randomUUID();
+        const songId = safeRandomUUID();
         const storagePath = `${probeSession.user.id}/founding-probe-${Date.now()}.mp3`;
         await admin.storage.from("songs").upload(storagePath, Buffer.from("ID3\x03\x00\x00\x00\x00\x00\x00SMOKE"), {
             contentType: "audio/mpeg",
@@ -392,7 +393,7 @@ async function main() {
         });
         record("upload ownership delete", deleteOwn.ok, String(deleteOwn.status));
 
-        const otherSongId = crypto.randomUUID();
+        const otherSongId = safeRandomUUID();
         await admin.from("songs").insert({
             id: otherSongId,
             title: `FOUNDING-OTHER-${Date.now()}`,
