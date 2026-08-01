@@ -65,6 +65,7 @@ import {
     buildActiveNavigationKey,
     disableBrowserScrollRestoration,
     forceMainContentScrollTop,
+    getMainScrollContainer,
     isNavigationScrollLocked,
     scheduleNavigationScrollReset,
 } from "../lib/navigation-scroll";
@@ -5798,6 +5799,43 @@ function PageContent() {
             ensureUploadVisible: showUpload,
         });
     }, [activeNavigationKey, showUpload]);
+    // Platform Control Center: keep the main scrollport left-aligned. Mobile nav
+    // pill centering can set scrollLeft on overflow-y ancestors; pin it to 0
+    // without changing navigation code.
+    useLayoutEffect(() => {
+        if (view !== "Platform Control Center")
+            return undefined;
+        const pinLeft = () => {
+            const main = getMainScrollContainer();
+            if (main && main.scrollLeft !== 0) {
+                main.scrollLeft = 0;
+                if (typeof main.scrollTo === "function") {
+                    main.scrollTo({ top: main.scrollTop, left: 0, behavior: "auto" });
+                }
+            }
+            if (typeof document !== "undefined") {
+                if (document.documentElement.scrollLeft)
+                    document.documentElement.scrollLeft = 0;
+                if (document.body.scrollLeft)
+                    document.body.scrollLeft = 0;
+            }
+        };
+        pinLeft();
+        const frame = window.requestAnimationFrame(() => {
+            pinLeft();
+            window.requestAnimationFrame(pinLeft);
+        });
+        const main = getMainScrollContainer();
+        const onScroll = () => {
+            if (main && main.scrollLeft !== 0)
+                main.scrollLeft = 0;
+        };
+        main?.addEventListener("scroll", onScroll, { passive: true });
+        return () => {
+            window.cancelAnimationFrame(frame);
+            main?.removeEventListener("scroll", onScroll);
+        };
+    }, [view, activeNavigationKey]);
     // Close Add to Playlist on any major workspace/nav change (sidebar, upload toggle, etc.).
     useEffect(() => {
         if (playlistModalNavigationKeyRef.current === activeNavigationKey) {
@@ -18869,7 +18907,8 @@ function PageContent() {
                 <p>{creatorBillingAccess.uploadLockMessage || CREATOR_UPLOADS_LOCKED_MESSAGE}</p>
               </div>
             ) : null}
-          </UserProfileDashboard>) : view === "Platform Control Center" && isPlatformOwner && !search.trim() ? (<>
+          </UserProfileDashboard>) : view === "Platform Control Center" && isPlatformOwner && !search.trim() ? (
+            <div className="platform-control-workspace">
             <PlatformControlCenter
                 userId={accountUserId}
                 accessToken={authSession?.access_token || ""}
@@ -19219,7 +19258,9 @@ function PageContent() {
             {renderSubscriptionManagement()}
             {renderPremiumContentFoundation(premiumContentItems)}
             {renderPayoutAdminReview()}
-          </section>) : view === "Producer Dashboard" ? (<section className="dashboard-page producer-dashboard">
+          </section>
+            </div>
+          ) : view === "Producer Dashboard" ? (<section className="dashboard-page producer-dashboard">
             <div className="dashboard-brand">
               <img src={BRAND_LOGO} alt="Music Data Base"/>
               <div>
@@ -19775,7 +19816,7 @@ function PageContent() {
                   <p>Try a different search, or upload a video to build this section.</p>
                 </div>) : (<div className="dashboard-song-list">{filteredDashboardVideos.map((video) => renderDashboardVideoRow(video, "All Uploaded Videos"))}</div>)}
             </section>
-          </section></>) : view === "Artist Profile" && !search.trim() ? (!activeArtist ? (<div className="empty-state">
+          </section>) : view === "Artist Profile" && !search.trim() ? (!activeArtist ? (<div className="empty-state">
               <h2>Artist not found</h2>
               <p>Choose an artist name from any song to open their profile.</p>
             </div>) : (<section className="artist-profile">
@@ -30331,6 +30372,9 @@ function PageContent() {
               overflow-x: auto;
               overflow-y: hidden;
               -webkit-overflow-scrolling: touch;
+              overscroll-behavior-x: contain;
+              overscroll-behavior-y: none;
+              touch-action: pan-x;
               scrollbar-width: none;
               padding: 0 2px 0;
             }
@@ -30527,16 +30571,54 @@ function PageContent() {
               scroll-margin-bottom: var(--mobile-player-reserve);
             }
 
-            /* Platform Overview: fit mobile content width; 2 equal metric columns. */
+            /* Platform Control Center — true viewport-fit shell (no horizontal drift) */
+            .platform-control-workspace {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin-inline: auto !important;
+              box-sizing: border-box !important;
+              overflow-x: clip !important;
+              display: grid !important;
+              gap: 16px !important;
+            }
+
+            .platform-control-workspace > .platform-control-center,
+            .platform-control-workspace > .stability-page {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin-inline: auto !important;
+              box-sizing: border-box !important;
+            }
+
             .platform-control-center {
-              width: 100%;
-              max-width: 100%;
-              min-width: 0;
-              box-sizing: border-box;
-              margin-left: 0;
-              margin-right: 0;
-              transform: none;
-              overflow-x: hidden;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              box-sizing: border-box !important;
+              margin-left: 0 !important;
+              margin-right: 0 !important;
+              margin-inline: auto !important;
+              transform: none !important;
+              left: auto !important;
+              right: auto !important;
+              overflow-x: clip !important;
+            }
+
+            .platform-control-center > *,
+            .platform-control-center .control-center-header,
+            .platform-control-center .control-center-panel,
+            .platform-control-center .stability-panel,
+            .platform-control-center .control-overview-grid,
+            .platform-control-center .control-health-grid,
+            .platform-control-center .control-activity-grid,
+            .platform-control-center .control-overview-card,
+            .platform-control-center .control-health-card,
+            .platform-control-center .control-center-card {
+              min-width: 0 !important;
+              max-width: 100% !important;
+              box-sizing: border-box !important;
             }
 
             .control-center-header {
@@ -30548,16 +30630,68 @@ function PageContent() {
               box-sizing: border-box;
             }
 
+            .platform-control-center .control-center-header,
+            .platform-control-center .control-center-header *,
+            .platform-control-center .panel-title-row,
+            .platform-control-center .panel-title-row *,
+            .platform-control-center .control-health-card-head,
+            .platform-control-center .control-health-card-head *,
+            .platform-control-center .control-overview-card *,
+            .platform-control-center .control-health-card *,
+            .platform-control-center .control-center-card *,
+            .platform-control-center .control-activity-list * {
+              overflow-wrap: anywhere !important;
+              word-break: break-word !important;
+              white-space: normal !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+            }
+
+            .platform-control-center .control-health-badge {
+              white-space: nowrap !important;
+              flex: 0 1 auto !important;
+            }
+
             .control-overview-grid,
             .control-health-grid,
             .control-activity-grid {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
               width: 100%;
               max-width: 100%;
               min-width: 0;
               margin-left: 0;
               transform: none;
               box-sizing: border-box;
+              align-items: stretch;
+            }
+
+            .view-grid .control-overview-grid,
+            .view-grid .control-health-grid,
+            .view-grid .control-activity-grid,
+            .platform-control-center.control-layout--grid .control-overview-grid,
+            .platform-control-center.control-layout--grid .control-health-grid,
+            .platform-control-center.control-layout--grid .control-activity-grid,
+            .control-layout--grid.control-overview-grid,
+            .control-layout--grid.control-health-grid,
+            .control-layout--grid.control-activity-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              grid-auto-rows: 1fr;
+              width: 100%;
+              max-width: 100%;
+            }
+
+            .view-list .control-overview-grid,
+            .view-list .control-health-grid,
+            .view-list .control-activity-grid,
+            .platform-control-center.control-layout--list .control-overview-grid,
+            .platform-control-center.control-layout--list .control-health-grid,
+            .platform-control-center.control-layout--list .control-activity-grid,
+            .control-layout--list.control-overview-grid,
+            .control-layout--list.control-health-grid,
+            .control-layout--list.control-activity-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+              grid-auto-rows: auto;
+              width: 100%;
+              max-width: 100%;
             }
 
             .control-overview-card,
@@ -30567,6 +30701,28 @@ function PageContent() {
               min-width: 0;
               max-width: 100%;
               box-sizing: border-box;
+              overflow: visible;
+            }
+
+            .control-health-card-head {
+              flex-wrap: wrap;
+              align-items: flex-start;
+              min-width: 0;
+            }
+
+            .control-health-card-head > strong,
+            .control-health-card p,
+            .control-center-card p,
+            .control-overview-card > span,
+            .control-activity-list span,
+            .control-activity-list strong,
+            .control-activity-list small {
+              min-width: 0;
+              max-width: 100%;
+              overflow: visible;
+              white-space: normal;
+              overflow-wrap: anywhere;
+              word-break: break-word;
             }
 
             .topbar {
@@ -31301,8 +31457,11 @@ function PageContent() {
             }
 
             .stability-brand {
-              grid-template-columns: 1fr;
-              text-align: left;
+              grid-template-columns: 56px minmax(0, 1fr) !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              box-sizing: border-box !important;
             }
 
             .stability-brand img {
@@ -36017,11 +36176,77 @@ function PageContent() {
               /* padding-top 0 restores search/action bar to the viewport top edge */
               padding: 0 10px var(--mobile-player-reserve) !important;
               overflow-y: auto !important;
-              overflow-x: hidden !important;
+              /* clip prevents non-zero scrollLeft drift from nested horizontal pans */
+              overflow-x: clip !important;
               overscroll-behavior: contain !important;
+              overscroll-behavior-x: none !important;
               scroll-padding-top: var(--app-header-offset, 0px) !important;
               scroll-padding-bottom: var(--mobile-player-reserve) !important;
               z-index: 1 !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .content,
+            .zml-app[data-active-view="Platform Control Center"] .content.desktop-content-scroll-root {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin-inline: 0 !important;
+              box-sizing: border-box !important;
+              overflow-x: clip !important;
+              overscroll-behavior-x: none !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .platform-control-workspace {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin-inline: auto !important;
+              box-sizing: border-box !important;
+              overflow-x: clip !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .stability-brand {
+              grid-template-columns: 56px minmax(0, 1fr) !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .stability-actions {
+              grid-column: 1 / -1 !important;
+              justify-content: stretch !important;
+              width: 100% !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .stability-page,
+            .zml-app[data-active-view="Platform Control Center"] .platform-control-center {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              box-sizing: border-box !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .stability-page *,
+            .zml-app[data-active-view="Platform Control Center"] .platform-control-center * {
+              max-width: 100% !important;
+              min-width: 0 !important;
+              box-sizing: border-box !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .stability-page .phase8-readiness-grid,
+            .zml-app[data-active-view="Platform Control Center"] .stability-page .stability-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .stability-page small,
+            .zml-app[data-active-view="Platform Control Center"] .stability-page span,
+            .zml-app[data-active-view="Platform Control Center"] .stability-page p {
+              overflow-wrap: anywhere !important;
+              word-break: break-word !important;
+              white-space: normal !important;
             }
 
             /*
