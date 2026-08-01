@@ -13,6 +13,7 @@ import { PlatformControlCenter } from "../components/platform-control-center";
 import { SubscriptionBillingPanel } from "../components/billing/subscription-billing-panel";
 import { AdminSubscriptionPanel } from "../components/billing/admin-subscription-panel";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
+import { copyTextToClipboard } from "../lib/copy-text-to-clipboard";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import {
     DEFAULT_SIGNUP_ACCOUNT_TYPE,
@@ -16443,13 +16444,12 @@ function PageContent() {
     }
     async function copyMobileVideoPlaybackDebugReport() {
         const report = buildMobileVideoPlaybackDebugReport(getVideoPlaybackDebugSnapshot());
-        try {
-            await navigator.clipboard.writeText(report);
-            showToast("Video debug report copied", "success");
+        const copied = await copyTextToClipboard(report);
+        if (copied) {
+            showToast("Debug report copied.", "success");
+            return;
         }
-        catch {
-            showToast("Could not copy debug report", "error");
-        }
+        showToast("Could not copy debug report.", "error");
     }
     function renderVideoPlaybackDebugControls() {
         return (<div className="video-playback-debug-controls">
