@@ -44,6 +44,7 @@ import { MobileAppHorizontalNav } from "../components/mobile-app-horizontal-nav"
 import { MobileContentActionSheet } from "../components/mobile-content-action-sheet";
 import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
 import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
+import { safeRandomUUID } from "../lib/safe-random-uuid";
 import { useMobileAutoHideHeader } from "../lib/use-mobile-auto-hide-header";
 import { useMobileCompactLayout } from "../lib/use-mobile-compact-layout";
 import { DestinationPageHeading } from "../components/destination-page-heading";
@@ -3116,7 +3117,7 @@ function cleanAudioStorageFileName(fileName: string) {
 }
 function buildAudioStoragePath(userId: string, file: File) {
     const cleanFileName = cleanAudioStorageFileName(file.name || "song.mp3");
-    return `${userId}/${crypto.randomUUID()}-${cleanFileName}`;
+    return `${userId}/${safeRandomUUID()}-${cleanFileName}`;
 }
 function getAudioUploadContentType(file: File) {
     const browserType = file.type.trim().toLowerCase();
@@ -3605,7 +3606,7 @@ function createToastId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 function createRecordId() {
-    return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : createToastId();
+    return safeRandomUUID();
 }
 function ArtistNameButton({ name, className = "", onOpen, }: {
     name: string;
@@ -11482,7 +11483,7 @@ function PageContent() {
         const cover = orderedItems[0]?.artworkUrl || orderedItems[0]?.thumbnail || DEFAULT_PLAYLIST_COVER;
         const now = new Date().toISOString();
         const playlist: Playlist = {
-            id: crypto.randomUUID(),
+            id: safeRandomUUID(),
             name,
             cover,
             playlistType,
@@ -11567,7 +11568,7 @@ function PageContent() {
         }
         const now = new Date().toISOString();
         const playlist: Playlist = {
-            id: crypto.randomUUID(),
+            id: safeRandomUUID(),
             name,
             cover: playlistForm.cover.trim() || DEFAULT_PLAYLIST_COVER,
             playlistType: playlistForm.playlistType,
@@ -13328,7 +13329,7 @@ function PageContent() {
             const uploadedVideos: VideoItem[] = [];
             setAlbumUploadStatus("Creating album...");
             const albumPayload = {
-                albumId: crypto.randomUUID(),
+                albumId: safeRandomUUID(),
                 userId: uploadUser.id,
                 title,
                 creatorName,
