@@ -2911,7 +2911,10 @@ function mapVideoRowToVideoItem(row: VideoTableRow): VideoItem {
     });
 }
 function mapSavedSongVideoToVideoItem(song: Song): VideoItem {
-    const videoUrl = song.video || song.audio || "";
+    // Never fall back to song.audio — that produces logo/poster + audio-only playback in <video>.
+    const videoUrl = String(song.video || "").trim();
+    const storagePath = String(song.audioPath || "").trim();
+    const cover = getArtworkUrl(song.cover);
     return {
         id: song.id,
         title: song.title,
@@ -2921,14 +2924,14 @@ function mapSavedSongVideoToVideoItem(song: Song): VideoItem {
         beatId: song.beatId || "",
         category: song.category || "Music Video",
         description: song.artist,
-        cover: getArtworkUrl(song.cover),
-        thumbnail_url: getArtworkUrl(song.cover),
+        cover,
+        thumbnail_url: cover,
         videoUrl,
         video_url: videoUrl,
         url: videoUrl,
         public_url: videoUrl,
-        storagePath: song.audioPath || "",
-        storage_path: song.audioPath || "",
+        storagePath,
+        storage_path: storagePath,
         uploaded: song.uploaded,
         views: song.plays || 0,
         likes: song.likes || 0,
@@ -7337,7 +7340,7 @@ function PageContent() {
     }, [videos]);
     const albumVideoPool = useMemo(() => {
         const songVideos = songs
-            .filter((song) => isVideoSong(song) && Boolean(song.video || song.audio))
+            .filter((song) => isVideoSong(song) && Boolean(String(song.video || "").trim()))
             .map(mapSavedSongVideoToVideoItem);
         return uniqueVideos([...videos, ...songVideos]);
     }, [songs, videos]);
@@ -10030,6 +10033,11 @@ function PageContent() {
     }
 
     function playSong(song: Song, options: { preserveAlbumPlayback?: boolean } = {}) {
+        // Never route video media through the audio-only bottom player.
+        if (isVideoSong(song)) {
+            playVideo(mapSavedSongVideoToVideoItem(song), "Song Card Video");
+            return;
+        }
         stopRingtonePreviewPlayback();
         stopAllMedia();
         setForcedQueuePlayableUrl("");
@@ -10081,6 +10089,15 @@ function PageContent() {
         if (item.mediaType === "song") {
             setForcedQueuePlayableUrl("");
             const catalog = songs.find((song) => song.id === item.id);
+            if (catalog && isVideoSong(catalog)) {
+                playVideo(mapSavedSongVideoToVideoItem({
+                    ...catalog,
+                    audio: item.playableUrl || catalog.audio || catalog.video || "",
+                    video: item.playableUrl || catalog.video || catalog.audio || "",
+                    cover: item.artworkUrl || catalog.cover || "",
+                }), "Shared Queue");
+                return;
+            }
             const song = catalog && !isVideoSong(catalog)
                 ? {
                     ...catalog,
