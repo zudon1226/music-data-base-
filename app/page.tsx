@@ -3659,6 +3659,58 @@ function PageContent() {
     const salesLoadInFlightUserRef = useRef("");
     const selectedVideoFileRef = useRef<File | null>(null);
     const pendingVideoPlayRef = useRef(false);
+    /** Explicit user playback intent. Distinguishes direct Play/Pause taps from passive sync. */
+    type VideoPlaybackIntent = "play" | "pause";
+    const videoPlaybackIntentRef = useRef<VideoPlaybackIntent | null>(null);
+    /** When true, no effect/handler may call video.play() until an explicit user play action. */
+    const videoUserPausedRef = useRef(false);
+    /** Skip pause-ownership lock for programmatic source swaps / cleanup pauses. */
+    const suppressVideoPauseOwnershipRef = useRef(false);
+    function logVisibleVideoPlaybackCall(
+        action: "play" | "pause",
+        caller: string,
+        reason: string,
+        video: HTMLVideoElement | null,
+        fromUserTap: boolean,
+    ) {
+        console.log(`[visible-video ${action}]`, {
+            caller,
+            sourceFile: "app/page.tsx",
+            reason,
+            videoId: activeVideo?.id || "",
+            videoUrl: activeVideoPlaybackUrl || video?.currentSrc || video?.src || "",
+            currentTime: video?.currentTime ?? null,
+            pausedBefore: video?.paused ?? null,
+            reactVideoPlaying: videoPlaying,
+            playbackIntent: videoPlaybackIntentRef.current,
+            userPaused: videoUserPausedRef.current,
+            fromUserTap,
+        });
+    }
+    function pauseVisibleVideo(caller: string, reason: string, fromUserTap: boolean) {
+        const video = mainVideoRef.current;
+        if (!video)
+            return;
+        logVisibleVideoPlaybackCall("pause", caller, reason, video, fromUserTap);
+        video.pause();
+    }
+    async function playVisibleVideo(caller: string, reason: string, fromUserTap: boolean): Promise<boolean> {
+        const video = mainVideoRef.current;
+        if (!video)
+            return false;
+        if (videoUserPausedRef.current && !fromUserTap) {
+            console.log("[visible-video play blocked]", {
+                caller,
+                reason,
+                videoId: activeVideo?.id || "",
+                playbackIntent: videoPlaybackIntentRef.current,
+            });
+            return false;
+        }
+        logVisibleVideoPlaybackCall("play", caller, reason, video, fromUserTap);
+        await video.play();
+        return true;
+    }
     const videoCompatibilityScanRef = useRef<Set<string>>(new Set());
     const mediaDownloadLockRef = useRef(false);
     const remoteMusicStateSaveSnapshotRef = useRef("");
@@ -3726,6 +3778,7 @@ function PageContent() {
     const isMobileCompact = useMobileCompactLayout();
     const mobileAppChromeRef = useRef<HTMLDivElement | null>(null);
     const previousViewRef = useRef<View>("Home");
+    const videoReturnViewRef = useRef<View>("Library");
     const QUEUE_PREVIOUS_VIEW_KEY = "mdb_queue_previous_view";
     const { chromeProps: mobileChromeProps } = useMobileAutoHideHeader({
         forceVisible: desktopListOverflow.open || !isMobileCompact || view === "Queue",
@@ -7856,7 +7909,9 @@ function PageContent() {
         if (videoAutoplayRequestId === activeVideo.id)
             return;
         if (mainVideo.getAttribute("src") !== activeVideoPlaybackUrl && mainVideo.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
+            suppressVideoPauseOwnershipRef.current = true;
             mainVideo.pause();
+            suppressVideoPauseOwnershipRef.current = false;
             syncSharedVideoElementSource(mainVideo, activeVideoPlaybackUrl);
         }
         mainVideo.autoplay = false;
@@ -7868,6 +7923,11 @@ function PageContent() {
             return;
         if (!activeVideoPlaybackUrl)
             return;
+        // User pause owns the element — never auto-restart from request-id / rerender / volume churn.
+        if (videoUserPausedRef.current || videoPlaybackIntentRef.current === "pause") {
+            setVideoAutoplayRequestId("");
+            return;
+        }
         if (audioRef.current && !audioRef.current.paused) {
             audioRef.current.pause();
         }
@@ -7878,8 +7938,9 @@ function PageContent() {
         video.autoplay = false;
         video.volume = videoVolume;
         logVideoElementState("autoplay request before play", video);
-        const playPromise = video.play();
-        playPromise.catch((error) => {
+        // Consume the one-shot request synchronously so later deps cannot re-enter play().
+        setVideoAutoplayRequestId("");
+        void playVisibleVideo("autoplayEffect", "one-shot open autoplay request", false).catch((error) => {
             setVideoPlaying(false);
             logVideoElementState("autoplay request failed", video, {
                 playError: error instanceof Error ? error.message : String(error),
@@ -7890,8 +7951,7 @@ function PageContent() {
             }
             showToast("Video is ready. Press Play if your browser blocked autoplay.", "info");
         });
-        window.setTimeout(() => setVideoAutoplayRequestId(""), 0);
-    }, [activeVideo, activeVideoPlaybackUrl, videoAutoplayRequestId, videoVolume]);
+    }, [activeVideo, activeVideoPlaybackUrl, videoAutoplayRequestId]);
     const playlistAddSongs = useMemo(() => {
         let list: Song[] = librarySongs;
         if (addSource === "Liked")
@@ -10194,7 +10254,36 @@ function PageContent() {
         return pickRandomItem(availableSongs) || playbackList[0];
     }
     function pauseVideoPlayer() {
-        mainVideoRef.current?.pause();
+        pauseVisibleVideo("pauseVideoPlayer", "pause helper", false);
+    }
+    function closeVideoViewer() {
+        videoPlaybackIntentRef.current = "pause";
+        videoUserPausedRef.current = true;
+        pendingVideoPlayRef.current = false;
+        setVideoAutoplayRequestId("");
+        pauseVideoPlayer();
+        if (mainVideoRef.current) {
+            pauseVisibleVideo("closeVideoViewer", "close viewer cleanup", false);
+            mainVideoRef.current.removeAttribute("src");
+            const source = mainVideoRef.current.querySelector("source");
+            source?.removeAttribute("src");
+            mainVideoRef.current.load();
+        }
+        pendingVideoPlayRef.current = false;
+        setVideoAutoplayRequestId("");
+        setVideoPlaying(false);
+        setVideoProgress(0);
+        setVideoDuration(0);
+        setActiveMediaType(null);
+        setActiveMedia(null);
+        setActiveVideo(null);
+        setSelectedVideoId("");
+        setVideoPlaybackUiFailure(null);
+        const returnView = videoReturnViewRef.current && videoReturnViewRef.current !== "Videos"
+            ? videoReturnViewRef.current
+            : "Library";
+        setShowUpload(false);
+        setView(returnView);
     }
     function stopAllMedia() {
         musicPlayRequestRef.current += 1;
@@ -10384,11 +10473,20 @@ function PageContent() {
             showToast(getMobileVideoCompatibilityWarningText(activeVideo, activeVideoPlaybackUrl), "error");
             return;
         }
-        if (videoPlaying) {
-            video.pause();
+        // Visible HTMLVideoElement is authority while the viewer is open.
+        if (!video.paused) {
+            videoPlaybackIntentRef.current = "pause";
+            videoUserPausedRef.current = true;
+            pendingVideoPlayRef.current = false;
+            setVideoAutoplayRequestId("");
+            pauseVisibleVideo("toggleVideoPlayback", "user tap pause on fixed/shared controls", true);
             setVideoPlaying(false);
             return;
         }
+        videoPlaybackIntentRef.current = "play";
+        videoUserPausedRef.current = false;
+        pendingVideoPlayRef.current = false;
+        setVideoAutoplayRequestId("");
         if (activeMedia?.type !== "video") {
             stopAllMedia();
         }
@@ -10418,8 +10516,8 @@ function PageContent() {
         });
         void logVideoPlaybackProbe(activeVideo, activeVideoPlaybackUrl, "Video Player Controls");
         try {
-            await video.play();
-            setVideoPlaying(true);
+            const started = await playVisibleVideo("toggleVideoPlayback", "user tap play on fixed/shared controls", true);
+            setVideoPlaying(started);
         }
         catch (error) {
             setVideoPlaying(false);
@@ -10556,58 +10654,23 @@ function PageContent() {
             }));
         }
     }
-    async function handleNativeVideoTap() {
-        const video = mainVideoRef.current;
-        if (!video || !activeVideo || !activeVideoPlaybackUrl)
-            return;
-        if (isMobilePlaybackEnvironment() && shouldBlockMobileVideoPlayback(activeVideoPlaybackUrl, activeVideo, video)) {
-            logVideoElementState("native tap blocked incompatible video", video);
-            showToast(getMobileVideoCompatibilityWarningText(activeVideo, activeVideoPlaybackUrl), "error");
-            return;
-        }
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.removeAttribute("src");
-            audioRef.current.load();
-        }
-        setIsPlaying(false);
-        setActiveMediaType("video");
-        setActiveMedia({ type: "video", item: activeVideo });
-        if (video.getAttribute("src") !== activeVideoPlaybackUrl && video.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
-            video.pause();
-            syncSharedVideoElementSource(video, activeVideoPlaybackUrl);
-        }
-        video.setAttribute("playsinline", "");
-        video.setAttribute("webkit-playsinline", "");
-        video.controls = true;
-        video.autoplay = false;
-        video.preload = "metadata";
-        video.muted = false;
-        video.volume = videoVolume;
-        logVideoElementState("native tap before play", video);
-        void logVideoPlaybackProbe(activeVideo, activeVideoPlaybackUrl, "Native Video Tap");
-        try {
-            await video.play();
-            setVideoPlaying(true);
-            logVideoElementState("native tap play started", video);
-        }
-        catch (error) {
-            setVideoPlaying(false);
-            logVideoElementState("native tap play failed", video, {
-                playError: error instanceof Error ? error.message : String(error),
-            });
-            console.warn("[mobile video] exact play error", error);
-            const probe = await probeVideoPlaybackUrl(activeVideoPlaybackUrl);
-            if (isMissingSupabaseStorageVideoResponse(activeVideoPlaybackUrl, probe.status, probe.contentType)) {
-                showToast("Video file missing from storage", "error");
-                return;
-            }
-            showToast(getMobileVideoPlaybackDiagnosticMessage(activeVideo, activeVideoPlaybackUrl, null), "error");
-        }
-    }
     function handleVideoPlay() {
+        const video = mainVideoRef.current;
+        console.log("[visible-video native play]", {
+            videoId: activeVideo?.id || "",
+            videoUrl: activeVideoPlaybackUrl || video?.currentSrc || "",
+            currentTime: video?.currentTime ?? null,
+            paused: video?.paused ?? null,
+            playbackIntent: videoPlaybackIntentRef.current,
+            userPaused: videoUserPausedRef.current,
+            reactVideoPlaying: videoPlaying,
+        });
         logVideoElementState("play event");
+        // Native play is authority — clear pause lock when the element actually started.
+        videoUserPausedRef.current = false;
+        videoPlaybackIntentRef.current = "play";
         pendingVideoPlayRef.current = false;
+        setVideoAutoplayRequestId("");
         if (audioRef.current && !audioRef.current.paused) {
             audioRef.current.pause();
         }
@@ -10619,12 +10682,45 @@ function PageContent() {
         setVideoPlaying(true);
     }
     function handleVideoPause() {
+        const video = mainVideoRef.current;
+        console.log("[visible-video native pause]", {
+            videoId: activeVideo?.id || "",
+            videoUrl: activeVideoPlaybackUrl || video?.currentSrc || "",
+            currentTime: video?.currentTime ?? null,
+            paused: video?.paused ?? null,
+            playbackIntent: videoPlaybackIntentRef.current,
+            userPaused: videoUserPausedRef.current,
+            reactVideoPlaying: videoPlaying,
+        });
         logVideoElementState("pause event");
         setVideoPlaying(false);
+        if (suppressVideoPauseOwnershipRef.current) {
+            console.log("[visible-video pause ownership suppressed]", {
+                videoId: activeVideo?.id || "",
+                reason: "programmatic pause",
+            });
+            return;
+        }
+        // Element pause is authoritative: mirror UI and block every automatic play() path.
+        videoPlaybackIntentRef.current = "pause";
+        videoUserPausedRef.current = true;
+        pendingVideoPlayRef.current = false;
+        setVideoAutoplayRequestId("");
     }
     function handleVideoCanPlay() {
         const video = mainVideoRef.current;
+        console.log("[visible-video native canplay]", {
+            videoId: activeVideo?.id || "",
+            videoUrl: activeVideoPlaybackUrl || video?.currentSrc || "",
+            currentTime: video?.currentTime ?? null,
+            paused: video?.paused ?? null,
+            pendingPlay: pendingVideoPlayRef.current,
+            userPaused: videoUserPausedRef.current,
+            playbackIntent: videoPlaybackIntentRef.current,
+        });
         logVideoElementState("canplay event", video);
+        if (videoUserPausedRef.current || videoPlaybackIntentRef.current === "pause")
+            return;
         if (!pendingVideoPlayRef.current || !video || !activeVideo || activeMedia?.type !== "video")
             return;
         pendingVideoPlayRef.current = false;
@@ -10635,8 +10731,9 @@ function PageContent() {
             readyState: video.readyState,
             networkState: video.networkState,
         });
-        video.play().then(() => {
-            setVideoPlaying(true);
+        void playVisibleVideo("handleVideoCanPlay", "deferred play retry after canplay", false).then((started) => {
+            if (started)
+                setVideoPlaying(true);
         }).catch((error) => {
             setVideoPlaying(false);
             console.warn("[video pending play retry failed]", {
@@ -10652,9 +10749,20 @@ function PageContent() {
         });
     }
     function handleVideoEnded() {
+        console.log("[visible-video native ended]", {
+            videoId: activeVideo?.id || "",
+            videoUrl: activeVideoPlaybackUrl || mainVideoRef.current?.currentSrc || "",
+            currentTime: mainVideoRef.current?.currentTime ?? null,
+            userPaused: videoUserPausedRef.current,
+            playbackIntent: videoPlaybackIntentRef.current,
+        });
+        if (videoUserPausedRef.current || videoPlaybackIntentRef.current === "pause") {
+            setVideoPlaying(false);
+            return;
+        }
         if (videoRepeat && mainVideoRef.current) {
             mainVideoRef.current.currentTime = 0;
-            mainVideoRef.current.play().catch((error) => {
+            void playVisibleVideo("handleVideoEnded", "repeat restart after ended", false).catch((error) => {
                 setVideoPlaying(false);
                 showToast("Video repeat could not restart playback.", "error");
             });
@@ -13498,6 +13606,10 @@ function PageContent() {
     }
     function playVideo(video: VideoItem | Record<string, unknown>, sourceSection = "Video Card") {
         stopRingtonePreviewPlayback();
+        // Opening/selecting a video is an explicit play request — unlock pause guards.
+        videoPlaybackIntentRef.current = "play";
+        videoUserPausedRef.current = false;
+        pendingVideoPlayRef.current = false;
         if (sourceSection !== "Shared Queue") {
             setForcedQueuePlayableUrl("");
         }
@@ -13556,6 +13668,9 @@ function PageContent() {
             audioRef.current.removeAttribute("src");
             audioRef.current.load();
         }
+        if (view !== "Videos") {
+            videoReturnViewRef.current = view;
+        }
         flushSync(() => {
             setIsPlaying(false);
             setCurrentSong(null);
@@ -13565,17 +13680,36 @@ function PageContent() {
             setSelectedVideoId(playableVideo.id);
             setVideoProgress(0);
             setVideoDuration(0);
+            setVideoPlaybackUiFailure(null);
+            // Close upload chrome so the shared viewer is never display:none'd.
+            setShowUpload(false);
+            // Keep the caller page (e.g. Library) so the viewer appears in-place;
+            // do not bury it under the Videos upload form.
+            // One-shot open request must be set in the same commit so source-sync does not pause-lock.
+            if (!mobilePlaybackBlocked) {
+                setVideoAutoplayRequestId(playableVideo.id);
+            }
         });
+        saveVideoPlay(nextActiveVideo);
+        if (!sourceSection.includes("Album") && !isActiveAlbumTrack("video", playableVideo.id)) {
+            setActiveAlbumPlayback(null);
+        }
+        setVideos((previous) => previous.some((item) => item.id === playableVideo.id)
+            ? previous.map((item) => (item.id === playableVideo.id ? { ...normalizeVideoForPlayback(item), views: nextViews } : item))
+            : uniqueVideos([nextActiveVideo, ...previous]));
         const mainVideo = mainVideoRef.current;
         if (mobilePlaybackBlocked) {
             if (mainVideo) {
+                suppressVideoPauseOwnershipRef.current = true;
                 mainVideo.pause();
+                suppressVideoPauseOwnershipRef.current = false;
                 mainVideo.removeAttribute("src");
                 mainVideo.load();
             }
             pendingVideoPlayRef.current = false;
+            setVideoAutoplayRequestId("");
             if (shouldUseNativeMobileControls && !isNavigationScrollLocked()) {
-                mainVideo?.scrollIntoView({ behavior: "smooth", block: "center" });
+                videoPreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
             }
             return;
         }
@@ -13587,11 +13721,12 @@ function PageContent() {
             mainVideo.preload = "metadata";
             mainVideo.muted = false;
             mainVideo.volume = videoVolume;
-            if (mainVideo.getAttribute("src") !== videoUrl) {
-                mainVideo.pause();
-                mainVideo.src = videoUrl;
-                mainVideo.load();
-            }
+            suppressVideoPauseOwnershipRef.current = true;
+            syncSharedVideoElementSource(mainVideo, videoUrl);
+            // Re-assert before releasing suppress so a sync load()/pause cannot own playback.
+            videoPlaybackIntentRef.current = "play";
+            videoUserPausedRef.current = false;
+            suppressVideoPauseOwnershipRef.current = false;
             console.log("[video play attempt]", {
                 sourceSection,
                 selectedVideoId: playableVideo.id,
@@ -13599,7 +13734,7 @@ function PageContent() {
                 desktopUrl: videoUrl,
                 mobileUrl: videoUrl,
                 desktopMobileUrlMatch: true,
-                actualVideoSrc: mainVideo.currentSrc || mainVideo.src || mainVideo.getAttribute("src") || "",
+                actualVideoSrc: mainVideo.currentSrc || mainVideo.src || mainVideo.getAttribute("src") || mainVideo.querySelector("source")?.getAttribute("src") || "",
                 playsInline: mainVideo.playsInline,
                 controls: mainVideo.controls,
                 muted: mainVideo.muted,
@@ -13613,16 +13748,18 @@ function PageContent() {
             logVideoElementState("playVideo prepared", mainVideo, {
                 sourceSection,
             });
-            if (shouldUseNativeMobileControls) {
-                pendingVideoPlayRef.current = false;
-                mainVideo.controls = true;
-                if (!isNavigationScrollLocked()) {
-                    mainVideo.scrollIntoView({ behavior: "smooth", block: "center" });
+            // User gesture from the card play button — attempt play on mobile and desktop.
+            // Native controls remain available if autoplay is blocked by the browser.
+            pendingVideoPlayRef.current = false;
+            // load()/sync may fire pause; re-assert explicit play intent before play().
+            videoPlaybackIntentRef.current = "play";
+            videoUserPausedRef.current = false;
+            mainVideo.controls = true;
+            void playVisibleVideo("playVideo", `user selected video (${sourceSection})`, true).then((started) => {
+                if (started) {
+                    setVideoPlaying(true);
+                    setVideoAutoplayRequestId("");
                 }
-                return;
-            }
-            mainVideo.play().then(() => {
-                setVideoPlaying(true);
             }).catch((error) => {
                 setVideoPlaying(false);
                 console.warn("[video play attempt failed]", {
@@ -13638,11 +13775,11 @@ function PageContent() {
                 });
                 const message = error instanceof Error ? error.message : String(error);
                 if (isMobilePlaybackEnvironment()) {
-                    pendingVideoPlayRef.current = false;
                     if (mainVideo.error?.code === 4 || shouldBlockMobileVideoPlayback(videoUrl, nextActiveVideo, mainVideo)) {
                         showToast(getMobileVideoPlaybackDiagnosticMessage(nextActiveVideo, videoUrl, mainVideo.error?.code), "error");
                         return;
                     }
+                    // Keep native controls visible for a manual tap if autoplay was blocked.
                     return;
                 }
                 if (isDeferredVideoPlayError(error)) {
@@ -13655,17 +13792,6 @@ function PageContent() {
                 }
             });
         }
-        else {
-            setVideoAutoplayRequestId(playableVideo.id);
-        }
-        saveVideoPlay(nextActiveVideo);
-        if (!sourceSection.includes("Album") && !isActiveAlbumTrack("video", playableVideo.id)) {
-            setActiveAlbumPlayback(null);
-        }
-        setView("Videos");
-        setVideos((previous) => previous.some((item) => item.id === playableVideo.id)
-            ? previous.map((item) => (item.id === playableVideo.id ? { ...normalizeVideoForPlayback(item), views: nextViews } : item))
-            : uniqueVideos([nextActiveVideo, ...previous]));
         window.requestAnimationFrame(() => {
             window.requestAnimationFrame(() => {
                 if (!isNavigationScrollLocked()) {
@@ -16658,15 +16784,18 @@ function PageContent() {
         const showNetworkError = playbackFailure?.kind === "network-error";
         const showUnknownError = playbackFailure?.kind === "unknown-playback-error";
         const showVideoElement = Boolean(activeVideoPlaybackUrl) && !showMissingUrl && !showUnsupportedCodec;
-        // Keep the <video> mounted for continuous playback, but collapse the large
-        // in-flow hero outside Videos so destination headings can sit under the topbar.
-        const collapseInlineVideoHero = view !== "Videos" || showUpload;
+        // Root cause of "audio-only" playback: collapsing the shared <video> to 1×1 via
+        // .is-hidden while it kept playing. Never collapse while video media is active.
+        const videoViewerOpen = activeMediaType === "video" && Boolean(activeVideo);
+        // Never apply is-hidden while a video session is open (ignore upload/view side effects).
+        const collapseInlineVideoHero = !videoViewerOpen;
 
         return (<section
-          className={`video-player-panel global-video-player${collapseInlineVideoHero ? " is-hidden" : ""}`}
+          className={`video-player-panel global-video-player${collapseInlineVideoHero ? " is-hidden" : " is-video-viewer-open"}`}
           ref={videoPreviewRef}
           aria-hidden={collapseInlineVideoHero ? true : undefined}
           data-inline-video-collapsed={collapseInlineVideoHero ? "true" : "false"}
+          data-video-viewer-open={videoViewerOpen ? "true" : "false"}
         >
         {showUnsupportedCodec ? (<div className="video-mobile-incompatible-panel" data-playback-failure="unsupported-codec">
             <Film size={42}/>
@@ -16703,7 +16832,6 @@ function PageContent() {
                 preload={playerConfig.preload}
                 poster={playerConfig.poster}
                 crossOrigin={playerConfig.crossOrigin}
-                onClick={() => void handleNativeVideoTap()}
                 onLoadedMetadata={(event) => {
                     updateVideoDuration(event);
                     logVideoElementState("loadedmetadata event", event.currentTarget);
@@ -16713,6 +16841,11 @@ function PageContent() {
                     logVideoElementState("durationchange event", event.currentTarget);
                 }}
                 onCanPlay={(event) => {
+                    console.log("[visible-video native canplay]", {
+                        videoId: activeVideo?.id || "",
+                        currentTime: event.currentTarget.currentTime,
+                        paused: event.currentTarget.paused,
+                    });
                     logVideoElementState("canplay event", event.currentTarget);
                     handleVideoCanPlay();
                 }}
@@ -16720,12 +16853,23 @@ function PageContent() {
                     logVideoElementState("canplaythrough event", event.currentTarget);
                 }}
                 onPlaying={(event) => {
+                    console.log("[visible-video native playing]", {
+                        videoId: activeVideo?.id || "",
+                        currentTime: event.currentTarget.currentTime,
+                        paused: event.currentTarget.paused,
+                        userPaused: videoUserPausedRef.current,
+                    });
                     logVideoElementState("playing event", event.currentTarget);
                 }}
                 onStalled={(event) => {
                     logVideoElementState("stalled event", event.currentTarget);
                 }}
                 onWaiting={(event) => {
+                    console.log("[visible-video native waiting]", {
+                        videoId: activeVideo?.id || "",
+                        currentTime: event.currentTarget.currentTime,
+                        paused: event.currentTarget.paused,
+                    });
                     logVideoElementState("waiting event", event.currentTarget);
                 }}
                 onTimeUpdate={updateVideoProgress}
@@ -16802,6 +16946,10 @@ function PageContent() {
             <button onClick={() => playAdjacentVideo("next")} type="button" disabled={mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}>
               <SkipForward size={16} fill="currentColor"/>
               Next Video
+            </button>
+            <button onClick={closeVideoViewer} type="button" title="Close video" aria-label="Close video">
+              <X size={16}/>
+              Close
             </button>
           </div>
         </div>
@@ -23668,6 +23816,40 @@ function PageContent() {
             clip: rect(0 0 0 0) !important;
             clip-path: inset(50%) !important;
             pointer-events: none !important;
+          }
+
+          /* Force the shared video viewer visible whenever a video session is open. */
+          .global-video-player.is-video-viewer-open,
+          .global-video-player[data-video-viewer-open="true"] {
+            position: relative !important;
+            display: grid !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            height: auto !important;
+            max-height: none !important;
+            margin: 0 0 16px !important;
+            padding: 10px !important;
+            border: 0 !important;
+            overflow: visible !important;
+            clip: auto !important;
+            clip-path: none !important;
+            pointer-events: auto !important;
+            z-index: 40 !important;
+            box-sizing: border-box !important;
+            scroll-margin-top: var(--app-header-offset, 0px);
+          }
+
+          .global-video-player.is-video-viewer-open video,
+          .global-video-player[data-video-viewer-open="true"] video {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 180px !important;
+            max-height: min(56vh, 420px) !important;
+            aspect-ratio: 16 / 9;
+            object-fit: contain;
+            background: #020617;
           }
 
           .video-player-panel video {
@@ -31211,6 +31393,31 @@ function PageContent() {
               scroll-margin-top: var(--app-header-offset, 0px);
               padding: 10px;
               overflow: hidden;
+            }
+
+            .global-video-player.is-video-viewer-open,
+            .global-video-player[data-video-viewer-open="true"] {
+              display: grid !important;
+              position: relative !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              clip: auto !important;
+              clip-path: none !important;
+              pointer-events: auto !important;
+              z-index: 45 !important;
+              box-sizing: border-box !important;
+            }
+
+            .global-video-player.is-video-viewer-open video,
+            .global-video-player[data-video-viewer-open="true"] video {
+              display: block !important;
+              width: 100% !important;
+              min-height: 180px !important;
+              max-height: min(48vh, 360px) !important;
             }
 
             .global-video-player .video-player-copy {
