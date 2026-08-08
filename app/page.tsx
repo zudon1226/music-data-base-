@@ -17547,7 +17547,7 @@ function PageContent() {
               </div>)}
           </div>
 
-          <div className={isMobileCompact ? "topbar-mobile-action-row" : undefined}>
+          <div className={isMobileCompact ? "topbar-mobile-action-row" : "topbar-desktop-controls"}>
           {showMobileViewToggle ? (
           <MobileViewToggle
             mode={displayMode}
@@ -30541,6 +30541,95 @@ function PageContent() {
 
           .mobile-app-chrome--desktop {
             display: contents;
+          }
+
+          /* Desktop header only (≥821px): two clear rows, no control collisions. */
+          @media (min-width: 821px) {
+            .topbar {
+              display: grid;
+              grid-template-columns: minmax(0, 1fr) auto;
+              grid-template-rows: auto auto;
+              gap: 10px 12px;
+              align-items: center;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+            }
+
+            .topbar > .search-wrap {
+              grid-column: 1;
+              grid-row: 1;
+              min-width: 0;
+              width: 100%;
+            }
+
+            .topbar > .topbar-desktop-controls {
+              display: contents;
+            }
+
+            .topbar .view-toggle {
+              grid-column: 2;
+              grid-row: 1;
+              justify-self: end;
+              align-self: center;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 8px;
+              width: max-content;
+              max-width: 100%;
+              min-width: 0;
+              position: relative;
+              z-index: 1;
+            }
+
+            .topbar .view-toggle button {
+              min-width: 0;
+              width: 100%;
+              height: 41px;
+              box-sizing: border-box;
+            }
+
+            .topbar .topbar-account-actions {
+              grid-column: 1 / -1;
+              grid-row: 2;
+              display: flex;
+              flex-direction: row;
+              flex-wrap: wrap;
+              align-items: center;
+              justify-content: flex-start;
+              gap: 8px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+              position: relative;
+              z-index: 1;
+            }
+
+            .topbar .topbar-account-actions > .notification-wrap,
+            .topbar .topbar-account-actions > .upload-btn,
+            .topbar .topbar-account-actions > .dashboard-btn,
+            .topbar .topbar-account-actions > .profile-btn,
+            .topbar .topbar-account-actions > .logout-btn {
+              flex: 0 0 auto;
+              position: relative;
+              top: auto;
+              left: auto;
+              right: auto;
+              transform: none;
+              height: 41px;
+              min-height: 41px;
+              max-height: 41px;
+              box-sizing: border-box;
+            }
+
+            .topbar .topbar-account-actions .notification-button {
+              height: 41px;
+              min-height: 41px;
+              max-height: 41px;
+              box-sizing: border-box;
+            }
           }
 
           @media (max-width: 820px) {
