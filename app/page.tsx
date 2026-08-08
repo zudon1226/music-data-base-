@@ -17394,6 +17394,11 @@ function PageContent() {
         && shouldShowUploadControl(desktopNavAccess)
         && !uploadsBlockedForCurrentUser
         && !navCapabilities.isListenerOnly;
+    // Mobile action row: keep the Upload slot mounted from first paint.
+    // Authorization only gates disabled/click — never remounts the button.
+    const uploadPermissionPending = !authReady || (!isPlatformOwner && !accountRolesReady);
+    const uploadActionAuthorized = shouldShowUploadControl(desktopNavAccess) && !uploadsBlockedForCurrentUser;
+    const uploadActionEnabled = !uploadPermissionPending && uploadActionAuthorized;
     return (<main
       className={`zml-app view-${displayMode}`}
       data-app-locale={locale}
@@ -17401,6 +17406,7 @@ function PageContent() {
       data-account-role={navCapabilities.isListenerOnly ? "listener" : (userAuthProfile.role || "listener")}
       data-roles-ready={accountRolesReady ? "true" : "false"}
       data-can-upload={navCapabilities.canUpload ? "true" : "false"}
+      data-upload-permission-pending={uploadPermissionPending ? "true" : "false"}
       data-upload-open={canRenderUploadWorkspace ? "true" : "false"}
       data-active-view={view}
       data-player-collapsed={playerCollapsed ? "true" : "false"}
@@ -17601,19 +17607,34 @@ function PageContent() {
               }}
             />
 
-            {shouldShowUploadControl(desktopNavAccess) ? (
             <button
               className="upload-btn topbar-mobile-control-btn"
-              disabled={uploadsBlockedForCurrentUser}
-              onClick={toggleUploadPanel}
-              title={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : t("upload.title")}
-              aria-label={uploadsBlockedForCurrentUser ? UPLOAD_LOCK_MESSAGE : t("upload.title")}
+              disabled={!uploadActionEnabled}
+              aria-disabled={!uploadActionEnabled}
+              onClick={uploadActionEnabled ? toggleUploadPanel : undefined}
+              title={
+                uploadPermissionPending
+                  ? t("upload.title")
+                  : uploadsBlockedForCurrentUser
+                    ? UPLOAD_LOCK_MESSAGE
+                    : uploadActionAuthorized
+                      ? t("upload.title")
+                      : "Upload is available for Artist and Producer accounts."
+              }
+              aria-label={
+                uploadPermissionPending
+                  ? t("upload.title")
+                  : uploadsBlockedForCurrentUser
+                    ? UPLOAD_LOCK_MESSAGE
+                    : uploadActionAuthorized
+                      ? t("upload.title")
+                      : "Upload is available for Artist and Producer accounts."
+              }
               type="button"
             >
               <Upload size={17}/>
               <span className="topbar-control-label">{t("upload.title")}</span>
             </button>
-            ) : null}
 
             {!isMobileCompact && shouldShowArtistDashboardControl(desktopNavAccess) ? (
             <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
@@ -23081,6 +23102,16 @@ function PageContent() {
           .zml-app[data-account-role="listener"] .upload-btn,
           .zml-app[data-account-role="listener"] .dashboard-btn {
             display: none !important;
+          }
+
+          /* Mobile: keep Upload slot visible while auth/roles resolve (and for unauthorized). */
+          @media (max-width: 820px) {
+            .zml-app[data-can-upload="false"] .topbar-account-actions > .upload-btn.topbar-mobile-control-btn,
+            .zml-app[data-account-role="listener"] .topbar-account-actions > .upload-btn.topbar-mobile-control-btn,
+            .zml-app[data-roles-ready="false"] .topbar-account-actions > .upload-btn.topbar-mobile-control-btn,
+            .zml-app[data-upload-permission-pending="true"] .topbar-account-actions > .upload-btn.topbar-mobile-control-btn {
+              display: flex !important;
+            }
           }
 
           .ringtone-payment-mode-banner {
