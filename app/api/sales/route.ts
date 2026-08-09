@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -235,7 +236,7 @@ export async function POST(request: Request) {
             const licenseRows = (purchases || [])
                 .filter((purchase) => purchase.item_type === "beat" && normalizeLicenseType(purchase.license_type))
                 .map((purchase) => ({
-                id: isUuid(String(purchase.license_id || "")) ? purchase.license_id : crypto.randomUUID(),
+                id: isUuid(String(purchase.license_id || "")) ? purchase.license_id : safeRandomUUID(),
                 user_id: userId,
                 beat_id: purchase.item_id,
                 beat_title: purchase.title,

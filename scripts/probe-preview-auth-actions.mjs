@@ -4,6 +4,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+import { safeRandomUUID } from "../lib/safe-random-uuid.mjs";
 
 const PREVIEW_HOST = "https://music-data-base-ho0khj8j5-zudon1226-5137s-projects.vercel.app";
 
@@ -92,7 +93,7 @@ const actions = [
     ["Like", "/api/song-likes", "POST", { songId: "00000000-0000-4000-8000-000000000001", like: true, userId, user_id: userId }],
     ["Save", "/api/library/save", "POST", { item_id: "00000000-0000-4000-8000-000000000001", item_type: "song", userId, user_id: userId }],
     ["Follow", "/api/artist-follow", "POST", { artistId: "test-artist", artistName: "Test Artist", follow: true, userId, user_id: userId }],
-    ["Playlist", "/api/playlists", "POST", { id: crypto.randomUUID(), name: "Probe Playlist", cover: "", playlistType: "song", userId, user_id: userId }],
+    ["Playlist", "/api/playlists", "POST", { id: safeRandomUUID(), name: "Probe Playlist", cover: "", playlistType: "song", userId, user_id: userId }],
     ["Upload", "/api/video-upload", "POST", { sessionUserId: userId, userId, title: "probe", storagePath: "probe/path.mp4" }],
     ["Library", `/api/library-saves?userId=${encodeURIComponent(userId)}`, "GET", null],
 ];

@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { NextResponse } from "next/server";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { inspectVideoBytesForUploadCompatibility, VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE } from "@/lib/video-upload-compatibility";
 
 export const runtime = "nodejs";
@@ -176,7 +177,7 @@ export async function POST(request: Request) {
         }
 
         const cleanFileName = cleanStorageFileName(file.name || "video.mp4");
-        const storagePath = `${authUserId}/${Date.now()}-${crypto.randomUUID()}-${cleanFileName}`;
+        const storagePath = `${authUserId}/${Date.now()}-${safeRandomUUID()}-${cleanFileName}`;
         const supabase = getSupabaseServerClient();
 
         const { error: uploadError } = await supabase.storage.from(VIDEOS_BUCKET).upload(storagePath, buffer, {

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
         if (!LICENSE_TYPES.has(licenseType))
             return jsonResponse({ error: "License type must be Basic, Premium, Unlimited, or Exclusive." }, 400);
         const payload = {
-            id: String(body.id || crypto.randomUUID()),
+            id: String(body.id || safeRandomUUID()),
             user_id: userId,
             beat_id: beatId,
             beat_title: String(body.beatTitle || body.beat_title || "Untitled Beat"),

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -162,7 +163,7 @@ export async function POST(request: Request) {
         }
         existingKeys.add(key);
         toInsert.push({
-          id: crypto.randomUUID(),
+          id: safeRandomUUID(),
           playlist_id: playlistId,
           item_id: item.itemId,
           item_type: item.itemType,
@@ -227,7 +228,7 @@ export async function POST(request: Request) {
     }
 
     const insert = await supabase.from("playlist_items").insert({
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       playlist_id: playlistId,
       item_id: itemId,
       item_type: itemType,

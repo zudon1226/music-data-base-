@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
@@ -264,7 +265,7 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
 
     const supabase = getSupabaseServerClient();
     const songRow = {
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         title,
         artist,
         description: artist,

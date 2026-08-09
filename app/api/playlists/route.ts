@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
+import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -164,7 +165,7 @@ export async function POST(request: Request) {
         const name = typeof body.name === "string" ? body.name.trim() : "";
         const cover = typeof body.cover === "string" ? body.cover.trim() : "";
         const playlistType = normalizePlaylistType(body.playlistType);
-        const id = typeof body.id === "string" && isUuid(body.id.trim()) ? body.id.trim() : crypto.randomUUID();
+        const id = typeof body.id === "string" && isUuid(body.id.trim()) ? body.id.trim() : safeRandomUUID();
         if (!userId || !isUuid(userId))
             return jsonResponse({ error: "Log in before creating playlists." }, 401);
         const auth = await requireMatchingUserId(request, "/api/playlists", userId, getSessionTokensFromRecord(body));
