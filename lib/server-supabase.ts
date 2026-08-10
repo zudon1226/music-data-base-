@@ -48,10 +48,14 @@ export function getSupabaseLibraryClient() {
 
 export async function isPlatformOwnerUserId(userId: string) {
   if (!userId || !isUuid(userId)) return false;
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase.auth.admin.getUserById(userId);
-  if (error) return false;
-  return isPlatformOwnerEmail(data.user?.email);
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.auth.admin.getUserById(userId);
+    if (error) return false;
+    return isPlatformOwnerEmail(data.user?.email);
+  } catch {
+    return false;
+  }
 }
 
 export async function safeSelect<T extends Record<string, unknown>>(
