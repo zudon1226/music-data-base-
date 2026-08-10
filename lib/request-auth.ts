@@ -223,6 +223,88 @@ async function verifyAccessTokenUserId(accessToken: string) {
     }
 }
 
+/** Privileged routes: require Supabase auth.getUser — never trust unverified JWT claims alone. */
+async function verifyAccessTokenUserIdStrict(accessToken: string) {
+    if (!accessToken) {
+        return { userId: "", error: "Missing access token." };
+    }
+    if (isOversizedBearerToken(accessToken)) {
+        return {
+            userId: "",
+            error: "Session access token is too large for API requests. Retry with a refreshed session.",
+        };
+    }
+
+    try {
+        const authClient = getUserAuthClient();
+        const { data, error } = await authClient.auth.getUser(accessToken);
+        if (data.user?.id) {
+            return { userId: data.user.id, error: "" };
+        }
+        return { userId: "", error: error?.message || "Invalid session token." };
+    }
+    catch (error) {
+        return {
+            userId: "",
+            error: error instanceof Error ? error.message : "Invalid session token.",
+        };
+    }
+}
+
+/**
+ * Strict session resolution for platform-owner / destructive APIs.
+ * Accepts verified access tokens or refreshed sessions only — no JWT-claims fallback.
+ */
+export async function resolveStrictRequestUserId(
+    request: Request,
+    options: { refreshToken?: string; accessToken?: string } = {},
+) {
+    const bearerToken = getBearerToken(request);
+    if (bearerToken) {
+        return verifyAccessTokenUserIdStrict(bearerToken);
+    }
+
+    let accessToken = getAccessTokenFromRequest(request, options.accessToken);
+    let refreshToken = getRefreshTokenFromRequest(request, options.refreshToken);
+
+    if (!accessToken || !refreshToken) {
+        const bodyTokens = await readJsonBodySessionTokens(request);
+        if (!accessToken) {
+            accessToken = bodyTokens.accessToken;
+        }
+        if (!refreshToken) {
+            refreshToken = bodyTokens.refreshToken;
+        }
+    }
+
+    let lastError = "Missing or invalid authorization token.";
+
+    if (accessToken && !isOversizedBearerToken(accessToken)) {
+        const accessResult = await verifyAccessTokenUserIdStrict(accessToken);
+        if (accessResult.userId) {
+            return accessResult;
+        }
+        lastError = accessResult.error || lastError;
+    }
+
+    if (refreshToken) {
+        const refreshResult = await verifyRefreshTokenUserId(refreshToken);
+        if (refreshResult.userId) {
+            return refreshResult;
+        }
+        lastError = refreshResult.error || lastError;
+    }
+
+    if (isOversizedBearerToken(accessToken)) {
+        return {
+            userId: "",
+            error: "Session access token is too large for API requests. Refresh your session and try again.",
+        };
+    }
+
+    return { userId: "", error: lastError };
+}
+
 async function readJsonBodySessionTokens(request: Request) {
     const contentType = (request.headers.get("content-type") || "").toLowerCase();
     if (!contentType.includes("application/json")) {

@@ -1,5 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { requireAuthenticatedPlatformOwner } from "@/lib/admin-auth";
+import {
+  isAllowedPlatformCleanupBucket,
+  isSafePlatformStoragePath,
+  sanitizePlatformCleanupFileSelection,
+} from "@/lib/platform-storage-path-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,10 +89,6 @@ function getErrorMessage(error: unknown) {
     return String(record.message || record.error || JSON.stringify(record));
   }
   return "Unknown server error";
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 function isMissingTable(error: unknown) {
@@ -493,8 +495,12 @@ async function buildStorageReport() {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const owner = await requireAuthenticatedPlatformOwner(request, "/api/platform/storage-cleanup");
+    if (!owner.ok) {
+      return jsonResponse({ error: owner.error }, owner.status);
+    }
     return jsonResponse(await buildStorageReport());
   } catch (error) {
     console.error("[api/platform/storage-cleanup] scan failed:", error);
@@ -504,38 +510,42 @@ export async function GET() {
 
 export async function DELETE(request: Request) {
   try {
-    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const userId = typeof body.userId === "string" ? body.userId.trim() : "";
-    const selectedFiles = Array.isArray(body.files) ? body.files : [];
-    const confirmText = typeof body.confirm === "string" ? body.confirm.trim() : "";
-
-    if (!userId || !isUuid(userId)) {
-      return jsonResponse({ error: "Log in before deleting selected storage files." }, 401);
+    const owner = await requireAuthenticatedPlatformOwner(request, "/api/platform/storage-cleanup");
+    if (!owner.ok) {
+      return jsonResponse({ error: owner.error }, owner.status);
     }
+
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const selectedFiles = sanitizePlatformCleanupFileSelection(Array.isArray(body.files) ? body.files : []);
+    const confirmText = typeof body.confirm === "string" ? body.confirm.trim() : "";
+    const dryRun = body.dryRun === true;
 
     if (confirmText !== "Confirm Delete Selected") {
       return jsonResponse({ error: "Confirm Delete Selected is required before deleting storage files." }, 400);
     }
 
-    const selectedKeys = new Set(
-      selectedFiles
-        .map((file) => {
-          if (!file || typeof file !== "object") return "";
-          const record = file as Record<string, unknown>;
-          const bucket = typeof record.bucket === "string" ? record.bucket : "";
-          const path = typeof record.path === "string" ? record.path : "";
-          return bucket && path ? `${bucket}:${path}` : "";
-        })
-        .filter(Boolean),
-    );
-
-    if (selectedKeys.size === 0) {
-      return jsonResponse({ error: "Choose at least one storage file before confirming delete." }, 400);
+    if (selectedFiles.length === 0) {
+      return jsonResponse({ error: "Choose at least one valid storage file in an approved media bucket." }, 400);
     }
+
+    const rejected = (Array.isArray(body.files) ? body.files : []).length - selectedFiles.length;
+    if (rejected > 0) {
+      return jsonResponse({
+        error: "One or more selected paths are outside approved media storage locations.",
+        rejectedCount: rejected,
+      }, 400);
+    }
+
+    const selectedKeys = new Set(selectedFiles.map((file) => `${file.bucket}:${file.path}`));
 
     const supabase = getSupabaseServerClient();
     const report = await buildStorageReport();
-    const deletableSelected = report.orphanStorageFiles.filter((file) => selectedKeys.has(`${file.bucket}:${file.path}`) && file.deletable && file.status !== "Already linked");
+    const deletableSelected = report.orphanStorageFiles.filter((file) => {
+      if (!selectedKeys.has(`${file.bucket}:${file.path}`)) return false;
+      if (!isAllowedPlatformCleanupBucket(file.bucket)) return false;
+      if (!isSafePlatformStoragePath(file.path)) return false;
+      return file.deletable && file.status !== "Already linked";
+    });
     const protectedSelected = report.orphanStorageFiles.filter((file) => selectedKeys.has(`${file.bucket}:${file.path}`) && (!file.deletable || file.status === "Already linked"));
 
     if (deletableSelected.length === 0) {
@@ -545,8 +555,26 @@ export async function DELETE(request: Request) {
       }, 400);
     }
 
+    // Harmless owner verification path: authorize + validate without removing objects.
+    if (dryRun) {
+      return jsonResponse({
+        ok: true,
+        dryRun: true,
+        authorized: true,
+        wouldDelete: deletableSelected.map((file) => ({
+          bucket: file.bucket,
+          path: file.path,
+          fileName: file.fileName,
+          status: file.status,
+        })),
+        protected: protectedSelected,
+        remainingCandidates: Math.max(0, report.orphanStorageFiles.filter((file) => file.deletable).length),
+      });
+    }
+
     const byBucket = new Map<string, string[]>();
     for (const file of deletableSelected) {
+      if (!isAllowedPlatformCleanupBucket(file.bucket) || !isSafePlatformStoragePath(file.path)) continue;
       const paths = byBucket.get(file.bucket) || [];
       if (paths.length < MAX_DELETE_PER_BUCKET) {
         paths.push(file.path);
@@ -561,6 +589,10 @@ export async function DELETE(request: Request) {
 
     for (const [bucket, paths] of byBucket) {
       if (paths.length === 0) continue;
+      if (!isAllowedPlatformCleanupBucket(bucket)) {
+        failures[bucket] = "Bucket is not an approved media storage location.";
+        continue;
+      }
       const { error } = await supabase.storage.from(bucket).remove(paths);
       if (error) {
         failures[bucket] = getErrorMessage(error);
@@ -571,7 +603,7 @@ export async function DELETE(request: Request) {
       deleted.push(...bucketDeleted);
       deletedLog.push(...bucketDeleted.map((file) => ({
         deletedAt,
-        userId,
+        userId: owner.userId,
         bucket: file.bucket,
         path: file.path,
         fileName: file.fileName,

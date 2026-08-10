@@ -1,4 +1,70 @@
+import { resolveStrictRequestUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isPlatformOwnerUserId, isUuid } from "@/lib/server-supabase";
+
+/**
+ * Platform Control Center privileged routes:
+ * resolve the authenticated session user server-side, then require platform owner.
+ * Never trusts client-supplied userId / owner flags for authorization.
+ * Uses strict token verification (no unverified JWT claims fallback).
+ */
+export async function requireAuthenticatedPlatformOwner(
+    request: Request,
+    route: string,
+    options: { refreshToken?: string; accessToken?: string } = {},
+) {
+    const resolved = await resolveStrictRequestUserId(request, options);
+    if (!resolved.userId) {
+        console.log(`[${route}] AUTH VALIDATION`, {
+            authUserId: "",
+            bearerTokenPresent: Boolean(request.headers.get("authorization")),
+            matched: false,
+            error: resolved.error || "Authentication required.",
+        });
+        return {
+            ok: false as const,
+            status: 401 as const,
+            error: resolved.error || "Authentication required.",
+        };
+    }
+
+    let owner: Awaited<ReturnType<typeof requirePlatformOwnerUserId>>;
+    try {
+        owner = await requirePlatformOwnerUserId(resolved.userId);
+    } catch (error) {
+        console.log(`[${route}] AUTH VALIDATION`, {
+            authUserId: resolved.userId,
+            bearerTokenPresent: Boolean(request.headers.get("authorization")),
+            matched: false,
+            error: getErrorMessage(error),
+        });
+        return {
+            ok: false as const,
+            status: 401 as const,
+            error: "Authentication required.",
+        };
+    }
+    if (!owner.ok) {
+        console.log(`[${route}] AUTH VALIDATION`, {
+            authUserId: resolved.userId,
+            bearerTokenPresent: Boolean(request.headers.get("authorization")),
+            matched: false,
+            error: owner.error,
+        });
+        return {
+            ok: false as const,
+            status: 403 as const,
+            error: owner.error,
+        };
+    }
+
+    console.log(`[${route}] AUTH VALIDATION`, {
+        authUserId: resolved.userId,
+        bearerTokenPresent: Boolean(request.headers.get("authorization")),
+        matched: true,
+        error: "",
+    });
+    return { ok: true as const, userId: resolved.userId };
+}
 
 export async function isAdminUserId(userId: string) {
     if (!userId || !isUuid(userId)) return false;

@@ -5376,12 +5376,21 @@ function PageContent() {
             setStabilityError("Log in before loading platform stability.");
             return false;
         }
+        const accessToken = String(authSessionRef.current?.access_token || "").trim();
+        if (!accessToken) {
+            setStabilityError("Session required before loading platform stability.");
+            return false;
+        }
         setStabilityLoading(true);
         setStabilityError("");
         try {
             const [errorsResponse, storageResponse] = await Promise.all([
                 fetch(`/api/platform/errors?userId=${encodeURIComponent(user.id)}`, { cache: "no-store", credentials: "omit" }),
-                fetch("/api/platform/storage-cleanup", { cache: "no-store", credentials: "omit" }),
+                desktopActionFetch("/api/platform/storage-cleanup", {
+                    cache: "no-store",
+                    requireAuth: true,
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                }),
             ]);
             const errorsData = (await errorsResponse.json().catch(() => ({}))) as {
                 errors?: PlatformErrorRow[];
@@ -5423,6 +5432,11 @@ function PageContent() {
             showToast("Log in before deleting selected files.", "error");
             return;
         }
+        const accessToken = String(authSessionRef.current?.access_token || "").trim();
+        if (!accessToken) {
+            showToast("Session required before deleting selected files.", "error");
+            return;
+        }
         if (!storageReport || selectedCleanupFiles.length === 0) {
             showToast("Choose storage files from the preview first.", "info");
             return;
@@ -5437,12 +5451,14 @@ function PageContent() {
         }
         setCleanupBusy(true);
         try {
-            const response = await fetch("/api/platform/storage-cleanup", {
+            const response = await desktopActionFetch("/api/platform/storage-cleanup", {
                 method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                credentials: "omit",
+                requireAuth: true,
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                },
                 body: JSON.stringify({
-                    userId: user.id,
                     confirm: "Confirm Delete Selected",
                     files: filesToDelete.map((file) => ({ bucket: file.bucket, path: file.path })),
                 }),
@@ -5474,11 +5490,17 @@ function PageContent() {
             showToast("Log in before exporting a backup.", "error");
             return;
         }
+        const accessToken = String(authSessionRef.current?.access_token || "").trim();
+        if (!accessToken) {
+            showToast("Session required before exporting a backup.", "error");
+            return;
+        }
         setBackupBusy(true);
         try {
-            const response = await fetch(`/api/platform/backup?userId=${encodeURIComponent(user.id)}`, {
+            const response = await desktopActionFetch(`/api/platform/backup?userId=${encodeURIComponent(user.id)}`, {
                 cache: "no-store",
-                credentials: "omit",
+                requireAuth: true,
+                headers: { Authorization: `Bearer ${accessToken}` },
             });
             if (!response.ok) {
                 const data = (await response.json().catch(() => ({}))) as {
