@@ -4562,7 +4562,10 @@ function PageContent() {
     }, []);
     const reloadLicenseRecordsFromApi = useCallback(async (userId: string) => {
         try {
-            const response = await fetch(`/api/licenses?userId=${encodeURIComponent(userId)}`);
+            const response = await desktopActionFetch(`/api/licenses?userId=${encodeURIComponent(userId)}`, {
+                cache: "no-store",
+                requireAuth: true,
+            });
             const result = await response.json().catch(() => ({})) as { licenses?: unknown[]; error?: string };
             if (!response.ok) {
                 console.error("LICENSE HISTORY LOAD ERROR", result.error || response.statusText);
@@ -4577,17 +4580,21 @@ function PageContent() {
         catch (error) {
             console.error("LICENSE HISTORY LOAD ERROR", error);
         }
-    }, [mergeLicenseRecords, normalizeLicenseRecord]);
+    }, [desktopActionFetch, mergeLicenseRecords, normalizeLicenseRecord]);
     const saveLicenseRecordToApi = useCallback(async (record: LicenseRecord) => {
         try {
-            const response = await fetch("/api/licenses", {
+            const response = await desktopActionFetch("/api/licenses", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(record),
+                requireAuth: true,
             });
-            const result = await response.json().catch(() => ({})) as { license?: unknown; error?: string };
+            const result = await response.json().catch(() => ({})) as { license?: unknown; error?: string; code?: string };
             if (!response.ok) {
-                console.error("LICENSE SAVE ERROR", result.error || response.statusText);
+                // Paid license grant is blocked server-side until payment confirmation exists.
+                if (result.code !== "PAYMENT_CONFIRMATION_REQUIRED") {
+                    console.error("LICENSE SAVE ERROR", result.error || response.statusText);
+                }
                 return;
             }
             const savedRecord = normalizeLicenseRecord(result.license);
@@ -4597,10 +4604,13 @@ function PageContent() {
         catch (error) {
             console.error("LICENSE SAVE ERROR", error);
         }
-    }, [mergeLicenseRecords, normalizeLicenseRecord]);
+    }, [desktopActionFetch, mergeLicenseRecords, normalizeLicenseRecord]);
     const reloadSalesFromApi = useCallback(async (userId: string) => {
         try {
-            const response = await fetch(`/api/sales?userId=${encodeURIComponent(userId)}`);
+            const response = await desktopActionFetch(`/api/sales?userId=${encodeURIComponent(userId)}`, {
+                cache: "no-store",
+                requireAuth: true,
+            });
             const result = await response.json().catch(() => ({})) as {
                 cartItems?: unknown[];
                 purchases?: unknown[];
@@ -4641,7 +4651,7 @@ function PageContent() {
         catch (error) {
             console.error("SALES SYNC ERROR", error);
         }
-    }, []);
+    }, [desktopActionFetch]);
     const reloadMediaDownloadVault = useCallback(async (userId: string, accessToken?: string | null) => {
         const cleanUserId = String(userId || "").trim();
         const token = String(accessToken || "").trim();
@@ -4694,19 +4704,31 @@ function PageContent() {
     }, []);
     const postSalesAction = useCallback(async (action: string, payload: Record<string, unknown>) => {
         try {
-            const response = await fetch("/api/sales", {
+            const response = await desktopActionFetch("/api/sales", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action, ...payload }),
+                requireAuth: true,
             });
-            const result = await response.json().catch(() => ({})) as { error?: string };
-            if (!response.ok)
+            const result = await response.json().catch(() => ({})) as {
+                error?: string;
+                purchases?: unknown[];
+                pendingCount?: number;
+                completedCount?: number;
+                paymentConfirmationRequired?: boolean;
+                message?: string;
+            };
+            if (!response.ok) {
                 console.error("SALES ACTION ERROR", result.error || response.statusText);
+                return result;
+            }
+            return result;
         }
         catch (error) {
             console.error("SALES ACTION ERROR", error);
+            return { error: "Sales action failed." };
         }
-    }, []);
+    }, [desktopActionFetch]);
     const [videoLibraryError, setVideoLibraryError] = useState("");
     const [selectedVideoId, setSelectedVideoId] = useState("");
     const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
@@ -9616,7 +9638,7 @@ function PageContent() {
         void postSalesAction("clearCart", { userId: user.id });
         showToast("Shopping cart cleared.", "success");
     }
-    function checkoutSalesCart() {
+    async function checkoutSalesCart() {
         if (!user?.id) {
             showToast("Log in before checkout.", "error");
             return;
@@ -9627,7 +9649,8 @@ function PageContent() {
             return;
         }
         const purchasedAt = new Date().toISOString();
-        const purchases = cartItems.map<PurchaseHistoryItem>((item) => ({
+        // Local optimistic rows stay pending for paid items; free items may complete after server confirmation.
+        const optimisticPurchases = cartItems.map<PurchaseHistoryItem>((item) => ({
             id: createToastId(),
             userId: user.id,
             itemId: item.itemId,
@@ -9638,14 +9661,53 @@ function PageContent() {
             downloadUrl: item.downloadUrl,
             priceCents: item.priceCents,
             currency: item.currency,
-            status: "completed",
+            status: item.priceCents > 0 ? "pending" : "completed",
             purchasedAt,
             licenseType: item.licenseType,
             licenseTerms: item.licenseTerms,
             licenseId: item.licenseId,
             licensePdfFileName: item.licensePdfFileName,
         }));
-        const vaultItems = purchases.map<DownloadVaultItem>((purchase) => ({
+        const freeLicenses = cartItems
+            .filter((item) => item.itemType === "beat" && item.licenseType && item.priceCents <= 0)
+            .map((item) => {
+            const beat = producerBeats.find((producerBeat) => producerBeat.id === item.itemId);
+            if (!beat || !item.licenseType)
+                return null;
+            return {
+                ...buildBeatLicenseRecord(beat, item.licenseType, item.licenseId || createRecordId()),
+                priceCents: 0,
+                terms: item.licenseTerms && item.licenseTerms.length > 0 ? item.licenseTerms : getBeatLicenseTerms(item.licenseType, beat),
+                pdfFileName: item.licensePdfFileName || getBeatLicensePdfFileName(beat, item.licenseType),
+            };
+        })
+            .filter((record): record is LicenseRecord => Boolean(record));
+        optimisticPurchases.forEach((purchase) => {
+            addMonetizationTransaction({
+                itemId: purchase.itemId,
+                itemType: purchase.itemType,
+                itemTitle: purchase.title,
+                transactionType: "purchase",
+                amountCents: purchase.priceCents,
+                currency: purchase.currency,
+                status: purchase.status === "completed" ? "succeeded" : "pending",
+                creatorType: purchase.itemType === "beat" ? "producer" : "artist",
+                creatorName: purchase.creatorName,
+            });
+        });
+        if (freeLicenses.length > 0) {
+            setLicenseRecords((previous) => {
+                const byKey = new Map<string, LicenseRecord>();
+                [...freeLicenses, ...previous].forEach((record) => byKey.set(`${record.userId}-${record.beatId}-${record.licenseType}`, record));
+                return [...byKey.values()].sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()).slice(0, 200);
+            });
+            freeLicenses.forEach((record) => void saveLicenseRecordToApi(record));
+        }
+        setPurchaseHistory((previous) => [...optimisticPurchases, ...previous].slice(0, 200));
+        // Do not grant download vault locally for paid items — server only grants vault on free/completed sales.
+        const freeVaultItems = optimisticPurchases
+            .filter((purchase) => purchase.status === "completed")
+            .map<DownloadVaultItem>((purchase) => ({
             id: createToastId(),
             userId: user.id,
             purchaseId: purchase.id,
@@ -9663,50 +9725,26 @@ function PageContent() {
             licenseId: purchase.licenseId,
             licensePdfFileName: purchase.licensePdfFileName,
         }));
-        const beatLicenses = cartItems
-            .filter((item) => item.itemType === "beat" && item.licenseType)
-            .map((item) => {
-            const beat = producerBeats.find((producerBeat) => producerBeat.id === item.itemId);
-            if (!beat || !item.licenseType)
-                return null;
-            return {
-                ...buildBeatLicenseRecord(beat, item.licenseType, item.licenseId || createRecordId()),
-                priceCents: item.priceCents,
-                terms: item.licenseTerms && item.licenseTerms.length > 0 ? item.licenseTerms : getBeatLicenseTerms(item.licenseType, beat),
-                pdfFileName: item.licensePdfFileName || getBeatLicensePdfFileName(beat, item.licenseType),
-            };
-        })
-            .filter((record): record is LicenseRecord => Boolean(record));
-        purchases.forEach((purchase) => {
-            addMonetizationTransaction({
-                itemId: purchase.itemId,
-                itemType: purchase.itemType,
-                itemTitle: purchase.title,
-                transactionType: "purchase",
-                amountCents: purchase.priceCents,
-                currency: purchase.currency,
-                status: "succeeded",
-                creatorType: purchase.itemType === "beat" ? "producer" : "artist",
-                creatorName: purchase.creatorName,
+        if (freeVaultItems.length > 0) {
+            setDownloadVault((previous) => {
+                const byKey = new Map<string, DownloadVaultItem>();
+                [...freeVaultItems, ...previous].forEach((item) => byKey.set(`${item.userId}-${item.itemType}-${item.itemId}-${item.licenseType || ""}`, item));
+                return [...byKey.values()].slice(0, 200);
             });
-        });
-        if (beatLicenses.length > 0) {
-            setLicenseRecords((previous) => {
-                const byKey = new Map<string, LicenseRecord>();
-                [...beatLicenses, ...previous].forEach((record) => byKey.set(`${record.userId}-${record.beatId}-${record.licenseType}`, record));
-                return [...byKey.values()].sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()).slice(0, 200);
-            });
-            beatLicenses.forEach((record) => void saveLicenseRecordToApi(record));
         }
-        setPurchaseHistory((previous) => [...purchases, ...previous].slice(0, 200));
-        setDownloadVault((previous) => {
-            const byKey = new Map<string, DownloadVaultItem>();
-            [...vaultItems, ...previous].forEach((item) => byKey.set(`${item.userId}-${item.itemType}-${item.itemId}-${item.licenseType || ""}`, item));
-            return [...byKey.values()].slice(0, 200);
-        });
         setSalesCart((previous) => previous.filter((item) => item.userId !== user.id));
-        void postSalesAction("checkout", { userId: user.id, buyerName: getBuyerDisplayName(), cartItems });
-        showToast("Purchase complete. Downloads and license records are ready.", "success");
+        const result = await postSalesAction("checkout", { userId: user.id, buyerName: getBuyerDisplayName(), cartItems });
+        void reloadSalesFromApi(user.id);
+        void reloadLicenseRecordsFromApi(user.id);
+        if (result?.error) {
+            showToast(result.error, "error");
+            return;
+        }
+        if (result?.paymentConfirmationRequired || (result?.pendingCount || 0) > 0) {
+            showToast(result.message || "Checkout saved as pending. Paid downloads unlock after payment confirmation.", "info");
+            return;
+        }
+        showToast(result?.message || "Free purchase complete. Downloads and license records are ready.", "success");
     }
     function openDownloadVaultItem(item: DownloadVaultItem) {
         if (!item.downloadUrl) {
