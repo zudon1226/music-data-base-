@@ -9648,6 +9648,8 @@ function PageContent() {
             showToast("Your cart is empty.", "info");
             return;
         }
+        const paidCartItems = cartItems.filter((item) => item.priceCents > 0);
+        const freeCartItems = cartItems.filter((item) => item.priceCents <= 0);
         const purchasedAt = new Date().toISOString();
         // Local optimistic rows stay pending for paid items; free items may complete after server confirmation.
         const optimisticPurchases = cartItems.map<PurchaseHistoryItem>((item) => ({
@@ -9668,8 +9670,8 @@ function PageContent() {
             licenseId: item.licenseId,
             licensePdfFileName: item.licensePdfFileName,
         }));
-        const freeLicenses = cartItems
-            .filter((item) => item.itemType === "beat" && item.licenseType && item.priceCents <= 0)
+        const freeLicenses = freeCartItems
+            .filter((item) => item.itemType === "beat" && item.licenseType)
             .map((item) => {
             const beat = producerBeats.find((producerBeat) => producerBeat.id === item.itemId);
             if (!beat || !item.licenseType)
@@ -9733,18 +9735,62 @@ function PageContent() {
             });
         }
         setSalesCart((previous) => previous.filter((item) => item.userId !== user.id));
-        const result = await postSalesAction("checkout", { userId: user.id, buyerName: getBuyerDisplayName(), cartItems });
+
+        if (freeCartItems.length > 0) {
+            const freeResult = await postSalesAction("checkout", { userId: user.id, buyerName: getBuyerDisplayName(), cartItems: freeCartItems });
+            if (freeResult?.error) {
+                showToast(freeResult.error, "error");
+            }
+            else if (!paidCartItems.length) {
+                showToast(freeResult?.message || "Free purchase complete. Downloads and license records are ready.", "success");
+            }
+        }
+
+        if (paidCartItems.length > 0) {
+            // Phase A: server creates pending sale + Stripe Checkout; no local paid entitlement.
+            try {
+                const response = await desktopActionFetch("/api/sales/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId: user.id,
+                        cartItems: paidCartItems.map((item) => ({
+                            itemId: item.itemId,
+                            itemType: item.itemType,
+                            licenseType: item.licenseType || "",
+                        })),
+                    }),
+                    requireAuth: true,
+                });
+                const stripeResult = await response.json().catch(() => ({})) as {
+                    error?: string;
+                    checkoutUrl?: string;
+                    message?: string;
+                    entitlementsGranted?: boolean;
+                };
+                void reloadSalesFromApi(user.id);
+                void reloadLicenseRecordsFromApi(user.id);
+                if (!response.ok || !stripeResult.checkoutUrl) {
+                    showToast(stripeResult.error || "Unable to start Stripe checkout for pending sale.", "error");
+                    return;
+                }
+                if (stripeResult.entitlementsGranted) {
+                    showToast("Unexpected entitlement grant blocked. Payment confirmation is required.", "error");
+                    return;
+                }
+                window.location.assign(stripeResult.checkoutUrl);
+                return;
+            }
+            catch (error) {
+                console.error("SALES STRIPE CHECKOUT ERROR", error);
+                showToast("Unable to start Stripe checkout for pending sale.", "error");
+                void reloadSalesFromApi(user.id);
+                return;
+            }
+        }
+
         void reloadSalesFromApi(user.id);
         void reloadLicenseRecordsFromApi(user.id);
-        if (result?.error) {
-            showToast(result.error, "error");
-            return;
-        }
-        if (result?.paymentConfirmationRequired || (result?.pendingCount || 0) > 0) {
-            showToast(result.message || "Checkout saved as pending. Paid downloads unlock after payment confirmation.", "info");
-            return;
-        }
-        showToast(result?.message || "Free purchase complete. Downloads and license records are ready.", "success");
     }
     function openDownloadVaultItem(item: DownloadVaultItem) {
         if (!item.downloadUrl) {
