@@ -29,7 +29,8 @@ const env = read("lib/billing/env.ts");
 const checkout = read("app/api/subscriptions/checkout/route.ts");
 const subscriptions = read("app/api/subscriptions/route.ts");
 const webhook = read("app/api/subscriptions/webhooks/[provider]/route.ts");
-const stripe = read("lib/billing/providers/stripe-provider.ts");
+const stripe = read("lib/billing/providers/stripe-provider.ts")
+  + read("lib/billing/providers/stripe-webhook-signature.ts");
 const catalog = read("lib/billing/plan-catalog.ts");
 const androidClient = read("lib/ringtone-marketplace-client.ts");
 const iphoneUi = read("components/ringtone-marketplace/ringtone-marketplace-workspace.tsx");

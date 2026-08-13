@@ -1,44 +1,13 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { PaymentProvider } from "@/lib/billing/payment-provider";
 import {
   isStripeLiveConfigured,
   stripeFormPost,
   stripeSecretKey,
-  stripeWebhookSecret,
 } from "@/lib/billing/providers/stripe-rest";
 
-function verifyStripeSignature(rawBody: string, signatureHeader: string | null) {
-  const secret = stripeWebhookSecret();
-  if (!secret) {
-    throw new Error("Stripe webhook secret is not configured.");
-  }
-  if (!signatureHeader) {
-    throw new Error("Missing Stripe-Signature header.");
-  }
-  const parts = Object.fromEntries(
-    signatureHeader.split(",").map((part) => {
-      const [key, ...rest] = part.trim().split("=");
-      return [key, rest.join("=")];
-    }),
-  ) as Record<string, string>;
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !signature) {
-    throw new Error("Invalid Stripe-Signature header.");
-  }
-  const ageSeconds = Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp));
-  if (!Number.isFinite(ageSeconds) || ageSeconds > 60 * 5) {
-    throw new Error("Stripe webhook timestamp outside tolerance.");
-  }
-  const expected = createHmac("sha256", secret)
-    .update(`${timestamp}.${rawBody}`, "utf8")
-    .digest("hex");
-  const expectedBuf = Buffer.from(expected, "utf8");
-  const actualBuf = Buffer.from(signature, "utf8");
-  if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) {
-    throw new Error("Stripe webhook signature verification failed.");
-  }
-}
+import { verifyStripeSignature } from "./stripe-webhook-signature";
+export { verifyStripeSignature };
 
 export type StripeOneTimeCheckoutLine = {
   name: string;
