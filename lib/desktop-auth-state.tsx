@@ -17,6 +17,10 @@ import {
 import { runAuthStorageCleanupOnce } from "./auth-boot";
 import { logoutAndClearAuth } from "./auth-session";
 import { clearDesktopAuthRecoveryGate } from "./desktop-auth-recovery-gate";
+import {
+    clearDesktopApiCredentials,
+    publishDesktopApiCredentials,
+} from "./desktop-authenticated-session";
 import { clearLibraryCache, readLibraryCache } from "./library-storage";
 import { supabase as defaultSupabaseClient } from "./supabase";
 
@@ -46,13 +50,9 @@ function hasAccessToken(session: Session | null | undefined) {
     return typeof session?.access_token === "string" && session.access_token.length > 0;
 }
 
-function hasSessionUser(session: Session | null | undefined) {
-    return Boolean(session?.user?.id);
-}
-
-/** Requirement 4: user OR access_token is enough to treat the session as usable. */
-export function hasUsableAuthCredentials(session: Session | null | undefined, user: SupabaseUser | null = null) {
-    return hasAccessToken(session) || hasSessionUser(session) || Boolean(user?.id);
+/** Protected loads and authenticated UI require a bearer access_token — user id alone is not enough. */
+export function hasUsableAuthCredentials(session: Session | null | undefined, _user: SupabaseUser | null = null) {
+    return hasAccessToken(session);
 }
 
 function readUserIdFromAccessToken(accessToken: string) {
@@ -118,6 +118,9 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
     }, []);
 
     const markAuthenticated = useCallback((session: Session, nextUser: SupabaseUser | null) => {
+        if (!hasAccessToken(session)) {
+            return;
+        }
         const resolvedUser = nextUser ?? resolveSessionUser(session, persistedUserRef.current);
         clearDesktopAuthRecoveryGate();
         if (resolvedUser?.id) {
@@ -128,6 +131,7 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
         if (resolvedUser) {
             setUserState(resolvedUser);
         }
+        publishDesktopApiCredentials(session);
         setStatus("authenticated");
         setAuthReady(true);
         bumpRevision();
@@ -135,6 +139,7 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
 
     const clearAuthenticatedState = useCallback(() => {
         persistedUserRef.current = null;
+        clearDesktopApiCredentials();
         setAuthSessionState(null);
         setUserState(null);
         setStatus("unauthenticated");
@@ -168,17 +173,13 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
 
     const confirmAuthenticatedFromApi = useCallback((userId: string) => {
         const normalizedUserId = String(userId || "").trim();
-        if (!normalizedUserId) {
+        if (!normalizedUserId || !hasAccessToken(authSession)) {
             return;
         }
         clearDesktopAuthRecoveryGate();
-        if (user?.id === normalizedUserId || authSession?.user?.id === normalizedUserId) {
-            setStatus("authenticated");
-            setAuthReady(true);
-            bumpRevision();
-            return;
-        }
-        if (hasUsableAuthCredentials(authSession, user)) {
+        const sessionUserId = authSession?.user?.id
+            || (authSession?.access_token ? readUserIdFromAccessToken(authSession.access_token) : "");
+        if (user?.id === normalizedUserId || sessionUserId === normalizedUserId) {
             setStatus("authenticated");
             setAuthReady(true);
             bumpRevision();
@@ -207,13 +208,10 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
             const next = typeof value === "function" ? value(previous) : value;
             if (next?.id) {
                 persistedUserRef.current = next;
-                setStatus("authenticated");
-                setAuthReady(true);
-                bumpRevision();
             }
             return next;
         });
-    }, [bumpRevision]);
+    }, []);
 
     const signOut = useCallback(async () => {
         try {
@@ -237,41 +235,54 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
             }
             bootFinishedRef.current = true;
             setAuthReady(true);
-            if (session && hasUsableAuthCredentials(session)) {
+            if (session && hasAccessToken(session)) {
                 markAuthenticated(session, resolveSessionUser(session));
                 return;
             }
-            setStatus("unauthenticated");
+            clearAuthenticatedState();
         };
 
-        // Hard ceiling: never leave the UI on "Checking your session…".
-        // INITIAL_SESSION / getSession can stall on slow LAN or token refresh.
+        // Never block the existing login screen on getSession / INITIAL_SESSION.
+        // iOS Safari can stall GoTrue recover/refresh; the UI must still reach signed-out.
         const AUTH_BOOT_TIMEOUT_MS = 2500;
         const bootTimer = window.setTimeout(() => {
             finishBoot(null);
         }, AUTH_BOOT_TIMEOUT_MS);
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-            if (!isMounted) {
-                return;
-            }
-            if (event === "INITIAL_SESSION") {
-                window.clearTimeout(bootTimer);
-                finishBoot(session);
-                return;
-            }
-            if (event === "SIGNED_OUT") {
-                clearAuthenticatedState();
-                return;
-            }
-            if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") && session) {
-                if (hasUsableAuthCredentials(session)) {
-                    markAuthenticated(session, resolveSessionUser(session, persistedUserRef.current));
+        let subscription: { unsubscribe: () => void } | null = null;
+        try {
+            const authClient = supabase;
+            const { data } = authClient.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+                if (!isMounted) {
+                    return;
                 }
-            }
-        });
+                if (event === "INITIAL_SESSION") {
+                    if (session && hasAccessToken(session)) {
+                        markAuthenticated(session, resolveSessionUser(session, persistedUserRef.current));
+                        bootFinishedRef.current = true;
+                        setAuthReady(true);
+                    }
+                    else if (!bootFinishedRef.current) {
+                        finishBoot(session);
+                    }
+                    return;
+                }
+                if (event === "SIGNED_OUT") {
+                    clearAuthenticatedState();
+                    return;
+                }
+                if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") && session) {
+                    if (hasUsableAuthCredentials(session)) {
+                        markAuthenticated(session, resolveSessionUser(session, persistedUserRef.current));
+                    }
+                }
+            });
+            subscription = data.subscription;
+        }
+        catch {
+            finishBoot(null);
+        }
 
-        // Parallel resolve: do not wait only on INITIAL_SESSION (can hang on refresh).
         void (async () => {
             try {
                 const result = await Promise.race([
@@ -280,18 +291,13 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
                         window.setTimeout(() => resolve(null), AUTH_BOOT_TIMEOUT_MS);
                     }),
                 ]);
-                if (!isMounted || bootFinishedRef.current || !result) {
-                    return;
-                }
-                const session = "data" in result ? result.data.session : null;
-                window.clearTimeout(bootTimer);
-                finishBoot(session);
-            }
-            catch {
                 if (!isMounted || bootFinishedRef.current) {
                     return;
                 }
-                window.clearTimeout(bootTimer);
+                const session = result && "data" in result ? result.data.session : null;
+                finishBoot(session);
+            }
+            catch {
                 finishBoot(null);
             }
         })();
@@ -299,7 +305,7 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
         return () => {
             isMounted = false;
             window.clearTimeout(bootTimer);
-            subscription.unsubscribe();
+            subscription?.unsubscribe();
         };
     }, [clearAuthenticatedState, markAuthenticated, supabase]);
 
@@ -326,10 +332,9 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
         || authSession?.user?.id
         || (authSession?.access_token ? readUserIdFromAccessToken(authSession.access_token) : "");
 
-    const isAuthenticated = authReady && (
-        status === "authenticated"
-        || hasUsableAuthCredentials(authSession, user)
-    );
+    const isAuthenticated = authReady
+        && status === "authenticated"
+        && hasAccessToken(authSession);
 
     const shouldShowLoginScreen = authReady && !isAuthenticated;
     const isInitializing = !authReady;
