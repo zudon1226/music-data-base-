@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, type Ref } from "react";
+import { useEffect, useRef, type Ref } from "react";
+import { createPortal } from "react-dom";
 import { Bell } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/provider";
 
@@ -38,6 +39,9 @@ type NotificationCenterPanelProps = {
 /**
  * Topbar notification bell + dropdown popover.
  * Full Notifications page opens only via "View all notifications".
+ *
+ * The dropdown is portaled to document.body so fixed ancestors
+ * (mobile chrome contain/overflow, content scroll root) cannot clip it on iOS.
  */
 export function NotificationCenterPanel({
     open,
@@ -56,6 +60,7 @@ export function NotificationCenterPanel({
 }: NotificationCenterPanelProps) {
     const { t } = useTranslation();
     const recentNotifications = notifications.slice(0, DROPDOWN_ITEM_LIMIT);
+    const panelRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -67,6 +72,7 @@ export function NotificationCenterPanel({
                 ? wrapRef.current
                 : null;
             if (root?.contains(target)) return;
+            if (panelRef.current?.contains(target)) return;
             onClose();
         }
 
@@ -77,16 +83,138 @@ export function NotificationCenterPanel({
             }
         }
 
-        document.addEventListener("pointerdown", onPointerDown);
+        // iOS Safari synthesizes a leftover pointerdown after the opening tap.
+        // Attach outside-close only after that gesture has settled.
+        const timer = window.setTimeout(() => {
+            document.addEventListener("pointerdown", onPointerDown);
+        }, 450);
         document.addEventListener("keydown", onKeyDown);
         return () => {
+            window.clearTimeout(timer);
             document.removeEventListener("pointerdown", onPointerDown);
             document.removeEventListener("keydown", onKeyDown);
         };
     }, [open, onClose, wrapRef]);
 
+    useEffect(() => {
+        if (typeof document === "undefined") return undefined;
+        document.documentElement.dataset.notificationDropdown = open ? "open" : "closed";
+        return () => {
+            delete document.documentElement.dataset.notificationDropdown;
+        };
+    }, [open]);
+
+    const panel = open ? (
+        <section
+            ref={panelRef}
+            aria-label={t("notifications.title")}
+            className={
+                !loading && notifications.length === 0
+                    ? "notification-center notification-empty"
+                    : "notification-center"
+            }
+            role="dialog"
+            data-notification-panel="dropdown"
+            style={{
+                position: "fixed",
+                top: "calc(var(--app-header-offset, 96px) + 8px)",
+                left: 12,
+                right: 12,
+                width: "auto",
+                zIndex: 2147483646,
+                visibility: "visible",
+                opacity: 1,
+                pointerEvents: "auto",
+            }}
+        >
+            <div className="notification-head">
+                <div className="notification-head-title">
+                    <strong className="notification-head-heading">{t("notifications.title")}</strong>
+                    <small className="notification-head-unread">
+                        {t("dashboard.notifications.unreadCount", { count: unreadCount })}
+                    </small>
+                </div>
+                <div className="notification-head-actions">
+                    <button
+                        disabled={unreadCount === 0 || loading}
+                        onClick={onMarkAllRead}
+                        type="button"
+                        data-notification-action="mark-all-read"
+                    >
+                        {t("dashboard.notifications.markAllRead")}
+                    </button>
+                    <button
+                        disabled={loading || notifications.every((item) => !item.read)}
+                        onClick={onClearRead}
+                        type="button"
+                        data-notification-action="clear-read"
+                    >
+                        {t("dashboard.notifications.clearRead")}
+                    </button>
+                </div>
+            </div>
+            <div className="notification-center-body">
+                {loading ? <p>{t("common.loading")}</p> : null}
+                {!loading && notifications.length === 0 ? (
+                    <p className="notification-empty-copy">{t("notifications.empty")}</p>
+                ) : null}
+                {!loading && recentNotifications.length > 0 ? (
+                    <ul className="notification-list">
+                        {recentNotifications.map((notification) => (
+                            <li key={notification.id}>
+                                <article
+                                    className={
+                                        notification.read
+                                            ? "notification-item is-read"
+                                            : "notification-item is-unread"
+                                    }
+                                >
+                                    <button
+                                        className="notification-item-main"
+                                        onClick={() => {
+                                            if (!notification.read) onMarkRead(notification.id);
+                                            onNavigate(notification);
+                                        }}
+                                        type="button"
+                                    >
+                                        <strong>{notification.title}</strong>
+                                        <span>{notification.body}</span>
+                                        <small>{formatTimestamp(notification.createdAt)}</small>
+                                    </button>
+                                </article>
+                            </li>
+                        ))}
+                    </ul>
+                ) : null}
+            </div>
+            <button
+                type="button"
+                className="notification-view-all"
+                onClick={onViewAll}
+                data-notification-action="view-all"
+            >
+                {t("common.viewAll")} {t("notifications.title")}
+            </button>
+        </section>
+    ) : null;
+
     return (
         <div className="notification-wrap" ref={wrapRef} data-notification-dropdown={open ? "open" : "closed"}>
+            <style>{`
+                .notification-center[data-notification-panel="dropdown"] {
+                    position: fixed !important;
+                    top: calc(var(--app-header-offset, 96px) + 8px) !important;
+                    left: 12px !important;
+                    right: 12px !important;
+                    width: auto !important;
+                    z-index: 2147483646 !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    pointer-events: auto !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                }
+            `}</style>
             <button
                 aria-expanded={open}
                 aria-haspopup="dialog"
@@ -105,87 +233,9 @@ export function NotificationCenterPanel({
                     </span>
                 ) : null}
             </button>
-            {open ? (
-                <section
-                    aria-label={t("notifications.title")}
-                    className={
-                        !loading && notifications.length === 0
-                            ? "notification-center notification-empty"
-                            : "notification-center"
-                    }
-                    role="dialog"
-                    data-notification-panel="dropdown"
-                >
-                    <div className="notification-head">
-                        <div className="notification-head-title">
-                            <strong className="notification-head-heading">{t("notifications.title")}</strong>
-                            <small className="notification-head-unread">
-                                {t("dashboard.notifications.unreadCount", { count: unreadCount })}
-                            </small>
-                        </div>
-                        <div className="notification-head-actions">
-                            <button
-                                disabled={unreadCount === 0 || loading}
-                                onClick={onMarkAllRead}
-                                type="button"
-                                data-notification-action="mark-all-read"
-                            >
-                                {t("dashboard.notifications.markAllRead")}
-                            </button>
-                            <button
-                                disabled={loading || notifications.every((item) => !item.read)}
-                                onClick={onClearRead}
-                                type="button"
-                                data-notification-action="clear-read"
-                            >
-                                {t("dashboard.notifications.clearRead")}
-                            </button>
-                        </div>
-                    </div>
-                    <div className="notification-center-body">
-                        {loading ? <p>{t("common.loading")}</p> : null}
-                        {!loading && notifications.length === 0 ? (
-                            <p className="notification-empty-copy">{t("notifications.empty")}</p>
-                        ) : null}
-                        {!loading && recentNotifications.length > 0 ? (
-                            <ul className="notification-list">
-                                {recentNotifications.map((notification) => (
-                                    <li key={notification.id}>
-                                        <article
-                                            className={
-                                                notification.read
-                                                    ? "notification-item is-read"
-                                                    : "notification-item is-unread"
-                                            }
-                                        >
-                                            <button
-                                                className="notification-item-main"
-                                                onClick={() => {
-                                                    if (!notification.read) onMarkRead(notification.id);
-                                                    onNavigate(notification);
-                                                }}
-                                                type="button"
-                                            >
-                                                <strong>{notification.title}</strong>
-                                                <span>{notification.body}</span>
-                                                <small>{formatTimestamp(notification.createdAt)}</small>
-                                            </button>
-                                        </article>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : null}
-                    </div>
-                    <button
-                        type="button"
-                        className="notification-view-all"
-                        onClick={onViewAll}
-                        data-notification-action="view-all"
-                    >
-                        {t("common.viewAll")} {t("notifications.title")}
-                    </button>
-                </section>
-            ) : null}
+            {typeof document !== "undefined" && panel
+                ? createPortal(panel, document.body)
+                : panel}
         </div>
     );
 }

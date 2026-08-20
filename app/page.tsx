@@ -5859,11 +5859,16 @@ function PageContent() {
                 ? GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX
                 : GLOBAL_PLAYER_HEIGHT_EXPANDED_PX;
             const next = Math.max(floor, Math.ceil(heightPx || 0));
+            // Mobile dock uses 8px bottom inset; desktop uses --player-dock-inset-bottom (12px).
+            // Extra cushion on ≤820px keeps Subscribe / video actions clear of the fixed player.
+            const mobileCompact = window.matchMedia("(max-width: 820px)").matches;
+            const dockInsetPx = mobileCompact ? 8 : PLAYER_DOCK_INSET_BOTTOM_PX;
+            const reserveCushionPx = mobileCompact ? 28 : 16;
             root.style.setProperty("--global-player-height", `${next}px`);
             root.style.setProperty("--mobile-player-height", `${next}px`);
             root.style.setProperty(
                 "--mobile-player-reserve",
-                `calc(${next}px + ${PLAYER_DOCK_INSET_BOTTOM_PX}px + env(safe-area-inset-bottom, 0px) + 16px)`,
+                `calc(${next}px + ${dockInsetPx}px + env(safe-area-inset-bottom, 0px) + ${reserveCushionPx}px)`,
             );
         };
         const el = playerBarRef.current;
@@ -17607,7 +17612,8 @@ function PageContent() {
           ref={mobileAppChromeRef}
           data-mobile-app-chrome={mobileChromeProps["data-mobile-app-chrome"]}
           data-header-hidden={mobileChromeProps["data-header-hidden"]}
-          className={`${mobileChromeProps.className}${isMobileCompact ? "" : " mobile-app-chrome--desktop"}`}
+          className={`${mobileChromeProps.className}${isMobileCompact ? "" : " mobile-app-chrome--desktop"}${showNotificationCenter ? " notification-panel-open" : ""}`}
+          data-notification-panel-open={showNotificationCenter ? "true" : "false"}
         >
         <header className="topbar" data-topbar-locale={locale} dir="ltr">
           <div
@@ -17807,6 +17813,7 @@ function PageContent() {
               brandLogo={BRAND_LOGO}
               onStudioChange={switchCreatorStudio}
               onSelectMode={selectUploadMode}
+              onBack={() => setShowUpload(false)}
             />
 
             {uploadMode === "album" || uploadMode === "producerAlbum" ? (<form className="upload-card album-upload-card" onSubmit={addUploadedAlbum}>
@@ -21802,23 +21809,37 @@ function PageContent() {
 
           <div className="player-center" dir="ltr">
             <div className="player-controls" dir="ltr">
-              <button className={shuffleOn ? "mode-on" : ""} onClick={() => setShuffleOn((value) => !value)} title={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}>
+              <button
+                type="button"
+                className={`player-shuffle-control${shuffleOn ? " mode-on" : ""}`}
+                onClick={() => setShuffleOn((value) => !value)}
+                title={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}
+                aria-label={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}
+                data-player-control="shuffle"
+              >
                 <Shuffle size={16}/>
               </button>
 
-              <button onClick={previousSong} title={t("player.previous")}>
+              <button type="button" className="player-prev-control" onClick={previousSong} title={t("player.previous")} aria-label={t("player.previous")} data-player-control="previous">
                 <SkipBack size={17} fill="currentColor"/>
               </button>
 
-              <button className="main-play" onClick={togglePlay} title={isPlaying ? t("player.pause") : t("player.play")}>
+              <button type="button" className="main-play" onClick={togglePlay} title={isPlaying ? t("player.pause") : t("player.play")} aria-label={isPlaying ? t("player.pause") : t("player.play")} data-player-control="play">
                 {isPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
               </button>
 
-              <button onClick={nextSong} title={t("player.next")}>
+              <button type="button" className="player-next-control" onClick={nextSong} title={t("player.next")} aria-label={t("player.next")} data-player-control="next">
                 <SkipForward size={17} fill="currentColor"/>
               </button>
 
-              <button className={repeatMode !== "off" ? "mode-on" : ""} onClick={toggleRepeatMode} title={t("player.repeatMode", { mode: repeatMode })}>
+              <button
+                type="button"
+                className={`player-repeat-control${repeatMode !== "off" ? " mode-on" : ""}`}
+                onClick={toggleRepeatMode}
+                title={t("player.repeatMode", { mode: repeatMode })}
+                aria-label={t("player.repeatMode", { mode: repeatMode })}
+                data-player-control="repeat"
+              >
                 <RotateCcw size={16}/>
                 {repeatMode === "one" && <span className="repeat-one">1</span>}
               </button>
@@ -23193,13 +23214,20 @@ function PageContent() {
             scroll-margin-top: var(--app-header-offset, 0px);
           }
 
+          /* Mobile-only Producer Studio exit — hidden on desktop/tablet. */
+          .studio-mobile-back-btn {
+            display: none;
+          }
+
           .upload-shell .upload-card,
           .upload-shell .video-upload-card {
             margin-bottom: 0;
           }
 
-          /* When upload workspace is open, hide other destination content (no stale layering). */
-          .zml-app[data-upload-open="true"] [data-main-scroll-container] > :not(.topbar):not(.upload-shell) {
+          /* When upload workspace is open, hide other destination content (no stale layering).
+             Keep mobile chrome — it wraps .topbar, so excluding only .topbar hid the whole header
+             and left the Producer Studio back control under the iPhone safe area. */
+          .zml-app[data-upload-open="true"] [data-main-scroll-container] > :not(.topbar):not(.mobile-app-chrome):not(.upload-shell) {
             display: none !important;
           }
 
@@ -30748,7 +30776,7 @@ function PageContent() {
                 var(--global-player-height)
                 + var(--mobile-player-bottom-inset)
                 + env(safe-area-inset-bottom, 0px)
-                + 16px
+                + 28px
               );
             }
 
@@ -30822,6 +30850,42 @@ function PageContent() {
               transform: none !important;
               overflow: hidden !important;
               contain: layout style !important;
+            }
+
+            /*
+              Notification dropdown is portaled to document.body, but keep chrome open-state
+              escape as a backup when panel markup is still nested (desktop / fallback).
+              Prefer class + html data over :has() for iOS reliability.
+            */
+            .mobile-app-chrome.notification-panel-open,
+            .mobile-app-chrome[data-notification-panel-open="true"],
+            html[data-notification-dropdown="open"] .mobile-app-chrome,
+            html[data-notification-dropdown="open"] .mobile-sticky-chrome,
+            .mobile-app-chrome:has(.notification-center),
+            .mobile-app-chrome:has([data-notification-panel="dropdown"]),
+            .mobile-sticky-chrome:has(.notification-center),
+            .mobile-sticky-chrome:has([data-notification-panel="dropdown"]) {
+              overflow: visible !important;
+              contain: none !important;
+            }
+
+            .mobile-app-chrome.notification-panel-open .topbar,
+            .mobile-app-chrome[data-notification-panel-open="true"] .topbar,
+            .mobile-app-chrome.notification-panel-open .topbar-mobile-action-row,
+            .mobile-app-chrome[data-notification-panel-open="true"] .topbar-mobile-action-row,
+            .mobile-app-chrome.notification-panel-open .topbar-account-actions,
+            .mobile-app-chrome[data-notification-panel-open="true"] .topbar-account-actions,
+            .mobile-app-chrome.notification-panel-open .notification-wrap,
+            .mobile-app-chrome[data-notification-panel-open="true"] .notification-wrap,
+            .mobile-app-chrome:has(.notification-center) .topbar,
+            .mobile-app-chrome:has([data-notification-panel="dropdown"]) .topbar,
+            .mobile-app-chrome:has(.notification-center) .topbar-mobile-action-row,
+            .mobile-app-chrome:has([data-notification-panel="dropdown"]) .topbar-mobile-action-row,
+            .mobile-app-chrome:has(.notification-center) .topbar-account-actions,
+            .mobile-app-chrome:has([data-notification-panel="dropdown"]) .topbar-account-actions,
+            .mobile-app-chrome:has(.notification-center) .notification-wrap,
+            .mobile-app-chrome:has([data-notification-panel="dropdown"]) .notification-wrap {
+              overflow: visible !important;
             }
 
             .mobile-app-chrome.is-header-hidden,
@@ -31303,11 +31367,12 @@ function PageContent() {
             /*
               Mobile control row shell (shared).
               Portrait ≤768px: one 5-col icon row (display:contents flattens wrappers).
-              Landscape / wider mobile: keep Grid|List then actions as separate rows.
+              Landscape / wider mobile (769–820): Grid|List + account actions on one row
+              (side-by-side), not three stacked full-width rows.
             */
             .topbar-mobile-action-row {
               display: grid;
-              grid-template-columns: minmax(0, 1fr);
+              grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.35fr);
               gap: 6px;
               margin: 0;
               padding: 0;
@@ -31347,7 +31412,7 @@ function PageContent() {
               max-height: min(var(--search-suggestions-vv-max, 42dvh), 280px);
             }
 
-            /* Landscape / non-portrait compact: Grid|List row + actions row */
+            /* Landscape / wider mobile: Grid|List cell beside account actions */
             .topbar-mobile-action-row .view-toggle,
             .topbar-mobile-action-row [data-mobile-view-toggle="true"] {
               display: grid !important;
@@ -31360,6 +31425,7 @@ function PageContent() {
               min-height: 0;
               margin: 0;
               flex: none;
+              align-self: stretch;
             }
 
             .topbar-mobile-action-row .view-toggle button,
@@ -31587,6 +31653,26 @@ function PageContent() {
               padding-bottom: 18px;
             }
 
+            .studio-mobile-back-btn {
+              display: inline-flex !important;
+              align-items: center;
+              justify-content: center;
+              gap: 6px;
+              width: fit-content;
+              max-width: 100%;
+              min-height: 36px;
+              height: 36px;
+              margin: 0 0 8px;
+              padding: 0 12px;
+              border-radius: 8px;
+              border: 1px solid rgba(34, 211, 238, 0.55);
+              background: #0b1736;
+              color: #67e8f9;
+              font-size: 13px;
+              font-weight: 800;
+              box-sizing: border-box;
+            }
+
             .upload-error {
               max-height: min(34vh, 240px);
               overflow: auto;
@@ -31802,6 +31888,8 @@ function PageContent() {
               grid-template-columns: repeat(2, minmax(0, 1fr));
               gap: 7px;
               margin-top: 4px;
+              margin-bottom: 0;
+              scroll-margin-bottom: var(--mobile-player-reserve);
             }
 
             .video-player-actions button {
@@ -31813,6 +31901,95 @@ function PageContent() {
               padding: 6px 5px;
               font-size: 12px;
               gap: 4px;
+              scroll-margin-bottom: var(--mobile-player-reserve);
+            }
+
+            .subscription-section,
+            .plan-card,
+            .plan-card button {
+              scroll-margin-bottom: var(--mobile-player-reserve);
+            }
+
+            /* Keep first plan CTAs above the fixed player on phone viewports. */
+            .subscription-section {
+              padding: 10px !important;
+              margin-bottom: 10px !important;
+            }
+
+            .subscription-head {
+              margin-bottom: 6px !important;
+              gap: 2px !important;
+            }
+
+            .subscription-head h2 {
+              font-size: 17px !important;
+              line-height: 1.15 !important;
+            }
+
+            .plan-grid {
+              gap: 6px !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+
+            .plan-card {
+              padding: 8px !important;
+              gap: 4px !important;
+              min-width: 0 !important;
+            }
+
+            .plan-card strong {
+              font-size: 17px !important;
+            }
+
+            .plan-card span {
+              font-size: 11px !important;
+            }
+
+            .plan-card p {
+              font-size: 11px !important;
+              line-height: 1.2 !important;
+              display: -webkit-box !important;
+              -webkit-box-orient: vertical !important;
+              -webkit-line-clamp: 1 !important;
+              overflow: hidden !important;
+              max-height: 1.3em !important;
+            }
+
+            .plan-card button {
+              min-height: 36px !important;
+              margin-top: 0 !important;
+              padding-top: 6px !important;
+              padding-bottom: 6px !important;
+              font-size: 12px !important;
+            }
+
+            /* Short/narrow phones: keep last Subscribe above collapsed player. */
+            @media (max-width: 380px), (max-height: 800px) {
+              .plan-grid {
+                gap: 5px !important;
+              }
+
+              .plan-card {
+                padding: 6px 7px !important;
+                gap: 3px !important;
+              }
+
+              .plan-card strong {
+                font-size: 15px !important;
+              }
+
+              .plan-card button {
+                min-height: 34px !important;
+                padding-top: 5px !important;
+                padding-bottom: 5px !important;
+              }
+            }
+
+            .global-video-player.is-video-viewer-open,
+            .global-video-player[data-video-viewer-open="true"] {
+              padding-bottom: 8px;
+              margin-bottom: 4px;
+              scroll-margin-bottom: var(--mobile-player-reserve);
             }
 
             .video-player-actions button svg {
@@ -32267,7 +32444,12 @@ function PageContent() {
 
             .sales-hero-stats,
             .license-history-stats {
-              grid-template-columns: 1fr;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .sales-actions,
+            .sales-actions button {
+              scroll-margin-bottom: var(--mobile-player-reserve);
             }
 
             .sales-row {
@@ -33331,7 +33513,7 @@ function PageContent() {
                 var(--global-player-height)
                 + var(--mobile-player-bottom-inset)
                 + env(safe-area-inset-bottom, 0px)
-                + 16px
+                + 28px
               );
             }
 
@@ -36873,12 +37055,12 @@ function PageContent() {
               transform: none !important;
               z-index: 9999 !important;
               display: grid !important;
-              /* title | prev | play | next | collapse — fits beside permanent sidebar */
-              grid-template-columns: minmax(0, 1fr) repeat(3, 44px) 44px !important;
+              /* title | shuffle/prev/play/next/repeat | collapse */
+              grid-template-columns: minmax(0, 1fr) max-content 44px !important;
               grid-template-rows: 1fr !important;
               gap: 5px !important;
               align-items: center !important;
-              overflow: hidden !important;
+              overflow: visible !important;
               box-sizing: border-box !important;
               border-radius: 14px !important;
               border: 1px solid rgba(34, 211, 238, 0.42) !important;
@@ -36900,7 +37082,7 @@ function PageContent() {
 
             .music-bottom-player .player-collapse-toggle,
             .video-bottom-player .player-collapse-toggle {
-              grid-column: 5 !important;
+              grid-column: 3 !important;
               grid-row: 1 !important;
               width: 44px !important;
               height: 44px !important;
@@ -36911,9 +37093,21 @@ function PageContent() {
               justify-self: end !important;
             }
 
+            .music-bottom-player .player-controls > .player-shuffle-control,
+            .music-bottom-player .player-controls > .player-repeat-control,
             .music-bottom-player .player-controls > button:first-child,
             .music-bottom-player .player-controls > button:last-child {
-              display: none !important;
+              display: grid !important;
+              width: 32px !important;
+              height: 32px !important;
+              min-width: 32px !important;
+              min-height: 32px !important;
+              max-width: 32px !important;
+              max-height: 32px !important;
+              flex: 0 0 32px !important;
+              visibility: visible !important;
+              opacity: 1 !important;
+              pointer-events: auto !important;
             }
 
             .video-bottom-player .video-player-controls > button:nth-child(4),
@@ -37022,37 +37216,66 @@ function PageContent() {
             }
 
             .music-bottom-player .player-center {
-              display: contents !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: flex-end !important;
+              justify-content: center !important;
+              grid-column: 2 !important;
+              grid-row: 1 !important;
+              width: max-content !important;
+              min-width: max-content !important;
+              max-width: none !important;
+              overflow: visible !important;
             }
 
             .music-bottom-player .player-controls {
-              grid-column: 2 / span 3 !important;
-              grid-row: 1 !important;
-              width: 100% !important;
-              min-width: 0 !important;
-              max-width: 100% !important;
-              display: grid !important;
-              grid-auto-flow: column !important;
-              grid-auto-columns: 44px !important;
+              width: max-content !important;
+              min-width: max-content !important;
+              max-width: none !important;
+              display: flex !important;
               align-items: center !important;
               justify-content: flex-end !important;
-              gap: 6px !important;
+              gap: 3px !important;
               flex-wrap: nowrap !important;
-              overflow: hidden !important;
+              overflow: visible !important;
             }
 
             .music-bottom-player .player-controls button,
             .video-bottom-player .video-player-controls button {
+              width: 40px !important;
+              height: 40px !important;
+              min-width: 40px !important;
+              min-height: 40px !important;
+              max-width: 40px !important;
+              max-height: 40px !important;
+              padding: 0 !important;
+              border-radius: 8px !important;
+              flex: 0 0 40px !important;
+              font-size: 16px !important;
+            }
+
+            .music-bottom-player .player-controls > .main-play {
               width: 44px !important;
               height: 44px !important;
               min-width: 44px !important;
               min-height: 44px !important;
               max-width: 44px !important;
               max-height: 44px !important;
-              padding: 0 !important;
-              border-radius: 8px !important;
               flex: 0 0 44px !important;
-              font-size: 16px !important;
+            }
+
+            .music-bottom-player .player-controls > .player-shuffle-control,
+            .music-bottom-player .player-controls > .player-repeat-control {
+              display: flex !important;
+              width: 28px !important;
+              height: 28px !important;
+              min-width: 28px !important;
+              min-height: 28px !important;
+              max-width: 28px !important;
+              max-height: 28px !important;
+              flex: 0 0 28px !important;
+              visibility: visible !important;
+              opacity: 1 !important;
             }
 
             .music-bottom-player .progress-row {
@@ -37346,26 +37569,29 @@ function PageContent() {
             }
 
             .notification-center {
-              --notification-dropdown-width: 400px;
-              --notification-dropdown-gutter: calc(var(--mobile-sidebar-width, 64px) + 24px);
+              --notification-dropdown-width: min(400px, calc(100vw - 24px));
+              --notification-dropdown-gutter: 24px;
               position: fixed !important;
               top: calc(var(--app-header-offset, 96px) + 8px) !important;
-              left: auto !important;
+              left: 12px !important;
               right: 12px !important;
-              width: min(var(--notification-dropdown-width), calc(100vw - var(--notification-dropdown-gutter))) !important;
+              width: auto !important;
               min-width: 0 !important;
-              max-width: calc(100vw - var(--notification-dropdown-gutter)) !important;
+              max-width: none !important;
               max-height: min(410px, calc(100dvh - var(--app-header-offset, 96px) - var(--mobile-player-reserve, 110px) - 24px)) !important;
               min-height: 80px !important;
               padding: 12px !important;
               border-radius: 12px !important;
-              z-index: 9999 !important;
+              z-index: 2147483646 !important;
               display: flex !important;
               flex-direction: column !important;
               gap: 10px !important;
               box-sizing: border-box !important;
               overflow-x: hidden !important;
               overflow-y: hidden !important;
+              visibility: visible !important;
+              opacity: 1 !important;
+              pointer-events: auto !important;
             }
 
             .notification-center-body {

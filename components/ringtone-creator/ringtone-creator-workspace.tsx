@@ -720,7 +720,7 @@ export function RingtoneCreatorWorkspace({
             {mode === "list" ? (
                 <div className="ringtone-list-shell">
                     <div className="ringtone-list-controls">
-                        <label>
+                        <label className="ringtone-search-control">
                             <span className="sr-only">{t("ringtones.search")}</span>
                             <input
                                 value={search}
@@ -728,7 +728,7 @@ export function RingtoneCreatorWorkspace({
                                 placeholder={t("ringtones.searchPlaceholder")}
                             />
                         </label>
-                        <label>
+                        <label className="ringtone-filter-control">
                             <span>{t("ringtones.filter")}</span>
                             <select value={filter} onChange={(event) => setFilter(event.target.value as ListFilter)}>
                                 {FILTERS.map((value) => (
@@ -738,7 +738,7 @@ export function RingtoneCreatorWorkspace({
                                 ))}
                             </select>
                         </label>
-                        <label>
+                        <label className="ringtone-sort-control">
                             <span>{t("ringtones.sort")}</span>
                             <select value={sort} onChange={(event) => setSort(event.target.value as ListSort)}>
                                 <option value="newest">{t("ringtones.sortNewest")}</option>
@@ -748,9 +748,6 @@ export function RingtoneCreatorWorkspace({
                                 <option value="status">{t("ringtones.sortStatus")}</option>
                             </select>
                         </label>
-                        <button type="button" className="save-upload" onClick={beginCreate}>
-                            {t("ringtones.create")}
-                        </button>
                     </div>
 
                     {loading ? <p>{t("ringtones.loading")}</p> : null}
@@ -1019,25 +1016,27 @@ export function RingtoneCreatorWorkspace({
                                         height={72}
                                     />
                                     <div className="ringtone-card-body">
-                                        <h3>{ringtone.title}</h3>
-                                        <p>{sourceLabel}</p>
-                                        <p>{metaLine}</p>
-                                        <p className="ringtone-card-dates">{datesLine}</p>
-                                        {ringtone.status === "processing" ? (
-                                            <p className="ringtone-processing" role="status" aria-live="polite">
-                                                {t("ringtones.processingStarted")}
-                                            </p>
-                                        ) : null}
-                                        {ringtone.last_processing_error ? (
-                                            <p className="ringtone-rejection" role="status">
-                                                {t("ringtones.processingFailed")}: {ringtone.last_processing_error}
-                                            </p>
-                                        ) : null}
-                                        {ringtone.status === "rejected" && ringtone.review_notes ? (
-                                            <p className="ringtone-rejection" role="status">
-                                                {t("ringtones.rejectionReason")}: {ringtone.review_notes}
-                                            </p>
-                                        ) : null}
+                                        <div className="ringtone-card-info">
+                                            <h3>{ringtone.title}</h3>
+                                            <p>{sourceLabel}</p>
+                                            <p>{metaLine}</p>
+                                            <p className="ringtone-card-dates">{datesLine}</p>
+                                            {ringtone.status === "processing" ? (
+                                                <p className="ringtone-processing" role="status" aria-live="polite">
+                                                    {t("ringtones.processingStarted")}
+                                                </p>
+                                            ) : null}
+                                            {ringtone.last_processing_error ? (
+                                                <p className="ringtone-rejection" role="status">
+                                                    {t("ringtones.processingFailed")}: {ringtone.last_processing_error}
+                                                </p>
+                                            ) : null}
+                                            {ringtone.status === "rejected" && ringtone.review_notes ? (
+                                                <p className="ringtone-rejection" role="status">
+                                                    {t("ringtones.rejectionReason")}: {ringtone.review_notes}
+                                                </p>
+                                            ) : null}
+                                        </div>
                                         <div className="ringtone-card-actions">
                                             <button type="button" onClick={previewRingtone}>
                                                 {activeRingtonePreviewId === ringtone.id && ringtonePreviewPlaying
@@ -1443,7 +1442,12 @@ export function RingtoneCreatorWorkspace({
                     display: grid;
                     gap: 16px;
                     overflow-x: hidden;
-                    padding-bottom: calc(var(--mobile-player-reserve, 110px) + 24px);
+                }
+
+                @media (min-width: 821px) {
+                    .ringtone-creator-page {
+                        padding-bottom: calc(var(--mobile-player-reserve, 110px) + 24px);
+                    }
                 }
 
                 .ringtone-wizard {
@@ -1998,8 +2002,60 @@ export function RingtoneCreatorWorkspace({
 
                     .ringtone-creator-actions {
                         display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                        align-items: stretch;
+                        gap: 6px;
                         width: 100%;
+                    }
+
+                    .ringtone-creator-actions button {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 100%;
+                        height: 44px;
+                        min-height: 44px;
+                        max-height: 44px;
+                        padding: 0.35rem 0.25rem;
+                        font-size: clamp(11px, 3.333vw, 13px);
+                        line-height: 1;
+                        white-space: nowrap;
+                        text-align: center;
+                    }
+
+                    .ringtone-list-controls {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                        align-items: end;
+                        column-gap: 12px;
+                        row-gap: 10px;
+                    }
+
+                    .ringtone-search-control {
+                        grid-column: 1 / -1;
+                        min-width: 0;
+                    }
+
+                    .ringtone-filter-control,
+                    .ringtone-sort-control {
+                        display: grid;
+                        grid-template-rows: auto 44px;
+                        gap: 6px;
+                        min-width: 0;
+                        width: 100%;
+                        font-size: 14px;
+                        line-height: 1.2;
+                    }
+
+                    .ringtone-search-control input,
+                    .ringtone-filter-control select,
+                    .ringtone-sort-control select {
+                        width: 100%;
+                        height: 44px;
+                        min-height: 44px;
+                        max-height: 44px;
+                        padding: 0.55rem 0.75rem;
+                        font-size: 16px;
+                        box-sizing: border-box;
                     }
 
                     /* Creator management cards stay compact horizontal rows — not marketplace tiles. */
@@ -2013,33 +2069,63 @@ export function RingtoneCreatorWorkspace({
                         max-width: 100%;
                         min-width: 0;
                         height: auto;
+                        overflow: visible;
+                    }
+
+                    .ringtone-card > img {
+                        grid-column: 1;
+                        grid-row: 1;
                     }
 
                     .ringtone-card-body {
+                        display: contents;
+                    }
+
+                    .ringtone-card-info {
                         display: flex;
                         flex-direction: column;
                         gap: 4px;
+                        grid-column: 2;
+                        grid-row: 1;
                         min-width: 0;
                         width: 100%;
                     }
 
                     .ringtone-card-actions {
-                        display: flex;
-                        flex-wrap: wrap;
+                        display: grid;
+                        grid-template-columns: repeat(6, minmax(0, 1fr));
+                        grid-auto-rows: minmax(44px, auto);
+                        grid-column: 1 / -1;
+                        grid-row: 2;
+                        align-items: stretch;
                         gap: 6px;
                         width: 100%;
                         max-width: 100%;
                         min-width: 0;
-                        margin-top: 4px;
+                        margin-top: 0;
                     }
 
                     .ringtone-card-actions button {
-                        flex: 0 1 auto;
-                        width: auto;
+                        grid-column: span 2;
+                        align-self: stretch;
+                        width: 100%;
+                        min-width: 0;
                         max-width: 100%;
-                        min-height: 32px;
-                        padding: 0.35rem 0.6rem;
+                        min-height: 44px;
+                        padding: 0.2rem 0.4rem;
+                        line-height: 1.1;
                         white-space: normal;
+                        overflow-wrap: anywhere;
+                        word-break: break-word;
+                        overflow: visible;
+                        text-align: center;
+                        display: inline-flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+
+                    .ringtone-card-actions button:nth-child(n + 4) {
+                        grid-column: span 3;
                     }
 
                     .ringtone-wizard .ringtone-source-tabs,
@@ -2071,8 +2157,7 @@ export function RingtoneCreatorWorkspace({
                     .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps),
                     .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs),
                     .ringtone-wizard-nav,
-                    .ringtone-final-actions,
-                    .ringtone-creator-actions {
+                    .ringtone-final-actions {
                         grid-template-columns: 1fr !important;
                     }
                 }

@@ -259,12 +259,13 @@ body {
     max-width: none !important;
     padding: 6px 8px !important;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) repeat(3, 44px) 44px !important;
+    /* title | shuffle+prev+play+next+repeat cluster | collapse */
+    grid-template-columns: minmax(0, 1fr) max-content 44px !important;
     grid-template-rows: 1fr !important;
     gap: 5px !important;
     align-items: center !important;
     box-sizing: border-box !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     z-index: 9999 !important;
     transform: none !important;
     margin: 0 !important;
@@ -341,19 +342,40 @@ body {
 
   .fixed-mobile-player.fixed-mobile-player .player-center,
   .fixed-mobile-player.fixed-mobile-player .video-player-center {
-    display: contents !important;
+    /* Keep a real box so iOS cannot flatten shuffle/repeat into clipped grid cells. */
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: max-content !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    overflow: visible !important;
   }
 
-  .fixed-mobile-player.fixed-mobile-player .player-main,
-  .fixed-mobile-player.fixed-mobile-player .player-controls,
-  .fixed-mobile-player.fixed-mobile-player .video-player-controls {
+  .fixed-mobile-player.fixed-mobile-player .player-main {
     display: flex !important;
     align-items: center !important;
-    justify-content: center !important;
+    justify-content: flex-start !important;
     gap: 5px !important;
     flex-wrap: nowrap !important;
     min-width: 0 !important;
     overflow: hidden !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player .player-controls,
+  .fixed-mobile-player.fixed-mobile-player .video-player-controls {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 3px !important;
+    flex-wrap: nowrap !important;
+    width: max-content !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    overflow: visible !important;
   }
 
   .fixed-mobile-player.fixed-mobile-player img {
@@ -380,22 +402,52 @@ body {
 
   .fixed-mobile-player.fixed-mobile-player .player-controls,
   .fixed-mobile-player.fixed-mobile-player .video-player-controls {
-    grid-column: 2 / span 3 !important;
-    grid-row: 1 !important;
-    display: grid !important;
-    grid-auto-flow: column !important;
-    grid-auto-columns: 44px !important;
-    align-items: center !important;
-    width: 100% !important;
-    flex-wrap: nowrap !important;
-    min-width: 0 !important;
-    gap: 5px !important;
-    overflow: hidden !important;
+    display: flex !important;
+    width: max-content !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    overflow: visible !important;
   }
 
+  /* Keep Shuffle + Repeat visible; slightly smaller than transport controls. */
+  .fixed-mobile-player.fixed-mobile-player .player-controls > .player-shuffle-control,
+  .fixed-mobile-player.fixed-mobile-player .player-controls > .player-repeat-control,
   .fixed-mobile-player.fixed-mobile-player .player-controls > button:first-child,
   .fixed-mobile-player.fixed-mobile-player .player-controls > button:last-child {
-    display: none !important;
+    display: grid !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    max-width: 32px !important;
+    max-height: 32px !important;
+    flex: 0 0 32px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player .player-controls > .player-prev-control,
+  .fixed-mobile-player.fixed-mobile-player .player-controls > .player-next-control,
+  .fixed-mobile-player.fixed-mobile-player .player-controls > button:nth-child(2),
+  .fixed-mobile-player.fixed-mobile-player .player-controls > button:nth-child(4) {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex: 0 0 40px !important;
+  }
+
+  .fixed-mobile-player.fixed-mobile-player .player-controls > .main-play {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    max-width: 44px !important;
+    max-height: 44px !important;
+    flex: 0 0 44px !important;
   }
 
   .fixed-mobile-player.fixed-mobile-player.video-player-bar .video-player-controls > button:nth-child(4),
@@ -404,7 +456,7 @@ body {
   }
 
   .fixed-mobile-player.fixed-mobile-player .player-collapse-toggle {
-    grid-column: 5 !important;
+    grid-column: 3 !important;
     grid-row: 1 !important;
     justify-self: end !important;
     z-index: 2 !important;

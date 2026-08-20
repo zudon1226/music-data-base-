@@ -9,6 +9,11 @@ import {
     runCorruptedAuthCleanupOnce,
     SESSION_EXPIRED_MESSAGE,
 } from "./desktop-auth-recovery-gate";
+import {
+    getDesktopAuthenticatedAccessToken,
+    getDesktopAuthenticatedSession,
+    isDesktopApiReady,
+} from "./desktop-authenticated-session";
 import { isDesktopVideoUploadLifecycleActive } from "./desktop-video-upload-lifecycle";
 import { ACCESS_TOKEN_BODY_KEYS, REFRESH_TOKEN_BODY_KEYS } from "./request-auth";
 import { SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
@@ -52,6 +57,8 @@ const PROTECTED_DESKTOP_API_PREFIXES = [
 ];
 
 let sessionRefreshPromise: Promise<Session | null> | null = null;
+
+const GET_SESSION_TIMEOUT_MS = 5_000;
 
 function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
@@ -223,8 +230,42 @@ function buildAuthenticatedRequest(
 }
 
 async function readSupabaseSession(supabase: SupabaseClient) {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    return { session, error: error ?? null };
+    const readOnce = () => supabase.auth.getSession().then(({ data: { session }, error }) => ({
+        session,
+        error: error ?? null,
+    }));
+
+    if (typeof window === "undefined") {
+        return readOnce();
+    }
+
+    return Promise.race([
+        readOnce(),
+        new Promise<{ session: null; error: null }>((resolve) => {
+            window.setTimeout(() => resolve({ session: null, error: null }), GET_SESSION_TIMEOUT_MS);
+        }),
+    ]);
+}
+
+function readPublishedSessionAccessToken(options: { forceRefresh?: boolean } = {}) {
+    if (!isDesktopApiReady()) {
+        return null;
+    }
+    const session = getDesktopAuthenticatedSession();
+    const accessToken = getDesktopAuthenticatedAccessToken();
+    if (!session || !accessToken) {
+        return null;
+    }
+    if (options.forceRefresh || isAccessTokenExpired(session)) {
+        return null;
+    }
+    return {
+        session,
+        accessToken,
+        refreshToken: readRefreshTokenFromSession(session),
+        userId: session.user?.id || "",
+        error: null as null,
+    };
 }
 
 async function refreshSupabaseSession(supabase: SupabaseClient) {
@@ -251,6 +292,14 @@ async function readSessionAccessToken(
 
     if (isDesktopVideoUploadLifecycleActive()) {
         return emptySessionAccessTokenResult();
+    }
+
+    if (!options.forceRefresh) {
+        const published = readPublishedSessionAccessToken(options);
+        if (published) {
+            noteValidatedDesktopSession(published.session);
+            return published;
+        }
     }
 
     let { session, error } = await readSupabaseSession(supabase);
@@ -288,6 +337,14 @@ async function readSessionAccessToken(
         }
         catch {
             // Keep existing session when refresh fails.
+        }
+    }
+
+    if (!accessToken) {
+        const publishedFallback = readPublishedSessionAccessToken({ forceRefresh: false });
+        if (publishedFallback) {
+            noteValidatedDesktopSession(publishedFallback.session);
+            return publishedFallback;
         }
     }
 
