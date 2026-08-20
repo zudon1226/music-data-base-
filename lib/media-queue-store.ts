@@ -112,7 +112,14 @@ async function listAllQueueStorageUsers(supabase: SupabaseClient) {
 }
 
 async function loadMediaQueueFromStorageWithClient(supabase: SupabaseClient, userId: string) {
-    const { data, error } = await supabase.storage.from(QUEUE_BUCKET).download(queueObjectPath(userId));
+    // Queue snapshots are overwritten at a stable path. Bypass both the
+    // Storage CDN and the server fetch cache so cleanup verification reads the
+    // object that was just written instead of a stale pre-cleanup snapshot.
+    const { data, error } = await supabase.storage.from(QUEUE_BUCKET).download(
+        queueObjectPath(userId),
+        { cacheNonce: globalThis.crypto.randomUUID() },
+        { cache: "no-store" },
+    );
     if (error || !data) {
         const message = getErrorMessage(error).toLowerCase();
         if (message.includes("not found") || message.includes("404") || message.includes("object")) {
