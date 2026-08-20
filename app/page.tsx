@@ -1967,50 +1967,7 @@ using (
   bucket_id = 'videos'
   and (storage.foldername(name))[1] = auth.uid()::text
 );`;
-const DEFAULT_SONGS: Song[] = [
-    {
-        id: "z-music-session",
-        title: "Z Music Session",
-        artist: "Z Artist",
-        category: "Trending",
-        type: "Artists",
-        time: "3:12",
-        plays: 8669,
-        likes: 14,
-        uploaded: "2 hours ago",
-        cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=900&q=80",
-        avatar: "https://images.unsplash.com/photo-1492447166138-50c3889fccb1?auto=format&fit=crop&w=200&q=80",
-        audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    },
-    {
-        id: "night-energy",
-        title: "Night Energy",
-        artist: "DJ Neon",
-        category: "New Releases",
-        type: "Hip Hop",
-        time: "2:44",
-        plays: 3321,
-        likes: 84,
-        uploaded: "2 hours ago",
-        cover: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80",
-        avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
-        audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    },
-    {
-        id: "studio-waves",
-        title: "Studio Waves",
-        artist: "Wave Creator",
-        category: "Trending",
-        type: "Beats",
-        time: "4:11",
-        plays: 9123,
-        likes: 152,
-        uploaded: "2 hours ago",
-        cover: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80",
-        avatar: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=200&q=80",
-        audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-    },
-];
+const DEFAULT_SONGS: Song[] = [];
 const BEAT_CATEGORIES = [
     "Beats",
     "Hip Hop",
@@ -3821,7 +3778,7 @@ function PageContent() {
     const [saveQueuePlaylistName, setSaveQueuePlaylistName] = useState("");
     const [saveQueuePlaylistBusy, setSaveQueuePlaylistBusy] = useState(false);
     const saveQueuePlaylistLockRef = useRef(false);
-    const [currentSong, setCurrentSong] = useState<Song | null>(DEFAULT_SONGS[2]);
+    const [currentSong, setCurrentSong] = useState<Song | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -4744,8 +4701,8 @@ function PageContent() {
     const [showQueueDrawer, setShowQueueDrawer] = useState(false);
     const [draggedQueueItem, setDraggedQueueItem] = useState<AlbumTrackPointer | null>(null);
     const [activeAlbumPlayback, setActiveAlbumPlayback] = useState<ActiveAlbumPlayback | null>(null);
-    const [activeMediaType, setActiveMediaType] = useState<ActiveMediaType>("song");
-    const [activeMedia, setActiveMedia] = useState<ActiveMedia>({ type: "song", item: DEFAULT_SONGS[2] });
+    const [activeMediaType, setActiveMediaType] = useState<ActiveMediaType>(null);
+    const [activeMedia, setActiveMedia] = useState<ActiveMedia>(null);
     const [remoteMusicStateReady, setRemoteMusicStateReady] = useState(false);
     const [toast, setToast] = useState<ToastMessage | null>(null);
     const [editingSongId, setEditingSongId] = useState("");
@@ -6085,7 +6042,7 @@ function PageContent() {
             setSavedAlbumIds([]);
             const savedCurrentId = localStorage.getItem(STORAGE_KEYS.current);
             const savedActivePlaylistId = localStorage.getItem(STORAGE_KEYS.activePlaylist) || "";
-            const cleanCurrent = songMap.get(savedCurrentId || "") || loadedSongs[2] || loadedSongs[0] || DEFAULT_SONGS[0];
+            const cleanCurrent = songMap.get(savedCurrentId || "") || loadedSongs[2] || loadedSongs[0] || null;
             setLikedIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.liked, [])).filter((id) => songMap.has(id)));
             setFollowedIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.followed, [])).filter((id) => songMap.has(id)));
             setFollowedArtistIds(uniqueIds(readJson<unknown>(STORAGE_KEYS.followedArtists, [])).filter((id) => cleanArtists.some((artist) => artist.id === id)));
@@ -6418,7 +6375,7 @@ function PageContent() {
         setCurrentSong((previous) => previous &&
             (databaseSongs.some((song) => song.id === previous.id) || DEFAULT_SONGS.some((song) => song.id === previous.id))
             ? previous
-            : databaseSongs[0] || DEFAULT_SONGS[2]);
+            : databaseSongs[0] || null);
         return nextSongs;
     }
     async function reloadVideoLibraryFromSupabase() {
