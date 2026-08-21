@@ -22,7 +22,8 @@ function read(rel) {
     return readFileSync(full, "utf8");
 }
 
-const stripe = read("lib/billing/providers/stripe-provider.ts");
+const stripe = read("lib/billing/providers/stripe-provider.ts")
+  + read("lib/billing/providers/stripe-webhook-signature.ts");
 const paypal = read("lib/billing/providers/paypal-provider.ts");
 const webhook = read("app/api/subscriptions/webhooks/[provider]/route.ts");
 
