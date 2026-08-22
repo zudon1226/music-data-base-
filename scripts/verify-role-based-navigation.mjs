@@ -90,6 +90,7 @@ function resolveNavCapabilities(input = {}) {
 const LISTENER_NAV_VIEWS = [
     "Home",
     "Marketplace",
+    "Podcasts",
     "Ringtone Marketplace",
     "My Purchased Ringtones",
     "Favorite Ringtones",
@@ -117,6 +118,7 @@ const ALL_NAV_VIEWS = [
     "Sales",
     "Artist Dashboard",
     "Producer Dashboard",
+    "Podcast Studio",
     "My Ringtones",
     "Platform Control Center",
 ];
@@ -126,6 +128,7 @@ function canAccessNavView(view, capabilities) {
     if (view === "Platform Control Center") return capabilities.canPlatformControlCenter;
     if (view === "Artist Dashboard" || view === "Artist Profile") return capabilities.canArtistDashboard;
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
+    if (view === "Podcast Studio") return capabilities.canUpload;
     if (view === "Sales") return capabilities.canSales;
     if (view === "My Ringtones") return capabilities.canMyRingtones;
     return LISTENER_ACCESSIBLE_VIEWS.includes(view);
@@ -232,7 +235,7 @@ record(
 );
 record(
     "listener hides creator/admin destinations",
-    ["Artist Dashboard", "Producer Dashboard", "Platform Control Center", "Sales", "My Ringtones"]
+    ["Artist Dashboard", "Producer Dashboard", "Podcast Studio", "Platform Control Center", "Sales", "My Ringtones"]
         .every((view) => !listenerViews.includes(view)),
     listenerViews.join(", "),
 );
@@ -246,6 +249,7 @@ record(
     "artist matrix",
     LISTENER_NAV_VIEWS.every((view) => artistViews.includes(view))
         && artistViews.includes("Artist Dashboard")
+        && artistViews.includes("Podcast Studio")
         && artistViews.includes("Sales")
         && !artistViews.includes("Producer Dashboard")
         && !artistViews.includes("Platform Control Center")
@@ -256,6 +260,7 @@ record(
     "producer matrix",
     LISTENER_NAV_VIEWS.every((view) => producerViews.includes(view))
         && producerViews.includes("Producer Dashboard")
+        && producerViews.includes("Podcast Studio")
         && producerViews.includes("Sales")
         && !producerViews.includes("Artist Dashboard")
         && !producerViews.includes("Platform Control Center")
@@ -266,6 +271,7 @@ record(
     "both roles matrix",
     bothViews.includes("Artist Dashboard")
         && bothViews.includes("Producer Dashboard")
+        && bothViews.includes("Podcast Studio")
         && bothCaps.canUpload
         && !bothViews.includes("Platform Control Center"),
 );
@@ -275,6 +281,7 @@ record(
     ownerViews.includes("Platform Control Center")
         && ownerViews.includes("Artist Dashboard")
         && ownerViews.includes("Producer Dashboard")
+        && ownerViews.includes("Podcast Studio")
         && ownerViews.includes("Sales")
         && ownerViews.includes("My Ringtones")
         && ownerCaps.canUpload,
@@ -284,6 +291,7 @@ record(
     "admin matrix",
     adminViews.includes("Artist Dashboard")
         && adminViews.includes("Producer Dashboard")
+        && adminViews.includes("Podcast Studio")
         && adminViews.includes("Sales")
         && !adminViews.includes("Platform Control Center")
         && adminCaps.canUpload,

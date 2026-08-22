@@ -10,6 +10,7 @@ import {
 export type DesktopNavView =
     | "Home"
     | "Marketplace"
+    | "Podcasts"
     | "Sales"
     | "License History"
     | "Trending"
@@ -28,6 +29,7 @@ export type DesktopNavView =
     | "Artist Profile"
     | "Producer Dashboard"
     | "Producer Profile"
+    | "Podcast Studio"
     | "My Ringtones"
     | "Ringtone Marketplace"
     | "My Purchased Ringtones"
@@ -63,6 +65,7 @@ export type DesktopNavItemDefinition = {
 export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Home" },
     { view: "Marketplace" },
+    { view: "Podcasts" },
     { view: "Ringtone Marketplace" },
     { view: "My Purchased Ringtones" },
     { view: "Favorite Ringtones" },
@@ -77,6 +80,7 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Sales", requiresCreator: true },
     { view: "Artist Dashboard", requiresArtistDashboard: true },
     { view: "Producer Dashboard", requiresProducerDashboard: true },
+    { view: "Podcast Studio", requiresCreator: true },
     { view: "My Ringtones", requiresRingtoneCreator: true },
     { view: "Platform Control Center", requiresOwner: true },
 ];
@@ -126,10 +130,11 @@ export function listVisibleDesktopNavItems(context: DesktopNavAccessContext) {
     return DESKTOP_NAV_ITEMS.filter((item) => canAccessNavView(item.view, capabilities));
 }
 
-/** Mobile horizontal nav order (≤820px). Home → Marketplace → Library first. */
+/** Mobile horizontal nav order (≤820px). Home → Marketplace → Podcasts → Library first. */
 export const MOBILE_NAV_VIEW_ORDER: DesktopNavView[] = [
     "Home",
     "Marketplace",
+    "Podcasts",
     "Library",
     "Liked",
     "Following",
@@ -142,6 +147,7 @@ export const MOBILE_NAV_VIEW_ORDER: DesktopNavView[] = [
     "Profile",
     "Artist Dashboard",
     "Producer Dashboard",
+    "Podcast Studio",
     "My Ringtones",
     "Sales",
     "Platform Control Center",
@@ -183,6 +189,7 @@ export function shouldShowProducerDashboardControl(context: DesktopNavAccessCont
 
 /** @deprecated Prefer role capabilities via resolveDesktopNavCapabilities. */
 export function hasDesktopAccountAccess(_context: DesktopNavAccessContext) {
+    void _context;
     return true;
 }
 

@@ -10,6 +10,10 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 function normalizeItemType(value: unknown) {
     if (value === "album")
         return "album";
+    if (value === "podcast_show")
+        return "podcast_show";
+    if (value === "podcast_episode")
+        return "podcast_episode";
     return value === "video" ? "video" : "song";
 }
 function isMissingTable(error: unknown) {
@@ -25,12 +29,18 @@ export async function GET(request: Request) {
                 songIds: [],
                 videoIds: [],
                 albumIds: [],
+                podcastShowIds: [],
+                podcastEpisodeIds: [],
                 songs: [],
                 videos: [],
                 albums: [],
+                podcastShows: [],
+                podcastEpisodes: [],
                 savedSongs: [],
                 savedVideos: [],
                 savedAlbums: [],
+                savedPodcastShows: [],
+                savedPodcastEpisodes: [],
                 saveCount: 0,
             });
         }
@@ -41,12 +51,18 @@ export async function GET(request: Request) {
                 songIds: [],
                 videoIds: [],
                 albumIds: [],
+                podcastShowIds: [],
+                podcastEpisodeIds: [],
                 songs: [],
                 videos: [],
                 albums: [],
+                podcastShows: [],
+                podcastEpisodes: [],
                 savedSongs: [],
                 savedVideos: [],
                 savedAlbums: [],
+                savedPodcastShows: [],
+                savedPodcastEpisodes: [],
                 saveCount: 0,
             }, auth.status);
         }
@@ -65,23 +81,29 @@ export async function GET(request: Request) {
                 songIds: [],
                 videoIds: [],
                 albumIds: [],
+                podcastShowIds: [],
+                podcastEpisodeIds: [],
                 songs: [],
                 videos: [],
                 albums: [],
+                podcastShows: [],
+                podcastEpisodes: [],
                 saveCount: 0,
                 setupRequired: isMissingTable(savesResult.error),
             }, isMissingTable(savesResult.error) ? 409 : 500);
-        }
-        for (const row of saves) {
         }
         const splitIds: {
             songIds: string[];
             videoIds: string[];
             albumIds: string[];
+            podcastShowIds: string[];
+            podcastEpisodeIds: string[];
         } = {
             songIds: [],
             videoIds: [],
             albumIds: [],
+            podcastShowIds: [],
+            podcastEpisodeIds: [],
         };
         saves.forEach((row) => {
             const itemType = String(row.item_type || "").trim().toLowerCase();
@@ -92,12 +114,18 @@ export async function GET(request: Request) {
                 splitIds.videoIds.push(itemId);
             else if (itemType === "album")
                 splitIds.albumIds.push(itemId);
+            else if (itemType === "podcast_show")
+                splitIds.podcastShowIds.push(itemId);
+            else if (itemType === "podcast_episode")
+                splitIds.podcastEpisodeIds.push(itemId);
             else if (itemType === "song")
                 splitIds.songIds.push(itemId);
         });
         const uniqueSongIds = [...new Set(splitIds.songIds)];
         const uniqueVideoIds = [...new Set(splitIds.videoIds)];
         const uniqueAlbumIds = [...new Set(splitIds.albumIds)];
+        const uniquePodcastShowIds = [...new Set(splitIds.podcastShowIds)];
+        const uniquePodcastEpisodeIds = [...new Set(splitIds.podcastEpisodeIds)];
         const songsResult = uniqueSongIds.length > 0 ? await supabase.from("songs").select("*").in("id", uniqueSongIds) : { data: [], error: null };
         if (songsResult.error) {
             console.error("LIBRARY ERROR:", songsResult.error);
@@ -112,6 +140,20 @@ export async function GET(request: Request) {
         if (albumsResult.error) {
             console.error("LIBRARY ERROR:", albumsResult.error);
             return jsonResponse({ error: getErrorMessage(albumsResult.error), rows: saves, songIds: uniqueSongIds, videoIds: uniqueVideoIds, albumIds: uniqueAlbumIds, songs: [], videos: [], albums: [], savedSongs: [], savedVideos: [], savedAlbums: [], saveCount: saves.length }, 500);
+        }
+        const podcastShowsResult = uniquePodcastShowIds.length > 0
+            ? await supabase.from("podcast_shows").select("*").in("id", uniquePodcastShowIds)
+            : { data: [], error: null };
+        if (podcastShowsResult.error) {
+            console.error("LIBRARY ERROR:", podcastShowsResult.error);
+            return jsonResponse({ error: getErrorMessage(podcastShowsResult.error), rows: saves, saveCount: saves.length }, 500);
+        }
+        const podcastEpisodesResult = uniquePodcastEpisodeIds.length > 0
+            ? await supabase.from("podcast_episodes").select("*").in("id", uniquePodcastEpisodeIds)
+            : { data: [], error: null };
+        if (podcastEpisodesResult.error) {
+            console.error("LIBRARY ERROR:", podcastEpisodesResult.error);
+            return jsonResponse({ error: getErrorMessage(podcastEpisodesResult.error), rows: saves, saveCount: saves.length }, 500);
         }
         const albumItemsResult = uniqueAlbumIds.length > 0
             ? await supabase
@@ -142,6 +184,8 @@ export async function GET(request: Request) {
         });
         const uniqueSongs = [...new Map((songsResult.data || []).map((song) => [String(song.id), song as Record<string, unknown>])).values()];
         const uniqueVideos = [...new Map((videosResult.data || []).map((video) => [String(video.id), video as Record<string, unknown>])).values()];
+        const uniquePodcastShows = [...new Map((podcastShowsResult.data || []).map((show) => [String(show.id), show as Record<string, unknown>])).values()];
+        const uniquePodcastEpisodes = [...new Map((podcastEpisodesResult.data || []).map((episode) => [String(episode.id), episode as Record<string, unknown>])).values()];
         const uniqueAlbums = [
             ...new Map((albumsResult.data || []).map((album) => {
                 const albumId = String(album.id || "");
@@ -161,18 +205,24 @@ export async function GET(request: Request) {
             songIds: uniqueSongIds,
             videoIds: uniqueVideoIds,
             albumIds: uniqueAlbumIds,
+            podcastShowIds: uniquePodcastShowIds,
+            podcastEpisodeIds: uniquePodcastEpisodeIds,
             songs: uniqueSongs,
             videos: uniqueVideos,
             albums: uniqueAlbums,
+            podcastShows: uniquePodcastShows,
+            podcastEpisodes: uniquePodcastEpisodes,
             savedSongs: uniqueSongs,
             savedVideos: uniqueVideos,
             savedAlbums: uniqueAlbums,
+            savedPodcastShows: uniquePodcastShows,
+            savedPodcastEpisodes: uniquePodcastEpisodes,
             saveCount: saves.length,
         });
     }
     catch (error) {
         console.error("LIBRARY ERROR:", error);
-        return jsonResponse({ error: getErrorMessage(error), songIds: [], videoIds: [], albumIds: [], songs: [], videos: [], albums: [], savedSongs: [], savedVideos: [], savedAlbums: [], saveCount: 0 }, 500);
+        return jsonResponse({ error: getErrorMessage(error), songIds: [], videoIds: [], albumIds: [], podcastShowIds: [], podcastEpisodeIds: [], songs: [], videos: [], albums: [], podcastShows: [], podcastEpisodes: [], savedSongs: [], savedVideos: [], savedAlbums: [], savedPodcastShows: [], savedPodcastEpisodes: [], saveCount: 0 }, 500);
     }
 }
 export async function POST(request: Request) {

@@ -4,6 +4,7 @@ import type { TranslationKey } from "./messages/en";
 export const DESKTOP_NAV_TRANSLATION_KEYS: Record<DesktopNavView, TranslationKey> = {
     Home: "nav.home",
     Marketplace: "nav.marketplace",
+    Podcasts: "nav.videos",
     "Ringtone Marketplace": "ringtones.marketplace",
     "My Purchased Ringtones": "ringtones.myPurchasedRingtones",
     "Favorite Ringtones": "ringtones.favoriteRingtones",
@@ -23,6 +24,7 @@ export const DESKTOP_NAV_TRANSLATION_KEYS: Record<DesktopNavView, TranslationKey
     Notifications: "notifications.title",
     "Artist Dashboard": "nav.artistDashboard",
     "Producer Dashboard": "nav.producerDashboard",
+    "Podcast Studio": "nav.artistDashboard",
     "My Ringtones": "ringtones.myRingtones",
     "Platform Control Center": "nav.platformControlCenter",
     "Artist Profile": "nav.artistProfile",
@@ -32,6 +34,7 @@ export const DESKTOP_NAV_TRANSLATION_KEYS: Record<DesktopNavView, TranslationKey
 export const VIEW_TITLE_KEYS: Partial<Record<DesktopNavView, TranslationKey>> = {
     Home: "home.title",
     Marketplace: "marketplace.title",
+    Podcasts: "video.title",
     "Ringtone Marketplace": "ringtones.marketplace",
     "My Purchased Ringtones": "ringtones.myPurchasedRingtones",
     "Favorite Ringtones": "ringtones.favoriteRingtones",
@@ -49,6 +52,7 @@ export const VIEW_TITLE_KEYS: Partial<Record<DesktopNavView, TranslationKey>> = 
     Notifications: "notifications.title",
     "Artist Dashboard": "artistDashboard.title",
     "Producer Dashboard": "producerDashboard.title",
+    "Podcast Studio": "artistDashboard.title",
     "My Ringtones": "ringtones.myRingtones",
     "Platform Control Center": "platformControlCenter.title",
 };

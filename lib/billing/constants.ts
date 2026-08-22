@@ -51,6 +51,15 @@ export const SUBSCRIPTION_PAYMENT_RETRY_HOURS = 24;
 /** Days before period end to send renewal reminder email. */
 export const SUBSCRIPTION_RENEWAL_REMINDER_DAYS = 3;
 
+/**
+ * Future login-notification window for paid plans.
+ * UI is not implemented in this Podcast pass; metadata placeholder only.
+ * Intended copy: “You have 10 days left before your subscription renews/expires.”
+ */
+export const SUBSCRIPTION_LOGIN_NOTICE_DAYS = 10;
+export const SUBSCRIPTION_LOGIN_NOTICE_MESSAGE =
+    "You have 10 days left before your subscription renews/expires.";
+
 /** Months past due before creator account becomes Suspended/inactive. */
 export const CREATOR_SUSPEND_MONTHS_PAST_DUE = 3;
 

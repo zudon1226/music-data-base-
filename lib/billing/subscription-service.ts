@@ -21,6 +21,7 @@ import {
     isClientPlanSlug,
     matchPlanBySlug,
 } from "@/lib/billing/plan-catalog";
+import { decorateSubscriptionPlan } from "@/lib/billing/plan-entitlements";
 import {
     getDefaultPaymentProviderId,
     getPaymentProvider,
@@ -87,7 +88,7 @@ export async function listActiveSubscriptionPlans(audience?: AccountSubscription
     }
     const { data, error } = await query;
     if (error) throw new Error(getErrorMessage(error));
-    return (data || []) as SubscriptionPlanRow[];
+    return ((data || []) as SubscriptionPlanRow[]).map(decorateSubscriptionPlan);
 }
 
 export async function getSubscriptionPlanById(planId: string) {
@@ -99,7 +100,7 @@ export async function getSubscriptionPlanById(planId: string) {
         .eq("id", planId)
         .maybeSingle();
     if (error) throw new Error(getErrorMessage(error));
-    return (data || null) as SubscriptionPlanRow | null;
+    return data ? decorateSubscriptionPlan(data as SubscriptionPlanRow) : null;
 }
 
 export async function resolveSubscriptionPlanForCheckout(input: {

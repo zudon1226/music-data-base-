@@ -12,10 +12,14 @@ type CreatorStudioUploadChromeProps = {
     studio: CreatorStudioKind;
     canArtistStudio: boolean;
     canProducerStudio: boolean;
+    /** Creator-capable accounts (artist/producer/admin) may open Podcast Studio. */
+    canPodcastStudio?: boolean;
     activeMode: CreatorStudioUploadMode;
     brandLogo: string;
     onStudioChange: (studio: CreatorStudioKind) => void;
     onSelectMode: (mode: CreatorStudioUploadMode) => void;
+    /** Opens the existing PodcastStudioWorkspace (does not replace Artist/Producer upload modes). */
+    onOpenPodcastStudio?: () => void;
     /** Mobile-only exit control rendered above the Creator Upload card. */
     onBack?: () => void;
 };
@@ -24,19 +28,21 @@ export function CreatorStudioUploadChrome({
     studio,
     canArtistStudio,
     canProducerStudio,
+    canPodcastStudio = false,
     activeMode,
     brandLogo,
     onStudioChange,
     onSelectMode,
+    onOpenPodcastStudio,
     onBack,
 }: CreatorStudioUploadChromeProps) {
     const { t } = useTranslation();
-    const canSwitch = canArtistStudio && canProducerStudio;
     const modes = uploadModesForStudio(studio);
     const title = studio === "producer" ? t("upload.producerStudio") : t("upload.artistStudio");
     const subtitle = studio === "producer"
         ? t("upload.producerStudioSubtitle")
         : t("upload.artistStudioSubtitle");
+    const showStudioSwitcher = canArtistStudio || canProducerStudio || (canPodcastStudio && Boolean(onOpenPodcastStudio));
 
     return (
         <>
@@ -89,24 +95,38 @@ export function CreatorStudioUploadChrome({
                     </div>
                 </div>
 
-                {canSwitch ? (
+                {showStudioSwitcher ? (
                     <div className="creator-studio-switcher" role="group" aria-label={t("upload.switchStudio")}>
-                        <button
-                            type="button"
-                            className={studio === "artist" ? "active" : ""}
-                            aria-pressed={studio === "artist"}
-                            onClick={() => onStudioChange("artist")}
-                        >
-                            {t("upload.artistStudio")}
-                        </button>
-                        <button
-                            type="button"
-                            className={studio === "producer" ? "active" : ""}
-                            aria-pressed={studio === "producer"}
-                            onClick={() => onStudioChange("producer")}
-                        >
-                            {t("upload.producerStudio")}
-                        </button>
+                        {canArtistStudio ? (
+                            <button
+                                type="button"
+                                className={studio === "artist" ? "active" : ""}
+                                aria-pressed={studio === "artist"}
+                                onClick={() => onStudioChange("artist")}
+                            >
+                                {t("upload.artistStudio")}
+                            </button>
+                        ) : null}
+                        {canProducerStudio ? (
+                            <button
+                                type="button"
+                                className={studio === "producer" ? "active" : ""}
+                                aria-pressed={studio === "producer"}
+                                onClick={() => onStudioChange("producer")}
+                            >
+                                {t("upload.producerStudio")}
+                            </button>
+                        ) : null}
+                        {canPodcastStudio && onOpenPodcastStudio ? (
+                            <button
+                                type="button"
+                                className=""
+                                aria-pressed={false}
+                                onClick={onOpenPodcastStudio}
+                            >
+                                {t("upload.podcastStudio")}
+                            </button>
+                        ) : null}
                     </div>
                 ) : null}
 

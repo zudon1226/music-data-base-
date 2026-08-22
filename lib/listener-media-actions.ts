@@ -13,6 +13,7 @@ export const ACCOUNT_ROLE_UNAVAILABLE_MESSAGE =
 export const CREATOR_ONLY_NAV_VIEWS = [
     "Artist Dashboard",
     "Producer Dashboard",
+    "Podcast Studio",
     "Artist Profile",
     "Producer Profile",
     "My Ringtones",

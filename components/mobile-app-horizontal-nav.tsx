@@ -8,6 +8,7 @@ import {
     Heart,
     Home,
     ListMusic,
+    Mic2,
     Smartphone,
     Star,
     Upload,
@@ -29,6 +30,7 @@ import { useTranslation } from "../lib/i18n/provider";
 const MOBILE_NAV_ICONS: Partial<Record<DesktopNavView, ReactNode>> = {
     Home: <Home size={16} aria-hidden="true" />,
     Marketplace: <Disc3 size={16} aria-hidden="true" />,
+    Podcasts: <Mic2 size={16} aria-hidden="true" />,
     Sales: <Upload size={16} aria-hidden="true" />,
     Library: <BookOpen size={16} aria-hidden="true" />,
     Liked: <Heart size={16} aria-hidden="true" />,
@@ -36,6 +38,7 @@ const MOBILE_NAV_ICONS: Partial<Record<DesktopNavView, ReactNode>> = {
     Playlists: <ListMusic size={16} aria-hidden="true" />,
     "Artist Dashboard": <BarChart3 size={16} aria-hidden="true" />,
     "Producer Dashboard": <Disc3 size={16} aria-hidden="true" />,
+    "Podcast Studio": <Mic2 size={16} aria-hidden="true" />,
     "My Ringtones": <Smartphone size={16} aria-hidden="true" />,
     "Ringtone Marketplace": <Smartphone size={16} aria-hidden="true" />,
     "My Purchased Ringtones": <Smartphone size={16} aria-hidden="true" />,
@@ -63,20 +66,22 @@ export function MobileAppHorizontalNav({
     onRingtoneCreatorRequired,
     onRoleRequired,
 }: MobileAppHorizontalNavProps) {
-    const { t, locale } = useTranslation();
+    const { t } = useTranslation();
     const scrollerRef = useRef<HTMLDivElement | null>(null);
     const activeRef = useRef<HTMLButtonElement | null>(null);
 
     const items = useMemo(() => {
         return listVisibleMobileNavItems(access).map((item) => {
-            const fullLabel = t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]);
+            const fullLabel = item.view === "Podcasts" || item.view === "Podcast Studio"
+                ? item.view
+                : t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]);
             return {
                 view: item.view,
                 label: mobileNavShortLabel(item.view, fullLabel),
                 fullLabel,
             };
         });
-    }, [access, locale, t]);
+    }, [access, t]);
 
     const handleNavClick = useMemo(
         () => createDesktopNavHandler({
