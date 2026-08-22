@@ -16,6 +16,22 @@ export type SubscriptionPlanRow = {
     sort_order: number;
     description?: string | null;
     stripe_price_id?: string | null;
+    client_plan_slug?: string | null;
+    podcast_entitlements?: {
+        podcastPublicAudio: boolean;
+        podcastPublicVideo: boolean;
+        podcastDiscovery: boolean;
+        podcastFollow: boolean;
+        podcastLike: boolean;
+        podcastSave: boolean;
+        podcastSubscriberOnly: boolean;
+        podcastStudio: boolean;
+        podcastAudioUpload: boolean;
+        podcastVideoUpload: boolean;
+        podcastShowManagement: boolean;
+        podcastEpisodeManagement: boolean;
+        podcastAnalytics: boolean;
+    };
 };
 
 export type SubscriptionRow = {

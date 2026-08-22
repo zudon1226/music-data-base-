@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
-import { BarChart3, Bell, BookOpen, Check, ArrowLeft, ChevronDown, ChevronUp, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
+import { BarChart3, Bell, BookOpen, Check, ArrowLeft, ChevronDown, ChevronUp, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Mic2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, } from "react";
@@ -13,6 +13,7 @@ import { PlatformControlCenter } from "../components/platform-control-center";
 import { SubscriptionBillingPanel } from "../components/billing/subscription-billing-panel";
 import { AdminSubscriptionPanel } from "../components/billing/admin-subscription-panel";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
+import { CLIENT_PLAN_SUPPORT } from "../lib/billing/plan-entitlements";
 import { copyTextToClipboard } from "../lib/copy-text-to-clipboard";
 import { buildSignupUserMetadata } from "../lib/auth-user-metadata";
 import {
@@ -93,6 +94,8 @@ import {
     type RingtonePreviewRequest,
 } from "../components/ringtone-creator/ringtone-creator-workspace";
 import { RingtoneMarketplaceWorkspace } from "../components/ringtone-marketplace/ringtone-marketplace-workspace";
+import { PodcastDiscoveryWorkspace } from "../components/podcasts/PodcastDiscoveryWorkspace";
+import { PodcastStudioWorkspace } from "../components/podcasts/PodcastStudioWorkspace";
 import { CreatorStudioUploadChrome } from "../components/studio/creator-studio-upload-chrome";
 import {
     defaultUploadModeForStudio,
@@ -133,6 +136,7 @@ import { useDesktopMediaQueue } from "../lib/use-desktop-media-queue";
 import { createDesktopSupabaseAuthClient } from "../lib/supabase-auth-client";
 import {
     buildSharedVideoPlayerConfig,
+    shouldReplaceVideoSource,
     getVideoPlaybackUrl as getCanonicalVideoPlaybackUrl,
     normalizeCanonicalVideo,
     probeBrowserMp4H264AacSupport,
@@ -167,6 +171,7 @@ import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-
 import { applyLibraryCacheToState, clearLibraryCache, readLibraryCache, serializeLibraryCache, writeLibraryCache } from "../lib/library-storage";
 import { desktopUploadFetch, resolveDesktopUploadSession } from "../lib/desktop-upload-auth";
 import { supabase } from "../lib/supabase";
+import type { PodcastEpisode, PodcastPlaybackRequest } from "../lib/podcast-types";
 type Song = {
     id: string;
     title: string;
@@ -596,7 +601,7 @@ type AlbumUploadForm = {
 type EditAlbumForm = AlbumUploadForm;
 type AuthMode = "login" | "signup";
 type RepeatMode = "off" | "one" | "all";
-type ActiveMediaType = "song" | "video" | "ringtone" | null;
+type ActiveMediaType = "song" | "video" | "ringtone" | "podcast-audio" | "podcast-video" | null;
 type ActiveRingtonePreview = RingtonePreviewRequest;
 type ActiveMedia = {
     type: "song";
@@ -607,6 +612,9 @@ type ActiveMedia = {
 } | {
     type: "ringtone";
     item: ActiveRingtonePreview;
+} | {
+    type: "podcast";
+    item: PodcastEpisode;
 } | null;
 type ToastMessage = {
     id: string;
@@ -881,7 +889,7 @@ type MediaDownloadVaultItem = {
     downloadCount: number;
     downloadedAt: string;
 };
-type View = "Home" | "Marketplace" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Platform Control Center";
 type PlatformErrorRow = {
     id: string;
     user_id: string | null;
@@ -939,6 +947,7 @@ type SubscriptionPlan = {
     currency: string;
     billingInterval: "month" | "year" | "one_time";
     features: string[];
+    highlights: string[];
     active: boolean;
 };
 type MonetizationTransaction = {
@@ -1175,11 +1184,12 @@ function usesLibrarySearchScope(view: View, searchQuery: string) {
     return Boolean(searchQuery.trim()) && view === "Library";
 }
 function isDashboardView(view: View) {
-    return view === "Artist Dashboard" || view === "Producer Dashboard";
+    return view === "Artist Dashboard" || view === "Producer Dashboard" || view === "Podcast Studio";
 }
 function showGlobalSearchHeading(view: View, searchQuery: string) {
     return Boolean(searchQuery.trim())
         && view !== "Marketplace"
+        && view !== "Podcasts"
         && view !== "License History"
         && !isDashboardView(view);
 }
@@ -1192,7 +1202,8 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
         priceCents: 0,
         currency: "USD",
         billingInterval: "month",
-        features: ["Free listening", "Library saves", "Playlists"],
+        features: [...CLIENT_PLAN_SUPPORT["free-listener"].features],
+        highlights: [...CLIENT_PLAN_SUPPORT["free-listener"].highlights],
         active: true,
     },
     {
@@ -1202,7 +1213,8 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
         priceCents: 699,
         currency: "USD",
         billingInterval: "month",
-        features: ["Subscriber-only albums", "Subscriber-only videos", "Exclusive playlists", "Early releases"],
+        features: [...CLIENT_PLAN_SUPPORT["premium-listener"].features],
+        highlights: [...CLIENT_PLAN_SUPPORT["premium-listener"].highlights],
         active: true,
     },
     {
@@ -1212,7 +1224,8 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
         priceCents: 0,
         currency: "USD",
         billingInterval: "month",
-        features: ["Upload music and videos", "Library, likes, follows", "Basic dashboard"],
+        features: [...CLIENT_PLAN_SUPPORT["creator-free"].features],
+        highlights: [...CLIENT_PLAN_SUPPORT["creator-free"].highlights],
         active: true,
     },
     {
@@ -1222,7 +1235,8 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
         priceCents: 999,
         currency: "USD",
         billingInterval: "month",
-        features: ["Payout dashboard", "Revenue split tracking", "Download and purchase foundation"],
+        features: [...CLIENT_PLAN_SUPPORT["artist-pro"].features],
+        highlights: [...CLIENT_PLAN_SUPPORT["artist-pro"].highlights],
         active: true,
     },
     {
@@ -1232,7 +1246,8 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
         priceCents: 1499,
         currency: "USD",
         billingInterval: "month",
-        features: ["Beat license tracking", "Producer payouts", "Split and transaction history"],
+        features: [...CLIENT_PLAN_SUPPORT["producer-pro"].features],
+        highlights: [...CLIENT_PLAN_SUPPORT["producer-pro"].highlights],
         active: true,
     },
 ];
@@ -3736,6 +3751,9 @@ function PageContent() {
     const mobileAppChromeRef = useRef<HTMLDivElement | null>(null);
     const previousViewRef = useRef<View>("Home");
     const videoReturnViewRef = useRef<View>("Library");
+    const videoDetailOpenedOnViewRef = useRef<View | null>(null);
+    const viewRef = useRef<View>(view);
+    viewRef.current = view;
     const QUEUE_PREVIOUS_VIEW_KEY = "mdb_queue_previous_view";
     const { chromeProps: mobileChromeProps } = useMobileAutoHideHeader({
         forceVisible: desktopListOverflow.open || !isMobileCompact || view === "Queue",
@@ -3779,6 +3797,11 @@ function PageContent() {
     const [saveQueuePlaylistBusy, setSaveQueuePlaylistBusy] = useState(false);
     const saveQueuePlaylistLockRef = useRef(false);
     const [currentSong, setCurrentSong] = useState<Song | null>(null);
+    const [currentPodcastEpisode, setCurrentPodcastEpisode] = useState<PodcastEpisode | null>(null);
+    const [podcastPlaybackContext, setPodcastPlaybackContext] = useState<PodcastEpisode[]>([]);
+    const [podcastPlayableUrl, setPodcastPlayableUrl] = useState("");
+    const podcastMetricPendingRef = useRef(false);
+    const podcastMetricEpisodeIdRef = useRef("");
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -4692,6 +4715,8 @@ function PageContent() {
     const [forcedQueuePlayableUrl, setForcedQueuePlayableUrl] = useState("");
     const [videoAutoplayRequestId, setVideoAutoplayRequestId] = useState("");
     const [videoPlaying, setVideoPlaying] = useState(false);
+    const [videoDetailViewerOpen, setVideoDetailViewerOpen] = useState(false);
+    const [videoHasBegunPlayback, setVideoHasBegunPlayback] = useState(false);
     const [videoPlaybackUiFailure, setVideoPlaybackUiFailure] = useState<VideoPlaybackFailure | null>(null);
     const [videoProgress, setVideoProgress] = useState(0);
     const [videoDuration, setVideoDuration] = useState(0);
@@ -5750,6 +5775,9 @@ function PageContent() {
         setProgress(0);
         setVideoProgress(0);
         setActiveVideo(null);
+        setCurrentPodcastEpisode(null);
+        setPodcastPlaybackContext([]);
+        setPodcastPlayableUrl("");
         setLibraryIds([]);
         setSavedVideoIds([]);
         setSavedAlbumIds([]);
@@ -5799,8 +5827,13 @@ function PageContent() {
     useEffect(() => {
         const root = document.documentElement;
         const playerVisible = Boolean(
-            (activeMedia?.type === "song" && activeMediaType === "song" && currentSong)
-                || (activeMedia?.type === "video" && activeMediaType === "video" && activeVideo),
+            (activeMedia?.type === "song" && activeMediaType === "song" && currentSong?.id)
+                || (activeMedia?.type === "video" && activeMediaType === "video" && activeVideo?.id)
+                || (
+                    activeMedia?.type === "podcast"
+                    && currentPodcastEpisode?.id
+                    && (activeMediaType === "podcast-audio" || activeMediaType === "podcast-video")
+                ),
         );
         const applyHeight = (heightPx: number) => {
             if (!playerVisible) {
@@ -5846,6 +5879,7 @@ function PageContent() {
         playerCollapsed,
         playerCollapsedReady,
         currentSong?.id,
+        currentPodcastEpisode?.id,
         activeVideo?.id,
         activeMediaType,
         activeMedia?.type,
@@ -6938,7 +6972,7 @@ function PageContent() {
         try {
             const remoteRows = await fetchRecentlyPlayedRecords(desktopActionFetch, accountUserId, 100);
             apiRecent = normalizeRecentForSongs(
-                remoteRows.map((row) => {
+                remoteRows.filter((row) => row.mediaType !== "podcast_episode").map((row) => {
                     const itemType = (row.mediaType === "video" || row.mediaType === "album" || row.mediaType === "song"
                         ? row.mediaType
                         : "song") as RecentPlay["itemType"];
@@ -7298,8 +7332,12 @@ function PageContent() {
         if (!audioRef.current)
             return;
         const audio = audioRef.current;
-        const audioUrl = getAudioPlaybackUrl(currentSong);
-        if (!audioUrl || !isPublicAudioUrl(audioUrl)) {
+        const podcastAudioActive = activeMediaType === "podcast-audio"
+            && currentPodcastEpisode?.episodeType === "audio";
+        const audioUrl = podcastAudioActive
+            ? podcastPlayableUrl
+            : getAudioPlaybackUrl(currentSong);
+        if (!audioUrl || (!podcastAudioActive && !isPublicAudioUrl(audioUrl))) {
             audio.pause();
             audio.removeAttribute("src");
             audio.load();
@@ -7312,17 +7350,27 @@ function PageContent() {
         if (isPlaying) {
             const playRequestId = musicPlayRequestRef.current + 1;
             musicPlayRequestRef.current = playRequestId;
-            audio.play().catch((error) => {
+            audio.play().then(() => {
+                if (musicPlayRequestRef.current !== playRequestId)
+                    return;
+                if (podcastAudioActive)
+                    commitPodcastPlaybackMetric();
+            }).catch((error) => {
                 if (musicPlayRequestRef.current !== playRequestId)
                     return;
                 if (isAbortError(error)) {
                     return;
                 }
                 setIsPlaying(false);
-                showToast("Music playback could not start. Try pressing Play again.", "error");
+                showToast(
+                    podcastAudioActive
+                        ? "Podcast playback could not start. Try pressing Play again."
+                        : "Music playback could not start. Try pressing Play again.",
+                    "error",
+                );
             });
         }
-    }, [currentSong, isPlaying]);
+    }, [activeMediaType, currentPodcastEpisode, currentSong, isPlaying, podcastPlayableUrl]);
     useEffect(() => {
         if (audioRef.current) {
             audioRef.current.volume = volume;
@@ -7785,7 +7833,9 @@ function PageContent() {
     const sponsoredTitle = sponsoredVideo?.title || currentSong?.title || "Music Data Base";
     const sponsoredCreator = sponsoredVideo?.creator || currentSong?.artist || "Music Data Base";
     const sponsoredCategory = sponsoredVideo?.category || currentSong?.category || "Featured";
-    const activeVideoPlaybackUrl = forcedQueuePlayableUrl || getVideoPlaybackUrl(activeVideo);
+    const activeVideoPlaybackUrl = currentPodcastEpisode?.episodeType === "video" && podcastPlayableUrl
+        ? podcastPlayableUrl
+        : (forcedQueuePlayableUrl || getVideoPlaybackUrl(activeVideo));
     const shouldBlockActiveMobileVideoPlayback = mobilePlaybackEnvironment
         && Boolean(activeVideoPlaybackUrl)
         && shouldBlockMobileVideoPlayback(activeVideoPlaybackUrl, activeVideo);
@@ -7890,18 +7940,28 @@ function PageContent() {
         // Do not probe/PATCH mobile_compatible or codec metadata onto video records.
     }, [videos]);
     useEffect(() => {
+        if (videoDetailOpenedOnViewRef.current && view !== videoDetailOpenedOnViewRef.current) {
+            setVideoDetailViewerOpen(false);
+        }
+    }, [view]);
+    useEffect(() => {
         const video = mainVideoRef.current;
         if (!video)
             return;
+        const current = (video.querySelector("source")?.getAttribute("src") || video.currentSrc || video.getAttribute("src") || "").trim();
+        if (activeVideo?.id && current && !shouldReplaceVideoSource(current, activeVideoPlaybackUrl, activeVideo.id, activeVideo.id)) {
+            return;
+        }
         video.muted = false;
         video.autoplay = false;
         setVideoProgress(0);
         setVideoDuration(0);
         setVideoPlaying(false);
+        setVideoHasBegunPlayback(false);
         logVideoElementState("source changed", video, {
             nextSource: activeVideoPlaybackUrl,
         });
-    }, [activeVideoPlaybackUrl]);
+    }, [activeVideo?.id, activeVideoPlaybackUrl]);
     useEffect(() => {
         const video = mainVideoRef.current;
         if (!video)
@@ -7914,15 +7974,18 @@ function PageContent() {
             return;
         if (videoAutoplayRequestId === activeVideo.id)
             return;
-        if (mainVideo.getAttribute("src") !== activeVideoPlaybackUrl && mainVideo.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
-            suppressVideoPauseOwnershipRef.current = true;
-            mainVideo.pause();
-            suppressVideoPauseOwnershipRef.current = false;
-            syncSharedVideoElementSource(mainVideo, activeVideoPlaybackUrl);
+        const current = (mainVideo.querySelector("source")?.getAttribute("src") || mainVideo.currentSrc || mainVideo.getAttribute("src") || "").trim();
+        if (!shouldReplaceVideoSource(current, activeVideoPlaybackUrl, activeVideo.id, activeVideo.id)) {
+            mainVideo.autoplay = false;
+            return;
         }
+        suppressVideoPauseOwnershipRef.current = true;
+        mainVideo.pause();
+        suppressVideoPauseOwnershipRef.current = false;
+        syncSharedVideoElementSource(mainVideo, activeVideoPlaybackUrl);
         mainVideo.autoplay = false;
         logVideoElementState("active video source sync", mainVideo);
-    }, [activeVideo, activeVideoPlaybackUrl, videoAutoplayRequestId]);
+    }, [activeVideo?.id, activeVideoPlaybackUrl, videoAutoplayRequestId]);
     useEffect(() => {
         const video = mainVideoRef.current;
         if (!video || !activeVideo || videoAutoplayRequestId !== activeVideo.id)
@@ -7937,7 +8000,8 @@ function PageContent() {
         if (audioRef.current && !audioRef.current.paused) {
             audioRef.current.pause();
         }
-        if (video.getAttribute("src") !== activeVideoPlaybackUrl && video.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
+        const current = (video.querySelector("source")?.getAttribute("src") || video.currentSrc || video.getAttribute("src") || "").trim();
+        if (shouldReplaceVideoSource(current, activeVideoPlaybackUrl, activeVideo.id, activeVideo.id)) {
             syncSharedVideoElementSource(video, activeVideoPlaybackUrl);
         }
         video.muted = false;
@@ -7957,7 +8021,7 @@ function PageContent() {
             }
             showToast("Video is ready. Press Play if your browser blocked autoplay.", "info");
         });
-    }, [activeVideo, activeVideoPlaybackUrl, videoAutoplayRequestId]);
+    }, [activeVideo?.id, activeVideoPlaybackUrl, videoAutoplayRequestId]);
     const playlistAddSongs = useMemo(() => {
         let list: Song[] = librarySongs;
         if (addSource === "Liked")
@@ -10114,6 +10178,228 @@ function PageContent() {
             }).catch(() => undefined);
         }
     }
+
+    function recordPodcastRecentlyPlayed(
+        episode: PodcastEpisode,
+        playbackPosition = 0,
+        completed = false,
+    ) {
+        const userId = String(accountUserId || "").trim();
+        if (!userId || !isDesktopProtectedActionsEnabled())
+            return;
+        void syncRecentlyPlayedRecord(desktopActionFetch, {
+            userId,
+            mediaType: "podcast_episode",
+            mediaId: episode.id,
+            playbackPosition,
+            completed,
+            title: episode.title,
+            artist: episode.creatorName || episode.podcastTitle,
+            coverUrl: episode.thumbnailUrl || episode.artworkUrl,
+        }).catch(() => undefined);
+    }
+
+    function commitPodcastPlaybackMetric(episode = currentPodcastEpisode) {
+        if (!episode || !podcastMetricPendingRef.current || podcastMetricEpisodeIdRef.current !== episode.id) {
+            return;
+        }
+        podcastMetricPendingRef.current = false;
+        const body = JSON.stringify({
+            episodeId: episode.id,
+            userId: accountUserId || undefined,
+            metricOnly: true,
+            countPlay: true,
+        });
+        const requestInit = {
+            method: "POST" as const,
+            headers: { "Content-Type": "application/json" },
+            body,
+            cache: "no-store" as const,
+        };
+        const request = accountUserId
+            ? desktopActionFetch("/api/podcasts/playback", { ...requestInit, requireAuth: true })
+            : fetch("/api/podcasts/playback", requestInit);
+        void request.then(async (response) => {
+            if (!response.ok) return;
+            setCurrentPodcastEpisode((current) => {
+                if (!current || current.id !== episode.id) return current;
+                return episode.episodeType === "video"
+                    ? { ...current, viewCount: current.viewCount + 1 }
+                    : { ...current, playCount: current.playCount + 1 };
+            });
+        }).catch(() => undefined);
+    }
+
+    async function resolvePodcastPlayback(
+        episode: PodcastEpisode,
+        context: PodcastEpisode[],
+    ) {
+        const body = JSON.stringify({
+            episodeId: episode.id,
+            userId: accountUserId || undefined,
+            countPlay: false,
+        });
+        let response = await fetch("/api/podcasts/playback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+            cache: "no-store",
+        });
+        if (!response.ok && accountUserId) {
+            response = await desktopActionFetch("/api/podcasts/playback", {
+                requireAuth: true,
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+                cache: "no-store",
+            });
+        }
+        const data = (await response.json().catch(() => ({}))) as {
+            error?: string;
+            signedUrl?: string;
+            episode?: PodcastEpisode;
+        };
+        if (!response.ok || !data.signedUrl) {
+            throw new Error(data.error || "Podcast playback could not start.");
+        }
+        playPodcast({
+            episode: data.episode || episode,
+            context,
+            playableUrl: data.signedUrl,
+            countMetric: true,
+        });
+    }
+
+    function playPodcast(request: PodcastPlaybackRequest) {
+        const episode = request.episode;
+        const playableUrl = String(request.playableUrl || "").trim();
+        if (!playableUrl) {
+            showToast("Podcast media URL is unavailable.", "error");
+            return;
+        }
+        const context = request.context.length > 0 ? request.context : [episode];
+        setPodcastPlaybackContext(context);
+        setPodcastPlayableUrl(playableUrl);
+        setCurrentPodcastEpisode(episode);
+        podcastMetricPendingRef.current = request.countMetric === true;
+        podcastMetricEpisodeIdRef.current = request.countMetric === true ? episode.id : "";
+        recordPodcastRecentlyPlayed(episode);
+
+        if (episode.episodeType === "video") {
+            playVideo({
+                id: episode.id,
+                title: episode.title,
+                creator: episode.creatorName || episode.podcastTitle,
+                artistName: episode.creatorName || episode.podcastTitle,
+                category: "Video Podcast",
+                cover: episode.thumbnailUrl || episode.artworkUrl || BRAND_LOGO,
+                videoUrl: playableUrl,
+                video_url: playableUrl,
+                playableUrl,
+                storagePath: "",
+                storage_path: "",
+                uploaded: episode.publishedAt || episode.createdAt,
+                views: episode.viewCount,
+                videoCodec: episode.videoCodec,
+                video_codec: episode.videoCodec,
+                audioCodec: episode.audioCodec,
+                audio_codec: episode.audioCodec,
+                mobileCompatible: episode.mobileCompatible,
+                mobile_compatible: episode.mobileCompatible,
+                mimeType: episode.mimeType || "video/mp4",
+            }, "Podcast", { podcastEpisode: episode, podcastContext: context, playableUrl });
+            return;
+        }
+
+        stopRingtonePreviewPlayback();
+        stopAllMedia();
+        if (mainVideoRef.current) {
+            mainVideoRef.current.removeAttribute("src");
+            mainVideoRef.current.load();
+        }
+        setActiveVideo(null);
+        setSelectedVideoId("");
+        setCurrentSong(null);
+        setActiveAlbumPlayback(null);
+        setActiveMediaType("podcast-audio");
+        setActiveMedia({ type: "podcast", item: episode });
+        setProgress(0);
+        setDuration(episode.durationSeconds || 0);
+        setIsPlaying(true);
+    }
+
+    function playAdjacentPodcastEpisode(direction: "previous" | "next") {
+        if (!currentPodcastEpisode || podcastPlaybackContext.length < 2)
+            return;
+        const currentIndex = podcastPlaybackContext.findIndex((episode) => episode.id === currentPodcastEpisode.id);
+        const offset = direction === "next" ? 1 : -1;
+        const nextIndex = currentIndex < 0
+            ? 0
+            : (currentIndex + offset + podcastPlaybackContext.length) % podcastPlaybackContext.length;
+        const nextEpisode = podcastPlaybackContext[nextIndex];
+        if (!nextEpisode)
+            return;
+        void resolvePodcastPlayback(nextEpisode, podcastPlaybackContext).catch((error) => {
+            showToast(error instanceof Error ? error.message : "Podcast playback could not start.", "error");
+        });
+    }
+
+    async function togglePodcastAudio() {
+        const audio = audioRef.current;
+        if (!audio || !currentPodcastEpisode || currentPodcastEpisode.episodeType !== "audio")
+            return;
+        if (isPlaying) {
+            musicPlayRequestRef.current += 1;
+            audio.pause();
+            setIsPlaying(false);
+            recordPodcastRecentlyPlayed(currentPodcastEpisode, audio.currentTime);
+            return;
+        }
+        stopAllMedia();
+        setActiveMediaType("podcast-audio");
+        setActiveMedia({ type: "podcast", item: currentPodcastEpisode });
+        if (audio.getAttribute("src") !== podcastPlayableUrl) {
+            audio.src = podcastPlayableUrl;
+            audio.load();
+        }
+        try {
+            await audio.play();
+            setIsPlaying(true);
+        }
+        catch (error) {
+            if (!isAbortError(error)) {
+                setIsPlaying(false);
+                showToast("Podcast playback could not start. Try pressing Play again.", "error");
+            }
+        }
+    }
+
+    function handlePodcastAudioEnded() {
+        if (!currentPodcastEpisode)
+            return;
+        recordPodcastRecentlyPlayed(currentPodcastEpisode, duration, true);
+        if (podcastPlaybackContext.length > 1) {
+            playAdjacentPodcastEpisode("next");
+            return;
+        }
+        setIsPlaying(false);
+        setProgress(0);
+    }
+
+    function updatePodcastPlaybackPosition(positionValue: number, durationValue: number, force = false) {
+        if (!currentPodcastEpisode)
+            return;
+        const now = Date.now();
+        if (!force && now - recentPositionUpdateRef.current < 5000)
+            return;
+        recentPositionUpdateRef.current = now;
+        recordPodcastRecentlyPlayed(
+            currentPodcastEpisode,
+            positionValue,
+            durationValue > 0 && positionValue >= durationValue * 0.95,
+        );
+    }
+
     function stopRingtonePreviewPlayback() {
         if (ringtoneAudioRef.current) {
             ringtoneAudioRef.current.pause();
@@ -10133,6 +10419,9 @@ function PageContent() {
         setForcedQueuePlayableUrl("");
         setActiveVideo(null);
         setCurrentSong(null);
+        setCurrentPodcastEpisode(null);
+        setPodcastPlaybackContext([]);
+        setPodcastPlayableUrl("");
         setActiveMediaType("ringtone");
         setActiveMedia({ type: "ringtone", item: request });
         setActiveRingtonePreview(request);
@@ -10172,6 +10461,9 @@ function PageContent() {
         setActiveMediaType("song");
         setActiveMedia({ type: "song", item: song });
         setActiveVideo(null);
+        setCurrentPodcastEpisode(null);
+        setPodcastPlaybackContext([]);
+        setPodcastPlayableUrl("");
         setCurrentSong(song);
         setIsPlaying(isPublicAudioUrl(song.audio));
         setProgress(0);
@@ -10325,6 +10617,7 @@ function PageContent() {
         pauseVisibleVideo("pauseVideoPlayer", "pause helper", false);
     }
     function closeVideoViewer() {
+        const closingPodcastVideo = currentPodcastEpisode?.episodeType === "video";
         videoPlaybackIntentRef.current = "pause";
         videoUserPausedRef.current = true;
         pendingVideoPlayRef.current = false;
@@ -10346,10 +10639,21 @@ function PageContent() {
         setActiveMedia(null);
         setActiveVideo(null);
         setSelectedVideoId("");
+        setVideoDetailViewerOpen(false);
+        setVideoHasBegunPlayback(false);
+        videoDetailOpenedOnViewRef.current = null;
+        setCurrentPodcastEpisode(null);
+        setPodcastPlaybackContext([]);
+        setPodcastPlayableUrl("");
+        if (closingPodcastVideo) {
+            setForcedQueuePlayableUrl("");
+        }
         setVideoPlaybackUiFailure(null);
         const returnView = videoReturnViewRef.current && videoReturnViewRef.current !== "Videos"
             ? videoReturnViewRef.current
-            : "Library";
+            : closingPodcastVideo
+                ? "Podcasts"
+                : "Library";
         setShowUpload(false);
         setView(returnView);
     }
@@ -10508,7 +10812,10 @@ function PageContent() {
         if (Number.isFinite(audio.duration)) {
             setDuration(audio.duration);
         }
-        if (currentSong) {
+        if (activeMedia?.type === "podcast" && currentPodcastEpisode?.episodeType === "audio") {
+            updatePodcastPlaybackPosition(nextProgress, nextDuration);
+        }
+        else if (currentSong) {
             updateRecentPlaybackPosition("song", currentSong.id, nextProgress, nextDuration);
         }
     }
@@ -10522,7 +10829,10 @@ function PageContent() {
         const nextTime = Number(event.target.value);
         audioRef.current.currentTime = nextTime;
         setProgress(nextTime);
-        if (currentSong) {
+        if (activeMedia?.type === "podcast" && currentPodcastEpisode?.episodeType === "audio") {
+            updatePodcastPlaybackPosition(nextTime, duration, true);
+        }
+        else if (currentSong) {
             updateRecentPlaybackPosition("song", currentSong.id, nextTime, duration, true);
         }
     }
@@ -10537,6 +10847,7 @@ function PageContent() {
         const video = mainVideoRef.current;
         if (!video || !activeVideo || !activeVideoPlaybackUrl)
             return;
+        const podcastVideoActive = currentPodcastEpisode?.episodeType === "video";
         if (isMobilePlaybackEnvironment() && shouldBlockMobileVideoPlayback(activeVideoPlaybackUrl, activeVideo, video)) {
             showToast(getMobileVideoCompatibilityWarningText(activeVideo, activeVideoPlaybackUrl), "error");
             return;
@@ -10555,7 +10866,7 @@ function PageContent() {
         videoUserPausedRef.current = false;
         pendingVideoPlayRef.current = false;
         setVideoAutoplayRequestId("");
-        if (activeMedia?.type !== "video") {
+        if (activeMedia?.type !== "video" && activeMedia?.type !== "podcast") {
             stopAllMedia();
         }
         else if (audioRef.current && !audioRef.current.paused) {
@@ -10567,10 +10878,17 @@ function PageContent() {
             audioRef.current.removeAttribute("src");
             audioRef.current.load();
         }
-        setActiveMediaType("video");
-        setActiveMedia({ type: "video", item: activeVideo });
+        setActiveMediaType(podcastVideoActive ? "podcast-video" : "video");
+        setActiveMedia(
+            podcastVideoActive && currentPodcastEpisode
+                ? { type: "podcast", item: currentPodcastEpisode }
+                : { type: "video", item: activeVideo },
+        );
         if (video.getAttribute("src") !== activeVideoPlaybackUrl && video.querySelector("source")?.getAttribute("src") !== activeVideoPlaybackUrl) {
-            syncSharedVideoElementSource(video, activeVideoPlaybackUrl);
+            const current = (video.querySelector("source")?.getAttribute("src") || video.currentSrc || video.getAttribute("src") || "").trim();
+            if (shouldReplaceVideoSource(current, activeVideoPlaybackUrl, activeVideo.id, activeVideo.id)) {
+                syncSharedVideoElementSource(video, activeVideoPlaybackUrl);
+            }
         }
         video.setAttribute("playsinline", "");
         video.setAttribute("webkit-playsinline", "");
@@ -10633,7 +10951,10 @@ function PageContent() {
         if (Number.isFinite(video.duration)) {
             setVideoDuration(video.duration);
         }
-        if (activeVideo) {
+        if (currentPodcastEpisode?.episodeType === "video") {
+            updatePodcastPlaybackPosition(nextProgress, nextDuration);
+        }
+        else if (activeVideo) {
             updateRecentPlaybackPosition("video", activeVideo.id, nextProgress, nextDuration);
         }
     }
@@ -10647,7 +10968,10 @@ function PageContent() {
         const nextTime = Number(event.target.value);
         mainVideoRef.current.currentTime = nextTime;
         setVideoProgress(nextTime);
-        if (activeVideo) {
+        if (currentPodcastEpisode?.episodeType === "video") {
+            updatePodcastPlaybackPosition(nextTime, videoDuration, true);
+        }
+        else if (activeVideo) {
             updateRecentPlaybackPosition("video", activeVideo.id, nextTime, videoDuration, true);
         }
     }
@@ -10743,11 +11067,22 @@ function PageContent() {
             audioRef.current.pause();
         }
         setIsPlaying(false);
-        setActiveMediaType("video");
-        if (activeVideo) {
+        if (currentPodcastEpisode?.episodeType === "video") {
+            setActiveMediaType("podcast-video");
+            setActiveMedia({ type: "podcast", item: currentPodcastEpisode });
+            commitPodcastPlaybackMetric(currentPodcastEpisode);
+        }
+        else {
+            setActiveMediaType("video");
+        }
+        if (activeVideo && currentPodcastEpisode?.episodeType !== "video") {
             setActiveMedia({ type: "video", item: activeVideo });
         }
         setVideoPlaying(true);
+        setVideoHasBegunPlayback(true);
+        if (video) {
+            video.removeAttribute("poster");
+        }
     }
     function handleVideoPause() {
         const video = mainVideoRef.current;
@@ -10789,7 +11124,12 @@ function PageContent() {
         logVideoElementState("canplay event", video);
         if (videoUserPausedRef.current || videoPlaybackIntentRef.current === "pause")
             return;
-        if (!pendingVideoPlayRef.current || !video || !activeVideo || activeMedia?.type !== "video")
+        if (
+            !pendingVideoPlayRef.current
+            || !video
+            || !activeVideo
+            || (activeMedia?.type !== "video" && activeMedia?.type !== "podcast")
+        )
             return;
         pendingVideoPlayRef.current = false;
         console.log("[video pending play retry]", {
@@ -10834,6 +11174,16 @@ function PageContent() {
                 setVideoPlaying(false);
                 showToast("Video repeat could not restart playback.", "error");
             });
+            return;
+        }
+        if (currentPodcastEpisode?.episodeType === "video") {
+            recordPodcastRecentlyPlayed(currentPodcastEpisode, videoDuration, true);
+            if (podcastPlaybackContext.length > 1) {
+                playAdjacentPodcastEpisode("next");
+                return;
+            }
+            setVideoPlaying(false);
+            setVideoProgress(0);
             return;
         }
         if (mediaQueueItems.length > 0) {
@@ -13672,25 +14022,36 @@ function PageContent() {
             albumUploadUserRef.current = null;
         }
     }
-    function playVideo(video: VideoItem | Record<string, unknown>, sourceSection = "Video Card") {
+    function playVideo(
+        video: VideoItem | Record<string, unknown>,
+        sourceSection = "Video Card",
+        options: {
+            podcastEpisode?: PodcastEpisode;
+            podcastContext?: PodcastEpisode[];
+            playableUrl?: string;
+        } = {},
+    ) {
         stopRingtonePreviewPlayback();
+        const podcastEpisode = options.podcastEpisode;
         // Opening/selecting a video is an explicit play request — unlock pause guards.
         videoPlaybackIntentRef.current = "play";
         videoUserPausedRef.current = false;
         pendingVideoPlayRef.current = false;
-        if (sourceSection !== "Shared Queue") {
+        if (sourceSection !== "Shared Queue" && !options.podcastEpisode) {
             setForcedQueuePlayableUrl("");
         }
         const playableVideo = normalizeVideo(video);
-        const incomingPlayableUrl = sourceSection === "Shared Queue"
+        const incomingPlayableUrl = options.playableUrl
+            || (options.podcastEpisode ? String((video as { playableUrl?: string }).playableUrl || (video as { videoUrl?: string }).videoUrl || "").trim() : "")
+            || (sourceSection === "Shared Queue"
             ? String(
                 (video as { playableUrl?: string }).playableUrl
                 || (video as { videoUrl?: string }).videoUrl
                 || (video as { video_url?: string }).video_url
                 || "",
             ).trim()
-            : "";
-        const videoUrl = getVideoPlaybackUrl(playableVideo) || incomingPlayableUrl;
+            : "");
+        const videoUrl = incomingPlayableUrl || getVideoPlaybackUrl(playableVideo);
         if (!videoUrl) {
             console.error("[video play] missing playable URL:", sourceSection, playableVideo.id, playableVideo.title);
             reportPlatformError("media_url", "play-video-missing-url", "Video file URL missing", {
@@ -13707,7 +14068,7 @@ function PageContent() {
             reloadVideoLibraryFromSupabase().catch((error) => console.error("[video play] refresh after missing URL failed:", error));
             return;
         }
-        const nextViews = (playableVideo.views || 0) + 1;
+        const nextViews = podcastEpisode ? (playableVideo.views || 0) : (playableVideo.views || 0) + 1;
         const nextActiveVideo = {
             ...playableVideo,
             views: nextViews,
@@ -13739,11 +14100,32 @@ function PageContent() {
         if (view !== "Videos") {
             videoReturnViewRef.current = view;
         }
+        const openedOnView = podcastEpisode
+            ? (viewRef.current === "Podcast Studio" ? "Podcast Studio" : "Podcasts")
+            : viewRef.current;
+        videoDetailOpenedOnViewRef.current = openedOnView;
+        setVideoDetailViewerOpen(true);
+        setVideoHasBegunPlayback((previous) => previous && activeVideo?.id === playableVideo.id);
+        if (podcastEpisode) {
+            setCurrentPodcastEpisode(podcastEpisode);
+            setPodcastPlaybackContext(options.podcastContext?.length ? options.podcastContext : [podcastEpisode]);
+            setPodcastPlayableUrl(videoUrl);
+            setForcedQueuePlayableUrl(videoUrl);
+        }
+        else {
+            setCurrentPodcastEpisode(null);
+            setPodcastPlaybackContext([]);
+            setPodcastPlayableUrl("");
+        }
         flushSync(() => {
             setIsPlaying(false);
             setCurrentSong(null);
-            setActiveMediaType("video");
-            setActiveMedia({ type: "video", item: nextActiveVideo });
+            setActiveMediaType(podcastEpisode ? "podcast-video" : "video");
+            setActiveMedia(
+                podcastEpisode
+                    ? { type: "podcast", item: podcastEpisode }
+                    : { type: "video", item: nextActiveVideo },
+            );
             setActiveVideo(nextActiveVideo);
             setSelectedVideoId(playableVideo.id);
             setVideoProgress(0);
@@ -13758,13 +14140,18 @@ function PageContent() {
                 setVideoAutoplayRequestId(playableVideo.id);
             }
         });
-        saveVideoPlay(nextActiveVideo);
-        if (!sourceSection.includes("Album") && !isActiveAlbumTrack("video", playableVideo.id)) {
+        if (!podcastEpisode) {
+            saveVideoPlay(nextActiveVideo);
+            if (!sourceSection.includes("Album") && !isActiveAlbumTrack("video", playableVideo.id)) {
+                setActiveAlbumPlayback(null);
+            }
+            setVideos((previous) => previous.some((item) => item.id === playableVideo.id)
+                ? previous.map((item) => (item.id === playableVideo.id ? { ...normalizeVideoForPlayback(item), views: nextViews } : item))
+                : uniqueVideos([nextActiveVideo, ...previous]));
+        }
+        else {
             setActiveAlbumPlayback(null);
         }
-        setVideos((previous) => previous.some((item) => item.id === playableVideo.id)
-            ? previous.map((item) => (item.id === playableVideo.id ? { ...normalizeVideoForPlayback(item), views: nextViews } : item))
-            : uniqueVideos([nextActiveVideo, ...previous]));
         const mainVideo = mainVideoRef.current;
         if (mobilePlaybackBlocked) {
             if (mainVideo) {
@@ -13791,6 +14178,10 @@ function PageContent() {
             mainVideo.volume = videoVolume;
             suppressVideoPauseOwnershipRef.current = true;
             syncSharedVideoElementSource(mainVideo, videoUrl);
+            if (!mainVideo.paused) {
+                mainVideo.removeAttribute("poster");
+                setVideoHasBegunPlayback(true);
+            }
             // Re-assert before releasing suppress so a sync load()/pause cannot own playback.
             videoPlaybackIntentRef.current = "play";
             videoUserPausedRef.current = false;
@@ -13867,6 +14258,9 @@ function PageContent() {
                 }
             });
         });
+        if (podcastEpisode) {
+            return;
+        }
         fetch(`/api/videos/${encodeURIComponent(playableVideo.id)}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -16713,84 +17107,13 @@ function PageContent() {
         showToast("Could not copy debug report.", "error");
     }
     function renderVideoPlaybackDebugControls() {
-        return (<div className="video-playback-debug-controls">
-            <button type="button" onClick={() => setShowVideoPlaybackDebug((value) => !value)}>
-              {showVideoPlaybackDebug ? "Hide Video Debug" : "Show Video Debug"}
-            </button>
-          </div>);
+        return null;
     }
     function renderVideoPlaybackDebugSection() {
-        return (<div className="video-playback-debug-section">
-            {renderVideoPlaybackDebugControls()}
-            {showVideoPlaybackDebug ? renderMobileVideoPlaybackDebugPanel() : null}
-          </div>);
+        return null;
     }
     function renderMobileVideoPlaybackDebugPanel() {
-        const debug = getVideoPlaybackDebugSnapshot();
-        const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
-        const eventLogText = debug.eventLogs.length > 0
-            ? debug.eventLogs.join("\n")
-            : [
-                debug.loadedMetadataFired ? "loadedmetadata: fired" : "loadedmetadata: not fired",
-                debug.canPlayFired ? "canplay: fired" : "canplay: not fired",
-                debug.errorFired ? "error: fired" : "error: not fired",
-            ].join("\n");
-        return (<section className="video-playback-debug-panel" aria-label="Video playback debug">
-            <strong>Video playback debug</strong>
-            <dl>
-              <div>
-                <dt>Video title</dt>
-                <dd>{debug.title || "—"}</dd>
-              </div>
-              <div>
-                <dt>Video id</dt>
-                <dd>{debug.selectedVideoId || "—"}</dd>
-              </div>
-              <div>
-                <dt>finalVideoUrl</dt>
-                <dd>{debug.finalVideoUrl || "—"}</dd>
-              </div>
-              <div>
-                <dt>videoUrl</dt>
-                <dd>{debug.videoUrl || "—"}</dd>
-              </div>
-              <div>
-                <dt>storagePath</dt>
-                <dd>{debug.storagePath || "—"}</dd>
-              </div>
-              <div>
-                <dt>mobile_compatible</dt>
-                <dd>{debug.mobileCompatible || "—"}</dd>
-              </div>
-              <div>
-                <dt>video_codec</dt>
-                <dd>{debug.detectedVideoCodec || "—"}</dd>
-              </div>
-              <div>
-                <dt>audio_codec</dt>
-                <dd>{debug.detectedAudioCodec || "—"}</dd>
-              </div>
-              <div>
-                <dt>Media error code</dt>
-                <dd>{debug.errorCode || "—"}</dd>
-              </div>
-              <div>
-                <dt>Media error message</dt>
-                <dd>{debug.errorMessage || "—"}</dd>
-              </div>
-              <div>
-                <dt>User agent</dt>
-                <dd>{userAgent || "—"}</dd>
-              </div>
-            </dl>
-            <div className="video-playback-debug-event-logs">
-              <span>loadedmetadata / canplay / error logs</span>
-              <pre>{eventLogText}</pre>
-            </div>
-            <button type="button" className="video-playback-debug-copy" onClick={() => void copyMobileVideoPlaybackDebugReport()}>
-              Copy Debug Report
-            </button>
-          </section>);
+        return null;
     }
     function renderSharedVideoPlayer() {
         if (!activeVideo)
@@ -16854,8 +17177,11 @@ function PageContent() {
         const showVideoElement = Boolean(activeVideoPlaybackUrl) && !showMissingUrl && !showUnsupportedCodec;
         // Root cause of "audio-only" playback: collapsing the shared <video> to 1×1 via
         // .is-hidden while it kept playing. Never collapse while video media is active.
-        const videoViewerOpen = activeMediaType === "video" && Boolean(activeVideo);
-        // Never apply is-hidden while a video session is open (ignore upload/view side effects).
+        const videoViewerOpen = videoDetailViewerOpen
+            && (activeMediaType === "video" || activeMediaType === "podcast-video")
+            && Boolean(activeVideo);
+        // Hide only the expanded detail surface after destination nav.
+        // Keep the same <video> mounted so the bottom player stays authoritative.
         const collapseInlineVideoHero = !videoViewerOpen;
 
         return (<section
@@ -16886,12 +17212,12 @@ function PageContent() {
           </div>) : null}
         {showVideoElement ? (() => {
             const playerConfig = buildSharedVideoPlayerConfig({
-                poster: activeVideo.cover || activeVideo.cover_url || "",
+                poster: videoHasBegunPlayback ? "" : (activeVideo.cover || activeVideo.cover_url || ""),
                 mimeType: activeVideo.mimeType || "video/mp4",
                 requireCrossOrigin: false,
             });
             return (<video
-                key={activeVideo.id || activeVideoPlaybackUrl}
+                key={activeVideo.id}
                 ref={mainVideoRef}
                 controls={playerConfig.controls}
                 muted={playerConfig.muted}
@@ -16900,6 +17226,9 @@ function PageContent() {
                 preload={playerConfig.preload}
                 poster={playerConfig.poster}
                 crossOrigin={playerConfig.crossOrigin}
+                {...{ "webkit-playsinline": "true" }}
+                data-podcast-video={currentPodcastEpisode?.episodeType === "video" ? "true" : "false"}
+                data-video-has-begun={videoHasBegunPlayback ? "true" : "false"}
                 onLoadedMetadata={(event) => {
                     updateVideoDuration(event);
                     logVideoElementState("loadedmetadata event", event.currentTarget);
@@ -16921,6 +17250,8 @@ function PageContent() {
                     logVideoElementState("canplaythrough event", event.currentTarget);
                 }}
                 onPlaying={(event) => {
+                    event.currentTarget.removeAttribute("poster");
+                    setVideoHasBegunPlayback(true);
                     console.log("[visible-video native playing]", {
                         videoId: activeVideo?.id || "",
                         currentTime: event.currentTarget.currentTime,
@@ -17766,10 +18097,15 @@ function PageContent() {
               studio={creatorStudio}
               canArtistStudio={shouldShowArtistDashboardControl(desktopNavAccess)}
               canProducerStudio={shouldShowProducerDashboardControl(desktopNavAccess)}
+              canPodcastStudio={navCapabilities.canUpload}
               activeMode={uploadMode}
               brandLogo={BRAND_LOGO}
               onStudioChange={switchCreatorStudio}
               onSelectMode={selectUploadMode}
+              onOpenPodcastStudio={() => {
+                setShowUpload(false);
+                handleNav("Podcast Studio");
+              }}
               onBack={() => setShowUpload(false)}
             />
 
@@ -17910,7 +18246,7 @@ function PageContent() {
                     <progress max="100" value={videoUploadProgress}/>
                   </div>)}
 
-                {canViewVideoUploadDebug && activeMediaType !== "video" ? renderVideoUploadDebugPanel() : null}
+                {canViewVideoUploadDebug && activeMediaType !== "video" && activeMediaType !== "podcast-video" ? renderVideoUploadDebugPanel() : null}
 
                 {hasAttemptedVideoUpload && videoUploadError && (<div className="upload-error">
                     <p>{videoUploadError}</p>
@@ -18164,7 +18500,11 @@ function PageContent() {
                 {SUBSCRIPTION_PLANS.map((plan) => (<article className="plan-card" key={plan.name}>
                     <span>{plan.name}</span>
                     <strong>{formatCurrencyFromCents(plan.priceCents, plan.currency)}/{plan.billingInterval === "one_time" ? "once" : plan.billingInterval}</strong>
-                    <p>{plan.features.join(" ")}</p>
+                    <ul className="plan-card-benefits">
+                      {(plan.highlights.length ? plan.highlights : plan.features).map((feature) => (
+                        <li key={`${plan.id}-${feature}`}>{feature}</li>
+                      ))}
+                    </ul>
                     <button
                       disabled={Boolean(subscriptionCheckoutBusyPlanId)}
                       onClick={() => void setupSubscriptionPlan(plan)}
@@ -19001,7 +19341,7 @@ function PageContent() {
                   <progress max="100" value={videoUploadProgress}/>
                 </div>)}
 
-              {canViewVideoUploadDebug && activeMediaType !== "video" ? renderVideoUploadDebugPanel() : null}
+              {canViewVideoUploadDebug && activeMediaType !== "video" && activeMediaType !== "podcast-video" ? renderVideoUploadDebugPanel() : null}
 
               {hasAttemptedVideoUpload && videoUploadError && (<div className="upload-error">
                   <p>{videoUploadError}</p>
@@ -19566,6 +19906,16 @@ function PageContent() {
             {renderPayoutAdminReview()}
           </section>
             </div>
+          ) : view === "Podcasts" ? (
+            <PodcastDiscoveryWorkspace
+              userId={accountUserId}
+              onPlayPodcast={playPodcast}
+            />
+          ) : view === "Podcast Studio" && navCapabilities.canUpload ? (
+            <PodcastStudioWorkspace
+              userId={accountUserId}
+              onPlayPodcast={playPodcast}
+            />
           ) : view === "Producer Dashboard" ? (<section className="dashboard-page producer-dashboard">
             <div className="dashboard-brand">
               <img src={BRAND_LOGO} alt="Music Data Base"/>
@@ -19574,6 +19924,12 @@ function PageContent() {
                 <h2>{t("upload.producerStudio")}</h2>
                 <p className="creator-studio-subtitle">{t("producerDashboard.pageSubtitle")}</p>
               </div>
+            </div>
+            <div className="dashboard-nav-row" role="navigation" aria-label="Producer Studio destinations">
+              <button onClick={() => handleNav("Podcast Studio")} type="button">
+                <Mic2 size={16}/>
+                Open Podcast Studio
+              </button>
             </div>
 
             {accountUserId ? (
@@ -19855,6 +20211,12 @@ function PageContent() {
                 <h2>{t("upload.artistStudio")}</h2>
                 <p className="creator-studio-subtitle">{t("artistDashboard.pageSubtitle")}</p>
               </div>
+            </div>
+            <div className="dashboard-nav-row" role="navigation" aria-label="Artist Studio destinations">
+              <button onClick={() => handleNav("Podcast Studio")} type="button">
+                <Mic2 size={16}/>
+                Open Podcast Studio
+              </button>
             </div>
 
             <div className="dashboard-grid">
@@ -21077,7 +21439,7 @@ function PageContent() {
                     {followingVideos.map((video) => renderVideoCard(video, { sourceLabel: "Following Videos" }))}
                   </DesktopHorizontalRail>)}
               </section>
-            </section>)) : (view === "Ringtone Marketplace" || view === "My Purchased Ringtones" || view === "Favorite Ringtones" || view === "My Ringtones") ? null : visibleSongs.length === 0 &&
+            </section>)) : (view === "Ringtone Marketplace" || view === "My Purchased Ringtones" || view === "Favorite Ringtones" || view === "My Ringtones" || view === "Podcast Studio") ? null : visibleSongs.length === 0 &&
             inlineVideos.length === 0 &&
             visibleAlbums.length === 0 &&
             searchArtistResults.length === 0 &&
@@ -21629,7 +21991,13 @@ function PageContent() {
               <strong>Now Playing</strong>
               {activeAlbumTrackInfo && <span>Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</span>}
             </div>
-            {activeMedia?.type === "song" && currentSong ? (<article className="drawer-media-row now-playing">
+            {activeMedia?.type === "podcast" && currentPodcastEpisode ? (<article className="drawer-media-row now-playing">
+                <img src={currentPodcastEpisode.thumbnailUrl || currentPodcastEpisode.artworkUrl || BRAND_LOGO} alt=""/>
+                <span>
+                  <strong>{currentPodcastEpisode.title}</strong>
+                  <small>{currentPodcastEpisode.podcastTitle} | {currentPodcastEpisode.episodeType === "video" ? "Video Podcast" : "Audio Podcast"}</small>
+                </span>
+              </article>) : activeMedia?.type === "song" && currentSong ? (<article className="drawer-media-row now-playing">
                 <img src={currentSong.cover} alt=""/>
                 <span>
                   <strong>{currentSong.title}</strong>
@@ -21676,24 +22044,32 @@ function PageContent() {
           </section>
         </aside>)}
 
-      {activeMedia?.type === "video" && activeMediaType === "video" && activeVideo && activeVideoPlaybackUrl && (<footer
+      {(
+        (activeMedia?.type === "video" && activeMediaType === "video")
+        || (activeMedia?.type === "podcast" && activeMediaType === "podcast-video")
+      ) && activeVideo && activeVideoPlaybackUrl && (<footer
           ref={playerBarRef}
           className={`video-player-bar video-bottom-player bottom-player mobile-bottom-player fixed-mobile-player${playerCollapsed ? " is-collapsed" : ""}`}
           data-player-collapsed={playerCollapsed ? "true" : "false"}
           dir="ltr"
         >
           <div className="video-player-now player-main">
-            <img src={activeVideo.cover} alt=""/>
+            <img src={currentPodcastEpisode?.thumbnailUrl || currentPodcastEpisode?.artworkUrl || activeVideo.cover} alt=""/>
             <div>
-              <strong className="track-title">{activeVideo.title}</strong>
-              <small className="artist-name">{activeVideo.creator}</small>
-              {!playerCollapsed && activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
+              <strong className="track-title">{currentPodcastEpisode?.title || activeVideo.title}</strong>
+              <small className="artist-name">{currentPodcastEpisode ? `${currentPodcastEpisode.podcastTitle} | Video Podcast` : activeVideo.creator}</small>
+              {!currentPodcastEpisode && !playerCollapsed && activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
             </div>
           </div>
 
           <div className="video-player-center">
             <div className="video-player-controls">
-              <button onClick={() => playAdjacentVideo("previous")} title="Previous video" type="button" disabled={mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}>
+              <button
+                onClick={() => currentPodcastEpisode ? playAdjacentPodcastEpisode("previous") : playAdjacentVideo("previous")}
+                title={currentPodcastEpisode ? "Previous Podcast episode" : "Previous video"}
+                type="button"
+                disabled={currentPodcastEpisode ? podcastPlaybackContext.length < 2 : mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}
+              >
                 <SkipBack size={17} fill="currentColor"/>
               </button>
 
@@ -21701,14 +22077,19 @@ function PageContent() {
                 {videoPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
               </button>
 
-              <button onClick={() => playAdjacentVideo("next")} title="Next video" type="button" disabled={mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}>
+              <button
+                onClick={() => currentPodcastEpisode ? playAdjacentPodcastEpisode("next") : playAdjacentVideo("next")}
+                title={currentPodcastEpisode ? "Next Podcast episode" : "Next video"}
+                type="button"
+                disabled={currentPodcastEpisode ? podcastPlaybackContext.length < 2 : mediaQueueItems.length > 0 ? mediaQueueItems.length < 2 : getVideoPlaybackList().length < 2}
+              >
                 <SkipForward size={17} fill="currentColor"/>
               </button>
 
-              <button className={`video-like-control ${activeVideo.likedByUser ? "mode-on" : ""}`} onClick={() => toggleVideoLike(activeVideo)} title={activeVideo.likedByUser ? "Click to unlike" : "Like video"} type="button">
+              {!currentPodcastEpisode ? (<button className={`video-like-control ${activeVideo.likedByUser ? "mode-on" : ""}`} onClick={() => toggleVideoLike(activeVideo)} title={activeVideo.likedByUser ? "Click to unlike" : "Like video"} type="button">
                 <Heart size={16} fill={activeVideo.likedByUser ? "currentColor" : "none"}/>
                 <span>{activeVideo.likes || 0}</span>
-              </button>
+              </button>) : null}
 
               <button className={videoRepeat ? "mode-on" : ""} onClick={() => setVideoRepeat((value) => !value)} title={videoRepeat ? "Repeat video on" : "Repeat video off"} type="button">
                 <RotateCcw size={16}/>
@@ -21723,12 +22104,102 @@ function PageContent() {
           </div>
 
           <div className="video-player-side">
-            <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
-              Queue {queueCount}
-            </button>
+            {currentPodcastEpisode ? (
+              <span className="queue-drawer-button" aria-label="Video Podcast">
+                Video Podcast
+              </span>
+            ) : (
+              <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
+                Queue {queueCount}
+              </button>
+            )}
             <label className="volume video-volume">
               <Volume2 size={18}/>
               <input name="videoVolume" type="range" min="0" max="100" value={Math.round(videoVolume * 100)} onChange={changeVideoVolume} aria-label="Video volume"/>
+            </label>
+          </div>
+
+          <button
+            className="player-collapse-toggle"
+            onClick={togglePlayerCollapsed}
+            type="button"
+            title={playerCollapsed ? "Expand player" : "Collapse player"}
+            aria-label={playerCollapsed ? "Expand player" : "Collapse player"}
+            aria-expanded={!playerCollapsed}
+          >
+            {playerCollapsed ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
+          </button>
+        </footer>)}
+
+      {activeMedia?.type === "podcast"
+        && activeMediaType === "podcast-audio"
+        && currentPodcastEpisode?.episodeType === "audio"
+        && (<footer
+          ref={playerBarRef}
+          className={`player music-bottom-player bottom-player mobile-bottom-player fixed-mobile-player${playerCollapsed ? " is-collapsed" : ""}`}
+          data-player-collapsed={playerCollapsed ? "true" : "false"}
+          data-podcast-player="audio"
+          dir="ltr"
+        >
+          <div className="player-song player-main" dir="ltr">
+            <img src={currentPodcastEpisode.artworkUrl || currentPodcastEpisode.thumbnailUrl || BRAND_LOGO} alt=""/>
+            <div>
+              <strong className="song-title" title={currentPodcastEpisode.title}>
+                {currentPodcastEpisode.title}
+              </strong>
+              <small className="artist-name">
+                {currentPodcastEpisode.podcastTitle} | Audio Podcast
+              </small>
+            </div>
+          </div>
+
+          <div className="player-center" dir="ltr">
+            <div className="player-controls" dir="ltr">
+              <button
+                type="button"
+                className="player-prev-control"
+                onClick={() => playAdjacentPodcastEpisode("previous")}
+                title="Previous Podcast episode"
+                aria-label="Previous Podcast episode"
+                disabled={podcastPlaybackContext.length < 2}
+              >
+                <SkipBack size={17} fill="currentColor"/>
+              </button>
+              <button
+                type="button"
+                className="main-play"
+                onClick={() => void togglePodcastAudio()}
+                title={isPlaying ? "Pause Podcast" : "Play Podcast"}
+                aria-label={isPlaying ? "Pause Podcast" : "Play Podcast"}
+              >
+                {isPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
+              </button>
+              <button
+                type="button"
+                className="player-next-control"
+                onClick={() => playAdjacentPodcastEpisode("next")}
+                title="Next Podcast episode"
+                aria-label="Next Podcast episode"
+                disabled={podcastPlaybackContext.length < 2}
+              >
+                <SkipForward size={17} fill="currentColor"/>
+              </button>
+            </div>
+            <div className="progress-row">
+              <span className="progress-time">
+                {formatTime(progress)} / {duration ? formatTime(duration) : formatTime(currentPodcastEpisode.durationSeconds || 0)}
+              </span>
+              <input name="podcastPlaybackProgress" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(progress, duration || progress)} onChange={seekSong} aria-label="Podcast playback progress"/>
+            </div>
+          </div>
+
+          <div className="player-side">
+            <span className="queue-drawer-button" aria-label="Audio Podcast">
+              Audio Podcast
+            </span>
+            <label className="volume">
+              <Volume2 size={18}/>
+              <input name="podcastVolume" type="range" min="0" max="100" value={Math.round(volume * 100)} onChange={changeVolume} aria-label="Podcast volume"/>
             </label>
           </div>
 
@@ -21833,6 +22304,11 @@ function PageContent() {
         </footer>)}
 
         <audio ref={audioRef} preload="metadata" onLoadedMetadata={updateDuration} onDurationChange={updateDuration} onTimeUpdate={updateProgress} onPlay={() => {
+            if (activeMedia?.type === "podcast" && currentPodcastEpisode?.episodeType === "audio") {
+                setActiveMediaType("podcast-audio");
+                setIsPlaying(true);
+                return;
+            }
             if (activeMedia?.type !== "song") {
                 audioRef.current?.pause();
                 setIsPlaying(false);
@@ -21840,7 +22316,13 @@ function PageContent() {
             }
             setActiveMediaType("song");
             setIsPlaying(true);
-        }} onPause={() => setIsPlaying(false)} onEnded={handleTrackEnded}/>
+        }} onPause={() => setIsPlaying(false)} onEnded={() => {
+            if (activeMedia?.type === "podcast" && currentPodcastEpisode?.episodeType === "audio") {
+                handlePodcastAudioEnded();
+                return;
+            }
+            handleTrackEnded();
+        }}/>
 
         <style jsx global>{`
           ${I18N_GLOBAL_STYLES}
@@ -24950,6 +25432,23 @@ function PageContent() {
           .plan-card button {
             width: 100%;
             margin-top: 4px;
+          }
+
+          .plan-card-benefits {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 4px;
+            color: #c7d8ec;
+            font-size: 12px;
+            line-height: 1.35;
+          }
+
+          .plan-card-benefits li {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
           }
 
           .section-heading {
@@ -31910,6 +32409,22 @@ function PageContent() {
               -webkit-line-clamp: 1 !important;
               overflow: hidden !important;
               max-height: 1.3em !important;
+            }
+
+            .plan-card-benefits {
+              font-size: 11px !important;
+              line-height: 1.25 !important;
+              gap: 2px !important;
+              overflow: visible !important;
+              max-height: none !important;
+              display: grid !important;
+            }
+
+            .plan-card-benefits li {
+              display: block !important;
+              overflow: visible !important;
+              white-space: normal !important;
+              -webkit-line-clamp: unset !important;
             }
 
             .plan-card button {

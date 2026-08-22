@@ -1,4 +1,4 @@
-import type { LocaleMessageDictionary } from "./en";
+﻿import type { LocaleMessageDictionary } from "./en";
 
 export const idMessages: LocaleMessageDictionary = {
     common: {
@@ -358,6 +358,7 @@ export const idMessages: LocaleMessageDictionary = {
             uploadProducerAlbum: "Upload Album",
             artistStudio: "Artist Studio",
             producerStudio: "Producer Studio",
+            podcastStudio: "Podcast Studio",
             artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
             producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
             studioKicker: "Creator Upload",
@@ -486,8 +487,8 @@ export const idMessages: LocaleMessageDictionary = {
             saveFailed: "Tidak dapat menyimpan nada dering. Harap tinjau formulir dan coba lagi.",
             submitFailed: "Tidak dapat mengirimkan nada dering untuk ditinjau.",
             draftSaved: "Draf disimpan.",
-            submitting: "Mengirimkan untuk ditinjau…",
-            savingDraft: "Menyimpan draf…",
+            submitting: "Mengirimkan untuk ditinjauâ€¦",
+            savingDraft: "Menyimpan drafâ€¦",
             duplicateFailed: "Tidak dapat menduplikasi nada dering ini.",
             deleteFailed: "Tidak dapat menghapus atau mengarsipkan nada dering ini.",
             actionCouldNotComplete: "Tindakan nada dering tidak dapat diselesaikan.",
@@ -497,7 +498,7 @@ export const idMessages: LocaleMessageDictionary = {
             confirmDeleteRingtone: "Delete this draft ringtone permanently? This cannot be undone. [id]",
             noOwnedSongs: "Anda belum memiliki lagu yang diunggah sebagai sumber nada dering.",
             emptyList: "Anda belum membuat nada dering apa pun.",
-            loading: "Memuat nada dering Anda…",
+            loading: "Memuat nada dering Andaâ€¦",
             search: "Cari nada dering",
             searchPlaceholder: "Cari berdasarkan judul atau sumber lagu",
             filter: "Menyaring",

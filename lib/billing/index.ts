@@ -1,6 +1,7 @@
 export * from "@/lib/billing/constants";
 export * from "@/lib/billing/env";
 export * from "@/lib/billing/plan-catalog";
+export * from "@/lib/billing/plan-entitlements";
 export * from "@/lib/billing/types";
 export * from "@/lib/billing/creator-access";
 export * from "@/lib/billing/lifecycle";

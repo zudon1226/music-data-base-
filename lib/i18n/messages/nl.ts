@@ -1,4 +1,4 @@
-import type { LocaleMessageDictionary } from "./en";
+﻿import type { LocaleMessageDictionary } from "./en";
 
 export const nlMessages: LocaleMessageDictionary = {
     common: {
@@ -358,6 +358,7 @@ export const nlMessages: LocaleMessageDictionary = {
             uploadProducerAlbum: "Upload Album",
             artistStudio: "Artist Studio",
             producerStudio: "Producer Studio",
+            podcastStudio: "Podcast Studio",
             artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
             producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
             studioKicker: "Creator Upload",
@@ -367,7 +368,7 @@ export const nlMessages: LocaleMessageDictionary = {
     artistDashboard: {
             title: "Artiestendashboard",
             subtitle: "Beheer je artiestenpresence en releases",
-            pageSubtitle: "Beheer artiestenprofielen, geüploade nummers en creator-analyses."
+            pageSubtitle: "Beheer artiestenprofielen, geÃ¼ploade nummers en creator-analyses."
         },
     producerDashboard: {
             title: "Producerdashboard",
@@ -376,7 +377,7 @@ export const nlMessages: LocaleMessageDictionary = {
         },
     platformControlCenter: {
             title: "Platformcontrolecentrum",
-            subtitle: "Monitor platformgezondheid, founding-onboarding en owner-operaties vanuit één dashboard.",
+            subtitle: "Monitor platformgezondheid, founding-onboarding en owner-operaties vanuit Ã©Ã©n dashboard.",
             pageSubtitle: "Monitor uploadfouten, mediabestanden, opruiming en back-ups.",
             ownerOnly: "Alleen owner",
             refreshDashboard: "Dashboard vernieuwen",
@@ -486,8 +487,8 @@ export const nlMessages: LocaleMessageDictionary = {
             saveFailed: "Kon de beltoon niet opslaan. Controleer het formulier en probeer opnieuw.",
             submitFailed: "Kon de beltoon niet indienen ter beoordeling.",
             draftSaved: "Concept opgeslagen.",
-            submitting: "Indienen ter beoordeling…",
-            savingDraft: "Concept opslaan…",
+            submitting: "Indienen ter beoordelingâ€¦",
+            savingDraft: "Concept opslaanâ€¦",
             duplicateFailed: "Kon deze beltoon niet dupliceren.",
             deleteFailed: "Kon deze beltoon niet verwijderen of archiveren.",
             actionCouldNotComplete: "De beltoonactie kon niet worden voltooid.",
@@ -495,9 +496,9 @@ export const nlMessages: LocaleMessageDictionary = {
             ringtoneArchivedInstead: "This ringtone has history and was archived instead. [nl]",
             ringtoneAlreadyArchived: "This ringtone is already archived. [nl]",
             confirmDeleteRingtone: "Delete this draft ringtone permanently? This cannot be undone. [nl]",
-            noOwnedSongs: "Je hebt nog geen geüploade nummers beschikbaar als beltoonbronnen.",
+            noOwnedSongs: "Je hebt nog geen geÃ¼ploade nummers beschikbaar als beltoonbronnen.",
             emptyList: "Je hebt nog geen beltonen gemaakt.",
-            loading: "Je beltonen laden…",
+            loading: "Je beltonen ladenâ€¦",
             search: "Beltonen zoeken",
             searchPlaceholder: "Zoeken op titel of bronnummer",
             filter: "Filteren",

@@ -1,6 +1,6 @@
 /** Client helpers for User Dashboard Phase 1 recently-played row sync. */
 
-export type RecentlyPlayedSyncMediaType = "song" | "video" | "beat" | "album" | "ringtone";
+export type RecentlyPlayedSyncMediaType = "song" | "video" | "beat" | "album" | "ringtone" | "podcast_episode";
 
 export type RecentlyPlayedSyncPayload = {
     userId: string;

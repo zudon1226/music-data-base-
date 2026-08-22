@@ -28,6 +28,12 @@ export type PlatformOverviewStats = {
     totalVideoViews: number;
     totalLikes: number;
     totalFollowers: number;
+    totalPodcastShows: number;
+    totalPodcastEpisodes: number;
+    totalPodcastAudioEpisodes: number;
+    totalPodcastVideoEpisodes: number;
+    totalPodcastAudioPlays: number;
+    totalPodcastVideoViews: number;
 };
 
 export type PlatformActivityItem = {

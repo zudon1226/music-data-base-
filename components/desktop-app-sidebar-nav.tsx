@@ -10,6 +10,7 @@ import {
     Heart,
     Home,
     ListMusic,
+    Mic2,
     Music2,
     Smartphone,
     Star,
@@ -33,6 +34,7 @@ import { useTranslation } from "../lib/i18n/provider";
 const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     Home: <Home size={17}/>,
     Marketplace: <Disc3 size={17}/>,
+    Podcasts: <Mic2 size={17}/>,
     Sales: <Upload size={17}/>,
     "License History": <BookOpen size={17}/>,
     Trending: <Zap size={17}/>,
@@ -45,6 +47,7 @@ const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     Playlists: <ListMusic size={17}/>,
     "Artist Dashboard": <BarChart3 size={17}/>,
     "Producer Dashboard": <Disc3 size={17}/>,
+    "Podcast Studio": <Mic2 size={17}/>,
     "My Ringtones": <Smartphone size={17}/>,
     "Ringtone Marketplace": <Smartphone size={17}/>,
     "My Purchased Ringtones": <Smartphone size={17}/>,
@@ -83,9 +86,11 @@ export function DesktopAppSidebarNav({
         const visibleItems = listVisibleDesktopNavItems(access);
         return visibleItems.map((item) => ({
             view: item.view,
-            label: t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]),
+            label: item.view === "Podcasts" || item.view === "Podcast Studio"
+                ? item.view
+                : t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]),
         }));
-    }, [access, locale, t]);
+    }, [access, t]);
 
     const handleNavClick = useMemo(
         () => createDesktopNavHandler({

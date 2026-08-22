@@ -41,12 +41,12 @@ const mutationMode = env.RLS_VERIFY_MUTATIONS === "1";
 const runToken = `${Date.now()}-${randomBytes(5).toString("hex")}`;
 const publicReadTables = new Set([
   "songs", "videos", "artist_profiles", "producer_profiles", "producer_beats",
-  "ringtone_products", "ringtone_reviews",
+  "ringtone_products", "ringtone_reviews", "podcast_shows", "podcast_episodes",
 ]);
 // Phase 4 private tables (no anon public read): ringtone_processing_jobs, ringtone_revisions, ringtone_moderation_logs
-const allBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-previews', 'ringtone-downloads'";
+const allBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-previews', 'ringtone-downloads', 'podcast-audio', 'podcast-video'";
 const publicBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'ringtone-previews'";
-const privateBuckets = "'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-downloads'";
+const privateBuckets = "'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-downloads', 'podcast-audio', 'podcast-video'";
 const owner = "(storage.foldername(name))[1] = auth.uid()::text";
 const admin = "public.is_platform_admin()";
 const storagePolicySpecifications = new Map([
@@ -709,7 +709,7 @@ async function storagePolicyProbes({ anon, userA, userB, platformAdmin, service 
   // Keep them in boundary policy definitions, but out of this probe loop.
   const requiredPublicBuckets = ["songs", "videos", "covers", "albums", "producer-beats"];
   const requiredPrivateBuckets = ["licenses", "downloads"];
-  const optionalPrivateBuckets = ["user-media-queues"];
+  const optionalPrivateBuckets = ["user-media-queues", "podcast-audio", "podcast-video"];
   const missingRequiredBuckets = [...requiredPublicBuckets, ...requiredPrivateBuckets].filter((name) => !buckets.has(name));
   record("all required application Storage buckets exist", missingRequiredBuckets.length === 0, {
     missing: missingRequiredBuckets,
@@ -816,6 +816,8 @@ async function storagePolicyProbes({ anon, userA, userB, platformAdmin, service 
     "user-media-queues": "application/json",
     "ringtone-source": "audio/mpeg",
     "ringtone-downloads": "audio/mpeg",
+    "podcast-audio": "audio/mpeg",
+    "podcast-video": "video/mp4",
   };
   const privateExtensions = {
     licenses: "pdf",
@@ -823,6 +825,8 @@ async function storagePolicyProbes({ anon, userA, userB, platformAdmin, service 
     "user-media-queues": "json",
     "ringtone-source": "mp3",
     "ringtone-downloads": "mp3",
+    "podcast-audio": "mp3",
+    "podcast-video": "mp4",
   };
 
   for (const privateBucket of privateBuckets) {

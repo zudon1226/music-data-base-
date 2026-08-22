@@ -115,6 +115,48 @@ async function sumColumn(supabase: SupabaseClient, table: string, column: string
     }, 0);
 }
 
+async function loadPodcastOverviewMetrics(supabase: SupabaseClient) {
+    const [showsResult, episodesResult, audioEpisodesResult, videoEpisodesResult] = await Promise.all([
+        countRows(supabase, "podcast_shows"),
+        countRows(supabase, "podcast_episodes"),
+        countRows(supabase, "podcast_episodes", [["episode_type", "eq", "audio"]]),
+        countRows(supabase, "podcast_episodes", [["episode_type", "eq", "video"]]),
+    ]);
+
+    let totalPodcastAudioPlays = 0;
+    let totalPodcastVideoViews = 0;
+    const pageSize = 1000;
+    let from = 0;
+    for (;;) {
+        const engagement = await supabase
+            .from("podcast_episodes")
+            .select("episode_type,play_count,view_count")
+            .range(from, from + pageSize - 1);
+        if (engagement.error || !engagement.data) break;
+        for (const row of engagement.data) {
+            const record = row as { episode_type?: string; play_count?: number | null; view_count?: number | null };
+            const episodeType = String(record.episode_type || "");
+            if (episodeType === "audio") {
+                totalPodcastAudioPlays += Math.max(0, Number(record.play_count || 0));
+            }
+            if (episodeType === "video") {
+                totalPodcastVideoViews += Math.max(0, Number(record.view_count || 0));
+            }
+        }
+        if (engagement.data.length < pageSize) break;
+        from += pageSize;
+    }
+
+    return {
+        totalPodcastShows: showsResult.count,
+        totalPodcastEpisodes: episodesResult.count,
+        totalPodcastAudioEpisodes: audioEpisodesResult.count,
+        totalPodcastVideoEpisodes: videoEpisodesResult.count,
+        totalPodcastAudioPlays,
+        totalPodcastVideoViews,
+    };
+}
+
 /**
  * Platform-wide completed media downloads.
  * Canonical source: public.media_downloads (one row per user+content; re-downloads bump download_count).
@@ -235,6 +277,7 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         videoDownloadsResult,
         albumDownloadsResult,
         ringtoneDownloadsResult,
+        podcastOverview,
     ] = await Promise.all([
         sumColumn(supabase, "songs", "plays"),
         sumColumn(supabase, "videos", "views"),
@@ -242,6 +285,7 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         sumDeliveredMediaDownloadCounts(supabase, "video"),
         sumDeliveredMediaDownloadCounts(supabase, "album"),
         countRows(supabase, "ringtone_downloads"),
+        loadPodcastOverviewMetrics(supabase),
     ]);
 
     const downloadQueryError = [
@@ -277,6 +321,12 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         totalVideoViews,
         totalLikes: songLikesResult.count + videoLikesResult.count,
         totalFollowers: followersResult.count,
+        totalPodcastShows: podcastOverview.totalPodcastShows,
+        totalPodcastEpisodes: podcastOverview.totalPodcastEpisodes,
+        totalPodcastAudioEpisodes: podcastOverview.totalPodcastAudioEpisodes,
+        totalPodcastVideoEpisodes: podcastOverview.totalPodcastVideoEpisodes,
+        totalPodcastAudioPlays: podcastOverview.totalPodcastAudioPlays,
+        totalPodcastVideoViews: podcastOverview.totalPodcastVideoViews,
     };
 
     let authOk = true;

@@ -57,6 +57,8 @@ export function translatePageTitle(view: string, t: TranslateFn, options: PageCo
         return options.isVideoSearch ? t("search.videoSearchTitle") : t("search.resultsTitle");
     }
     if (view === "Marketplace") return t("marketplace.fullTitle");
+    if (view === "Podcasts") return "Podcasts";
+    if (view === "Podcast Studio") return "Podcast Studio";
     if (view === "Artist Profile") return options.activeArtistName || t("nav.artistProfile");
     if (view === "Producer Profile") return options.activeProducerName || t("nav.producerProfile");
     if (view === "Home" && options.activeTab) {
@@ -71,6 +73,8 @@ export function translatePageTitle(view: string, t: TranslateFn, options: PageCo
 
 export function translatePageSubtitle(view: string, t: TranslateFn, options: PageCopyOptions = {}) {
     if (options.isSearch) return t("search.resultsSubtitle");
+    if (view === "Podcasts") return "Discover audio and video podcasts from Music Data Base creators.";
+    if (view === "Podcast Studio") return "Create, publish, and manage your podcast shows and episodes.";
     const subtitleKey = VIEW_SUBTITLE_KEYS[view as DesktopNavView];
     if (subtitleKey) return t(subtitleKey);
     return t("home.defaultSubtitle");

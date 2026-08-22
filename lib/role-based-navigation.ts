@@ -151,6 +151,7 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
 export const LISTENER_NAV_VIEWS = [
     "Home",
     "Marketplace",
+    "Podcasts",
     "Ringtone Marketplace",
     "My Purchased Ringtones",
     "Favorite Ringtones",
@@ -183,6 +184,7 @@ export function canAccessNavView(view: string, capabilities: NavCapabilityFlags)
     if (view === "Platform Control Center") return capabilities.canPlatformControlCenter;
     if (view === "Artist Dashboard" || view === "Artist Profile") return capabilities.canArtistDashboard;
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
+    if (view === "Podcast Studio") return capabilities.canUpload;
     if (view === "Sales") return capabilities.canSales;
     if (view === "My Ringtones") return capabilities.canMyRingtones;
     if ((LISTENER_ACCESSIBLE_VIEWS as readonly string[]).includes(view)) return true;

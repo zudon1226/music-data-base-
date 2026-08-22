@@ -1,4 +1,4 @@
-import type { LocaleMessageDictionary } from "./en";
+﻿import type { LocaleMessageDictionary } from "./en";
 
 export const filMessages: LocaleMessageDictionary = {
     common: {
@@ -358,6 +358,7 @@ export const filMessages: LocaleMessageDictionary = {
             uploadProducerAlbum: "Upload Album",
             artistStudio: "Artist Studio",
             producerStudio: "Producer Studio",
+            podcastStudio: "Podcast Studio",
             artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
             producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
             studioKicker: "Creator Upload",
@@ -486,7 +487,7 @@ export const filMessages: LocaleMessageDictionary = {
             saveFailed: "Hindi ma-save ang ringtone. Pakisuri ang form at subukang muli.",
             submitFailed: "Hindi maisumite ang ringtone para sa pagsusuri.",
             draftSaved: "Na-save ang draft.",
-            submitting: "Nagsusumite para sa pagsusuri…",
+            submitting: "Nagsusumite para sa pagsusuriâ€¦",
             savingDraft: "Sine-save ang draft...",
             duplicateFailed: "Hindi ma-duplicate ang ringtone na ito.",
             deleteFailed: "Hindi matanggal o ma-archive ang ringtone na ito.",
@@ -497,7 +498,7 @@ export const filMessages: LocaleMessageDictionary = {
             confirmDeleteRingtone: "Delete this draft ringtone permanently? This cannot be undone. [fil]",
             noOwnedSongs: "Wala ka pang anumang mga na-upload na kanta na magagamit bilang mga mapagkukunan ng ringtone.",
             emptyList: "Hindi ka pa nakakagawa ng anumang mga ringtone.",
-            loading: "Nilo-load ang iyong mga ringtone…",
+            loading: "Nilo-load ang iyong mga ringtoneâ€¦",
             search: "Maghanap ng mga ringtone",
             searchPlaceholder: "Maghanap ayon sa pamagat o pinagmulang kanta",
             filter: "Salain",

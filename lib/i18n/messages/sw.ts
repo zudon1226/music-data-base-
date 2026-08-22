@@ -1,4 +1,4 @@
-import type { LocaleMessageDictionary } from "./en";
+﻿import type { LocaleMessageDictionary } from "./en";
 
 export const swMessages: LocaleMessageDictionary = {
     common: {
@@ -358,6 +358,7 @@ export const swMessages: LocaleMessageDictionary = {
             uploadProducerAlbum: "Upload Album",
             artistStudio: "Artist Studio",
             producerStudio: "Producer Studio",
+            podcastStudio: "Podcast Studio",
             artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
             producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
             studioKicker: "Creator Upload",

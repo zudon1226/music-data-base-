@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CHECKOUT_UNAVAILABLE_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
+import { displayFeaturesForPlanRow } from "@/lib/billing/plan-entitlements";
 
 type FetchFn = (path: string, init?: RequestInit & { requireAuth?: boolean }) => Promise<Response>;
 
@@ -54,9 +55,13 @@ function formatMoney(cents: number, currency = "USD") {
     }
 }
 
-function featureList(features: Plan["features"]) {
-    if (Array.isArray(features)) return features.map(String);
-    return [];
+function planDisplayFeatures(plan: Plan) {
+    return displayFeaturesForPlanRow({
+        name: plan.name,
+        audience: plan.audience,
+        price_cents: plan.price_cents,
+        features: plan.features,
+    });
 }
 
 function isServerActivePlan(subscription: Subscription | null, planId: string) {
@@ -268,7 +273,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                             <span>{plan.audience}</span>
                             <strong>{plan.name}</strong>
                             <b>{formatMoney(plan.price_cents, plan.currency)}/{plan.billing_interval}</b>
-                            <small>{featureList(plan.features).join(" | ")}</small>
+                            <small>{planDisplayFeatures(plan).join(" | ")}</small>
                             <button
                                 disabled={busy || selected || !providers.length}
                                 onClick={() => void startCheckout(plan.id)}

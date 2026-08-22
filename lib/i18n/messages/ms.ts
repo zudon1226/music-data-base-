@@ -1,4 +1,4 @@
-import type { LocaleMessageDictionary } from "./en";
+﻿import type { LocaleMessageDictionary } from "./en";
 
 export const msMessages: LocaleMessageDictionary = {
     common: {
@@ -358,6 +358,7 @@ export const msMessages: LocaleMessageDictionary = {
             uploadProducerAlbum: "Upload Album",
             artistStudio: "Artist Studio",
             producerStudio: "Producer Studio",
+            podcastStudio: "Podcast Studio",
             artistStudioSubtitle: "Upload songs, albums, and videos with artist release metadata.",
             producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
             studioKicker: "Creator Upload",
@@ -486,8 +487,8 @@ export const msMessages: LocaleMessageDictionary = {
             saveFailed: "Tidak dapat menyimpan nada dering. Sila semak borang dan cuba semula.",
             submitFailed: "Tidak dapat menyerahkan nada dering untuk semakan.",
             draftSaved: "Draf disimpan.",
-            submitting: "Menyerahkan untuk semakan…",
-            savingDraft: "Menyimpan draf…",
+            submitting: "Menyerahkan untuk semakanâ€¦",
+            savingDraft: "Menyimpan drafâ€¦",
             duplicateFailed: "Tidak dapat menduplikasi nada dering ini.",
             deleteFailed: "Tidak dapat memadam atau mengarkibkan nada dering ini.",
             actionCouldNotComplete: "Tindakan nada dering tidak dapat diselesaikan.",
@@ -497,7 +498,7 @@ export const msMessages: LocaleMessageDictionary = {
             confirmDeleteRingtone: "Delete this draft ringtone permanently? This cannot be undone. [ms]",
             noOwnedSongs: "Anda masih belum mempunyai sebarang lagu yang dimuat naik sebagai sumber nada dering.",
             emptyList: "Anda belum mencipta sebarang nada dering lagi.",
-            loading: "Memuatkan nada dering anda…",
+            loading: "Memuatkan nada dering andaâ€¦",
             search: "Cari nada dering",
             searchPlaceholder: "Cari mengikut tajuk atau sumber lagu",
             filter: "Penapis",

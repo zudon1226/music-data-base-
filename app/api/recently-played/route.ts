@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MEDIA_TYPES = new Set(["song", "video", "beat", "album", "ringtone"]);
+const MEDIA_TYPES = new Set(["song", "video", "beat", "album", "ringtone", "podcast_episode"]);
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
