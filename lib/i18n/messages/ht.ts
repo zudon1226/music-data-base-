@@ -1,14 +1,14 @@
-﻿import type { LocaleMessageDictionary } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
 export const htMessages: LocaleMessageDictionary = {
     common: {
             appName: "Music Data Base",
             save: "Sove",
             cancel: "Anile",
-            close: "FÃ¨men",
+            close: "Fèmen",
             delete: "Efase",
             edit: "Modifye",
-            search: "ChÃ¨che",
+            search: "Chèche",
             filter: "Filtre",
             sort: "Klase",
             loading: "Ap chaje...",
@@ -17,14 +17,14 @@ export const htMessages: LocaleMessageDictionary = {
             upload: "Telechaje",
             logout: "Dekonekte",
             profile: "Pwofil",
-            settings: "ParamÃ¨t",
+            settings: "Paramèt",
             notifications: "Notifikasyon",
             yes: "Wi",
             no: "Non",
             back: "Retounen",
             next: "Suivan",
             submit: "Voye",
-            retry: "Eseye ankÃ²",
+            retry: "Eseye ankò",
             clear: "Efase",
             viewAll: "Gade tout",
             noResults: "Pa gen rezilta",
@@ -32,7 +32,7 @@ export const htMessages: LocaleMessageDictionary = {
             languageChanged: "Lang chanje an {language}"
         },
     nav: {
-            home: "AkÃ¨y",
+            home: "Akèy",
             marketplace: "Mache",
             sales: "Vant",
             licenseHistory: "Istwa lisans",
@@ -40,29 +40,29 @@ export const htMessages: LocaleMessageDictionary = {
             beats: "Beat",
             artists: "Atis",
             videos: "Videyo",
-            library: "BibliyotÃ¨k",
+            library: "Bibliyotèk",
             liked: "Renmen",
             following: "Ap swiv",
-            recentlyPlayed: "DÃ¨nye koute",
+            recentlyPlayed: "Dènye koute",
             queue: "Fil",
             playlists: "Lis mizik",
             profile: "Pwofil",
             artistDashboard: "Tablo atis",
-            producerDashboard: "Tablo pwodiktÃ¨",
-            platformControlCenter: "Sant kontwÃ²l platfÃ²m",
+            producerDashboard: "Tablo pwodiktè",
+            platformControlCenter: "Sant kontwòl platfòm",
             artistProfile: "Pwofil atis",
-            producerProfile: "Pwofil pwodiktÃ¨",
+            producerProfile: "Pwofil pwodiktè",
             mainNavigation: "Navigasyon prensipal"
         },
     auth: {
             createAccount: "Kreye kont ou",
             loginTitle: "Konekte sou Music Data Base",
-            signupSubtitle: "BibliyotÃ¨k ou, renmen ou, lis yo ak dÃ¨nye mizik ou yo rete ak kont Supabase ou.",
-            foundingSignupSubtitle: "Enskripsyon beta fondatÃ¨ mande yon kÃ²d envitasyon sÃ¨l-itilizasyon nan Music Data Base.",
+            signupSubtitle: "Bibliyotèk ou, renmen ou, lis yo ak dènye mizik ou yo rete ak kont Supabase ou.",
+            foundingSignupSubtitle: "Enskripsyon beta fondatè mande yon kòd envitasyon sèl-itilizasyon nan Music Data Base.",
             name: "Non",
             namePlaceholder: "Non ou",
-            inviteCode: "KÃ²d envitasyon",
-            inviteCodePlaceholder: "Envitasyon fondatÃ¨ sÃ¨l-itilizasyon",
+            inviteCode: "Kòd envitasyon",
+            inviteCodePlaceholder: "Envitasyon fondatè sèl-itilizasyon",
         accountType: "Account type",
         accountTypeHelp: "Choose how you plan to use Music Data Base. Creator accounts can still listen, save, purchase, and build playlists.",
         accountTypeListener: "Listener",
@@ -73,10 +73,10 @@ export const htMessages: LocaleMessageDictionary = {
             redeemInviteHelp: "Enter your founding invite code to attach it to this signed-in account.",
             redeemInviteSuccess: "Invite redeemed. Your founding application is pending owner approval.",
             redeemInviteSuccessApproved: "Invite redeemed. Welcome into Music Data Base.",
-            email: "ImÃ¨l",
+            email: "Imèl",
             emailPlaceholder: "ou@egzanp.com",
             password: "Modpas",
-            passwordPlaceholder: "Omwen 6 karaktÃ¨",
+            passwordPlaceholder: "Omwen 6 karaktè",
             signUp: "Enskri",
             login: "Konekte",
             switchToLogin: "Ou gen kont deja? Konekte",
@@ -84,30 +84,30 @@ export const htMessages: LocaleMessageDictionary = {
             signOut: "Dekonekte",
             approvalPending: "Apwobasyon an tann",
             inviteRequired: "Envitasyon obligatwa",
-            accessNotApproved: "AksÃ¨ pa apwouve",
-            assignedRole: "WÃ²l assigne: {role}",
-            signedInAs: "Konekte kÃ²m {name}",
-            openingLibrary: "Ap ouvri bibliyotÃ¨k ou...",
-            loadingLibrary: "Ap chaje bibliyotÃ¨k mizik ou..."
+            accessNotApproved: "Aksè pa apwouve",
+            assignedRole: "Wòl assigne: {role}",
+            signedInAs: "Konekte kòm {name}",
+            openingLibrary: "Ap ouvri bibliyotèk ou...",
+            loadingLibrary: "Ap chaje bibliyotèk mizik ou..."
         },
     header: {
             gridView: "View kadriyaj",
             listView: "View lis",
-            cardViewMode: "MÃ²d view kat",
+            cardViewMode: "Mòd view kat",
             artistShort: "Atis",
-            producerShort: "PwodiktÃ¨",
-            ownerAccessRequired: "AksÃ¨ administratÃ¨ pwopriyetÃ¨ nesesÃ¨ pou kontwÃ²l platfÃ²m yo."
+            producerShort: "Pwodiktè",
+            ownerAccessRequired: "Aksè administratè pwopriyetè nesesè pou kontwòl platfòm yo."
         },
     stats: {
             ariaLabel: "Estatistik mizik",
             tracks: "Mizik",
-            library: "BibliyotÃ¨k",
+            library: "Bibliyotèk",
             videos: "Videyo",
             plays: "Lekti"
         },
     home: {
-            title: "AkÃ¨y",
-            welcome: "Byenveni ankÃ²",
+            title: "Akèy",
+            welcome: "Byenveni ankò",
             discover: "Dekouvri mizik ak videyo",
             defaultSubtitle: "Eksplore mizik epi kenbe favori ou tou pre.",
             tabs: {
@@ -115,7 +115,7 @@ export const htMessages: LocaleMessageDictionary = {
                         newReleases: "Nouvo piblikasyon",
                         beats: "Beat",
                         artists: "Atis",
-                        producers: "PwodiktÃ¨",
+                        producers: "Pwodiktè",
                         hipHop: "Hip Hop",
                         rnb: "R&B",
                         trap: "Trap",
@@ -127,32 +127,32 @@ export const htMessages: LocaleMessageDictionary = {
             title: "Mache",
             fullTitle: "Mache Mizik",
             browse: "Gade lis sou mache a",
-            pageSubtitle: "Eksplore boutik atis, boutik pwodiktÃ¨, piblikasyon, klasman ak filt mache."
+            pageSubtitle: "Eksplore boutik atis, boutik pwodiktè, piblikasyon, klasman ak filt mache."
         },
     trending: {
             title: "Tandans",
-            subtitle: "Mizik ak videyo popilÃ¨ kounye a",
-            pageSubtitle: "Mizik ak videyo popilÃ¨ kounye a"
+            subtitle: "Mizik ak videyo popilè kounye a",
+            pageSubtitle: "Mizik ak videyo popilè kounye a"
         },
     beats: {
             title: "Beat",
-            subtitle: "Eksplore beat pwodiktÃ¨ yo",
-            pageSubtitle: "Eksplore beat pwodiktÃ¨ yo"
+            subtitle: "Eksplore beat pwodiktè yo",
+            pageSubtitle: "Eksplore beat pwodiktè yo"
         },
     artists: {
             title: "Atis",
-            subtitle: "Dekouvri atis sou platfÃ²m nan",
-            pageSubtitle: "Eksplore pwofil atis, mizik, videyo epi swiv kreyatÃ¨ yo."
+            subtitle: "Dekouvri atis sou platfòm nan",
+            pageSubtitle: "Eksplore pwofil atis, mizik, videyo epi swiv kreyatè yo."
         },
     search: {
-            title: "ChÃ¨che",
-            placeholder: "ChÃ¨che mizik, videyo, atis...",
-            extendedPlaceholder: "ChÃ¨che mizik, videyo, album, atis...",
+            title: "Chèche",
+            placeholder: "Chèche mizik, videyo, atis...",
+            extendedPlaceholder: "Chèche mizik, videyo, album, atis...",
             suggestions: "Sijesyon",
-            popularSearches: "RechÃ¨ch popilÃ¨",
-            resultsTitle: "Rezilta rechÃ¨ch",
-            videoSearchTitle: "RechÃ¨ch videyo",
-            resultsSubtitle: "Mizik, videyo, album, atis ak pwodiktÃ¨ ki matche ak rechÃ¨ch ou."
+            popularSearches: "Rechèch popilè",
+            resultsTitle: "Rezilta rechèch",
+            videoSearchTitle: "Rechèch videyo",
+            resultsSubtitle: "Mizik, videyo, album, atis ak pwodiktè ki matche ak rechèch ou."
         },
     following: {
             title: "Ap swiv",
@@ -161,16 +161,16 @@ export const htMessages: LocaleMessageDictionary = {
         },
     favorites: {
             title: "Favori",
-            empty: "Pa gen favori ankÃ².",
+            empty: "Pa gen favori ankò.",
             pageSubtitle: "Mizik, videyo ak atis ou renmen yo."
         },
     library: {
-            title: "BibliyotÃ¨k",
-            empty: "BibliyotÃ¨k ou vid.",
-            pageSubtitle: "Mizik, videyo ak album nan bibliyotÃ¨k ou."
+            title: "Bibliyotèk",
+            empty: "Bibliyotèk ou vid.",
+            pageSubtitle: "Mizik, videyo ak album nan bibliyotèk ou."
         },
     recentlyPlayed: {
-            title: "DÃ¨nye koute",
+            title: "Dènye koute",
             empty: "Pa gen anyen koute resamman.",
             pageSubtitle: "Chak lekti sove isit la, menm repete yo."
         },
@@ -178,7 +178,7 @@ export const htMessages: LocaleMessageDictionary = {
             title: "Fil",
             empty: "Fil ou a vid.",
             nowPlaying: "Ap jwe kounye a",
-            pageSubtitle: "Mizik ak videyo nan fil pou lektÃ¨ a.",
+            pageSubtitle: "Mizik ak videyo nan fil pou lektè a.",
             clearQueue: "Efase fil la",
             mediaQueued: "{count} medya nan fil",
             remove: "Retire",
@@ -186,17 +186,17 @@ export const htMessages: LocaleMessageDictionary = {
         },
     playlists: {
             title: "Lis mizik",
-            empty: "Pa gen lis ankÃ².",
+            empty: "Pa gen lis ankò.",
             create: "Kreye lis",
-            pageSubtitle: "Kreye lis, ajoute mizik, mete kouvÃ¨ti epi jwe yo san rete."
+            pageSubtitle: "Kreye lis, ajoute mizik, mete kouvèti epi jwe yo san rete."
         },
     albums: {
-            title: "AlbÃ²m",
-            empty: "Pa gen albÃ²m ankÃ²."
+            title: "Albòm",
+            empty: "Pa gen albòm ankò."
         },
     sales: {
             title: "Vant",
-            pageSubtitle: "PanyÃ¨, istwa acha ak depo telechajman."
+            pageSubtitle: "Panyè, istwa acha ak depo telechajman."
         },
     licenseHistory: {
             title: "Istwa lisans",
@@ -206,24 +206,24 @@ export const htMessages: LocaleMessageDictionary = {
             pageSubtitle: "Mizik, album, lis ak estatistik atis la."
         },
     producerProfile: {
-            pageSubtitle: "Kredi pwodiktÃ¨, lisans beat ak pwodiksyon yo."
+            pageSubtitle: "Kredi pwodiktè, lisans beat ak pwodiksyon yo."
         },
     profile: {
             title: "Pwofil",
-            accountSettings: "ParamÃ¨t kont",
+            accountSettings: "Paramèt kont",
             preferredLanguage: "Lang prefere",
-            role: "WÃ²l",
+            role: "Wòl",
             stats: "Estatistik pwofil",
             pageSubtitle: "Kont ou ak estati senkronizasyon mizik ou sove yo.",
-            userProfile: "Pwofil itilizatÃ¨"
+            userProfile: "Pwofil itilizatè"
         },
     settings: {
-            title: "ParamÃ¨t",
-            languageDescription: "Chwazi lang ou vle wÃ¨. Kontni itilizatÃ¨ yo rete nan lang orijinal yo."
+            title: "Paramèt",
+            languageDescription: "Chwazi lang ou vle wè. Kontni itilizatè yo rete nan lang orijinal yo."
         },
     notifications: {
             title: "Notifikasyon",
-            empty: "Pa gen notifikasyon ankÃ².",
+            empty: "Pa gen notifikasyon ankò.",
             pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
@@ -315,11 +315,11 @@ export const htMessages: LocaleMessageDictionary = {
                     }
         },
     testAccountCleanup: {
-            title: "Sant netwayaj kont tÃ¨s",
-            subtitle: "Revizyon ak efase sekirize kont tÃ¨s jetab, pwopriyetÃ¨ sÃ¨lman",
+            title: "Sant netwayaj kont tès",
+            subtitle: "Revizyon ak efase sekirize kont tès jetab, pwopriyetè sèlman",
             refreshReviewList: "Rafrechi lis revizyon",
             dryRun: "Preview netwayaj san efase",
-            deleteSelected: "Efase kont tÃ¨s chwazi a",
+            deleteSelected: "Efase kont tès chwazi a",
             dependencyPreview: "Preview depandans",
             safeToDelete: "Netwayaj la sanble an sekirite pou kont sa a.",
             blocked: "Netwayaj la bloke pou kont sa a."
@@ -337,7 +337,7 @@ export const htMessages: LocaleMessageDictionary = {
             volume: "Volim",
             mute: "Silans",
             unmute: "Retabli son",
-            playbackProgress: "PwogrÃ¨ lekti",
+            playbackProgress: "Pwogrè lekti",
             queueCount: "Fil {count}"
         },
     video: {
@@ -345,13 +345,13 @@ export const htMessages: LocaleMessageDictionary = {
             play: "Jwe videyo",
             pause: "Poze videyo",
             fullscreen: "Plen ekran",
-            pageSubtitle: "Telechaje, gade, chÃ¨che epi retire videyo san melanje yo ak mizik."
+            pageSubtitle: "Telechaje, gade, chèche epi retire videyo san melanje yo ak mizik."
         },
     upload: {
             title: "Telechaje",
             uploadSong: "Telechaje mizik",
             uploadVideo: "Telechaje videyo",
-            uploadAlbum: "Telechaje albÃ²m",
+            uploadAlbum: "Telechaje albòm",
             uploadBeat: "Upload Beat",
             uploadInstrumental: "Upload Instrumental",
             uploadProducerVideo: "Upload Video",
@@ -363,64 +363,64 @@ export const htMessages: LocaleMessageDictionary = {
             producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
             studioKicker: "Creator Upload",
             switchStudio: "Switch studio",
-            lockedMessage: "Telechajman yo fÃ¨men tanporÃ¨man pandan Music Data Base ap konstwi."
+            lockedMessage: "Telechajman yo fèmen tanporèman pandan Music Data Base ap konstwi."
         },
     artistDashboard: {
             title: "Tablo atis",
             subtitle: "Jere prezans atis ou ak piblikasyon yo",
-            pageSubtitle: "Jere pwofil atis, mizik telechaje ak analiz kreyatÃ¨."
+            pageSubtitle: "Jere pwofil atis, mizik telechaje ak analiz kreyatè."
         },
     producerDashboard: {
-            title: "Tablo pwodiktÃ¨",
+            title: "Tablo pwodiktè",
             subtitle: "Jere beat, vant ak lisans",
             pageSubtitle: "Jere beat, lisans, kredi, lwe, telechajman ak peman."
         },
     platformControlCenter: {
-            title: "Sant kontwÃ²l platfÃ²m",
-            subtitle: "Siveye sante platfÃ²m, onboarding fondatÃ¨ ak operasyon pwopriyetÃ¨.",
-            pageSubtitle: "Siveye echÃ¨k telechajman, fichye medya, netwayaj ak backup.",
-            ownerOnly: "PwopriyetÃ¨ sÃ¨lman",
+            title: "Sant kontwòl platfòm",
+            subtitle: "Siveye sante platfòm, onboarding fondatè ak operasyon pwopriyetè.",
+            pageSubtitle: "Siveye echèk telechajman, fichye medya, netwayaj ak backup.",
+            ownerOnly: "Pwopriyetè sèlman",
             refreshDashboard: "Rafrechi tablo",
             refreshing: "Ap rafrechi...",
-            platformOverview: "ApÃ¨si platfÃ²m",
-            systemHealth: "Sante sistÃ¨m",
+            platformOverview: "Apèsi platfòm",
+            systemHealth: "Sante sistèm",
             recentActivity: "Aktivite resan",
             noRecentActivity: "Pa gen aktivite resan.",
-            lastRefreshed: "DÃ¨nye rafrechi: {time}",
+            lastRefreshed: "Dènye rafrechi: {time}",
             notLoadedYet: "Poko chaje"
         },
     foundingOnboarding: {
-            title: "KontwÃ²l onboarding fondatÃ¨",
+            title: "Kontwòl onboarding fondatè",
             subtitle: "Revize manm ki an tann epi jere envitasyon yo"
         },
     dialogs: {
             confirm: "Konfime",
-            areYouSure: "Ou sÃ¨ten?",
-            cannotUndo: "Ou pa ka defÃ¨ aksyon sa a."
+            areYouSure: "Ou sèten?",
+            cannotUndo: "Ou pa ka defè aksyon sa a."
         },
     errors: {
-            generic: "Yon bagay mal pase. Eseye ankÃ².",
-            network: "ErÃ¨ rezo. Verifye koneksyon ou epi eseye ankÃ².",
+            generic: "Yon bagay mal pase. Eseye ankò.",
+            network: "Erè rezo. Verifye koneksyon ou epi eseye ankò.",
             unauthorized: "Ou dwe konekte pou kontinye.",
-            forbidden: "Ou pa gen pÃ¨misyon pou fÃ¨ aksyon sa a.",
+            forbidden: "Ou pa gen pèmisyon pou fè aksyon sa a.",
             notFound: "Atik la pa jwenn.",
-            sessionExpired: "Sesyon ou fin ekspire. Konekte ankÃ²."
+            sessionExpired: "Sesyon ou fin ekspire. Konekte ankò."
         },
     emptyStates: {
-            noSongs: "Pa gen mizik disponib ankÃ².",
-            noVideos: "Pa gen videyo disponib ankÃ².",
-            noItems: "Pa gen anyen isit ankÃ²."
+            noSongs: "Pa gen mizik disponib ankò.",
+            noVideos: "Pa gen videyo disponib ankò.",
+            noItems: "Pa gen anyen isit ankò."
         },
     mobile: {
             navigation: "Navigasyon mobil",
             openMenu: "Ouvri meni",
-            closeMenu: "FÃ¨men meni"
+            closeMenu: "Fèmen meni"
         },
     languageSelector: {
             title: "Chwazi lang",
-            searchPlaceholder: "ChÃ¨che lang...",
-            currentLanguage: "Lang aktyÃ¨l: {language}",
-            noMatches: "Pa gen lang ki matche ak rechÃ¨ch ou."
+            searchPlaceholder: "Chèche lang...",
+            currentLanguage: "Lang aktyèl: {language}",
+            noMatches: "Pa gen lang ki matche ak rechèch ou."
         },
     formatting: {
             currencyLabel: "Pri"
@@ -431,12 +431,12 @@ export const htMessages: LocaleMessageDictionary = {
             create: "Kreye sonnri",
             upload: "Telechaje sonnri",
             createFromSong: "Kreye apati yon chante",
-            preview: "AperÃ§u",
+            preview: "Aperçu",
             purchase: "Achte",
             downloadForIphone: "Telechaje pou iPhone",
             downloadForAndroid: "Telechaje pou Android",
             installationInstructions: "Enstriksyon enstalasyon",
-            clipStart: "KÃ²mansman kli",
+            clipStart: "Kòmansman kli",
             clipEnd: "Fen kli",
             duration: "Dire",
             price: "Pri",
@@ -452,11 +452,11 @@ export const htMessages: LocaleMessageDictionary = {
             suspended: "Sispann",
             archived: "Achive",
             ownershipConfirmation: "Mwen konfime mwen posede oswa mwen gen otorizasyon pou itilize odyo sa a",
-            iphoneInstallHint: "Enstale ak aplikasyon Files ak GarageBand. Aplikasyon wÃ¨b sa a pa ka mete yon sonnri iPhone dirÃ¨kteman.",
-            androidInstallHint: "Sove MP3 a epi asiyen li kÃ²m sonnri nan anviwÃ²nman son Android ou.",
+            iphoneInstallHint: "Enstale ak aplikasyon Files ak GarageBand. Aplikasyon wèb sa a pa ka mete yon sonnri iPhone dirèkteman.",
+            androidInstallHint: "Sove MP3 a epi asiyen li kòm sonnri nan anviwònman son Android ou.",
             maxDurationHint: "Sonnri yo dwe dire ant 15 ak 30 segonn.",
             creatorSubtitle: "Kreye, pre-ekoute epi jere pwodui sonnri apati chante ou posede oswa telechajman otorize.",
-            creatorAccessDenied: "Kreyasyon sonnri disponib sÃ¨lman pou atis, pwodiktÃ¨, kreyatÃ¨ apwouve, ak pwopriyetÃ¨ platfÃ²m lan.",
+            creatorAccessDenied: "Kreyasyon sonnri disponib sèlman pou atis, pwodiktè, kreyatè apwouve, ak pwopriyetè platfòm lan.",
             chooseSource: "Chwazi sous",
             existingSong: "Chante ki egziste deja",
             uploadSource: "Telechaje sous",
@@ -464,13 +464,13 @@ export const htMessages: LocaleMessageDictionary = {
             productDetails: "Detay pwodui",
             review: "Revizyon",
             saveDraft: "Sove bouyon",
-            submitForReview: "SoumÃ¨t pou revizyon",
-            saveOrSubmit: "Sove oswa soumÃ¨t",
+            submitForReview: "Soumèt pou revizyon",
+            saveOrSubmit: "Sove oswa soumèt",
             rejectionReason: "Rezon refi",
             iphoneReady: "Pare pou iPhone",
             androidReady: "Pare pou Android",
             previewRingtone: "Pre-ekoute sonnri",
-            pausePreview: "Poz aperÃ§u",
+            pausePreview: "Poz aperçu",
             uploading: "Ap telechaje",
             ready: "Pare",
             failed: "Echwe",
@@ -479,16 +479,16 @@ export const htMessages: LocaleMessageDictionary = {
             sourceDuration: "Dire sous la",
             sourceTooShort: "Odyo sous la dwe dire omwen 15 segonn.",
             ownershipRequired: "Konfime pwopriyete a anvan ou telechaje odyo sous sonnri a.",
-            unsupportedAudioType: "FÃ²ma odyo sa a pa sipÃ²te pou sous sonnri.",
-            fileTooLarge: "Fichye odyo sa a depase limit gwosÃ¨ sous sonnri a.",
-            uploadFailed: "Telechajman sous sonnri a echwe. Tanpri eseye ankÃ².",
-            previewUnavailable: "AperÃ§u odyo a poko disponib pou sonnri sa a.",
+            unsupportedAudioType: "Fòma odyo sa a pa sipòte pou sous sonnri.",
+            fileTooLarge: "Fichye odyo sa a depase limit gwosè sous sonnri a.",
+            uploadFailed: "Telechajman sous sonnri a echwe. Tanpri eseye ankò.",
+            previewUnavailable: "Aperçu odyo a poko disponib pou sonnri sa a.",
             invalidPrice: "Antre yon pri valab ki egal oswa pi gran pase zewo.",
-            saveFailed: "Pa t kapab sove sonnri a. Verifye fÃ²m nan epi eseye ankÃ².",
-            submitFailed: "Pa t kapab soumÃ¨t sonnri a pou revizyon.",
+            saveFailed: "Pa t kapab sove sonnri a. Verifye fòm nan epi eseye ankò.",
+            submitFailed: "Pa t kapab soumèt sonnri a pou revizyon.",
             draftSaved: "Bouyon sove.",
-            submitting: "Ap soumÃ¨t pou revizyonâ€¦",
-            savingDraft: "Ap sove bouyonâ€¦",
+            submitting: "Ap soumèt pou revizyon…",
+            savingDraft: "Ap sove bouyon…",
             duplicateFailed: "Pa t kapab kopi sonnri sa a.",
             deleteFailed: "Pa t kapab efase oswa achive sonnri sa a.",
             actionCouldNotComplete: "Aksyon ringtone a pa t kapab fini.",
@@ -496,11 +496,11 @@ export const htMessages: LocaleMessageDictionary = {
             ringtoneArchivedInstead: "This ringtone has history and was archived instead. [ht]",
             ringtoneAlreadyArchived: "This ringtone is already archived. [ht]",
             confirmDeleteRingtone: "Delete this draft ringtone permanently? This cannot be undone. [ht]",
-            noOwnedSongs: "Ou poko gen chante telechaje ki disponib kÃ²m sous sonnri.",
+            noOwnedSongs: "Ou poko gen chante telechaje ki disponib kòm sous sonnri.",
             emptyList: "Ou poko kreye okenn sonnri.",
-            loading: "Ap chaje sonnri ou yoâ€¦",
-            search: "ChÃ¨che sonnri",
-            searchPlaceholder: "ChÃ¨che pa tit oswa chante sous",
+            loading: "Ap chaje sonnri ou yo…",
+            search: "Chèche sonnri",
+            searchPlaceholder: "Chèche pa tit oswa chante sous",
             filter: "Filtre",
             filterAll: "Tout",
             sort: "Triye",
@@ -519,21 +519,21 @@ export const htMessages: LocaleMessageDictionary = {
             requestRevision: "Retounen nan revizyon",
             titleField: "Tit",
             description: "Deskripsyon",
-            artworkUrl: "URL kouvÃ¨ti",
+            artworkUrl: "URL kouvèti",
             currency: "Lajan",
             explicitContent: "Kontni eksplisit",
-            filePreparationNotice: "Fichye iPhone ak Android prepare sou sÃ¨vÃ¨ a apre revizyon. Yo pa itilize konvÃ¨syon sÃ¨lman nan navigatÃ¨.",
-            noDirectPublishHint: "KreyatÃ¨ yo ka sove bouyon oswa soumÃ¨t pou revizyon. Piblikasyon an mande apwobasyon pwopriyetÃ¨ oswa administratÃ¨.",
+            filePreparationNotice: "Fichye iPhone ak Android prepare sou sèvè a apre revizyon. Yo pa itilize konvèsyon sèlman nan navigatè.",
+            noDirectPublishHint: "Kreyatè yo ka sove bouyon oswa soumèt pou revizyon. Piblikasyon an mande apwobasyon pwopriyetè oswa administratè.",
             back: "Retounen",
             next: "Apre",
             cancel: "Anile",
-            pageSubtitle: "Kreye epi jere katalÃ²g sonnri ou.",
+            pageSubtitle: "Kreye epi jere katalòg sonnri ou.",
             marketplaceSubtitle: "Pre-ekoute, mete nan favori, achte epi telechaje sonnri an sekirite.",
             purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
             favoritesSubtitle: "Ringtones you saved as favorites.",
             browseMarketplace: "Browse Ringtone Marketplace",
             play: "Play",
-            featuredRingtones: "Sonnri an vedÃ¨t",
+            featuredRingtones: "Sonnri an vedèt",
             trendingRingtones: "Sonnri ki gen tandans",
             newRingtones: "Nouvo sonnri",
             freeRingtones: "Sonnri gratis",
@@ -543,7 +543,7 @@ export const htMessages: LocaleMessageDictionary = {
             getFree: "Pran gratis",
             alreadyOwned: "Deja posede",
             paymentPending: "Peman ap tann",
-            paymentPendingProvider: "Peman ap tann. Konplete peman an ak founisÃ¨ peman ki konekte a pou debloke telechajman yo.",
+            paymentPendingProvider: "Peman ap tann. Konplete peman an ak founisè peman ki konekte a pou debloke telechajman yo.",
             purchasingComingSoon: "Byento",
             purchasingUnavailable: "Acha ringtone ki peye a pa disponib kounye a.",
             paymentCompleted: "Peman fini",
@@ -556,46 +556,46 @@ export const htMessages: LocaleMessageDictionary = {
             unfavorite: "Retire favori",
             openGarageBand: "Louvri GarageBand",
             purchaseHistory: "Istwa acha",
-            downloadAgain: "Telechaje ankÃ²",
-            relatedRingtones: "Sonnri ki gen rapÃ²",
-            moreFromCreator: "Plis nan men kreyatÃ¨ sa a",
-            recentlyAdded: "Ajoute dÃ¨nyÃ¨man",
-            popularCreators: "KreyatÃ¨ popilÃ¨",
-            creator: "KreyatÃ¨",
+            downloadAgain: "Telechaje ankò",
+            relatedRingtones: "Sonnri ki gen rapò",
+            moreFromCreator: "Plis nan men kreyatè sa a",
+            recentlyAdded: "Ajoute dènyèman",
+            popularCreators: "Kreyatè popilè",
+            creator: "Kreyatè",
             explicitBadge: "Eksplisit",
-            cleanBadge: "PwÃ²p",
+            cleanBadge: "Pwòp",
             details: "Detay",
             receipt: "Resi",
             reviewSummary: "Revizyon",
-            marketplaceSearchPlaceholder: "ChÃ¨che tit, kreyatÃ¨, oswa chante sous",
+            marketplaceSearchPlaceholder: "Chèche tit, kreyatè, oswa chante sous",
             applyFilters: "Aplike",
-            sortFeatured: "An vedÃ¨t",
+            sortFeatured: "An vedèt",
             sortMostPurchased: "Pi achte",
             sortMostDownloaded: "Pi telechaje",
             sortMostFavorited: "Pi favori",
             sortPriceLow: "Pri ki pi ba a pi wo",
             sortPriceHigh: "Pri ki pi wo a pi ba",
-            marketplaceEmpty: "Okenn sonnri pibliye pa koresponn ak filtÃ¨ sa yo.",
+            marketplaceEmpty: "Okenn sonnri pibliye pa koresponn ak filtè sa yo.",
             purchasedEmpty: "Ou poko achte okenn sonnri.",
             favoritesEmpty: "Ou poko mete okenn sonnri nan favori.",
-            loginToViewPurchases: "Konekte pou wÃ¨ sonnri ou achte yo.",
+            loginToViewPurchases: "Konekte pou wè sonnri ou achte yo.",
             loginToFavorite: "Konekte pou sove sonnri favori.",
             marketplaceLoadFailed: "Pa t kapab chaje mache sonnri a.",
             purchaseHistoryLoadFailed: "Pa t kapab chaje istwa acha sonnri yo.",
             favoritesLoadFailed: "Pa t kapab chaje sonnri favori yo.",
             detailLoadFailed: "Pa t kapab chaje sonnri sa a.",
             favoriteFailed: "Pa t kapab mete ajou favori a.",
-            purchaseFailed: "Pa t kapab kÃ²manse acha sonnri a.",
+            purchaseFailed: "Pa t kapab kòmanse acha sonnri a.",
             downloadFailed: "Pa t kapab kreye yon lyen telechajman sekirize.",
-            downloadStarted: "Telechajman sekirize kÃ²manse.",
-            platformFees: "FrÃ¨ platfÃ²m",
+            downloadStarted: "Telechajman sekirize kòmanse.",
+            platformFees: "Frè platfòm",
             ringtoneReviewQueue: "Fil revizyon sonnri",
-            ringtoneReviewQueueSubtitle: "Revize sonnri trete, apwouve oswa refize soumÃ¨t yo, epi pibliye pwodui ki pare pou mache a.",
+            ringtoneReviewQueueSubtitle: "Revize sonnri trete, apwouve oswa refize soumèt yo, epi pibliye pwodui ki pare pou mache a.",
             processingQueue: "Fil trete",
-            processingStarted: "Trete kÃ²manse",
+            processingStarted: "Trete kòmanse",
             processingCompleted: "Trete fini",
             processingFailed: "Trete echwe",
-            submittedForReview: "SoumÃ¨t pou revizyon",
+            submittedForReview: "Soumèt pou revizyon",
             approveRingtone: "Apwouve sonnri",
             rejectRingtone: "Refize sonnri",
             publishRingtone: "Pibliye sonnri",
@@ -606,7 +606,7 @@ export const htMessages: LocaleMessageDictionary = {
             processingDetails: "Detay trete",
             iphoneFileReady: "Fichye iPhone pare",
             androidFileReady: "Fichye Android pare",
-            previewReady: "AperÃ§u pare",
+            previewReady: "Aperçu pare",
             moderationHistory: "Istwa moderasyon",
             requestReprocessing: "Mande re-trete",
             reviewQueueEmpty: "Okenn sonnri pa koresponn ak filtre revizyon sa a.",

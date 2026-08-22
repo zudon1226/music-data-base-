@@ -1,4 +1,4 @@
-﻿import type { LocaleMessageDictionary } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
 export const zuMessages: LocaleMessageDictionary = {
     common: {

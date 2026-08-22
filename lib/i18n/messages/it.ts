@@ -1,4 +1,4 @@
-﻿import type { LocaleMessageDictionary } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
 export const itMessages: LocaleMessageDictionary = {
     common: {
@@ -19,7 +19,7 @@ export const itMessages: LocaleMessageDictionary = {
             profile: "Profilo",
             settings: "Impostazioni",
             notifications: "Notifiche",
-            yes: "SÃ¬",
+            yes: "Sì",
             no: "No",
             back: "Indietro",
             next: "Avanti",
@@ -79,7 +79,7 @@ export const itMessages: LocaleMessageDictionary = {
             passwordPlaceholder: "Almeno 6 caratteri",
             signUp: "Registrati",
             login: "Accedi",
-            switchToLogin: "Hai giÃ  un account? Accedi",
+            switchToLogin: "Hai già un account? Accedi",
             switchToSignup: "Serve un account? Registrati",
             signOut: "Esci",
             approvalPending: "Approvazione in sospeso",
@@ -93,10 +93,10 @@ export const itMessages: LocaleMessageDictionary = {
     header: {
             gridView: "Vista griglia",
             listView: "Vista elenco",
-            cardViewMode: "ModalitÃ  vista schede",
+            cardViewMode: "Modalità vista schede",
             artistShort: "Artista",
             producerShort: "Produttore",
-            ownerAccessRequired: "Per i controlli della piattaforma Ã¨ necessario l'accesso amministratore owner."
+            ownerAccessRequired: "Per i controlli della piattaforma è necessario l'accesso amministratore owner."
         },
     stats: {
             ariaLabel: "Statistiche musicali",
@@ -166,7 +166,7 @@ export const itMessages: LocaleMessageDictionary = {
         },
     library: {
             title: "Libreria",
-            empty: "La tua libreria Ã¨ vuota.",
+            empty: "La tua libreria è vuota.",
             pageSubtitle: "Brani, video e album nella tua libreria."
         },
     recentlyPlayed: {
@@ -176,7 +176,7 @@ export const itMessages: LocaleMessageDictionary = {
         },
     queue: {
             title: "Coda",
-            empty: "La tua coda Ã¨ vuota.",
+            empty: "La tua coda è vuota.",
             nowPlaying: "In riproduzione",
             pageSubtitle: "Brani e video in coda per il player.",
             clearQueue: "Svuota coda",
@@ -322,7 +322,7 @@ export const itMessages: LocaleMessageDictionary = {
             deleteSelected: "Elimina account di test selezionato",
             dependencyPreview: "Anteprima dipendenze",
             safeToDelete: "La pulizia sembra sicura per questo account.",
-            blocked: "La pulizia Ã¨ bloccata per questo account."
+            blocked: "La pulizia è bloccata per questo account."
         },
     player: {
             play: "Riproduci",
@@ -363,7 +363,7 @@ export const itMessages: LocaleMessageDictionary = {
             producerStudioSubtitle: "Upload songs, beats, instrumentals, albums, and videos with production metadata.",
             studioKicker: "Creator Upload",
             switchStudio: "Switch studio",
-            lockedMessage: "I caricamenti sono temporaneamente disabilitati mentre Music Data Base Ã¨ in costruzione."
+            lockedMessage: "I caricamenti sono temporaneamente disabilitati mentre Music Data Base è in costruzione."
         },
     artistDashboard: {
             title: "Dashboard artista",
@@ -384,8 +384,8 @@ export const itMessages: LocaleMessageDictionary = {
             refreshing: "Aggiornamento...",
             platformOverview: "Panoramica piattaforma",
             systemHealth: "Salute del sistema",
-            recentActivity: "AttivitÃ  recente",
-            noRecentActivity: "Nessuna attivitÃ  recente.",
+            recentActivity: "Attività recente",
+            noRecentActivity: "Nessuna attività recente.",
             lastRefreshed: "Ultimo aggiornamento: {time}",
             notLoadedYet: "Non ancora caricato"
         },
@@ -396,20 +396,20 @@ export const itMessages: LocaleMessageDictionary = {
     dialogs: {
             confirm: "Conferma",
             areYouSure: "Sei sicuro?",
-            cannotUndo: "Questa azione non puÃ² essere annullata."
+            cannotUndo: "Questa azione non può essere annullata."
         },
     errors: {
-            generic: "Qualcosa Ã¨ andato storto. Riprova.",
+            generic: "Qualcosa è andato storto. Riprova.",
             network: "Errore di rete. Controlla la connessione e riprova.",
             unauthorized: "Devi effettuare l'accesso per continuare.",
             forbidden: "Non hai il permesso di eseguire questa azione.",
-            notFound: "L'elemento richiesto non Ã¨ stato trovato.",
-            sessionExpired: "La sessione Ã¨ scaduta. Accedi di nuovo."
+            notFound: "L'elemento richiesto non è stato trovato.",
+            sessionExpired: "La sessione è scaduta. Accedi di nuovo."
         },
     emptyStates: {
             noSongs: "Nessun brano disponibile ancora.",
             noVideos: "Nessun video disponibile ancora.",
-            noItems: "Non c'Ã¨ ancora nulla qui."
+            noItems: "Non c'è ancora nulla qui."
         },
     mobile: {
             navigation: "Navigazione mobile",
@@ -452,11 +452,11 @@ export const itMessages: LocaleMessageDictionary = {
             suspended: "Sospeso",
             archived: "Archiviato",
             ownershipConfirmation: "Confermo di essere proprietario o autorizzato a usare questo audio",
-            iphoneInstallHint: "Installa con lâ€™app File e GarageBand. Questa web app non puÃ² impostare direttamente una suoneria iPhone.",
-            androidInstallHint: "Salva lâ€™MP3 e assegnarlo come suoneria nelle impostazioni audio di Android.",
+            iphoneInstallHint: "Installa con l’app File e GarageBand. Questa web app non può impostare direttamente una suoneria iPhone.",
+            androidInstallHint: "Salva l’MP3 e assegnarlo come suoneria nelle impostazioni audio di Android.",
             maxDurationHint: "Le suonerie devono durare tra 15 e 30 secondi.",
-            creatorSubtitle: "Crea, ascolta in anteprima e gestisci prodotti suoneria da brani di tua proprietÃ  o caricamenti autorizzati.",
-            creatorAccessDenied: "La creazione di suonerie Ã¨ disponibile solo per artisti, produttori, creator approvati e proprietari della piattaforma.",
+            creatorSubtitle: "Crea, ascolta in anteprima e gestisci prodotti suoneria da brani di tua proprietà o caricamenti autorizzati.",
+            creatorAccessDenied: "La creazione di suonerie è disponibile solo per artisti, produttori, creator approvati e proprietari della piattaforma.",
             chooseSource: "Scegli sorgente",
             existingSong: "Brano esistente",
             uploadSource: "Carica sorgente",
@@ -470,25 +470,25 @@ export const itMessages: LocaleMessageDictionary = {
             iphoneReady: "Pronto per iPhone",
             androidReady: "Pronto per Android",
             previewRingtone: "Anteprima suoneria",
-            pausePreview: "Metti in pausa lâ€™anteprima",
+            pausePreview: "Metti in pausa l’anteprima",
             uploading: "Caricamento",
             ready: "Pronto",
             failed: "Non riuscito",
             retryUpload: "Riprova caricamento",
             retryProcessing: "Riprova elaborazione",
             sourceDuration: "Durata sorgente",
-            sourceTooShort: "Lâ€™audio sorgente deve durare almeno 15 secondi.",
-            ownershipRequired: "Conferma la proprietÃ  prima di caricare lâ€™audio sorgente della suoneria.",
-            unsupportedAudioType: "Quel formato audio non Ã¨ supportato come sorgente di suoneria.",
+            sourceTooShort: "L’audio sorgente deve durare almeno 15 secondi.",
+            ownershipRequired: "Conferma la proprietà prima di caricare l’audio sorgente della suoneria.",
+            unsupportedAudioType: "Quel formato audio non è supportato come sorgente di suoneria.",
             fileTooLarge: "Quel file audio supera il limite di dimensione della sorgente suoneria.",
             uploadFailed: "Caricamento della sorgente suoneria non riuscito. Riprova.",
-            previewUnavailable: "Lâ€™anteprima audio non Ã¨ ancora disponibile per questa suoneria.",
+            previewUnavailable: "L’anteprima audio non è ancora disponibile per questa suoneria.",
             invalidPrice: "Inserisci un prezzo valido pari o superiore a zero.",
             saveFailed: "Impossibile salvare la suoneria. Controlla il modulo e riprova.",
             submitFailed: "Impossibile inviare la suoneria per revisione.",
             draftSaved: "Bozza salvata.",
-            submitting: "Invio per revisioneâ€¦",
-            savingDraft: "Salvataggio bozzaâ€¦",
+            submitting: "Invio per revisione…",
+            savingDraft: "Salvataggio bozza…",
             duplicateFailed: "Impossibile duplicare questa suoneria.",
             deleteFailed: "Impossibile eliminare o archiviare questa suoneria.",
             actionCouldNotComplete: "Impossibile completare l'azione sulla suoneria.",
@@ -498,16 +498,16 @@ export const itMessages: LocaleMessageDictionary = {
             confirmDeleteRingtone: "Eliminare definitivamente questa bozza di suoneria? L'azione non puo essere annullata.",
             noOwnedSongs: "Non hai ancora brani caricati disponibili come sorgenti di suoneria.",
             emptyList: "Non hai ancora creato alcuna suoneria.",
-            loading: "Caricamento delle tue suonerieâ€¦",
+            loading: "Caricamento delle tue suonerie…",
             search: "Cerca suonerie",
             searchPlaceholder: "Cerca per titolo o brano sorgente",
             filter: "Filtra",
             filterAll: "Tutte",
             sort: "Ordina",
-            sortNewest: "PiÃ¹ recenti",
-            sortOldest: "PiÃ¹ vecchie",
-            sortOldestSubmission: "Invio piÃ¹ vecchio",
-            sortNewestSubmission: "Invio piÃ¹ recente",
+            sortNewest: "Più recenti",
+            sortOldest: "Più vecchie",
+            sortOldestSubmission: "Invio più vecchio",
+            sortNewestSubmission: "Invio più recente",
             sortTitle: "Titolo",
             sortPrice: "Prezzo",
             sortStatus: "Stato",
@@ -523,7 +523,7 @@ export const itMessages: LocaleMessageDictionary = {
             currency: "Valuta",
             explicitContent: "Contenuti espliciti",
             filePreparationNotice: "I file per iPhone e Android vengono preparati sul server dopo la revisione. Non viene usata la sola conversione nel browser.",
-            noDirectPublishHint: "I creator possono salvare bozze o inviare per revisione. La pubblicazione richiede lâ€™approvazione del proprietario o dellâ€™admin.",
+            noDirectPublishHint: "I creator possono salvare bozze o inviare per revisione. La pubblicazione richiede l’approvazione del proprietario o dell’admin.",
             back: "Indietro",
             next: "Avanti",
             cancel: "Annulla",
@@ -541,11 +541,11 @@ export const itMessages: LocaleMessageDictionary = {
             purchaseRingtone: "Acquista suoneria",
             buyNow: "Acquista ora",
             getFree: "Ottieni gratis",
-            alreadyOwned: "GiÃ  acquistata",
+            alreadyOwned: "Già acquistata",
             paymentPending: "Pagamento in sospeso",
             paymentPendingProvider: "Pagamento in sospeso. Completa il checkout con il provider di pagamento collegato per sbloccare i download.",
             purchasingComingSoon: "Prossimamente",
-            purchasingUnavailable: "Lâ€™acquisto a pagamento di suonerie non Ã¨ attualmente disponibile.",
+            purchasingUnavailable: "L’acquisto a pagamento di suonerie non è attualmente disponibile.",
             paymentCompleted: "Pagamento completato",
             paymentFailed: "Pagamento non riuscito",
             paymentCanceled: "Pagamento annullato",
@@ -570,9 +570,9 @@ export const itMessages: LocaleMessageDictionary = {
             marketplaceSearchPlaceholder: "Cerca titolo, creator o brano sorgente",
             applyFilters: "Applica",
             sortFeatured: "In evidenza",
-            sortMostPurchased: "PiÃ¹ acquistate",
-            sortMostDownloaded: "PiÃ¹ scaricate",
-            sortMostFavorited: "PiÃ¹ preferite",
+            sortMostPurchased: "Più acquistate",
+            sortMostDownloaded: "Più scaricate",
+            sortMostFavorited: "Più preferite",
             sortPriceLow: "Prezzo crescente",
             sortPriceHigh: "Prezzo decrescente",
             marketplaceEmpty: "Nessuna suoneria pubblicata corrisponde a questi filtri.",
@@ -585,7 +585,7 @@ export const itMessages: LocaleMessageDictionary = {
             favoritesLoadFailed: "Impossibile caricare le suonerie preferite.",
             detailLoadFailed: "Impossibile caricare questa suoneria.",
             favoriteFailed: "Impossibile aggiornare il preferito.",
-            purchaseFailed: "Impossibile avviare lâ€™acquisto della suoneria.",
+            purchaseFailed: "Impossibile avviare l’acquisto della suoneria.",
             downloadFailed: "Impossibile creare un link di download sicuro.",
             downloadStarted: "Download sicuro avviato.",
             platformFees: "Commissioni della piattaforma",
@@ -611,9 +611,9 @@ export const itMessages: LocaleMessageDictionary = {
             requestReprocessing: "Richiedi rielaborazione",
             reviewQueueEmpty: "Nessuna suoneria corrisponde a questo filtro di revisione.",
             reviewQueueLoadFailed: "Impossibile caricare la coda di revisione delle suonerie.",
-            reviewActionFailed: "Impossibile completare quellâ€™azione di moderazione.",
+            reviewActionFailed: "Impossibile completare quell’azione di moderazione.",
             reviewActionSucceeded: "Azione di moderazione completata.",
-            rejectionReasonRequired: "Ãˆ obbligatorio un motivo di rifiuto.",
+            rejectionReasonRequired: "È obbligatorio un motivo di rifiuto.",
             status: "Stato",
             queued: "In coda"
         }

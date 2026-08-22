@@ -1,4 +1,4 @@
-﻿import type { LocaleMessageDictionary } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
 export const noMessages: LocaleMessageDictionary = {
     common: {
@@ -8,7 +8,7 @@ export const noMessages: LocaleMessageDictionary = {
             close: "Lukk",
             delete: "Slett",
             edit: "Rediger",
-            search: "SÃ¸k",
+            search: "Søk",
             filter: "Filtrer",
             sort: "Sorter",
             loading: "Laster...",
@@ -24,12 +24,12 @@ export const noMessages: LocaleMessageDictionary = {
             back: "Tilbake",
             next: "Neste",
             submit: "Send inn",
-            retry: "PrÃ¸v igjen",
-            clear: "TÃ¸m",
+            retry: "Prøv igjen",
+            clear: "Tøm",
             viewAll: "Vis alle",
             noResults: "Ingen resultater funnet",
-            language: "SprÃ¥k",
-            languageChanged: "SprÃ¥k endret til {language}"
+            language: "Språk",
+            languageChanged: "Språk endret til {language}"
         },
     nav: {
             home: "Hjem",
@@ -42,9 +42,9 @@ export const noMessages: LocaleMessageDictionary = {
             videos: "Videoer",
             library: "Bibliotek",
             liked: "Likte",
-            following: "FÃ¸lger",
+            following: "Følger",
             recentlyPlayed: "Nylig spilt",
-            queue: "KÃ¸",
+            queue: "Kø",
             playlists: "Spillelister",
             profile: "Profil",
             artistDashboard: "Artistpanel",
@@ -56,8 +56,8 @@ export const noMessages: LocaleMessageDictionary = {
         },
     auth: {
             createAccount: "Opprett kontoen din",
-            loginTitle: "Logg inn pÃ¥ Music Data Base",
-            signupSubtitle: "Biblioteket, likes, spillelister og nylig spilte sanger fÃ¸lger Supabase-kontoen din.",
+            loginTitle: "Logg inn på Music Data Base",
+            signupSubtitle: "Biblioteket, likes, spillelister og nylig spilte sanger følger Supabase-kontoen din.",
             foundingSignupSubtitle: "Registrering for founding-beta krever en engangsinvitasjonskode fra Music Data Base.",
             name: "Navn",
             namePlaceholder: "Navnet ditt",
@@ -82,12 +82,12 @@ export const noMessages: LocaleMessageDictionary = {
             switchToLogin: "Har du allerede en konto? Logg inn",
             switchToSignup: "Trenger du en konto? Registrer deg",
             signOut: "Logg ut",
-            approvalPending: "Venter pÃ¥ godkjenning",
+            approvalPending: "Venter på godkjenning",
             inviteRequired: "Invitasjon kreves",
             accessNotApproved: "Tilgang ikke godkjent",
             assignedRole: "Tildelt rolle: {role}",
             signedInAs: "Logget inn som {name}",
-            openingLibrary: "Ã…pner biblioteket ditt...",
+            openingLibrary: "Åpner biblioteket ditt...",
             loadingLibrary: "Laster musikkbiblioteket ditt..."
         },
     header: {
@@ -109,7 +109,7 @@ export const noMessages: LocaleMessageDictionary = {
             title: "Hjem",
             welcome: "Velkommen tilbake",
             discover: "Oppdag musikk og videoer",
-            defaultSubtitle: "Bla gjennom musikk og hold favorittene dine nÃ¦r.",
+            defaultSubtitle: "Bla gjennom musikk og hold favorittene dine nær.",
             tabs: {
                         trending: "Trender",
                         newReleases: "Nye utgivelser",
@@ -126,13 +126,13 @@ export const noMessages: LocaleMessageDictionary = {
     marketplace: {
             title: "Markedsplass",
             fullTitle: "Musikkmarkedsplass",
-            browse: "Bla gjennom markedsplassoppfÃ¸ringer",
+            browse: "Bla gjennom markedsplassoppføringer",
             pageSubtitle: "Bla gjennom artistbutikker, produsentbutikker, utgivelser, lister og markedsplassfiltre."
         },
     trending: {
             title: "Trender",
-            subtitle: "PopulÃ¦re spor og videoer akkurat nÃ¥",
-            pageSubtitle: "PopulÃ¦re spor og videoer akkurat nÃ¥"
+            subtitle: "Populære spor og videoer akkurat nå",
+            pageSubtitle: "Populære spor og videoer akkurat nå"
         },
     beats: {
             title: "Beats",
@@ -141,27 +141,27 @@ export const noMessages: LocaleMessageDictionary = {
         },
     artists: {
             title: "Artister",
-            subtitle: "Oppdag artister pÃ¥ plattformen",
-            pageSubtitle: "Bla gjennom artistprofiler, sanger, videoer og fÃ¸lg skapere."
+            subtitle: "Oppdag artister på plattformen",
+            pageSubtitle: "Bla gjennom artistprofiler, sanger, videoer og følg skapere."
         },
     search: {
-            title: "SÃ¸k",
-            placeholder: "SÃ¸k sanger, videoer, artister...",
-            extendedPlaceholder: "SÃ¸k sanger, videoer, album, artister...",
+            title: "Søk",
+            placeholder: "Søk sanger, videoer, artister...",
+            extendedPlaceholder: "Søk sanger, videoer, album, artister...",
             suggestions: "Forslag",
-            popularSearches: "PopulÃ¦re sÃ¸k",
-            resultsTitle: "SÃ¸keresultater",
-            videoSearchTitle: "VideosÃ¸k",
-            resultsSubtitle: "Sanger, videoer, album, artister og produsenter som matcher sÃ¸ket ditt."
+            popularSearches: "Populære søk",
+            resultsTitle: "Søkeresultater",
+            videoSearchTitle: "Videosøk",
+            resultsSubtitle: "Sanger, videoer, album, artister og produsenter som matcher søket ditt."
         },
     following: {
-            title: "FÃ¸lger",
-            empty: "Du fÃ¸lger ingen artister ennÃ¥.",
-            pageSubtitle: "Nye sanger og videoer fra artister du fÃ¸lger."
+            title: "Følger",
+            empty: "Du følger ingen artister ennå.",
+            pageSubtitle: "Nye sanger og videoer fra artister du følger."
         },
     favorites: {
             title: "Favoritter",
-            empty: "Ingen favoritter ennÃ¥.",
+            empty: "Ingen favoritter ennå.",
             pageSubtitle: "Sanger, videoer og artister du har likt."
         },
     library: {
@@ -175,28 +175,28 @@ export const noMessages: LocaleMessageDictionary = {
             pageSubtitle: "Hver avspilling lagres her, inkludert gjentatte lyttinger."
         },
     queue: {
-            title: "KÃ¸",
-            empty: "KÃ¸en din er tom.",
-            nowPlaying: "Spiller nÃ¥",
-            pageSubtitle: "Sanger og videoer i kÃ¸ for spilleren.",
-            clearQueue: "TÃ¸m kÃ¸",
-            mediaQueued: "{count} media i kÃ¸",
+            title: "Kø",
+            empty: "Køen din er tom.",
+            nowPlaying: "Spiller nå",
+            pageSubtitle: "Sanger og videoer i kø for spilleren.",
+            clearQueue: "Tøm kø",
+            mediaQueued: "{count} media i kø",
             remove: "Fjern",
             resetDisabled: "Tilbakestilling deaktivert"
         },
     playlists: {
             title: "Spillelister",
-            empty: "Ingen spillelister ennÃ¥.",
+            empty: "Ingen spillelister ennå.",
             create: "Opprett spilleliste",
             pageSubtitle: "Opprett spillelister, legg til sanger, sett omslag og spill dem rett gjennom."
         },
     albums: {
             title: "Album",
-            empty: "Ingen album ennÃ¥."
+            empty: "Ingen album ennå."
         },
     sales: {
             title: "Salg",
-            pageSubtitle: "Handlekurv, kjÃ¸pshistorikk og nedlastingsarkiv."
+            pageSubtitle: "Handlekurv, kjøpshistorikk og nedlastingsarkiv."
         },
     licenseHistory: {
             title: "Lisenshistorikk",
@@ -211,7 +211,7 @@ export const noMessages: LocaleMessageDictionary = {
     profile: {
             title: "Profil",
             accountSettings: "Kontoinnstillinger",
-            preferredLanguage: "Foretrukket sprÃ¥k",
+            preferredLanguage: "Foretrukket språk",
             role: "Rolle",
             stats: "Profilstatistikk",
             pageSubtitle: "Kontoen din og synkroniseringsstatus for lagret musikk.",
@@ -219,11 +219,11 @@ export const noMessages: LocaleMessageDictionary = {
         },
     settings: {
             title: "Innstillinger",
-            languageDescription: "Velg visningssprÃ¥k. Brukerskapt innhold beholder originalsprÃ¥ket."
+            languageDescription: "Velg visningsspråk. Brukerskapt innhold beholder originalspråket."
         },
     notifications: {
             title: "Varsler",
-            empty: "Ingen varsler ennÃ¥.",
+            empty: "Ingen varsler ennå.",
             pageSubtitle: "Alerts about purchases, follows, and account activity."
         },
     dashboard: {
@@ -318,9 +318,9 @@ export const noMessages: LocaleMessageDictionary = {
             title: "Oppryddingssenter for testkontoer",
             subtitle: "Kun eier: gjennomgang og sikker sletting av midlertidige testkontoer",
             refreshReviewList: "Oppdater gjennomgangsliste",
-            dryRun: "ForhÃ¥ndsvisning av tÃ¸rrkjÃ¸ring",
+            dryRun: "Forhåndsvisning av tørrkjøring",
             deleteSelected: "Slett valgt testkonto",
-            dependencyPreview: "AvhengighetsforhÃ¥ndsvisning",
+            dependencyPreview: "Avhengighetsforhåndsvisning",
             safeToDelete: "Opprydding ser trygg ut for denne kontoen.",
             blocked: "Opprydding er blokkert for denne kontoen."
         },
@@ -330,7 +330,7 @@ export const noMessages: LocaleMessageDictionary = {
             previous: "Forrige",
             next: "Neste",
             shuffle: "Tilfeldig",
-            shuffleOn: "Tilfeldig pÃ¥",
+            shuffleOn: "Tilfeldig på",
             shuffleOff: "Tilfeldig av",
             repeat: "Gjenta",
             repeatMode: "Gjenta {mode}",
@@ -338,14 +338,14 @@ export const noMessages: LocaleMessageDictionary = {
             mute: "Demp",
             unmute: "Opphev demping",
             playbackProgress: "Avspillingsfremdrift",
-            queueCount: "KÃ¸ {count}"
+            queueCount: "Kø {count}"
         },
     video: {
             title: "Videoer",
             play: "Spill video",
-            pause: "Sett video pÃ¥ pause",
+            pause: "Sett video på pause",
             fullscreen: "Fullskjerm",
-            pageSubtitle: "Last opp, se, sÃ¸k og fjern videoer uten Ã¥ blande dem med sanger."
+            pageSubtitle: "Last opp, se, søk og fjern videoer uten å blande dem med sanger."
         },
     upload: {
             title: "Last opp",
@@ -367,7 +367,7 @@ export const noMessages: LocaleMessageDictionary = {
         },
     artistDashboard: {
             title: "Artistpanel",
-            subtitle: "Administrer artisttilstedevÃ¦relse og utgivelser",
+            subtitle: "Administrer artisttilstedeværelse og utgivelser",
             pageSubtitle: "Administrer artistprofiler, opplastede sanger og skaperanalyse."
         },
     producerDashboard: {
@@ -377,8 +377,8 @@ export const noMessages: LocaleMessageDictionary = {
         },
     platformControlCenter: {
             title: "Plattformkontrollsenter",
-            subtitle: "OvervÃ¥k plattformhelse, founding-onboarding og eieroperasjoner fra ett panel.",
-            pageSubtitle: "OvervÃ¥k opplastingsfeil, mediefiler, opprydding og sikkerhetskopier.",
+            subtitle: "Overvåk plattformhelse, founding-onboarding og eieroperasjoner fra ett panel.",
+            pageSubtitle: "Overvåk opplastingsfeil, mediefiler, opprydding og sikkerhetskopier.",
             ownerOnly: "Kun eier",
             refreshDashboard: "Oppdater panel",
             refreshing: "Oppdaterer...",
@@ -387,7 +387,7 @@ export const noMessages: LocaleMessageDictionary = {
             recentActivity: "Nylig aktivitet",
             noRecentActivity: "Ingen nylig aktivitet.",
             lastRefreshed: "Sist oppdatert: {time}",
-            notLoadedYet: "Ikke lastet ennÃ¥"
+            notLoadedYet: "Ikke lastet ennå"
         },
     foundingOnboarding: {
             title: "Kontroller for founding-onboarding",
@@ -399,28 +399,28 @@ export const noMessages: LocaleMessageDictionary = {
             cannotUndo: "Denne handlingen kan ikke angres."
         },
     errors: {
-            generic: "Noe gikk galt. PrÃ¸v igjen.",
-            network: "Nettverksfeil. Sjekk tilkoblingen og prÃ¸v igjen.",
-            unauthorized: "Du mÃ¥ vÃ¦re innlogget for Ã¥ fortsette.",
-            forbidden: "Du har ikke tillatelse til Ã¥ utfÃ¸re denne handlingen.",
+            generic: "Noe gikk galt. Prøv igjen.",
+            network: "Nettverksfeil. Sjekk tilkoblingen og prøv igjen.",
+            unauthorized: "Du må være innlogget for å fortsette.",
+            forbidden: "Du har ikke tillatelse til å utføre denne handlingen.",
             notFound: "Det forespurte elementet ble ikke funnet.",
-            sessionExpired: "Ã˜kten din er utlÃ¸pt. Logg inn igjen."
+            sessionExpired: "Økten din er utløpt. Logg inn igjen."
         },
     emptyStates: {
-            noSongs: "Ingen sanger tilgjengelig ennÃ¥.",
-            noVideos: "Ingen videoer tilgjengelig ennÃ¥.",
-            noItems: "Ingenting her ennÃ¥."
+            noSongs: "Ingen sanger tilgjengelig ennå.",
+            noVideos: "Ingen videoer tilgjengelig ennå.",
+            noItems: "Ingenting her ennå."
         },
     mobile: {
             navigation: "Mobilnavigasjon",
-            openMenu: "Ã…pne meny",
+            openMenu: "Åpne meny",
             closeMenu: "Lukk meny"
         },
     languageSelector: {
-            title: "Velg sprÃ¥k",
-            searchPlaceholder: "SÃ¸k sprÃ¥k...",
-            currentLanguage: "Gjeldende sprÃ¥k: {language}",
-            noMatches: "Ingen sprÃ¥k samsvarer med sÃ¸ket ditt."
+            title: "Velg språk",
+            searchPlaceholder: "Søk språk...",
+            currentLanguage: "Gjeldende språk: {language}",
+            noMatches: "Ingen språk samsvarer med søket ditt."
         },
     formatting: {
             currencyLabel: "Pris"
@@ -431,8 +431,8 @@ export const noMessages: LocaleMessageDictionary = {
             create: "Opprett ringetone",
             upload: "Last opp ringetone",
             createFromSong: "Opprett fra sang",
-            preview: "ForhÃ¥ndslytt",
-            purchase: "KjÃ¸p",
+            preview: "Forhåndslytt",
+            purchase: "Kjøp",
             downloadForIphone: "Last ned for iPhone",
             downloadForAndroid: "Last ned for Android",
             installationInstructions: "Installasjonsveiledning",
@@ -441,7 +441,7 @@ export const noMessages: LocaleMessageDictionary = {
             duration: "Varighet",
             price: "Pris",
             draft: "Utkast",
-            pendingReview: "Venter pÃ¥ vurdering",
+            pendingReview: "Venter på vurdering",
             approved: "Godkjent",
             rejected: "Avvist",
             published: "Publisert",
@@ -451,11 +451,11 @@ export const noMessages: LocaleMessageDictionary = {
             processing: "Behandler",
             suspended: "Suspendert",
             archived: "Arkivert",
-            ownershipConfirmation: "Jeg bekrefter at jeg eier eller er autorisert til Ã¥ bruke denne lyden",
+            ownershipConfirmation: "Jeg bekrefter at jeg eier eller er autorisert til å bruke denne lyden",
             iphoneInstallHint: "Installer med Filer-appen og GarageBand. Denne nettappen kan ikke sette en iPhone-ringetone direkte.",
             androidInstallHint: "Lagre MP3-filen og tilordne den som ringetone i Android-lydinnstillingene.",
-            maxDurationHint: "Ringetoner mÃ¥ vÃ¦re mellom 15 og 30 sekunder.",
-            creatorSubtitle: "Opprett, forhÃ¥ndslytt og administrer ringetoneprodukter fra sanger du eier eller autoriserte opplastinger.",
+            maxDurationHint: "Ringetoner må være mellom 15 og 30 sekunder.",
+            creatorSubtitle: "Opprett, forhåndslytt og administrer ringetoneprodukter fra sanger du eier eller autoriserte opplastinger.",
             creatorAccessDenied: "Oppretting av ringetoner er kun tilgjengelig for artister, produsenter, godkjente creators og plattformeiere.",
             chooseSource: "Velg kilde",
             existingSong: "Eksisterende sang",
@@ -469,26 +469,26 @@ export const noMessages: LocaleMessageDictionary = {
             rejectionReason: "Avvisningsgrunn",
             iphoneReady: "Klar for iPhone",
             androidReady: "Klar for Android",
-            previewRingtone: "ForhÃ¥ndslytt ringetone",
-            pausePreview: "Sett forhÃ¥ndsvisning pÃ¥ pause",
+            previewRingtone: "Forhåndslytt ringetone",
+            pausePreview: "Sett forhåndsvisning på pause",
             uploading: "Laster opp",
             ready: "Klar",
             failed: "Mislyktes",
-            retryUpload: "PrÃ¸v opplasting pÃ¥ nytt",
-            retryProcessing: "PrÃ¸v behandling pÃ¥ nytt",
+            retryUpload: "Prøv opplasting på nytt",
+            retryProcessing: "Prøv behandling på nytt",
             sourceDuration: "Kildevarighet",
-            sourceTooShort: "Kildelyden mÃ¥ vÃ¦re minst 15 sekunder lang.",
-            ownershipRequired: "Bekreft eierskap fÃ¸r du laster opp kildelyd for ringetonen.",
-            unsupportedAudioType: "Det lydformatet stÃ¸ttes ikke som ringetonekilde.",
-            fileTooLarge: "Den lydfilen overskrider stÃ¸rrelsesgrensen for ringetonekilder.",
-            uploadFailed: "Opplasting av ringetonekilde mislyktes. PrÃ¸v igjen.",
-            previewUnavailable: "LydforhÃ¥ndsvisning er ikke tilgjengelig for denne ringetonen ennÃ¥.",
-            invalidPrice: "Skriv inn en gyldig pris pÃ¥ null eller hÃ¸yere.",
-            saveFailed: "Kunne ikke lagre ringetonen. Se gjennom skjemaet og prÃ¸v igjen.",
+            sourceTooShort: "Kildelyden må være minst 15 sekunder lang.",
+            ownershipRequired: "Bekreft eierskap før du laster opp kildelyd for ringetonen.",
+            unsupportedAudioType: "Det lydformatet støttes ikke som ringetonekilde.",
+            fileTooLarge: "Den lydfilen overskrider størrelsesgrensen for ringetonekilder.",
+            uploadFailed: "Opplasting av ringetonekilde mislyktes. Prøv igjen.",
+            previewUnavailable: "Lydforhåndsvisning er ikke tilgjengelig for denne ringetonen ennå.",
+            invalidPrice: "Skriv inn en gyldig pris på null eller høyere.",
+            saveFailed: "Kunne ikke lagre ringetonen. Se gjennom skjemaet og prøv igjen.",
             submitFailed: "Kunne ikke sende ringetonen til vurdering.",
             draftSaved: "Utkast lagret.",
-            submitting: "Sender til vurderingâ€¦",
-            savingDraft: "Lagrer utkastâ€¦",
+            submitting: "Sender til vurdering…",
+            savingDraft: "Lagrer utkast…",
             duplicateFailed: "Kunne ikke duplisere denne ringetonen.",
             deleteFailed: "Kunne ikke slette eller arkivere denne ringetonen.",
             actionCouldNotComplete: "Ringtone-handlingen kunne ikke fullfores.",
@@ -496,11 +496,11 @@ export const noMessages: LocaleMessageDictionary = {
             ringtoneArchivedInstead: "This ringtone has history and was archived instead. [no]",
             ringtoneAlreadyArchived: "This ringtone is already archived. [no]",
             confirmDeleteRingtone: "Delete this draft ringtone permanently? This cannot be undone. [no]",
-            noOwnedSongs: "Du har ikke noen opplastede sanger tilgjengelig som ringetonekilder ennÃ¥.",
-            emptyList: "Du har ikke opprettet noen ringetoner ennÃ¥.",
-            loading: "Laster ringetonene dineâ€¦",
-            search: "SÃ¸k etter ringetoner",
-            searchPlaceholder: "SÃ¸k etter tittel eller kildesang",
+            noOwnedSongs: "Du har ikke noen opplastede sanger tilgjengelig som ringetonekilder ennå.",
+            emptyList: "Du har ikke opprettet noen ringetoner ennå.",
+            loading: "Laster ringetonene dine…",
+            search: "Søk etter ringetoner",
+            searchPlaceholder: "Søk etter tittel eller kildesang",
             filter: "Filtrer",
             filterAll: "Alle",
             sort: "Sorter",
@@ -522,13 +522,13 @@ export const noMessages: LocaleMessageDictionary = {
             artworkUrl: "Omslags-URL",
             currency: "Valuta",
             explicitContent: "Eksplisitt innhold",
-            filePreparationNotice: "iPhone- og Android-filer tilberedes pÃ¥ serversiden etter vurdering. Kun nettleserkonvertering brukes ikke.",
+            filePreparationNotice: "iPhone- og Android-filer tilberedes på serversiden etter vurdering. Kun nettleserkonvertering brukes ikke.",
             noDirectPublishHint: "Creators kan lagre utkast eller sende til vurdering. Publisering krever godkjenning fra eier eller administrator.",
             back: "Tilbake",
             next: "Neste",
             cancel: "Avbryt",
             pageSubtitle: "Opprett og administrer ringetonkatalogen din.",
-            marketplaceSubtitle: "ForhÃ¥ndslytt, favorittmerk, kjÃ¸p og last ned ringetoner sikkert.",
+            marketplaceSubtitle: "Forhåndslytt, favorittmerk, kjøp og last ned ringetoner sikkert.",
             purchasedSubtitle: "Ringtones you purchased. Play, download, favorite, and review license details.",
             favoritesSubtitle: "Ringtones you saved as favorites.",
             browseMarketplace: "Browse Ringtone Marketplace",
@@ -538,62 +538,62 @@ export const noMessages: LocaleMessageDictionary = {
             newRingtones: "Nye ringetoner",
             freeRingtones: "Gratis ringetoner",
             paidRingtones: "Betalte ringetoner",
-            purchaseRingtone: "KjÃ¸p ringetone",
-            buyNow: "KjÃ¸p nÃ¥",
+            purchaseRingtone: "Kjøp ringetone",
+            buyNow: "Kjøp nå",
             getFree: "Hent gratis",
             alreadyOwned: "Allerede eid",
             paymentPending: "Betaling venter",
-            paymentPendingProvider: "Betaling venter. FullfÃ¸r kassen hos den tilkoblede betalingsleverandÃ¸ren for Ã¥ lÃ¥se opp nedlastinger.",
+            paymentPendingProvider: "Betaling venter. Fullfør kassen hos den tilkoblede betalingsleverandøren for å låse opp nedlastinger.",
             purchasingComingSoon: "Kommer snart",
-            purchasingUnavailable: "Betalt kjÃ¸p av ringetoner er forelÃ¸pig utilgjengelig.",
-            paymentCompleted: "Betaling fullfÃ¸rt",
+            purchasingUnavailable: "Betalt kjøp av ringetoner er foreløpig utilgjengelig.",
+            paymentCompleted: "Betaling fullført",
             paymentFailed: "Betaling mislyktes",
             paymentCanceled: "Betaling avbrutt",
-            freeAcquisitionCompleted: "Gratis anskaffelse fullfÃ¸rt.",
-            myPurchasedRingtones: "Mine kjÃ¸pte ringetoner",
+            freeAcquisitionCompleted: "Gratis anskaffelse fullført.",
+            myPurchasedRingtones: "Mine kjøpte ringetoner",
             favoriteRingtones: "Favorittringetoner",
             favorite: "Favoritt",
             unfavorite: "Fjern favoritt",
-            openGarageBand: "Ã…pne GarageBand",
-            purchaseHistory: "KjÃ¸pshistorikk",
-            downloadAgain: "Last ned pÃ¥ nytt",
+            openGarageBand: "Åpne GarageBand",
+            purchaseHistory: "Kjøpshistorikk",
+            downloadAgain: "Last ned på nytt",
             relatedRingtones: "Relaterte ringetoner",
             moreFromCreator: "Mer fra denne creatoren",
             recentlyAdded: "Nylig lagt til",
-            popularCreators: "PopulÃ¦re creators",
+            popularCreators: "Populære creators",
             creator: "Skaper",
             explicitBadge: "Eksplisitt",
             cleanBadge: "Ren",
             details: "Detaljer",
             receipt: "Kvittering",
             reviewSummary: "Anmeldelser",
-            marketplaceSearchPlaceholder: "SÃ¸k tittel, creator eller kildesang",
+            marketplaceSearchPlaceholder: "Søk tittel, creator eller kildesang",
             applyFilters: "Bruk",
             sortFeatured: "Utvalgt",
-            sortMostPurchased: "Mest kjÃ¸pt",
+            sortMostPurchased: "Mest kjøpt",
             sortMostDownloaded: "Mest lastet ned",
             sortMostFavorited: "Mest favorittmerket",
-            sortPriceLow: "Pris lav til hÃ¸y",
-            sortPriceHigh: "Pris hÃ¸y til lav",
+            sortPriceLow: "Pris lav til høy",
+            sortPriceHigh: "Pris høy til lav",
             marketplaceEmpty: "Ingen publiserte ringetoner matcher disse filtrene.",
-            purchasedEmpty: "Du har ikke kjÃ¸pt noen ringetoner ennÃ¥.",
-            favoritesEmpty: "Du har ikke favorittmerket noen ringetoner ennÃ¥.",
-            loginToViewPurchases: "Logg inn for Ã¥ se kjÃ¸pte ringetoner.",
-            loginToFavorite: "Logg inn for Ã¥ lagre favorittringetoner.",
+            purchasedEmpty: "Du har ikke kjøpt noen ringetoner ennå.",
+            favoritesEmpty: "Du har ikke favorittmerket noen ringetoner ennå.",
+            loginToViewPurchases: "Logg inn for å se kjøpte ringetoner.",
+            loginToFavorite: "Logg inn for å lagre favorittringetoner.",
             marketplaceLoadFailed: "Kunne ikke laste markedsplassen for ringetoner.",
-            purchaseHistoryLoadFailed: "Kunne ikke laste kjÃ¸pshistorikk for ringetoner.",
+            purchaseHistoryLoadFailed: "Kunne ikke laste kjøpshistorikk for ringetoner.",
             favoritesLoadFailed: "Kunne ikke laste favorittringetoner.",
             detailLoadFailed: "Kunne ikke laste denne ringetonen.",
             favoriteFailed: "Kunne ikke oppdatere favoritt.",
-            purchaseFailed: "Kunne ikke starte kjÃ¸pet av ringetonen.",
+            purchaseFailed: "Kunne ikke starte kjøpet av ringetonen.",
             downloadFailed: "Kunne ikke opprette en sikker nedlastingslenke.",
             downloadStarted: "Sikker nedlasting startet.",
             platformFees: "Plattformgebyrer",
-            ringtoneReviewQueue: "VurderingskÃ¸ for ringetoner",
+            ringtoneReviewQueue: "Vurderingskø for ringetoner",
             ringtoneReviewQueueSubtitle: "Vurder behandlede ringetoner, godkjenn eller avvis innsendinger, og publiser markedsplassklare produkter.",
-            processingQueue: "BehandlingskÃ¸",
+            processingQueue: "Behandlingskø",
             processingStarted: "Behandling startet",
-            processingCompleted: "Behandling fullfÃ¸rt",
+            processingCompleted: "Behandling fullført",
             processingFailed: "Behandling mislyktes",
             submittedForReview: "Sendt til vurdering",
             approveRingtone: "Godkjenn ringetone",
@@ -606,15 +606,15 @@ export const noMessages: LocaleMessageDictionary = {
             processingDetails: "Behandlingsdetaljer",
             iphoneFileReady: "iPhone-fil klar",
             androidFileReady: "Android-fil klar",
-            previewReady: "ForhÃ¥ndsvisning klar",
+            previewReady: "Forhåndsvisning klar",
             moderationHistory: "Modereringshistorikk",
             requestReprocessing: "Be om ny behandling",
             reviewQueueEmpty: "Ingen ringetoner matcher dette vurderingsfilteret.",
-            reviewQueueLoadFailed: "Kunne ikke laste vurderingskÃ¸en for ringetoner.",
-            reviewActionFailed: "Kunne ikke fullfÃ¸re den modereringshandlingen.",
-            reviewActionSucceeded: "Modereringshandling fullfÃ¸rt.",
-            rejectionReasonRequired: "En avvisningsgrunn er pÃ¥krevd.",
+            reviewQueueLoadFailed: "Kunne ikke laste vurderingskøen for ringetoner.",
+            reviewActionFailed: "Kunne ikke fullføre den modereringshandlingen.",
+            reviewActionSucceeded: "Modereringshandling fullført.",
+            rejectionReasonRequired: "En avvisningsgrunn er påkrevd.",
             status: "Tilstand",
-            queued: "I kÃ¸"
+            queued: "I kø"
         }
 };

@@ -1,4 +1,4 @@
-﻿import type { LocaleMessageDictionary } from "./en";
+import type { LocaleMessageDictionary } from "./en";
 
 export const soMessages: LocaleMessageDictionary = {
     common: {
@@ -487,8 +487,8 @@ export const soMessages: LocaleMessageDictionary = {
             saveFailed: "Waa la kaydin kari waayay ringtone Fadlan dib u eeg foomka oo isku day.",
             submitFailed: "Ma soo gudbin karayn ringtone si dib loogu eego",
             draftSaved: "Qabyo waa la badbaadiyay.",
-            submitting: "Soo gudbinta dib u eegistaâ€¦",
-            savingDraft: "Kaydinta qabyadaâ€¦",
+            submitting: "Soo gudbinta dib u eegista…",
+            savingDraft: "Kaydinta qabyada…",
             duplicateFailed: "Ma nuqulin karayn ringtone-kan",
             deleteFailed: "Ma tirtiri karo ama kaydin kari waayay dhawaaqan ringtone.",
             actionCouldNotComplete: "Ficilka ringtone-ka lama dhammayn karin.",
@@ -498,7 +498,7 @@ export const soMessages: LocaleMessageDictionary = {
             confirmDeleteRingtone: "Delete this draft ringtone permanently? This cannot be undone. [so]",
             noOwnedSongs: "Weli ma haysatid heeso la soo galiyay oo diyaar u ah ilo ringtone ahaan.",
             emptyList: "Weli ma aadan abuurin wax ringtones ah.",
-            loading: "Soo raraysa dhawaaqa garaacaagaâ€¦",
+            loading: "Soo raraysa dhawaaqa garaacaaga…",
             search: "Raadi dhawaaqyada garaaca",
             searchPlaceholder: "Ku baadh ciwaanka ama heesta isha",
             filter: "Shaandhayso",
@@ -506,7 +506,7 @@ export const soMessages: LocaleMessageDictionary = {
             sort: "Kala soocida",
             sortNewest: "Ugu cusub",
             sortOldest: "Ugu da'da weyn",
-            sortOldestSubmission: "Gudbinta ugu daâ€™da weyn",
+            sortOldestSubmission: "Gudbinta ugu da’da weyn",
             sortNewestSubmission: "Gudbinta ugu cusub",
             sortTitle: "Ciwaanka",
             sortPrice: "Qiimaha",
