@@ -86,6 +86,8 @@ expect("app/page.tsx", /currentPodcastEpisode\?\.episodeType === "video"/, "Vide
 expect("app/page.tsx", /data-podcast-player="audio"/, "Audio Podcast player integration missing");
 expect("app/page.tsx", /<PodcastDiscoveryWorkspace/, "Podcast discovery workspace not mounted");
 expect("app/page.tsx", /<PodcastStudioWorkspace/, "Podcast Studio workspace not mounted");
+expect("app/page.tsx", /itemType: "podcast"/, "Podcast Recently Played item type missing");
+expect("app/page.tsx", /recentlyPlayedPodcasts/, "Podcast Recently Played tab missing");
 
 const queueMigration = read("supabase/migrations/202607140001_create_user_media_queue.sql");
 if (/podcast/i.test(queueMigration)) {

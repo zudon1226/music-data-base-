@@ -296,17 +296,27 @@ type VideoTableRow = {
     user_id?: string | null;
     album_id?: string | null;
 };
+type RecentPodcastSnapshot = {
+    id: string;
+    title: string;
+    podcastTitle: string;
+    creatorName: string;
+    episodeType: "audio" | "video";
+    artworkUrl: string;
+    thumbnailUrl: string;
+};
 type RecentPlay = {
     playId: string;
     songId: string;
     itemId?: string;
-    itemType?: "song" | "video" | "album";
+    itemType?: "song" | "video" | "album" | "podcast";
     playedAt: string;
     position?: number;
     duration?: number;
     song?: Song;
     video?: VideoItem;
     album?: Album;
+    podcast?: RecentPodcastSnapshot;
 };
 type Playlist = {
     id: string;
@@ -705,7 +715,7 @@ type ProducerProfileTableRow = {
 type AddSource = "Library" | "Liked" | "Queue" | "Search";
 type LikedTab = "All" | "Songs" | "Videos";
 type LibraryTab = "Songs" | "Videos" | "Albums";
-type RecentTab = "Songs" | "Videos" | "Albums";
+type RecentTab = "Songs" | "Videos" | "Albums" | "Podcasts";
 type DisplayMode = "grid" | "list";
 type UploadMode = "song" | "video" | "beat" | "instrumental" | "producerVideo" | "album" | "producerAlbum";
 type MarketplaceContentFilter = "All" | "Songs" | "Videos" | "Albums" | "Beats";
@@ -1370,6 +1380,52 @@ function normalizeDownloadVaultItem(value: unknown): DownloadVaultItem | null {
         licensePdfFileName: String(record.licensePdfFileName || record.license_pdf_file_name || ""),
     };
 }
+function snapshotRecentPodcast(episode: Pick<PodcastEpisode, "id" | "title" | "podcastTitle" | "creatorName" | "episodeType" | "artworkUrl" | "thumbnailUrl">): RecentPodcastSnapshot {
+    return {
+        id: episode.id,
+        title: episode.title,
+        podcastTitle: episode.podcastTitle,
+        creatorName: episode.creatorName,
+        episodeType: episode.episodeType === "video" ? "video" : "audio",
+        artworkUrl: episode.artworkUrl || "",
+        thumbnailUrl: episode.thumbnailUrl || episode.artworkUrl || "",
+    };
+}
+function recentPodcastPlaybackStub(snapshot: RecentPodcastSnapshot, duration = 0): PodcastEpisode {
+    return {
+        id: snapshot.id,
+        podcastId: "",
+        userId: "",
+        podcastTitle: snapshot.podcastTitle,
+        creatorName: snapshot.creatorName,
+        title: snapshot.title,
+        description: "",
+        episodeNumber: 1,
+        seasonNumber: null,
+        episodeType: snapshot.episodeType,
+        mediaUrl: "",
+        storagePath: "",
+        artworkUrl: snapshot.artworkUrl,
+        artworkStoragePath: "",
+        thumbnailUrl: snapshot.thumbnailUrl,
+        durationSeconds: duration || null,
+        fileName: "",
+        fileSize: null,
+        mimeType: "",
+        container: "",
+        videoCodec: "",
+        audioCodec: "",
+        mobileCompatible: null,
+        compatibilityStatus: "",
+        compatibilityReason: "",
+        status: "published",
+        playCount: 0,
+        viewCount: 0,
+        publishedAt: null,
+        createdAt: "",
+        updatedAt: "",
+    };
+}
 function getRecentPlayIdentity(entry: RecentPlay) {
     const itemType = entry.itemType || "song";
     const itemId = entry.itemId || entry.songId || "";
@@ -1386,6 +1442,9 @@ function serializeRecentPlayForStorage(entry: RecentPlay): RecentPlay {
         playedAt: entry.playedAt,
         position: Math.max(0, Number(entry.position) || 0),
         duration: Math.max(0, Number(entry.duration) || 0),
+        podcast: itemType === "podcast" && entry.podcast
+            ? snapshotRecentPodcast(entry.podcast)
+            : undefined,
     };
 }
 function serializeRecentPlaysForStorage(entries: RecentPlay[]) {
@@ -1435,6 +1494,7 @@ function normalizeRecentForSongs(savedRecent: unknown, availableSongs: Song[], a
             song: itemType === "song" ? songMap.get(itemId) || entry.song : entry.song,
             video: itemType === "video" ? videoMap.get(itemId) || entry.video : entry.video,
             album: itemType === "album" ? albumMap.get(itemId) || entry.album : entry.album,
+            podcast: itemType === "podcast" && entry.podcast ? snapshotRecentPodcast(entry.podcast) : entry.podcast,
             position: Math.max(0, Number(entry.position) || 0),
             duration: Math.max(0, Number(entry.duration) || 0),
         };
@@ -6971,8 +7031,45 @@ function PageContent() {
         let apiRecent: RecentPlay[] = [];
         try {
             const remoteRows = await fetchRecentlyPlayedRecords(desktopActionFetch, accountUserId, 100);
+            const catalogEpisodes = new Map<string, PodcastEpisode>();
+            if (remoteRows.some((row) => row.mediaType === "podcast_episode")) {
+                try {
+                    const podcastResponse = await fetch("/api/podcasts?limit=100", { cache: "no-store" });
+                    const podcastData = await podcastResponse.json().catch(() => ({})) as { episodes?: PodcastEpisode[] };
+                    for (const episode of podcastData.episodes || []) {
+                        if (episode?.id) catalogEpisodes.set(episode.id, episode);
+                    }
+                }
+                catch {
+                    // Keep remote title/artist/cover if discovery catalog is unavailable.
+                }
+            }
             apiRecent = normalizeRecentForSongs(
-                remoteRows.filter((row) => row.mediaType !== "podcast_episode").map((row) => {
+                remoteRows.map((row) => {
+                    if (row.mediaType === "podcast_episode") {
+                        const episode = catalogEpisodes.get(row.mediaId);
+                        const snapshot = episode
+                            ? snapshotRecentPodcast(episode)
+                            : {
+                                id: row.mediaId,
+                                title: row.title || "Untitled",
+                                podcastTitle: row.artist || "",
+                                creatorName: row.artist || "",
+                                episodeType: "audio" as const,
+                                artworkUrl: row.coverUrl || "",
+                                thumbnailUrl: row.coverUrl || "",
+                            };
+                        return {
+                            playId: row.id || `podcast-${row.mediaId}-${row.lastPlayedAt}`,
+                            songId: "",
+                            itemId: row.mediaId,
+                            itemType: "podcast" as const,
+                            playedAt: row.lastPlayedAt || new Date().toISOString(),
+                            position: Math.max(0, Number(row.playbackPosition) || 0),
+                            duration: Math.max(0, Number(episode?.durationSeconds) || 0),
+                            podcast: snapshot,
+                        } as RecentPlay;
+                    }
                     const itemType = (row.mediaType === "video" || row.mediaType === "album" || row.mediaType === "song"
                         ? row.mediaType
                         : "song") as RecentPlay["itemType"];
@@ -7827,7 +7924,14 @@ function PageContent() {
     const recentlyPlayedSongs = useMemo(() => recentlyPlayed.filter((entry) => (entry.itemType || "song") === "song" && (entry.song || entry.itemId || entry.songId)), [recentlyPlayed]);
     const recentlyPlayedVideos = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "video" && (entry.video || entry.itemId)), [recentlyPlayed]);
     const recentlyPlayedAlbums = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "album" && (entry.album || entry.itemId)), [recentlyPlayed]);
-    const visibleRecentPlays = recentTab === "Videos" ? recentlyPlayedVideos : recentTab === "Albums" ? recentlyPlayedAlbums : recentlyPlayedSongs;
+    const recentlyPlayedPodcasts = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "podcast" && (entry.podcast || entry.itemId)), [recentlyPlayed]);
+    const visibleRecentPlays = recentTab === "Videos"
+        ? recentlyPlayedVideos
+        : recentTab === "Albums"
+            ? recentlyPlayedAlbums
+            : recentTab === "Podcasts"
+                ? recentlyPlayedPodcasts
+                : recentlyPlayedSongs;
     const sponsoredVideo = visibleVideos[0] || null;
     const sponsoredImage = getArtworkUrl(sponsoredVideo?.cover || currentSong?.cover);
     const sponsoredTitle = sponsoredVideo?.title || currentSong?.title || "Music Data Base";
@@ -10184,6 +10288,18 @@ function PageContent() {
         playbackPosition = 0,
         completed = false,
     ) {
+        const playedAt = new Date().toISOString();
+        const recentEntry: RecentPlay = {
+            playId: `${episode.id}-${playedAt}`,
+            songId: "",
+            itemId: episode.id,
+            itemType: "podcast",
+            playedAt,
+            position: Math.max(0, playbackPosition),
+            duration: Math.max(0, Number(episode.durationSeconds) || 0),
+            podcast: snapshotRecentPodcast(episode),
+        };
+        setRecentlyPlayed((previous) => prependRecentPlay(previous, recentEntry));
         const userId = String(accountUserId || "").trim();
         if (!userId || !isDesktopProtectedActionsEnabled())
             return;
@@ -11912,8 +12028,10 @@ function PageContent() {
         setRecentlyPlayed((previous) => previous.filter((item) => item.playId !== entry.playId));
         const userId = String(accountUserId || "").trim();
         if (userId && entryId && isDesktopProtectedActionsEnabled()) {
-            const allowed = new Set(["song", "video", "beat", "album", "ringtone"]);
-            const mediaType = (allowed.has(entryType) ? entryType : "song") as "song" | "video" | "beat" | "album" | "ringtone";
+            const allowed = new Set(["song", "video", "beat", "album", "ringtone", "podcast_episode"]);
+            const mediaType = (entryType === "podcast"
+                ? "podcast_episode"
+                : allowed.has(entryType) ? entryType : "song") as "song" | "video" | "beat" | "album" | "ringtone" | "podcast_episode";
             void removeRecentlyPlayedRecord(desktopActionFetch, userId, {
                 mediaType,
                 mediaId: entryId,
@@ -15136,6 +15254,17 @@ function PageContent() {
                 return;
             const album = resolvedAlbums.find((item) => item.id === albumRecord.id) || resolveAlbumTracksFromPools(albumRecord);
             void playAlbum(album, "Recently Played Albums");
+            return;
+        }
+        if (resolved.itemType === "podcast") {
+            const snapshot = resolved.podcast;
+            const episodeId = snapshot?.id || resolved.itemId;
+            if (!snapshot || !episodeId)
+                return;
+            const stub = recentPodcastPlaybackStub(snapshot, resolved.duration);
+            void resolvePodcastPlayback(stub, [stub]).catch((error) => {
+                showToast(error instanceof Error ? error.message : "Podcast playback could not start.", "error");
+            });
         }
     }
     async function openAlbumPlaylistPicker(album: ResolvedAlbum) {
@@ -21209,11 +21338,17 @@ function PageContent() {
           </section>);
           })() : view === "Recently Played" && !search.trim() ? (recentlyPlayed.length === 0 ? (<div className="empty-state">
               <h2>No plays saved yet</h2>
-              <p>Play any song, video, or album and it will appear here right away.</p>
+              <p>Play any song, video, album, or podcast and it will appear here right away.</p>
             </div>) : (<section className="recent-panel">
               <div className="liked-tabs" role="tablist" aria-label="Recently played filter">
-                {(["Songs", "Videos", "Albums"] as RecentTab[]).map((tab) => {
-                const count = tab === "Songs" ? recentlyPlayedSongs.length : tab === "Videos" ? recentlyPlayedVideos.length : recentlyPlayedAlbums.length;
+                {(["Songs", "Videos", "Albums", "Podcasts"] as RecentTab[]).map((tab) => {
+                const count = tab === "Songs"
+                    ? recentlyPlayedSongs.length
+                    : tab === "Videos"
+                        ? recentlyPlayedVideos.length
+                        : tab === "Albums"
+                            ? recentlyPlayedAlbums.length
+                            : recentlyPlayedPodcasts.length;
                 return (<button className={recentTab === tab ? "active" : ""} key={tab} onClick={() => setRecentTab(tab)} type="button">
                     {tab}
                     <span>{count}</span>
@@ -21227,9 +21362,18 @@ function PageContent() {
                 </div>) : (<section className="recent-list">
                   {visibleRecentPlays.map((entry, index) => {
                     const itemType = entry.itemType || "song";
-                    const title = itemType === "video" ? entry.video?.title : itemType === "album" ? entry.album?.title : entry.song?.title;
-                    const creator = itemType === "video" ? entry.video?.creator : itemType === "album" ? entry.album?.creatorName : entry.song?.artist;
-                    const cover = itemType === "video" ? entry.video?.cover : itemType === "album" ? entry.album?.cover : entry.song?.cover;
+                    const title = itemType === "podcast"
+                        ? entry.podcast?.title
+                        : itemType === "video" ? entry.video?.title : itemType === "album" ? entry.album?.title : entry.song?.title;
+                    const creator = itemType === "podcast"
+                        ? [entry.podcast?.creatorName, entry.podcast?.podcastTitle].filter(Boolean).join(" · ")
+                        : itemType === "video" ? entry.video?.creator : itemType === "album" ? entry.album?.creatorName : entry.song?.artist;
+                    const cover = itemType === "podcast"
+                        ? (entry.podcast?.thumbnailUrl || entry.podcast?.artworkUrl)
+                        : itemType === "video" ? entry.video?.cover : itemType === "album" ? entry.album?.cover : entry.song?.cover;
+                    const typeLabel = itemType === "podcast"
+                        ? `${entry.podcast?.episodeType === "video" ? "video" : "audio"} podcast`
+                        : itemType;
                     const resumeLabel = entry.position && entry.position > 0 ? `Resume ${formatRuntimeLabel(entry.position)}` : "Play";
                     if (displayMode === "list") {
                         return (
@@ -21240,7 +21384,7 @@ function PageContent() {
                                 cover={cover || BRAND_LOGO}
                                 title={title || "Untitled"}
                                 secondary={creator || ""}
-                                tertiary={`${itemType} · ${formatRuntimeLabel(entry.position || 0)} / ${formatRuntimeLabel(entry.duration || 0)}`}
+                                tertiary={`${typeLabel} · ${formatRuntimeLabel(entry.position || 0)} / ${formatRuntimeLabel(entry.duration || 0)}`}
                                 onPlay={() => resumeRecentPlay(entry)}
                                 overflowLabel={`More actions for ${title || "item"}`}
                                 onOpenOverflow={openDesktopListOverflow(
@@ -21262,7 +21406,7 @@ function PageContent() {
                             badge={`#${index + 1}`}
                             title={title || "Untitled"}
                             secondary={creator || ""}
-                            tertiary={`${itemType} · ${formatRuntimeLabel(entry.position || 0)} / ${formatRuntimeLabel(entry.duration || 0)} · ${formatPlayedAt(entry.playedAt)}`}
+                            tertiary={`${typeLabel} · ${formatRuntimeLabel(entry.position || 0)} / ${formatRuntimeLabel(entry.duration || 0)} · ${formatPlayedAt(entry.playedAt)}`}
                             onPlay={() => resumeRecentPlay(entry)}
                             overflowLabel={`More actions for ${title || "item"}`}
                             menuActions={[
