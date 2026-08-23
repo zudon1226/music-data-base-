@@ -1698,3 +1698,167 @@ button.showCover {
         animation-duration: 1600ms;
     }
 }
+
+.studioWorkspace .analyticsSection {
+    min-width: 0;
+    padding: 14px;
+    background: linear-gradient(150deg, rgba(14, 25, 49, 0.94), rgba(8, 16, 34, 0.9));
+    border: 1px solid var(--podcast-border);
+    border-radius: 16px;
+}
+
+.studioWorkspace .analyticsState {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-top: 10px;
+    color: var(--podcast-muted);
+    font-size: 0.8rem;
+}
+
+.studioWorkspace .analyticsMetricGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    min-width: 0;
+    margin-top: 12px;
+}
+
+.studioWorkspace .analyticsMetricCard {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    min-height: 0;
+    padding: 8px 10px;
+    background: rgba(7, 14, 31, 0.62);
+    border: 1px solid var(--podcast-border);
+    border-radius: 10px;
+}
+
+.studioWorkspace .analyticsMetricCard span {
+    color: var(--podcast-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.25;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.studioWorkspace .analyticsMetricCard strong {
+    color: var(--podcast-text);
+    font-size: 1.05rem;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+}
+
+.studioWorkspace .analyticsTables {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    margin-top: 14px;
+}
+
+.studioWorkspace .analyticsTable {
+    min-width: 0;
+}
+
+.studioWorkspace .analyticsTableHeading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-bottom: 8px;
+    color: var(--podcast-accent);
+}
+
+.studioWorkspace .analyticsTableHeading h4 {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.86rem;
+}
+
+.studioWorkspace .analyticsEmpty {
+    margin: 0;
+    color: var(--podcast-muted);
+    font-size: 0.78rem;
+}
+
+.studioWorkspace .analyticsRowList {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.studioWorkspace .analyticsShowRow,
+.studioWorkspace .analyticsEpisodeRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) repeat(5, minmax(0, 0.75fr));
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 8px 10px;
+    background: rgba(7, 14, 31, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 10px;
+}
+
+.studioWorkspace .analyticsRowHeader {
+    padding-bottom: 0;
+    color: var(--podcast-muted);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 0;
+}
+
+.studioWorkspace .analyticsShowRow strong,
+.studioWorkspace .analyticsEpisodeRow strong,
+.studioWorkspace .analyticsShowRow span,
+.studioWorkspace .analyticsEpisodeRow span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.78rem;
+}
+
+.studioWorkspace .analyticsShowRow strong,
+.studioWorkspace .analyticsEpisodeRow strong {
+    color: var(--podcast-text);
+    font-size: 0.82rem;
+}
+
+@media (max-width: 820px) {
+    .studioWorkspace .analyticsMetricGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .studioWorkspace .analyticsRowHeader {
+        display: none;
+    }
+
+    .studioWorkspace .analyticsShowRow,
+    .studioWorkspace .analyticsEpisodeRow {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 5px;
+    }
+
+    .studioWorkspace .analyticsShowRow > *,
+    .studioWorkspace .analyticsEpisodeRow > * {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .studioWorkspace .analyticsShowRow > *::before,
+    .studioWorkspace .analyticsEpisodeRow > *::before {
+        color: var(--podcast-muted);
+        content: attr(data-label);
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+}
