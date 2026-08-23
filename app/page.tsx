@@ -95,7 +95,10 @@ import {
 } from "../components/ringtone-creator/ringtone-creator-workspace";
 import { RingtoneMarketplaceWorkspace } from "../components/ringtone-marketplace/ringtone-marketplace-workspace";
 import { PodcastDiscoveryWorkspace } from "../components/podcasts/PodcastDiscoveryWorkspace";
+import { PodcastEpisodeWorkspace } from "../components/podcasts/PodcastEpisodeWorkspace";
+import { PodcastShowWorkspace } from "../components/podcasts/PodcastShowWorkspace";
 import { PodcastStudioWorkspace } from "../components/podcasts/PodcastStudioWorkspace";
+import { isPodcastPath, parsePodcastPath, podcastEpisodePath, podcastShowPath } from "../lib/podcast-routes";
 import { CreatorStudioUploadChrome } from "../components/studio/creator-studio-upload-chrome";
 import {
     defaultUploadModeForStudio,
@@ -899,7 +902,11 @@ type MediaDownloadVaultItem = {
     downloadCount: number;
     downloadedAt: string;
 };
-type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Platform Control Center";
+type PodcastShellProps = {
+    initialPodcastShowId?: string;
+    initialPodcastEpisodeId?: string;
+};
 type PlatformErrorRow = {
     id: string;
     user_id: string | null;
@@ -1196,10 +1203,18 @@ function usesLibrarySearchScope(view: View, searchQuery: string) {
 function isDashboardView(view: View) {
     return view === "Artist Dashboard" || view === "Producer Dashboard" || view === "Podcast Studio";
 }
+function isPodcastDetailView(view: View) {
+    return view === "Podcast Show" || view === "Podcast Episode";
+}
+function podcastChromeView(view: View): DesktopNavView {
+    return isPodcastDetailView(view) ? "Podcasts" : view as DesktopNavView;
+}
 function showGlobalSearchHeading(view: View, searchQuery: string) {
     return Boolean(searchQuery.trim())
         && view !== "Marketplace"
         && view !== "Podcasts"
+        && view !== "Podcast Show"
+        && view !== "Podcast Episode"
         && view !== "License History"
         && !isDashboardView(view);
 }
@@ -3659,17 +3674,23 @@ function ArtistNameButton({ name, className = "", onOpen, }: {
       {name}
     </button>);
 }
-export default function Page() {
+export default function Page(props: PodcastShellProps = {}) {
     return (
         <DesktopAuthProvider>
             <AppI18nShell>
-                <PageContent />
+                <PageContent
+                    initialPodcastShowId={props.initialPodcastShowId}
+                    initialPodcastEpisodeId={props.initialPodcastEpisodeId}
+                />
             </AppI18nShell>
         </DesktopAuthProvider>
     );
 }
 
-function PageContent() {
+function PageContent({
+    initialPodcastShowId = "",
+    initialPodcastEpisodeId = "",
+}: PodcastShellProps) {
     const { t, locale } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
@@ -3768,7 +3789,20 @@ function PageContent() {
     }, []);
     const [songs, setSongs] = useState<Song[]>(DEFAULT_SONGS);
     const [videos, setVideos] = useState<VideoItem[]>([]);
-    const [view, setView] = useState<View>("Home");
+    const podcastRoute = parsePodcastPath(pathname || "");
+    const [view, setView] = useState<View>(() => (
+        initialPodcastEpisodeId || podcastRoute?.kind === "episode"
+            ? "Podcast Episode"
+            : initialPodcastShowId || podcastRoute?.kind === "show"
+                ? "Podcast Show"
+                : "Home"
+    ));
+    const [selectedPodcastShowId, setSelectedPodcastShowId] = useState(
+        initialPodcastShowId || (podcastRoute?.kind === "show" ? podcastRoute.id : ""),
+    );
+    const [selectedPodcastEpisodeId, setSelectedPodcastEpisodeId] = useState(
+        initialPodcastEpisodeId || (podcastRoute?.kind === "episode" ? podcastRoute.id : ""),
+    );
     const [activeTab, setActiveTab] = useState("Trending");
     const [search, setSearch] = useState("");
     const [searchInput, setSearchInput] = useState("");
@@ -5948,8 +5982,8 @@ function PageContent() {
         setPlayerCollapsed((value) => !value);
     };
     const activeNavigationKey = useMemo(
-        () => buildActiveNavigationKey({ view, showUpload, uploadMode }),
-        [view, showUpload, uploadMode],
+        () => `${buildActiveNavigationKey({ view, showUpload, uploadMode })}:${selectedPodcastShowId}:${selectedPodcastEpisodeId}`,
+        [view, selectedPodcastShowId, selectedPodcastEpisodeId, showUpload, uploadMode],
     );
     const playlistModalNavigationKeyRef = useRef(activeNavigationKey);
     // Internal view switches do not change the URL — reset scroll from the active view key.
@@ -8048,6 +8082,43 @@ function PageContent() {
             setVideoDetailViewerOpen(false);
         }
     }, [view]);
+    useEffect(() => {
+        const parsed = parsePodcastPath(window.location.pathname);
+        if (parsed?.kind === "show") {
+            setSelectedPodcastShowId(parsed.id);
+            if (viewRef.current !== "Podcast Show") setView("Podcast Show");
+            return;
+        }
+        if (parsed?.kind === "episode") {
+            setSelectedPodcastEpisodeId(parsed.id);
+            if (viewRef.current !== "Podcast Episode") setView("Podcast Episode");
+        }
+    }, []);
+    useEffect(() => {
+        function onPodcastRoutePopState(event: PopStateEvent) {
+            const parsed = parsePodcastPath(window.location.pathname);
+            if (parsed?.kind === "show") {
+                setSelectedPodcastShowId(parsed.id);
+                setView("Podcast Show");
+                return;
+            }
+            if (parsed?.kind === "episode") {
+                setSelectedPodcastEpisodeId(parsed.id);
+                setView("Podcast Episode");
+                return;
+            }
+            const restored = typeof event.state?.view === "string" ? event.state.view as View : "";
+            if (restored && !isPodcastDetailView(restored)) {
+                setView(restored);
+                return;
+            }
+            if (isPodcastDetailView(viewRef.current)) {
+                setView("Podcasts");
+            }
+        }
+        window.addEventListener("popstate", onPodcastRoutePopState);
+        return () => window.removeEventListener("popstate", onPodcastRoutePopState);
+    }, []);
     useEffect(() => {
         const video = mainVideoRef.current;
         if (!video)
@@ -14219,7 +14290,9 @@ function PageContent() {
             videoReturnViewRef.current = view;
         }
         const openedOnView = podcastEpisode
-            ? (viewRef.current === "Podcast Studio" ? "Podcast Studio" : "Podcasts")
+            ? (viewRef.current === "Podcast Studio" || isPodcastDetailView(viewRef.current)
+                ? viewRef.current
+                : "Podcasts")
             : viewRef.current;
         videoDetailOpenedOnViewRef.current = openedOnView;
         setVideoDetailViewerOpen(true);
@@ -16152,8 +16225,42 @@ function PageContent() {
         if (nextView === "Notifications") {
             void reloadNotificationsFromServer();
         }
+        if (typeof window !== "undefined" && !isPodcastDetailView(nextView) && isPodcastPath(window.location.pathname)) {
+            window.history.pushState({ view: nextView }, "", "/");
+        }
         // Explicit nav action: pin destination heading under sticky topbar (not mere scrollTop=0).
         scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
+    }
+    function rememberCurrentHistoryView() {
+        if (typeof window === "undefined" || isPodcastPath(window.location.pathname)) return;
+        window.history.replaceState({ view }, "", window.location.pathname || "/");
+    }
+    function openPodcastShow(showId: string) {
+        const nextShowId = String(showId || "").trim();
+        if (!nextShowId) return;
+        rememberCurrentHistoryView();
+        const nextPath = podcastShowPath(nextShowId);
+        if (typeof window !== "undefined" && window.location.pathname !== nextPath) {
+            window.history.pushState({ view: "Podcast Show", showId: nextShowId }, "", nextPath);
+        }
+        setSelectedPodcastShowId(nextShowId);
+        applyDesktopView("Podcast Show");
+    }
+    function openPodcastEpisode(episodeId: string, showId = "") {
+        const nextEpisodeId = String(episodeId || "").trim();
+        if (!nextEpisodeId) return;
+        rememberCurrentHistoryView();
+        const nextPath = podcastEpisodePath(nextEpisodeId);
+        if (typeof window !== "undefined" && window.location.pathname !== nextPath) {
+            window.history.pushState({
+                view: "Podcast Episode",
+                episodeId: nextEpisodeId,
+                showId,
+            }, "", nextPath);
+        }
+        setSelectedPodcastEpisodeId(nextEpisodeId);
+        if (showId) setSelectedPodcastShowId(showId);
+        applyDesktopView("Podcast Episode");
     }
     function denyUnauthorizedDesktopNav() {
         setToast(null);
@@ -17948,7 +18055,7 @@ function PageContent() {
 
         <DesktopAppSidebarNav
           key={`sidebar-nav-${locale}`}
-          activeView={view as DesktopNavView}
+          activeView={podcastChromeView(view)}
           access={desktopNavAccess}
           onNavigate={(nextView) => {
             handleNav(nextView as View);
@@ -18202,7 +18309,7 @@ function PageContent() {
 
         <MobileAppHorizontalNav
           key={`mobile-nav-${locale}`}
-          activeView={view as DesktopNavView}
+          activeView={podcastChromeView(view)}
           access={desktopNavAccess}
           onNavigate={(nextView) => {
             handleNav(nextView as View);
@@ -20039,6 +20146,23 @@ function PageContent() {
             <PodcastDiscoveryWorkspace
               userId={accountUserId}
               onPlayPodcast={playPodcast}
+              onOpenShow={openPodcastShow}
+              onOpenEpisode={openPodcastEpisode}
+            />
+          ) : view === "Podcast Show" ? (
+            <PodcastShowWorkspace
+              userId={accountUserId}
+              showId={selectedPodcastShowId}
+              onPlayPodcast={playPodcast}
+              onOpenEpisode={openPodcastEpisode}
+              onBackToDiscovery={() => handleNav("Podcasts")}
+            />
+          ) : view === "Podcast Episode" ? (
+            <PodcastEpisodeWorkspace
+              userId={accountUserId}
+              episodeId={selectedPodcastEpisodeId}
+              onPlayPodcast={playPodcast}
+              onOpenShow={openPodcastShow}
             />
           ) : view === "Podcast Studio" && navCapabilities.canUpload ? (
             <PodcastStudioWorkspace

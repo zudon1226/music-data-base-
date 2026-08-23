@@ -401,6 +401,15 @@
     min-height: 90px;
 }
 
+button.episodeArtwork,
+button.showCover {
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
 .coverBadge,
 .audioBadge,
 .videoBadge,
@@ -1451,6 +1460,224 @@
     .fileIcon {
         width: 38px;
         height: 38px;
+    }
+}
+
+.titleLink,
+.showTitleLink {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.titleLink h4,
+.showTitleLink {
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.showTitleLink {
+    margin: 4px 0 2px;
+    color: var(--podcast-accent);
+    font-size: 0.98rem;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.showTitleLink:hover,
+.titleLink:hover h4 {
+    text-decoration: underline;
+}
+
+.detailNavRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.detailHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    min-width: 0;
+    padding: clamp(14px, 2vw, 20px);
+    background: linear-gradient(135deg, rgba(15, 28, 57, 0.96), rgba(18, 30, 56, 0.75));
+    border: 1px solid var(--podcast-border);
+    border-radius: 17px;
+}
+
+.detailCover {
+    position: relative;
+    display: grid;
+    width: 112px;
+    height: 112px;
+    max-width: 100%;
+    place-items: center;
+    overflow: hidden;
+    color: rgba(103, 232, 249, 0.7);
+    background-color: rgba(19, 32, 59, 0.85);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    border-radius: 14px;
+}
+
+.episodeDetailCoverVideo {
+    width: min(100%, 220px);
+    height: auto;
+    min-height: 112px;
+    aspect-ratio: 16 / 9;
+}
+
+.detailCover > .coverBadge,
+.detailCover > .audioBadge,
+.detailCover > .videoBadge {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+}
+
+.detailCopy {
+    min-width: 0;
+}
+
+.detailCopy h2 {
+    overflow-wrap: anywhere;
+}
+
+.detailDescription {
+    margin-top: 8px !important;
+    color: var(--podcast-muted);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.detailActions,
+.detailToolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+    margin-top: 12px;
+}
+
+.detailActions .playButton,
+.detailActions .secondaryButton {
+    min-height: 40px;
+}
+
+.sortField {
+    display: grid;
+    gap: 4px;
+    min-width: min(100%, 180px);
+    color: var(--podcast-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sortField select {
+    min-height: 42px;
+    padding: 8px 10px;
+    color: var(--podcast-text);
+    background: rgba(8, 16, 34, 0.88);
+    border: 1px solid var(--podcast-border);
+    border-radius: 10px;
+}
+
+@media (min-width: 821px) {
+    .detailHeader {
+        grid-template-columns: 168px minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .detailCover {
+        width: 168px;
+        height: 168px;
+    }
+
+    .episodeDetailHeader {
+        grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+    }
+
+    .episodeDetailCoverVideo {
+        width: 240px;
+        min-height: 0;
+        height: auto;
+    }
+
+    .detailToolbar {
+        align-items: end;
+        justify-content: space-between;
+    }
+
+    .detailToolbar .tabs {
+        margin-top: 0;
+        max-width: 360px;
+    }
+}
+
+@media (max-width: 820px) {
+    .detailHeader {
+        grid-template-columns: 96px minmax(0, 1fr);
+        padding: 14px;
+    }
+
+    .detailCover,
+    .episodeDetailCoverVideo {
+        width: 96px;
+        min-width: 96px;
+        height: 96px;
+        min-height: 96px;
+        aspect-ratio: auto;
+    }
+
+    .episodeDetailHeader {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .episodeDetailCoverVideo {
+        width: min(100%, 220px);
+        height: auto;
+        min-height: 0;
+        aspect-ratio: 16 / 9;
+    }
+
+    .detailActions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .detailActions .playButton {
+        grid-column: 1 / -1;
+    }
+
+    .detailToolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .detailToolbar .tabs {
+        width: 100%;
+        max-width: none;
+        margin-top: 0;
+    }
+
+    .titleLink h4,
+    .detailCopy h2 {
+        -webkit-line-clamp: 3;
     }
 }
 

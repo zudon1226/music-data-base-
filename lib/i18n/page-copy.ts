@@ -58,6 +58,8 @@ export function translatePageTitle(view: string, t: TranslateFn, options: PageCo
     }
     if (view === "Marketplace") return t("marketplace.fullTitle");
     if (view === "Podcasts") return "Podcasts";
+    if (view === "Podcast Show") return "Podcast Show";
+    if (view === "Podcast Episode") return "Podcast Episode";
     if (view === "Podcast Studio") return "Podcast Studio";
     if (view === "Artist Profile") return options.activeArtistName || t("nav.artistProfile");
     if (view === "Producer Profile") return options.activeProducerName || t("nav.producerProfile");
@@ -74,6 +76,8 @@ export function translatePageTitle(view: string, t: TranslateFn, options: PageCo
 export function translatePageSubtitle(view: string, t: TranslateFn, options: PageCopyOptions = {}) {
     if (options.isSearch) return t("search.resultsSubtitle");
     if (view === "Podcasts") return "Discover audio and video podcasts from Music Data Base creators.";
+    if (view === "Podcast Show") return "Episodes, follows, and saves for this Podcast show.";
+    if (view === "Podcast Episode") return "Play this audio or video Podcast episode.";
     if (view === "Podcast Studio") return "Create, publish, and manage your podcast shows and episodes.";
     const subtitleKey = VIEW_SUBTITLE_KEYS[view as DesktopNavView];
     if (subtitleKey) return t(subtitleKey);

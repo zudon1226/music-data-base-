@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/app-home-page": ["./app/page.tsx"]
     }
   },
   "include": [
