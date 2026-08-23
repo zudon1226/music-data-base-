@@ -23,6 +23,9 @@ const requiredFiles = [
   "app/api/podcasts/uploads/route.ts",
   "app/api/podcasts/playback/route.ts",
   "app/api/podcasts/likes/route.ts",
+  "app/api/podcasts/analytics/route.ts",
+  "lib/podcast-analytics.ts",
+  "components/podcasts/PodcastStudioAnalytics.tsx",
   "components/podcasts/PodcastDiscoveryWorkspace.tsx",
   "components/podcasts/PodcastShowWorkspace.tsx",
   "components/podcasts/PodcastEpisodeWorkspace.tsx",
@@ -107,6 +110,21 @@ expect("components/podcasts/PodcastEpisodeWorkspace.tsx", /onPlayPodcast/, "Epis
 expect("components/podcasts/podcasts.module.css", /\.detailHeader/, "Show/episode detail header styles missing");
 expect("app/page.tsx", /itemType: "podcast"/, "Podcast Recently Played item type missing");
 expect("app/page.tsx", /recentlyPlayedPodcasts/, "Podcast Recently Played tab missing");
+expect("lib/podcast-analytics.ts", /export function buildPodcastAnalytics/, "Podcast analytics aggregator missing");
+expect("lib/podcast-analytics.ts", /audioPlays[\s\S]*videoViews/, "Separated audio plays and video views missing");
+expect("app/api/podcasts/analytics/route.ts", /requirePodcastRequestCreator/, "Podcast analytics creator authorization missing");
+expect("app/api/podcasts/analytics/route.ts", /eq\("user_id", ownerUserId\)/, "Podcast analytics owner isolation missing");
+expect("app/api/podcasts/analytics/route.ts", /buildPodcastAnalytics/, "Podcast analytics payload builder missing");
+expect("components/podcasts/PodcastStudioWorkspace.tsx", /<PodcastStudioAnalytics/, "Podcast Studio analytics section missing");
+expect("components/podcasts/PodcastStudioAnalytics.tsx", /\/api\/podcasts\/analytics/, "Studio analytics fetch missing");
+expect("components/podcasts/PodcastStudioAnalytics.tsx", /Refresh analytics/, "Studio analytics refresh missing");
+expect("components/podcasts/podcasts.module.css", /\.studioWorkspace \.analyticsSection/, "Studio-scoped analytics styles missing");
+expect("components/podcasts/podcasts.module.css", /\.studioWorkspace \.analyticsMetricGrid/, "Studio-scoped analytics metric cards missing");
+
+const analyticsSource = read("app/api/podcasts/analytics/route.ts");
+if (/create table|alter table|from\("podcast_analytics"\)/i.test(analyticsSource)) {
+  failures.push("Podcast analytics introduced a new analytics table");
+}
 
 const queueMigration = read("supabase/migrations/202607140001_create_user_media_queue.sql");
 if (/podcast/i.test(queueMigration)) {

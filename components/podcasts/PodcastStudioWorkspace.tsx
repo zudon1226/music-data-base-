@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { uploadFileToSignedSupabaseStorage } from "@/lib/supabase-storage-upload";
 import { inspectVideoFileForUploadCompatibility } from "@/lib/video-upload-compatibility";
+import { PodcastStudioAnalytics } from "./PodcastStudioAnalytics";
 import styles from "./podcasts.module.css";
 
 type PodcastStudioWorkspaceProps = {
@@ -891,6 +892,8 @@ export function PodcastStudioWorkspace({
                             Create Episode
                         </button>
                     </div>
+
+                    <PodcastStudioAnalytics userId={userId} />
 
                     <div className={styles.studioGrid}>
                         <section className={styles.panel} aria-labelledby="my-podcast-shows-heading">
