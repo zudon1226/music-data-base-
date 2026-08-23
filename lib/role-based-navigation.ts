@@ -177,6 +177,8 @@ export const LISTENER_ACCESSIBLE_VIEWS = [
     "Beats",
     "Artists",
     "Videos",
+    "Podcast Show",
+    "Podcast Episode",
 ] as const;
 
 export function canAccessNavView(view: string, capabilities: NavCapabilityFlags): boolean {

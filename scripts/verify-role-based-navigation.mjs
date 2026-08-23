@@ -111,6 +111,8 @@ const LISTENER_ACCESSIBLE_VIEWS = [
     "Beats",
     "Artists",
     "Videos",
+    "Podcast Show",
+    "Podcast Episode",
 ];
 
 const ALL_NAV_VIEWS = [

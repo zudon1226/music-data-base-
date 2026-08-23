@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePodcastOwner } from "@/lib/podcast-access";
 import { mapPodcastRows, PODCAST_EPISODE_COLUMNS, PODCAST_SHOW_COLUMNS } from "@/lib/podcast-data";
 import { deletePodcastEpisodePermanently } from "@/lib/podcast-delete-lifecycle";
-import { requirePodcastRequestCreator } from "@/lib/podcast-route-auth";
+import { requirePodcastRequestCreator, requirePodcastRequestUser } from "@/lib/podcast-route-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -22,6 +22,61 @@ async function loadEpisode(episodeId: string) {
         .select(PODCAST_EPISODE_COLUMNS)
         .eq("id", episodeId)
         .maybeSingle();
+}
+
+export async function GET(
+    request: Request,
+    context: { params: Promise<{ id: string }> },
+) {
+    try {
+        const { id } = await context.params;
+        if (!isUuid(id)) return jsonResponse({ error: "Invalid Podcast episode id." }, 400);
+        const episodeResult = await loadEpisode(id);
+        if (episodeResult.error) return jsonResponse({ error: getErrorMessage(episodeResult.error) }, 500);
+        if (!episodeResult.data) return jsonResponse({ error: "Podcast episode not found." }, 404);
+        const episodeRow = episodeResult.data as unknown as Record<string, unknown>;
+        const supabase = getSupabaseServerClient();
+        const showResult = await supabase
+            .from("podcast_shows")
+            .select(PODCAST_SHOW_COLUMNS)
+            .eq("id", String(episodeRow.podcast_id || ""))
+            .maybeSingle();
+        if (showResult.error) return jsonResponse({ error: getErrorMessage(showResult.error) }, 500);
+        if (!showResult.data) return jsonResponse({ error: "Podcast show not found." }, 404);
+        const showRow = showResult.data as unknown as Record<string, unknown>;
+        const isPublic = episodeRow.status === "published" && showRow.status === "published";
+        let canManage = false;
+        if (!isPublic) {
+            const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
+            const auth = await requirePodcastRequestUser(request, { userId }, `/api/podcasts/episodes/${id}`);
+            if (!auth.ok) return jsonResponse({ error: "Podcast episode not found." }, 404);
+            canManage = await requirePodcastOwner(auth.userId, episodeRow.user_id).then((result) => result.ok);
+            if (!canManage) return jsonResponse({ error: "Podcast episode not found." }, 404);
+        }
+        const mapped = await mapPodcastRows({
+            showRows: [showRow],
+            episodeRows: [episodeRow],
+        });
+        const episode = mapped.episodes[0];
+        const show = mapped.shows[0];
+        if (!episode || !show) return jsonResponse({ error: "Podcast episode not found." }, 404);
+        return jsonResponse({
+            episode: canManage
+                ? episode
+                : {
+                    ...episode,
+                    mediaUrl: "",
+                    storagePath: "",
+                    artworkStoragePath: "",
+                },
+            show: canManage ? show : { ...show, coverStoragePath: "" },
+            canManage,
+        });
+    }
+    catch (error) {
+        console.error("[api/podcasts/episodes/:id] GET failed:", error);
+        return jsonResponse({ error: getErrorMessage(error) }, 500);
+    }
 }
 
 export async function PATCH(

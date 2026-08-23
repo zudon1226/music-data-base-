@@ -29,6 +29,8 @@ import styles from "./podcasts.module.css";
 type PodcastDiscoveryWorkspaceProps = {
     userId: string;
     onPlayPodcast: (request: PodcastPlaybackRequest) => void | Promise<void>;
+    onOpenShow: (showId: string) => void;
+    onOpenEpisode: (episodeId: string, showId?: string) => void;
 };
 
 type PodcastCollectionResponse = {
@@ -94,6 +96,8 @@ function responseError(body: { error?: string }, fallback: string) {
 export function PodcastDiscoveryWorkspace({
     userId,
     onPlayPodcast,
+    onOpenShow,
+    onOpenEpisode,
 }: PodcastDiscoveryWorkspaceProps) {
     const [activeTab, setActiveTab] = useState<PodcastTab>("All");
     const [shows, setShows] = useState<PodcastShow[]>([]);
@@ -504,19 +508,26 @@ export function PodcastDiscoveryWorkspace({
                             const canFollow = Boolean(userId && show.userId && show.userId !== userId);
                             return (
                                 <article key={show.id} className={styles.showCard}>
-                                    <div
+                                    <button
+                                        type="button"
                                         className={styles.showCover}
                                         style={imageStyle(show.coverImageUrl)}
-                                        role="img"
-                                        aria-label={`Cover art for ${show.title}`}
+                                        onClick={() => onOpenShow(show.id)}
+                                        aria-label={`Open ${show.title}`}
                                     >
                                         {!show.coverImageUrl ? <Radio size={34} aria-hidden="true" /> : null}
                                         <span className={styles.coverBadge}>Podcast</span>
-                                    </div>
+                                    </button>
                                     <div className={styles.cardBody}>
                                         <div className={styles.cardTitleRow}>
                                             <div className={styles.minWidthZero}>
-                                                <h4>{show.title}</h4>
+                                                <button
+                                                    type="button"
+                                                    className={styles.titleLink}
+                                                    onClick={() => onOpenShow(show.id)}
+                                                >
+                                                    <h4>{show.title}</h4>
+                                                </button>
                                                 <p>{show.creatorName || "Independent creator"}</p>
                                             </div>
                                             {userId ? (
@@ -598,11 +609,12 @@ export function PodcastDiscoveryWorkspace({
                                         episode.episodeType === "video" ? styles.episodeCardVideo : styles.episodeCardAudio
                                     }`}
                                 >
-                                    <div
+                                    <button
+                                        type="button"
                                         className={styles.episodeArtwork}
                                         style={imageStyle(artworkUrl)}
-                                        role="img"
-                                        aria-label={`Artwork for ${episode.title}`}
+                                        onClick={() => onOpenEpisode(episode.id, episode.podcastId)}
+                                        aria-label={`Open ${episode.title}`}
                                     >
                                         {!artworkUrl
                                             ? episode.episodeType === "video"
@@ -615,10 +627,16 @@ export function PodcastDiscoveryWorkspace({
                                                 : <Headphones size={13} aria-hidden="true" />}
                                             {episode.episodeType === "video" ? "Video" : "Audio"}
                                         </span>
-                                    </div>
+                                    </button>
                                     <div className={styles.cardBody}>
                                         <p className={styles.showName}>{episode.podcastTitle}</p>
-                                        <h4>{episode.title}</h4>
+                                        <button
+                                            type="button"
+                                            className={styles.titleLink}
+                                            onClick={() => onOpenEpisode(episode.id, episode.podcastId)}
+                                        >
+                                            <h4>{episode.title}</h4>
+                                        </button>
                                         <p className={styles.creatorName}>{episode.creatorName || "Independent creator"}</p>
                                         <p className={styles.description}>{episode.description || "Listen to this Podcast episode."}</p>
                                         <div className={styles.metadata}>

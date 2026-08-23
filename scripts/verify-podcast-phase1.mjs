@@ -24,7 +24,12 @@ const requiredFiles = [
   "app/api/podcasts/playback/route.ts",
   "app/api/podcasts/likes/route.ts",
   "components/podcasts/PodcastDiscoveryWorkspace.tsx",
+  "components/podcasts/PodcastShowWorkspace.tsx",
+  "components/podcasts/PodcastEpisodeWorkspace.tsx",
   "components/podcasts/PodcastStudioWorkspace.tsx",
+  "app/podcast/[id]/page.tsx",
+  "app/podcast/episode/[id]/page.tsx",
+  "lib/podcast-routes.ts",
   "components/podcasts/podcasts.module.css",
   "lib/podcast-types.ts",
   "lib/podcast-access.ts",
@@ -85,7 +90,21 @@ expect("app/page.tsx", /function playPodcast\(/, "Podcast shared-player adapter 
 expect("app/page.tsx", /currentPodcastEpisode\?\.episodeType === "video"/, "Video Podcast player integration missing");
 expect("app/page.tsx", /data-podcast-player="audio"/, "Audio Podcast player integration missing");
 expect("app/page.tsx", /<PodcastDiscoveryWorkspace/, "Podcast discovery workspace not mounted");
+expect("app/page.tsx", /<PodcastShowWorkspace/, "Podcast show workspace not mounted");
+expect("app/page.tsx", /<PodcastEpisodeWorkspace/, "Podcast episode workspace not mounted");
 expect("app/page.tsx", /<PodcastStudioWorkspace/, "Podcast Studio workspace not mounted");
+expect("app/page.tsx", /function openPodcastShow\(/, "Podcast show deep-link opener missing");
+expect("app/page.tsx", /function openPodcastEpisode\(/, "Podcast episode deep-link opener missing");
+expect("next.config.ts", /source: "\/podcast\/episode\/:id"/, "Podcast episode rewrite missing");
+expect("next.config.ts", /source: "\/podcast\/:id"/, "Podcast show rewrite missing");
+expect("app/api/podcasts/episodes/[id]/route.ts", /export async function GET/, "Public episode GET missing");
+expect("lib/role-based-navigation.ts", /"Podcast Show"/, "Listener Podcast show destination missing");
+expect("lib/role-based-navigation.ts", /"Podcast Episode"/, "Listener Podcast episode destination missing");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /onOpenShow/, "Discovery show navigation missing");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /onOpenEpisode/, "Discovery episode navigation missing");
+expect("components/podcasts/PodcastShowWorkspace.tsx", /onPlayPodcast/, "Show page playback callback missing");
+expect("components/podcasts/PodcastEpisodeWorkspace.tsx", /onPlayPodcast/, "Episode page playback callback missing");
+expect("components/podcasts/podcasts.module.css", /\.detailHeader/, "Show/episode detail header styles missing");
 expect("app/page.tsx", /itemType: "podcast"/, "Podcast Recently Played item type missing");
 expect("app/page.tsx", /recentlyPlayedPodcasts/, "Podcast Recently Played tab missing");
 
