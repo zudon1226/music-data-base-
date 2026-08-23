@@ -98,6 +98,7 @@ import { PodcastDiscoveryWorkspace } from "../components/podcasts/PodcastDiscove
 import { PodcastEpisodeWorkspace } from "../components/podcasts/PodcastEpisodeWorkspace";
 import { PodcastShowWorkspace } from "../components/podcasts/PodcastShowWorkspace";
 import { PodcastStudioWorkspace } from "../components/podcasts/PodcastStudioWorkspace";
+import { PersistedModerationReports } from "../components/moderation/PersistedModerationReports";
 import { isPodcastPath, parsePodcastPath, podcastEpisodePath, podcastShowPath } from "../lib/podcast-routes";
 import { CreatorStudioUploadChrome } from "../components/studio/creator-studio-upload-chrome";
 import {
@@ -17069,6 +17070,7 @@ function PageContent({
           <div className="trust-panel-grid">
             <div>
               <h4>Moderation Queue</h4>
+              <PersistedModerationReports userId={accountUserId} />
               {moderationReports.length === 0 ? (<div className="dashboard-empty-card">
                   <h3>No moderation reports</h3>
                   <p>Song, video, album, comment, creator, and playlist reports will appear here.</p>

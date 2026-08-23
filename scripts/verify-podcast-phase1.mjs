@@ -30,6 +30,14 @@ const requiredFiles = [
   "components/podcasts/PodcastShowWorkspace.tsx",
   "components/podcasts/PodcastEpisodeWorkspace.tsx",
   "components/podcasts/PodcastStudioWorkspace.tsx",
+  "components/podcasts/PodcastEpisodeComments.tsx",
+  "components/moderation/PersistedModerationReports.tsx",
+  "app/api/podcasts/episodes/[id]/comments/route.ts",
+  "app/api/podcasts/comments/[id]/route.ts",
+  "app/api/podcasts/comments/[id]/report/route.ts",
+  "app/api/moderation/reports/route.ts",
+  "lib/podcast-comments.ts",
+  "supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql",
   "app/podcast/[id]/page.tsx",
   "app/podcast/episode/[id]/page.tsx",
   "lib/podcast-routes.ts",
@@ -120,6 +128,43 @@ expect("components/podcasts/PodcastStudioAnalytics.tsx", /\/api\/podcasts\/analy
 expect("components/podcasts/PodcastStudioAnalytics.tsx", /Refresh analytics/, "Studio analytics refresh missing");
 expect("components/podcasts/podcasts.module.css", /\.studioWorkspace \.analyticsSection/, "Studio-scoped analytics styles missing");
 expect("components/podcasts/podcasts.module.css", /\.studioWorkspace \.analyticsMetricGrid/, "Studio-scoped analytics metric cards missing");
+expect("supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql", /create table if not exists public\.podcast_episode_comments/i, "Podcast comments table missing");
+expect("supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql", /references public\.podcast_episodes\(id\) on delete cascade/i, "Podcast comments episode FK missing");
+expect("supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql", /references auth\.users\(id\) on delete cascade/i, "Podcast comments user FK missing");
+expect("supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql", /podcast_episode_comments_episode_created_idx/i, "Podcast comments episode index missing");
+expect("supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql", /revoke insert, update, delete[\s\S]*podcast_episode_comments from authenticated/i, "Podcast comments API-only mutation boundary missing");
+expect("supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql", /moderation_reports_comment_reporter_uidx/i, "Podcast comment duplicate-report index missing");
+expect("app/api/podcasts/episodes/[id]/comments/route.ts", /requirePodcastRequestUser/, "Podcast comment create uses authenticated user auth");
+expect("app/api/podcasts/episodes/[id]/comments/route.ts", /user_id:\s*auth\.userId/, "Podcast comment insert ignores client user_id");
+expect("app/api/podcasts/comments/[id]/route.ts", /You can only delete your own comments/, "Podcast own-comment delete guard missing");
+expect("app/api/podcasts/comments/[id]/route.ts", /isAdminUserId/, "Podcast comment admin delete missing");
+expect("app/api/podcasts/comments/[id]/report/route.ts", /item_type:\s*"comment"/, "Podcast comment reports reuse moderation_reports");
+expect("app/api/podcasts/comments/[id]/report/route.ts", /You already reported this comment/, "Podcast duplicate report rejection missing");
+expect("app/api/moderation/reports/route.ts", /from\("podcast_episode_comments"\)[\s\S]*delete/, "Admin remove deletes podcast comment");
+expect("components/podcasts/PodcastEpisodeWorkspace.tsx", /<PodcastEpisodeComments/, "Episode page comments section missing");
+expect("components/podcasts/PodcastEpisodeComments.tsx", /Submit/, "Episode comment composer missing");
+expect("components/podcasts/podcasts.module.css", /\.commentsSection/, "Episode comments styles missing");
+expect("app/page.tsx", /<PersistedModerationReports/, "Trust queue persisted reports hook missing");
+
+const commentCreateSource = read("app/api/podcasts/episodes/[id]/comments/route.ts");
+if (/requirePodcastRequestCreator/.test(commentCreateSource)) {
+  failures.push("Podcast comment create incorrectly requires creator role");
+}
+
+const commentDeleteSource = read("app/api/podcasts/comments/[id]/route.ts");
+if (/requirePodcastOwner|show\.user_id|podcast_shows/.test(commentDeleteSource)) {
+  failures.push("Podcast comment delete grants show-owner delete-other");
+}
+
+const commentsMigration = read("supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql");
+if (/create table[\s\S]*podcast_episode_comment_reports/i.test(commentsMigration)) {
+  failures.push("Phase 2C created a second comment reports table");
+}
+
+const showWorkspace = read("components/podcasts/PodcastShowWorkspace.tsx");
+if (/PodcastEpisodeComments|Comments/.test(showWorkspace)) {
+  failures.push("Podcast show page incorrectly includes comments");
+}
 
 const analyticsSource = read("app/api/podcasts/analytics/route.ts");
 if (/create table|alter table|from\("podcast_analytics"\)/i.test(analyticsSource)) {

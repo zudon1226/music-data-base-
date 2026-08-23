@@ -31,6 +31,7 @@ import {
     podcastImageStyle,
     podcastResponseError,
 } from "./podcast-display";
+import { PodcastEpisodeComments } from "./PodcastEpisodeComments";
 import styles from "./podcasts.module.css";
 
 type PodcastEpisodeWorkspaceProps = {
@@ -515,6 +516,10 @@ export function PodcastEpisodeWorkspace({
                         </div>
                     </div>
                 </header>
+            ) : null}
+
+            {!loading && episode ? (
+                <PodcastEpisodeComments episodeId={episode.id} userId={userId} />
             ) : null}
         </section>
     );
