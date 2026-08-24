@@ -146,6 +146,21 @@ expect("components/podcasts/PodcastEpisodeComments.tsx", /Submit/, "Episode comm
 expect("components/podcasts/podcasts.module.css", /\.commentsSection/, "Episode comments styles missing");
 expect("app/page.tsx", /<PersistedModerationReports/, "Trust queue persisted reports hook missing");
 
+expect("supabase/migrations/202608230002_podcast_phase2d_episode_notifications.sql", /'podcast_episode'/i, "Phase 2D notifications item_type missing");
+expect("supabase/migrations/202608230002_podcast_phase2d_episode_notifications.sql", /notifications_item_type_check/, "Phase 2D must only widen item_type check");
+expect("lib/podcast-notifications.ts", /notifyPodcastFollowersOfPublishedEpisode/, "Podcast follower notification helper missing");
+expect("lib/podcast-notifications.ts", /from\("user_follows"\)/, "Podcast notifications must resolve followers server-side");
+expect("lib/podcast-notifications.ts", /podcast_episode_published:\$\{episodeId\}/, "Podcast notification event_key must be canonical per episode");
+expect("lib/podcast-notifications.ts", /id !== creatorUserId/, "Podcast notifications must exclude creator");
+expect("app/api/podcasts/episodes/route.ts", /status === "published" && episode/, "POST notifies only when created published");
+expect("app/api/podcasts/episodes/route.ts", /notifyPodcastFollowersOfPublishedEpisode/, "POST publish hook missing");
+expect("app/api/podcasts/episodes/[id]/route.ts", /previousStatus !== "published" && updatedStatus === "published"/, "PATCH must require unpublished -> published transition");
+expect("app/api/podcasts/episodes/[id]/route.ts", /const previousStatus = String\(episodeRow.status/, "PATCH must read stored status before update");
+expect("app/api/notifications/route.ts", /Podcast episode notifications cannot be created from the client/, "Client podcast notification create guard missing");
+expect("lib/dashboard/notification-kinds.ts", /"podcast_episode_published"/, "podcast_episode_published kind missing");
+expect("app/page.tsx", /openPodcastEpisode\(episodeId\)/, "Notification click must open podcast episode");
+expect("app/page.tsx", /<NotificationCenterPanel/, "Existing notification bell must remain");
+
 const commentCreateSource = read("app/api/podcasts/episodes/[id]/comments/route.ts");
 if (/requirePodcastRequestCreator/.test(commentCreateSource)) {
   failures.push("Podcast comment create incorrectly requires creator role");
@@ -174,6 +189,25 @@ if (/create table|alter table|from\("podcast_analytics"\)/i.test(analyticsSource
 const queueMigration = read("supabase/migrations/202607140001_create_user_media_queue.sql");
 if (/podcast/i.test(queueMigration)) {
   failures.push("Existing queue migration was modified to include Podcast media");
+}
+
+const phase2dMigration = read("supabase/migrations/202608230002_podcast_phase2d_episode_notifications.sql");
+if (/create table[\s\S]*notifications/i.test(phase2dMigration)) {
+  failures.push("Phase 2D recreated the notifications table");
+}
+if (/create unique index/i.test(phase2dMigration)) {
+  failures.push("Phase 2D created a redundant notifications unique index");
+}
+if (!/'song'[\s\S]*'podcast_episode'/i.test(phase2dMigration)) {
+  failures.push("Phase 2D item_type check dropped existing notification types");
+}
+
+const helperSource = read("lib/podcast-notifications.ts");
+if (/recipientIds|recipient_ids/.test(helperSource.split("export async function")[0] + "export async function" + (helperSource.split("export async function")[1] || "").split("{")[0])) {
+  failures.push("Podcast notification helper accepts client recipient IDs");
+}
+if (!/follower_user_id/.test(helperSource) || /input\.recipient/.test(helperSource)) {
+  failures.push("Podcast notification helper must not accept recipient IDs from callers");
 }
 
 if (failures.length > 0) {

@@ -388,7 +388,7 @@ type PlatformNotification = {
     kind?: string | null;
     href?: string;
     itemId?: string;
-    itemType?: "song" | "video" | "album" | "artist" | "producer" | "playlist" | "ringtone" | "beat" | "system";
+    itemType?: "song" | "video" | "album" | "artist" | "producer" | "playlist" | "ringtone" | "beat" | "system" | "podcast_episode";
     read: boolean;
     createdAt: string;
 };
@@ -5075,8 +5075,21 @@ function PageContent({
         }).catch(() => undefined);
     }
     function navigateFromNotification(notification: PlatformNotification) {
-        const destination = String(notification.href || defaultHrefForNotification(notification.kind, notification.itemType, notification.itemId));
         setShowNotificationCenter(false);
+        const destination = String(notification.href || defaultHrefForNotification(notification.kind, notification.itemType, notification.itemId));
+        const parsedHref = parsePodcastPath(String(destination.split("?")[0] || ""));
+        const episodeId = String(
+            (parsedHref?.kind === "episode" ? parsedHref.id : "")
+            || (
+                notification.kind === "podcast_episode_published" || notification.itemType === "podcast_episode"
+                    ? notification.itemId || ""
+                    : ""
+            ),
+        ).trim();
+        if (episodeId) {
+            openPodcastEpisode(episodeId);
+            return;
+        }
         if (destination) {
             handleNav(destination as View);
         }

@@ -129,6 +129,16 @@ export async function POST(request: Request) {
 
         if (action === "create") {
             // Authenticated self-insert only (for client-side events). Server jobs use service role helpers.
+            const requestedKind = String(body.kind || "").trim();
+            const requestedItemType = String(body.itemType || "").trim();
+            const requestedEventKey = String(body.eventKey || "").trim();
+            if (
+                requestedKind === "podcast_episode_published"
+                || requestedItemType === "podcast_episode"
+                || requestedEventKey.startsWith("podcast_episode_published:")
+            ) {
+                return jsonResponse({ error: "Podcast episode notifications cannot be created from the client." }, 403);
+            }
             const title = String(body.title || "").trim().slice(0, 160);
             const notificationBody = String(body.body || "").trim().slice(0, 500);
             const kind = isNotificationKind(body.kind) ? body.kind : "system_announcement";
