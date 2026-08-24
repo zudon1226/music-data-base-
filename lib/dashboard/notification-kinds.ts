@@ -16,6 +16,7 @@ export const NOTIFICATION_KINDS = [
     "marketplace_sale",
     "artist_producer_approval",
     "system_announcement",
+    "podcast_episode_published",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -51,6 +52,8 @@ export function defaultHrefForNotification(kind: string | null | undefined, item
             return itemType === "video" ? "Videos" : "Library";
         case "system_announcement":
             return "Home";
+        case "podcast_episode_published":
+            return id ? `/podcast/episode/${encodeURIComponent(id)}` : "Podcasts";
         default:
             return "Home";
     }

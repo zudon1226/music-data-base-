@@ -29,6 +29,7 @@ const navLib = read("lib/desktop-app-navigation.ts");
 const roleLib = read("lib/role-based-navigation.ts");
 const pkg = read("package.json");
 const layoutLock = read("scripts/verify-responsive-stability-lock.mjs");
+const kinds = read("lib/dashboard/notification-kinds.ts");
 
 // --- Single visible notification control ---
 const topbarBellCount = (page.match(/<NotificationCenterPanel[\s\S]*?\/>/g) || []).length
@@ -173,6 +174,13 @@ record(
 );
 record("package exposes verify:notifications-nav", pkg.includes("verify:notifications-nav"));
 record("responsive layout lock script still present", layoutLock.includes("Responsive UI stability lock"));
+record(
+    "podcast episode notifications reuse existing bell navigation",
+    page.includes("function navigateFromNotification")
+        && page.includes("openPodcastEpisode(episodeId)")
+        && page.includes('notification.kind === "podcast_episode_published"')
+        && kinds.includes('"podcast_episode_published"'),
+);
 
 const failed = results.filter((row) => !row.ok).length;
 console.log(`\nNOTIFICATION_NAV_CANONICAL_FAILS=${failed}`);

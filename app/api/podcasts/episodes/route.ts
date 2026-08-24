@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePodcastOwner } from "@/lib/podcast-access";
 import { mapPodcastRows, PODCAST_EPISODE_COLUMNS, PODCAST_SHOW_COLUMNS } from "@/lib/podcast-data";
+import { notifyPodcastFollowersOfPublishedEpisode } from "@/lib/podcast-notifications";
 import { requirePodcastRequestCreator } from "@/lib/podcast-route-auth";
 import { verifyPodcastStoredMedia } from "@/lib/podcast-storage-verification";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
@@ -126,7 +127,21 @@ export async function POST(request: Request) {
             showRows: [showRow],
             episodeRows: [episodeResult.data as unknown as Record<string, unknown>],
         });
-        return jsonResponse({ ok: true, episode: mapped.episodes[0] }, 201);
+        const episode = mapped.episodes[0];
+        if (status === "published" && episode) {
+            try {
+                await notifyPodcastFollowersOfPublishedEpisode({
+                    episodeId: episode.id,
+                    showTitle: episode.podcastTitle || String(showRow.title || "Podcast"),
+                    episodeTitle: episode.title,
+                    episodeType: episode.episodeType,
+                    creatorUserId: String(showRow.user_id),
+                });
+            } catch (notifyError) {
+                console.warn("[api/podcasts/episodes] follower notifications failed:", notifyError);
+            }
+        }
+        return jsonResponse({ ok: true, episode }, 201);
     }
     catch (error) {
         console.error("[api/podcasts/episodes] POST failed:", error);

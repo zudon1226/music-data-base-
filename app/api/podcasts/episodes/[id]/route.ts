@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePodcastOwner } from "@/lib/podcast-access";
 import { mapPodcastRows, PODCAST_EPISODE_COLUMNS, PODCAST_SHOW_COLUMNS } from "@/lib/podcast-data";
 import { deletePodcastEpisodePermanently } from "@/lib/podcast-delete-lifecycle";
+import { notifyPodcastFollowersOfPublishedEpisode } from "@/lib/podcast-notifications";
 import { requirePodcastRequestCreator, requirePodcastRequestUser } from "@/lib/podcast-route-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -93,6 +94,7 @@ export async function PATCH(
         if (episodeResult.error) return jsonResponse({ error: getErrorMessage(episodeResult.error) }, 500);
         if (!episodeResult.data) return jsonResponse({ error: "Podcast episode not found." }, 404);
         const episodeRow = episodeResult.data as unknown as Record<string, unknown>;
+        const previousStatus = String(episodeRow.status || "");
         const owner = await requirePodcastOwner(auth.userId, episodeRow.user_id);
         if (!owner.ok) return jsonResponse({ error: owner.error }, owner.status);
 
@@ -155,7 +157,22 @@ export async function PATCH(
             showRows: [showResult.data as unknown as Record<string, unknown>],
             episodeRows: [updatedRow],
         });
-        return jsonResponse({ ok: true, episode: mapped.episodes[0] });
+        const episode = mapped.episodes[0];
+        const updatedStatus = String(updatedRow.status || episode?.status || "");
+        if (previousStatus !== "published" && updatedStatus === "published" && episode) {
+            try {
+                await notifyPodcastFollowersOfPublishedEpisode({
+                    episodeId: episode.id,
+                    showTitle: episode.podcastTitle || String((showResult.data as { title?: string }).title || "Podcast"),
+                    episodeTitle: episode.title,
+                    episodeType: episode.episodeType,
+                    creatorUserId: String((showResult.data as { user_id?: string }).user_id || episode.userId),
+                });
+            } catch (notifyError) {
+                console.warn("[api/podcasts/episodes/:id] follower notifications failed:", notifyError);
+            }
+        }
+        return jsonResponse({ ok: true, episode });
     }
     catch (error) {
         console.error("[api/podcasts/episodes/:id] PATCH failed:", error);
