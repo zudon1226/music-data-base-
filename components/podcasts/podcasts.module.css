@@ -223,6 +223,74 @@
     background: rgba(148, 163, 184, 0.1);
 }
 
+.discoverySearch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-top: 16px;
+    padding: 0 12px;
+    color: var(--podcast-muted);
+    background: rgba(4, 10, 24, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+}
+
+.discoverySearch input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 0;
+    color: var(--podcast-text);
+    background: transparent;
+    border: 0;
+    outline: none;
+}
+
+.discoverySearch input::placeholder {
+    color: #718096;
+}
+
+.discoverySearch:focus-within {
+    border-color: var(--podcast-accent-strong);
+}
+
+.categoryChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-top: 12px;
+}
+
+.categoryChip,
+.categoryChipActive {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    max-width: 100%;
+    padding: 8px 14px;
+    overflow-wrap: anywhere;
+    color: var(--podcast-muted);
+    background: rgba(5, 11, 25, 0.68);
+    border: 1px solid var(--podcast-border);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.84rem;
+    font-weight: 750;
+}
+
+.categoryChipActive {
+    color: #06111f;
+    background: linear-gradient(135deg, var(--podcast-accent), #a7f3d0);
+    border-color: transparent;
+}
+
 .inlineAlert,
 .successBanner,
 .setupBanner {
@@ -1287,6 +1355,16 @@ button.showCover {
     .tabs {
         display: grid;
         width: 100%;
+    }
+
+    .discoverySearch,
+    .categoryChips {
+        width: 100%;
+    }
+
+    .categoryChip,
+    .categoryChipActive {
+        min-height: 44px;
     }
 
     .tab,
