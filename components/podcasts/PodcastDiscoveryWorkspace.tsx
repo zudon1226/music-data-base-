@@ -12,11 +12,23 @@ import {
     Play,
     Radio,
     RefreshCw,
+    Search,
     UserPlus,
     UserCheck,
     Video,
 } from "lucide-react";
 import { authFetch } from "@/lib/client-api-auth";
+import {
+    filterFollowingPodcastDiscovery,
+    filterPodcastDiscovery,
+    filterSavedPodcastDiscovery,
+    isPublishedPodcastEpisode,
+    isPublishedPodcastShow,
+    mergePublishedPodcastCatalog,
+    missingSavedPodcastIds,
+    uniquePodcastCategories,
+    type PodcastDiscoverySection,
+} from "@/lib/podcast-discovery";
 import {
     type PodcastEpisode,
     type PodcastPlaybackRequest,
@@ -56,9 +68,19 @@ type PodcastLikesResponse = {
     error?: string;
 };
 
+type FollowListResponse = {
+    following?: Array<{ userId?: string }>;
+    error?: string;
+};
+
 type SaveKind = "podcast_show" | "podcast_episode";
 
 const PODCAST_TABS: PodcastTab[] = ["All", "Audio", "Video"];
+const DISCOVERY_SECTIONS: Array<{ id: PodcastDiscoverySection; label: string }> = [
+    { id: "discover", label: "Discover" },
+    { id: "saved", label: "Saved" },
+    { id: "following", label: "Following" },
+];
 const countFormatter = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
 function imageStyle(url: string): CSSProperties | undefined {
@@ -100,8 +122,13 @@ export function PodcastDiscoveryWorkspace({
     onOpenEpisode,
 }: PodcastDiscoveryWorkspaceProps) {
     const [activeTab, setActiveTab] = useState<PodcastTab>("All");
+    const [activeSection, setActiveSection] = useState<PodcastDiscoverySection>("discover");
+    const [searchInput, setSearchInput] = useState("");
+    const [activeCategory, setActiveCategory] = useState("");
     const [shows, setShows] = useState<PodcastShow[]>([]);
     const [episodes, setEpisodes] = useState<PodcastEpisode[]>([]);
+    const [hydratedShows, setHydratedShows] = useState<PodcastShow[]>([]);
+    const [hydratedEpisodes, setHydratedEpisodes] = useState<PodcastEpisode[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [actionError, setActionError] = useState("");
@@ -113,6 +140,7 @@ export function PodcastDiscoveryWorkspace({
     const [savedLoading, setSavedLoading] = useState(Boolean(userId));
     const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set());
     const [followKeys, setFollowKeys] = useState<Set<string>>(() => new Set());
+    const [hydrateAttemptedIds, setHydrateAttemptedIds] = useState<Set<string>>(() => new Set());
 
     const loadPodcasts = useCallback(async (signal?: AbortSignal) => {
         setLoading(true);
@@ -127,8 +155,8 @@ export function PodcastDiscoveryWorkspace({
             if (!response.ok) {
                 throw new Error(responseError(body, "Podcasts could not be loaded."));
             }
-            setShows(Array.isArray(body.shows) ? body.shows : []);
-            setEpisodes(Array.isArray(body.episodes) ? body.episodes : []);
+            setShows((Array.isArray(body.shows) ? body.shows : []).filter(isPublishedPodcastShow));
+            setEpisodes((Array.isArray(body.episodes) ? body.episodes : []).filter(isPublishedPodcastEpisode));
         }
         catch (error) {
             if (signal?.aborted) return;
@@ -158,6 +186,9 @@ export function PodcastDiscoveryWorkspace({
                 setSavedEpisodeIds(new Set());
                 setLikedEpisodeIds(new Set());
                 setFollowingCreatorIds(new Set());
+                setHydratedShows([]);
+                setHydratedEpisodes([]);
+                setHydrateAttemptedIds(new Set());
                 setSavedLoading(false);
                 return;
             }
@@ -165,25 +196,40 @@ export function PodcastDiscoveryWorkspace({
             setSavedLoading(true);
             void (async () => {
                 try {
-                    const response = await authFetch(
-                        supabase,
-                        `/api/library-saves?userId=${encodeURIComponent(userId)}`,
-                        { cache: "no-store", signal: controller.signal },
-                    );
-                    const body = (await response.json().catch(() => ({}))) as LibrarySavesResponse;
-                    if (!response.ok) {
-                        throw new Error(responseError(body, "Saved podcasts could not be loaded."));
+                    const [savesResponse, likesResponse, followingResponse] = await Promise.all([
+                        authFetch(
+                            supabase,
+                            `/api/library-saves?userId=${encodeURIComponent(userId)}`,
+                            { cache: "no-store", signal: controller.signal },
+                        ),
+                        authFetch(
+                            supabase,
+                            `/api/podcasts/likes?userId=${encodeURIComponent(userId)}`,
+                            { cache: "no-store", signal: controller.signal },
+                        ),
+                        authFetch(
+                            supabase,
+                            `/api/follows?userId=${encodeURIComponent(userId)}&list=following`,
+                            { cache: "no-store", signal: controller.signal },
+                        ),
+                    ]);
+                    const savesBody = (await savesResponse.json().catch(() => ({}))) as LibrarySavesResponse;
+                    if (!savesResponse.ok) {
+                        throw new Error(responseError(savesBody, "Saved podcasts could not be loaded."));
                     }
-                    setSavedShowIds(new Set(Array.isArray(body.podcastShowIds) ? body.podcastShowIds : []));
-                    setSavedEpisodeIds(new Set(Array.isArray(body.podcastEpisodeIds) ? body.podcastEpisodeIds : []));
-                    const likesResponse = await authFetch(
-                        supabase,
-                        `/api/podcasts/likes?userId=${encodeURIComponent(userId)}`,
-                        { cache: "no-store", signal: controller.signal },
-                    );
+                    setSavedShowIds(new Set(Array.isArray(savesBody.podcastShowIds) ? savesBody.podcastShowIds : []));
+                    setSavedEpisodeIds(new Set(Array.isArray(savesBody.podcastEpisodeIds) ? savesBody.podcastEpisodeIds : []));
                     const likesBody = (await likesResponse.json().catch(() => ({}))) as PodcastLikesResponse;
                     if (likesResponse.ok) {
                         setLikedEpisodeIds(new Set(Array.isArray(likesBody.likedEpisodeIds) ? likesBody.likedEpisodeIds : []));
+                    }
+                    const followingBody = (await followingResponse.json().catch(() => ({}))) as FollowListResponse;
+                    if (followingResponse.ok) {
+                        setFollowingCreatorIds(new Set(
+                            (followingBody.following || [])
+                                .map((row) => String(row.userId || "").trim())
+                                .filter((id) => id && id !== userId),
+                        ));
                     }
                 }
                 catch (error) {
@@ -202,33 +248,66 @@ export function PodcastDiscoveryWorkspace({
     }, [userId]);
 
     useEffect(() => {
-        if (!userId || shows.length === 0) {
-            setFollowingCreatorIds(new Set());
-            return;
-        }
+        if (!userId) return;
+        const missing = missingSavedPodcastIds({
+            savedShowIds,
+            savedEpisodeIds,
+            knownShowIds: [
+                ...shows.map((show) => show.id),
+                ...hydratedShows.map((show) => show.id),
+                ...hydrateAttemptedIds,
+            ],
+            knownEpisodeIds: [
+                ...episodes.map((episode) => episode.id),
+                ...hydratedEpisodes.map((episode) => episode.id),
+                ...hydrateAttemptedIds,
+            ],
+        });
+        if (missing.showIds.length === 0 && missing.episodeIds.length === 0) return;
+        const pendingIds = [...missing.showIds, ...missing.episodeIds];
         const controller = new AbortController();
-        const creatorIds = [...new Set(shows.map((show) => show.userId).filter(Boolean))];
         void (async () => {
-            try {
-                const next = new Set<string>();
-                await Promise.all(creatorIds.map(async (targetUserId) => {
-                    if (targetUserId === userId) return;
-                    const response = await authFetch(
-                        supabase,
-                        `/api/follows?userId=${encodeURIComponent(userId)}&targetUserId=${encodeURIComponent(targetUserId)}`,
-                        { cache: "no-store", signal: controller.signal },
-                    );
-                    const body = await response.json().catch(() => ({})) as { isFollowing?: boolean };
-                    if (body.isFollowing) next.add(targetUserId);
-                }));
-                if (!controller.signal.aborted) setFollowingCreatorIds(next);
+            const nextShows: PodcastShow[] = [];
+            const nextEpisodes: PodcastEpisode[] = [];
+            await Promise.all([
+                ...missing.showIds.map(async (showId) => {
+                    const response = await fetch(`/api/podcasts/${encodeURIComponent(showId)}`, {
+                        cache: "no-store",
+                        signal: controller.signal,
+                    });
+                    if (!response.ok) return;
+                    const body = await response.json().catch(() => ({})) as { show?: PodcastShow };
+                    if (body.show && isPublishedPodcastShow(body.show)) nextShows.push(body.show);
+                }),
+                ...missing.episodeIds.map(async (episodeId) => {
+                    const response = await fetch(`/api/podcasts/episodes/${encodeURIComponent(episodeId)}`, {
+                        cache: "no-store",
+                        signal: controller.signal,
+                    });
+                    if (!response.ok) return;
+                    const body = await response.json().catch(() => ({})) as {
+                        episode?: PodcastEpisode;
+                        show?: PodcastShow;
+                    };
+                    if (body.episode && isPublishedPodcastEpisode(body.episode)) nextEpisodes.push(body.episode);
+                    if (body.show && isPublishedPodcastShow(body.show)) nextShows.push(body.show);
+                }),
+            ]);
+            if (controller.signal.aborted) return;
+            setHydrateAttemptedIds((current) => {
+                const next = new Set(current);
+                for (const id of pendingIds) next.add(id);
+                return next;
+            });
+            if (nextShows.length > 0) {
+                setHydratedShows((current) => mergePublishedPodcastCatalog(current, [], nextShows, []).shows);
             }
-            catch {
-                if (!controller.signal.aborted) setFollowingCreatorIds(new Set());
+            if (nextEpisodes.length > 0) {
+                setHydratedEpisodes((current) => mergePublishedPodcastCatalog([], current, [], nextEpisodes).episodes);
             }
         })();
         return () => controller.abort();
-    }, [userId, shows]);
+    }, [userId, savedShowIds, savedEpisodeIds, shows, episodes, hydratedShows, hydratedEpisodes, hydrateAttemptedIds]);
 
     async function toggleFollowCreator(creatorUserId: string) {
         if (!userId || !creatorUserId || creatorUserId === userId) return;
@@ -276,11 +355,65 @@ export function PodcastDiscoveryWorkspace({
         }
     }
 
-    const visibleShows = useMemo(() => {
-        if (activeTab === "All") return shows;
-        const showIds = new Set(episodes.map((episode) => episode.podcastId));
-        return shows.filter((show) => showIds.has(show.id));
-    }, [activeTab, episodes, shows]);
+    const catalog = useMemo(
+        () => mergePublishedPodcastCatalog(shows, episodes, hydratedShows, hydratedEpisodes),
+        [episodes, hydratedEpisodes, hydratedShows, shows],
+    );
+    const categories = useMemo(() => uniquePodcastCategories(shows), [shows]);
+    const filteredCatalog = useMemo(
+        () => filterPodcastDiscovery({
+            shows: catalog.shows,
+            episodes: catalog.episodes,
+            query: searchInput,
+            category: activeCategory,
+            formatTab: activeTab,
+        }),
+        [activeCategory, activeTab, catalog.episodes, catalog.shows, searchInput],
+    );
+    const visibleLists = useMemo(() => {
+        if (activeSection === "saved") {
+            return filterSavedPodcastDiscovery({
+                shows: filteredCatalog.shows,
+                episodes: filteredCatalog.episodes,
+                savedShowIds,
+                savedEpisodeIds,
+            });
+        }
+        if (activeSection === "following") {
+            return filterFollowingPodcastDiscovery({
+                shows: filteredCatalog.shows,
+                episodes: filteredCatalog.episodes,
+                followingCreatorIds,
+                currentUserId: userId,
+            });
+        }
+        return filterPodcastDiscovery({
+            shows,
+            episodes,
+            query: searchInput,
+            category: activeCategory,
+            formatTab: activeTab,
+        });
+    }, [
+        activeCategory,
+        activeSection,
+        activeTab,
+        episodes,
+        filteredCatalog.episodes,
+        filteredCatalog.shows,
+        followingCreatorIds,
+        savedEpisodeIds,
+        savedShowIds,
+        searchInput,
+        shows,
+        userId,
+    ]);
+
+    const visibleShows = visibleLists.shows;
+    const visibleEpisodes = visibleLists.episodes;
+    const hasQuery = Boolean(searchInput.trim());
+    const hasCategory = Boolean(activeCategory);
+    const isEmpty = !loading && !loadError && visibleShows.length === 0 && visibleEpisodes.length === 0;
 
     async function playEpisode(selectedEpisode: PodcastEpisode) {
         setPlayingEpisodeId(selectedEpisode.id);
@@ -309,13 +442,16 @@ export function PodcastDiscoveryWorkspace({
             }
 
             const resolvedEpisode = body.episode || selectedEpisode;
-            const context = episodes.map((episode) => (
+            const contextSource = catalog.episodes.length > 0 ? catalog.episodes : episodes;
+            const context = contextSource.map((episode) => (
                 episode.id === resolvedEpisode.id ? resolvedEpisode : episode
             ));
-            setEpisodes(context);
+            setEpisodes((current) => current.map((episode) => (
+                episode.id === resolvedEpisode.id ? resolvedEpisode : episode
+            )));
             await onPlayPodcast({
                 episode: resolvedEpisode,
-                context,
+                context: context.length > 0 ? context : [resolvedEpisode],
                 playableUrl: body.signedUrl,
                 countMetric: true,
             });
@@ -400,7 +536,7 @@ export function PodcastDiscoveryWorkspace({
                 else next.delete(episode.id);
                 return next;
             });
-            setEpisodes((current) => current.map((item) => {
+            const applyLike = (current: PodcastEpisode[]) => current.map((item) => {
                 if (item.id !== episode.id) return item;
                 return {
                     ...item,
@@ -408,7 +544,9 @@ export function PodcastDiscoveryWorkspace({
                         ? Math.max(0, body.likeCount)
                         : Math.max(0, (item.likeCount || 0) + (liked ? 1 : -1)),
                 };
-            }));
+            });
+            setEpisodes(applyLike);
+            setHydratedEpisodes(applyLike);
         }
         catch (error) {
             setActionError(error instanceof Error ? error.message : "Like could not be updated.");
@@ -422,7 +560,60 @@ export function PodcastDiscoveryWorkspace({
         }
     }
 
-    const isEmpty = !loading && !loadError && visibleShows.length === 0 && episodes.length === 0;
+    function emptyCopy() {
+        if (activeSection === "saved" && !userId) {
+            return {
+                title: "Sign in to see saved podcasts",
+                detail: "Save a show or episode and it will appear here.",
+            };
+        }
+        if (activeSection === "following" && !userId) {
+            return {
+                title: "Sign in to see podcasts from creators you follow",
+                detail: "Follow a podcast creator to collect their published shows here.",
+            };
+        }
+        if (hasQuery) {
+            return {
+                title: "No podcasts match your search",
+                detail: "Try a different title, creator, description, or category.",
+            };
+        }
+        if (hasCategory) {
+            return {
+                title: "No podcasts in this category",
+                detail: "Choose another category or clear the filter to keep browsing.",
+            };
+        }
+        if (activeSection === "saved") {
+            return {
+                title: "No saved podcasts yet",
+                detail: "Save a published show or episode to find it here later.",
+            };
+        }
+        if (activeSection === "following") {
+            return {
+                title: "No podcasts from creators you follow",
+                detail: "Follow a creator on a published show to see their podcasts here.",
+            };
+        }
+        return {
+            title: `No ${activeTab === "All" ? "" : `${activeTab.toLowerCase()} `}podcasts yet`,
+            detail: "Published podcasts will appear here as creators add them.",
+        };
+    }
+
+    const empty = emptyCopy();
+    const showHeading = activeSection === "saved"
+        ? "Saved shows"
+        : activeSection === "following"
+            ? "Following"
+            : "Podcast shows";
+    const episodeHeading = activeSection === "saved"
+        ? "Saved episodes"
+        : activeSection === "following"
+            ? "Latest from creators you follow"
+            : "Latest episodes";
 
     return (
         <section className={styles.workspace} aria-labelledby="podcast-discovery-title">
@@ -434,6 +625,60 @@ export function PodcastDiscoveryWorkspace({
                 </div>
                 <Radio className={styles.headerIcon} aria-hidden="true" />
             </header>
+
+            <label className={styles.discoverySearch}>
+                <Search size={18} aria-hidden="true" />
+                <input
+                    type="search"
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Search published shows, episodes, creators, or categories"
+                    autoComplete="off"
+                    enterKeyHint="search"
+                    aria-label="Search published podcasts"
+                />
+            </label>
+
+            {categories.length > 0 ? (
+                <div className={styles.categoryChips} role="group" aria-label="Filter podcasts by category">
+                    <button
+                        type="button"
+                        className={activeCategory === "" ? styles.categoryChipActive : styles.categoryChip}
+                        aria-pressed={activeCategory === ""}
+                        onClick={() => setActiveCategory("")}
+                    >
+                        All
+                    </button>
+                    {categories.map((category) => (
+                        <button
+                            key={category}
+                            type="button"
+                            className={activeCategory.toLowerCase() === category.toLowerCase() ? styles.categoryChipActive : styles.categoryChip}
+                            aria-pressed={activeCategory.toLowerCase() === category.toLowerCase()}
+                            onClick={() => setActiveCategory(
+                                activeCategory.toLowerCase() === category.toLowerCase() ? "" : category,
+                            )}
+                        >
+                            {category}
+                        </button>
+                    ))}
+                </div>
+            ) : null}
+
+            <div className={styles.tabs} role="tablist" aria-label="Podcast discovery sections">
+                {DISCOVERY_SECTIONS.map((section) => (
+                    <button
+                        key={section.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={activeSection === section.id}
+                        className={activeSection === section.id ? styles.activeTab : styles.tab}
+                        onClick={() => setActiveSection(section.id)}
+                    >
+                        {section.label}
+                    </button>
+                ))}
+            </div>
 
             <div className={styles.tabs} role="tablist" aria-label="Filter podcasts by format">
                 {PODCAST_TABS.map((tab) => (
@@ -485,8 +730,8 @@ export function PodcastDiscoveryWorkspace({
                     {activeTab === "Video"
                         ? <Video size={32} aria-hidden="true" />
                         : <Headphones size={32} aria-hidden="true" />}
-                    <strong>No {activeTab === "All" ? "" : `${activeTab.toLowerCase()} `}podcasts yet</strong>
-                    <span>Published podcasts will appear here as creators add them.</span>
+                    <strong>{empty.title}</strong>
+                    <span>{empty.detail}</span>
                 </div>
             ) : null}
 
@@ -494,8 +739,10 @@ export function PodcastDiscoveryWorkspace({
                 <section className={styles.contentSection} aria-labelledby="podcast-shows-heading">
                     <div className={styles.sectionHeading}>
                         <div>
-                            <p className={styles.eyebrow}>Browse by series</p>
-                            <h3 id="podcast-shows-heading">Podcast shows</h3>
+                            <p className={styles.eyebrow}>
+                                {activeSection === "discover" ? "Browse by series" : activeSection === "saved" ? "Your saves" : "Creators you follow"}
+                            </p>
+                            <h3 id="podcast-shows-heading">{showHeading}</h3>
                         </div>
                         <span>{visibleShows.length} {visibleShows.length === 1 ? "show" : "shows"}</span>
                     </div>
@@ -584,17 +831,17 @@ export function PodcastDiscoveryWorkspace({
                 </section>
             ) : null}
 
-            {!loading && !loadError && episodes.length > 0 ? (
+            {!loading && !loadError && visibleEpisodes.length > 0 ? (
                 <section className={styles.contentSection} aria-labelledby="podcast-episodes-heading">
                     <div className={styles.sectionHeading}>
                         <div>
                             <p className={styles.eyebrow}>Ready to play</p>
-                            <h3 id="podcast-episodes-heading">Latest episodes</h3>
+                            <h3 id="podcast-episodes-heading">{episodeHeading}</h3>
                         </div>
-                        <span>{episodes.length} {episodes.length === 1 ? "episode" : "episodes"}</span>
+                        <span>{visibleEpisodes.length} {visibleEpisodes.length === 1 ? "episode" : "episodes"}</span>
                     </div>
                     <div className={styles.episodeGrid}>
-                        {episodes.map((episode) => {
+                        {visibleEpisodes.map((episode) => {
                             const artworkUrl = episode.thumbnailUrl || episode.artworkUrl;
                             const saved = savedEpisodeIds.has(episode.id);
                             const liked = likedEpisodeIds.has(episode.id);
