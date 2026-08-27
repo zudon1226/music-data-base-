@@ -47,7 +47,9 @@ const requiredFiles = [
   "lib/podcast-validation.ts",
   "lib/podcast-delete-lifecycle.ts",
   "lib/podcast-discovery.ts",
+  "lib/podcast-resume.ts",
   "scripts/verify-podcast-phase2e.mjs",
+  "scripts/verify-podcast-phase2f.mjs",
   "supabase/migrations/202608200001_podcast_phase1_foundation.sql",
   "supabase/migrations/202608200002_podcast_storage_buckets.sql",
   "supabase/migrations/202608210001_podcast_episode_likes.sql",
@@ -165,6 +167,8 @@ expect("app/page.tsx", /<NotificationCenterPanel/, "Existing notification bell m
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /from "@\/lib\/podcast-discovery"/, "Phase 2E discovery helper wiring missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Discover[\s\S]*Saved[\s\S]*Following/, "Phase 2E Discover\/Saved\/Following sections missing");
 expect("components/podcasts/podcasts.module.css", /\.discoverySearch/, "Phase 2E local search styles missing");
+expect("lib/podcast-resume.ts", /export function isEligiblePodcastResume/, "Phase 2F resume eligibility helper missing");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Continue listening/, "Phase 2F Continue listening UI missing");
 
 const commentCreateSource = read("app/api/podcasts/episodes/[id]/comments/route.ts");
 if (/requirePodcastRequestCreator/.test(commentCreateSource)) {

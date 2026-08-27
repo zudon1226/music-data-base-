@@ -29,6 +29,7 @@ import {
     uniquePodcastCategories,
     type PodcastDiscoverySection,
 } from "@/lib/podcast-discovery";
+import { selectContinueListeningPodcasts, type PodcastResumeProgress } from "@/lib/podcast-resume";
 import {
     type PodcastEpisode,
     type PodcastPlaybackRequest,
@@ -40,6 +41,7 @@ import styles from "./podcasts.module.css";
 
 type PodcastDiscoveryWorkspaceProps = {
     userId: string;
+    continueListeningProgress?: PodcastResumeProgress[];
     onPlayPodcast: (request: PodcastPlaybackRequest) => void | Promise<void>;
     onOpenShow: (showId: string) => void;
     onOpenEpisode: (episodeId: string, showId?: string) => void;
@@ -117,6 +119,7 @@ function responseError(body: { error?: string }, fallback: string) {
 
 export function PodcastDiscoveryWorkspace({
     userId,
+    continueListeningProgress = [],
     onPlayPodcast,
     onOpenShow,
     onOpenEpisode,
@@ -411,11 +414,18 @@ export function PodcastDiscoveryWorkspace({
 
     const visibleShows = visibleLists.shows;
     const visibleEpisodes = visibleLists.episodes;
+    const continueListening = useMemo(
+        () => selectContinueListeningPodcasts({
+            progress: userId ? continueListeningProgress : [],
+            publishedEpisodes: catalog.episodes,
+        }),
+        [catalog.episodes, continueListeningProgress, userId],
+    );
     const hasQuery = Boolean(searchInput.trim());
     const hasCategory = Boolean(activeCategory);
     const isEmpty = !loading && !loadError && visibleShows.length === 0 && visibleEpisodes.length === 0;
 
-    async function playEpisode(selectedEpisode: PodcastEpisode) {
+    async function playEpisode(selectedEpisode: PodcastEpisode, startPosition?: number) {
         setPlayingEpisodeId(selectedEpisode.id);
         setActionError("");
         try {
@@ -454,6 +464,7 @@ export function PodcastDiscoveryWorkspace({
                 context: context.length > 0 ? context : [resolvedEpisode],
                 playableUrl: body.signedUrl,
                 countMetric: true,
+                startPosition,
             });
         }
         catch (error) {
@@ -625,6 +636,74 @@ export function PodcastDiscoveryWorkspace({
                 </div>
                 <Radio className={styles.headerIcon} aria-hidden="true" />
             </header>
+
+            {continueListening.length > 0 ? (
+                <section className={styles.continueListening} aria-labelledby="podcast-continue-listening-heading">
+                    <div className={styles.sectionHeading}>
+                        <div>
+                            <p className={styles.eyebrow}>Pick up where you left off</p>
+                            <h3 id="podcast-continue-listening-heading">Continue listening</h3>
+                        </div>
+                        <span>{continueListening.length} {continueListening.length === 1 ? "episode" : "episodes"}</span>
+                    </div>
+                    <div className={styles.continueListeningList}>
+                        {continueListening.map((item) => {
+                            const durationLabel = item.duration > 0 ? formatDuration(item.duration) : "";
+                            const positionLabel = formatDuration(item.position);
+                            return (
+                                <article key={item.episode.id} className={styles.continueListeningCard}>
+                                    <button
+                                        type="button"
+                                        className={styles.continueCover}
+                                        style={imageStyle(item.episode.thumbnailUrl || item.episode.artworkUrl)}
+                                        onClick={() => onOpenEpisode(item.episode.id, item.episode.podcastId)}
+                                        aria-label={`Open ${item.episode.title}`}
+                                    >
+                                        {!(item.episode.thumbnailUrl || item.episode.artworkUrl)
+                                            ? <Radio size={28} aria-hidden="true" />
+                                            : null}
+                                    </button>
+                                    <div className={styles.continueBody}>
+                                        <button
+                                            type="button"
+                                            className={styles.titleLink}
+                                            onClick={() => onOpenEpisode(item.episode.id, item.episode.podcastId)}
+                                        >
+                                            <h4>{item.episode.title}</h4>
+                                        </button>
+                                        <p>{item.episode.podcastTitle || item.episode.creatorName || "Independent creator"}</p>
+                                        <label className={styles.continueProgress}>
+                                            <span>
+                                                {positionLabel}
+                                                {durationLabel ? ` / ${durationLabel}` : ""}
+                                            </span>
+                                            {item.duration > 0 ? (
+                                                <progress
+                                                    max={item.duration}
+                                                    value={Math.min(item.position, item.duration)}
+                                                    aria-label={`${item.episode.title} playback progress`}
+                                                />
+                                            ) : null}
+                                        </label>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className={styles.primaryButton}
+                                        onClick={() => void playEpisode(item.episode, item.position)}
+                                        disabled={playingEpisodeId === item.episode.id}
+                                        aria-label={`Resume ${item.episode.title}`}
+                                    >
+                                        {playingEpisodeId === item.episode.id
+                                            ? <LoaderCircle size={16} aria-hidden="true" />
+                                            : <Play size={16} aria-hidden="true" />}
+                                        Resume
+                                    </button>
+                                </article>
+                            );
+                        })}
+                    </div>
+                </section>
+            ) : null}
 
             <label className={styles.discoverySearch}>
                 <Search size={18} aria-hidden="true" />
