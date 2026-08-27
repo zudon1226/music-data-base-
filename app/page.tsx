@@ -96,11 +96,20 @@ import {
 import { RingtoneMarketplaceWorkspace } from "../components/ringtone-marketplace/ringtone-marketplace-workspace";
 import { PodcastDiscoveryWorkspace } from "../components/podcasts/PodcastDiscoveryWorkspace";
 import { PodcastEpisodeWorkspace } from "../components/podcasts/PodcastEpisodeWorkspace";
+import { PodcastListeningControls } from "../components/podcasts/PodcastListeningControls";
 import { PodcastShowWorkspace } from "../components/podcasts/PodcastShowWorkspace";
 import { PodcastStudioWorkspace } from "../components/podcasts/PodcastStudioWorkspace";
 import { PersistedModerationReports } from "../components/moderation/PersistedModerationReports";
 import { isPodcastPath, parsePodcastPath, podcastEpisodePath, podcastShowPath } from "../lib/podcast-routes";
 import { podcastResumeStartSeconds, type PodcastResumeProgress } from "../lib/podcast-resume";
+import {
+    PODCAST_SKIP_BACK_SECONDS,
+    PODCAST_SKIP_FORWARD_SECONDS,
+    clampPodcastSeekSeconds,
+    podcastSleepDurationMs,
+    type PodcastPlaybackRate,
+    type PodcastSleepMode,
+} from "../lib/podcast-playback-controls";
 import { CreatorStudioUploadChrome } from "../components/studio/creator-studio-upload-chrome";
 import {
     defaultUploadModeForStudio,
@@ -3902,6 +3911,11 @@ function PageContent({
     const podcastMetricPendingRef = useRef(false);
     const podcastMetricEpisodeIdRef = useRef("");
     const podcastResumePositionRef = useRef(0);
+    const [podcastPlaybackRate, setPodcastPlaybackRate] = useState<PodcastPlaybackRate>(1);
+    const [podcastSleepMode, setPodcastSleepMode] = useState<PodcastSleepMode>("off");
+    const podcastSleepModeRef = useRef<PodcastSleepMode>("off");
+    const podcastSleepTimerRef = useRef(0);
+    const stopPodcastForSleepRef = useRef<() => void>(() => {});
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -7545,6 +7559,44 @@ function PageContent({
             audioRef.current.volume = volume;
         }
     }, [volume]);
+    useEffect(() => {
+        const podcastAudioActive = activeMediaType === "podcast-audio"
+            && currentPodcastEpisode?.episodeType === "audio";
+        const podcastVideoActive = activeMediaType === "podcast-video"
+            && currentPodcastEpisode?.episodeType === "video";
+        if (audioRef.current) {
+            audioRef.current.playbackRate = podcastAudioActive ? podcastPlaybackRate : 1;
+        }
+        if (mainVideoRef.current) {
+            mainVideoRef.current.playbackRate = podcastVideoActive ? podcastPlaybackRate : 1;
+        }
+    }, [activeMediaType, currentPodcastEpisode, podcastPlaybackRate, isPlaying, videoPlaying, podcastPlayableUrl]);
+    useEffect(() => {
+        const podcastActive = Boolean(currentPodcastEpisode)
+            && (activeMediaType === "podcast-audio" || activeMediaType === "podcast-video");
+        if (podcastActive) return;
+        window.clearTimeout(podcastSleepTimerRef.current);
+        podcastSleepTimerRef.current = 0;
+        if (podcastSleepModeRef.current !== "off") {
+            podcastSleepModeRef.current = "off";
+            setPodcastSleepMode("off");
+        }
+        setPodcastPlaybackRate(1);
+    }, [activeMediaType, currentPodcastEpisode]);
+    useEffect(() => {
+        podcastSleepModeRef.current = podcastSleepMode;
+        window.clearTimeout(podcastSleepTimerRef.current);
+        podcastSleepTimerRef.current = 0;
+        const durationMs = podcastSleepDurationMs(podcastSleepMode);
+        if (durationMs <= 0) return undefined;
+        podcastSleepTimerRef.current = window.setTimeout(() => {
+            stopPodcastForSleepRef.current();
+        }, durationMs);
+        return () => {
+            window.clearTimeout(podcastSleepTimerRef.current);
+            podcastSleepTimerRef.current = 0;
+        };
+    }, [podcastSleepMode]);
     const cleanQueue = useMemo(() => {
         const songMap = new Map(songs.map((song) => [song.id, song]));
         return mediaQueueItems
@@ -10656,6 +10708,13 @@ function PageContent({
         const mediaDuration = Number(audioRef.current?.duration);
         const endedDuration = Number.isFinite(mediaDuration) && mediaDuration > 0 ? mediaDuration : duration;
         recordPodcastRecentlyPlayed(currentPodcastEpisode, endedDuration, true, endedDuration);
+        if (podcastSleepModeRef.current === "end-of-episode") {
+            clearPodcastSleepTimer();
+            podcastSleepModeRef.current = "off";
+            setPodcastSleepMode("off");
+            setIsPlaying(false);
+            return;
+        }
         if (podcastPlaybackContext.length > 1) {
             playAdjacentPodcastEpisode("next");
             return;
@@ -10677,6 +10736,69 @@ function PageContent({
             durationValue > 0 && positionValue >= durationValue * 0.95,
             durationValue,
         );
+    }
+
+    function clearPodcastSleepTimer() {
+        window.clearTimeout(podcastSleepTimerRef.current);
+        podcastSleepTimerRef.current = 0;
+    }
+
+    function changePodcastSleepMode(mode: PodcastSleepMode) {
+        podcastSleepModeRef.current = mode;
+        setPodcastSleepMode(mode);
+    }
+
+    function stopPodcastForSleep() {
+        const episode = currentPodcastEpisode;
+        if (!episode) return;
+        if (activeMediaType !== "podcast-audio" && activeMediaType !== "podcast-video") return;
+        clearPodcastSleepTimer();
+        podcastSleepModeRef.current = "off";
+        setPodcastSleepMode("off");
+        if (episode.episodeType === "audio") {
+            const audio = audioRef.current;
+            const positionValue = Number.isFinite(audio?.currentTime) ? Number(audio?.currentTime) : progress;
+            const durationValue = Number.isFinite(audio?.duration) && Number(audio?.duration) > 0
+                ? Number(audio?.duration)
+                : duration;
+            audio?.pause();
+            setIsPlaying(false);
+            setProgress(positionValue);
+            recordPodcastRecentlyPlayed(episode, positionValue, false, durationValue);
+            return;
+        }
+        const video = mainVideoRef.current;
+        const positionValue = Number.isFinite(video?.currentTime) ? Number(video?.currentTime) : videoProgress;
+        const durationValue = Number.isFinite(video?.duration) && Number(video?.duration) > 0
+            ? Number(video?.duration)
+            : videoDuration;
+        pauseVisibleVideo("stopPodcastForSleep", "podcast sleep timer", false);
+        setVideoPlaying(false);
+        setVideoProgress(positionValue);
+        recordPodcastRecentlyPlayed(episode, positionValue, false, durationValue);
+    }
+    stopPodcastForSleepRef.current = stopPodcastForSleep;
+
+    function skipActivePodcast(deltaSeconds: number) {
+        if (!currentPodcastEpisode) return;
+        if (currentPodcastEpisode.episodeType === "audio") {
+            const audio = audioRef.current;
+            if (!audio) return;
+            const durationValue = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : duration;
+            const nextTime = clampPodcastSeekSeconds(audio.currentTime, deltaSeconds, durationValue);
+            audio.currentTime = nextTime;
+            setProgress(nextTime);
+            updatePodcastPlaybackPosition(nextTime, durationValue, true);
+            return;
+        }
+        if (currentPodcastEpisode.episodeType !== "video") return;
+        const video = mainVideoRef.current;
+        if (!video) return;
+        const durationValue = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : videoDuration;
+        const nextTime = clampPodcastSeekSeconds(video.currentTime, deltaSeconds, durationValue);
+        video.currentTime = nextTime;
+        setVideoProgress(nextTime);
+        updatePodcastPlaybackPosition(nextTime, durationValue, true);
     }
 
     function stopRingtonePreviewPlayback() {
@@ -11444,6 +11566,15 @@ function PageContent({
             playbackIntent: videoPlaybackIntentRef.current,
         });
         if (videoUserPausedRef.current || videoPlaybackIntentRef.current === "pause") {
+            setVideoPlaying(false);
+            return;
+        }
+        if (currentPodcastEpisode?.episodeType === "video" && podcastSleepModeRef.current === "end-of-episode") {
+            const endedDuration = Number(mainVideoRef.current?.duration) || videoDuration;
+            recordPodcastRecentlyPlayed(currentPodcastEpisode, endedDuration, true, endedDuration);
+            clearPodcastSleepTimer();
+            podcastSleepModeRef.current = "off";
+            setPodcastSleepMode("off");
             setVideoPlaying(false);
             return;
         }
@@ -22414,6 +22545,7 @@ function PageContent({
           ref={playerBarRef}
           className={`video-player-bar video-bottom-player bottom-player mobile-bottom-player fixed-mobile-player${playerCollapsed ? " is-collapsed" : ""}`}
           data-player-collapsed={playerCollapsed ? "true" : "false"}
+          data-podcast-player={currentPodcastEpisode?.episodeType === "video" ? "video" : undefined}
           dir="ltr"
         >
           <div className="video-player-now player-main">
@@ -22423,6 +22555,19 @@ function PageContent({
               <small className="artist-name">{currentPodcastEpisode ? `${currentPodcastEpisode.podcastTitle} | Video Podcast` : activeVideo.creator}</small>
               {!currentPodcastEpisode && !playerCollapsed && activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
             </div>
+            {currentPodcastEpisode ? (
+              <PodcastListeningControls
+                variant="mobile"
+                includeSkip
+                collapsed={playerCollapsed}
+                playbackRate={podcastPlaybackRate}
+                sleepMode={podcastSleepMode}
+                onSkipBack={() => skipActivePodcast(-PODCAST_SKIP_BACK_SECONDS)}
+                onSkipForward={() => skipActivePodcast(PODCAST_SKIP_FORWARD_SECONDS)}
+                onPlaybackRateChange={setPodcastPlaybackRate}
+                onSleepModeChange={changePodcastSleepMode}
+              />
+            ) : null}
           </div>
 
           <div className="video-player-center">
@@ -22468,9 +22613,17 @@ function PageContent({
 
           <div className="video-player-side">
             {currentPodcastEpisode ? (
-              <span className="queue-drawer-button" aria-label="Video Podcast">
-                Video Podcast
-              </span>
+              <PodcastListeningControls
+                variant="desktop"
+                includeSkip
+                collapsed={playerCollapsed}
+                playbackRate={podcastPlaybackRate}
+                sleepMode={podcastSleepMode}
+                onSkipBack={() => skipActivePodcast(-PODCAST_SKIP_BACK_SECONDS)}
+                onSkipForward={() => skipActivePodcast(PODCAST_SKIP_FORWARD_SECONDS)}
+                onPlaybackRateChange={setPodcastPlaybackRate}
+                onSleepModeChange={changePodcastSleepMode}
+              />
             ) : (
               <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
                 Queue {queueCount}
@@ -22514,6 +22667,17 @@ function PageContent({
                 {currentPodcastEpisode.podcastTitle} | Audio Podcast
               </small>
             </div>
+            <PodcastListeningControls
+              variant="mobile"
+              includeSkip={false}
+              collapsed={playerCollapsed}
+              playbackRate={podcastPlaybackRate}
+              sleepMode={podcastSleepMode}
+              onSkipBack={() => skipActivePodcast(-PODCAST_SKIP_BACK_SECONDS)}
+              onSkipForward={() => skipActivePodcast(PODCAST_SKIP_FORWARD_SECONDS)}
+              onPlaybackRateChange={setPodcastPlaybackRate}
+              onSleepModeChange={changePodcastSleepMode}
+            />
           </div>
 
           <div className="player-center" dir="ltr">
@@ -22530,12 +22694,30 @@ function PageContent({
               </button>
               <button
                 type="button"
+                className="podcast-skip-control"
+                onClick={() => skipActivePodcast(-PODCAST_SKIP_BACK_SECONDS)}
+                title="Skip back 15 seconds"
+                aria-label="Skip back 15 seconds"
+              >
+                -15
+              </button>
+              <button
+                type="button"
                 className="main-play"
                 onClick={() => void togglePodcastAudio()}
                 title={isPlaying ? "Pause Podcast" : "Play Podcast"}
                 aria-label={isPlaying ? "Pause Podcast" : "Play Podcast"}
               >
                 {isPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
+              </button>
+              <button
+                type="button"
+                className="podcast-skip-control"
+                onClick={() => skipActivePodcast(PODCAST_SKIP_FORWARD_SECONDS)}
+                title="Skip forward 30 seconds"
+                aria-label="Skip forward 30 seconds"
+              >
+                +30
               </button>
               <button
                 type="button"
@@ -22557,9 +22739,17 @@ function PageContent({
           </div>
 
           <div className="player-side">
-            <span className="queue-drawer-button" aria-label="Audio Podcast">
-              Audio Podcast
-            </span>
+            <PodcastListeningControls
+              variant="desktop"
+              includeSkip={false}
+              collapsed={playerCollapsed}
+              playbackRate={podcastPlaybackRate}
+              sleepMode={podcastSleepMode}
+              onSkipBack={() => skipActivePodcast(-PODCAST_SKIP_BACK_SECONDS)}
+              onSkipForward={() => skipActivePodcast(PODCAST_SKIP_FORWARD_SECONDS)}
+              onPlaybackRateChange={setPodcastPlaybackRate}
+              onSleepModeChange={changePodcastSleepMode}
+            />
             <label className="volume">
               <Volume2 size={18}/>
               <input name="podcastVolume" type="range" min="0" max="100" value={Math.round(volume * 100)} onChange={changeVolume} aria-label="Podcast volume"/>
