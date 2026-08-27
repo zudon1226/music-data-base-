@@ -61,6 +61,7 @@ export type PodcastPlaybackRequest = {
     context: PodcastEpisode[];
     playableUrl?: string;
     countMetric?: boolean;
+    startPosition?: number;
 };
 
 export type PodcastSaveType = "podcast_show" | "podcast_episode";

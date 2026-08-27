@@ -100,6 +100,7 @@ import { PodcastShowWorkspace } from "../components/podcasts/PodcastShowWorkspac
 import { PodcastStudioWorkspace } from "../components/podcasts/PodcastStudioWorkspace";
 import { PersistedModerationReports } from "../components/moderation/PersistedModerationReports";
 import { isPodcastPath, parsePodcastPath, podcastEpisodePath, podcastShowPath } from "../lib/podcast-routes";
+import { podcastResumeStartSeconds, type PodcastResumeProgress } from "../lib/podcast-resume";
 import { CreatorStudioUploadChrome } from "../components/studio/creator-studio-upload-chrome";
 import {
     defaultUploadModeForStudio,
@@ -317,6 +318,7 @@ type RecentPlay = {
     playedAt: string;
     position?: number;
     duration?: number;
+    completed?: boolean;
     song?: Song;
     video?: VideoItem;
     album?: Album;
@@ -1458,6 +1460,7 @@ function serializeRecentPlayForStorage(entry: RecentPlay): RecentPlay {
         playedAt: entry.playedAt,
         position: Math.max(0, Number(entry.position) || 0),
         duration: Math.max(0, Number(entry.duration) || 0),
+        completed: entry.completed === true,
         podcast: itemType === "podcast" && entry.podcast
             ? snapshotRecentPodcast(entry.podcast)
             : undefined,
@@ -1513,6 +1516,7 @@ function normalizeRecentForSongs(savedRecent: unknown, availableSongs: Song[], a
             podcast: itemType === "podcast" && entry.podcast ? snapshotRecentPodcast(entry.podcast) : entry.podcast,
             position: Math.max(0, Number(entry.position) || 0),
             duration: Math.max(0, Number(entry.duration) || 0),
+            completed: entry.completed === true,
         };
     })
         .filter((entry) => Boolean(entry.itemId || entry.songId));
@@ -3897,6 +3901,7 @@ function PageContent({
     const [podcastPlayableUrl, setPodcastPlayableUrl] = useState("");
     const podcastMetricPendingRef = useRef(false);
     const podcastMetricEpisodeIdRef = useRef("");
+    const podcastResumePositionRef = useRef(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -7115,6 +7120,7 @@ function PageContent({
                             playedAt: row.lastPlayedAt || new Date().toISOString(),
                             position: Math.max(0, Number(row.playbackPosition) || 0),
                             duration: Math.max(0, Number(episode?.durationSeconds) || 0),
+                            completed: row.completed === true,
                             podcast: snapshot,
                         } as RecentPlay;
                     }
@@ -7492,14 +7498,32 @@ function PageContent({
             audio.src = audioUrl;
             audio.load();
         }
+        const applyPodcastAudioResume = () => {
+            const start = podcastResumePositionRef.current;
+            if (!podcastAudioActive || start <= 0) return;
+            if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+            audio.currentTime = Math.min(start, audio.duration);
+            setProgress(audio.currentTime);
+            setDuration(audio.duration);
+            podcastResumePositionRef.current = 0;
+            if (currentPodcastEpisode) {
+                updatePodcastPlaybackPosition(audio.currentTime, audio.duration, true);
+            }
+        };
+        if (podcastAudioActive && podcastResumePositionRef.current > 0) {
+            if (audio.readyState >= 1) applyPodcastAudioResume();
+            else audio.addEventListener("loadedmetadata", applyPodcastAudioResume, { once: true });
+        }
         if (isPlaying) {
             const playRequestId = musicPlayRequestRef.current + 1;
             musicPlayRequestRef.current = playRequestId;
             audio.play().then(() => {
                 if (musicPlayRequestRef.current !== playRequestId)
                     return;
-                if (podcastAudioActive)
+                if (podcastAudioActive) {
+                    applyPodcastAudioResume();
                     commitPodcastPlaybackMetric();
+                }
             }).catch((error) => {
                 if (musicPlayRequestRef.current !== playRequestId)
                     return;
@@ -7973,6 +7997,15 @@ function PageContent({
     const recentlyPlayedVideos = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "video" && (entry.video || entry.itemId)), [recentlyPlayed]);
     const recentlyPlayedAlbums = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "album" && (entry.album || entry.itemId)), [recentlyPlayed]);
     const recentlyPlayedPodcasts = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "podcast" && (entry.podcast || entry.itemId)), [recentlyPlayed]);
+    const podcastContinueListeningProgress = useMemo((): PodcastResumeProgress[] => (
+        recentlyPlayedPodcasts.map((entry) => ({
+            episodeId: String(entry.podcast?.id || entry.itemId || "").trim(),
+            position: Math.max(0, Number(entry.position) || 0),
+            duration: Math.max(0, Number(entry.duration) || 0),
+            completed: entry.completed === true,
+            playedAt: entry.playedAt,
+        }))
+    ), [recentlyPlayedPodcasts]);
     const visibleRecentPlays = recentTab === "Videos"
         ? recentlyPlayedVideos
         : recentTab === "Albums"
@@ -10372,8 +10405,13 @@ function PageContent({
         episode: PodcastEpisode,
         playbackPosition = 0,
         completed = false,
+        mediaDuration = 0,
     ) {
         const playedAt = new Date().toISOString();
+        const catalogDuration = Math.max(0, Number(episode.durationSeconds) || 0);
+        const resolvedDuration = catalogDuration
+            || Math.max(0, Number(mediaDuration) || 0)
+            || Math.max(0, Number(episode.episodeType === "video" ? mainVideoRef.current?.duration : audioRef.current?.duration) || 0);
         const recentEntry: RecentPlay = {
             playId: `${episode.id}-${playedAt}`,
             songId: "",
@@ -10381,7 +10419,8 @@ function PageContent({
             itemType: "podcast",
             playedAt,
             position: Math.max(0, playbackPosition),
-            duration: Math.max(0, Number(episode.durationSeconds) || 0),
+            duration: resolvedDuration,
+            completed,
             podcast: snapshotRecentPodcast(episode),
         };
         setRecentlyPlayed((previous) => prependRecentPlay(previous, recentEntry));
@@ -10431,9 +10470,24 @@ function PageContent({
         }).catch(() => undefined);
     }
 
+    function lookupPodcastResumePosition(episodeId: string, durationSeconds?: number | null) {
+        const entry = recentlyPlayed.find((item) => (
+            item.itemType === "podcast"
+            && (item.podcast?.id === episodeId || item.itemId === episodeId)
+        ));
+        if (!entry) return 0;
+        return podcastResumeStartSeconds({
+            episodeId,
+            position: Number(entry.position) || 0,
+            duration: durationSeconds || entry.duration || 0,
+            completed: entry.completed === true,
+        });
+    }
+
     async function resolvePodcastPlayback(
         episode: PodcastEpisode,
         context: PodcastEpisode[],
+        startPosition?: number,
     ) {
         const body = JSON.stringify({
             episodeId: episode.id,
@@ -10468,6 +10522,7 @@ function PageContent({
             context,
             playableUrl: data.signedUrl,
             countMetric: true,
+            startPosition,
         });
     }
 
@@ -10478,13 +10533,22 @@ function PageContent({
             showToast("Podcast media URL is unavailable.", "error");
             return;
         }
+        const requestedStart = Number(request.startPosition);
+        const startPosition = podcastResumeStartSeconds({
+            episodeId: episode.id,
+            position: Number.isFinite(requestedStart) && requestedStart > 0
+                ? requestedStart
+                : lookupPodcastResumePosition(episode.id, episode.durationSeconds),
+            duration: episode.durationSeconds,
+        });
         const context = request.context.length > 0 ? request.context : [episode];
         setPodcastPlaybackContext(context);
         setPodcastPlayableUrl(playableUrl);
         setCurrentPodcastEpisode(episode);
         podcastMetricPendingRef.current = request.countMetric === true;
         podcastMetricEpisodeIdRef.current = request.countMetric === true ? episode.id : "";
-        recordPodcastRecentlyPlayed(episode);
+        podcastResumePositionRef.current = startPosition;
+        recordPodcastRecentlyPlayed(episode, startPosition);
 
         if (episode.episodeType === "video") {
             playVideo({
@@ -10509,6 +10573,17 @@ function PageContent({
                 mobile_compatible: episode.mobileCompatible,
                 mimeType: episode.mimeType || "video/mp4",
             }, "Podcast", { podcastEpisode: episode, podcastContext: context, playableUrl });
+            if (startPosition > 0) {
+                window.setTimeout(() => {
+                    if (!mainVideoRef.current) return;
+                    const mediaDuration = Number.isFinite(mainVideoRef.current.duration) && mainVideoRef.current.duration > 0
+                        ? mainVideoRef.current.duration
+                        : startPosition;
+                    mainVideoRef.current.currentTime = Math.min(startPosition, mediaDuration);
+                    setVideoProgress(mainVideoRef.current.currentTime);
+                    podcastResumePositionRef.current = 0;
+                }, 220);
+            }
             return;
         }
 
@@ -10524,7 +10599,7 @@ function PageContent({
         setActiveAlbumPlayback(null);
         setActiveMediaType("podcast-audio");
         setActiveMedia({ type: "podcast", item: episode });
-        setProgress(0);
+        setProgress(startPosition);
         setDuration(episode.durationSeconds || 0);
         setIsPlaying(true);
     }
@@ -10578,7 +10653,9 @@ function PageContent({
     function handlePodcastAudioEnded() {
         if (!currentPodcastEpisode)
             return;
-        recordPodcastRecentlyPlayed(currentPodcastEpisode, duration, true);
+        const mediaDuration = Number(audioRef.current?.duration);
+        const endedDuration = Number.isFinite(mediaDuration) && mediaDuration > 0 ? mediaDuration : duration;
+        recordPodcastRecentlyPlayed(currentPodcastEpisode, endedDuration, true, endedDuration);
         if (podcastPlaybackContext.length > 1) {
             playAdjacentPodcastEpisode("next");
             return;
@@ -10598,6 +10675,7 @@ function PageContent({
             currentPodcastEpisode,
             positionValue,
             durationValue > 0 && positionValue >= durationValue * 0.95,
+            durationValue,
         );
     }
 
@@ -11378,7 +11456,8 @@ function PageContent({
             return;
         }
         if (currentPodcastEpisode?.episodeType === "video") {
-            recordPodcastRecentlyPlayed(currentPodcastEpisode, videoDuration, true);
+            const endedDuration = Number(mainVideoRef.current?.duration) || videoDuration;
+            recordPodcastRecentlyPlayed(currentPodcastEpisode, endedDuration, true, endedDuration);
             if (podcastPlaybackContext.length > 1) {
                 playAdjacentPodcastEpisode("next");
                 return;
@@ -15349,7 +15428,7 @@ function PageContent({
             if (!snapshot || !episodeId)
                 return;
             const stub = recentPodcastPlaybackStub(snapshot, resolved.duration);
-            void resolvePodcastPlayback(stub, [stub]).catch((error) => {
+            void resolvePodcastPlayback(stub, [stub], resolved.position).catch((error) => {
                 showToast(error instanceof Error ? error.message : "Podcast playback could not start.", "error");
             });
         }
@@ -20160,6 +20239,7 @@ function PageContent({
           ) : view === "Podcasts" ? (
             <PodcastDiscoveryWorkspace
               userId={accountUserId}
+              continueListeningProgress={podcastContinueListeningProgress}
               onPlayPodcast={playPodcast}
               onOpenShow={openPodcastShow}
               onOpenEpisode={openPodcastEpisode}

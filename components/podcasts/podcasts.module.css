@@ -223,6 +223,81 @@
     background: rgba(148, 163, 184, 0.1);
 }
 
+.continueListening {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-top: 16px;
+}
+
+.continueListeningList {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+}
+
+.continueListeningCard {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    padding: 10px;
+    background: var(--podcast-surface-soft);
+    border: 1px solid var(--podcast-border);
+    border-radius: 14px;
+}
+
+.continueCover {
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
+    padding: 0;
+    color: var(--podcast-accent);
+    background-color: rgba(8, 16, 34, 0.88);
+    background-position: center;
+    background-size: cover;
+    border: 0;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.continueBody {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+}
+
+.continueBody p {
+    color: var(--podcast-muted);
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+}
+
+.continueProgress {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    color: var(--podcast-muted);
+    font-size: 0.75rem;
+}
+
+.continueProgress progress {
+    width: 100%;
+    max-width: 100%;
+    height: 8px;
+    min-width: 0;
+}
+
+.continueListeningCard .primaryButton {
+    min-height: 44px;
+    min-width: 44px;
+}
+
 .discoverySearch {
     display: flex;
     align-items: center;
@@ -1358,8 +1433,21 @@ button.showCover {
     }
 
     .discoverySearch,
-    .categoryChips {
+    .categoryChips,
+    .continueListening,
+    .continueListeningList,
+    .continueListeningCard {
         width: 100%;
+    }
+
+    .continueListeningCard {
+        grid-template-columns: 64px minmax(0, 1fr);
+    }
+
+    .continueListeningCard .primaryButton {
+        grid-column: 1 / -1;
+        width: 100%;
+        min-height: 44px;
     }
 
     .categoryChip,
