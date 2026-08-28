@@ -1,0 +1,79 @@
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    box-sizing: border-box;
+    background: rgba(2, 6, 23, 0.72);
+}
+
+.dialog {
+    width: min(440px, 100%);
+    max-width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    border-radius: 8px;
+    background: #0b1736;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+    color: #f8fafc;
+    overflow-wrap: anywhere;
+}
+
+.head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.kicker {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #67e8f9;
+}
+
+.title {
+    margin: 4px 0 0;
+    font-size: 20px;
+    line-height: 1.15;
+}
+
+.body {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.45;
+    color: #dbeafe;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.dismiss {
+    min-height: 44px;
+    min-width: 96px;
+    padding: 0 16px;
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    border-radius: 8px;
+    background: #10204a;
+    color: #f8fafc;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.dismiss:hover,
+.dismiss:focus-visible {
+    outline: 2px solid rgba(103, 232, 249, 0.7);
+    outline-offset: 2px;
+}

@@ -48,17 +48,17 @@ export const SUBSCRIPTION_PAYMENT_RETRY_LIMIT = 3;
 /** Hours between automatic payment retries. */
 export const SUBSCRIPTION_PAYMENT_RETRY_HOURS = 24;
 
-/** Days before period end to send renewal reminder email. */
-export const SUBSCRIPTION_RENEWAL_REMINDER_DAYS = 3;
-
 /**
- * Future login-notification window for paid plans.
- * UI is not implemented in this Podcast pass; metadata placeholder only.
- * Intended copy: “You have 10 days left before your subscription renews/expires.”
+ * Days before period end for paid renewal/expiration reminders.
+ * Shared by the login popup and the in-app notification job.
+ * Do not reuse this for grace, retry, or delinquency timing.
  */
-export const SUBSCRIPTION_LOGIN_NOTICE_DAYS = 10;
-export const SUBSCRIPTION_LOGIN_NOTICE_MESSAGE =
-    "You have 10 days left before your subscription renews/expires.";
+export const SUBSCRIPTION_PERIOD_NOTICE_DAYS = 10;
+export const SUBSCRIPTION_RENEWAL_REMINDER_DAYS = SUBSCRIPTION_PERIOD_NOTICE_DAYS;
+export const SUBSCRIPTION_LOGIN_NOTICE_DAYS = SUBSCRIPTION_PERIOD_NOTICE_DAYS;
+
+/** subscriptions.metadata key: ISO current_period_end that the login popup was dismissed for. */
+export const LOGIN_NOTICE_DISMISSED_PERIOD_END_KEY = "loginNoticeDismissedPeriodEnd";
 
 /** Months past due before creator account becomes Suspended/inactive. */
 export const CREATOR_SUSPEND_MONTHS_PAST_DUE = 3;

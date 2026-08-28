@@ -17,6 +17,8 @@ export const NOTIFICATION_KINDS = [
     "artist_producer_approval",
     "system_announcement",
     "podcast_episode_published",
+    "subscription_renewal_reminder",
+    "subscription_expiration_reminder",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -54,6 +56,9 @@ export function defaultHrefForNotification(kind: string | null | undefined, item
             return "Home";
         case "podcast_episode_published":
             return id ? `/podcast/episode/${encodeURIComponent(id)}` : "Podcasts";
+        case "subscription_renewal_reminder":
+        case "subscription_expiration_reminder":
+            return "Profile";
         default:
             return "Home";
     }
