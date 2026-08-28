@@ -66,12 +66,6 @@ export function buildPodcastAnalytics(
         episode.id && ownedShowIds.has(episode.podcastId)
     ));
 
-    const followersByCreator = new Map<string, number>();
-    for (const show of ownedShows) {
-        if (!show.userId || followersByCreator.has(show.userId)) continue;
-        followersByCreator.set(show.userId, safeCount(show.followerCount));
-    }
-
     const showRows = ownedShows.map((show) => {
         const showEpisodes = ownedEpisodes.filter((episode) => episode.podcastId === show.id);
         const audioEpisodes = showEpisodes.filter((episode) => episode.episodeType === "audio");
@@ -122,7 +116,7 @@ export function buildPodcastAnalytics(
                 audioPlays: audioEpisodes.reduce((total, episode) => total + safeCount(episode.playCount), 0),
                 videoViews: videoEpisodes.reduce((total, episode) => total + safeCount(episode.viewCount), 0),
                 likes: ownedEpisodes.reduce((total, episode) => total + safeCount(episode.likeCount), 0),
-                followers: [...followersByCreator.values()].reduce((total, count) => total + count, 0),
+                followers: ownedShows.reduce((total, show) => total + safeCount(show.followerCount), 0),
             },
         },
         shows: showRows,

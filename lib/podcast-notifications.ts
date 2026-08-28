@@ -1,6 +1,6 @@
 /**
  * Server-side podcast follower notifications.
- * Recipients are resolved from user_follows at publish time.
+ * Recipients are resolved from podcast_show_follows at publish time.
  * Duplicate protection uses notifications_user_event_key_uidx via event_key
  * podcast_episode_published:{episodeId} (one row per recipient + episode).
  */
@@ -41,10 +41,24 @@ export async function notifyPodcastFollowersOfPublishedEpisode(input: {
 
     try {
         const supabase = getSupabaseServerClient();
+        const episodeRow = await supabase
+            .from("podcast_episodes")
+            .select("podcast_id")
+            .eq("id", episodeId)
+            .maybeSingle();
+        if (episodeRow.error) {
+            console.warn("[podcast-notifications]", getErrorMessage(episodeRow.error));
+            return { ok: false as const, error: getErrorMessage(episodeRow.error) };
+        }
+        const showId = String((episodeRow.data as { podcast_id?: string } | null)?.podcast_id || "").trim();
+        if (!isUuid(showId)) {
+            return { ok: false as const, error: "Invalid podcast notification input." };
+        }
+
         const followers = await supabase
-            .from("user_follows")
-            .select("follower_user_id")
-            .eq("following_user_id", creatorUserId);
+            .from("podcast_show_follows")
+            .select("user_id")
+            .eq("show_id", showId);
 
         if (followers.error) {
             console.warn("[podcast-notifications]", getErrorMessage(followers.error));
@@ -53,7 +67,7 @@ export async function notifyPodcastFollowersOfPublishedEpisode(input: {
 
         const recipientIds = [...new Set(
             (followers.data || [])
-                .map((row) => String((row as { follower_user_id?: string }).follower_user_id || "").trim())
+                .map((row) => String((row as { user_id?: string }).user_id || "").trim())
                 .filter((id) => isUuid(id) && id !== creatorUserId),
         )];
 

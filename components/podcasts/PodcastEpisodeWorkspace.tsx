@@ -130,7 +130,8 @@ export function PodcastEpisodeWorkspace({
         setSavedLoading(true);
         void (async () => {
             try {
-                const creatorId = episode.userId;
+                const showId = episode.podcastId;
+                const ownerId = episode.userId;
                 const [savesResponse, likesResponse, followResponse] = await Promise.all([
                     authFetch(
                         supabase,
@@ -142,10 +143,10 @@ export function PodcastEpisodeWorkspace({
                         `/api/podcasts/likes?userId=${encodeURIComponent(userId)}`,
                         { cache: "no-store", signal: controller.signal },
                     ),
-                    creatorId && creatorId !== userId
+                    showId && ownerId && ownerId !== userId
                         ? authFetch(
                             supabase,
-                            `/api/follows?userId=${encodeURIComponent(userId)}&targetUserId=${encodeURIComponent(creatorId)}`,
+                            `/api/podcasts/follows?userId=${encodeURIComponent(userId)}&showId=${encodeURIComponent(showId)}`,
                             { cache: "no-store", signal: controller.signal },
                         )
                         : Promise.resolve(null),
@@ -298,20 +299,21 @@ export function PodcastEpisodeWorkspace({
         }
     }
 
-    async function toggleFollowCreator() {
-        const creatorId = episode?.userId || show?.userId || "";
-        if (!userId || !creatorId || creatorId === userId) return;
-        const pendingKey = `follow:${creatorId}`;
+    async function toggleFollowShow() {
+        const showId = episode?.podcastId || show?.id || "";
+        const ownerId = episode?.userId || show?.userId || "";
+        if (!userId || !showId || !ownerId || ownerId === userId) return;
+        const pendingKey = `follow-show:${showId}`;
         if (savingKeys.has(pendingKey)) return;
         setSavingKeys((current) => new Set(current).add(pendingKey));
         setActionError("");
         try {
-            const response = await authFetch(supabase, "/api/follows", {
+            const response = await authFetch(supabase, "/api/podcasts/follows", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     userId,
-                    targetUserId: creatorId,
+                    showId,
                     follow: !following,
                 }),
             });
@@ -349,7 +351,7 @@ export function PodcastEpisodeWorkspace({
     const canFollow = Boolean(userId && episode?.userId && episode.userId !== userId);
     const liking = savingKeys.has(`like:${episode?.id || ""}`);
     const saving = savingKeys.has(`podcast_episode:${episode?.id || ""}`);
-    const followPending = savingKeys.has(`follow:${episode?.userId || show?.userId || ""}`);
+    const followPending = savingKeys.has(`follow-show:${episode?.podcastId || show?.id || ""}`);
     const published = formatPodcastDate(episode?.publishedAt);
     const duration = formatPodcastDuration(episode?.durationSeconds ?? null);
     const showId = episode?.podcastId || show?.id || "";
@@ -499,7 +501,7 @@ export function PodcastEpisodeWorkspace({
                                     className={styles.secondaryButton}
                                     aria-pressed={following}
                                     disabled={followPending}
-                                    onClick={() => void toggleFollowCreator()}
+                                    onClick={() => void toggleFollowShow()}
                                 >
                                     {followPending
                                         ? <LoaderCircle className={styles.spinner} size={16} aria-hidden="true" />

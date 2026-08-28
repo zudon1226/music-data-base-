@@ -53,6 +53,10 @@ const requiredFiles = [
   "scripts/verify-podcast-phase2e.mjs",
   "scripts/verify-podcast-phase2f.mjs",
   "scripts/verify-podcast-phase2g.mjs",
+  "scripts/verify-podcast-phase2h.mjs",
+  "lib/podcast-show-follows.ts",
+  "app/api/podcasts/follows/route.ts",
+  "supabase/migrations/202608280001_podcast_phase2h_show_follows.sql",
   "supabase/migrations/202608200001_podcast_phase1_foundation.sql",
   "supabase/migrations/202608200002_podcast_storage_buckets.sql",
   "supabase/migrations/202608210001_podcast_episode_likes.sql",
@@ -156,7 +160,7 @@ expect("app/page.tsx", /<PersistedModerationReports/, "Trust queue persisted rep
 expect("supabase/migrations/202608230002_podcast_phase2d_episode_notifications.sql", /'podcast_episode'/i, "Phase 2D notifications item_type missing");
 expect("supabase/migrations/202608230002_podcast_phase2d_episode_notifications.sql", /notifications_item_type_check/, "Phase 2D must only widen item_type check");
 expect("lib/podcast-notifications.ts", /notifyPodcastFollowersOfPublishedEpisode/, "Podcast follower notification helper missing");
-expect("lib/podcast-notifications.ts", /from\("user_follows"\)/, "Podcast notifications must resolve followers server-side");
+expect("lib/podcast-notifications.ts", /from\("podcast_show_follows"\)/, "Podcast notifications must resolve show followers server-side");
 expect("lib/podcast-notifications.ts", /podcast_episode_published:\$\{episodeId\}/, "Podcast notification event_key must be canonical per episode");
 expect("lib/podcast-notifications.ts", /id !== creatorUserId/, "Podcast notifications must exclude creator");
 expect("app/api/podcasts/episodes/route.ts", /status === "published" && episode/, "POST notifies only when created published");
@@ -218,7 +222,7 @@ const helperSource = read("lib/podcast-notifications.ts");
 if (/recipientIds|recipient_ids/.test(helperSource.split("export async function")[0] + "export async function" + (helperSource.split("export async function")[1] || "").split("{")[0])) {
   failures.push("Podcast notification helper accepts client recipient IDs");
 }
-if (!/follower_user_id/.test(helperSource) || /input\.recipient/.test(helperSource)) {
+if (!/from\("podcast_show_follows"\)/.test(helperSource) || /input\.recipient/.test(helperSource)) {
   failures.push("Podcast notification helper must not accept recipient IDs from callers");
 }
 

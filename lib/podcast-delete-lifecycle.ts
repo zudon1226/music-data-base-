@@ -64,6 +64,13 @@ async function cleanupPodcastReferences(showId: string, episodeIds: string[], cl
             .eq("item_type", "podcast_show")
             .eq("item_id", showId);
         if (showSaves.error) throw showSaves.error;
+        const showFollows = await supabase
+            .from("podcast_show_follows")
+            .delete()
+            .eq("show_id", showId);
+        if (showFollows.error && !String(showFollows.error.message || "").includes("does not exist")) {
+            throw showFollows.error;
+        }
     }
         if (episodeIds.length > 0) {
         const episodeSaves = await supabase

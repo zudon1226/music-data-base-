@@ -43,13 +43,13 @@ expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /aria-label="Search 
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Filter podcasts by category/, "Category chips missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Discover[\s\S]*Saved[\s\S]*Following/, "Discover/Saved/Following sections missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /All[\s\S]*Audio[\s\S]*Video/, "Format tabs must remain");
-expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /list=following/, "Following must reuse /api/follows list=following");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /\/api\/podcasts\/follows/, "Following must use /api/podcasts/follows");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /\/api\/library-saves/, "Saved must reuse /api/library-saves");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /fetch\(`\/api\/podcasts\/\$\{encodeURIComponent\(showId\)\}`/, "Saved show hydrate must use public show GET");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /fetch\(`\/api\/podcasts\/episodes\/\$\{encodeURIComponent\(episodeId\)\}`/, "Saved episode hydrate must use public episode GET");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /No podcasts match your search/, "Search empty state missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Sign in to see saved podcasts/, "Guest Saved empty state missing");
-expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Sign in to see podcasts from creators you follow/, "Guest Following empty state missing");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Sign in to see shows you follow/, "Guest Following empty state missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /isPublishedPodcastShow/, "Discovery must keep published-only shows");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /isPublishedPodcastEpisode/, "Discovery must keep published-only episodes");
 

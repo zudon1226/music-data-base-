@@ -25,6 +25,7 @@ import {
     isPublishedPodcastEpisode,
     isPublishedPodcastShow,
     mergePublishedPodcastCatalog,
+    missingFollowedPodcastShowIds,
     missingSavedPodcastIds,
     uniquePodcastCategories,
     type PodcastDiscoverySection,
@@ -71,7 +72,8 @@ type PodcastLikesResponse = {
 };
 
 type FollowListResponse = {
-    following?: Array<{ userId?: string }>;
+    followedShowIds?: string[];
+    isFollowing?: boolean;
     error?: string;
 };
 
@@ -139,7 +141,7 @@ export function PodcastDiscoveryWorkspace({
     const [savedShowIds, setSavedShowIds] = useState<Set<string>>(() => new Set());
     const [savedEpisodeIds, setSavedEpisodeIds] = useState<Set<string>>(() => new Set());
     const [likedEpisodeIds, setLikedEpisodeIds] = useState<Set<string>>(() => new Set());
-    const [followingCreatorIds, setFollowingCreatorIds] = useState<Set<string>>(() => new Set());
+    const [followingShowIds, setFollowingShowIds] = useState<Set<string>>(() => new Set());
     const [savedLoading, setSavedLoading] = useState(Boolean(userId));
     const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set());
     const [followKeys, setFollowKeys] = useState<Set<string>>(() => new Set());
@@ -188,7 +190,7 @@ export function PodcastDiscoveryWorkspace({
                 setSavedShowIds(new Set());
                 setSavedEpisodeIds(new Set());
                 setLikedEpisodeIds(new Set());
-                setFollowingCreatorIds(new Set());
+                setFollowingShowIds(new Set());
                 setHydratedShows([]);
                 setHydratedEpisodes([]);
                 setHydrateAttemptedIds(new Set());
@@ -212,7 +214,7 @@ export function PodcastDiscoveryWorkspace({
                         ),
                         authFetch(
                             supabase,
-                            `/api/follows?userId=${encodeURIComponent(userId)}&list=following`,
+                            `/api/podcasts/follows?userId=${encodeURIComponent(userId)}`,
                             { cache: "no-store", signal: controller.signal },
                         ),
                     ]);
@@ -228,10 +230,8 @@ export function PodcastDiscoveryWorkspace({
                     }
                     const followingBody = (await followingResponse.json().catch(() => ({}))) as FollowListResponse;
                     if (followingResponse.ok) {
-                        setFollowingCreatorIds(new Set(
-                            (followingBody.following || [])
-                                .map((row) => String(row.userId || "").trim())
-                                .filter((id) => id && id !== userId),
+                        setFollowingShowIds(new Set(
+                            (followingBody.followedShowIds || []).filter(Boolean),
                         ));
                     }
                 }
@@ -312,39 +312,93 @@ export function PodcastDiscoveryWorkspace({
         return () => controller.abort();
     }, [userId, savedShowIds, savedEpisodeIds, shows, episodes, hydratedShows, hydratedEpisodes, hydrateAttemptedIds]);
 
-    async function toggleFollowCreator(creatorUserId: string) {
-        if (!userId || !creatorUserId || creatorUserId === userId) return;
-        const pendingKey = `follow:${creatorUserId}`;
+    useEffect(() => {
+        if (!userId) return;
+        const missingShowIds = missingFollowedPodcastShowIds({
+            followedShowIds: followingShowIds,
+            knownShowIds: [
+                ...shows.map((show) => show.id),
+                ...hydratedShows.map((show) => show.id),
+                ...hydrateAttemptedIds,
+            ],
+        });
+        if (missingShowIds.length === 0) return;
+        const controller = new AbortController();
+        void (async () => {
+            const nextShows: PodcastShow[] = [];
+            const nextEpisodes: PodcastEpisode[] = [];
+            await Promise.all(missingShowIds.map(async (showId) => {
+                const response = await fetch(`/api/podcasts/${encodeURIComponent(showId)}`, {
+                    cache: "no-store",
+                    signal: controller.signal,
+                });
+                if (!response.ok) return;
+                const body = await response.json().catch(() => ({})) as {
+                    show?: PodcastShow;
+                    episodes?: PodcastEpisode[];
+                };
+                if (body.show && isPublishedPodcastShow(body.show)) nextShows.push(body.show);
+                for (const episode of body.episodes || []) {
+                    if (episode && isPublishedPodcastEpisode(episode)) nextEpisodes.push(episode);
+                }
+            }));
+            if (controller.signal.aborted) return;
+            setHydrateAttemptedIds((current) => {
+                const next = new Set(current);
+                for (const id of missingShowIds) next.add(id);
+                return next;
+            });
+            if (nextShows.length > 0) {
+                setHydratedShows((current) => mergePublishedPodcastCatalog(current, [], nextShows, []).shows);
+            }
+            if (nextEpisodes.length > 0) {
+                setHydratedEpisodes((current) => mergePublishedPodcastCatalog([], current, [], nextEpisodes).episodes);
+            }
+        })();
+        return () => controller.abort();
+    }, [userId, followingShowIds, shows, hydratedShows, hydrateAttemptedIds]);
+
+    async function toggleFollowShow(show: PodcastShow) {
+        if (!userId || !show.id || show.userId === userId) return;
+        const pendingKey = `follow-show:${show.id}`;
         if (followKeys.has(pendingKey)) return;
-        const currentlyFollowing = followingCreatorIds.has(creatorUserId);
+        const currentlyFollowing = followingShowIds.has(show.id);
         setFollowKeys((current) => new Set(current).add(pendingKey));
         setActionError("");
         try {
-            const response = await authFetch(supabase, "/api/follows", {
+            const response = await authFetch(supabase, "/api/podcasts/follows", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     userId,
-                    targetUserId: creatorUserId,
+                    showId: show.id,
                     follow: !currentlyFollowing,
                 }),
             });
-            const body = await response.json().catch(() => ({})) as { error?: string; isFollowing?: boolean };
+            const body = await response.json().catch(() => ({})) as {
+                error?: string;
+                isFollowing?: boolean;
+                followerCount?: number;
+            };
             if (!response.ok) throw new Error(responseError(body, "Follow could not be updated."));
-            setFollowingCreatorIds((current) => {
+            const nextFollowing = body.isFollowing ?? !currentlyFollowing;
+            setFollowingShowIds((current) => {
                 const next = new Set(current);
-                if (body.isFollowing ?? !currentlyFollowing) next.add(creatorUserId);
-                else next.delete(creatorUserId);
+                if (nextFollowing) next.add(show.id);
+                else next.delete(show.id);
                 return next;
             });
-            setShows((current) => current.map((show) => {
-                if (show.userId !== creatorUserId) return show;
-                const delta = (body.isFollowing ?? !currentlyFollowing) ? 1 : -1;
+            const applyCount = (candidate: PodcastShow) => {
+                if (candidate.id !== show.id) return candidate;
                 return {
-                    ...show,
-                    followerCount: Math.max(0, (show.followerCount || 0) + delta),
+                    ...candidate,
+                    followerCount: typeof body.followerCount === "number"
+                        ? Math.max(0, body.followerCount)
+                        : Math.max(0, (candidate.followerCount || 0) + (nextFollowing ? 1 : -1)),
                 };
-            }));
+            };
+            setShows((current) => current.map(applyCount));
+            setHydratedShows((current) => current.map(applyCount));
         }
         catch (error) {
             setActionError(error instanceof Error ? error.message : "Follow could not be updated.");
@@ -386,7 +440,7 @@ export function PodcastDiscoveryWorkspace({
             return filterFollowingPodcastDiscovery({
                 shows: filteredCatalog.shows,
                 episodes: filteredCatalog.episodes,
-                followingCreatorIds,
+                followingShowIds,
                 currentUserId: userId,
             });
         }
@@ -404,7 +458,7 @@ export function PodcastDiscoveryWorkspace({
         episodes,
         filteredCatalog.episodes,
         filteredCatalog.shows,
-        followingCreatorIds,
+        followingShowIds,
         savedEpisodeIds,
         savedShowIds,
         searchInput,
@@ -580,8 +634,8 @@ export function PodcastDiscoveryWorkspace({
         }
         if (activeSection === "following" && !userId) {
             return {
-                title: "Sign in to see podcasts from creators you follow",
-                detail: "Follow a podcast creator to collect their published shows here.",
+                title: "Sign in to see shows you follow",
+                detail: "Follow a published podcast show to collect it here.",
             };
         }
         if (hasQuery) {
@@ -604,8 +658,8 @@ export function PodcastDiscoveryWorkspace({
         }
         if (activeSection === "following") {
             return {
-                title: "No podcasts from creators you follow",
-                detail: "Follow a creator on a published show to see their podcasts here.",
+                title: "No shows you follow yet",
+                detail: "Follow a published show to see it and its latest episodes here.",
             };
         }
         return {
@@ -623,7 +677,7 @@ export function PodcastDiscoveryWorkspace({
     const episodeHeading = activeSection === "saved"
         ? "Saved episodes"
         : activeSection === "following"
-            ? "Latest from creators you follow"
+            ? "Latest from shows you follow"
             : "Latest episodes";
 
     return (
@@ -819,7 +873,7 @@ export function PodcastDiscoveryWorkspace({
                     <div className={styles.sectionHeading}>
                         <div>
                             <p className={styles.eyebrow}>
-                                {activeSection === "discover" ? "Browse by series" : activeSection === "saved" ? "Your saves" : "Creators you follow"}
+                                {activeSection === "discover" ? "Browse by series" : activeSection === "saved" ? "Your saves" : "Shows you follow"}
                             </p>
                             <h3 id="podcast-shows-heading">{showHeading}</h3>
                         </div>
@@ -829,8 +883,8 @@ export function PodcastDiscoveryWorkspace({
                         {visibleShows.map((show) => {
                             const saved = savedShowIds.has(show.id);
                             const saving = savingKeys.has(`podcast_show:${show.id}`);
-                            const following = followingCreatorIds.has(show.userId);
-                            const followPending = followKeys.has(`follow:${show.userId}`);
+                            const following = followingShowIds.has(show.id);
+                            const followPending = followKeys.has(`follow-show:${show.id}`);
                             const canFollow = Boolean(userId && show.userId && show.userId !== userId);
                             return (
                                 <article key={show.id} className={styles.showCard}>
@@ -890,8 +944,8 @@ export function PodcastDiscoveryWorkspace({
                                                     className={styles.secondaryButton}
                                                     aria-pressed={following}
                                                     disabled={followPending}
-                                                    onClick={() => void toggleFollowCreator(show.userId)}
-                                                    aria-label={following ? `Unfollow ${show.creatorName || "creator"}` : `Follow ${show.creatorName || "creator"}`}
+                                                    onClick={() => void toggleFollowShow(show)}
+                                                    aria-label={following ? `Unfollow ${show.title}` : `Follow ${show.title}`}
                                                 >
                                                     {followPending
                                                         ? <LoaderCircle className={styles.spinner} size={16} aria-hidden="true" />

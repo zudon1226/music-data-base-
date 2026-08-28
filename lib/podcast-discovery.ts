@@ -158,15 +158,16 @@ export function filterSavedPodcastDiscovery(input: {
 export function filterFollowingPodcastDiscovery(input: {
     shows: PodcastShow[];
     episodes: PodcastEpisode[];
-    followingCreatorIds: Iterable<string>;
+    followingShowIds: Iterable<string>;
     currentUserId?: string;
 }) {
-    const followingCreatorIds = new Set(input.followingCreatorIds);
+    const followingShowIds = new Set(input.followingShowIds);
     const currentUserId = String(input.currentUserId || "");
     const shows = input.shows.filter((show) => (
-        Boolean(show.userId)
+        Boolean(show.id)
+        && followingShowIds.has(show.id)
+        && Boolean(show.userId)
         && show.userId !== currentUserId
-        && followingCreatorIds.has(show.userId)
     ));
     const showIds = new Set(shows.map((show) => show.id));
     return {
@@ -187,4 +188,12 @@ export function missingSavedPodcastIds(input: {
         showIds: [...new Set(input.savedShowIds)].filter((id) => isPodcastDiscoveryUuid(id) && !knownShows.has(id)),
         episodeIds: [...new Set(input.savedEpisodeIds)].filter((id) => isPodcastDiscoveryUuid(id) && !knownEpisodes.has(id)),
     };
+}
+
+export function missingFollowedPodcastShowIds(input: {
+    followedShowIds: Iterable<string>;
+    knownShowIds: Iterable<string>;
+}) {
+    const knownShows = new Set(input.knownShowIds);
+    return [...new Set(input.followedShowIds)].filter((id) => isPodcastDiscoveryUuid(id) && !knownShows.has(id));
 }
