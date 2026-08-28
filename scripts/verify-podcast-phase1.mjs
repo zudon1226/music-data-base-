@@ -54,6 +54,8 @@ const requiredFiles = [
   "scripts/verify-podcast-phase2f.mjs",
   "scripts/verify-podcast-phase2g.mjs",
   "scripts/verify-podcast-phase2h.mjs",
+  "scripts/verify-podcast-phase2i.mjs",
+  "lib/podcast-share.ts",
   "lib/podcast-show-follows.ts",
   "app/api/podcasts/follows/route.ts",
   "supabase/migrations/202608280001_podcast_phase2h_show_follows.sql",

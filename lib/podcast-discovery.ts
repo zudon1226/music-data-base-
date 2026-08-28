@@ -1,6 +1,6 @@
 import type { PodcastEpisode, PodcastShow, PodcastTab } from "@/lib/podcast-types";
 
-export const PODCAST_DISCOVERY_SECTIONS = ["discover", "saved", "following"] as const;
+export const PODCAST_DISCOVERY_SECTIONS = ["discover", "saved", "following", "liked"] as const;
 export type PodcastDiscoverySection = (typeof PODCAST_DISCOVERY_SECTIONS)[number];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -196,4 +196,29 @@ export function missingFollowedPodcastShowIds(input: {
 }) {
     const knownShows = new Set(input.knownShowIds);
     return [...new Set(input.followedShowIds)].filter((id) => isPodcastDiscoveryUuid(id) && !knownShows.has(id));
+}
+
+export function filterLikedPodcastDiscovery(input: {
+    shows: PodcastShow[];
+    episodes: PodcastEpisode[];
+    likedEpisodeIds: Iterable<string>;
+}) {
+    const likedEpisodeIds = new Set(input.likedEpisodeIds);
+    const episodes = input.episodes.filter((episode) => (
+        likedEpisodeIds.has(episode.id)
+        && isPublishedPodcastEpisode(episode)
+    ));
+    const showIds = new Set(episodes.map((episode) => episode.podcastId));
+    return {
+        shows: input.shows.filter((show) => showIds.has(show.id) && isPublishedPodcastShow(show)),
+        episodes,
+    };
+}
+
+export function missingLikedPodcastEpisodeIds(input: {
+    likedEpisodeIds: Iterable<string>;
+    knownEpisodeIds: Iterable<string>;
+}) {
+    const knownEpisodes = new Set(input.knownEpisodeIds);
+    return [...new Set(input.likedEpisodeIds)].filter((id) => isPodcastDiscoveryUuid(id) && !knownEpisodes.has(id));
 }

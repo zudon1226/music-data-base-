@@ -20,12 +20,14 @@ import {
 import { authFetch } from "@/lib/client-api-auth";
 import {
     filterFollowingPodcastDiscovery,
+    filterLikedPodcastDiscovery,
     filterPodcastDiscovery,
     filterSavedPodcastDiscovery,
     isPublishedPodcastEpisode,
     isPublishedPodcastShow,
     mergePublishedPodcastCatalog,
     missingFollowedPodcastShowIds,
+    missingLikedPodcastEpisodeIds,
     missingSavedPodcastIds,
     uniquePodcastCategories,
     type PodcastDiscoverySection,
@@ -84,6 +86,7 @@ const DISCOVERY_SECTIONS: Array<{ id: PodcastDiscoverySection; label: string }> 
     { id: "discover", label: "Discover" },
     { id: "saved", label: "Saved" },
     { id: "following", label: "Following" },
+    { id: "liked", label: "Liked" },
 ];
 const countFormatter = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
@@ -266,14 +269,24 @@ export function PodcastDiscoveryWorkspace({
                 ...hydrateAttemptedIds,
             ],
         });
-        if (missing.showIds.length === 0 && missing.episodeIds.length === 0) return;
-        const pendingIds = [...missing.showIds, ...missing.episodeIds];
+        const missingLikedEpisodeIds = missingLikedPodcastEpisodeIds({
+            likedEpisodeIds,
+            knownEpisodeIds: [
+                ...episodes.map((episode) => episode.id),
+                ...hydratedEpisodes.map((episode) => episode.id),
+                ...hydrateAttemptedIds,
+            ],
+        });
+        const missingShowIds = missing.showIds;
+        const missingEpisodeIds = [...new Set([...missing.episodeIds, ...missingLikedEpisodeIds])];
+        if (missingShowIds.length === 0 && missingEpisodeIds.length === 0) return;
+        const pendingIds = [...missingShowIds, ...missingEpisodeIds];
         const controller = new AbortController();
         void (async () => {
             const nextShows: PodcastShow[] = [];
             const nextEpisodes: PodcastEpisode[] = [];
             await Promise.all([
-                ...missing.showIds.map(async (showId) => {
+                ...missingShowIds.map(async (showId) => {
                     const response = await fetch(`/api/podcasts/${encodeURIComponent(showId)}`, {
                         cache: "no-store",
                         signal: controller.signal,
@@ -282,7 +295,7 @@ export function PodcastDiscoveryWorkspace({
                     const body = await response.json().catch(() => ({})) as { show?: PodcastShow };
                     if (body.show && isPublishedPodcastShow(body.show)) nextShows.push(body.show);
                 }),
-                ...missing.episodeIds.map(async (episodeId) => {
+                ...missingEpisodeIds.map(async (episodeId) => {
                     const response = await fetch(`/api/podcasts/episodes/${encodeURIComponent(episodeId)}`, {
                         cache: "no-store",
                         signal: controller.signal,
@@ -310,7 +323,7 @@ export function PodcastDiscoveryWorkspace({
             }
         })();
         return () => controller.abort();
-    }, [userId, savedShowIds, savedEpisodeIds, shows, episodes, hydratedShows, hydratedEpisodes, hydrateAttemptedIds]);
+    }, [userId, savedShowIds, savedEpisodeIds, likedEpisodeIds, shows, episodes, hydratedShows, hydratedEpisodes, hydrateAttemptedIds]);
 
     useEffect(() => {
         if (!userId) return;
@@ -444,6 +457,13 @@ export function PodcastDiscoveryWorkspace({
                 currentUserId: userId,
             });
         }
+        if (activeSection === "liked") {
+            return filterLikedPodcastDiscovery({
+                shows: filteredCatalog.shows,
+                episodes: filteredCatalog.episodes,
+                likedEpisodeIds,
+            });
+        }
         return filterPodcastDiscovery({
             shows,
             episodes,
@@ -459,6 +479,7 @@ export function PodcastDiscoveryWorkspace({
         filteredCatalog.episodes,
         filteredCatalog.shows,
         followingShowIds,
+        likedEpisodeIds,
         savedEpisodeIds,
         savedShowIds,
         searchInput,
@@ -638,6 +659,12 @@ export function PodcastDiscoveryWorkspace({
                 detail: "Follow a published podcast show to collect it here.",
             };
         }
+        if (activeSection === "liked" && !userId) {
+            return {
+                title: "Sign in to see liked podcasts",
+                detail: "Like a published episode and it will appear here.",
+            };
+        }
         if (hasQuery) {
             return {
                 title: "No podcasts match your search",
@@ -662,6 +689,12 @@ export function PodcastDiscoveryWorkspace({
                 detail: "Follow a published show to see it and its latest episodes here.",
             };
         }
+        if (activeSection === "liked") {
+            return {
+                title: "No liked episodes yet",
+                detail: "Like a published episode to collect it here.",
+            };
+        }
         return {
             title: `No ${activeTab === "All" ? "" : `${activeTab.toLowerCase()} `}podcasts yet`,
             detail: "Published podcasts will appear here as creators add them.",
@@ -673,12 +706,16 @@ export function PodcastDiscoveryWorkspace({
         ? "Saved shows"
         : activeSection === "following"
             ? "Following"
-            : "Podcast shows";
+            : activeSection === "liked"
+                ? "Shows from liked episodes"
+                : "Podcast shows";
     const episodeHeading = activeSection === "saved"
         ? "Saved episodes"
         : activeSection === "following"
             ? "Latest from shows you follow"
-            : "Latest episodes";
+            : activeSection === "liked"
+                ? "Liked episodes"
+                : "Latest episodes";
 
     return (
         <section className={styles.workspace} aria-labelledby="podcast-discovery-title">
@@ -798,7 +835,7 @@ export function PodcastDiscoveryWorkspace({
                 </div>
             ) : null}
 
-            <div className={styles.tabs} role="tablist" aria-label="Podcast discovery sections">
+            <div className={styles.discoverySections} role="tablist" aria-label="Podcast discovery sections">
                 {DISCOVERY_SECTIONS.map((section) => (
                     <button
                         key={section.id}
@@ -873,7 +910,13 @@ export function PodcastDiscoveryWorkspace({
                     <div className={styles.sectionHeading}>
                         <div>
                             <p className={styles.eyebrow}>
-                                {activeSection === "discover" ? "Browse by series" : activeSection === "saved" ? "Your saves" : "Shows you follow"}
+                                {activeSection === "discover"
+                                    ? "Browse by series"
+                                    : activeSection === "saved"
+                                        ? "Your saves"
+                                        : activeSection === "liked"
+                                            ? "From your likes"
+                                            : "Shows you follow"}
                             </p>
                             <h3 id="podcast-shows-heading">{showHeading}</h3>
                         </div>
