@@ -140,7 +140,7 @@ export function PodcastShowWorkspace({
                     show.userId && show.userId !== userId
                         ? authFetch(
                             supabase,
-                            `/api/follows?userId=${encodeURIComponent(userId)}&targetUserId=${encodeURIComponent(show.userId)}`,
+                            `/api/podcasts/follows?userId=${encodeURIComponent(userId)}&showId=${encodeURIComponent(show.id)}`,
                             { cache: "no-store", signal: controller.signal },
                         )
                         : Promise.resolve(null),
@@ -256,30 +256,36 @@ export function PodcastShowWorkspace({
         }
     }
 
-    async function toggleFollowCreator() {
-        if (!userId || !show?.userId || show.userId === userId) return;
-        const pendingKey = `follow:${show.userId}`;
+    async function toggleFollowShow() {
+        if (!userId || !show?.id || !show.userId || show.userId === userId) return;
+        const pendingKey = `follow-show:${show.id}`;
         if (savingKeys.has(pendingKey)) return;
         setSavingKeys((current) => new Set(current).add(pendingKey));
         setActionError("");
         try {
-            const response = await authFetch(supabase, "/api/follows", {
+            const response = await authFetch(supabase, "/api/podcasts/follows", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     userId,
-                    targetUserId: show.userId,
+                    showId: show.id,
                     follow: !following,
                 }),
             });
-            const body = await response.json().catch(() => ({})) as { error?: string; isFollowing?: boolean };
+            const body = await response.json().catch(() => ({})) as {
+                error?: string;
+                isFollowing?: boolean;
+                followerCount?: number;
+            };
             if (!response.ok) throw new Error(podcastResponseError(body, "Follow could not be updated."));
             const nextFollowing = body.isFollowing ?? !following;
             setFollowing(nextFollowing);
             setShow((current) => current
                 ? {
                     ...current,
-                    followerCount: Math.max(0, (current.followerCount || 0) + (nextFollowing ? 1 : -1)),
+                    followerCount: typeof body.followerCount === "number"
+                        ? Math.max(0, body.followerCount)
+                        : Math.max(0, (current.followerCount || 0) + (nextFollowing ? 1 : -1)),
                 }
                 : current);
         }
@@ -309,7 +315,7 @@ export function PodcastShowWorkspace({
 
     const canFollow = Boolean(userId && show?.userId && show.userId !== userId);
     const savingShow = savingKeys.has(`podcast_show:${show?.id || ""}`);
-    const followPending = savingKeys.has(`follow:${show?.userId || ""}`);
+    const followPending = savingKeys.has(`follow-show:${show?.id || ""}`);
 
     return (
         <section className={styles.workspace} aria-labelledby="podcast-show-title">
@@ -393,7 +399,7 @@ export function PodcastShowWorkspace({
                                         className={styles.secondaryButton}
                                         aria-pressed={following}
                                         disabled={followPending}
-                                        onClick={() => void toggleFollowCreator()}
+                                        onClick={() => void toggleFollowShow()}
                                     >
                                         {followPending
                                             ? <LoaderCircle className={styles.spinner} size={16} aria-hidden="true" />

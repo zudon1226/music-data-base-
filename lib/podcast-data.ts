@@ -94,7 +94,6 @@ export async function mapPodcastRows(input: {
 
     const supabase = getSupabaseServerClient();
     const episodeIds = episodes.map((episode) => episode.id).filter(Boolean);
-    const creatorIds = [...new Set(shows.map((show) => show.userId).filter(Boolean))];
 
     if (episodeIds.length > 0) {
         const { data: likeRows, error: likeError } = await supabase
@@ -114,19 +113,21 @@ export async function mapPodcastRows(input: {
         }
     }
 
-    if (creatorIds.length > 0) {
-        const { data: followRows } = await supabase
-            .from("user_follows")
-            .select("following_user_id")
-            .in("following_user_id", creatorIds);
-        const followerCounts = new Map<string, number>();
-        for (const row of followRows || []) {
-            const id = String((row as { following_user_id?: string }).following_user_id || "");
-            if (!id) continue;
-            followerCounts.set(id, (followerCounts.get(id) || 0) + 1);
-        }
-        for (const show of shows) {
-            show.followerCount = followerCounts.get(show.userId) || 0;
+    if (showIds.length > 0) {
+        const { data: followRows, error: followError } = await supabase
+            .from("podcast_show_follows")
+            .select("show_id")
+            .in("show_id", showIds);
+        if (!followError) {
+            const followerCounts = new Map<string, number>();
+            for (const row of followRows || []) {
+                const id = String((row as { show_id?: string }).show_id || "");
+                if (!id) continue;
+                followerCounts.set(id, (followerCounts.get(id) || 0) + 1);
+            }
+            for (const show of shows) {
+                show.followerCount = followerCounts.get(show.id) || 0;
+            }
         }
     }
 
