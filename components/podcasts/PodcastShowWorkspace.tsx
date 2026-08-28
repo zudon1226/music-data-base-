@@ -16,7 +16,7 @@ import {
     Video,
 } from "lucide-react";
 import { authFetch } from "@/lib/client-api-auth";
-import { podcastShareUrl } from "@/lib/podcast-routes";
+import { sharePodcastLink } from "@/lib/podcast-share";
 import {
     type PodcastEpisode,
     type PodcastPlaybackRequest,
@@ -301,15 +301,21 @@ export function PodcastShowWorkspace({
         }
     }
 
-    async function copyShareLink() {
+    async function shareShowLink() {
         if (!show) return;
-        const shareUrl = podcastShareUrl("show", show.id);
-        try {
-            await navigator.clipboard.writeText(shareUrl);
-            setShareMessage("Show link copied.");
+        const result = await sharePodcastLink({
+            kind: "show",
+            id: show.id,
+            title: show.title,
+            text: `Listen to ${show.title} on Music Data Base.`,
+        });
+        if (result === "canceled") return;
+        if (result === "shared") {
+            setShareMessage("Ready to share.");
+            return;
         }
-        catch {
-            window.prompt("Copy this link", shareUrl);
+        if (result === "copied") {
+            setShareMessage("Show link copied.");
         }
     }
 
@@ -425,7 +431,7 @@ export function PodcastShowWorkspace({
                                         {savedShow ? "Saved" : "Save"}
                                     </button>
                                 ) : null}
-                                <button type="button" className={styles.secondaryButton} onClick={() => void copyShareLink()}>
+                                <button type="button" className={styles.secondaryButton} onClick={() => void shareShowLink()}>
                                     <Share2 size={16} aria-hidden="true" />
                                     Share
                                 </button>
