@@ -1,9 +1,16 @@
 import {
+    LOGIN_NOTICE_DISMISSED_PERIOD_END_KEY,
     SUBSCRIPTION_PAYMENT_RETRY_LIMIT,
     SUBSCRIPTION_RENEWAL_REMINDER_DAYS,
     type AccountSubscriptionAudience,
     type PaymentProviderId,
 } from "@/lib/billing/constants";
+import {
+    evaluatePeriodNotice,
+    isPaidSubscription,
+    periodNoticeEventKey,
+} from "@/lib/billing/period-notice";
+import { defaultHrefForNotification } from "@/lib/dashboard/notification-kinds";
 import {
     evaluateCreatorBillingAccess,
     resolveEffectiveSubscriptionStatus,
@@ -447,7 +454,7 @@ export async function applySuccessfulPayment(input: {
     const amountCents = Number(approvedPlan.price_cents);
     const currency = approvedPlan.currency || input.currency || "USD";
 
-    const nextMetadata = {
+    const nextMetadata: Record<string, unknown> = {
         ...metadata,
         pendingCheckoutPlanId: null,
         pendingCheckoutPlanName: null,
@@ -456,6 +463,7 @@ export async function applySuccessfulPayment(input: {
         lastConfirmedPlanId: approvedPlan.id,
         lastConfirmedAt: nowIso,
     };
+    delete nextMetadata[LOGIN_NOTICE_DISMISSED_PERIOD_END_KEY];
 
     const { error } = await supabase.from("subscriptions").update({
         plan_id: approvedPlan.id,
@@ -471,6 +479,7 @@ export async function applySuccessfulPayment(input: {
         months_past_due: renewal.monthsPastDue,
         last_payment_at: nowIso,
         last_payment_failed_at: null,
+        renewal_reminder_sent_at: null,
         payment_retry_count: renewal.paymentRetryCount,
         payment_provider: input.provider,
         provider_customer_id: input.customerId || subscription.provider_customer_id || null,
@@ -632,23 +641,33 @@ export async function processRenewalReminders(now = new Date()) {
     const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
-        .eq("auto_renew", true)
         .eq("status", "active")
-        .gte("current_period_end", reminderStart)
+        .gt("price_cents", 0)
+        .gt("current_period_end", reminderStart)
         .lte("current_period_end", reminderEnd)
         .is("renewal_reminder_sent_at", null)
         .limit(100);
     if (error) throw new Error(getErrorMessage(error));
 
-    const rows = (data || []) as SubscriptionRow[];
+    const rows = ((data || []) as SubscriptionRow[]).filter((row) => isPaidSubscription(row));
+    let reminded = 0;
     for (const row of rows) {
-        await supabase.from("notifications").insert({
+        const notice = evaluatePeriodNotice(row, now);
+        const eventKey = periodNoticeEventKey(row.id, row.current_period_end);
+        const inserted = await supabase.from("notifications").insert({
             user_id: row.user_id,
-            title: "Subscription renewal reminder",
-            body: `Your ${row.plan_name} plan renews on ${row.current_period_end ? new Date(row.current_period_end).toLocaleDateString() : "soon"}. Auto-renew is enabled.`,
+            title: notice.title,
+            body: notice.body,
+            kind: notice.kind,
+            href: defaultHrefForNotification(notice.kind),
             item_type: null,
             read: false,
+            event_key: eventKey,
         });
+        if (inserted.error && !/duplicate|unique/i.test(inserted.error.message || "")) {
+            console.warn("[processRenewalReminders] notification insert", getErrorMessage(inserted.error));
+            continue;
+        }
         await supabase.from("subscriptions").update({
             renewal_reminder_sent_at: now.toISOString(),
             updated_at: now.toISOString(),
@@ -657,10 +676,41 @@ export async function processRenewalReminders(now = new Date()) {
             subscriptionId: row.id,
             userId: row.user_id,
             eventType: "renewal.reminder_sent",
-            payload: { currentPeriodEnd: row.current_period_end },
+            payload: {
+                currentPeriodEnd: row.current_period_end,
+                ending: notice.ending,
+                eventKey,
+            },
         });
+        reminded += 1;
     }
-    return { reminded: rows.length };
+    return { reminded };
+}
+
+export async function dismissSubscriptionPeriodNotice(userId: string) {
+    const subscription = await getUserSubscription(userId);
+    if (!subscription) throw new Error("No subscription found.");
+
+    const periodEnd = String(subscription.current_period_end || "").trim();
+    const metadata = {
+        ...((subscription.metadata && typeof subscription.metadata === "object")
+            ? subscription.metadata
+            : {}),
+        [LOGIN_NOTICE_DISMISSED_PERIOD_END_KEY]: periodEnd,
+    };
+    const supabase = getSupabaseServerClient();
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from("subscriptions").update({
+        metadata,
+        updated_at: nowIso,
+    }).eq("id", subscription.id).eq("user_id", userId);
+    if (error) throw new Error(getErrorMessage(error));
+
+    return {
+        dismissed: true,
+        periodEnd,
+        subscription: await getUserSubscription(userId),
+    };
 }
 
 export async function processFailedPaymentRetries(now = new Date()) {

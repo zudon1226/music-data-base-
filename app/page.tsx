@@ -11,6 +11,7 @@ import { LanguageSelector } from "../components/language-selector";
 import { FoundingMemberProfileCard } from "../components/founding-member-profile-card";
 import { PlatformControlCenter } from "../components/platform-control-center";
 import { SubscriptionBillingPanel } from "../components/billing/subscription-billing-panel";
+import { SubscriptionPeriodNotice } from "../components/billing/subscription-period-notice";
 import { AdminSubscriptionPanel } from "../components/billing/admin-subscription-panel";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
 import { CLIENT_PLAN_SUPPORT } from "../lib/billing/plan-entitlements";
@@ -22068,6 +22069,14 @@ function PageContent({
       {toast && (<div className={`toast toast-${toast.tone}`} role="status" aria-live="polite">
           {toast.message}
         </div>)}
+
+      {user?.id ? (
+        <SubscriptionPeriodNotice
+          fetchFn={desktopActionFetch}
+          onToast={showToast}
+          userId={user.id}
+        />
+      ) : null}
 
       {commentTarget && (<div className="modal-backdrop" role="presentation" onClick={() => setCommentTarget(null)}>
           <section className="comments-modal" aria-label={`${commentTarget.item.title} comments`} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
