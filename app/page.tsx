@@ -4,7 +4,7 @@ import { BarChart3, Bell, BookOpen, Check, ArrowLeft, ChevronDown, ChevronUp, Cl
 import { usePathname, useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { FoundingMemberGate } from "../components/founding-member-gate";
 import { AppI18nShell } from "../components/app-i18n-shell";
 import { LanguageSelector } from "../components/language-selector";
@@ -3822,6 +3822,14 @@ function PageContent({
     const [search, setSearch] = useState("");
     const [searchInput, setSearchInput] = useState("");
     const [searchFocused, setSearchFocused] = useState(false);
+    const searchWrapRef = useRef<HTMLDivElement>(null);
+    const [searchSuggestionsPanelPosition, setSearchSuggestionsPanelPosition] = useState<{
+        top: number;
+        left: number;
+        width: number;
+        maxHeight: number;
+    } | null>(null);
+    const [searchSuggestionsPortalMounted, setSearchSuggestionsPortalMounted] = useState(false);
     const [compactSearchPlaceholder, setCompactSearchPlaceholder] = useState(false);
     const [marketplaceFilters, setMarketplaceFilters] = useState<MarketplaceFilters>(DEFAULT_MARKETPLACE_FILTERS);
     const [marketplacePendingFilters, setMarketplacePendingFilters] = useState<MarketplaceFilters>(DEFAULT_MARKETPLACE_FILTERS);
@@ -9377,6 +9385,58 @@ function PageContent({
             .sort((a, b) => b.score - a.score)
             .slice(0, 8);
     }, [audioSongs, isArtistVerified, isProducerVerified, mergedArtistProfiles, playlists, popularSearches, producerBeats, producerProfiles, resolvedAlbums, searchInput, videos]);
+    const searchSuggestionsOpen = searchFocused && searchSuggestions.length > 0;
+    useEffect(() => {
+        setSearchSuggestionsPortalMounted(true);
+    }, []);
+    useEffect(() => {
+        if (typeof document === "undefined") {
+            return undefined;
+        }
+        if (searchSuggestionsOpen) {
+            document.documentElement.dataset.searchSuggestionsOpen = "true";
+        }
+        else {
+            delete document.documentElement.dataset.searchSuggestionsOpen;
+        }
+        return () => {
+            delete document.documentElement.dataset.searchSuggestionsOpen;
+        };
+    }, [searchSuggestionsOpen]);
+    useEffect(() => {
+        if (typeof window === "undefined" || !searchSuggestionsOpen) {
+            setSearchSuggestionsPanelPosition(null);
+            return undefined;
+        }
+        const updateSearchSuggestionsPanelPosition = () => {
+            const anchor = searchWrapRef.current;
+            if (!anchor) {
+                return;
+            }
+            const rect = anchor.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const top = rect.bottom + 8;
+            const availableBelow = Math.max(140, viewportHeight - top - 12);
+            const mobile = window.matchMedia("(max-width: 820px)").matches;
+            const maxHeight = Math.min(
+                availableBelow,
+                mobile ? Math.min(window.innerHeight * 0.42, 280) : Math.min(window.innerHeight * 0.42, 320),
+            );
+            setSearchSuggestionsPanelPosition({
+                top,
+                left: rect.left,
+                width: rect.width,
+                maxHeight,
+            });
+        };
+        updateSearchSuggestionsPanelPosition();
+        window.addEventListener("resize", updateSearchSuggestionsPanelPosition);
+        window.addEventListener("scroll", updateSearchSuggestionsPanelPosition, true);
+        return () => {
+            window.removeEventListener("resize", updateSearchSuggestionsPanelPosition);
+            window.removeEventListener("scroll", updateSearchSuggestionsPanelPosition, true);
+        };
+    }, [searchSuggestionsOpen, searchSuggestions.length]);
     const marketplaceArtistStores = useMemo(() => mergedArtistProfiles
         .filter((artist) => marketplaceFilters.artist === "All Artists" || createArtistId(artist.name) === createArtistId(marketplaceFilters.artist))
         .filter((artist) => !search.trim() || artist.name.toLowerCase().includes(search.trim().toLowerCase()) || artist.bio.toLowerCase().includes(search.trim().toLowerCase()))
@@ -18367,8 +18427,9 @@ function PageContent({
         >
         <header className="topbar" data-topbar-locale={locale} dir="ltr">
           <div
-            className={`search-wrap${searchFocused && searchSuggestions.length > 0 ? " search-wrap--suggestions-open" : ""}`}
-            data-search-suggestions-open={searchFocused && searchSuggestions.length > 0 ? "true" : "false"}
+            ref={searchWrapRef}
+            className={`search-wrap${searchSuggestionsOpen ? " search-wrap--suggestions-open" : ""}`}
+            data-search-suggestions-open={searchSuggestionsOpen ? "true" : "false"}
             dir="ltr"
           >
             <label className="search-box">
@@ -18391,22 +18452,32 @@ function PageContent({
               />
             </label>
             <LanguageSelector compact className="topbar-language-selector"/>
-            {searchFocused && searchSuggestions.length > 0 && (<div
-                className="search-suggestions"
-                role="listbox"
-                aria-label={searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}
-                onMouseDown={(event) => {
-                  // Keep input focused while interacting with suggestions (prevents premature close).
-                  event.preventDefault();
-                }}
-              >
-                <span>{searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}</span>
-                {searchSuggestions.map((suggestion) => (<button key={`${suggestion.type}-${suggestion.id}`} onClick={() => selectSearchSuggestion(suggestion)} type="button">
-                    <img src={getArtworkUrl(suggestion.cover)} alt=""/>
-                    <strong>{suggestion.title}</strong>
-                    <small>{suggestion.subtitle} | {suggestion.type}</small>
-                  </button>))}
-              </div>)}
+            {searchSuggestionsPortalMounted && searchSuggestionsOpen && searchSuggestionsPanelPosition
+              ? createPortal((
+                <div
+                  className="search-suggestions search-suggestions-portal"
+                  role="listbox"
+                  aria-label={searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}
+                  style={{
+                    top: `${searchSuggestionsPanelPosition.top}px`,
+                    left: `${searchSuggestionsPanelPosition.left}px`,
+                    width: `${searchSuggestionsPanelPosition.width}px`,
+                    maxHeight: `${searchSuggestionsPanelPosition.maxHeight}px`,
+                  }}
+                  onMouseDown={(event) => {
+                    // Keep input focused while interacting with suggestions (prevents premature close).
+                    event.preventDefault();
+                  }}
+                >
+                  <span>{searchInput.trim() ? t("search.suggestions") : t("search.popularSearches")}</span>
+                  {searchSuggestions.map((suggestion) => (<button key={`${suggestion.type}-${suggestion.id}`} onClick={() => selectSearchSuggestion(suggestion)} type="button">
+                      <img src={getArtworkUrl(suggestion.cover)} alt=""/>
+                      <strong>{suggestion.title}</strong>
+                      <small>{suggestion.subtitle} | {suggestion.type}</small>
+                    </button>))}
+                </div>
+              ), document.body)
+              : null}
           </div>
 
           <div className={isMobileCompact ? "topbar-mobile-action-row" : "topbar-desktop-controls"}>
@@ -23487,6 +23558,14 @@ function PageContent({
             max-height: min(42vh, 320px);
           }
 
+          .search-suggestions-portal {
+            position: fixed !important;
+            right: auto !important;
+            z-index: 10062 !important;
+            margin: 0;
+            pointer-events: auto;
+          }
+
           .search-suggestions > span {
             color: #fbbf24;
             font-size: 11px;
@@ -23585,8 +23664,16 @@ function PageContent({
             overflow: visible;
           }
 
-          .topbar:has(.notification-center) {
-            z-index: 80;
+          .topbar:has(.notification-center),
+          .topbar:has(.search-wrap--suggestions-open),
+          .topbar:has([data-search-suggestions-open="true"]) {
+            z-index: 90 !important;
+          }
+
+          html[data-search-suggestions-open="true"] .mobile-app-chrome,
+          html[data-search-suggestions-open="true"] .mobile-sticky-chrome {
+            overflow: visible !important;
+            contain: none !important;
           }
 
           .notification-button {
