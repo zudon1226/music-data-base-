@@ -34,6 +34,14 @@ async function recordWebhookIdempotency(provider: string, providerEventId: strin
     return !error;
 }
 
+/** Connect status sync events may safely re-run on Stripe retry (idempotent upsert / status patch). */
+function isConnectStatusSyncEvent(eventType: string) {
+    return eventType.startsWith("account.")
+        || eventType === "capability.updated"
+        || eventType.startsWith("transfer.")
+        || eventType.startsWith("payout.");
+}
+
 export async function processMarketplaceStripeWebhook(rawBody: string, signatureHeader: string | null) {
     verifyMarketplaceStripeSignature(rawBody, signatureHeader);
 
@@ -48,9 +56,10 @@ export async function processMarketplaceStripeWebhook(rawBody: string, signature
     const mode = String(object.mode || "");
     const eventId = String(payload.id || "").trim();
 
+    let idempotencyInserted = true;
     if (eventId) {
-        const inserted = await recordWebhookIdempotency("stripe", eventId, String(object.id || ""), payload);
-        if (!inserted) {
+        idempotencyInserted = await recordWebhookIdempotency("stripe", eventId, String(object.id || ""), payload);
+        if (!idempotencyInserted && !isConnectStatusSyncEvent(eventType)) {
             return { ok: true as const, duplicate: true, eventType };
         }
     }
