@@ -4,6 +4,11 @@
  */
 
 import { randomUUID } from "node:crypto";
+import {
+    canBuyerBypassPublicBetaPaidRingtoneLock,
+    getPublicBetaPaidRingtonePurchaseMessage,
+    isPublicBetaPaidRingtonePurchaseLocked,
+} from "@/lib/public-beta-ringtone-purchase";
 import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
 import {
     getErrorMessage,
@@ -75,11 +80,21 @@ export function canStartPaidRingtonePurchase() {
     return getRingtonePaymentMode() !== "safely-disabled";
 }
 
-/** Paid intents for normal buyers require live Stripe or global test mode. */
+/** Paid intents for normal buyers require live Stripe or global test mode, unless public beta lock is on. */
 export async function canBuyerStartPaidRingtonePurchase(buyerId: string) {
+    if (isPublicBetaPaidRingtonePurchaseLocked()) {
+        return canBuyerBypassPublicBetaPaidRingtoneLock(buyerId);
+    }
     if (canStartPaidRingtonePurchase()) return true;
     // Owner-only development checkout when Stripe is not configured.
     return isPlatformOwnerUserId(buyerId);
+}
+
+export function getPaidRingtonePurchaseUnavailableMessage() {
+    if (isPublicBetaPaidRingtonePurchaseLocked()) {
+        return getPublicBetaPaidRingtonePurchaseMessage();
+    }
+    return "Paid ringtone purchasing is coming soon. Purchasing is currently unavailable.";
 }
 
 /** Test-provider completion: global test mode, or platform owner only. */
@@ -172,10 +187,11 @@ export async function createRingtonePurchaseIntent(input: {
     if (!isFree && !(await canBuyerStartPaidRingtonePurchase(input.buyerId))) {
         return {
             ok: false as const,
-            error: "Paid ringtone purchasing is coming soon. Purchasing is currently unavailable.",
+            error: getPaidRingtonePurchaseUnavailableMessage(),
             status: 503,
             code: "PURCHASING_UNAVAILABLE",
             paymentMode: getRingtonePaymentMode(),
+            publicBetaLocked: isPublicBetaPaidRingtonePurchaseLocked(),
         };
     }
     const supabase = getSupabaseServerClient();
@@ -268,6 +284,17 @@ export async function confirmRingtonePurchasePayment(input: {
     }
 
     const outcome = input.outcome || "paid";
+    const pendingAmountCents = Math.max(0, Math.round(Number(existing.data.amount_cents) || 0));
+    if (outcome === "paid" && pendingAmountCents > 0 && isPublicBetaPaidRingtonePurchaseLocked()) {
+        if (!(await canBuyerBypassPublicBetaPaidRingtoneLock(input.buyerId))) {
+            return {
+                ok: false as const,
+                error: getPublicBetaPaidRingtonePurchaseMessage(),
+                status: 503,
+                code: "PURCHASING_UNAVAILABLE",
+            };
+        }
+    }
     if (outcome !== "paid") {
         const { data, error } = await supabase
             .from("ringtone_purchases")

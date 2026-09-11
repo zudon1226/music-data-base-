@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { AccountSubscriptionAudience, PaymentProviderId } from "@/lib/billing/constants";
 import { CHECKOUT_UNAVAILABLE_MESSAGE } from "@/lib/billing/constants";
 import { startSubscriptionCheckout } from "@/lib/billing/subscription-service";
+import { getPublicBetaPaidSubscriptionCheckoutMessage } from "@/lib/public-beta-subscription-checkout";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
 
@@ -60,11 +61,15 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error("[api/subscriptions/checkout] POST error:", error);
         const message = getErrorMessage(error);
+        const betaLocked = message === getPublicBetaPaidSubscriptionCheckoutMessage();
         const unavailable = message === CHECKOUT_UNAVAILABLE_MESSAGE
             || /not configured/i.test(message);
         return NextResponse.json(
-            { error: unavailable ? CHECKOUT_UNAVAILABLE_MESSAGE : message },
-            { status: unavailable ? 503 : 400 },
+            {
+                error: betaLocked ? getPublicBetaPaidSubscriptionCheckoutMessage() : (unavailable ? CHECKOUT_UNAVAILABLE_MESSAGE : message),
+                code: betaLocked ? "SUBSCRIPTION_CHECKOUT_LOCKED" : undefined,
+            },
+            { status: betaLocked ? 403 : (unavailable ? 503 : 400) },
         );
     }
 }

@@ -23,6 +23,11 @@ import {
 import { CHECKOUT_UNAVAILABLE_MESSAGE } from "@/lib/billing/constants";
 import { FREE_PLAN_ACTIVE_SUFFIX } from "@/lib/billing/env";
 import {
+    assertPaidSubscriptionCheckoutAllowed,
+    getPublicBetaPaidSubscriptionCheckoutMessage,
+    isPublicBetaPaidSubscriptionCheckoutLocked,
+} from "@/lib/public-beta-subscription-checkout";
+import {
     assertAudienceMaySelectPlan,
     clientSlugForPlanName,
     isClientPlanSlug,
@@ -169,6 +174,11 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
     }
 
     assertAudienceMaySelectPlan(input.audience, String(plan.audience || ""));
+
+    const betaGate = await assertPaidSubscriptionCheckoutAllowed(input.userId);
+    if (!betaGate.ok) {
+        throw new Error(betaGate.error);
+    }
 
     let provider;
     try {
@@ -530,6 +540,13 @@ export async function applySuccessfulPayment(input: {
     });
 
     return { ok: true as const, duplicate: false };
+}
+
+export function getSubscriptionCheckoutPublicState() {
+    return {
+        publicBetaPaidSubscriptionCheckoutLocked: isPublicBetaPaidSubscriptionCheckoutLocked(),
+        publicBetaPaidSubscriptionCheckoutMessage: getPublicBetaPaidSubscriptionCheckoutMessage(),
+    };
 }
 
 export async function applyFailedPayment(input: {

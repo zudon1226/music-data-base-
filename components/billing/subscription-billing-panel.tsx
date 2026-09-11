@@ -79,6 +79,8 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
     const [busyPlanId, setBusyPlanId] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const [betaLocked, setBetaLocked] = useState(false);
+    const [betaMessage, setBetaMessage] = useState("");
 
     const load = useCallback(async () => {
         if (!userId) return;
@@ -94,6 +96,8 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
         setPlans(Array.isArray(data.plans) ? data.plans : []);
         setSubscription(data.subscription || null);
         setAccess(data.access || null);
+        setBetaLocked(data.publicBetaPaidSubscriptionCheckoutLocked === true);
+        setBetaMessage(String(data.publicBetaPaidSubscriptionCheckoutMessage || ""));
         const configured = data.providers?.configuredProviders;
         if (Array.isArray(configured) && configured.length) {
             setProviders(configured);
@@ -114,6 +118,9 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
         setBusyPlanId(planId);
         setError("");
         try {
+            if (betaLocked) {
+                throw new Error(betaMessage || "Subscriptions coming at full launch.");
+            }
             if (!providers.length || !provider) {
                 throw new Error(CHECKOUT_UNAVAILABLE_MESSAGE);
             }
@@ -264,10 +271,15 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                 <p className="profile-feedback" role="status">{CHECKOUT_UNAVAILABLE_MESSAGE}</p>
             )}
 
+            {betaLocked ? (
+                <p className="profile-feedback" role="status">{betaMessage || "Subscriptions coming at full launch."}</p>
+            ) : null}
+
             <div className="monetization-plan-grid">
                 {paidPlans.map((plan) => {
                     const selected = isServerActivePlan(subscription, plan.id);
                     const opening = busyPlanId === plan.id;
+                    const checkoutBlocked = betaLocked || !providers.length;
                     return (
                         <article className="monetization-plan" key={plan.id}>
                             <span>{plan.audience}</span>
@@ -275,11 +287,11 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                             <b>{formatMoney(plan.price_cents, plan.currency)}/{plan.billing_interval}</b>
                             <small>{planDisplayFeatures(plan).join(" | ")}</small>
                             <button
-                                disabled={busy || selected || !providers.length}
+                                disabled={busy || selected || checkoutBlocked}
                                 onClick={() => void startCheckout(plan.id)}
                                 type="button"
                             >
-                                {selected ? "Selected" : opening ? "Opening checkout…" : "Subscribe"}
+                                {selected ? "Selected" : opening ? "Opening checkout…" : betaLocked ? "Coming at launch" : "Subscribe"}
                             </button>
                         </article>
                     );

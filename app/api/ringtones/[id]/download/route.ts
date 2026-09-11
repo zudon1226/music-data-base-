@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
+import { assertMarketplaceRingtoneDownloadAllowed } from "@/lib/public-beta-ringtone-purchase";
 import { buyerHasPaidRingtonePurchase } from "@/lib/ringtone-access";
 import { RINGTONE_DEVICE_TYPES, RINGTONE_STORAGE_BUCKETS, type RingtoneDeviceType } from "@/lib/ringtone-constants";
 import {
@@ -66,7 +67,7 @@ export async function POST(request: Request, context: Params) {
         const supabase = getSupabaseServerClient();
         const product = await supabase
             .from("ringtone_products")
-            .select("id,creator_id,status,title,android_storage_path,iphone_storage_path,download_storage_path")
+            .select("id,creator_id,status,title,price_cents,android_storage_path,iphone_storage_path,download_storage_path")
             .eq("id", ringtoneId)
             .maybeSingle();
         if (product.error) return json({ error: getErrorMessage(product.error) }, 500);
@@ -77,12 +78,18 @@ export async function POST(request: Request, context: Params) {
         const creatorTesting = body.creatorTesting === true
             && String(product.data.creator_id || "") === userId;
         const purchase = await buyerHasPaidRingtonePurchase(userId, ringtoneId);
-
-        if (!purchase && !ownerTesting && !creatorTesting) {
+        const downloadAccess = await assertMarketplaceRingtoneDownloadAllowed({
+            userId,
+            priceCents: Number(product.data.price_cents) || 0,
+            hasPaidPurchase: Boolean(purchase),
+            ownerTesting,
+            creatorTesting,
+        });
+        if (!downloadAccess.ok) {
             return json({
-                error: "Download requires a paid purchase for this ringtone.",
-                code: "PURCHASE_REQUIRED",
-            }, 403);
+                error: downloadAccess.error,
+                code: downloadAccess.code,
+            }, downloadAccess.status);
         }
 
         // Buyers keep the purchased revision files even if the product later revises.

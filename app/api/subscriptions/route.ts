@@ -4,6 +4,7 @@ import {
     activateFreeSubscriptionPlan,
     getBillingProviderCatalog,
     getCreatorBillingAccessForUser,
+    getSubscriptionCheckoutPublicState,
     getUserSubscription,
     listActiveSubscriptionPlans,
     listUserSubscriptionPayments,
@@ -42,6 +43,7 @@ export async function GET(request: Request) {
                 payments,
                 plans,
                 providers,
+                ...getSubscriptionCheckoutPublicState(),
             });
         }
 
@@ -50,6 +52,7 @@ export async function GET(request: Request) {
             ok: true,
             plans,
             providers: getBillingProviderCatalog(),
+            ...getSubscriptionCheckoutPublicState(),
         });
     } catch (error) {
         console.error("[api/subscriptions] GET error:", error);

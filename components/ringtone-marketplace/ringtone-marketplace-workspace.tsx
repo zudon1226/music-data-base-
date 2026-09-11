@@ -263,10 +263,9 @@ export function RingtoneMarketplaceWorkspace({
             const intent = await purchaseRingtone({ ringtoneId, userId, session });
             if (!intent.ok) {
                 if (String(intent.body.code || "") === "PURCHASING_UNAVAILABLE") {
-                    setStatusMessage(t("ringtones.purchasingComingSoon"));
-                    setError(
-                        `${t("ringtones.purchasingUnavailable")} Live checkout is not configured. Free ringtones can still be acquired.`,
-                    );
+                    const betaMessage = String(intent.body.error || t("ringtones.purchasingComingSoon"));
+                    setStatusMessage(betaMessage);
+                    setError(betaMessage);
                     setPaidCheckoutAvailable(false);
                     return;
                 }

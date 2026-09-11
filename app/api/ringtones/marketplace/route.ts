@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import {
+    getPublicBetaPaidRingtonePurchaseMessage,
+    isPublicBetaPaidRingtonePurchaseLocked,
+} from "@/lib/public-beta-ringtone-purchase";
 import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
 import {
+    canBuyerStartPaidRingtonePurchase,
     canBuyerUseRingtoneTestCheckout,
     getRingtonePaymentMode,
 } from "@/lib/ringtone-purchase";
@@ -205,9 +210,13 @@ export async function GET(request: Request) {
             .slice(0, 8);
 
         const paymentMode = getRingtonePaymentMode();
+        const publicBetaPaidPurchaseLocked = isPublicBetaPaidRingtonePurchaseLocked();
         const ownerTestCheckout = userId && isUuid(userId)
             ? await canBuyerUseRingtoneTestCheckout(userId)
             : false;
+        const buyerPaidCheckout = userId && isUuid(userId)
+            ? await canBuyerStartPaidRingtonePurchase(userId)
+            : !publicBetaPaidPurchaseLocked && paymentMode !== "safely-disabled";
         return json({
             ringtones: catalog,
             page,
@@ -216,8 +225,10 @@ export async function GET(request: Request) {
             popularCreators,
             filtersApplied: { filter, sort, q, creatorId, section },
             paymentMode,
-            paidCheckoutAvailable: paymentMode !== "safely-disabled" || Boolean(ownerTestCheckout),
-            ownerTestCheckout: Boolean(ownerTestCheckout) && paymentMode === "safely-disabled",
+            publicBetaPaidPurchaseLocked,
+            publicBetaPaidPurchaseMessage: getPublicBetaPaidRingtonePurchaseMessage(),
+            paidCheckoutAvailable: Boolean(buyerPaidCheckout) || Boolean(ownerTestCheckout),
+            ownerTestCheckout: Boolean(ownerTestCheckout) && (paymentMode === "safely-disabled" || publicBetaPaidPurchaseLocked),
         });
     } catch (error) {
         console.error("[api/ringtones/marketplace] GET failed:", error);
