@@ -200,3 +200,48 @@ export async function requireCreatorUploadAccess(userId: string, email = "") {
     }
     return { ok: true as const, capabilities };
 }
+
+/** Creator dashboard/connect/payout access — Artist or Producer accounts only. */
+export async function requireCreatorAccountAccess(userId: string, email = "") {
+    const capabilities = await loadResolvedAccountCapabilities(userId, email);
+    if (!capabilities.canUpload && !capabilities.isAdmin) {
+        return {
+            ok: false as const,
+            status: 403,
+            error: "Creator access is available for Artist and Producer accounts only.",
+            capabilities,
+        };
+    }
+    return { ok: true as const, capabilities };
+}
+
+/** Enforce artist/producer audience for Connect, payouts, and creator-type-scoped APIs. */
+export async function requireCreatorAudienceAccess(
+    userId: string,
+    creatorType: "artist" | "producer",
+    email = "",
+) {
+    const base = await requireCreatorAccountAccess(userId, email);
+    if (!base.ok) return base;
+    const { capabilities } = base;
+    if (capabilities.isAdmin) {
+        return { ok: true as const, capabilities };
+    }
+    if (creatorType === "artist" && !capabilities.isArtist) {
+        return {
+            ok: false as const,
+            status: 403,
+            error: "Artist account is required for this action.",
+            capabilities,
+        };
+    }
+    if (creatorType === "producer" && !capabilities.isProducer) {
+        return {
+            ok: false as const,
+            status: 403,
+            error: "Producer account is required for this action.",
+            capabilities,
+        };
+    }
+    return { ok: true as const, capabilities };
+}

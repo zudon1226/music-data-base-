@@ -72,7 +72,7 @@ function toNavFlags(
         canUpload: resolved.canUpload,
         canArtistDashboard: resolved.canArtistDashboard,
         canProducerDashboard: resolved.canProducerDashboard,
-        canPlatformControlCenter: isPlatformOwner,
+        canPlatformControlCenter: isPlatformOwner || resolved.isAdmin,
         canSales: resolved.canSales,
         canMyRingtones: resolved.canMyRingtones,
     };

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
 import { getCreatorBillingAccessForUser } from "@/lib/billing/subscription-service";
+import { requireCreatorAccountAccess, requireCreatorAudienceAccess } from "@/lib/resolved-account-role";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -33,6 +34,11 @@ export async function POST(request: Request) {
         const auth = await requireMatchingUserId(request, "/api/payouts", userId);
         if (!auth.ok) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
+        const creatorAccess = await requireCreatorAudienceAccess(userId, creatorType as "artist" | "producer");
+        if (!creatorAccess.ok) {
+            return NextResponse.json({ error: creatorAccess.error }, { status: creatorAccess.status });
         }
 
         const access = await getCreatorBillingAccessForUser(userId, creatorType);
@@ -98,6 +104,17 @@ export async function GET(request: Request) {
         }
 
         const creatorType = new URL(request.url).searchParams.get("creatorType")?.trim().toLowerCase() || null;
+        if (creatorType === "artist" || creatorType === "producer") {
+            const creatorAccess = await requireCreatorAudienceAccess(userId, creatorType);
+            if (!creatorAccess.ok) {
+                return NextResponse.json({ error: creatorAccess.error }, { status: creatorAccess.status });
+            }
+        } else {
+            const creatorAccess = await requireCreatorAccountAccess(userId);
+            if (!creatorAccess.ok) {
+                return NextResponse.json({ error: creatorAccess.error }, { status: creatorAccess.status });
+            }
+        }
         const access = await getCreatorBillingAccessForUser(userId, creatorType);
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase

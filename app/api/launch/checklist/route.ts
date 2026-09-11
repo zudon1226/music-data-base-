@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireAdminUserId } from "@/lib/admin-auth";
 import { DEFAULT_LAUNCH_CHECKLIST } from "@/lib/launch-readiness";
-import { getErrorMessage, getSupabaseServerClient, isPlatformOwnerUserId, isUuid } from "@/lib/server-supabase";
+import { requireMatchingUserId } from "@/lib/request-auth";
+import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,31 +20,6 @@ function fallbackChecklist(message = "Run the Phase 6 launch-readiness migration
     setupRequired: true,
     message,
   });
-}
-
-async function isAdminUser(userId: string) {
-  if (!userId || !isUuid(userId)) return false;
-  if (await isPlatformOwnerUserId(userId)) return true;
-
-  const supabase = getSupabaseServerClient();
-  const roleResult = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .eq("status", "active")
-    .limit(1);
-
-  if (!roleResult.error && (roleResult.data || []).length > 0) return true;
-
-  const profileResult = await supabase
-    .from("profiles")
-    .select("id")
-    .or(`id.eq.${userId},user_id.eq.${userId}`)
-    .or("is_admin.eq.true,account_type.eq.admin")
-    .limit(1);
-
-  return !profileResult.error && (profileResult.data || []).length > 0;
 }
 
 export async function GET() {
@@ -83,8 +60,13 @@ export async function PATCH(request: Request) {
     if (!VALID_STATUSES.has(status)) {
       return NextResponse.json({ error: "Use a valid checklist status." }, { status: 400 });
     }
-    if (!(await isAdminUser(userId))) {
-      return NextResponse.json({ error: "Admin permission is required to update launch checklist." }, { status: 403 });
+    const auth = await requireMatchingUserId(request, "/api/launch/checklist", userId);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const admin = await requireAdminUserId(userId);
+    if (!admin.ok) {
+      return NextResponse.json({ error: admin.error }, { status: admin.status });
     }
 
     const supabase = getSupabaseServerClient();

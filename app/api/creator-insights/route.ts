@@ -1,3 +1,4 @@
+import { requireCreatorAccountAccess } from "@/lib/resolved-account-role";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 import { NextResponse } from "next/server";
@@ -29,6 +30,11 @@ export async function GET(request: Request) {
         const auth = await requireMatchingUserId(request, "/api/creator-insights", userId);
         if (!auth.ok) {
             return jsonResponse({ error: auth.error }, auth.status);
+        }
+
+        const creatorAccess = await requireCreatorAccountAccess(userId);
+        if (!creatorAccess.ok) {
+            return jsonResponse({ error: creatorAccess.error }, creatorAccess.status);
         }
 
         const supabase = getSupabaseServerClient();

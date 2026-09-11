@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isPlatformOwnerUserId, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -15,6 +16,11 @@ export async function GET(request: Request) {
 
     if (!userId || !isUuid(userId)) {
       return NextResponse.json({ isAdmin: false, roles: [], error: userId ? "Invalid user id." : "" }, { status: userId ? 400 : 200 });
+    }
+
+    const auth = await requireMatchingUserId(request, "/api/launch/admin", userId);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error, isAdmin: false, roles: [] }, { status: auth.status });
     }
 
     const supabase = getSupabaseServerClient();
