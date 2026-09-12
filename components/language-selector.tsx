@@ -9,6 +9,7 @@ import {
     useRef,
     useState,
     type KeyboardEvent as ReactKeyboardEvent,
+    type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "../lib/i18n/provider";
@@ -26,20 +27,42 @@ type PanelPosition = {
     maxHeight: number;
 };
 
+function readMobilePlayerReservePx() {
+    if (typeof window === "undefined") return 96;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--mobile-player-reserve").trim();
+    const parsed = Number.parseFloat(raw);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed + 8;
+    return 96;
+}
+
 function measurePanelPosition(trigger: HTMLElement, panelWidth: number, maxPanelHeight: number): PanelPosition {
     const rect = trigger.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const width = Math.min(panelWidth, viewportWidth - 24);
     const mobile = viewportWidth <= 900;
-    const playerReserve = mobile ? 80 : 12;
+    const playerReserve = mobile ? readMobilePlayerReservePx() : 12;
 
     if (mobile) {
+        const maxHeight = Math.min(maxPanelHeight, Math.max(160, viewportHeight - playerReserve - 24));
+        const spaceBelow = viewportHeight - rect.bottom - playerReserve;
+        const spaceAbove = rect.top - 12;
+        const openBelow = spaceBelow >= 160 || spaceBelow >= spaceAbove;
+        if (openBelow) {
+            const top = Math.min(rect.bottom + 6, viewportHeight - playerReserve - maxHeight);
+            return {
+                top: Math.max(12, top),
+                left: 12,
+                width: viewportWidth - 24,
+                maxHeight: Math.min(maxHeight, Math.max(160, spaceBelow - 8)),
+            };
+        }
+        const top = Math.max(12, viewportHeight - playerReserve - maxHeight);
         return {
-            top: Math.max(12, viewportHeight - maxPanelHeight - playerReserve),
+            top,
             left: 12,
             width: viewportWidth - 24,
-            maxHeight: Math.min(maxPanelHeight, viewportHeight - playerReserve - 24),
+            maxHeight,
         };
     }
 
@@ -165,6 +188,12 @@ export function LanguageSelector({ compact = false, className = "" }: LanguageSe
             if (next) updatePanelPosition();
             return next;
         });
+    };
+
+    const onTriggerPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+        if (event.pointerType === "touch") {
+            event.stopPropagation();
+        }
     };
 
     const onListKeyDown = (event: ReactKeyboardEvent<HTMLUListElement>) => {
@@ -304,6 +333,7 @@ export function LanguageSelector({ compact = false, className = "" }: LanguageSe
                 aria-expanded={open}
                 aria-controls={open ? listId : undefined}
                 aria-label={t("languageSelector.title")}
+                onPointerDown={onTriggerPointerDown}
                 onClick={onTriggerClick}
             >
                 <Globe2 size={16} aria-hidden="true" className="language-selector-globe"/>

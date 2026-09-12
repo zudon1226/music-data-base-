@@ -108,7 +108,7 @@ export const I18N_GLOBAL_STYLES = `
     margin: 0;
     padding: 0;
     background: rgba(2, 6, 23, 0.12);
-    z-index: 10060;
+    z-index: 10120;
     cursor: default;
     pointer-events: auto;
     opacity: 1;
@@ -127,7 +127,7 @@ export const I18N_GLOBAL_STYLES = `
     border-radius: 10px;
     background: #071631;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-    z-index: 10061;
+    z-index: 10121;
     pointer-events: auto;
   }
 
@@ -136,7 +136,7 @@ export const I18N_GLOBAL_STYLES = `
     right: auto;
     top: auto;
     margin: 0;
-    z-index: 10061;
+    z-index: 10121;
   }
 
   .language-selector-search {
@@ -353,6 +353,19 @@ export const I18N_GLOBAL_STYLES = `
 
     .language-selector-chevron {
       display: none !important;
+    }
+
+    .search-wrap .topbar-language-selector,
+    .auth-language-selector {
+      position: relative;
+      z-index: 6;
+      flex-shrink: 0;
+    }
+
+    .search-wrap .topbar-language-selector .language-selector-trigger,
+    .auth-language-selector .language-selector-trigger {
+      position: relative;
+      z-index: 7;
     }
 
     .topbar .language-selector-trigger,
