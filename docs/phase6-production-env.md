@@ -7,6 +7,31 @@ Set these before public launch.
 - `NEXT_PUBLIC_SUPABASE_URL`: production Supabase project URL.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: production Supabase anon key.
 - `SUPABASE_SERVICE_ROLE_KEY`: production service role key. Server only. Never expose this in the browser.
+- `NEXT_PUBLIC_PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_LOCKED`: **`true` during public beta** (or omit — defaults to locked). Set to `false` only at full launch to enable Artist/Producer/Listener paid subscription checkout.
+
+## Billing / Stripe (server-only secrets — never expose client-side)
+- `STRIPE_SECRET_KEY`: Stripe secret key for Checkout, Customers, and webhooks.
+- `STRIPE_WEBHOOK_SECRET`: Webhook signing secret for **subscriptions only**. Register endpoint (TEST mode for validation; LIVE only at full launch):
+  - Subscriptions: `POST /api/subscriptions/webhooks/stripe`
+    - Events: `checkout.session.completed` (subscription mode), `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
+- `STRIPE_MARKETPLACE_WEBHOOK_SECRET`: Separate signing secret for marketplace/Connect webhooks (`POST /api/marketplace/webhooks/stripe`). Must not be reused for subscription webhooks.
+- `BILLING_PAYMENT_PROVIDER`: `stripe` | `paypal` | `test` (test blocked in production).
+- `CRON_SECRET`: Authorizes `/api/subscriptions/jobs` renewal/reminder cron.
+- `STRIPE_PRICE_ID_LISTENER_MONTHLY`: Stripe Price ID for Premium/Listener Monthly ($6.99).
+- `STRIPE_PRICE_ID_ARTIST_MONTHLY`: Stripe Price ID for Artist Pro + Artist Monthly ($9.99/month, shared price).
+- `STRIPE_PRICE_ID_ARTIST_ANNUAL`: Stripe Price ID for Artist Annual ($99.99/year).
+- `STRIPE_PRICE_ID_PRODUCER_MONTHLY`: Stripe Price ID for Producer Pro + Producer Monthly ($14.99/month, shared price).
+- `STRIPE_PRICE_ID_PRODUCER_ANNUAL`: Stripe Price ID for Producer Annual ($149.99/year).
+
+## Stripe TEST MODE validation (public beta)
+1. Add `STRIPE_SECRET_KEY=sk_test_…` and `STRIPE_WEBHOOK_SECRET=whsec_…` to `.env.local` only (never commit).
+2. Set `BILLING_PAYMENT_PROVIDER=stripe`.
+3. Run `node scripts/apply-subscription-foundation-migrations.mjs` (subscription catalog migrations only).
+4. Use existing NEW Music Data Base TEST catalog price IDs in env / `subscription_plans.stripe_price_id` — do not create new Stripe products during controlled deploy.
+5. Forward webhooks locally: `stripe listen --forward-to localhost:3000/api/subscriptions/webhooks/stripe`.
+6. Run `node scripts/report-stripe-configuration.mjs` and subscription verify scripts in `npm run verify:billing`.
+7. Keep `NEXT_PUBLIC_PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_LOCKED=true` during public beta.
+8. Use Stripe test cards only. Do not enable live payments.
 
 ## Supabase Auth Settings
 - Add the production domain to Site URL.

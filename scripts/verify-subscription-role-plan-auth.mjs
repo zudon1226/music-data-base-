@@ -28,6 +28,8 @@ const page = read("app/page.tsx");
 
 record("listener plans mapped", catalog.includes('"free-listener"') && catalog.includes('"premium-listener"'));
 record("creator free + artist/producer pro mapped", catalog.includes('"creator-free"') && catalog.includes('"artist-pro"') && catalog.includes('"producer-pro"'));
+record("artist/producer annual slugs mapped", catalog.includes('"artist-pro-annual"') && catalog.includes('"producer-pro-annual"'));
+record("listener remains monthly only", catalog.includes('"premium-listener"') && !catalog.includes("listener-annual"));
 record("assertAudienceMaySelectPlan enforces combinations", catalog.includes('audience === "listener" && plan === "listener"')
     && catalog.includes('audience === "artist"')
     && catalog.includes('audience === "producer"'));

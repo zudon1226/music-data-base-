@@ -159,6 +159,42 @@ export const CLIENT_PLAN_SUPPORT: Record<ClientPlanSlug, ClientPlanSupport> = {
         ],
         entitlements: { ...CREATOR_PODCAST_ENTITLEMENTS },
     },
+    "artist-pro-annual": {
+        slug: "artist-pro-annual",
+        features: [
+            "Payout dashboard",
+            "Revenue split tracking",
+            "Download and purchase foundation",
+            "Podcast Studio",
+            "Audio & video podcast uploads",
+            "Podcast show and episode management",
+            "Podcast analytics",
+        ],
+        highlights: [
+            "Payout dashboard",
+            "Podcast Studio",
+            "Audio & video podcast uploads",
+        ],
+        entitlements: { ...CREATOR_PODCAST_ENTITLEMENTS },
+    },
+    "producer-pro-annual": {
+        slug: "producer-pro-annual",
+        features: [
+            "Beat license tracking",
+            "Producer payouts",
+            "Split and transaction history",
+            "Podcast Studio",
+            "Audio & video podcast uploads",
+            "Podcast show and episode management",
+            "Podcast analytics",
+        ],
+        highlights: [
+            "Beat license tracking",
+            "Podcast Studio",
+            "Audio & video podcast uploads",
+        ],
+        entitlements: { ...CREATOR_PODCAST_ENTITLEMENTS },
+    },
 };
 
 const EMPTY_ENTITLEMENTS: PodcastPlanEntitlements = {
@@ -278,7 +314,7 @@ export type DecoratedSubscriptionPlan = SubscriptionPlanRow & {
 };
 
 export function decorateSubscriptionPlan(plan: SubscriptionPlanRow): DecoratedSubscriptionPlan {
-    const slug = clientSlugForPlanName(String(plan.name || ""), Number(plan.price_cents || 0));
+    const slug = clientSlugForPlanName(String(plan.name || ""), Number(plan.price_cents || 0), plan.billing_interval);
     const support = slug ? CLIENT_PLAN_SUPPORT[slug] : null;
     return {
         ...plan,
@@ -292,9 +328,10 @@ export function displayFeaturesForPlanRow(plan: {
     name?: string;
     audience?: string;
     price_cents?: number;
+    billing_interval?: string;
     features?: unknown;
 }) {
-    const slug = clientSlugForPlanName(String(plan.name || ""), Number(plan.price_cents || 0));
+    const slug = clientSlugForPlanName(String(plan.name || ""), Number(plan.price_cents || 0), plan.billing_interval);
     const support = slug ? CLIENT_PLAN_SUPPORT[slug] : null;
     if (support) return mergePlanFeatureStrings(plan.features, support.features);
     return mergePlanFeatureStrings(plan.features, CLIENT_PLAN_SUPPORT["free-listener"].features);

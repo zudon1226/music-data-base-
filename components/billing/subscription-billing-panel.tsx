@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { CHECKOUT_UNAVAILABLE_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
 import { displayFeaturesForPlanRow } from "@/lib/billing/plan-entitlements";
+import { resolvePresentablePaidPlans } from "@/lib/billing/plan-catalog";
+import type { SubscriptionPlanRow } from "@/lib/billing/types";
 
 type FetchFn = (path: string, init?: RequestInit & { requireAuth?: boolean }) => Promise<Response>;
 
@@ -60,6 +62,7 @@ function planDisplayFeatures(plan: Plan) {
         name: plan.name,
         audience: plan.audience,
         price_cents: plan.price_cents,
+        billing_interval: plan.billing_interval,
         features: plan.features,
     });
 }
@@ -189,13 +192,17 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
         }
     }
 
-    const paidPlans = plans.filter((plan) => Number(plan.price_cents || 0) > 0);
+    const paidPlans = resolvePresentablePaidPlans(plans as SubscriptionPlanRow[], audience);
+    const billingIntervals = [...new Set(paidPlans.map((plan) => plan.billing_interval || "month"))];
+    const billingCadenceLabel = billingIntervals.length === 1
+        ? `${billingIntervals[0]} · auto-renew`
+        : `${billingIntervals.join(" + ")} · auto-renew`;
 
     return (
         <section className="dashboard-panel monetization-panel" data-billing-panel="subscription">
             <div className="artist-section-title">
                 <h3>Subscription & Billing</h3>
-                <span>{audience} · monthly · auto-renew</span>
+                <span>{audience} · {billingCadenceLabel}</span>
             </div>
 
             {subscription && String(subscription.status).toLowerCase() === "active" ? (
@@ -281,11 +288,11 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                     const opening = busyPlanId === plan.id;
                     const checkoutBlocked = betaLocked || !providers.length;
                     return (
-                        <article className="monetization-plan" key={plan.id}>
+                        <article className="monetization-plan" key={plan.clientSlug}>
                             <span>{plan.audience}</span>
-                            <strong>{plan.name}</strong>
+                            <strong>{plan.displayName}</strong>
                             <b>{formatMoney(plan.price_cents, plan.currency)}/{plan.billing_interval}</b>
-                            <small>{planDisplayFeatures(plan).join(" | ")}</small>
+                            <small>{planDisplayFeatures({ ...plan, name: plan.displayName }).join(" | ")}</small>
                             <button
                                 disabled={busy || selected || checkoutBlocked}
                                 onClick={() => void startCheckout(plan.id)}

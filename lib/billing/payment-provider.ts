@@ -17,7 +17,10 @@ export type CreateCheckoutSessionInput = {
     audience: string;
     amountCents: number;
     currency: string;
+    billingInterval?: string;
     customerEmail?: string;
+    stripeCustomerId?: string;
+    stripePriceId?: string;
     successUrl: string;
     cancelUrl: string;
     metadata?: Record<string, string>;
@@ -51,6 +54,8 @@ export type WebhookParseResult = {
     amountCents?: number;
     currency?: string;
     status?: "succeeded" | "failed" | "refunded" | "cancelled";
+    /** Stripe subscription.status when present (authoritative lifecycle sync). */
+    providerSubscriptionStatus?: string;
     raw: unknown;
 };
 

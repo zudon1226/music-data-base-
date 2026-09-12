@@ -4,6 +4,7 @@ import {
     SUBSCRIPTION_RENEWAL_REMINDER_DAYS,
     type AccountSubscriptionAudience,
     type PaymentProviderId,
+    type SubscriptionStatus,
 } from "@/lib/billing/constants";
 import {
     evaluatePeriodNotice,
@@ -27,6 +28,8 @@ import {
     getPublicBetaPaidSubscriptionCheckoutMessage,
     isPublicBetaPaidSubscriptionCheckoutLocked,
 } from "@/lib/public-beta-subscription-checkout";
+import { ensureStripeCustomer } from "@/lib/billing/stripe-customer";
+import { resolveStripePriceIdForPlan } from "@/lib/billing/stripe-price-catalog";
 import {
     assertAudienceMaySelectPlan,
     clientSlugForPlanName,
@@ -68,6 +71,12 @@ function addMonths(iso: string | Date, months: number) {
     return date.toISOString();
 }
 
+function addBillingPeriodEnd(from: string | Date, billingInterval: string) {
+    return String(billingInterval || "month").toLowerCase() === "year"
+        ? addMonths(from, 12)
+        : addMonths(from, 1);
+}
+
 async function recordEvent(input: {
     subscriptionId?: string | null;
     userId?: string | null;
@@ -91,7 +100,6 @@ export async function listActiveSubscriptionPlans(audience?: AccountSubscription
         .from("subscription_plans")
         .select("id,name,audience,price_cents,currency,billing_interval,features,active,sort_order,description,stripe_price_id")
         .eq("active", true)
-        .eq("billing_interval", "month")
         .order("sort_order", { ascending: true });
     if (audience === "artist" || audience === "producer") {
         query = query.in("audience", [audience, "creator"]);
@@ -251,6 +259,17 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
         subscriptionId = data.id;
     }
 
+    let stripeCustomerId: string | undefined;
+    if (provider.id === "stripe") {
+        stripeCustomerId = await ensureStripeCustomer({
+            userId: input.userId,
+            email: input.customerEmail,
+            existingCustomerId: existing?.stripe_customer_id || existing?.provider_customer_id || null,
+        });
+    }
+
+    const stripePriceId = provider.id === "stripe" ? resolveStripePriceIdForPlan(plan) : null;
+
     const checkout = await provider.createCheckoutSession({
         userId: input.userId,
         planId: plan.id,
@@ -258,7 +277,10 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
         audience: input.audience,
         amountCents: plan.price_cents,
         currency: plan.currency || "USD",
+        billingInterval: plan.billing_interval,
         customerEmail: input.customerEmail,
+        stripeCustomerId,
+        stripePriceId: stripePriceId || undefined,
         successUrl: input.successUrl,
         cancelUrl: input.cancelUrl,
         metadata: {
@@ -269,7 +291,7 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
     });
 
     const providerPatch: Record<string, unknown> = {
-        provider_customer_id: checkout.customerId || null,
+        provider_customer_id: checkout.customerId || stripeCustomerId || null,
         updated_at: now,
         metadata: {
             ...pendingMetadata,
@@ -281,7 +303,7 @@ export async function startSubscriptionCheckout(input: StartCheckoutInput): Prom
         providerPatch.provider_subscription_id = checkout.providerSubscriptionId || checkout.sessionId;
     }
     if (provider.id === "stripe" && !keepActivePlan) {
-        providerPatch.stripe_customer_id = checkout.customerId || null;
+        providerPatch.stripe_customer_id = checkout.customerId || stripeCustomerId || null;
         providerPatch.stripe_subscription_id = checkout.providerSubscriptionId || null;
     }
     await supabase.from("subscriptions").update(providerPatch).eq("id", subscriptionId);
@@ -406,7 +428,7 @@ export async function activateFreeSubscriptionPlan(input: {
         payload: { planId: plan.id, planName: plan.name, audience: input.audience },
     });
 
-    const slug = clientSlugForPlanName(plan.name, 0);
+    const slug = clientSlugForPlanName(plan.name, 0, plan.billing_interval);
     return {
         ok: true as const,
         plan,
@@ -483,7 +505,7 @@ export async function applySuccessfulPayment(input: {
         status: renewal.status,
         auto_renew: renewal.autoRenew,
         cancel_at_period_end: renewal.cancelAtPeriodEnd,
-        current_period_end: addMonths(now, 1),
+        current_period_end: addBillingPeriodEnd(now, approvedPlan.billing_interval),
         grace_period_ends_at: renewal.gracePeriodEndsAt,
         past_due_since: renewal.pastDueSince,
         months_past_due: renewal.monthsPastDue,
@@ -540,6 +562,94 @@ export async function applySuccessfulPayment(input: {
     });
 
     return { ok: true as const, duplicate: false };
+}
+
+/** Map Stripe subscription.status → internal DB status (webhook authoritative). */
+export function mapStripeSubscriptionStatusToDb(stripeStatus: string): SubscriptionStatus {
+    const normalized = String(stripeStatus || "").trim().toLowerCase();
+    switch (normalized) {
+        case "active":
+        case "trialing":
+            return "active";
+        case "past_due":
+            return "past_due";
+        case "unpaid":
+            return "past_due";
+        case "canceled":
+        case "cancelled":
+            return "cancelled";
+        case "incomplete":
+            return "pending";
+        case "incomplete_expired":
+            return "expired";
+        case "paused":
+            return "paused";
+        default:
+            return "pending";
+    }
+}
+
+/**
+ * Apply provider subscription lifecycle status from webhook (no payment side-effects).
+ * Preserves auto_renew when Stripe reports cancel_at_period_end separately.
+ */
+export async function applySubscriptionProviderStatus(input: {
+    userId: string;
+    subscriptionId: string;
+    providerSubscriptionId?: string;
+    customerId?: string;
+    provider: PaymentProviderId;
+    stripeStatus: string;
+    cancelAtPeriodEnd?: boolean;
+}) {
+    const supabase = getSupabaseServerClient();
+    const subscription = await getUserSubscription(input.userId);
+    if (!subscription || subscription.id !== input.subscriptionId) {
+        throw new Error("Subscription not found.");
+    }
+
+    const mapped = mapStripeSubscriptionStatusToDb(input.stripeStatus);
+    const nowIso = new Date().toISOString();
+    const cancelAtPeriodEnd = input.cancelAtPeriodEnd === true;
+    const autoRenew = mapped === "active" || mapped === "grace_period" || mapped === "past_due"
+        ? !cancelAtPeriodEnd
+        : false;
+
+    const patch: Record<string, unknown> = {
+        status: mapped,
+        auto_renew: autoRenew,
+        cancel_at_period_end: cancelAtPeriodEnd,
+        payment_provider: input.provider,
+        updated_at: nowIso,
+    };
+    if (input.providerSubscriptionId) {
+        patch.provider_subscription_id = input.providerSubscriptionId;
+        if (input.provider === "stripe") patch.stripe_subscription_id = input.providerSubscriptionId;
+    }
+    if (input.customerId) {
+        patch.provider_customer_id = input.customerId;
+        if (input.provider === "stripe") patch.stripe_customer_id = input.customerId;
+    }
+    if (mapped === "cancelled" || mapped === "expired") {
+        patch.canceled_at = subscription.canceled_at || nowIso;
+    }
+
+    const { error } = await supabase.from("subscriptions").update(patch).eq("id", input.subscriptionId).eq("user_id", input.userId);
+    if (error) throw new Error(getErrorMessage(error));
+
+    await recordEvent({
+        subscriptionId: input.subscriptionId,
+        userId: input.userId,
+        eventType: "subscription.provider_status",
+        payload: {
+            stripeStatus: input.stripeStatus,
+            mappedStatus: mapped,
+            cancelAtPeriodEnd,
+            autoRenew,
+        },
+    });
+
+    return { ok: true as const, status: mapped };
 }
 
 export function getSubscriptionCheckoutPublicState() {

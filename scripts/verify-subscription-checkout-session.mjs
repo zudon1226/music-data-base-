@@ -31,7 +31,8 @@ record("server amounts only for checkout session", service.includes("amountCents
 record("checkout requires auth match", checkout.includes("requireMatchingUserId"));
 record("checkout accepts planSlug", checkout.includes("planSlug") && service.includes("resolveSubscriptionPlanForCheckout"));
 record("free plans rejected from checkout", service.includes("Free plans do not use checkout."));
-record("unavailable provider returns 503 message", checkout.includes("status: unavailable ? 503 : 400"));
+record("unavailable provider returns 503 message", checkout.includes("unavailable ? 503 : 400"));
+record("beta lock returns 403", checkout.includes("betaLocked ? 403"));
 record("UI opening checkout loading state", panel.includes("Opening checkout…") && panel.includes("busyPlanId"));
 record("UI prevents duplicate checkout taps", panel.includes("if (!userId || busy) return") && panel.includes("setBusy(true)"));
 record("no success toast before live redirect", !panel.includes('onToast?.(String(data.message || "Checkout ready."), "success")'));

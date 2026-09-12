@@ -5,6 +5,7 @@ import { getPaymentProvider } from "@/lib/billing/payment-provider";
 import {
     applyFailedPayment,
     applySuccessfulPayment,
+    applySubscriptionProviderStatus,
     cancelSubscriptionRenewal,
     getSubscriptionPlanById,
     getUserSubscription,
@@ -38,7 +39,7 @@ export async function POST(request: Request, context: Params) {
         }
 
         const event = await provider.parseWebhook(rawBody, signature);
-        if (!event.status) {
+        if (!event.status && !event.providerSubscriptionStatus) {
             return NextResponse.json({ ok: true, ignored: true, reason: "Unhandled event type.", eventType: event.eventType });
         }
 
@@ -87,6 +88,24 @@ export async function POST(request: Request, context: Params) {
             if (!approvedPlan || !approvedPlan.active) {
                 return NextResponse.json({ error: "Webhook plan id is not an approved plan." }, { status: 400 });
             }
+        }
+
+        if (event.providerSubscriptionStatus && !event.status) {
+            const rawObject = (event.raw as { data?: { object?: Record<string, unknown> } })?.data?.object || {};
+            await applySubscriptionProviderStatus({
+                userId,
+                subscriptionId,
+                providerSubscriptionId: event.providerSubscriptionId,
+                customerId: event.customerId,
+                provider: providerId,
+                stripeStatus: event.providerSubscriptionStatus,
+                cancelAtPeriodEnd: rawObject.cancel_at_period_end === true,
+            });
+            return NextResponse.json({
+                ok: true,
+                eventType: event.eventType,
+                subscriptionStatus: event.providerSubscriptionStatus,
+            });
         }
 
         if (event.status === "succeeded") {

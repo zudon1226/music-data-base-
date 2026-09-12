@@ -129,10 +129,6 @@ export function createStripeProvider(): PaymentProvider {
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
         client_reference_id: input.userId,
-        "line_items[0][price_data][currency]": input.currency.toLowerCase(),
-        "line_items[0][price_data][unit_amount]": String(input.amountCents),
-        "line_items[0][price_data][recurring][interval]": "month",
-        "line_items[0][price_data][product_data][name]": input.planName,
         "line_items[0][quantity]": "1",
         "metadata[userId]": input.userId,
         "metadata[planId]": input.planId,
@@ -140,7 +136,25 @@ export function createStripeProvider(): PaymentProvider {
         "subscription_data[metadata][userId]": input.userId,
         "subscription_data[metadata][planId]": input.planId,
       };
-      if (input.customerEmail) params.customer_email = input.customerEmail;
+
+      const stripePriceId = String(input.stripePriceId || "").trim();
+      if (stripePriceId.startsWith("price_")) {
+        params["line_items[0][price]"] = stripePriceId;
+      } else {
+        const interval = String(input.billingInterval || "month").toLowerCase() === "year" ? "year" : "month";
+        params["line_items[0][price_data][currency]"] = input.currency.toLowerCase();
+        params["line_items[0][price_data][unit_amount]"] = String(input.amountCents);
+        params["line_items[0][price_data][recurring][interval]"] = interval;
+        params["line_items[0][price_data][product_data][name]"] = input.planName;
+      }
+
+      const stripeCustomerId = String(input.stripeCustomerId || "").trim();
+      if (stripeCustomerId.startsWith("cus_")) {
+        params.customer = stripeCustomerId;
+      } else if (input.customerEmail) {
+        params.customer_email = input.customerEmail;
+      }
+
       for (const [key, value] of Object.entries(input.metadata || {})) {
         params[`metadata[${key}]`] = value;
       }
@@ -202,7 +216,26 @@ export function createStripeProvider(): PaymentProvider {
       const object = payload.data?.object || {};
       const metadata = (object.metadata || {}) as Record<string, string>;
       const type = String(payload.type || "");
+      const subscriptionObjectStatus = type.includes("customer.subscription")
+        ? String(object.status || "").trim().toLowerCase()
+        : "";
+
       let status: "succeeded" | "failed" | "refunded" | "cancelled" | undefined;
+      const checkoutMode = type.includes("checkout.session.completed")
+        ? String(object.mode || "").trim().toLowerCase()
+        : "";
+      const checkoutFlow = String(metadata.flow || "").trim();
+      const isMarketplacePaymentCheckout = checkoutMode === "payment"
+        || checkoutFlow === "sales_pending_checkout"
+        || checkoutFlow === "ringtone_purchase_checkout";
+
+      if (type.includes("checkout.session.completed") && isMarketplacePaymentCheckout) {
+        return {
+          eventType: type || "stripe.event",
+          status: undefined,
+          raw: payload,
+        };
+      }
       if (
         type.includes("checkout.session.completed")
         || type.includes("invoice.paid")
@@ -213,8 +246,28 @@ export function createStripeProvider(): PaymentProvider {
         status = "failed";
       } else if (type.includes("charge.refunded") || type.includes("refund")) {
         status = "refunded";
-      } else if (type.includes("customer.subscription.deleted") || type.includes("canceled") || type.includes("cancelled")) {
+      } else if (
+        type.includes("customer.subscription.deleted")
+        || subscriptionObjectStatus === "canceled"
+        || subscriptionObjectStatus === "cancelled"
+        || type.includes("canceled")
+        || type.includes("cancelled")
+      ) {
         status = "cancelled";
+      } else if (
+        type.includes("customer.subscription.updated")
+        || type.includes("customer.subscription.created")
+      ) {
+        return {
+          eventType: type || "stripe.event",
+          status: undefined,
+          providerSubscriptionId: String(object.id || "").trim() || undefined,
+          customerId: object.customer ? String(object.customer) : undefined,
+          userId: metadata.userId || undefined,
+          planId: metadata.planId || undefined,
+          providerSubscriptionStatus: subscriptionObjectStatus || undefined,
+          raw: payload,
+        };
       } else {
         return {
           eventType: type || "stripe.event",
@@ -232,6 +285,7 @@ export function createStripeProvider(): PaymentProvider {
         amountCents: Number(object.amount_total || object.amount_paid || object.amount || 0) || undefined,
         currency: object.currency ? String(object.currency).toUpperCase() : "USD",
         status,
+        providerSubscriptionStatus: subscriptionObjectStatus || undefined,
         raw: payload,
       };
     },
