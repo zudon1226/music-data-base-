@@ -27,6 +27,7 @@ Set these before public launch.
 1. Add `STRIPE_SECRET_KEY=sk_test_…` and `STRIPE_WEBHOOK_SECRET=whsec_…` to `.env.local` only (never commit).
 2. Set `BILLING_PAYMENT_PROVIDER=stripe`.
 3. Run `node scripts/apply-subscription-foundation-migrations.mjs` (subscription catalog migrations only).
+4. Run `node scripts/apply-connect-foundation-migrations.mjs` (Connect payout foundation migrations only).
 4. Use existing NEW Music Data Base TEST catalog price IDs in env / `subscription_plans.stripe_price_id` — do not create new Stripe products during controlled deploy.
 5. Forward webhooks locally: `stripe listen --forward-to localhost:3000/api/subscriptions/webhooks/stripe`.
 6. Run `node scripts/report-stripe-configuration.mjs` and subscription verify scripts in `npm run verify:billing`.

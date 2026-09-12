@@ -3,6 +3,7 @@ import { CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
 import { getCreatorBillingAccessForUser } from "@/lib/billing/subscription-service";
 import { requireCreatorAccountAccess, requireCreatorAudienceAccess } from "@/lib/resolved-account-role";
 import { requireMatchingUserId } from "@/lib/request-auth";
+import { evaluateWithdrawalEligibility } from "@/lib/creator-withdrawal-eligibility";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -54,6 +55,23 @@ export async function POST(request: Request) {
                 access,
             }, { status: 403 });
         }
+        const eligibility = await evaluateWithdrawalEligibility({
+            userId,
+            creatorType: creatorType as "artist" | "producer",
+            amountCents,
+        });
+        if (!eligibility.eligible) {
+            return NextResponse.json({
+                error: eligibility.message || "Withdrawal is not eligible.",
+                code: eligibility.code || "WITHDRAWAL_INELIGIBLE",
+                billingStatus: eligibility.billingStatus,
+                availableBalanceCents: eligibility.availableBalanceCents,
+                connectOnboardingComplete: eligibility.connectOnboardingComplete,
+                payoutsEnabled: eligibility.payoutsEnabled,
+                withdrawalsLocked: access.withdrawalsLocked,
+            }, { status: 403 });
+        }
+
 
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase

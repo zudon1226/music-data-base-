@@ -13,6 +13,8 @@ import { PlatformControlCenter } from "../components/platform-control-center";
 import { SubscriptionBillingPanel } from "../components/billing/subscription-billing-panel";
 import { SubscriptionPeriodNotice } from "../components/billing/subscription-period-notice";
 import { AdminSubscriptionPanel } from "../components/billing/admin-subscription-panel";
+import { ConnectOnboardingRefreshHandler, CreatorConnectPayoutPanel } from "../components/billing/creator-connect-payout-panel";
+import { AdminPayoutReviewPanel } from "../components/billing/admin-payout-review-panel";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
 import { CLIENT_PLAN_SUPPORT } from "../lib/billing/plan-entitlements";
 import { copyTextToClipboard } from "../lib/copy-text-to-clipboard";
@@ -16872,10 +16874,23 @@ function PageContent({
     function renderPayoutDashboard(creatorType: "artist" | "producer", revenueCents: number, requestedCents: number, transactions: MonetizationTransaction[]) {
         const availableCents = Math.max(0, revenueCents - requestedCents);
         const creatorPayouts = payoutRequests.filter((payout) => payout.creatorType === creatorType);
-        return (<section className="dashboard-panel monetization-panel">
+        const canShowConnectPayoutPanel = creatorType === "artist"
+            ? navCapabilities.canArtistDashboard
+            : navCapabilities.canProducerDashboard;
+        return (<>
+          {user?.id && canShowConnectPayoutPanel ? (
+            <CreatorConnectPayoutPanel
+              userId={user.id}
+              creatorType={creatorType}
+              email={user.email || activeUser?.email || undefined}
+              fetchFn={desktopActionFetch}
+              onToast={showToast}
+            />
+          ) : null}
+          <section className="dashboard-panel monetization-panel">
           <div className="artist-section-title">
             <h3>{creatorType === "artist" ? "Artist" : "Producer"} Payout Dashboard</h3>
-            <span>{creatorPayouts.length} payout requests</span>
+            <span>{creatorPayouts.length} local payout records</span>
           </div>
           <div className="monetization-summary-grid">
             <div>
@@ -16897,20 +16912,9 @@ function PageContent({
               <small>{creatorBillingAccess.withdrawalLockMessage || CREATOR_WITHDRAWAL_LOCKED_MESSAGE}</small>
             </article>
           ) : null}
-          <div className="monetization-action-row">
-            <button
-              onClick={() => requestCreatorPayout(creatorType)}
-              type="button"
-              disabled={availableCents <= 0 || Boolean(creatorBillingAccess?.withdrawalsLocked)}
-            >
-              <Upload size={15}/>
-              Request Payout
-            </button>
-            <span>Earnings keep accumulating. Withdrawals require a current Creator subscription.</span>
-          </div>
           {creatorPayouts.length === 0 ? (<div className="dashboard-empty-card">
-              <h3>No payout requests yet</h3>
-              <p>Purchase, license, and subscription foundation activity will build a payout balance.</p>
+              <h3>No local payout records yet</h3>
+              <p>Use the payout setup panel above for server-authorized Connect onboarding and withdrawal requests.</p>
             </div>) : (<div className="monetization-list">
               {creatorPayouts.slice(0, 6).map((payout) => (<article key={payout.id}>
                   <span>{payout.status}</span>
@@ -16919,7 +16923,8 @@ function PageContent({
                 </article>))}
             </div>)}
           {transactions.length > 0 && <small className="monetization-footnote">{transactions.length} monetization events are feeding this dashboard.</small>}
-        </section>);
+        </section>
+        </>);
     }
     function renderMonthlyStatements(statements: MonthlyStatementSummary[], title: string) {
         return (<section className="dashboard-panel monetization-panel">
@@ -17266,33 +17271,13 @@ function PageContent({
             onToast={showToast}
           />
         ) : null}
-        <section className="stability-panel monetization-panel">
-          <div className="panel-title-row">
-            <h3>Admin Review Area for Payouts</h3>
-            <span>{pendingPayoutReviews.length} pending</span>
-          </div>
-          {payoutRequests.length === 0 ? (<div className="dashboard-empty-card">
-              <h3>No payout requests</h3>
-              <p>Artist and producer payout requests will appear here before any payment rail is connected.</p>
-            </div>) : (<div className="monetization-list">
-              {payoutRequests.slice(0, 10).map((payout) => (<article key={payout.id}>
-                  <span>{payout.creatorType} / {payout.status}</span>
-                  <strong>{payout.creatorName} - {formatCurrencyFromCents(payout.amountCents, payout.currency)}</strong>
-                  <small>{formatVideoCreatedAt(payout.requestedAt)} | {payout.notes || "No notes"}</small>
-                  <div className="monetization-row-actions">
-                    <button onClick={() => updatePayoutReview(payout.id, "processing", "Admin marked payout for processing.")} disabled={payout.status === "paid"} type="button">
-                      Processing
-                    </button>
-                    <button onClick={() => updatePayoutReview(payout.id, "paid", "Admin marked payout paid in foundation workflow.")} disabled={payout.status === "paid"} type="button">
-                      Mark Paid
-                    </button>
-                    <button onClick={() => updatePayoutReview(payout.id, "failed", "Admin rejected payout in foundation workflow.")} disabled={payout.status === "paid"} type="button">
-                      Reject
-                    </button>
-                  </div>
-                </article>))}
-            </div>)}
-        </section>
+        {isPlatformOwner || accountIsAdmin ? (
+          <AdminPayoutReviewPanel
+            adminUserId={user?.id || accountUserId || ""}
+            fetchFn={desktopActionFetch}
+            onToast={showToast}
+          />
+        ) : null}
         </>);
     }
     function renderTrustModerationPanel() {
