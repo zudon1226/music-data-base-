@@ -52,7 +52,12 @@ export const amMessages: LocaleMessageDictionary = {
             platformControlCenter: "የምድርከክ ኩጥጥር ማአክል",
             artistProfile: "የአርቲስት መገለለው",
             producerProfile: "የአምራዎት መገለለው",
+        sponsor: "Sponsor",
             mainNavigation: "ካና አስሳ"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "መለያዎን ይፍጠሩ",

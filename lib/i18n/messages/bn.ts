@@ -52,7 +52,12 @@ export const bnMessages: LocaleMessageDictionary = {
             platformControlCenter: "প্ল্যাটফর্ম নিয়ন্ত্রণ কেন্দ্র",
             artistProfile: "শিল্পী প্রোফাইল",
             producerProfile: "প্রযোজক প্রোফাইল",
+        sponsor: "Sponsor",
             mainNavigation: "প্রধান নেভিগেশন"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "আপনার অ্যাকাউন্ট তৈরি করুন",

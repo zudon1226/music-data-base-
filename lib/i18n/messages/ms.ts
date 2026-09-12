@@ -52,7 +52,12 @@ export const msMessages: LocaleMessageDictionary = {
             platformControlCenter: "Pusat Kawalan Platform",
             artistProfile: "Profil Artis",
             producerProfile: "Profil Pengeluar",
+            sponsor: "Sponsor",
             mainNavigation: "Navigasi utama"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Cipta akaun anda",

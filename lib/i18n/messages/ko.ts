@@ -52,7 +52,12 @@ export const koMessages: LocaleMessageDictionary = {
             platformControlCenter: "플랫폼 제어 센터",
             artistProfile: "아티스트 프로필",
             producerProfile: "프로듀서 프로필",
+            sponsor: "Sponsor",
             mainNavigation: "기본 탐색"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "계정 만들기",

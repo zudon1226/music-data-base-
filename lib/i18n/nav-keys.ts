@@ -26,7 +26,6 @@ export const DESKTOP_NAV_TRANSLATION_KEYS: Record<DesktopNavView, TranslationKey
     "Producer Dashboard": "nav.producerDashboard",
     "Podcast Studio": "nav.artistDashboard",
     "My Ringtones": "ringtones.myRingtones",
-    Sponsor: "sponsor.title",
     Sponsor: "nav.sponsor",
     "Platform Control Center": "nav.platformControlCenter",
     "Artist Profile": "nav.artistProfile",

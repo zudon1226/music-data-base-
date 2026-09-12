@@ -52,7 +52,12 @@ export const yoMessages: LocaleMessageDictionary = {
             platformControlCenter: "Ilé Ìṣẹ́ṣẹ̀ Ọ̀nà",
             artistProfile: "Àkọrọ àwọn orin",
             producerProfile: "Àkọrọ olòṣẹ̀-ẹ̀",
+            sponsor: "Sponsor",
             mainNavigation: "Ìrọ̀ àkọ́kọ́"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Ṣe ẹ̀rọ̀ àkọ́ rẹ́",

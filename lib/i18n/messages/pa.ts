@@ -52,7 +52,12 @@ export const paMessages: LocaleMessageDictionary = {
             platformControlCenter: "ਪ੍ਲੇਟਫ਼੉ਰ੍ਮ ਨਿਯਂਤ੍ਰਣ ਕੇਂਦ੍ਰ",
             artistProfile: "ਕਲਾਕਾਰ ਪ੍ਰੋਫ਼ਾਇਲ",
             producerProfile: "ਨਿਰ੍ਮਾਤਾ ਪ੍ਰੋਫ਼ਾਇਲ",
+            sponsor: "Sponsor",
             mainNavigation: "ਮੁਖ੍ਯ ਨੇਵਿਗੇਸ਼ਨ"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "ਅਪਨਾ ਖਾਤਾ ਬਨਾਏਁ",

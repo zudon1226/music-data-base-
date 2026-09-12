@@ -52,7 +52,12 @@ export const zhTWMessages: LocaleMessageDictionary = {
             platformControlCenter: "平台控制中心",
             artistProfile: "藝人資料",
             producerProfile: "製作人資料",
+            sponsor: "Sponsor",
             mainNavigation: "主要導覽"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "建立你的帳戶",

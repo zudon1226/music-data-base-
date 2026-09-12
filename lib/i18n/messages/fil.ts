@@ -52,7 +52,12 @@ export const filMessages: LocaleMessageDictionary = {
             platformControlCenter: "Sentro ng Kontrol ng Platform",
             artistProfile: "Propayl ng Artista",
             producerProfile: "Propayl ng Tagagawa",
+            sponsor: "Sponsor",
             mainNavigation: "Pangunahing nabigasyon"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Gumawa ng account mo",

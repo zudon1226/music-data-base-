@@ -52,7 +52,12 @@ export const mrMessages: LocaleMessageDictionary = {
             platformControlCenter: "प्लॅटफॉर्म नियंत्रण केंद्र",
             artistProfile: "कलाकार प्रोफाइल",
             producerProfile: "निर्माता प्रोफाइल",
+            sponsor: "Sponsor",
             mainNavigation: "मुख्य नेव्हिगेशन"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "तुमचे खाते तयार करा",

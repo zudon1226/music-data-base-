@@ -52,7 +52,12 @@ export const htMessages: LocaleMessageDictionary = {
             platformControlCenter: "Sant kontwòl platfòm",
             artistProfile: "Pwofil atis",
             producerProfile: "Pwofil pwodiktè",
+            sponsor: "Sponsor",
             mainNavigation: "Navigasyon prensipal"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Kreye kont ou",

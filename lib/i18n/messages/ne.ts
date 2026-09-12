@@ -52,7 +52,12 @@ export const neMessages: LocaleMessageDictionary = {
             platformControlCenter: "प्लेटफर्म नियन्त्रण केन्द्र",
             artistProfile: "कलाकार प्रोफाइल",
             producerProfile: "निर्माता प्रोफाइल",
+            sponsor: "Sponsor",
             mainNavigation: "मुख्य नेभिगेसन"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "आफ्नो खाता बनाउनुहोस्",

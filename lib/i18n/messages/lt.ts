@@ -52,7 +52,12 @@ export const ltMessages: LocaleMessageDictionary = {
             platformControlCenter: "Platformos valdymo centras",
             artistProfile: "Atlikėjo profilis",
             producerProfile: "Prodiuserio profilis",
+            sponsor: "Sponsor",
             mainNavigation: "Pagrindinė navigacija"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Sukurkite paskyrą",

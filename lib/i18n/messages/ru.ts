@@ -52,7 +52,12 @@ export const ruMessages: LocaleMessageDictionary = {
             platformControlCenter: "Центр управления платформой",
             artistProfile: "Профиль артиста",
             producerProfile: "Профиль продюсера",
+            sponsor: "Sponsor",
             mainNavigation: "Основная навигация"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Создайте аккаунт",

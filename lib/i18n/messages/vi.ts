@@ -52,7 +52,12 @@ export const viMessages: LocaleMessageDictionary = {
             platformControlCenter: "Trung tâm điều khiển nền tảng",
             artistProfile: "Hồ sơ nghệ sĩ",
             producerProfile: "Hồ sơ nhà sản xuất",
+            sponsor: "Sponsor",
             mainNavigation: "Điều hướng chính"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Tạo tài khoản của bạn",

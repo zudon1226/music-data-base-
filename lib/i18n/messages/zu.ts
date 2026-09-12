@@ -52,7 +52,12 @@ export const zuMessages: LocaleMessageDictionary = {
             platformControlCenter: "Isikhungo SokuLawula Ipulatifomu",
             artistProfile: "Iphrofayili Yomculi",
             producerProfile: "Iphrofayili Yomkhiqizi",
+            sponsor: "Sponsor",
             mainNavigation: "Ukuzulazula okuyinhloko"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Dala i-akhawunti yakho",

@@ -52,7 +52,12 @@ export const igMessages: LocaleMessageDictionary = {
             platformControlCenter: "Ebe Njikwa Ikpo Okwu",
             artistProfile: "Profaịlụ Onye Egwu",
             producerProfile: "Profaịlụ Onye Mmeputa",
+            sponsor: "Sponsor",
             mainNavigation: "Isi njikọ"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Mepụta akaụntụ gị",

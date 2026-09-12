@@ -52,7 +52,12 @@ export const swMessages: LocaleMessageDictionary = {
             platformControlCenter: "Kituo cha Udhibiti wa Jukwaa",
             artistProfile: "Wasifu wa Msanii",
             producerProfile: "Wasifu wa Mtayarishaji",
+            sponsor: "Sponsor",
             mainNavigation: "Urambazaji mkuu"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Unda akaunti yako",

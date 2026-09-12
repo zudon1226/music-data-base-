@@ -52,7 +52,12 @@ export const thMessages: LocaleMessageDictionary = {
             platformControlCenter: "ศูนย์ควบคุมแพลตฟอร์ม",
             artistProfile: "โปรไฟล์ศิลปิน",
             producerProfile: "โปรไฟล์โปรดิวเซอร์",
+            sponsor: "Sponsor",
             mainNavigation: "การนำทางหลัก"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "สร้างบัญชีของคุณ",

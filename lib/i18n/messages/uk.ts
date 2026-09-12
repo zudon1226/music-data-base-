@@ -52,7 +52,12 @@ export const ukMessages: LocaleMessageDictionary = {
             platformControlCenter: "Центр керування платформою",
             artistProfile: "Профіль артиста",
             producerProfile: "Профіль продюсера",
+            sponsor: "Sponsor",
             mainNavigation: "Головна навігація"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Створіть обліковий запис",

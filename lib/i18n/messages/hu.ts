@@ -52,7 +52,12 @@ export const huMessages: LocaleMessageDictionary = {
             platformControlCenter: "Platformvezérlő központ",
             artistProfile: "Előadói profil",
             producerProfile: "Producer profil",
+            sponsor: "Sponsor",
             mainNavigation: "Fő navigáció"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Hozd létre a fiókodat",

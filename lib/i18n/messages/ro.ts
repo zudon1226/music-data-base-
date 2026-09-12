@@ -52,7 +52,12 @@ export const roMessages: LocaleMessageDictionary = {
             platformControlCenter: "Centru de control platformă",
             artistProfile: "Profil artist",
             producerProfile: "Profil producător",
+            sponsor: "Sponsor",
             mainNavigation: "Navigare principală"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Creează-ți contul",

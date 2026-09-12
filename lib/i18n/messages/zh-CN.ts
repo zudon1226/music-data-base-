@@ -52,7 +52,12 @@ export const zhCNMessages: LocaleMessageDictionary = {
             platformControlCenter: "平台控制中心",
             artistProfile: "艺人资料",
             producerProfile: "制作人资料",
+            sponsor: "Sponsor",
             mainNavigation: "主导航"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "创建你的账户",

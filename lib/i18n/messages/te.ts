@@ -52,7 +52,12 @@ export const teMessages: LocaleMessageDictionary = {
             platformControlCenter: "ప్లాట్‌ఫారమ్ నియంత్రణ కేంద్రం",
             artistProfile: "కళాకారుని ప్రొఫైల్",
             producerProfile: "నిర్మాత ప్రొఫైల్",
+            sponsor: "Sponsor",
             mainNavigation: "ప్రధాన నావిగేషన్"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "మీ ఖాతాను సృష్టించండి",

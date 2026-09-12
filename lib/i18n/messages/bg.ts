@@ -52,7 +52,12 @@ export const bgMessages: LocaleMessageDictionary = {
             platformControlCenter: "Център за управление на платформата",
             artistProfile: "Профил на артист",
             producerProfile: "Профил на продуцент",
+        sponsor: "Sponsor",
             mainNavigation: "Основна навигация"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Създайте акаунт",

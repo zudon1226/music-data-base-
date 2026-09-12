@@ -52,7 +52,12 @@ export const arMessages: LocaleMessageDictionary = {
             platformControlCenter: "مركز التحكم بالمنصة",
             artistProfile: "ملف الفنان",
             producerProfile: "ملف المنتج",
+        sponsor: "Sponsor",
             mainNavigation: "التنقل الرئيسي"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "أنشئ حسابك",

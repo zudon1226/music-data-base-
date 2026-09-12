@@ -52,7 +52,12 @@ export const guMessages: LocaleMessageDictionary = {
             platformControlCenter: "પ્લેટફ઼ૉર્મ નિયંત્રણ કેંદ્ર",
             artistProfile: "કલાકાર પ્રોફ઼ાઇલ",
             producerProfile: "નિર્માતા પ્રોફ઼ાઇલ",
+            sponsor: "Sponsor",
             mainNavigation: "મુખ્ય નેવિગેશન"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "અપના ખાતા બનાએઁ",

@@ -52,7 +52,12 @@ export const csMessages: LocaleMessageDictionary = {
             platformControlCenter: "Řídicí centrum platformy",
             artistProfile: "Profil umělce",
             producerProfile: "Profil producenta",
+        sponsor: "Sponsor",
             mainNavigation: "Hlavní navigace"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Vytvořte si účet",

@@ -52,7 +52,12 @@ export const taMessages: LocaleMessageDictionary = {
             platformControlCenter: "மேடை கட்டுப்பாட்டு மையம்",
             artistProfile: "கலைஞர் சுயவிவரம்",
             producerProfile: "தயாரிப்பாளர் சுயவிவரம்",
+            sponsor: "Sponsor",
             mainNavigation: "முதன்மை வழிசெலுத்தல்"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "உங்கள் கணக்கை உருவாக்குங்கள்",

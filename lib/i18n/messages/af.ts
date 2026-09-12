@@ -52,7 +52,12 @@ export const afMessages: LocaleMessageDictionary = {
             platformControlCenter: "Platformbeheersentrum",
             artistProfile: "Kunstenaarsprofiel",
             producerProfile: "Produseerprofiel",
+        sponsor: "Sponsor",
             mainNavigation: "Hoofnavigasie"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Skep jou rekening",

@@ -52,7 +52,12 @@ export const elMessages: LocaleMessageDictionary = {
             platformControlCenter: "Κέντρο ελέγχου πλατφόρμας",
             artistProfile: "Προφίλ καλλιτέχνη",
             producerProfile: "Προφίλ παραγωγού",
+        sponsor: "Sponsor",
             mainNavigation: "Κύρια πλοήγηση"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Δημιουργήστε τον λογαριασμό σας",

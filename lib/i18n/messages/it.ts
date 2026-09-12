@@ -52,7 +52,12 @@ export const itMessages: LocaleMessageDictionary = {
             platformControlCenter: "Centro di controllo piattaforma",
             artistProfile: "Profilo artista",
             producerProfile: "Profilo produttore",
+            sponsor: "Sponsor",
             mainNavigation: "Navigazione principale"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Crea il tuo account",

@@ -52,7 +52,12 @@ export const soMessages: LocaleMessageDictionary = {
             platformControlCenter: "Xarunta xakamaynta madal",
             artistProfile: "Muuqaalka fanaanka",
             producerProfile: "Muuqaalka soo saaraha",
+            sponsor: "Sponsor",
             mainNavigation: "Hagidda ugu weyn"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Samee akoonkaaga",

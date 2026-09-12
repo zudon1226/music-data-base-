@@ -52,7 +52,12 @@ export const etMessages: LocaleMessageDictionary = {
             platformControlCenter: "Platvormi juhtimiskeskus",
             artistProfile: "Artisti profiil",
             producerProfile: "Produtsendi profiil",
+        sponsor: "Sponsor",
             mainNavigation: "Põhinavigatsioon"
+        },
+    sponsor: {
+            title: "Sponsor",
+            pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
         },
     auth: {
             createAccount: "Loo oma konto",
