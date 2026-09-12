@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireMatchingUserId } from "@/lib/request-auth";
+import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
 import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
@@ -107,6 +108,10 @@ export async function POST(request: Request) {
         const creatorAccess = await requireCreatorUploadAccess(ownerId, uploadLock.email || "");
         if (!creatorAccess.ok) {
             return jsonResponse({ error: creatorAccess.error }, creatorAccess.status);
+        }
+        const legalAgreement = await requireCreatorUploadLegalAgreement(ownerId);
+        if (!legalAgreement.ok) {
+            return jsonResponse({ error: legalAgreement.error }, legalAgreement.status);
         }
         if (!title)
             return jsonResponse({ error: "Album title is required." }, 400);

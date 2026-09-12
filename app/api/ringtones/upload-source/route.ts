@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
 import { requireRingtoneCreator } from "@/lib/ringtone-access";
 import {
     RINGTONE_ALLOWED_AUDIO_MIME_TYPES,
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
         if (!auth.ok) return json({ error: auth.error }, auth.status);
         const creator = await requireRingtoneCreator(userId);
         if (!creator.ok) return json({ error: creator.error }, creator.status);
+        const legalAgreement = await requireCreatorUploadLegalAgreement(userId);
+        if (!legalAgreement.ok) return json({ error: legalAgreement.error }, legalAgreement.status);
 
         if (body.ownershipConfirmed !== true) {
             return json({ error: "Ownership confirmation is required before uploading ringtone source audio." }, 400);

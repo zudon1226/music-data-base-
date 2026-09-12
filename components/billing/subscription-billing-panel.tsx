@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CHECKOUT_UNAVAILABLE_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
 import { displayFeaturesForPlanRow } from "@/lib/billing/plan-entitlements";
@@ -314,6 +315,18 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
             ) : null}
 
             {error ? <p className="profile-feedback profile-feedback-error" role="alert">{error}</p> : null}
+
+            <small style={{ display: "block", marginTop: 12 }}>
+                Paid subscriptions are governed by the{" "}
+                <Link href="/legal/subscription-billing" target="_blank" rel="noopener noreferrer">
+                    Subscription &amp; Billing Policy
+                </Link>{" "}
+                and{" "}
+                <Link href="/legal/refunds" target="_blank" rel="noopener noreferrer">
+                    Refund Policy
+                </Link>
+                .
+            </small>
         </section>
     );
 }

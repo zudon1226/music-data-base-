@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import { ACCESS_TOKEN_BODY_KEYS, getBearerToken, getSessionTokensFromRecord, REFRESH_TOKEN_BODY_KEYS, requireBearerOnlyMatchingUserId } from "@/lib/request-auth";
+import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
 import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
 import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked, UPLOAD_LOCK_OWNER_EMAIL } from "@/lib/upload-lock";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
@@ -222,6 +223,12 @@ async function requireAuthenticatedUploadUser(
         return uploadAuthFailure(creatorAccess.status, creatorAccess.error, stage, "creator-role-required", {
             claimedUserId,
             primaryRole: creatorAccess.capabilities.primaryRole,
+        });
+    }
+    const legalAgreement = await requireCreatorUploadLegalAgreement(auth.userId);
+    if (!legalAgreement.ok) {
+        return uploadAuthFailure(legalAgreement.status, legalAgreement.error, stage, "creator-upload-agreement-required", {
+            claimedUserId,
         });
     }
     return { ok: true, userId: auth.userId, email };

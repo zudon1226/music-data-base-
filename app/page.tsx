@@ -18,6 +18,8 @@ import { AdminPayoutReviewPanel } from "../components/billing/admin-payout-revie
 import { SponsorHomePlacement } from "../components/sponsor/sponsor-home-placement";
 import { SponsorWorkspace } from "../components/sponsor/sponsor-workspace";
 import { AdminSponsorPanel } from "../components/sponsor/admin-sponsor-panel";
+import { PolicyLinksFooter } from "../components/legal/policy-links-footer";
+import { SignupLegalAcceptance, buildSignupLegalAcceptances } from "../components/legal/signup-legal-acceptance";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
 import { CLIENT_PLAN_SUPPORT } from "../lib/billing/plan-entitlements";
 import { copyTextToClipboard } from "../lib/copy-text-to-clipboard";
@@ -4167,6 +4169,9 @@ function PageContent({
     const [authBusy, setAuthBusy] = useState(false);
     const [authInviteCode, setAuthInviteCode] = useState("");
     const [authAccountType, setAuthAccountType] = useState<SignupAccountType>(DEFAULT_SIGNUP_ACCOUNT_TYPE);
+    const [authAcceptTerms, setAuthAcceptTerms] = useState(false);
+    const [authAcceptPrivacy, setAuthAcceptPrivacy] = useState(false);
+    const [authAcceptCreatorUpload, setAuthAcceptCreatorUpload] = useState(false);
     const [gateRedeemBusy, setGateRedeemBusy] = useState(false);
     const [gateRedeemMessage, setGateRedeemMessage] = useState("");
     const [gateRedeemMessageTone, setGateRedeemMessageTone] = useState<"success" | "error" | "">("");
@@ -16298,6 +16303,31 @@ function PageContent({
                     return;
                 }
             }
+            let signupLegalAcceptances: ReturnType<typeof buildSignupLegalAcceptances> = null;
+            if (authMode === "signup") {
+                signupLegalAcceptances = buildSignupLegalAcceptances(signupAccountType, {
+                    acceptTerms: authAcceptTerms,
+                    acceptPrivacy: authAcceptPrivacy,
+                    acceptCreatorUpload: authAcceptCreatorUpload,
+                });
+                if (!signupLegalAcceptances) {
+                    setAuthMessage("Accept all required legal policies before creating an account.");
+                    return;
+                }
+                const legalValidation = await fetch("/api/legal/validate-signup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        accountType: signupAccountType,
+                        acceptances: signupLegalAcceptances,
+                    }),
+                });
+                const legalValidationJson = await legalValidation.json().catch(() => ({}));
+                if (!legalValidation.ok) {
+                    setAuthMessage(legalValidationJson.error || "Required legal acceptance is missing.");
+                    return;
+                }
+            }
             const response = authMode === "signup"
                 ? await supabase.auth.signUp({
                     email,
@@ -16337,6 +16367,32 @@ function PageContent({
                 action: "ensure",
                 displayName: signupDisplayName,
             }).catch(() => undefined);
+            if (authMode === "signup" && signupLegalAcceptances?.length) {
+                const legalRecord = await fetch("/api/legal/acceptances", {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${activeSession.access_token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        userId: activeSession.user.id,
+                        sessionUserId: activeSession.user.id,
+                        accessToken: activeSession.access_token,
+                        sessionAccessToken: activeSession.access_token,
+                        refreshToken: activeSession.refresh_token,
+                        sessionRefreshToken: activeSession.refresh_token,
+                        context: "signup",
+                        accountType: signupAccountType,
+                        acceptances: signupLegalAcceptances,
+                    }),
+                });
+                const legalRecordJson = await legalRecord.json().catch(() => ({}));
+                if (!legalRecord.ok) {
+                    await supabase.auth.signOut();
+                    setAuthMessage(legalRecordJson.error || "Legal acceptance could not be recorded. Please sign up again.");
+                    return;
+                }
+            }
             if (authMode === "signup" && foundingBetaLocked && !isPlatformOwnerEmail(email) && authInviteCode.trim()) {
                 const redeem = await fetch("/api/founding-invites/redeem", {
                     method: "POST",
@@ -18018,6 +18074,18 @@ function PageContent({
               <input name="password" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("auth.passwordPlaceholder")} autoComplete={authMode === "signup" ? "new-password" : "current-password"}/>
             </label>
 
+            {authMode === "signup" && (
+              <SignupLegalAcceptance
+                accountType={authAccountType}
+                acceptTerms={authAcceptTerms}
+                acceptPrivacy={authAcceptPrivacy}
+                acceptCreatorUpload={authAcceptCreatorUpload}
+                onAcceptTermsChange={setAuthAcceptTerms}
+                onAcceptPrivacyChange={setAuthAcceptPrivacy}
+                onAcceptCreatorUploadChange={setAuthAcceptCreatorUpload}
+              />
+            )}
+
             {authMessage && <p className="auth-message">{authMessage}</p>}
 
             <button type="submit" disabled={authBusy}>
@@ -18029,9 +18097,14 @@ function PageContent({
           <button className="auth-switch" onClick={() => {
                 setAuthMode(authMode === "signup" ? "login" : "signup");
                 setAuthMessage("");
+                setAuthAcceptTerms(false);
+                setAuthAcceptPrivacy(false);
+                setAuthAcceptCreatorUpload(false);
             }} type="button">
             {authMode === "signup" ? t("auth.switchToLogin") : t("auth.switchToSignup")}
           </button>
+
+          <PolicyLinksFooter className="auth-legal-links" />
         </section>
 
         <style jsx global>{`

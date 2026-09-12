@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
+import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
@@ -103,6 +104,15 @@ async function requireAudioUploadUser(request: Request, body: Record<string, unk
             ok: false as const,
             status: creatorAccess.status,
             error: creatorAccess.error,
+        };
+    }
+
+    const legalAgreement = await requireCreatorUploadLegalAgreement(auth.userId);
+    if (!legalAgreement.ok) {
+        return {
+            ok: false as const,
+            status: legalAgreement.status,
+            error: legalAgreement.error,
         };
     }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
 
@@ -302,6 +303,14 @@ export function CreatorConnectPayoutPanel({ userId, creatorType, email, fetchFn,
                     )}
                 </>
             )}
+
+            <small className="monetization-footnote" style={{ display: "block", marginTop: 12 }}>
+                Withdrawal eligibility and payouts are governed by the{" "}
+                <Link href="/legal/creator-payout" target="_blank" rel="noopener noreferrer">
+                    Creator Payout Agreement
+                </Link>
+                .
+            </small>
         </section>
     );
 }
