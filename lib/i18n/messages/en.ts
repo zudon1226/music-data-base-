@@ -51,7 +51,12 @@ export const enMessages = {
         platformControlCenter: "Platform Control Center",
         artistProfile: "Artist Profile",
         producerProfile: "Producer Profile",
+        sponsor: "Sponsor",
         mainNavigation: "Main navigation",
+    },
+    sponsor: {
+        title: "Sponsor",
+        pageSubtitle: "Apply for featured placements and track your sponsorship campaign on Music Data Base.",
     },
     auth: {
         createAccount: "Create your account",

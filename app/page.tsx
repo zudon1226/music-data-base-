@@ -15,6 +15,9 @@ import { SubscriptionPeriodNotice } from "../components/billing/subscription-per
 import { AdminSubscriptionPanel } from "../components/billing/admin-subscription-panel";
 import { ConnectOnboardingRefreshHandler, CreatorConnectPayoutPanel } from "../components/billing/creator-connect-payout-panel";
 import { AdminPayoutReviewPanel } from "../components/billing/admin-payout-review-panel";
+import { SponsorHomePlacement } from "../components/sponsor/sponsor-home-placement";
+import { SponsorWorkspace } from "../components/sponsor/sponsor-workspace";
+import { AdminSponsorPanel } from "../components/sponsor/admin-sponsor-panel";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
 import { CLIENT_PLAN_SUPPORT } from "../lib/billing/plan-entitlements";
 import { copyTextToClipboard } from "../lib/copy-text-to-clipboard";
@@ -917,7 +920,7 @@ type MediaDownloadVaultItem = {
     downloadCount: number;
     downloadedAt: string;
 };
-type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Sponsor" | "Platform Control Center";
 type PodcastShellProps = {
     initialPodcastShowId?: string;
     initialPodcastEpisodeId?: string;
@@ -19143,46 +19146,21 @@ function PageContent({
                 </div>
               </section>)}
 
-            <section className="sponsor-section" aria-label="Sponsored music">
-              <div className="sponsor-card">
-                <div className="sponsor-media">
-                  <img src={sponsoredImage} alt=""/>
-                  <span>Sponsored</span>
-                </div>
-
-                <div className="sponsor-copy">
-                  <p className="section-kicker">Sponsor Ad</p>
-                  <h2>{sponsoredTitle}</h2>
-                  <p>
-                    Featured from <strong>{sponsoredCreator}</strong>. Promote a song, artist profile, or video banner to listeners
-                    across Music Data Base.
-                  </p>
-                  <div className="sponsor-meta">
-                    <span>{sponsoredCategory}</span>
-                    <span>{sponsoredVideo ? "Video spotlight" : "Song spotlight"}</span>
-                  </div>
-                  <div className="sponsor-actions">
-                    <button onClick={() => {
+            <SponsorHomePlacement
+              onSponsorNow={() => handleNav("Sponsor")}
+              onPlayFeature={() => {
                 if (sponsoredVideo) {
                     playVideo(sponsoredVideo, "Sponsored Video");
+                } else if (currentSong) {
+                    playSong(currentSong);
                 }
-                else {
-                    if (currentSong) {
-                        playSong(currentSong);
-                    }
-                }
-            }} type="button">
-                      <Play size={16} fill="currentColor"/>
-                      Play Feature
-                    </button>
-                    <button className="subtle-action" onClick={() => showToast("Sponsor placement tools coming soon.", "success")} type="button">
-                      <Zap size={16}/>
-                      Sponsor Now
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
+              }}
+              fallbackImage={sponsoredImage}
+              fallbackTitle={sponsoredTitle}
+              fallbackCreator={sponsoredCreator}
+              fallbackCategory={sponsoredCategory}
+              showPlayFeature={Boolean(sponsoredVideo || currentSong)}
+            />
           </>)}
 
         <DestinationPageHeading
@@ -19213,6 +19191,18 @@ function PageContent({
             </>
           )}
         />
+
+        {view === "Sponsor" ? (
+          <SponsorWorkspace
+            userId={accountUserId}
+            email={user?.email || activeUser?.email || undefined}
+            session={authSession}
+            isAuthenticated={Boolean(accountUserId && authSession?.access_token)}
+            fetchFn={desktopActionFetch}
+            onRequireLogin={() => showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error")}
+            onToast={showToast}
+          />
+        ) : null}
 
         {!canRenderUploadWorkspace && view === "My Ringtones" && navCapabilities.canMyRingtones ? (
           <RingtoneCreatorWorkspace

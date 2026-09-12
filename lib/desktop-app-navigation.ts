@@ -34,6 +34,7 @@ export type DesktopNavView =
     | "Ringtone Marketplace"
     | "My Purchased Ringtones"
     | "Favorite Ringtones"
+    | "Sponsor"
     | "Platform Control Center";
 
 export type DesktopNavAccessContext = {
@@ -69,6 +70,7 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Ringtone Marketplace" },
     { view: "My Purchased Ringtones" },
     { view: "Favorite Ringtones" },
+    { view: "Sponsor" },
     { view: "Library" },
     { view: "Liked" },
     { view: "Following" },
@@ -142,6 +144,7 @@ export const MOBILE_NAV_VIEW_ORDER: DesktopNavView[] = [
     "Ringtone Marketplace",
     "My Purchased Ringtones",
     "Favorite Ringtones",
+    "Sponsor",
     "Recently Played",
     "Queue",
     "Profile",

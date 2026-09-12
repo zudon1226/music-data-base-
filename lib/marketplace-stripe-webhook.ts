@@ -6,6 +6,14 @@
 import { completePendingSalesFromStripeSession } from "@/lib/sales-payment-fulfillment";
 import { recordRingtonePurchaseEarnings } from "@/lib/creator-earnings";
 import { confirmRingtonePurchasePayment } from "@/lib/ringtone-purchase";
+import { SPONSOR_CHECKOUT_FLOW } from "@/lib/sponsor-constants";
+import {
+    completeSponsorPaymentFromStripeSession,
+    handleSponsorCheckoutExpired,
+    handleSponsorRefund,
+    markSponsorPaymentFailed,
+    recordSponsorPaymentIdempotency,
+} from "@/lib/sponsor-payment-fulfillment";
 import {
     stripeMarketplaceWebhookSecret,
     verifyStripeWebhookSignature,
@@ -18,6 +26,33 @@ function verifyMarketplaceStripeSignature(rawBody: string, signatureHeader: stri
         throw new Error("Stripe marketplace webhook secret is not configured.");
     }
     verifyStripeWebhookSignature(rawBody, signatureHeader, secret);
+}
+
+function isSponsorFlowMetadata(metadata: Record<string, string>) {
+    const flow = String(metadata.flow || metadata.purpose || "").trim();
+    return flow === SPONSOR_CHECKOUT_FLOW || flow === "sponsor" || metadata.purpose === "sponsor";
+}
+
+function parseSponsorApplicationId(metadata: Record<string, string>) {
+    return String(metadata.applicationId || "").trim();
+}
+
+async function recordSponsorWebhookIdempotency(input: {
+    eventId: string;
+    suffix?: string;
+    sessionId?: string;
+    applicationId?: string;
+    payload: unknown;
+}) {
+    if (!input.eventId) return { duplicate: false };
+    const inserted = await recordSponsorPaymentIdempotency({
+        provider: "stripe",
+        providerEventId: input.suffix ? `${input.eventId}:${input.suffix}` : input.eventId,
+        sessionId: input.sessionId,
+        applicationId: input.applicationId,
+        payload: input.payload,
+    });
+    return { duplicate: !inserted };
 }
 
 async function recordWebhookIdempotency(provider: string, providerEventId: string, sessionId: string, payload: unknown) {
@@ -88,7 +123,82 @@ export async function processMarketplaceStripeWebhook(rawBody: string, signature
         return { eventType, ...result };
     }
 
+    if (isSponsorFlowMetadata(metadata)) {
+        const sponsorApplicationId = parseSponsorApplicationId(metadata);
+        const sponsorUserId = String(metadata.userId || object.client_reference_id || "").trim();
+        const sessionId = String(object.id || metadata.checkout_session || "").trim();
+
+        if (eventType === "payment_intent.payment_failed") {
+            const idem = await recordSponsorWebhookIdempotency({
+                eventId,
+                suffix: "payment_failed",
+                sessionId,
+                applicationId: sponsorApplicationId,
+                payload,
+            });
+            if (idem.duplicate) {
+                return { ok: true as const, duplicate: true, eventType, flow: "sponsor_payment_failed" };
+            }
+            if (isUuid(sponsorApplicationId)) {
+                const failed = await markSponsorPaymentFailed({
+                    applicationId: sponsorApplicationId,
+                    userId: isUuid(sponsorUserId) ? sponsorUserId : undefined,
+                    reason: String(object.last_payment_error || "payment_failed"),
+                });
+                return { eventType, flow: "sponsor_payment_failed", ...failed };
+            }
+            return { ok: true as const, ignored: true, eventType, reason: "Missing sponsor application on payment failure." };
+        }
+
+        if (eventType === "checkout.session.expired") {
+            const idem = await recordSponsorWebhookIdempotency({
+                eventId,
+                suffix: "session_expired",
+                sessionId,
+                applicationId: sponsorApplicationId,
+                payload,
+            });
+            if (idem.duplicate) {
+                return { ok: true as const, duplicate: true, eventType, flow: "sponsor_checkout_expired" };
+            }
+            if (isUuid(sponsorApplicationId)) {
+                const expired = await handleSponsorCheckoutExpired({
+                    applicationId: sponsorApplicationId,
+                    userId: isUuid(sponsorUserId) ? sponsorUserId : undefined,
+                    providerCheckoutSessionId: sessionId || undefined,
+                });
+                return { eventType, flow: "sponsor_checkout_expired", ...expired };
+            }
+            return { ok: true as const, ignored: true, eventType, reason: "Missing sponsor application on checkout expiration." };
+        }
+    }
+
     if (eventType === "charge.refunded") {
+        const sponsorApplicationId = parseSponsorApplicationId(metadata);
+        if (isSponsorFlowMetadata(metadata)) {
+            const idem = await recordSponsorWebhookIdempotency({
+                eventId,
+                suffix: "refund",
+                sessionId: String(object.id || ""),
+                applicationId: sponsorApplicationId,
+                payload,
+            });
+            if (idem.duplicate) {
+                return { ok: true as const, duplicate: true, eventType, flow: "sponsor_refund" };
+            }
+            if (isUuid(sponsorApplicationId)) {
+                const amountRefunded = Math.max(0, Number(object.amount_refunded) || 0);
+                const refunded = await handleSponsorRefund({
+                    applicationId: sponsorApplicationId,
+                    paymentReference: String(object.payment_intent || object.id || ""),
+                    providerEventId: eventId,
+                    refundAmountCents: amountRefunded > 0 ? amountRefunded : undefined,
+                });
+                return { eventType, flow: "sponsor_refund", ...refunded };
+            }
+            return { ok: true as const, ignored: true, eventType, reason: "Missing sponsor application on refund." };
+        }
+
         const { reverseCreatorEarningsForSource } = await import("@/lib/creator-earnings-reversal");
         const purchaseId = String(metadata.purchaseId || metadata.purchaseIds?.split(",")?.[0] || "").trim();
         if (purchaseId) {
@@ -164,6 +274,38 @@ export async function processMarketplaceStripeWebhook(rawBody: string, signature
             console.warn("[marketplace-webhook] ringtone earnings failed:", getErrorMessage(error));
         });
         return { ok: true as const, flow, eventType, purchaseId, alreadyOwned: Boolean(confirm.alreadyOwned) };
+    }
+
+    if (flow === SPONSOR_CHECKOUT_FLOW || metadata.purpose === "sponsor") {
+        const applicationId = String(metadata.applicationId || "").trim();
+        if (!isUuid(userId) || !isUuid(applicationId)) {
+            return { ok: true as const, ignored: true, reason: "Missing sponsor checkout metadata." };
+        }
+        const idem = await recordSponsorWebhookIdempotency({
+            eventId,
+            sessionId,
+            applicationId,
+            payload,
+        });
+        if (idem.duplicate) {
+            return { ok: true as const, duplicate: true, eventType, flow: SPONSOR_CHECKOUT_FLOW };
+        }
+        const result = await completeSponsorPaymentFromStripeSession({
+            userId,
+            applicationId,
+            providerPaymentId: paymentIntent || sessionId,
+            providerCheckoutSessionId: sessionId,
+            providerPaymentIntentId: paymentIntent || undefined,
+        });
+        if (!result.ok) throw new Error(result.error);
+        return {
+            ok: true as const,
+            flow: SPONSOR_CHECKOUT_FLOW,
+            eventType,
+            applicationId,
+            alreadyPaid: Boolean(result.alreadyPaid),
+            platformRevenueOnly: true,
+        };
     }
 
     return { ok: true as const, ignored: true, reason: "Unknown marketplace flow.", flow };

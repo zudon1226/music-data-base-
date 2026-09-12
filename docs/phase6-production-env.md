@@ -7,6 +7,7 @@ Set these before public launch.
 - `NEXT_PUBLIC_SUPABASE_URL`: production Supabase project URL.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: production Supabase anon key.
 - `SUPABASE_SERVICE_ROLE_KEY`: production service role key. Server only. Never expose this in the browser.
+- `NEXT_PUBLIC_PUBLIC_BETA_SPONSOR_CHECKOUT_LOCKED`: **`true` during public beta** (or omit — defaults to locked). Set to `false` only at full launch to enable paid sponsor checkout.
 - `NEXT_PUBLIC_PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_LOCKED`: **`true` during public beta** (or omit — defaults to locked). Set to `false` only at full launch to enable Artist/Producer/Listener paid subscription checkout.
 
 ## Billing / Stripe (server-only secrets — never expose client-side)

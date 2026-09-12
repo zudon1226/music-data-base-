@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { startSponsorStripeCheckout } from "@/lib/sponsor-stripe-checkout";
 import {
-    assertSponsorCheckoutAllowed,
     getPublicBetaSponsorCheckoutMessage,
     isPublicBetaSponsorCheckoutLocked,
 } from "@/lib/public-beta-sponsor-checkout";
@@ -14,39 +14,38 @@ function json(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
 
-/** Exposes sponsor beta lock state for production verification. */
-export async function GET() {
-    return json({
-        publicBetaSponsorCheckoutLocked: isPublicBetaSponsorCheckoutLocked(),
-        publicBetaSponsorCheckoutMessage: getPublicBetaSponsorCheckoutMessage(),
-    });
-}
-
-/** Server-side sponsor checkout lock enforcement (full checkout ships in a later commit group). */
 export async function POST(request: Request) {
     try {
         const body = await request.json().catch(() => ({})) as Record<string, unknown>;
         const userId = String(body.userId || body.sessionUserId || "").trim();
+        const applicationId = String(body.applicationId || "").trim();
         if (!userId || !isUuid(userId)) return json({ error: "userId is required." }, 400);
+        if (!applicationId || !isUuid(applicationId)) return json({ error: "applicationId is required." }, 400);
 
         const auth = await requireMatchingUserId(request, "/api/sponsors/checkout", userId);
         if (!auth.ok) return json({ error: auth.error }, auth.status);
 
-        const lock = await assertSponsorCheckoutAllowed(userId);
-        if (!lock.ok) {
+        const result = await startSponsorStripeCheckout({
+            userId,
+            applicationId,
+            successUrl: String(body.successUrl || "").trim() || undefined,
+            cancelUrl: String(body.cancelUrl || "").trim() || undefined,
+            customerEmail: String(body.customerEmail || "").trim() || undefined,
+        });
+        if (!result.ok) {
             return json({
-                error: lock.error,
-                code: lock.code,
+                error: result.error,
+                code: "code" in result ? result.code : undefined,
                 publicBetaSponsorCheckoutLocked: isPublicBetaSponsorCheckoutLocked(),
                 publicBetaSponsorCheckoutMessage: getPublicBetaSponsorCheckoutMessage(),
-            }, lock.status);
+            }, result.status || 400);
         }
-
         return json({
-            error: "Sponsor checkout is not available yet.",
-            code: "SPONSOR_CHECKOUT_UNAVAILABLE",
-            publicBetaSponsorCheckoutLocked: false,
-        }, 503);
+            checkoutUrl: result.checkoutUrl,
+            sessionId: result.sessionId,
+            application: result.application,
+            amountCents: result.amountCents,
+        }, 201);
     } catch (error) {
         console.error("[api/sponsors/checkout] POST failed:", error);
         return json({ error: getErrorMessage(error) }, 500);
