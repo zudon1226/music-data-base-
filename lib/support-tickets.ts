@@ -31,6 +31,24 @@ export const SUPPORT_TICKET_SEVERITIES = ["low", "medium", "high", "urgent"] as 
 
 export type SupportTicketSeverity = (typeof SUPPORT_TICKET_SEVERITIES)[number];
 
+/** Stored on tickets from the user's account role at submit time (Listener / Artist / Producer). */
+export const SUPPORT_TICKET_ACCOUNT_ROLES = ["Listener", "Artist", "Producer"] as const;
+
+export type SupportTicketAccountRole = (typeof SUPPORT_TICKET_ACCOUNT_ROLES)[number];
+
+/** Maps admin role filter values to the canonical account_type stored on tickets. */
+export function resolveSupportAccountTypeFilter(value: unknown): SupportTicketAccountRole | null {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized || normalized === "all") {
+        return null;
+    }
+    if (normalized === "listener") return "Listener";
+    if (normalized === "artist") return "Artist";
+    if (normalized === "producer") return "Producer";
+    const exact = SUPPORT_TICKET_ACCOUNT_ROLES.find((role) => role.toLowerCase() === normalized);
+    return exact || null;
+}
+
 const SECRET_PATTERNS = [
     /sk_live_[a-z0-9]+/gi,
     /sk_test_[a-z0-9]+/gi,

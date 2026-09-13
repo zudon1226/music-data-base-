@@ -6,6 +6,7 @@ import {
     normalizeSupportSeverity,
     normalizeSupportStatus,
     redactSupportText,
+    resolveSupportAccountTypeFilter,
     SUPPORT_TICKET_ADMIN_SELECT,
 } from "@/lib/support-tickets";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
@@ -56,7 +57,8 @@ export async function GET(request: Request) {
 
         if (status) query = query.eq("status", status);
         if (category) query = query.eq("category", category);
-        if (accountType) query = query.eq("account_type", accountType);
+        const accountRole = resolveSupportAccountTypeFilter(accountType);
+        if (accountRole) query = query.eq("account_type", accountRole);
         if (deviceType) query = query.eq("device_type", deviceType);
         if (severity) query = query.eq("severity", severity);
 

@@ -28,7 +28,7 @@ export function AdminSupportDashboard({ userId, accessToken }: AdminSupportDashb
     const [selectedId, setSelectedId] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("");
-    const [accountTypeFilter, setAccountTypeFilter] = useState("");
+    const [roleFilter, setRoleFilter] = useState<"" | "Listener" | "Artist" | "Producer">("");
     const [deviceTypeFilter, setDeviceTypeFilter] = useState("");
     const [severityFilter, setSeverityFilter] = useState("");
     const [adminNotesDraft, setAdminNotesDraft] = useState("");
@@ -49,7 +49,7 @@ export function AdminSupportDashboard({ userId, accessToken }: AdminSupportDashb
             const params = new URLSearchParams({ userId });
             if (statusFilter) params.set("status", statusFilter);
             if (categoryFilter) params.set("category", categoryFilter);
-            if (accountTypeFilter) params.set("accountType", accountTypeFilter);
+            if (roleFilter) params.set("accountType", roleFilter);
             if (deviceTypeFilter) params.set("deviceType", deviceTypeFilter);
             if (severityFilter) params.set("severity", severityFilter);
             const response = await fetch(`/api/admin/support/tickets?${params.toString()}`, {
@@ -72,7 +72,7 @@ export function AdminSupportDashboard({ userId, accessToken }: AdminSupportDashb
         }
     }, [
         accessToken,
-        accountTypeFilter,
+        roleFilter,
         categoryFilter,
         deviceTypeFilter,
         selectedId,
@@ -154,6 +154,28 @@ export function AdminSupportDashboard({ userId, accessToken }: AdminSupportDashb
 
             <div className="support-admin-filters">
                 <Filter size={15} aria-hidden="true" />
+                <div
+                    aria-label={t("support.filterAccountType")}
+                    className="support-admin-role-filters"
+                    role="group"
+                >
+                    {([
+                        ["", "support.filterRoleAll"],
+                        ["Listener", "support.filterRoleListener"],
+                        ["Artist", "support.filterRoleArtist"],
+                        ["Producer", "support.filterRoleProducer"],
+                    ] as const).map(([value, labelKey]) => (
+                        <button
+                            aria-pressed={roleFilter === value}
+                            className={roleFilter === value ? "active" : ""}
+                            key={value || "all"}
+                            onClick={() => setRoleFilter(value)}
+                            type="button"
+                        >
+                            {t(labelKey as "support.filterRoleAll")}
+                        </button>
+                    ))}
+                </div>
                 <select onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
                     <option value="">{t("support.filterStatus")}</option>
                     {SUPPORT_TICKET_STATUSES.map((status) => (
@@ -166,11 +188,6 @@ export function AdminSupportDashboard({ userId, accessToken }: AdminSupportDashb
                         <option key={category} value={category}>{category}</option>
                     ))}
                 </select>
-                <input
-                    onChange={(event) => setAccountTypeFilter(event.target.value)}
-                    placeholder={t("support.filterAccountType")}
-                    value={accountTypeFilter}
-                />
                 <input
                     onChange={(event) => setDeviceTypeFilter(event.target.value)}
                     placeholder={t("support.filterDeviceType")}

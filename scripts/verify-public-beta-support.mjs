@@ -33,6 +33,8 @@ function record(name, ok, detail = "") {
 const migration = read("supabase/migrations/202609131400_public_beta_support_tickets.sql");
 const ticketsRoute = read("app/api/support/tickets/route.ts");
 const adminRoute = read("app/api/admin/support/tickets/route.ts");
+const adminDashboard = read("components/support/admin-support-dashboard.tsx");
+const supportTicketsLib = read("lib/support-tickets.ts");
 const errorsRoute = read("app/api/platform/errors/route.ts");
 const en = read("lib/i18n/messages/en.ts");
 const page = read("app/page.tsx");
@@ -47,6 +49,9 @@ record("platform errors auth on GET user", errorsRoute.includes("requireMatching
 record("upload error CTA", page.includes("Report this upload problem"));
 record("profile support panel", page.includes("SupportReportPanel"));
 record("admin dashboard wired", page.includes("AdminSupportDashboard"));
+record("admin role filter UI", adminDashboard.includes("support-admin-role-filters") && adminDashboard.includes("filterRoleListener"));
+record("admin role filter API", adminRoute.includes("resolveSupportAccountTypeFilter"));
+record("role filter resolver", supportTicketsLib.includes("resolveSupportAccountTypeFilter"));
 
 const supportKeys = [
     "support.title",

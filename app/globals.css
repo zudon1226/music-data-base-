@@ -851,6 +851,33 @@ body {
   max-width: 100%;
 }
 
+.support-admin-role-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+  max-width: 100%;
+}
+
+.support-admin-role-filters button {
+  flex: 1 1 auto;
+  min-width: 72px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.support-admin-role-filters button.active {
+  border-color: #98ef28;
+  background: rgba(152, 239, 40, 0.12);
+  font-weight: 700;
+}
+
 .support-report-form label,
 .support-admin-detail label {
   display: grid;
