@@ -343,7 +343,10 @@ export const viMessages: LocaleMessageDictionary = {
             mute: "Tắt tiếng",
             unmute: "Bật tiếng",
             playbackProgress: "Tiến trình phát",
-            queueCount: "Hàng đợi {count}"
+            queueCount: "Hàng đợi {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video",

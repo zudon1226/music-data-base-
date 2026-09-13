@@ -343,7 +343,10 @@ export const skMessages: LocaleMessageDictionary = {
             mute: "Stlmiť",
             unmute: "Zapnúť zvuk",
             playbackProgress: "Priebeh prehrávania",
-            queueCount: "Fronta {count}"
+            queueCount: "Fronta {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videá",

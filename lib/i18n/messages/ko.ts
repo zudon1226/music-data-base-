@@ -343,7 +343,10 @@ export const koMessages: LocaleMessageDictionary = {
             mute: "음소거",
             unmute: "음소거 해제",
             playbackProgress: "재생 진행률",
-            queueCount: "대기열 {count}"
+            queueCount: "대기열 {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "동영상",

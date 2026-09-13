@@ -343,7 +343,10 @@ export const lvMessages: LocaleMessageDictionary = {
             mute: "Izslēgt skaņu",
             unmute: "Ieslēgt skaņu",
             playbackProgress: "Atskaņošanas progress",
-            queueCount: "Rinda {count}"
+            queueCount: "Rinda {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video",

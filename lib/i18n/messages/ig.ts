@@ -343,7 +343,10 @@ export const igMessages: LocaleMessageDictionary = {
             mute: "Gbanyụọ olu",
             unmute: "Gbanye olu",
             playbackProgress: "Ọganihu egwu",
-            queueCount: "Ahịrị ọdụ {count}"
+            queueCount: "Ahịrị ọdụ {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Vidiyo",

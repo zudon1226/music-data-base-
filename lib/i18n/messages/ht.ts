@@ -343,7 +343,10 @@ export const htMessages: LocaleMessageDictionary = {
             mute: "Silans",
             unmute: "Retabli son",
             playbackProgress: "Pwogrè lekti",
-            queueCount: "Fil {count}"
+            queueCount: "Fil {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videyo",

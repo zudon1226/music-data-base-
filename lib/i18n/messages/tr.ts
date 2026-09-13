@@ -343,7 +343,10 @@ export const trMessages: LocaleMessageDictionary = {
             mute: "Sessiz",
             unmute: "Sesi aç",
             playbackProgress: "Oynatma ilerlemesi",
-            queueCount: "Kuyruk {count}"
+            queueCount: "Kuyruk {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videolar",

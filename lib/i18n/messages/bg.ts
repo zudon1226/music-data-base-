@@ -343,7 +343,10 @@ export const bgMessages: LocaleMessageDictionary = {
             mute: "Заглуши",
             unmute: "Включи звука",
             playbackProgress: "Напредък на възпроизвеждането",
-            queueCount: "Опашка {count}"
+            queueCount: "Опашка {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Видеа",

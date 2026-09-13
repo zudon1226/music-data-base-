@@ -343,7 +343,10 @@ export const slMessages: LocaleMessageDictionary = {
             mute: "Utišaj",
             unmute: "Vklopi zvok",
             playbackProgress: "Napredek predvajanja",
-            queueCount: "Vrsta {count}"
+            queueCount: "Vrsta {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videoposnetki",

@@ -343,7 +343,10 @@ export const elMessages: LocaleMessageDictionary = {
             mute: "Σίγαση",
             unmute: "Ενεργοποίηση ήχου",
             playbackProgress: "Πρόοδος αναπαραγωγής",
-            queueCount: "Ουρά {count}"
+            queueCount: "Ουρά {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Βίντεο",

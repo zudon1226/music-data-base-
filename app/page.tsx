@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
-import { BarChart3, Bell, BookOpen, Check, ArrowLeft, ChevronDown, ChevronUp, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Mic2, Pause, Play, Plus, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
+import { BarChart3, Bell, BookOpen, Check, ArrowLeft, ChevronDown, ChevronUp, Clock3, Copy, Disc3, Edit3, Film, Heart, ListMusic, LogIn, LogOut, MessageCircle, Mic2, Pause, Play, Plus, Radio, RotateCcw, Search, Share2, Shuffle, SkipBack, SkipForward, Trash2, Upload, User, UserCircle, UserPlus, Volume2, X, Zap, } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { type ChangeEvent, type FormEvent, type ReactNode, type SyntheticEvent, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, } from "react";
@@ -162,6 +162,13 @@ import { useTranslation } from "../lib/i18n/provider";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { isSongQueueItem, isVideoQueueItem, normalizeSongToQueueItem, normalizeVideoToQueueItem, songToQueueMedia, videoToQueueMedia, type QueueMediaItem } from "../lib/desktop-media-queue";
 import { useDesktopMediaQueue } from "../lib/use-desktop-media-queue";
+import {
+    hasUserInitiatedPlayback,
+    markUserInitiatedPlayback,
+    pickAutoplayNextSong,
+    readAutoplayEnabled,
+    writeAutoplayEnabled,
+} from "../lib/player-autoplay";
 import { createDesktopSupabaseAuthClient } from "../lib/supabase-auth-client";
 import {
     buildSharedVideoPlayerConfig,
@@ -4090,6 +4097,12 @@ function PageContent({
     }, [desktopRuntime]);
     const [shuffleOn, setShuffleOn] = useState(false);
     const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
+    const [autoplayOn, setAutoplayOn] = useState(false);
+    const playbackUserInitiatedRef = useRef(false);
+    useLayoutEffect(() => {
+        setAutoplayOn(readAutoplayEnabled());
+        playbackUserInitiatedRef.current = hasUserInitiatedPlayback();
+    }, []);
     const {
         mediaQueueItems,
         mediaQueueActiveIndex,
@@ -10962,6 +10975,7 @@ function PageContent({
     }
 
     function playSong(song: Song, options: { preserveAlbumPlayback?: boolean } = {}) {
+        notePlaybackUserInitiated();
         // Never route video media through the audio-only bottom player.
         if (isVideoSong(song)) {
             playVideo(mapSavedSongVideoToVideoItem(song), "Song Card Video");
@@ -11125,6 +11139,46 @@ function PageContent({
         const availableSongs = playbackList.filter((song) => song.id !== currentSong?.id);
         return pickRandomItem(availableSongs) || playbackList[0];
     }
+    function notePlaybackUserInitiated() {
+        playbackUserInitiatedRef.current = true;
+        markUserInitiatedPlayback();
+    }
+    function canUseAutoplayContinuation() {
+        return autoplayOn && (playbackUserInitiatedRef.current || hasUserInitiatedPlayback());
+    }
+    function getAutoplayEligibleCatalog() {
+        const source = libraryContentSongs.length > 0 ? libraryContentSongs : uniqueSongs(audioSongs);
+        return source.filter((song) => !isVideoSong(song) && isPublicAudioUrl(getAudioPlaybackUrl(song)));
+    }
+    function stopMusicPlaybackAtEnd() {
+        setIsPlaying(false);
+        setProgress(0);
+    }
+    function continueAutoplayFromCatalog() {
+        const catalog = getAutoplayEligibleCatalog();
+        if (catalog.length === 0) {
+            return false;
+        }
+        const nextSongCandidate = shuffleOn
+            ? getRandomNextSong(catalog)
+            : pickAutoplayNextSong(catalog, currentSong?.id, false, pickRandomItem);
+        if (!nextSongCandidate) {
+            return false;
+        }
+        const audioUrl = getAudioPlaybackUrl(nextSongCandidate);
+        if (!isPublicAudioUrl(audioUrl)) {
+            return false;
+        }
+        playSong(nextSongCandidate);
+        return true;
+    }
+    function toggleAutoplay() {
+        setAutoplayOn((current) => {
+            const next = !current;
+            writeAutoplayEnabled(next);
+            return next;
+        });
+    }
     function pauseVideoPlayer() {
         pauseVisibleVideo("pauseVideoPlayer", "pause helper", false);
     }
@@ -11220,6 +11274,7 @@ function PageContent({
             await audioRef.current.play();
             if (musicPlayRequestRef.current !== playRequestId)
                 return;
+            notePlaybackUserInitiated();
             setIsPlaying(true);
         }
         catch (error) {
@@ -11278,6 +11333,18 @@ function PageContent({
                 playQueuedMediaItem(nextItem);
                 return;
             }
+            if (repeatMode === "all") {
+                const firstQueueItem = mediaQueueItems[0];
+                if (firstQueueItem) {
+                    playQueuedMediaItem(firstQueueItem);
+                    return;
+                }
+            }
+            if (canUseAutoplayContinuation() && continueAutoplayFromCatalog()) {
+                return;
+            }
+            stopMusicPlaybackAtEnd();
+            return;
         }
         if (activeAlbumPlayback && currentSong) {
             const currentAlbumIndex = activeAlbumPlayback.tracks.findIndex((track) => track.type === "song" && track.id === currentSong.id);
@@ -11295,14 +11362,22 @@ function PageContent({
         const playbackList = getPlaybackList();
         const currentIndex = playbackList.findIndex((song) => song.id === currentSong?.id);
         const isLastTrack = currentIndex >= 0 && currentIndex === playbackList.length - 1;
+        if (repeatMode === "all") {
+            nextSong();
+            return;
+        }
         if (repeatMode === "off" && !shuffleOn && isLastTrack) {
-            setIsPlaying(false);
-            setProgress(0);
+            if (canUseAutoplayContinuation() && continueAutoplayFromCatalog()) {
+                return;
+            }
+            stopMusicPlaybackAtEnd();
             return;
         }
         if (repeatMode === "off" && shuffleOn && playbackList.length <= 1) {
-            setIsPlaying(false);
-            setProgress(0);
+            if (canUseAutoplayContinuation() && continueAutoplayFromCatalog()) {
+                return;
+            }
+            stopMusicPlaybackAtEnd();
             return;
         }
         nextSong();
@@ -23019,6 +23094,18 @@ function PageContent({
               >
                 <RotateCcw size={16}/>
                 {repeatMode === "one" && <span className="repeat-one">1</span>}
+              </button>
+
+              <button
+                type="button"
+                className={`player-autoplay-control${autoplayOn ? " mode-on" : ""}`}
+                onClick={toggleAutoplay}
+                title={autoplayOn ? t("player.autoplayOn") : t("player.autoplayOff")}
+                aria-label={autoplayOn ? t("player.autoplayOn") : t("player.autoplayOff")}
+                aria-pressed={autoplayOn}
+                data-player-control="autoplay"
+              >
+                <Radio size={16}/>
               </button>
             </div>
 
@@ -38332,6 +38419,7 @@ function PageContent({
 
             .music-bottom-player .player-controls > .player-shuffle-control,
             .music-bottom-player .player-controls > .player-repeat-control,
+            .music-bottom-player .player-controls > .player-autoplay-control,
             .music-bottom-player .player-controls > button:first-child,
             .music-bottom-player .player-controls > button:last-child {
               display: grid !important;
@@ -38502,7 +38590,8 @@ function PageContent({
             }
 
             .music-bottom-player .player-controls > .player-shuffle-control,
-            .music-bottom-player .player-controls > .player-repeat-control {
+            .music-bottom-player .player-controls > .player-repeat-control,
+            .music-bottom-player .player-controls > .player-autoplay-control {
               display: flex !important;
               width: 28px !important;
               height: 28px !important;

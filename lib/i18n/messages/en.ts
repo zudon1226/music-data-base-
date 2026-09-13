@@ -297,6 +297,9 @@ export const enMessages = {
         unmute: "Unmute",
         playbackProgress: "Playback progress",
         queueCount: "Queue {count}",
+        autoplay: "Autoplay",
+        autoplayOn: "Autoplay on",
+        autoplayOff: "Autoplay off",
     },
     video: {
         title: "Videos",

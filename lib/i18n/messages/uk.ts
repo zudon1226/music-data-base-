@@ -343,7 +343,10 @@ export const ukMessages: LocaleMessageDictionary = {
             mute: "Без звуку",
             unmute: "Увімкнути звук",
             playbackProgress: "Прогрес відтворення",
-            queueCount: "Черга {count}"
+            queueCount: "Черга {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Відео",

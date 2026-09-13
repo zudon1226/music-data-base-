@@ -343,7 +343,10 @@ export const fiMessages: LocaleMessageDictionary = {
             mute: "Mykistä",
             unmute: "Poista mykistys",
             playbackProgress: "Toiston edistyminen",
-            queueCount: "Jono {count}"
+            queueCount: "Jono {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videot",

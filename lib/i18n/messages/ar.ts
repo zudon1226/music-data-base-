@@ -343,7 +343,10 @@ export const arMessages: LocaleMessageDictionary = {
             mute: "كتم",
             unmute: "إلغاء الكتم",
             playbackProgress: "تقدّم التشغيل",
-            queueCount: "قائمة الانتظار {count}"
+            queueCount: "قائمة الانتظار {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "الفيديوهات",

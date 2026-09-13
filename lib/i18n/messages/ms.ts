@@ -343,7 +343,10 @@ export const msMessages: LocaleMessageDictionary = {
             mute: "Senyapkan",
             unmute: "Nyahsenyap",
             playbackProgress: "Kemajuan main balik",
-            queueCount: "Barisan {count}"
+            queueCount: "Barisan {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video",

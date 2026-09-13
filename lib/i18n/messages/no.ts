@@ -343,7 +343,10 @@ export const noMessages: LocaleMessageDictionary = {
             mute: "Demp",
             unmute: "Opphev demping",
             playbackProgress: "Avspillingsfremdrift",
-            queueCount: "Kø {count}"
+            queueCount: "Kø {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videoer",

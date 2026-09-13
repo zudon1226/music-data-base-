@@ -343,7 +343,10 @@ export const teMessages: LocaleMessageDictionary = {
             mute: "మ్యూట్",
             unmute: "అన్‌మ్యూట్",
             playbackProgress: "ప్లేబ్యాక్ పురోగతి",
-            queueCount: "క్యూ {count}"
+            queueCount: "క్యూ {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "వీడియోలు",

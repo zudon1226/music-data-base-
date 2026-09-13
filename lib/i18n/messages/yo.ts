@@ -343,7 +343,10 @@ export const yoMessages: LocaleMessageDictionary = {
             mute: "Pa ohùn",
             unmute: "Tẹ́ ohùn",
             playbackProgress: "Ìlọ́sẹ̀wọ́n ìṣẹ́jọ́",
-            queueCount: "Ìlà {count}"
+            queueCount: "Ìlà {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Àwọn fidio",

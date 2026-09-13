@@ -343,7 +343,10 @@ export const idMessages: LocaleMessageDictionary = {
             mute: "Bisukan",
             unmute: "Suarakan",
             playbackProgress: "Progres pemutaran",
-            queueCount: "Antrean {count}"
+            queueCount: "Antrean {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video",

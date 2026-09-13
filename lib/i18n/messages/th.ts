@@ -343,7 +343,10 @@ export const thMessages: LocaleMessageDictionary = {
             mute: "ปิดเสียง",
             unmute: "เปิดเสียง",
             playbackProgress: "ความคืบหน้าการเล่น",
-            queueCount: "คิว {count}"
+            queueCount: "คิว {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "วิดีโอ",

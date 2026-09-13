@@ -343,7 +343,10 @@ export const plMessages: LocaleMessageDictionary = {
             mute: "Wycisz",
             unmute: "Włącz dźwięk",
             playbackProgress: "Postęp odtwarzania",
-            queueCount: "Kolejka {count}"
+            queueCount: "Kolejka {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Wideo",

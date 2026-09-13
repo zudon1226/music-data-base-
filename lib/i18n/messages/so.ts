@@ -343,7 +343,10 @@ export const soMessages: LocaleMessageDictionary = {
             mute: "Aamus",
             unmute: "Dheh",
             playbackProgress: "Horumarka ciyaarista",
-            queueCount: "Safka {count}"
+            queueCount: "Safka {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Muuqaalada",

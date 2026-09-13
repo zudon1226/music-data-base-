@@ -343,7 +343,10 @@ export const urMessages: LocaleMessageDictionary = {
             mute: "میوٹ",
             unmute: "ان میوٹ",
             playbackProgress: "پلے بیک پیشرفت",
-            queueCount: "قطار {count}"
+            queueCount: "قطار {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "ویڈیوز",

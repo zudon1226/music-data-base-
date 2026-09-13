@@ -343,7 +343,10 @@ export const daMessages: LocaleMessageDictionary = {
             mute: "Slå lyd fra",
             unmute: "Slå lyd til",
             playbackProgress: "Afspilningsfremskridt",
-            queueCount: "Kø {count}"
+            queueCount: "Kø {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videoer",

@@ -343,7 +343,10 @@ export const jaMessages: LocaleMessageDictionary = {
             mute: "ミュート",
             unmute: "ミュート解除",
             playbackProgress: "再生進行状況",
-            queueCount: "キュー {count}"
+            queueCount: "キュー {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "動画",

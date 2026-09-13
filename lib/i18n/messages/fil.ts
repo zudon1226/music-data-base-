@@ -343,7 +343,10 @@ export const filMessages: LocaleMessageDictionary = {
             mute: "I-mute",
             unmute: "I-unmute",
             playbackProgress: "Progreso ng pag-play",
-            queueCount: "Pila {count}"
+            queueCount: "Pila {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Mga video",

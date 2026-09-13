@@ -343,7 +343,10 @@ export const sqMessages: LocaleMessageDictionary = {
             mute: "Heshto",
             unmute: "Aktivizo zërin",
             playbackProgress: "Ecuria e luajtjes",
-            queueCount: "Radha {count}"
+            queueCount: "Radha {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videot",

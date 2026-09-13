@@ -343,7 +343,10 @@ export const esMessages: LocaleMessageDictionary = {
             mute: "Silenciar",
             unmute: "Activar sonido",
             playbackProgress: "Progreso de reproducción",
-            queueCount: "Cola {count}"
+            queueCount: "Cola {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Vídeos",

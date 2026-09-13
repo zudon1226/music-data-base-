@@ -343,7 +343,10 @@ export const neMessages: LocaleMessageDictionary = {
             mute: "म्यूट",
             unmute: "अनम्यूट",
             playbackProgress: "प्लेब्याक प्रगति",
-            queueCount: "कतार {count}"
+            queueCount: "कतार {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "भिडियोहरू",

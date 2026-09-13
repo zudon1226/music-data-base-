@@ -343,7 +343,10 @@ export const amMessages: LocaleMessageDictionary = {
             mute: "ድምጽ ያጥፉ",
             unmute: "ያልተስተካከለ",
             playbackProgress: "መልሶ ማጫወት እድገት",
-            queueCount: "Que {count}"
+            queueCount: "Que {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "ቪዲዮዎች",

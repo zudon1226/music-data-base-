@@ -343,7 +343,10 @@ export const huMessages: LocaleMessageDictionary = {
             mute: "Némítás",
             unmute: "Némítás feloldása",
             playbackProgress: "Lejátszási folyamat",
-            queueCount: "Várólista {count}"
+            queueCount: "Várólista {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videók",

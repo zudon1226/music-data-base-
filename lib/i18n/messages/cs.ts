@@ -343,7 +343,10 @@ export const csMessages: LocaleMessageDictionary = {
             mute: "Ztlumit",
             unmute: "Zapnout zvuk",
             playbackProgress: "Průběh přehrávání",
-            queueCount: "Fronta {count}"
+            queueCount: "Fronta {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videa",

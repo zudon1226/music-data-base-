@@ -343,7 +343,10 @@ export const hrMessages: LocaleMessageDictionary = {
             mute: "Isključi zvuk",
             unmute: "Uključi zvuk",
             playbackProgress: "Napredak reprodukcije",
-            queueCount: "Red {count}"
+            queueCount: "Red {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videozapisi",

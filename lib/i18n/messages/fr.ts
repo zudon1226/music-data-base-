@@ -343,7 +343,10 @@ export const frMessages: LocaleMessageDictionary = {
             mute: "Couper le son",
             unmute: "Activer le son",
             playbackProgress: "Progression de lecture",
-            queueCount: "File {count}"
+            queueCount: "File {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Vidéos",

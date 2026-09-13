@@ -343,7 +343,10 @@ export const ruMessages: LocaleMessageDictionary = {
             mute: "Без звука",
             unmute: "Включить звук",
             playbackProgress: "Прогресс воспроизведения",
-            queueCount: "Очередь {count}"
+            queueCount: "Очередь {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Видео",

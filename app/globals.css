@@ -412,6 +412,7 @@ body {
   /* Keep Shuffle + Repeat visible; slightly smaller than transport controls. */
   .fixed-mobile-player.fixed-mobile-player .player-controls > .player-shuffle-control,
   .fixed-mobile-player.fixed-mobile-player .player-controls > .player-repeat-control,
+  .fixed-mobile-player.fixed-mobile-player .player-controls > .player-autoplay-control,
   .fixed-mobile-player.fixed-mobile-player .player-controls > button:first-child,
   .fixed-mobile-player.fixed-mobile-player .player-controls > button:last-child {
     display: grid !important;

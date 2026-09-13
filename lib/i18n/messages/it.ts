@@ -343,7 +343,10 @@ export const itMessages: LocaleMessageDictionary = {
             mute: "Silenzia",
             unmute: "Riattiva audio",
             playbackProgress: "Avanzamento riproduzione",
-            queueCount: "Coda {count}"
+            queueCount: "Coda {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video",

@@ -343,7 +343,10 @@ export const ltMessages: LocaleMessageDictionary = {
             mute: "Išjungti garsą",
             unmute: "Įjungti garsą",
             playbackProgress: "Atkūrimo eiga",
-            queueCount: "Eilė {count}"
+            queueCount: "Eilė {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Vaizdo įrašai",

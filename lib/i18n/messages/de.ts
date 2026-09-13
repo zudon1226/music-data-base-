@@ -343,7 +343,10 @@ export const deMessages: LocaleMessageDictionary = {
             mute: "Stummschalten",
             unmute: "Ton aktivieren",
             playbackProgress: "Wiedergabefortschritt",
-            queueCount: "Warteschlange {count}"
+            queueCount: "Warteschlange {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video",

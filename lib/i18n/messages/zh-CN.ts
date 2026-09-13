@@ -343,7 +343,10 @@ export const zhCNMessages: LocaleMessageDictionary = {
             mute: "静音",
             unmute: "取消静音",
             playbackProgress: "播放进度",
-            queueCount: "队列 {count}"
+            queueCount: "队列 {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "视频",

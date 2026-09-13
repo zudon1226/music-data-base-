@@ -343,7 +343,10 @@ export const bnMessages: LocaleMessageDictionary = {
             mute: "মিউট",
             unmute: "আনমিউট",
             playbackProgress: "প্লেব্যাক অগ্রগতি",
-            queueCount: "কিউ {count}"
+            queueCount: "কিউ {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "ভিডিও",

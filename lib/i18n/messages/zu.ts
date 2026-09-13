@@ -343,7 +343,10 @@ export const zuMessages: LocaleMessageDictionary = {
             mute: "Thulisa",
             unmute: "Vula umsindo",
             playbackProgress: "Inqubekela phambili yokudlala",
-            queueCount: "Ulayini {count}"
+            queueCount: "Ulayini {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Amavidiyo",

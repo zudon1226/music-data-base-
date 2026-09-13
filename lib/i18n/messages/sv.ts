@@ -343,7 +343,10 @@ export const svMessages: LocaleMessageDictionary = {
             mute: "Ljud av",
             unmute: "Ljud på",
             playbackProgress: "Uppspelningsförlopp",
-            queueCount: "Kö {count}"
+            queueCount: "Kö {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videor",

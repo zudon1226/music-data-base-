@@ -343,7 +343,10 @@ export const heMessages: LocaleMessageDictionary = {
             mute: "השתק",
             unmute: "בטל השתקה",
             playbackProgress: "התקדמות השמעה",
-            queueCount: "תור {count}"
+            queueCount: "תור {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "סרטונים",

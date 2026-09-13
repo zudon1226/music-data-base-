@@ -343,7 +343,10 @@ export const paMessages: LocaleMessageDictionary = {
             mute: "ਮ੍ਯੂਟ",
             unmute: "ਅਨਮ੍ਯੂਟ",
             playbackProgress: "ਪ੍ਲੇਬੈਕ ਪ੍ਰਗਤਿ",
-            queueCount: "ਕਤਾਰ {count}"
+            queueCount: "ਕਤਾਰ {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "ਵੀਡਿਯੋ",

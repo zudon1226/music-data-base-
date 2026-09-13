@@ -343,7 +343,10 @@ export const guMessages: LocaleMessageDictionary = {
             mute: "મ્યૂટ",
             unmute: "અનમ્યૂટ",
             playbackProgress: "પ્લેબૈક પ્રગતિ",
-            queueCount: "કતાર {count}"
+            queueCount: "કતાર {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "વીડિયો",

@@ -343,7 +343,10 @@ export const swMessages: LocaleMessageDictionary = {
             mute: "Nyamazisha",
             unmute: "Rejesha sauti",
             playbackProgress: "Maendeleo ya uchezaji",
-            queueCount: "Foleni {count}"
+            queueCount: "Foleni {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video",

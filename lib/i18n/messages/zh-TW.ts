@@ -343,7 +343,10 @@ export const zhTWMessages: LocaleMessageDictionary = {
             mute: "靜音",
             unmute: "取消靜音",
             playbackProgress: "播放進度",
-            queueCount: "佇列 {count}"
+            queueCount: "佇列 {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "影片",

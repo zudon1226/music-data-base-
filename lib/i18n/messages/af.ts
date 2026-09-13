@@ -343,7 +343,10 @@ export const afMessages: LocaleMessageDictionary = {
             mute: "Demp",
             unmute: "Ontdemp",
             playbackProgress: "Terugspeelvordering",
-            queueCount: "Waglys {count}"
+            queueCount: "Waglys {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video's",

@@ -343,7 +343,10 @@ export const roMessages: LocaleMessageDictionary = {
             mute: "Dezactivează sunetul",
             unmute: "Activează sunetul",
             playbackProgress: "Progres redare",
-            queueCount: "Coadă {count}"
+            queueCount: "Coadă {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videoclipuri",

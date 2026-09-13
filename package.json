@@ -71,6 +71,7 @@
     "verify:add-to-playlist-modal-closes-on-nav": "node scripts/verify-add-to-playlist-modal-closes-on-nav.mjs",
     "verify:queue-boundaries": "node scripts/verify-queue-boundary-controls.mjs",
     "verify:playback": "node scripts/verify-global-player-clearance.mjs",
+    "verify:player-autoplay": "node scripts/verify-player-autoplay.mjs",
     "verify:carousel": "node scripts/verify-carousel-card-height.mjs",
     "verify:access": "node scripts/verify-account-access-pipeline.mjs",
     "verify:dashboard": "node scripts/verify-user-dashboard-phase1.mjs && node lib/dashboard/profile-fields.test.mjs",

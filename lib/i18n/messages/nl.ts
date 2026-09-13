@@ -343,7 +343,10 @@ export const nlMessages: LocaleMessageDictionary = {
             mute: "Dempen",
             unmute: "Geluid aan",
             playbackProgress: "Afspeelvoortgang",
-            queueCount: "Wachtrij {count}"
+            queueCount: "Wachtrij {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Video's",

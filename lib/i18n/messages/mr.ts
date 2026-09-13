@@ -343,7 +343,10 @@ export const mrMessages: LocaleMessageDictionary = {
             mute: "म्यूट",
             unmute: "अनम्यूट",
             playbackProgress: "प्लेबॅक प्रगती",
-            queueCount: "रांग {count}"
+            queueCount: "रांग {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "व्हिडिओ",

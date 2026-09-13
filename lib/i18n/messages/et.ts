@@ -343,7 +343,10 @@ export const etMessages: LocaleMessageDictionary = {
             mute: "Vaigista",
             unmute: "Lülita heli sisse",
             playbackProgress: "Esitamise edenemine",
-            queueCount: "Järjekord {count}"
+            queueCount: "Järjekord {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Videod",

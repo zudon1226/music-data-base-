@@ -343,7 +343,10 @@ export const ptMessages: LocaleMessageDictionary = {
             mute: "Silenciar",
             unmute: "Ativar som",
             playbackProgress: "Progresso da reprodução",
-            queueCount: "Fila {count}"
+            queueCount: "Fila {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "Vídeos",

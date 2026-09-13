@@ -343,7 +343,10 @@ export const taMessages: LocaleMessageDictionary = {
             mute: "நிசப்தம்",
             unmute: "நிசப்தம் நீக்கு",
             playbackProgress: "இயக்க முன்னேற்றம்",
-            queueCount: "வரிசை {count}"
+            queueCount: "வரிசை {count}",
+            autoplay: "Autoplay",
+            autoplayOn: "Autoplay on",
+            autoplayOff: "Autoplay off",
         },
     video: {
             title: "வீடியோக்கள்",
