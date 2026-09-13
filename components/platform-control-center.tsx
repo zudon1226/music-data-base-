@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Activity, BarChart3, Music2, RefreshCw, ShieldAlert, Trash2, Users } from "lucide-react";
+import { AdminSupportDashboard } from "./support/admin-support-dashboard";
 import { FoundingOnboardingAdminPanel } from "./founding-onboarding-admin-panel";
 import { TestAccountCleanupCenter } from "./test-account-cleanup-center";
 import { RingtoneReviewQueue } from "./ringtone-review/ringtone-review-queue";
@@ -252,6 +253,10 @@ export function PlatformControlCenter({
                     accessToken={accessToken}
                     refreshToken={refreshToken}
                 />
+            </section>
+
+            <section className="stability-panel control-center-panel" id="beta-support-dashboard">
+                <AdminSupportDashboard accessToken={accessToken} userId={userId} />
             </section>
 
             <section className="stability-panel control-center-panel" id="founding-onboarding-controls">

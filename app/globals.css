@@ -842,3 +842,78 @@ body {
   font-weight: 800;
   text-decoration: underline;
 }
+
+.support-report-panel .support-report-form,
+.support-admin-panel .support-admin-filters {
+  display: grid;
+  gap: 12px;
+  max-width: 100%;
+}
+
+.support-report-form label,
+.support-admin-detail label {
+  display: grid;
+  gap: 6px;
+}
+
+.support-report-form input,
+.support-report-form select,
+.support-report-form textarea,
+.support-admin-filters input,
+.support-admin-filters select,
+.support-admin-detail textarea,
+.support-admin-detail select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.support-ticket-list,
+.support-admin-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.support-ticket-list li,
+.support-admin-list li button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  width: 100%;
+}
+
+.support-admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px;
+}
+
+.support-admin-diagnostics {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.support-admin-diagnostics div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .support-admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .support-admin-diagnostics div {
+    grid-template-columns: 1fr;
+  }
+}

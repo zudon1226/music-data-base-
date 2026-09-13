@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { requireMatchingUserId } from "@/lib/request-auth";
+import { redactSupportText } from "@/lib/support-tickets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +11,22 @@ const VALID_CATEGORIES = new Set(["upload", "media_url", "save", "like", "playli
 const MAX_DETAILS_STRING_LENGTH = 500;
 const MAX_DETAILS_DEPTH = 4;
 const MAX_DETAILS_KEYS = 24;
+const BLOCKED_DETAIL_KEYS = new Set([
+  "authorization",
+  "cookie",
+  "cookies",
+  "password",
+  "secret",
+  "token",
+  "access_token",
+  "refresh_token",
+  "stripe",
+  "service_role",
+  "supabase_service_role_key",
+  "database_url",
+  "env",
+  "headers",
+]);
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status });
@@ -36,9 +54,10 @@ function isMissingTable(error: unknown) {
 function sanitizeDetailsValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
   if (value == null || typeof value === "number" || typeof value === "boolean") return value;
   if (typeof value === "string") {
-    return value.length > MAX_DETAILS_STRING_LENGTH || value.includes("base64,")
-      ? `${value.slice(0, MAX_DETAILS_STRING_LENGTH)}... [truncated]`
-      : value;
+    const redacted = redactSupportText(value, MAX_DETAILS_STRING_LENGTH);
+    return redacted.length > MAX_DETAILS_STRING_LENGTH || redacted.includes("base64,")
+      ? `${redacted.slice(0, MAX_DETAILS_STRING_LENGTH)}... [truncated]`
+      : redacted;
   }
   if (typeof value === "bigint") return value.toString();
   if (typeof value === "function" || typeof value === "symbol") return `[${typeof value} removed]`;
@@ -63,6 +82,10 @@ function sanitizeDetailsValue(value: unknown, depth = 0, seen = new WeakSet<obje
     const entries = Object.entries(value as Record<string, unknown>);
     const result: Record<string, unknown> = {};
     entries.slice(0, MAX_DETAILS_KEYS).forEach(([key, item]) => {
+      if (BLOCKED_DETAIL_KEYS.has(String(key).toLowerCase())) {
+        result[key] = "[redacted]";
+        return;
+      }
       result[key] = sanitizeDetailsValue(item, depth + 1, seen);
     });
     if (entries.length > MAX_DETAILS_KEYS) result.truncatedKeys = entries.length - MAX_DETAILS_KEYS;
@@ -95,6 +118,10 @@ export async function GET(request: Request) {
     const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
     if (userId && !isUuid(userId)) {
       return jsonResponse({ error: "Invalid user id." }, 400);
+    }
+    if (userId) {
+      const auth = await requireMatchingUserId(request, "/api/platform/errors", userId);
+      if (!auth.ok) return jsonResponse({ error: auth.error, errors: [] }, auth.status);
     }
 
     const supabase = getSupabaseServerClient();
@@ -135,7 +162,12 @@ export async function POST(request: Request) {
     const details = sanitizeDetails(body.details);
 
     if (userId && !isUuid(userId)) return jsonResponse({ error: "Invalid user id." }, 400);
+    if (userId) {
+      const auth = await requireMatchingUserId(request, "/api/platform/errors", userId);
+      if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+    }
     if (!message) return jsonResponse({ error: "Error message is required." }, 400);
+    const safeMessage = redactSupportText(message, 2000);
 
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
@@ -146,7 +178,7 @@ export async function POST(request: Request) {
         action,
         item_id: itemId || null,
         item_type: itemType || null,
-        message,
+        message: safeMessage,
         details,
       })
       .select(ERROR_SELECT)

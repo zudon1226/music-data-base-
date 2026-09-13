@@ -58,6 +58,13 @@ import { useMobileAutoHideHeader } from "../lib/use-mobile-auto-hide-header";
 import { useMobileCompactLayout } from "../lib/use-mobile-compact-layout";
 import { DestinationPageHeading } from "../components/destination-page-heading";
 import { UserProfileDashboard } from "../components/user-profile-dashboard";
+import { AdminSupportDashboard } from "../components/support/admin-support-dashboard";
+import { SupportReportPanel, type SupportReportPrefill } from "../components/support/support-report-panel";
+import {
+    detectSupportBrowser,
+    detectSupportDeviceType,
+    detectSupportPagePath,
+} from "../lib/support-device-detect";
 import { NotificationCenterPanel, type DashboardNotification } from "../components/notification-center-panel";
 import { ActivityFeedPanel } from "../components/dashboard/activity-feed-panel";
 import { CreatorInsightsPanel } from "../components/dashboard/creator-insights-panel";
@@ -4205,6 +4212,8 @@ function PageContent({
     const [uploadError, setUploadError] = useState("");
     const [storageSetupCopied, setStorageSetupCopied] = useState(false);
     const [uploadStatus, setUploadStatus] = useState("");
+    const [uploadSupportFormOpen, setUploadSupportFormOpen] = useState(false);
+    const [uploadSupportPrefill, setUploadSupportPrefill] = useState<SupportReportPrefill | null>(null);
     const [videoForm, setVideoForm] = useState<VideoUploadForm>({
         title: "",
         creator: "",
@@ -13683,6 +13692,25 @@ function PageContent({
         }
         return mapVideoRowToVideoItem(savedVideo);
     }
+    function buildUploadSupportPrefill(errorMessage: string): SupportReportPrefill {
+        return {
+            category: "upload",
+            subject: "Upload problem",
+            pagePath: detectSupportPagePath(),
+            accountType: accountRole,
+            deviceType: detectSupportDeviceType(),
+            browser: detectSupportBrowser(),
+            uploadType: `${creatorStudio}:${uploadMode}`,
+            fileType: uploadFile?.type || "",
+            fileSize: uploadFile?.size,
+            uploadStage: uploadStatus || "failed",
+            appErrorCode: errorMessage.slice(0, 120),
+        };
+    }
+    function openUploadSupportReport(errorMessage: string) {
+        setUploadSupportPrefill(buildUploadSupportPrefill(errorMessage));
+        setUploadSupportFormOpen(true);
+    }
     async function copyStorageSetupSql() {
         try {
             await navigator.clipboard.writeText(STORAGE_SETUP_SQL);
@@ -17569,26 +17597,11 @@ function PageContent({
           </div>
 
           <div className="support-panel-grid">
-            <div>
-              <h4>Support Queue</h4>
-              {supportTickets.length === 0 ? (<div className="dashboard-empty-card">
-                  <h3>No support tickets</h3>
-                  <p>Account, upload, billing, playback, marketplace, trust, and general tickets will appear here.</p>
-                </div>) : (<div className="monetization-list">
-                  {supportTickets.slice(0, 8).map((ticket) => (<article key={ticket.id}>
-                      <span>{ticket.category} / {ticket.priority} / {ticket.status.replace("_", " ")}</span>
-                      <strong>{ticket.title}</strong>
-                      <small>{ticket.body}</small>
-                      <small>{ticket.userName} | {formatVideoCreatedAt(ticket.createdAt)}</small>
-                      <div className="monetization-row-actions">
-                        <button onClick={() => updateSupportTicketStatus(ticket.id, "in_progress")} disabled={ticket.status === "in_progress"} type="button">Work</button>
-                        <button onClick={() => updateSupportTicketStatus(ticket.id, "waiting_on_user")} disabled={ticket.status === "waiting_on_user"} type="button">Wait</button>
-                        <button onClick={() => updateSupportTicketStatus(ticket.id, "resolved")} disabled={ticket.status === "resolved"} type="button">Resolve</button>
-                        <button onClick={() => updateSupportTicketStatus(ticket.id, "closed")} disabled={ticket.status === "closed"} type="button">Close</button>
-                      </div>
-                    </article>))}
-                </div>)}
-            </div>
+            {accountUserId && authSession?.access_token ? (
+              <div className="support-admin-embed">
+                <AdminSupportDashboard accessToken={authSession.access_token} userId={accountUserId} />
+              </div>
+            ) : null}
 
             <div>
               <h4>Status Board</h4>
@@ -18999,7 +19012,22 @@ function PageContent({
                   <button type="button" onClick={retryCurrentUpload} disabled={uploadBusy}>
                     Retry upload
                   </button>
+                  {accountUserId ? (
+                    <button type="button" onClick={() => openUploadSupportReport(uploadError)}>
+                      Report this upload problem
+                    </button>
+                  ) : null}
                 </div>
+                {uploadSupportFormOpen && accountUserId ? (
+                  <SupportReportPanel
+                    accountType={accountRole}
+                    defaultExpanded
+                    fetchFn={desktopActionFetch}
+                    onPrefillConsumed={() => setUploadSupportPrefill(null)}
+                    prefill={uploadSupportPrefill}
+                    userId={accountUserId}
+                  />
+                ) : null}
                 {isStorageSetupError(uploadError) && (<div className="upload-fix">
                     <button onClick={copyStorageSetupSql} type="button">
                       <Copy size={15}/>
@@ -20152,6 +20180,13 @@ function PageContent({
               </div>
             </div>)}
 
+            {accountUserId ? (
+              <SupportReportPanel
+                accountType={accountRole}
+                fetchFn={desktopActionFetch}
+                userId={accountUserId}
+              />
+            ) : null}
             {accountUserId ? (
               <SubscriptionBillingPanel
                 audience={accountRole === "Artist" ? "artist" : accountRole === "Producer" ? "producer" : "listener"}
