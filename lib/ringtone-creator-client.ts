@@ -14,6 +14,7 @@ import { getDesktopSupabaseClient } from "@/lib/supabase";
 export type RingtoneProduct = {
     id: string;
     creator_id: string;
+    is_personal?: boolean;
     source_song_id: string | null;
     title: string;
     description: string;
@@ -150,8 +151,57 @@ export async function fetchRingtoneEligibility(userId: string, _session: Session
         ok: parsed.ok,
         status: parsed.status,
         canCreateRingtones: parsed.body.canCreateRingtones === true,
+        canCreatePersonalRingtones: parsed.body.canCreatePersonalRingtones === true,
+        canAccessRingtoneStudio: parsed.body.canAccessRingtoneStudio === true,
+        personalOnly: parsed.body.personalOnly === true,
         error: typeof parsed.body.error === "string" ? parsed.body.error : "",
     };
+}
+
+export async function downloadPersonalRingtoneAsset(input: {
+    userId: string;
+    session: Session | null;
+    ringtoneId: string;
+    deviceType: "iphone" | "android" | "other";
+    title?: string;
+}) {
+    const response = await ringtoneAuthFetch(`/api/ringtones/${input.ringtoneId}/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            userId: input.userId,
+            deviceType: input.deviceType,
+            accessToken: input.session?.access_token || "",
+        }),
+    });
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return {
+            ok: false as const,
+            error: String((data as { error?: string }).error || "Download failed."),
+        };
+    }
+    if (contentType.includes("application/json")) {
+        const data = await response.json().catch(() => ({}));
+        return {
+            ok: false as const,
+            error: String((data as { error?: string }).error || "Download failed."),
+        };
+    }
+    const blob = await response.blob();
+    const extension = input.deviceType === "iphone" ? "m4r" : "mp3";
+    const filename = `${(input.title || "ringtone").replace(/[^\w\-]+/g, "_")}.${extension}`;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    return { ok: true as const };
 }
 
 export async function fetchMyRingtones(userId: string, _session: Session | null) {
@@ -477,9 +527,14 @@ export function createEmptyRingtoneForm(): CreateRingtoneFormState {
     };
 }
 
-export function formToSavePayload(form: CreateRingtoneFormState, submitForReview = false) {
+export function formToSavePayload(
+    form: CreateRingtoneFormState,
+    submitForReview = false,
+    options?: { personal?: boolean },
+) {
+    const personal = options?.personal === true;
     const dollars = Number(form.priceDollars);
-    let priceCents = Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN;
+    let priceCents = personal ? 0 : (Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN);
     // Draft saves tolerate blank/invalid pricing with a schema-safe $0 fallback.
     if (!submitForReview && (!Number.isFinite(priceCents) || priceCents < 0)) {
         priceCents = 0;
@@ -505,5 +560,7 @@ export function formToSavePayload(form: CreateRingtoneFormState, submitForReview
         androidAvailable: form.androidAvailable,
         // Never request processing from the save endpoint; submit uses /process.
         submitForReview: false,
+        isPersonal: personal || undefined,
+        personal: personal || undefined,
     };
 }

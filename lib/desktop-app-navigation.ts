@@ -118,7 +118,7 @@ export function evaluateDesktopNavAccess(
     if (item?.requiresCreator && !capabilities.canSales) {
         return { allowed: false, reason: "creator-required" };
     }
-    if (item?.requiresRingtoneCreator && !capabilities.canMyRingtones) {
+    if (item?.requiresRingtoneCreator && !capabilities.canMyRingtones && !capabilities.canPersonalRingtones) {
         return { allowed: false, reason: "ringtone-creator-required" };
     }
     if (!canAccessNavView(nextView, capabilities)) {

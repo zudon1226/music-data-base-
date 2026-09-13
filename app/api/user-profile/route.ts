@@ -167,6 +167,7 @@ export async function GET(request: Request) {
             canArtistDashboard: resolved.canArtistDashboard,
             canProducerDashboard: resolved.canProducerDashboard,
             canMyRingtones: resolved.canMyRingtones,
+            canPersonalRingtones: resolved.canPersonalRingtones,
             canSales: resolved.canSales,
             isListenerOnly: resolved.isListenerOnly,
             avatarUrl,

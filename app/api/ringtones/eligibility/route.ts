@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { canUserCreateRingtones } from "@/lib/ringtone-access";
+import { canUserAccessRingtoneStudio, canUserCreateRingtones } from "@/lib/ringtone-access";
+import { canUserCreatePersonalRingtones } from "@/lib/personal-ringtone-access";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
 
@@ -18,7 +19,15 @@ export async function GET(request: Request) {
         const auth = await requireMatchingUserId(request, "/api/ringtones/eligibility", userId);
         if (!auth.ok) return json({ error: auth.error, canCreateRingtones: false }, auth.status);
         const canCreateRingtones = await canUserCreateRingtones(userId);
-        return json({ canCreateRingtones, userId });
+        const canCreatePersonalRingtones = await canUserCreatePersonalRingtones(userId);
+        const canAccessRingtoneStudio = await canUserAccessRingtoneStudio(userId);
+        return json({
+            canCreateRingtones,
+            canCreatePersonalRingtones,
+            canAccessRingtoneStudio,
+            personalOnly: canCreatePersonalRingtones && !canCreateRingtones,
+            userId,
+        });
     } catch (error) {
         console.error("[api/ringtones/eligibility] GET failed:", error);
         return json({ error: getErrorMessage(error), canCreateRingtones: false }, 500);

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
-import { assertOwnsSourceSong, requireRingtoneCreator } from "@/lib/ringtone-access";
+import { assertAuthorizedSourceSong, requireRingtoneCreator, requireRingtoneStudioAccess } from "@/lib/ringtone-access";
+import { isPersonalRingtoneProduct } from "@/lib/personal-ringtone-access";
+import { assertSourceSongAllowsRingtoneSale } from "@/lib/ringtone-sale-permissions";
 import {
     RINGTONE_ACTION_FAILED_CODE,
     RINGTONE_ACTION_FAILED_MESSAGE,
@@ -124,9 +126,15 @@ export async function PATCH(request: Request, context: Params) {
         if (existing.data.creator_id !== userId && !isAdmin) {
             return json({ error: "You may only manage your own ringtone records." }, 403);
         }
+        const existingPersonal = isPersonalRingtoneProduct(existing.data as Record<string, unknown>);
         if (!isAdmin) {
-            const creator = await requireRingtoneCreator(userId);
-            if (!creator.ok) return json({ error: creator.error }, creator.status);
+            if (existingPersonal) {
+                const studio = await requireRingtoneStudioAccess(userId);
+                if (!studio.ok) return json({ error: studio.error }, studio.status);
+            } else {
+                const creator = await requireRingtoneCreator(userId);
+                if (!creator.ok) return json({ error: creator.error }, creator.status);
+            }
         }
 
         const currentStatus = String(existing.data.status || "draft") as RingtoneStatus;
@@ -156,8 +164,12 @@ export async function PATCH(request: Request, context: Params) {
                     updates.source_song_id = null;
                 } else {
                     if (!isUuid(songId)) return json({ error: "sourceSongId must be a valid owned song UUID." }, 400);
-                    const ownership = await assertOwnsSourceSong(userId, songId);
-                    if (!ownership.ok) return json({ error: ownership.error }, 403);
+                    const ownership = await assertAuthorizedSourceSong({
+                        userId,
+                        songId,
+                        isPersonal: existingPersonal,
+                    });
+                    if (!ownership.ok) return json({ error: ownership.error, code: ownership.code || "SOURCE_NOT_AUTHORIZED" }, 403);
                     updates.source_song_id = songId;
                     updates.source_kind = "owned_song";
                     updates.ownership_confirmed = true;
@@ -180,11 +192,20 @@ export async function PATCH(request: Request, context: Params) {
                 }
             }
             if (body.priceCents != null) {
+                if (existingPersonal) {
+                    return json({ error: "Personal ringtones cannot be priced for sale.", code: "FORBIDDEN" }, 403);
+                }
                 let price = validateRingtonePriceCents(body.priceCents);
                 if (!price.ok && (currentStatus === "draft" || currentStatus === "rejected")) {
                     price = validateRingtonePriceCents(0);
                 }
                 if (!price.ok) return json({ error: price.error, code: "VALIDATION_FAILED" }, 400);
+                if (price.priceCents > 0) {
+                    const saleOk = await assertSourceSongAllowsRingtoneSale(String(existing.data.source_song_id || updates.source_song_id || ""));
+                    if (!saleOk.ok) {
+                        return json({ error: saleOk.error, code: saleOk.code }, 403);
+                    }
+                }
                 updates.price_cents = price.priceCents;
             }
             if (body.currency != null) {
@@ -207,8 +228,12 @@ export async function PATCH(request: Request, context: Params) {
                     ? String(updates.source_song_id || "")
                     : String(existing.data.source_song_id || "");
                 if (nextKind === "owned_song" && nextSongId && isUuid(nextSongId)) {
-                    const ownership = await assertOwnsSourceSong(userId, nextSongId);
-                    if (!ownership.ok) return json({ error: ownership.error, code: "SOURCE_NOT_AUTHORIZED" }, 403);
+                    const ownership = await assertAuthorizedSourceSong({
+                        userId,
+                        songId: nextSongId,
+                        isPersonal: existingPersonal,
+                    });
+                    if (!ownership.ok) return json({ error: ownership.error, code: ownership.code || "SOURCE_NOT_AUTHORIZED" }, 403);
                     if (ownership.sourceDurationSeconds != null) {
                         trustedSourceDuration = ownership.sourceDurationSeconds;
                     }
@@ -255,8 +280,23 @@ export async function PATCH(request: Request, context: Params) {
                     code: "PROCESSING_REQUIRED",
                 }, 400);
             }
+            if (existingPersonal && nextStatus === "published") {
+                return json({ error: "Personal ringtones cannot be listed on the marketplace.", code: "FORBIDDEN" }, 403);
+            }
             if (!isAdmin && (nextStatus === "approved" || nextStatus === "published" || nextStatus === "suspended")) {
                 return json({ error: "Creators cannot approve, publish, or suspend ringtones.", code: "FORBIDDEN_STATUS" }, 403);
+            }
+            if (isAdmin && nextStatus === "published") {
+                if (existingPersonal) {
+                    return json({ error: "Personal ringtones cannot be published to the marketplace.", code: "FORBIDDEN" }, 403);
+                }
+                const priceCents = Number(updates.price_cents ?? existing.data.price_cents) || 0;
+                if (priceCents > 0) {
+                    const saleOk = await assertSourceSongAllowsRingtoneSale(String(existing.data.source_song_id || ""));
+                    if (!saleOk.ok) {
+                        return json({ error: saleOk.error, code: saleOk.code }, 403);
+                    }
+                }
             }
             if (isAdmin) {
                 if (!canAdminTransitionStatus(currentStatus, nextStatus)) {
@@ -359,9 +399,21 @@ export async function DELETE(request: Request, context: Params) {
         if (!auth.ok) return json({ error: auth.error }, auth.status);
 
         const isAdmin = await isAdminUserId(userId);
+        const supabase = getSupabaseServerClient();
+        const existing = await supabase.from("ringtone_products").select("creator_id,is_personal").eq("id", id).maybeSingle();
+        if (existing.error || !existing.data) return json({ error: "Ringtone not found." }, 404);
+        if (!isAdmin && String(existing.data.creator_id) !== userId) {
+            return json({ error: "You may only manage your own ringtone records." }, 403);
+        }
         if (!isAdmin) {
-            const creator = await requireRingtoneCreator(userId);
-            if (!creator.ok) return json({ error: creator.error }, creator.status);
+            const personal = isPersonalRingtoneProduct(existing.data as Record<string, unknown>);
+            if (personal) {
+                const studio = await requireRingtoneStudioAccess(userId);
+                if (!studio.ok) return json({ error: studio.error }, studio.status);
+            } else {
+                const creator = await requireRingtoneCreator(userId);
+                if (!creator.ok) return json({ error: creator.error }, creator.status);
+            }
         }
 
         const result = await deleteOrArchiveRingtoneProduct({

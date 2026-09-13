@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
 import { assertMarketplaceRingtoneDownloadAllowed } from "@/lib/public-beta-ringtone-purchase";
 import { buyerHasPaidRingtonePurchase } from "@/lib/ringtone-access";
+import { assertPersonalRingtoneDownloadAllowed, isPersonalRingtoneProduct } from "@/lib/personal-ringtone-access";
 import { RINGTONE_DEVICE_TYPES, RINGTONE_STORAGE_BUCKETS, type RingtoneDeviceType } from "@/lib/ringtone-constants";
 import {
     buildRingtoneContentDisposition,
@@ -67,18 +68,36 @@ export async function POST(request: Request, context: Params) {
         const supabase = getSupabaseServerClient();
         const product = await supabase
             .from("ringtone_products")
-            .select("id,creator_id,status,title,price_cents,android_storage_path,iphone_storage_path,download_storage_path")
+            .select("id,creator_id,status,title,price_cents,is_personal,source_song_id,android_storage_path,iphone_storage_path,download_storage_path")
             .eq("id", ringtoneId)
             .maybeSingle();
         if (product.error) return json({ error: getErrorMessage(product.error) }, 500);
         if (!product.data) return json({ error: "Ringtone not found." }, 404);
 
         const isAdmin = await isAdminUserId(userId);
+        if (isPersonalRingtoneProduct(product.data as Record<string, unknown>)) {
+            const personalAccess = await assertPersonalRingtoneDownloadAllowed({
+                userId,
+                product: product.data as Record<string, unknown>,
+            });
+            if (!personalAccess.ok) {
+                return json({
+                    error: personalAccess.error,
+                    code: personalAccess.code,
+                }, personalAccess.status);
+            }
+        }
+
         const ownerTesting = isAdmin && body.ownerTesting === true;
         const creatorTesting = body.creatorTesting === true
-            && String(product.data.creator_id || "") === userId;
-        const purchase = await buyerHasPaidRingtonePurchase(userId, ringtoneId);
-        const downloadAccess = await assertMarketplaceRingtoneDownloadAllowed({
+            && String(product.data.creator_id || "") === userId
+            && !isPersonalRingtoneProduct(product.data as Record<string, unknown>);
+        const purchase = isPersonalRingtoneProduct(product.data as Record<string, unknown>)
+            ? null
+            : await buyerHasPaidRingtonePurchase(userId, ringtoneId);
+        const downloadAccess = isPersonalRingtoneProduct(product.data as Record<string, unknown>)
+            ? { ok: true as const }
+            : await assertMarketplaceRingtoneDownloadAllowed({
             userId,
             priceCents: Number(product.data.price_cents) || 0,
             hasPaidPurchase: Boolean(purchase),

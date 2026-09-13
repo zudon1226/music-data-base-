@@ -16,6 +16,8 @@ export type MobileContentActionId =
     | "follow"
     | "unfollow"
     | "download"
+    | "download-android"
+    | "download-iphone"
     | "share"
     | "comments"
     | "report"

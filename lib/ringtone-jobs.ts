@@ -19,7 +19,8 @@ import {
 } from "@/lib/ringtone-validation";
 import { SONGS_BUCKET } from "@/lib/song-storage-path";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
-import { assertOwnsSourceSong } from "@/lib/ringtone-access";
+import { assertAuthorizedSourceSong } from "@/lib/ringtone-access";
+import { isPersonalRingtoneProduct } from "@/lib/personal-ringtone-access";
 
 export const RINGTONE_JOB_STATUSES = [
     "queued",
@@ -144,7 +145,11 @@ export async function enqueueRingtoneProcessingJob(input: {
 
     let trustedSourceDuration: number | null = null;
     if (String(row.source_kind || "") === "owned_song" && row.source_song_id) {
-        const ownership = await assertOwnsSourceSong(String(row.creator_id), String(row.source_song_id));
+        const ownership = await assertAuthorizedSourceSong({
+            userId: String(row.creator_id),
+            songId: String(row.source_song_id),
+            isPersonal: isPersonalRingtoneProduct(row as Record<string, unknown>),
+        });
         if (!ownership.ok) {
             return {
                 ok: false as const,
@@ -461,6 +466,9 @@ export async function runRingtoneProcessingJob(jobId: string, actorId?: string) 
         return { ok: false as const, error: getErrorMessage(completed.error) || "Failed to complete job.", code: "DB_ERROR" };
     }
 
+    const personal = isPersonalRingtoneProduct(product.data as Record<string, unknown>);
+    const nextStatus = personal ? "approved" : "pending_review";
+
     const revision = await snapshotRingtoneRevision({
         product: {
             ...product.data,
@@ -473,11 +481,11 @@ export async function runRingtoneProcessingJob(jobId: string, actorId?: string) 
             processing_version: executed.processingVersion,
         },
         processingResult: executed.result,
-        statusAtSnapshot: "pending_review",
+        statusAtSnapshot: nextStatus,
     });
 
     await supabase.from("ringtone_products").update({
-        status: "pending_review",
+        status: nextStatus,
         preview_storage_path: executed.previewPath,
         android_storage_path: executed.androidPath,
         iphone_storage_path: executed.iphonePath,
@@ -501,7 +509,7 @@ export async function runRingtoneProcessingJob(jobId: string, actorId?: string) 
         revisionNumber: Number(job.revision_number || 1),
         action: "processing_completed",
         previousStatus: "processing",
-        newStatus: "pending_review",
+        newStatus: nextStatus,
         actorId: actorId || String(product.data.creator_id),
         actorRole: "system",
         reason: "",

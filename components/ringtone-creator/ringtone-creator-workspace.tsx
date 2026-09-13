@@ -14,6 +14,7 @@ import {
     createEmptyRingtoneForm,
     deleteOrArchiveRingtone,
     duplicateRingtone,
+    downloadPersonalRingtoneAsset,
     formatRingtoneClientError,
     returnRingtoneToReview,
     fetchMyRingtones,
@@ -65,6 +66,8 @@ type RingtoneCreatorWorkspaceProps = {
     userId: string;
     session: Session | null;
     canCreateRingtones: boolean;
+    personalOnly?: boolean;
+    canAccessRingtoneStudio: boolean;
     accessDenied: boolean;
     onPreviewRingtone: (request: RingtonePreviewRequest) => void;
     onStopRingtonePreview: () => void;
@@ -95,6 +98,8 @@ export function RingtoneCreatorWorkspace({
     userId,
     session,
     canCreateRingtones,
+    personalOnly = false,
+    canAccessRingtoneStudio,
     accessDenied,
     onPreviewRingtone,
     onStopRingtonePreview,
@@ -253,13 +258,13 @@ export function RingtoneCreatorWorkspace({
     }
 
     useEffect(() => {
-        if (!canCreateRingtones || !userId) {
+        if (!canAccessRingtoneStudio || !userId) {
             setLoading(false);
             return;
         }
         void reloadAll();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [canCreateRingtones, userId, session?.access_token]);
+    }, [canAccessRingtoneStudio, userId, session?.access_token]);
 
     const filteredRingtones = useMemo(() => {
         const query = search.trim().toLowerCase();
@@ -516,7 +521,7 @@ export function RingtoneCreatorWorkspace({
 
         let resolvedSourceDuration = normalizeRingtoneSourceDurationSeconds(form.sourceDurationSeconds);
 
-        if (submitForReview) {
+        if (submitForReview || personalOnly) {
             if (resolvedSourceDuration == null && form.sourceAudioUrl) {
                 resolvedSourceDuration = await probeAudioDurationSeconds(form.sourceAudioUrl);
             }
@@ -524,7 +529,7 @@ export function RingtoneCreatorWorkspace({
                 updateForm({ sourceDurationSeconds: resolvedSourceDuration });
             }
             const dollars = Number(form.priceDollars);
-            const priceCents = Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN;
+            const priceCents = personalOnly ? 0 : (Number.isFinite(dollars) ? Math.round(dollars * 100) : NaN);
             const requirements = validateRingtoneSubmitRequirements({
                 sourceKind: form.sourceKind,
                 sourceSongId: form.sourceSongId,
@@ -548,7 +553,7 @@ export function RingtoneCreatorWorkspace({
                 setSaving(false);
                 return;
             }
-            setStatusMessage(t("ringtones.submitting"));
+            setStatusMessage(personalOnly ? t("ringtones.creatingPersonal") : t("ringtones.submitting"));
             setProcessState("processing");
         } else {
             setStatusMessage(t("ringtones.savingDraft"));
@@ -563,7 +568,8 @@ export function RingtoneCreatorWorkspace({
 
         startTransition(async () => {
             try {
-                const payload = formToSavePayload(formForSave, false);
+                const payload = formToSavePayload(formForSave, false, { personal: personalOnly });
+                const shouldProcess = submitForReview || personalOnly;
                 if (submitForReview) {
                     if (!Number.isFinite(Number(payload.priceCents)) || Number(payload.priceCents) < 0) {
                         setStep(3);
@@ -588,7 +594,7 @@ export function RingtoneCreatorWorkspace({
                 const ringtone = saved.body.ringtone as RingtoneProduct;
                 setEditingId(ringtone.id);
 
-                if (submitForReview) {
+                if (shouldProcess) {
                     const submitted = await submitRingtoneForReview({
                         userId,
                         session,
@@ -600,11 +606,13 @@ export function RingtoneCreatorWorkspace({
                         throw new Error(mapRingtoneSaveError(
                             submitted.body,
                             submitted.status,
-                            t("ringtones.submitFailed"),
+                            personalOnly ? t("ringtones.personalCreateFailed") : t("ringtones.submitFailed"),
                         ));
                     }
                     const next = (submitted.body.ringtone || {}) as RingtoneProduct;
-                    if (next.status === "pending_review") {
+                    if (personalOnly && next.status === "approved") {
+                        setStatusMessage(t("ringtones.personalReady"));
+                    } else if (next.status === "pending_review") {
                         setStatusMessage(t("ringtones.submittedForReview"));
                     } else if (next.status === "processing") {
                         setStatusMessage(t("ringtones.processingStarted"));
@@ -633,10 +641,10 @@ export function RingtoneCreatorWorkspace({
         });
     }
 
-    if (accessDenied || !canCreateRingtones) {
+    if (accessDenied || !canAccessRingtoneStudio) {
         return (
             <section className="ringtone-creator-page dashboard-page" data-ringtone-creator="denied">
-                <h1>{t("ringtones.myRingtones")}</h1>
+                <h1>{personalOnly ? t("ringtones.personalRingtonesTitle") : t("ringtones.myRingtones")}</h1>
                 <p className="ringtone-access-denied" role="alert">{t("ringtones.creatorAccessDenied")}</p>
             </section>
         );
@@ -647,13 +655,14 @@ export function RingtoneCreatorWorkspace({
                 ref={workspaceRef}
                 className="ringtone-creator-page dashboard-page"
                 data-ringtone-creator="workspace"
+                data-ringtone-personal={personalOnly ? "true" : "false"}
                 data-ringtone-subpage={mode === "list" ? "collection" : mode}
                 data-ringtone-layout={layout}
             >
             <header className="ringtone-creator-header">
                 <div>
-                    <h1>{t("ringtones.myRingtones")}</h1>
-                    <p>{t("ringtones.creatorSubtitle")}</p>
+                    <h1>{personalOnly ? t("ringtones.personalRingtonesTitle") : t("ringtones.myRingtones")}</h1>
+                    <p>{personalOnly ? t("ringtones.personalSubtitle") : t("ringtones.creatorSubtitle")}</p>
                 </div>
                 <div className="ringtone-creator-actions" role="tablist" aria-label={t("ringtones.myRingtones")}>
                     <button
@@ -676,16 +685,18 @@ export function RingtoneCreatorWorkspace({
                     >
                         {t("ringtones.create")}
                     </button>
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={mode === "sales"}
-                        aria-current={mode === "sales" ? "page" : undefined}
-                        className={mode === "sales" ? "active" : ""}
-                        onClick={() => setMode("sales")}
-                    >
-                        {t("ringtones.sales")}
-                    </button>
+                    {!personalOnly ? (
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={mode === "sales"}
+                            aria-current={mode === "sales" ? "page" : undefined}
+                            className={mode === "sales" ? "active" : ""}
+                            onClick={() => setMode("sales")}
+                        >
+                            {t("ringtones.sales")}
+                        </button>
+                    ) : null}
                 </div>
             </header>
 
@@ -904,6 +915,24 @@ export function RingtoneCreatorWorkspace({
                                 });
                             };
 
+                            const showPersonalDownload = (personalOnly || ringtone.is_personal)
+                                && ringtone.status === "approved"
+                                && Boolean(ringtone.android_storage_path || ringtone.iphone_storage_path);
+                            const downloadPersonal = (deviceType: "android" | "iphone") => {
+                                startTransition(async () => {
+                                    const result = await downloadPersonalRingtoneAsset({
+                                        userId,
+                                        session,
+                                        ringtoneId: ringtone.id,
+                                        deviceType,
+                                        title: ringtone.title,
+                                    });
+                                    if (!result.ok) {
+                                        setError(result.error);
+                                    }
+                                });
+                            };
+
                             if (layout === "list" && isDesktop) {
                                 const extraActions: MobileContentAction[] = [];
                                 if (["published", "suspended", "archived"].includes(ringtone.status)) {
@@ -913,13 +942,25 @@ export function RingtoneCreatorWorkspace({
                                         onClick: requestRevision,
                                     });
                                 }
-                                if (["draft", "rejected"].includes(ringtone.status)) {
+                                if (!personalOnly && ["draft", "rejected"].includes(ringtone.status)) {
                                     extraActions.push({
                                         id: "save",
                                         label: ringtone.last_processing_error_code
                                             ? t("ringtones.retryProcessing")
                                             : t("ringtones.submitForReview"),
                                         onClick: submitForReview,
+                                    });
+                                }
+                                if (showPersonalDownload) {
+                                    extraActions.push({
+                                        id: "download-android",
+                                        label: t("ringtones.downloadPersonalAndroid"),
+                                        onClick: () => downloadPersonal("android"),
+                                    });
+                                    extraActions.push({
+                                        id: "download-iphone",
+                                        label: t("ringtones.downloadPersonalIphone"),
+                                        onClick: () => downloadPersonal("iphone"),
                                     });
                                 }
                                 return (
@@ -982,13 +1023,25 @@ export function RingtoneCreatorWorkspace({
                                         onClick: requestRevision,
                                     });
                                 }
-                                if (["draft", "rejected"].includes(ringtone.status)) {
+                                if (!personalOnly && ["draft", "rejected"].includes(ringtone.status)) {
                                     gridActions.push({
                                         id: "save",
                                         label: ringtone.last_processing_error_code
                                             ? t("ringtones.retryProcessing")
                                             : t("ringtones.submitForReview"),
                                         onClick: submitForReview,
+                                    });
+                                }
+                                if (showPersonalDownload) {
+                                    gridActions.push({
+                                        id: "download-android",
+                                        label: t("ringtones.downloadPersonalAndroid"),
+                                        onClick: () => downloadPersonal("android"),
+                                    });
+                                    gridActions.push({
+                                        id: "download-iphone",
+                                        label: t("ringtones.downloadPersonalIphone"),
+                                        onClick: () => downloadPersonal("iphone"),
                                     });
                                 }
                                 return (
@@ -1134,14 +1187,16 @@ export function RingtoneCreatorWorkspace({
                                     >
                                         {t("ringtones.createFromSong")}
                                     </button>
-                                    <button
-                                        type="button"
-                                        aria-pressed={form.sourceKind === "upload"}
-                                        className={form.sourceKind === "upload" ? "active" : ""}
-                                        onClick={() => switchSourceKind("upload")}
-                                    >
-                                        {t("ringtones.uploadSource")}
-                                    </button>
+                                    {!personalOnly ? (
+                                        <button
+                                            type="button"
+                                            aria-pressed={form.sourceKind === "upload"}
+                                            className={form.sourceKind === "upload" ? "active" : ""}
+                                            onClick={() => switchSourceKind("upload")}
+                                        >
+                                            {t("ringtones.uploadSource")}
+                                        </button>
+                                    ) : null}
                                 </div>
 
                                 {form.sourceKind === "owned_song" ? (
@@ -1151,7 +1206,7 @@ export function RingtoneCreatorWorkspace({
                                             <p className="ringtone-error" role="alert">{sourceSongsError}</p>
                                         ) : null}
                                         {!sourceSongsLoading && !sourceSongsError && sourceSongs.length === 0 ? (
-                                            <p>{t("ringtones.noOwnedSongs")}</p>
+                                            <p>{personalOnly ? t("ringtones.noLibrarySongs") : t("ringtones.noOwnedSongs")}</p>
                                         ) : null}
                                         {!sourceSongsLoading && !sourceSongsError
                                             ? sourceSongs.map((song) => (
@@ -1265,14 +1320,17 @@ export function RingtoneCreatorWorkspace({
                                         onChange={(event) => updateForm({ artworkUrl: event.target.value })}
                                     />
                                 </label>
-                                <label className="ringtone-field">
-                                    <span>{t("ringtones.price")}</span>
-                                    <input
-                                        value={form.priceDollars}
-                                        inputMode="decimal"
-                                        onChange={(event) => updateForm({ priceDollars: event.target.value })}
-                                    />
-                                </label>
+                                {!personalOnly ? (
+                                    <label className="ringtone-field">
+                                        <span>{t("ringtones.price")}</span>
+                                        <input
+                                            value={form.priceDollars}
+                                            inputMode="decimal"
+                                            onChange={(event) => updateForm({ priceDollars: event.target.value })}
+                                        />
+                                    </label>
+                                ) : null}
+                                {!personalOnly ? (
                                 <label className="ringtone-field">
                                     <span>{t("ringtones.currency")}</span>
                                     <select
@@ -1286,6 +1344,7 @@ export function RingtoneCreatorWorkspace({
                                         ))}
                                     </select>
                                 </label>
+                                ) : null}
                                 <div className="ringtone-checkbox-stack" role="group" aria-label={t("ringtones.details")}>
                                     <label className="ringtone-checkbox" htmlFor="ringtone-explicit">
                                         <input
@@ -1367,25 +1426,42 @@ export function RingtoneCreatorWorkspace({
 
                         {step === 5 ? (
                             <div className="ringtone-step">
-                                <h2>{t("ringtones.saveOrSubmit")}</h2>
-                                <p>{t("ringtones.noDirectPublishHint")}</p>
+                                <h2>{personalOnly ? t("ringtones.createPersonalRingtone") : t("ringtones.saveOrSubmit")}</h2>
+                                {personalOnly ? (
+                                    <p>{t("ringtones.personalNoSaleHint")}</p>
+                                ) : (
+                                    <p>{t("ringtones.noDirectPublishHint")}</p>
+                                )}
                                 <div className="dashboard-form-actions ringtone-final-actions">
-                                    <button
-                                        type="button"
-                                        className="save-upload"
-                                        disabled={actionsBusy}
-                                        onClick={() => void persist(false)}
-                                    >
-                                        {t("ringtones.saveDraft")}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="save-upload"
-                                        disabled={actionsBusy}
-                                        onClick={() => void persist(true)}
-                                    >
-                                        {t("ringtones.submitForReview")}
-                                    </button>
+                                    {personalOnly ? (
+                                        <button
+                                            type="button"
+                                            className="save-upload"
+                                            disabled={actionsBusy}
+                                            onClick={() => void persist(true)}
+                                        >
+                                            {t("ringtones.createPersonalRingtone")}
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className="save-upload"
+                                                disabled={actionsBusy}
+                                                onClick={() => void persist(false)}
+                                            >
+                                                {t("ringtones.saveDraft")}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="save-upload"
+                                                disabled={actionsBusy}
+                                                onClick={() => void persist(true)}
+                                            >
+                                                {t("ringtones.submitForReview")}
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         ) : null}

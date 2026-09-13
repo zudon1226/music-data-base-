@@ -20,6 +20,8 @@ export type ResolvedAccountCapabilities = {
     canProducerDashboard: boolean;
     canSales: boolean;
     canMyRingtones: boolean;
+    /** Listener-only personal ringtones from Library (not marketplace seller tools). */
+    canPersonalRingtones: boolean;
 };
 
 const CREATOR_ROLE_TOKENS = new Set([
@@ -107,6 +109,7 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
             canProducerDashboard: true,
             canSales: true,
             canMyRingtones: true,
+            canPersonalRingtones: true,
         };
     }
 
@@ -132,6 +135,7 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
         canProducerDashboard: isProducer,
         canSales: isCreator,
         canMyRingtones: isCreator,
+        canPersonalRingtones: !isCreator,
     };
 }
 

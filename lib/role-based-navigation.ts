@@ -24,6 +24,7 @@ export type NavCapabilityFlags = {
     canPlatformControlCenter: boolean;
     canSales: boolean;
     canMyRingtones: boolean;
+    canPersonalRingtones: boolean;
 };
 
 export type ResolveNavCapabilitiesInput = {
@@ -75,6 +76,7 @@ function toNavFlags(
         canPlatformControlCenter: isPlatformOwner || resolved.isAdmin,
         canSales: resolved.canSales,
         canMyRingtones: resolved.canMyRingtones,
+        canPersonalRingtones: resolved.canPersonalRingtones,
     };
 }
 
@@ -126,6 +128,7 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
             canPlatformControlCenter: false,
             canSales: false,
             canMyRingtones: false,
+            canPersonalRingtones: false,
         };
     }
 
@@ -189,7 +192,7 @@ export function canAccessNavView(view: string, capabilities: NavCapabilityFlags)
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
     if (view === "Podcast Studio") return capabilities.canUpload;
     if (view === "Sales") return capabilities.canSales;
-    if (view === "My Ringtones") return capabilities.canMyRingtones;
+    if (view === "My Ringtones") return capabilities.canMyRingtones || capabilities.canPersonalRingtones;
     if ((LISTENER_ACCESSIBLE_VIEWS as readonly string[]).includes(view)) return true;
     return false;
 }

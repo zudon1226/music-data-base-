@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { assertOwnsSourceSong, requireRingtoneCreator } from "@/lib/ringtone-access";
+import {
+    assertAuthorizedSourceSong,
+    canUserCreateRingtones,
+    requireRingtoneCreator,
+    requireRingtoneStudioAccess,
+} from "@/lib/ringtone-access";
+import { canUserCreatePersonalRingtones } from "@/lib/personal-ringtone-access";
+import { assertSourceSongAllowsRingtoneSale } from "@/lib/ringtone-sale-permissions";
 import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
 import { buildCreateRingtonePayload, normalizeRingtoneSourceDurationSeconds } from "@/lib/ringtone-validation";
 import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
@@ -24,8 +31,8 @@ export async function GET(request: Request) {
             if (!userId || !isUuid(userId)) return json({ error: "userId is required." }, 400);
             const auth = await requireMatchingUserId(request, "/api/ringtones", userId);
             if (!auth.ok) return json({ error: auth.error }, auth.status);
-            const creator = await requireRingtoneCreator(userId);
-            if (!creator.ok) return json({ error: creator.error }, creator.status);
+            const studio = await requireRingtoneStudioAccess(userId);
+            if (!studio.ok) return json({ error: studio.error }, studio.status);
 
             const { data, error } = await supabase
                 .from("ringtone_products")
@@ -64,22 +71,46 @@ export async function POST(request: Request) {
         logRouteAuth(request, "/api/ringtones", userId);
         if (!auth.ok) return json({ error: auth.error }, auth.status);
 
-        const creator = await requireRingtoneCreator(userId);
-        if (!creator.ok) return json({ error: creator.error }, creator.status);
+        const wantsPersonal = body.isPersonal === true || body.personal === true;
+        const canMarketplace = await canUserCreateRingtones(userId);
+        const canPersonal = await canUserCreatePersonalRingtones(userId);
+        if (wantsPersonal) {
+            if (!canPersonal) {
+                return json({ error: "Personal ringtone creation is not available for this account.", code: "FORBIDDEN" }, 403);
+            }
+        } else {
+            const creator = await requireRingtoneCreator(userId);
+            if (!creator.ok) return json({ error: creator.error }, creator.status);
+        }
+        const studio = await requireRingtoneStudioAccess(userId);
+        if (!studio.ok) return json({ error: studio.error }, studio.status);
 
         // Create always stores draft. Submit-for-review runs through /process after save.
         const mode = body.submitForReview === true ? "submit" as const : "draft" as const;
+        if (wantsPersonal && mode === "submit") {
+            return json({ error: "Personal ringtones do not use marketplace review.", code: "FORBIDDEN" }, 403);
+        }
 
         const fromBody = normalizeRingtoneSourceDurationSeconds(body.sourceDurationSeconds);
         let sourceDurationSeconds: number | null = fromBody;
         const sourceSongId = String(body.sourceSongId || "").trim();
+        const isPersonal = wantsPersonal || (canPersonal && !canMarketplace);
         if (String(body.sourceKind || "") === "owned_song" && sourceSongId) {
-            const ownership = await assertOwnsSourceSong(userId, sourceSongId);
-            if (!ownership.ok) return json({ error: ownership.error, code: "SOURCE_NOT_AUTHORIZED" }, 403);
+            const ownership = await assertAuthorizedSourceSong({
+                userId,
+                songId: sourceSongId,
+                isPersonal,
+            });
+            if (!ownership.ok) {
+                return json({ error: ownership.error, code: ownership.code || "SOURCE_NOT_AUTHORIZED" }, 403);
+            }
             // Trusted catalog duration wins when present; never overwrite with 0/null from Number(null).
             if (ownership.sourceDurationSeconds != null) {
                 sourceDurationSeconds = ownership.sourceDurationSeconds;
             }
+        }
+        if (isPersonal && String(body.sourceKind || "owned_song") === "upload") {
+            return json({ error: "Personal ringtones must use a song from your Library.", code: "LIBRARY_REQUIRED" }, 400);
         }
 
         const built = buildCreateRingtonePayload({
@@ -103,8 +134,20 @@ export async function POST(request: Request) {
         }, { mode });
         if (!built.ok) return json({ error: built.error, code: "VALIDATION_FAILED" }, 400);
 
+        if (!isPersonal && built.row.price_cents > 0) {
+            const saleOk = await assertSourceSongAllowsRingtoneSale(sourceSongId || null);
+            if (!saleOk.ok) {
+                return json({ error: saleOk.error, code: saleOk.code }, 403);
+            }
+        }
+
         // Never publish or pending_review on create — processing owns that transition.
-        const row = { ...built.row, status: "draft" as const };
+        const row = {
+            ...built.row,
+            status: "draft" as const,
+            is_personal: isPersonal,
+            price_cents: isPersonal ? 0 : built.row.price_cents,
+        };
 
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase

@@ -88,7 +88,8 @@
     "verify:founding": "node scripts/verify-founding-invite-gate.mjs",
     "verify:founding:live": "node scripts/verify-founding-onboarding.mjs",
     "verify:founding:pending": "node scripts/verify-founding-pending-approvals.mjs",
-    "verify:rls": "node scripts/verify-supabase-rls-security.mjs"
+    "verify:rls": "node scripts/verify-supabase-rls-security.mjs",
+    "verify:listener-personal-ringtone": "node scripts/verify-listener-personal-ringtone.mjs"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.15.0",

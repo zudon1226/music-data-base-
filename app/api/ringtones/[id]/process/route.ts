@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
-import { requireRingtoneCreator } from "@/lib/ringtone-access";
+import { requireRingtoneCreator, requireRingtoneStudioAccess } from "@/lib/ringtone-access";
+import { isPersonalRingtoneProduct } from "@/lib/personal-ringtone-access";
 import {
     enqueueRingtoneProcessingJob,
     getLatestRingtoneJob,
     queueAndRunRingtoneProcessing,
 } from "@/lib/ringtone-jobs";
 import { requireMatchingUserId } from "@/lib/request-auth";
-import { getErrorMessage, isUuid } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,9 +62,21 @@ export async function POST(request: Request, context: Params) {
         if (!auth.ok) return json({ error: auth.error }, auth.status);
 
         const isAdmin = await isAdminUserId(userId);
+        const supabase = getSupabaseServerClient();
+        const product = await supabase.from("ringtone_products").select("creator_id,is_personal").eq("id", id).maybeSingle();
+        if (product.error || !product.data) return json({ error: "Ringtone not found." }, 404);
+        if (!isAdmin && String(product.data.creator_id) !== userId) {
+            return json({ error: "Forbidden." }, 403);
+        }
         if (!isAdmin) {
-            const creator = await requireRingtoneCreator(userId);
-            if (!creator.ok) return json({ error: creator.error }, creator.status);
+            const personal = isPersonalRingtoneProduct(product.data as Record<string, unknown>);
+            if (personal) {
+                const studio = await requireRingtoneStudioAccess(userId);
+                if (!studio.ok) return json({ error: studio.error }, studio.status);
+            } else {
+                const creator = await requireRingtoneCreator(userId);
+                if (!creator.ok) return json({ error: creator.error }, creator.status);
+            }
         }
 
         const queueOnly = body.queueOnly === true;

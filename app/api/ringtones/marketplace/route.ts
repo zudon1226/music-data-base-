@@ -68,6 +68,7 @@ export async function GET(request: Request) {
             .from("ringtone_products")
             .select("id,creator_id,title,description,artwork_url,preview_url,duration_seconds,clip_start_seconds,clip_end_seconds,price_cents,currency,status,is_featured,is_explicit,source_song_id,source_kind,published_at,created_at", { count: "exact" })
             .in("status", [...PUBLIC_RINGTONE_STATUSES])
+            .eq("is_personal", false)
             .not("published_at", "is", null);
 
         if (filter === "featured" || section === "featured") query = query.eq("is_featured", true);

@@ -4120,6 +4120,9 @@ function PageContent({
         return () => unregisterDesktopProductionSessionPublisher();
     }, [publishLiveDesktopAuthSession]);
     const [canCreateRingtones, setCanCreateRingtones] = useState(false);
+    const [canCreatePersonalRingtones, setCanCreatePersonalRingtones] = useState(false);
+    const [ringtonePersonalOnly, setRingtonePersonalOnly] = useState(false);
+    const [canAccessRingtoneStudio, setCanAccessRingtoneStudio] = useState(false);
     const [ringtoneCreatorAccessChecked, setRingtoneCreatorAccessChecked] = useState(false);
     const [accountNavRoles, setAccountNavRoles] = useState<string[]>([]);
     const [accountRolesReady, setAccountRolesReady] = useState(false);
@@ -4135,6 +4138,9 @@ function PageContent({
             if (!accountUserId || !authSession?.access_token) {
                 if (!cancelled) {
                     setCanCreateRingtones(false);
+                    setCanCreatePersonalRingtones(false);
+                    setRingtonePersonalOnly(false);
+                    setCanAccessRingtoneStudio(false);
                     setRingtoneCreatorAccessChecked(true);
                 }
                 return;
@@ -4142,6 +4148,9 @@ function PageContent({
             const result = await fetchRingtoneEligibility(accountUserId, authSession);
             if (!cancelled) {
                 setCanCreateRingtones(result.canCreateRingtones);
+                setCanCreatePersonalRingtones(result.canCreatePersonalRingtones);
+                setRingtonePersonalOnly(result.personalOnly);
+                setCanAccessRingtoneStudio(result.canAccessRingtoneStudio);
                 setRingtoneCreatorAccessChecked(true);
             }
         }
@@ -19277,12 +19286,14 @@ function PageContent({
           />
         ) : null}
 
-        {!canRenderUploadWorkspace && view === "My Ringtones" && navCapabilities.canMyRingtones ? (
+        {!canRenderUploadWorkspace && view === "My Ringtones" && (navCapabilities.canMyRingtones || navCapabilities.canPersonalRingtones) ? (
           <RingtoneCreatorWorkspace
             userId={accountUserId}
             session={authSession}
             canCreateRingtones={canCreateRingtones || isPlatformOwnerEmail(activeUser?.email)}
-            accessDenied={ringtoneCreatorAccessChecked && !(canCreateRingtones || isPlatformOwnerEmail(activeUser?.email))}
+            personalOnly={ringtonePersonalOnly && !(canCreateRingtones || isPlatformOwnerEmail(activeUser?.email))}
+            canAccessRingtoneStudio={canAccessRingtoneStudio || isPlatformOwnerEmail(activeUser?.email)}
+            accessDenied={ringtoneCreatorAccessChecked && !(canAccessRingtoneStudio || isPlatformOwnerEmail(activeUser?.email))}
             onPreviewRingtone={(request) => {
               if (activeRingtonePreview?.id === request.id && ringtonePreviewPlaying) {
                 stopRingtonePreviewPlayback();
