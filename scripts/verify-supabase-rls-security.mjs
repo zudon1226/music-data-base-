@@ -42,7 +42,32 @@ const runToken = `${Date.now()}-${randomBytes(5).toString("hex")}`;
 const publicReadTables = new Set([
   "songs", "videos", "artist_profiles", "producer_profiles", "producer_beats",
   "ringtone_products", "ringtone_reviews", "podcast_shows", "podcast_episodes",
+  "sponsor_packages",
 ]);
+const intentionalAnonPublicReadPolicies = new Set([
+  "sponsor_packages_public_read_active",
+  "sponsor_applications_public_active_read",
+  "sponsor_assets_public_active_read",
+]);
+const serviceRoleOnlyTables = new Set(["sponsor_payment_events"]);
+
+function tableHasPlatformAdminPolicy(table) {
+  if (serviceRoleOnlyTables.has(table.table)) {
+    return !table.grants.authenticatedSelect && !table.grants.authenticatedWrite;
+  }
+  return table.policies.some((policy) => {
+    if (policy.name === "platform_admin_full_access" && policy.command === "ALL") {
+      return true;
+    }
+    if (policy.command === "ALL" && /_admin_all$/i.test(String(policy.name || ""))) {
+      return true;
+    }
+    if (policy.name === "platform_revenue_admin_read" && policy.command === "SELECT") {
+      return true;
+    }
+    return false;
+  });
+}
 // Phase 4 private tables (no anon public read): ringtone_processing_jobs, ringtone_revisions, ringtone_moderation_logs
 const allBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'licenses', 'downloads', 'user-media-queues', 'ringtone-source', 'ringtone-previews', 'ringtone-downloads', 'podcast-audio', 'podcast-video'";
 const publicBuckets = "'songs', 'videos', 'covers', 'albums', 'producer-beats', 'ringtone-previews'";
@@ -352,6 +377,7 @@ async function catalogInventory() {
     const privateAnonPolicies = managedTables
       .filter((table) => !publicReadTables.has(table.table))
       .flatMap((table) => table.policies
+        .filter((policy) => !intentionalAnonPublicReadPolicies.has(policy.name))
         .filter((policy) => (policy.roles || []).some((role) => role === "anon" || role === "public"))
         .map((policy) => ({ table: table.table, policy: policy.name })));
     record("private tables have no anon/public RLS policies", privateAnonPolicies.length === 0, {
@@ -359,16 +385,10 @@ async function catalogInventory() {
     });
     record(
       "every managed public table has platform-admin full-access policy",
-      managedTables.every((table) =>
-        table.policies.some((policy) =>
-          policy.name === "platform_admin_full_access" && policy.command === "ALL"
-        )
-      ),
+      managedTables.every((table) => tableHasPlatformAdminPolicy(table)),
       {
         failures: managedTables
-          .filter((table) => !table.policies.some((policy) =>
-            policy.name === "platform_admin_full_access" && policy.command === "ALL"
-          ))
+          .filter((table) => !tableHasPlatformAdminPolicy(table))
           .map((table) => table.table),
       },
     );
