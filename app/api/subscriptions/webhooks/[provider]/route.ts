@@ -10,6 +10,7 @@ import {
     getSubscriptionPlanById,
     getUserSubscription,
 } from "@/lib/billing/subscription-service";
+import { recordServerPlatformError } from "@/lib/platform-error-reporting";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -140,6 +141,14 @@ export async function POST(request: Request, context: Params) {
         console.error("[api/subscriptions/webhooks] POST error:", error);
         const message = getErrorMessage(error);
         const unauthorized = /signature|timestamp/i.test(message);
+        void recordServerPlatformError({
+            action: "webhook-subscription",
+            message,
+            details: {
+                route: "/api/subscriptions/webhooks/[provider]",
+                httpStatus: unauthorized ? 401 : 500,
+            },
+        });
         return NextResponse.json({ error: message }, { status: unauthorized ? 401 : 500 });
     }
 }

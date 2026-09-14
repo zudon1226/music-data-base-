@@ -42,7 +42,18 @@ export function AccountDeletePanel({ disabled, fetchFn, onDeleted }: Props) {
             await onDeleted();
         }
         catch (deleteError) {
-            setError(deleteError instanceof Error ? deleteError.message : t("accountDeletion.failed"));
+            const message = deleteError instanceof Error ? deleteError.message : t("accountDeletion.failed");
+            setError(message);
+            void fetchFn("/api/platform/errors", {
+                method: "POST",
+                requireAuth: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    category: "unknown",
+                    action: "account-delete-client",
+                    message,
+                }),
+            }).catch(() => undefined);
         }
         finally {
             setBusy(false);

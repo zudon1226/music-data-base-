@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
+import {
+    isSongUsageColumnError,
+    parseSongUsageFromBody,
+} from "@/lib/song-usage-permissions";
 import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
+import { recordServerPlatformError } from "@/lib/platform-error-reporting";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
 
@@ -237,6 +242,21 @@ async function insertSongMetadata(
         tableError = minimalResult.error;
     }
 
+    if (tableError && isSongUsageColumnError(getErrorMessage(tableError))) {
+        const fallbackSongRow: Record<string, unknown> = { ...songRow };
+        delete fallbackSongRow.streaming_enabled;
+        delete fallbackSongRow.ringtone_enabled;
+        delete fallbackSongRow.ringtone_creation_enabled;
+        delete fallbackSongRow.ringtone_sale_enabled;
+        delete fallbackSongRow.ringtone_price;
+        const fallbackResult = await insertSongRow(
+            fallbackSongRow,
+            "id,title,artist,producer,producer_id,beat_id,album_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id",
+        );
+        savedSong = fallbackResult.data as Record<string, unknown> | null;
+        tableError = fallbackResult.error;
+    }
+
     return { savedSong, tableError, lastSongInsertPayload };
 }
 
@@ -252,6 +272,10 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
     const producerId = getRecordString(body, ["producer_id", "producerId"]);
     const beatId = getRecordString(body, ["beat_id", "beatId"]);
     const albumId = getRecordString(body, ["album_id", "albumId"]);
+    const usage = parseSongUsageFromBody(body);
+    if ("error" in usage) {
+        return jsonResponse({ error: usage.error }, 400);
+    }
 
     if (!storagePath) {
         return jsonResponse({ error: "storagePath is required after the Storage upload completes." }, 400);
@@ -294,6 +318,11 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
         likes: 0,
         created_at: new Date().toISOString(),
         user_id: auth.authUserId,
+        streaming_enabled: usage.streaming_enabled,
+        ringtone_enabled: usage.ringtone_enabled,
+        ringtone_creation_enabled: usage.ringtone_creation_enabled,
+        ringtone_sale_enabled: usage.ringtone_sale_enabled,
+        ringtone_price: usage.ringtone_price,
     };
 
     const { savedSong, tableError, lastSongInsertPayload } = await insertSongMetadata(
@@ -307,6 +336,17 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
     if (tableError) {
         console.error("SONG INSERT FAILED", tableError);
         console.error("[api/upload-audio] INSERT FAILED public.songs:", tableError);
+        void recordServerPlatformError({
+            userId: auth.authUserId,
+            category: "upload",
+            action: "save-song-metadata",
+            message: getErrorMessage(tableError),
+            details: {
+                route: "/api/upload-audio",
+                httpStatus: 500,
+                bucket: SONGS_BUCKET,
+            },
+        });
         return jsonResponse({
             error: `Audio uploaded to Storage, but the songs table save failed: ${getErrorMessage(tableError)}`,
             details: {
@@ -373,6 +413,13 @@ export async function POST(request: Request) {
     }
     catch (error) {
         console.error("[api/upload-audio] Server error:", error);
-        return jsonResponse({ error: getErrorMessage(error), details: getErrorDetails(error) }, 500);
+        const message = getErrorMessage(error);
+        void recordServerPlatformError({
+            category: "upload",
+            action: "upload-audio-route",
+            message,
+            details: { route: "/api/upload-audio", httpStatus: 500 },
+        });
+        return jsonResponse({ error: message, details: getErrorDetails(error) }, 500);
     }
 }

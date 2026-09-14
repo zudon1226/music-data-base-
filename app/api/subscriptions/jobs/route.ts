@@ -7,6 +7,7 @@ import {
     processRenewalReminders,
 } from "@/lib/billing/subscription-service";
 import { requireMatchingUserId } from "@/lib/request-auth";
+import { recordServerPlatformError } from "@/lib/platform-error-reporting";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -30,7 +31,13 @@ export async function GET(request: Request) {
         return NextResponse.json(await runSubscriptionJobs());
     } catch (error) {
         console.error("[api/subscriptions/jobs] GET error:", error);
-        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+        const message = getErrorMessage(error);
+        void recordServerPlatformError({
+            action: "cron-subscription-jobs",
+            message,
+            details: { route: "/api/subscriptions/jobs", method: "GET", httpStatus: 500 },
+        });
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
@@ -58,6 +65,12 @@ export async function POST(request: Request) {
         return NextResponse.json(await runSubscriptionJobs());
     } catch (error) {
         console.error("[api/subscriptions/jobs] POST error:", error);
-        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+        const message = getErrorMessage(error);
+        void recordServerPlatformError({
+            action: "cron-subscription-jobs",
+            message,
+            details: { route: "/api/subscriptions/jobs", method: "POST", httpStatus: 500 },
+        });
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

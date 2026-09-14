@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteAuthenticatedUserAccount } from "@/lib/account-deletion-service";
 import { getSessionTokensFromRecord, resolveStrictRequestUserId } from "@/lib/request-auth";
+import { recordServerPlatformError } from "@/lib/platform-error-reporting";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -37,6 +38,13 @@ export async function POST(request: Request) {
         const supabase = getSupabaseServerClient();
         const result = await deleteAuthenticatedUserAccount(supabase, resolved.userId);
         if (!result.ok) {
+            void recordServerPlatformError({
+                userId: resolved.userId,
+                category: "unknown",
+                action: "account-delete",
+                message: result.error,
+                details: { code: result.code, httpStatus: result.status },
+            });
             return json({ error: result.error, code: result.code }, result.status);
         }
 
@@ -44,6 +52,13 @@ export async function POST(request: Request) {
     }
     catch (error) {
         console.error("[api/account/delete] error:", error);
-        return json({ error: getErrorMessage(error) }, 500);
+        const message = getErrorMessage(error);
+        void recordServerPlatformError({
+            category: "unknown",
+            action: "account-delete",
+            message,
+            details: { route: "/api/account/delete", httpStatus: 500 },
+        });
+        return json({ error: message }, 500);
     }
 }

@@ -5530,15 +5530,17 @@ function PageContent({
         uploadInProgressRef.current = activeUploadKeysRef.current.size > 0;
     }
     function reportPlatformError(category: string, action: string, message: string, details: Record<string, unknown> = {}) {
-        if (!message.trim())
+        if (!message.trim() || !user?.id)
             return;
-        const safeDetails = sanitizePlatformErrorDetails(details);
-        fetch("/api/platform/errors", {
+        const safeDetails = sanitizePlatformErrorDetails({
+            ...details,
+            accountRole: accountRole || undefined,
+        });
+        void desktopActionFetch("/api/platform/errors", {
             method: "POST",
+            requireAuth: true,
             headers: { "Content-Type": "application/json" },
-            credentials: "omit",
             body: JSON.stringify({
-                userId: user?.id || "",
                 category,
                 action,
                 message,
@@ -5588,7 +5590,11 @@ function PageContent({
         setStabilityError("");
         try {
             const [errorsResponse, storageResponse] = await Promise.all([
-                fetch(`/api/platform/errors?userId=${encodeURIComponent(user.id)}`, { cache: "no-store", credentials: "omit" }),
+                desktopActionFetch("/api/platform/errors?scope=mine", {
+                    cache: "no-store",
+                    requireAuth: true,
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                }),
                 desktopActionFetch("/api/platform/storage-cleanup", {
                     cache: "no-store",
                     requireAuth: true,
@@ -7617,6 +7623,10 @@ function PageContent({
                     return;
                 }
                 setIsPlaying(false);
+                const playbackMessage = error instanceof Error ? error.message : "Playback could not start.";
+                reportPlatformError("unknown", podcastAudioActive ? "podcast-playback-start" : "music-playback-start", playbackMessage, {
+                    mediaType: podcastAudioActive ? "podcast-audio" : "music",
+                });
                 showToast(
                     podcastAudioActive
                         ? "Podcast playback could not start. Try pressing Play again."
@@ -10821,6 +10831,8 @@ function PageContent({
         catch (error) {
             if (!isAbortError(error)) {
                 setIsPlaying(false);
+                const playbackMessage = error instanceof Error ? error.message : "Podcast playback could not start.";
+                reportPlatformError("unknown", "podcast-playback-start", playbackMessage, { mediaType: "podcast-audio" });
                 showToast("Podcast playback could not start. Try pressing Play again.", "error");
             }
         }

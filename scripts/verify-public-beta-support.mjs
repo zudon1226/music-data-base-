@@ -45,7 +45,7 @@ record("migration admin_notes guard", migration.includes("support_tickets_block_
 record("user API strips admin_notes select", !ticketsRoute.includes("admin_notes"));
 record("admin API includes admin_notes", adminRoute.includes("admin_notes"));
 record("platform errors redaction", errorsRoute.includes("redactSupportText"));
-record("platform errors auth on GET user", errorsRoute.includes("requireMatchingUserId"));
+record("platform errors auth on GET user", errorsRoute.includes("resolveStrictRequestUserId") && errorsRoute.includes("isAdminUserId"));
 record("upload error CTA", page.includes("Report this upload problem"));
 record("profile support panel", page.includes("SupportReportPanel"));
 record("admin dashboard wired", page.includes("AdminSupportDashboard"));
