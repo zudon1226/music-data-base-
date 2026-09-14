@@ -192,15 +192,8 @@ export async function downloadPersonalRingtoneAsset(input: {
     const blob = await response.blob();
     const extension = input.deviceType === "iphone" ? "m4r" : "mp3";
     const filename = `${(input.title || "ringtone").replace(/[^\w\-]+/g, "_")}.${extension}`;
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.rel = "noopener";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    const { downloadBlobAsFile } = await import("@/lib/blob-download");
+    downloadBlobAsFile(blob, filename);
     return { ok: true as const };
 }
 

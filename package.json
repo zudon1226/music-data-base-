@@ -6,8 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "cap:sync": "npx cap sync ios",
+    "cap:sync:android": "npx cap sync android",
     "cap:copy": "npx cap copy ios",
     "verify:capacitor-ios": "node scripts/verify-capacitor-ios-foundation.mjs",
+    "verify:capacitor-android": "node scripts/verify-capacitor-android-foundation.mjs",
     "start": "next start",
     "lint": "eslint",
     "verify:desktop": "node scripts/verify-desktop-regression-lock.mjs",
@@ -97,6 +99,7 @@
     "verify:public-beta-support": "node scripts/verify-public-beta-support.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.2",
     "@capacitor/cli": "8.5.2",
     "@capacitor/core": "8.5.2",
     "@capacitor/ios": "8.5.2",
