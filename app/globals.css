@@ -945,3 +945,30 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.account-deletion-panel {
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  margin-top: 8px;
+}
+
+.account-deletion-open,
+.account-deletion-submit {
+  color: #b42318;
+  border-color: color-mix(in srgb, #b42318 35%, transparent);
+}
+
+.account-deletion-flow {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.account-deletion-warning {
+  font-weight: 600;
+}
+
+.account-deletion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

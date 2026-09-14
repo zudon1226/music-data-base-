@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Camera, ExternalLink, LogOut } from "lucide-react";
+import { AccountDeletePanel } from "@/components/account-delete-panel";
 import { LanguageSelector } from "@/components/language-selector";
 import { PROFILE_FIELD_LIMITS } from "@/lib/dashboard/profile-fields";
 import { useTranslation } from "@/lib/i18n/provider";
@@ -35,6 +36,7 @@ type UserProfileDashboardProps = {
     accountRoleLabel?: string;
     fetchFn: FetchFn;
     onLogout: () => void;
+    onAccountDeleted?: () => void | Promise<void>;
     onSaved?: (profile: Partial<UserProfileDashboardData>) => void;
     children?: React.ReactNode;
 };
@@ -77,6 +79,7 @@ export function UserProfileDashboard({
     accountRoleLabel,
     fetchFn,
     onLogout,
+    onAccountDeleted,
     onSaved,
     children,
 }: UserProfileDashboardProps) {
@@ -420,13 +423,26 @@ export function UserProfileDashboard({
             </div>
 
             <div className="profile-save">
-                <h3>{t("settings.title")}</h3>
+                <h3>{t("profile.accountSettings")}</h3>
                 <p>{t("settings.languageDescription")}</p>
                 <div className="profile-language-row">
                     <span>{t("profile.preferredLanguage")}</span>
                     <LanguageSelector />
                 </div>
             </div>
+
+            <AccountDeletePanel
+                disabled={Boolean(isPlatformOwner)}
+                fetchFn={fetchFn}
+                onDeleted={async () => {
+                    if (onAccountDeleted) {
+                        await onAccountDeleted();
+                    }
+                    else {
+                        onLogout();
+                    }
+                }}
+            />
 
             {children}
         </section>

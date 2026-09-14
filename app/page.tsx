@@ -20137,6 +20137,10 @@ function PageContent({
             accountRoleLabel={accountRole}
             fetchFn={desktopActionFetch}
             onLogout={logout}
+            onAccountDeleted={async () => {
+                await logout();
+                setView("Home");
+            }}
             onSaved={(profile) => {
                 if (profile.displayName) {
                     setUserAuthProfile((previous) => ({

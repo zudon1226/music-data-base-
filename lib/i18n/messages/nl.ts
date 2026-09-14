@@ -31,6 +31,21 @@ export const nlMessages: LocaleMessageDictionary = {
             language: "Taal",
             languageChanged: "Taal gewijzigd naar {language}"
         },
+
+    accountDeletion: {
+        deleteAccount: "Delete Account",
+        warningTitle: "Delete Account Warning",
+        warningBody: "Deleting your account is permanent. Music Data Base will remove or anonymize your data that we are not legally required to retain, including profile details, preferences, library activity, uploads you own, and support attachments.",
+        permanentNotice: "Deleting your account is permanent.",
+        understandPermanent: "I understand this action cannot be undone.",
+        confirmDeletion: "Confirm Deletion",
+        typeDeletePrompt: "Type DELETE to confirm this permanent action.",
+        confirmPlaceholder: "DELETE",
+        deleting: "Deleting account...",
+        deleted: "Your account has been deleted.",
+        failed: "Could not delete your account. Try again or contact support.",
+        ownerBlocked: "This owner account cannot be deleted from the profile screen.",
+    },
     nav: {
             home: "Start",
             marketplace: "Marktplaats",
