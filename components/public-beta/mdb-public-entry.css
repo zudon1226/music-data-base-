@@ -1,0 +1,194 @@
+.mdb-public-entry-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+  background:
+    linear-gradient(90deg, rgba(2, 6, 23, 0.92), rgba(2, 6, 23, 0.55)),
+    url("https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1600&q=80");
+  background-size: cover;
+  background-position: center;
+}
+
+.mdb-public-entry-panel {
+  width: min(720px, 100%);
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(11, 23, 54, 0.96);
+  padding: 20px;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+.mdb-public-entry-mark {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.mdb-public-entry-mark img {
+  width: min(220px, 72vw);
+  max-height: 220px;
+  object-fit: contain;
+}
+
+.mdb-public-entry-mark span {
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.mdb-public-entry-title {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(28px, 7vw, 40px);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+}
+
+.mdb-public-entry-coming-soon {
+  margin: 6px 0 18px;
+  text-align: center;
+  font-size: clamp(22px, 5.5vw, 32px);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: #22d3ee;
+}
+
+.mdb-public-entry-grid {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 640px) {
+  .mdb-public-entry-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.mdb-public-entry-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(2, 6, 23, 0.55);
+}
+
+.mdb-public-entry-card h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+  color: #fbbf24;
+  letter-spacing: 0.04em;
+}
+
+.mdb-public-entry-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #e2e8f0;
+}
+
+.mdb-public-entry-action {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  background: #10204a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+  width: 100%;
+}
+
+.mdb-public-entry-action:hover {
+  border-color: #22d3ee;
+}
+
+.mdb-public-entry-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mdb-public-entry-back {
+  margin-top: 14px;
+  min-height: 44px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #67e8f9;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mdb-public-entry-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.mdb-public-entry-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.mdb-public-entry-form input {
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: #020617;
+  color: #fff;
+  padding: 0 12px;
+  font-size: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mdb-public-entry-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.mdb-public-entry-message {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mdb-public-entry-message.is-success {
+  color: #86efac;
+}
+
+.mdb-public-entry-message.is-error {
+  color: #fca5a5;
+}
+
+.mdb-public-entry-login-link {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.mdb-public-entry-login-link button {
+  border: 0;
+  background: transparent;
+  color: #67e8f9;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 8px 12px;
+}

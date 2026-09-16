@@ -51,6 +51,7 @@ import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
 import { MobileAppHorizontalNav } from "../components/mobile-app-horizontal-nav";
 import { MobileContentActionSheet } from "../components/mobile-content-action-sheet";
+import { MdbPublicEntryHub, MdbPublicEntryNotify } from "../components/public-beta/mdb-public-entry";
 import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
 import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
 import { safeRandomUUID } from "../lib/safe-random-uuid";
@@ -647,6 +648,7 @@ type AlbumUploadForm = {
 };
 type EditAlbumForm = AlbumUploadForm;
 type AuthMode = "login" | "signup";
+type PublicEntryView = "hub" | "notify" | "auth";
 type RepeatMode = "off" | "one" | "all";
 type ActiveMediaType = "song" | "video" | "ringtone" | "podcast-audio" | "podcast-video" | null;
 type ActiveRingtonePreview = RingtonePreviewRequest;
@@ -4190,6 +4192,7 @@ function PageContent({
     async function resolveDesktopProtectedActionUserId(loginMessage: string) {
         return desktopActionAuthGuard.requireLiveUserId(loginMessage, (message) => showToast(message, "error"));
     }
+    const [publicEntryView, setPublicEntryView] = useState<PublicEntryView>("hub");
     const [authMode, setAuthMode] = useState<AuthMode>("login");
     const [authEmail, setAuthEmail] = useState("");
     const [authPassword, setAuthPassword] = useState("");
@@ -5963,6 +5966,7 @@ function PageContent({
         setCanCreateRingtones(false);
         setCreatorStudio("artist");
         setUploadMode("song");
+        setPublicEntryView("hub");
         setAuthMode("login");
         setAuthEmail("");
         setAuthPassword("");
@@ -18115,12 +18119,43 @@ function PageContent({
       </main>);
     }
     if (shouldShowLoginScreen) {
+        if (publicEntryView === "hub") {
+            return (<MdbPublicEntryHub
+                onGetNotified={() => setPublicEntryView("notify")}
+                onJoinBeta={() => {
+                    setPublicEntryView("auth");
+                    setAuthMode("signup");
+                    setAuthAccountType("artist");
+                    setAuthMessage("");
+                }}
+                onLogin={() => {
+                    setPublicEntryView("auth");
+                    setAuthMode("login");
+                    setAuthMessage("");
+                }}
+            />);
+        }
+        if (publicEntryView === "notify") {
+            return (<MdbPublicEntryNotify onBack={() => setPublicEntryView("hub")} />);
+        }
         return (<main className="auth-page">
         <section className="auth-panel">
           <div className="auth-mark">
             <img src={BRAND_LOGO} alt="Music Data Base"/>
             <span>{BRAND_TAGLINE}</span>
           </div>
+
+          <button
+            type="button"
+            className="auth-switch"
+            style={{ marginBottom: 10 }}
+            onClick={() => {
+                setPublicEntryView("hub");
+                setAuthMessage("");
+            }}
+          >
+            Back to Coming Soon options
+          </button>
 
           <div className="auth-copy">
             <h1>{authMode === "signup" ? t("auth.createAccount") : t("auth.loginTitle")}</h1>
