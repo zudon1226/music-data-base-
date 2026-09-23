@@ -10,13 +10,13 @@
   --cs-radius: 10px;
   --cs-pad: 8px;
   --cs-media-desktop-w: 168px;
-  --cs-border: 1px solid rgba(34, 211, 238, 0.28);
-  --cs-bg: rgba(11, 23, 54, 0.62);
-  --cs-title: #e8f7ff;
-  --cs-secondary: #9bdcf0;
-  --cs-meta: #7eb6cb;
-  --cs-accent: #22d3ee;
-  --cs-ink: #020617;
+  --cs-border: 1px solid var(--mdb-border-green);
+  --cs-bg: rgba(9, 17, 12, 0.62);
+  --cs-title: var(--mdb-text);
+  --cs-secondary: var(--mdb-text-secondary);
+  --cs-meta: var(--mdb-text-muted);
+  --cs-accent: var(--mdb-green);
+  --cs-ink: var(--mdb-bg);
 }
 
 /* ---- Shared responsive grids (family-scoped) ---- */
@@ -281,7 +281,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-medi
   justify-content: center;
   border: 0;
   border-radius: 999px;
-  background: rgba(34, 211, 238, 0.92);
+  background: var(--mdb-border-green);
   color: #041018;
   cursor: pointer;
   padding: 0;
@@ -383,7 +383,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desc {
   padding: 12px;
   border: var(--cs-border);
   border-radius: var(--cs-radius);
-  background: #0b1736;
+  background: var(--mdb-surface-raised);
   overflow: hidden;
 }
 
@@ -396,7 +396,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desc {
   min-width: 0;
   border: 0;
   border-radius: 8px;
-  background: #10204a;
+  background: var(--mdb-surface-secondary);
   color: white;
   padding: 10px;
   text-align: center;
@@ -412,7 +412,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desc {
   aspect-ratio: 1 / 1;
   border-radius: 8px;
   overflow: hidden;
-  background: #020617;
+  background: var(--mdb-bg);
   margin: 0;
   padding: 0;
   transform: none;
@@ -427,7 +427,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desc {
   border-radius: 0;
   object-fit: cover;
   object-position: center center;
-  background: #020617;
+  background: var(--mdb-bg);
   transform: none;
 }
 
@@ -503,13 +503,13 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desc {
 }
 
 [data-card-family="store"] .cs-store-card__actions .follow-btn {
-  background: #10204a;
+  background: var(--mdb-surface-secondary);
   color: var(--cs-accent);
-  border: 1px solid rgba(34, 211, 238, 0.35);
+  border: 1px solid var(--mdb-border-green);
 }
 
 [data-card-family="store"] .cs-store-card__actions .follow-btn.followed {
-  background: rgba(34, 211, 238, 0.18);
+  background: var(--mdb-border-green-subtle);
 }
 
 /* ---- PROMOTION CARD ---- */
@@ -526,7 +526,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desc {
   padding: 12px;
   border: var(--cs-border);
   border-radius: var(--cs-radius);
-  background: #0b1736;
+  background: var(--mdb-surface-raised);
   overflow: hidden;
 }
 
@@ -536,7 +536,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desc {
   border-radius: 8px;
   object-fit: cover;
   object-position: center center;
-  background: #020617;
+  background: var(--mdb-bg);
   flex: 0 0 auto;
 }
 
@@ -631,7 +631,7 @@ html body .zml-app.view-grid [data-card-family="ringtone"][data-desktop-media-gr
   padding: 8px 10px;
   border: var(--cs-border);
   border-radius: 8px;
-  background: #10204a;
+  background: var(--mdb-surface-secondary);
   overflow: hidden;
 }
 
@@ -648,7 +648,7 @@ html body .zml-app.view-grid [data-card-family="ringtone"][data-desktop-media-gr
   border-radius: 8px;
   object-fit: cover;
   object-position: center center;
-  background: #020617;
+  background: var(--mdb-bg);
 }
 
 [data-card-family="list"] .cs-list-card__copy {
@@ -767,6 +767,10 @@ html body .zml-app.view-grid [data-card-family="ringtone"][data-desktop-media-gr
   html body main.zml-app.view-grid .content [data-horizontal-rail],
   html body main.zml-app.view-grid .artist-section,
   html body main.zml-app.view-grid .discovery-section,
+  html body main.zml-app.view-grid .marketplace-page,
+  html body main.zml-app.view-grid .marketplace-hero,
+  html body main.zml-app.view-grid .marketplace-filters,
+  html body main.zml-app.view-grid .marketplace-advanced-grid,
   html body main.zml-app.view-grid .marketplace-results,
   html body main.zml-app.view-grid .marketplace-feature-panel {
     height: auto !important;
@@ -774,6 +778,33 @@ html body .zml-app.view-grid [data-card-family="ringtone"][data-desktop-media-gr
     overflow: visible !important;
     overflow-x: visible !important;
     overflow-y: visible !important;
+  }
+
+  html body main.zml-app.view-grid .horizontal-rail-track.marketplace-release-grid,
+  html body main.zml-app.view-grid .horizontal-rail-track.marketplace-bundle-grid,
+  html body main.zml-app.view-grid .horizontal-rail-track.marketplace-limited-grid,
+  html body main.zml-app.view-grid .horizontal-rail-track.marketplace-preorder-grid {
+    grid-auto-rows: auto !important;
+  }
+
+  html body main.zml-app.view-grid .marketplace-page .horizontal-rail,
+  html body main.zml-app.view-grid .marketplace-page .horizontal-rail-track.marketplace-release-grid,
+  html body main.zml-app.view-grid .marketplace-page .horizontal-rail-track.marketplace-bundle-grid,
+  html body main.zml-app.view-grid .marketplace-page .horizontal-rail-track.marketplace-limited-grid,
+  html body main.zml-app.view-grid .marketplace-page .horizontal-rail-track.marketplace-preorder-grid {
+    contain: none !important;
+    transform: none !important;
+    will-change: auto !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+
+  html body main.zml-app.view-grid [data-desktop-media-grid-card="true"].marketplace-release-card,
+  html body main.zml-app.view-grid .marketplace-advanced-grid [data-card-family="promotion"].cs-promotion-card {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
   }
 
   html body main.zml-app.view-grid .horizontal-rail {
@@ -1249,7 +1280,7 @@ html body .zml-app .control-activity-list small {
     margin-left: 0 !important;
     margin-right: 0 !important;
     transform: none !important;
-    overflow-x: clip !important;
+    overflow: visible !important;
   }
 
   html body .zml-app .control-center-panel,
@@ -1335,4 +1366,20 @@ html body .zml-app .control-activity-list small {
     box-sizing: border-box !important;
     overflow: visible !important;
   }
+}
+
+html body .zml-app .founding-artist-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.45rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  white-space: nowrap;
+  background: rgba(255, 196, 86, 0.18);
+  border: 1px solid rgba(255, 196, 86, 0.45);
+  color: #f6e6b4;
 }

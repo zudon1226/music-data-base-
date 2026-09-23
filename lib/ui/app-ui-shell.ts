@@ -26,10 +26,10 @@ export const APP_UI_SHELL_CSS = `
     --ui-content-pad-top: 14px;
     --ui-card-pad: 12px;
     --ui-card-gap: 10px;
-    --ui-focus-ring: 0 0 0 2px rgba(34, 211, 238, 0.95);
-    --ui-focus-ring-offset: 0 0 0 2px rgba(2, 6, 23, 0.9);
-    --ui-text-muted: #a9bed6;
-    --ui-panel-border: rgba(0, 212, 255, 0.28);
+    --ui-focus-ring: 0 0 0 2px rgba(57, 255, 90, 0.95);
+    --ui-focus-ring-offset: 0 0 0 2px rgba(3, 8, 5, 0.9);
+    --ui-text-muted: var(--mdb-text-muted);
+    --ui-panel-border: var(--mdb-border-gold-subtle);
   }
 
   /* ---- Content shell padding (aligned L/R, player clearance preserved) ---- */
@@ -88,7 +88,7 @@ export const APP_UI_SHELL_CSS = `
     font-size: 1.05rem !important;
     line-height: 1.35 !important;
     font-weight: 650 !important;
-    color: #e8f4ff !important;
+    color: var(--mdb-text) !important;
   }
 
   .sales-hero h2,

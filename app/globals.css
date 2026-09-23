@@ -5,21 +5,21 @@
 body {
   margin: 0;
   padding: 0;
-  background: #0b1fb8;
+  background: var(--mdb-bg);
   overflow-x: hidden;
 }
 
 .public-profile-page {
   min-height: 100vh;
-  background: #020718;
+  background: var(--mdb-bg);
   color: #ffffff;
   font-family: Arial, Helvetica, sans-serif;
   padding: 28px;
 }
 
 .public-profile-hero {
-  border: 1px solid #11c8ee;
-  background: #0c1c48;
+  border: 1px solid var(--mdb-green);
+  background: var(--mdb-surface-raised);
   border-radius: 10px;
   overflow: hidden;
   max-width: 1180px;
@@ -31,7 +31,7 @@ body {
   height: 280px;
   object-fit: cover;
   display: block;
-  background: #030817;
+  background: var(--mdb-bg);
 }
 
 .public-profile-hero-content {
@@ -47,13 +47,13 @@ body {
   height: 150px;
   object-fit: cover;
   border-radius: 8px;
-  border: 1px solid #11c8ee;
-  background: #030817;
+  border: 1px solid var(--mdb-green);
+  background: var(--mdb-bg);
 }
 
 .public-profile-hero-content span,
 .public-media-card span {
-  color: #25d5f1;
+  color: var(--mdb-green);
   display: inline-block;
   font-size: 12px;
   font-weight: 800;
@@ -68,19 +68,19 @@ body {
 
 .public-profile-hero-content p {
   max-width: 760px;
-  color: #dcecff;
+  color: var(--mdb-text-secondary);
   line-height: 1.5;
   margin: 0 0 10px;
 }
 
 .public-profile-hero-content a {
-  color: #98ef28;
+  color: var(--mdb-green);
   font-weight: 800;
   text-decoration: none;
 }
 
 .public-verified-badge {
-  background: #25d5f1;
+  background: var(--mdb-green);
   color: #00101a !important;
   width: 30px;
   height: 30px;
@@ -107,7 +107,7 @@ body {
 .public-profile-section,
 .public-empty-state {
   border: 1px solid #0a91b8;
-  background: #0c1c48;
+  background: var(--mdb-surface-raised);
   border-radius: 8px;
 }
 
@@ -121,7 +121,7 @@ body {
 }
 
 .public-profile-stats span {
-  color: #8bdff3;
+  color: var(--mdb-text-secondary);
   font-size: 13px;
   font-weight: 800;
 }
@@ -144,7 +144,7 @@ body {
 }
 
 .public-section-heading span {
-  color: #25d5f1;
+  color: var(--mdb-green);
   font-weight: 900;
 }
 
@@ -155,8 +155,8 @@ body {
 }
 
 .public-media-card {
-  border: 1px solid rgba(37, 213, 241, 0.5);
-  background: #14285d;
+  border: 1px solid var(--mdb-border-green);
+  background: var(--mdb-surface-secondary);
   border-radius: 8px;
   overflow: hidden;
   transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
@@ -164,8 +164,8 @@ body {
 
 .public-media-card:hover {
   transform: scale(1.02);
-  border-color: #25d5f1;
-  box-shadow: 0 0 18px rgba(37, 213, 241, 0.22);
+  border-color: var(--mdb-green);
+  box-shadow: 0 0 18px var(--mdb-border-green-subtle);
 }
 
 .public-media-card img {
@@ -173,7 +173,7 @@ body {
   height: 126px;
   object-fit: cover;
   display: block;
-  background: #030817;
+  background: var(--mdb-bg);
 }
 
 .public-media-card div {
@@ -206,11 +206,11 @@ body {
 }
 
 .public-media-card small {
-  color: #dcecff;
+  color: var(--mdb-text-secondary);
 }
 
 .public-empty-state {
-  color: #dcecff;
+  color: var(--mdb-text-secondary);
   padding: 18px;
 }
 
@@ -270,9 +270,9 @@ body {
     transform: none !important;
     margin: 0 !important;
     border-radius: 14px !important;
-    border: 1px solid rgba(34, 211, 238, 0.42) !important;
+    border: 1px solid var(--mdb-border-green) !important;
     background:
-      linear-gradient(180deg, rgba(10, 28, 62, 0.96), rgba(3, 12, 32, 0.94)) !important;
+      linear-gradient(180deg, rgba(9, 17, 12, 0.96), rgba(5, 10, 7, 0.94)) !important;
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4) !important;
   }
 
@@ -696,7 +696,7 @@ body {
 
 .legal-policy-page {
   min-height: 100vh;
-  background: #020718;
+  background: var(--mdb-bg);
   color: #ffffff;
   font-family: Arial, Helvetica, sans-serif;
   padding: 24px 16px 40px;
@@ -708,15 +708,15 @@ body {
 }
 
 .legal-policy-header {
-  border: 1px solid rgba(17, 200, 238, 0.35);
+  border: 1px solid var(--mdb-border-green);
   border-radius: 10px;
-  background: #0c1c48;
+  background: var(--mdb-surface-raised);
   padding: 20px;
   margin-bottom: 16px;
 }
 
 .legal-policy-home-link {
-  color: #98ef28;
+  color: var(--mdb-green);
   font-weight: 800;
   text-decoration: none;
   display: inline-block;
@@ -724,7 +724,7 @@ body {
 }
 
 .legal-policy-kicker {
-  color: #25d5f1;
+  color: var(--mdb-green);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -739,15 +739,15 @@ body {
 
 .legal-policy-meta {
   margin: 0;
-  color: #dcecff;
+  color: var(--mdb-text-secondary);
   font-size: 14px;
 }
 
 .legal-policy-content,
 .legal-policy-footer {
-  border: 1px solid rgba(17, 200, 238, 0.28);
+  border: 1px solid var(--mdb-border-green);
   border-radius: 10px;
-  background: #0b1736;
+  background: var(--mdb-surface-raised);
   padding: 20px;
 }
 
@@ -761,13 +761,13 @@ body {
 
 .legal-policy-section h2 {
   margin: 0 0 10px;
-  color: #25d5f1;
+  color: var(--mdb-green);
   font-size: 18px;
 }
 
 .legal-policy-section p,
 .legal-policy-section li {
-  color: #dcecff;
+  color: var(--mdb-text-secondary);
   line-height: 1.6;
 }
 
@@ -790,7 +790,7 @@ body {
 }
 
 .legal-policy-link-list a {
-  color: #98ef28;
+  color: var(--mdb-green);
   font-weight: 700;
   text-decoration: none;
 }
@@ -803,14 +803,14 @@ body {
 }
 
 .legal-links-footer a {
-  color: #98ef28;
+  color: var(--mdb-green);
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
 }
 
 .auth-legal-acceptance {
-  border: 1px solid rgba(17, 200, 238, 0.25);
+  border: 1px solid var(--mdb-border-green-subtle);
   border-radius: 8px;
   padding: 12px;
   margin: 0;
@@ -821,7 +821,7 @@ body {
 .auth-legal-acceptance legend {
   font-size: 13px;
   font-weight: 800;
-  color: #25d5f1;
+  color: var(--mdb-green);
   padding: 0 4px;
 }
 
@@ -831,7 +831,7 @@ body {
   align-items: flex-start;
   font-size: 13px;
   line-height: 1.45;
-  color: #dcecff;
+  color: var(--mdb-text-secondary);
 }
 
 .auth-legal-option input {
@@ -839,7 +839,7 @@ body {
 }
 
 .auth-legal-option a {
-  color: #98ef28;
+  color: var(--mdb-green);
   font-weight: 800;
   text-decoration: underline;
 }
@@ -873,8 +873,8 @@ body {
 }
 
 .support-admin-role-filters button.active {
-  border-color: #98ef28;
-  background: rgba(152, 239, 40, 0.12);
+  border-color: var(--mdb-green);
+  background: rgba(57, 255, 90, 0.12);
   font-weight: 700;
 }
 

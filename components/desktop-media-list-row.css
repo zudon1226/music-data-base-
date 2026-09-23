@@ -15,9 +15,9 @@
   max-height: 62px !important;
   padding: 6px 10px !important;
   margin: 0 !important;
-  border: 1px solid rgba(34, 211, 238, 0.28) !important;
+  border: 1px solid var(--mdb-border-green) !important;
   border-radius: 10px !important;
-  background: rgba(11, 23, 54, 0.62) !important;
+  background: rgba(9, 17, 12, 0.62) !important;
   box-sizing: border-box !important;
   overflow: hidden !important;
   grid-template-columns: none !important;
@@ -33,7 +33,7 @@
 }
 
 .zml-app.view-list [data-desktop-media-list-row="true"].active {
-  border-color: rgba(34, 211, 238, 0.55) !important;
+  border-color: var(--mdb-border-green) !important;
   background: rgba(14, 32, 72, 0.88) !important;
 }
 
@@ -90,19 +90,19 @@
 .zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__title {
   font-size: 13px !important;
   font-weight: 600 !important;
-  color: #e8f7ff !important;
+  color: var(--mdb-text) !important;
 }
 
 .zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__secondary {
   font-size: 12px !important;
   opacity: 0.78 !important;
-  color: #9bdcf0 !important;
+  color: var(--mdb-text-secondary) !important;
 }
 
 .zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__meta {
   font-size: 11px !important;
   opacity: 0.65 !important;
-  color: #7eb6cb !important;
+  color: var(--mdb-text-muted) !important;
 }
 
 .zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__play,
@@ -127,13 +127,13 @@
 }
 
 .zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__play {
-  background: rgba(34, 211, 238, 0.16) !important;
-  color: #67e8f9 !important;
+  background: var(--mdb-border-green-subtle) !important;
+  color: var(--mdb-green-secondary) !important;
 }
 
 .zml-app.view-list [data-desktop-media-list-row="true"] .desktop-media-list-row__more {
   background: transparent !important;
-  color: #9bdcf0 !important;
+  color: var(--mdb-text-secondary) !important;
 }
 
 /* Vertical stack collections — no horizontal rails / empty columns. */

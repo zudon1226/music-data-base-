@@ -23,7 +23,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] .desktop-medi
   padding: 2px 6px;
   border-radius: 999px;
   background: rgba(8, 12, 24, 0.72);
-  color: #f8fafc;
+  color: var(--mdb-text);
   max-width: calc(100% - 48px);
   overflow: hidden;
   text-overflow: ellipsis;

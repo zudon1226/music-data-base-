@@ -1,8 +1,16 @@
 import "./globals.css";
+import "./mdb-theme.css";
 import "../components/desktop-media-list-row.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { MDB_AUTH_BOOT_CRITICAL_CSS } from "../lib/ui/mdb-auth-boot-css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -33,8 +41,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    // Capacitor/Android WebView stamps --safe-area-inset-* onto <html> when
+    // viewport-fit=cover. SSR cannot know those pixel values; ignore that one
+    // attribute mismatch. Insets remain on the live element after hydration.
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        {/* Critical auth-boot CSS must be document-inline: hashed CSS chunks
+            404/500 when next start is not restarted after npm run build. */}
+        <style
+          id="mdb-auth-boot-critical"
+          dangerouslySetInnerHTML={{ __html: MDB_AUTH_BOOT_CRITICAL_CSS }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

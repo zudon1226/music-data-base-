@@ -99,8 +99,8 @@
     box-sizing: border-box !important;
     margin: 0 0 8px !important;
     padding: max(6px, env(safe-area-inset-top, 0px)) 0 8px !important;
-    background: rgba(2, 6, 23, 0.96) !important;
-    border-bottom: 1px solid rgba(0, 212, 255, 0.22) !important;
+    background: rgba(3, 8, 5, 0.96) !important;
+    border-bottom: 1px solid var(--mdb-border-gold-subtle) !important;
   }
 
   .queue-page .queue-exit-bar .queue-back-btn {
@@ -116,9 +116,9 @@
     font-size: 13px !important;
     font-weight: 800 !important;
     border-radius: 8px !important;
-    border: 1px solid rgba(34, 211, 238, 0.55) !important;
-    background: #0b1736 !important;
-    color: #67e8f9 !important;
+    border: 1px solid var(--mdb-border-green) !important;
+    background: var(--mdb-surface-raised) !important;
+    color: var(--mdb-green-secondary) !important;
   }
 
   .queue-page .queue-toolbar {

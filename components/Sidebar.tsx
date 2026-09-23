@@ -33,7 +33,7 @@ export default function Sidebar({
     top: 0,
     bottom: 0,
     overflowY: "auto" as const,
-    borderRight: "2px solid #00d4ff",
+    borderRight: "2px solid var(--mdb-green)",
     zIndex: 20
   }
 

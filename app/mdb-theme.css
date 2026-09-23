@@ -1,0 +1,368 @@
+/* Music Data Base — approved black / metallic-gold / vivid-green palette.
+   Color tokens only. Does not change layout, logo assets, or app logic. */
+
+:root {
+  --mdb-bg: #030805;
+  --mdb-surface: #050A07;
+  --mdb-surface-raised: #09110C;
+  --mdb-surface-secondary: #0D1710;
+
+  --mdb-gold: #F5C84C;
+  --mdb-gold-bright: #FFD75E;
+  --mdb-gold-dark: #B88916;
+
+  --mdb-green: #39FF5A;
+  --mdb-green-secondary: #16C94A;
+  --mdb-green-dark: #087A2D;
+
+  --mdb-text: #FFFFFF;
+  --mdb-text-secondary: #C9CEC9;
+  --mdb-text-muted: #8D968F;
+
+  --mdb-border: #263129;
+  --mdb-border-gold: rgba(245, 200, 76, 0.55);
+  --mdb-border-gold-subtle: rgba(245, 200, 76, 0.28);
+  --mdb-border-green: rgba(57, 255, 90, 0.4);
+  --mdb-border-green-subtle: rgba(57, 255, 90, 0.22);
+
+  --mdb-green-glow: rgba(57, 255, 90, 0.18);
+  --mdb-gold-glow: rgba(245, 200, 76, 0.16);
+  --mdb-ink: #030805;
+
+  /* Bridge legacy UI shell tokens */
+  --ui-text-muted: var(--mdb-text-muted);
+  --ui-panel-border: var(--mdb-border-gold-subtle);
+  --ui-focus-ring: 0 0 0 2px rgba(57, 255, 90, 0.95);
+  --ui-focus-ring-offset: 0 0 0 2px rgba(3, 8, 5, 0.9);
+
+  /* Card-system bridge */
+  --cs-border: 1px solid var(--mdb-border-gold-subtle);
+  --cs-bg: color-mix(in srgb, var(--mdb-surface-raised) 92%, transparent);
+  --cs-title: var(--mdb-text);
+  --cs-secondary: var(--mdb-text-secondary);
+  --cs-meta: var(--mdb-text-muted);
+  --cs-accent: var(--mdb-green);
+  --cs-ink: var(--mdb-ink);
+}
+
+/* ---- Shell surfaces ---- */
+html,
+body,
+.zml-app {
+  background: var(--mdb-bg, #030805) !important;
+  color: var(--mdb-text, #ffffff);
+}
+
+/*
+  Auth / session boot screens (Checking your session, login, reset, etc.).
+  Mirrored as document-inline critical CSS via lib/ui/mdb-auth-boot-css.ts
+  so first paint survives hashed-chunk 404/500 after rebuilds.
+*/
+.auth-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  background: var(--mdb-bg, #030805);
+  color: var(--mdb-text, #ffffff);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.auth-panel {
+  width: min(440px, 100%);
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--mdb-border-gold-subtle, rgba(245, 200, 76, 0.28));
+  border-radius: 8px;
+  background: var(--mdb-surface-raised, #09110c);
+  padding: 24px;
+  color: var(--mdb-text, #ffffff);
+}
+
+.auth-mark {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  max-width: 100%;
+}
+
+.auth-mark img {
+  width: min(260px, 82vw);
+  max-width: 100%;
+  height: auto;
+  max-height: min(260px, 45vh);
+  object-fit: contain;
+  display: block;
+}
+
+.auth-mark span {
+  color: var(--mdb-gold, #f5c84c);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.auth-page > .auth-panel > p,
+.auth-panel > p {
+  margin: 14px 0 0;
+  text-align: center;
+  color: var(--mdb-text-secondary, #c9cec9);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sidebar {
+  background: var(--mdb-surface) !important;
+  border-right-color: var(--mdb-border-gold-subtle) !important;
+}
+
+.topbar,
+.main,
+.content {
+  color: var(--mdb-text);
+}
+
+/* ---- Navigation: green active ---- */
+.nav button,
+.reset-btn {
+  background: var(--mdb-surface-secondary) !important;
+  color: var(--mdb-text) !important;
+}
+
+.nav button.active,
+.nav button:hover,
+.desktop-sidebar-nav button.active,
+.desktop-sidebar-nav button:hover,
+.mobile-app-horizontal-nav button[aria-current="page"],
+.mobile-app-horizontal-nav a[aria-current="page"],
+.mobile-app-horizontal-nav .is-active {
+  background: color-mix(in srgb, var(--mdb-green-dark) 55%, var(--mdb-surface-secondary)) !important;
+  color: var(--mdb-green) !important;
+}
+
+.tabs button.active,
+.tabs button:hover,
+.source-row button.active,
+.source-row button:hover,
+.liked-tabs button.active,
+.liked-tabs button:hover,
+.trend-period-tabs button.active,
+.view-toggle button.active {
+  background: var(--mdb-green) !important;
+  color: var(--mdb-ink) !important;
+}
+
+/* ---- Primary CTAs: gold ---- */
+.hero-buttons button:not(.sub-btn),
+.save-upload,
+.playlist-create button,
+.play-btn,
+.recent-row > button,
+.recent-actions > button,
+.playlist-actions button:first-child,
+.playlist-song-row > button,
+.mdb-public-entry-action,
+.stability-actions button:first-child {
+  background: var(--mdb-gold) !important;
+  color: var(--mdb-ink) !important;
+  border-color: var(--mdb-border-gold) !important;
+}
+
+.hero-buttons button:not(.sub-btn):hover,
+.save-upload:hover,
+.play-btn:hover {
+  background: var(--mdb-gold-bright) !important;
+}
+
+.hero-buttons .sub-btn {
+  background: var(--mdb-surface-secondary) !important;
+  color: var(--mdb-text) !important;
+  border: 1px solid var(--mdb-border-gold-subtle) !important;
+}
+
+/*
+  Logged-in subscription cards:
+  GOLD = normal Subscribe / primary plan CTA
+  GREEN = Selected / active plan only
+  Do not style public-entry here.
+*/
+.zml-app .plan-card {
+  border-color: var(--mdb-border, #263129) !important;
+}
+
+.zml-app .plan-card button,
+.zml-app .monetization-plan button {
+  background: #f5c84c !important;
+  color: #030805 !important;
+}
+
+.zml-app .plan-card button:hover:not(:disabled),
+.zml-app .monetization-plan button:hover:not(:disabled) {
+  background: #ffd75e !important;
+  color: #030805 !important;
+}
+
+.zml-app .plan-card.is-selected button,
+.zml-app .monetization-plan.active button {
+  background: var(--mdb-green, #39ff5a) !important;
+  color: #030805 !important;
+}
+
+.zml-app .plan-card.is-selected button:hover:not(:disabled),
+.zml-app .monetization-plan.active button:hover:not(:disabled) {
+  background: var(--mdb-green-secondary, #16c94a) !important;
+  color: #030805 !important;
+}
+
+/* ---- Player ---- */
+.player,
+.music-bottom-player,
+.video-bottom-player,
+.fixed-mobile-player,
+.video-player-bar {
+  background: var(--mdb-surface) !important;
+  border-color: var(--mdb-border) !important;
+  color: var(--mdb-text);
+}
+
+.progress-row input,
+.volume input,
+.music-bottom-player input[type="range"],
+.video-bottom-player input[type="range"],
+.upload-progress progress {
+  accent-color: var(--mdb-gold) !important;
+}
+
+.player .progress-time,
+.queue-count {
+  color: var(--mdb-text-secondary) !important;
+}
+
+/* ---- Forms ---- */
+.content input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.content select,
+.content textarea,
+.mdb-public-entry-form input,
+.sidekick-input {
+  background: var(--mdb-bg) !important;
+  color: var(--mdb-text) !important;
+  border-color: var(--mdb-border) !important;
+}
+
+.content input:focus-visible,
+.content select:focus-visible,
+.content textarea:focus-visible,
+.mdb-public-entry-form input:focus-visible,
+.sidekick-input:focus-visible {
+  border-color: var(--mdb-border-green) !important;
+}
+
+/* ---- Cards / panels ---- */
+.content .song-card,
+.content .video-card,
+.content .media-card,
+.content .library-card,
+.content .discovery-card,
+.content .artist-card,
+.content .dashboard-panel,
+.content .upload-card,
+.content .plan-card,
+.content .sponsor-card,
+.mini-stats div,
+.queue-item,
+.mdb-public-entry-panel,
+.mdb-public-entry-card,
+.sidekick-panel {
+  background: var(--mdb-surface-raised) !important;
+  border-color: var(--mdb-border) !important;
+}
+
+/* ---- Sidekick: green accents + gold trim ---- */
+.sidekick-launcher {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--mdb-surface-raised) 98%, var(--mdb-green) 2%),
+    var(--mdb-surface)
+  ) !important;
+  border-color: var(--mdb-border-green) !important;
+  color: var(--mdb-text) !important;
+}
+
+.sidekick-launcher:hover,
+.sidekick-launcher:focus-visible {
+  border-color: var(--mdb-green) !important;
+  color: var(--mdb-green) !important;
+}
+
+.sidekick-launcher[aria-expanded="true"] {
+  border-color: var(--mdb-border-gold) !important;
+  color: var(--mdb-gold-bright) !important;
+}
+
+.sidekick-panel {
+  border-color: var(--mdb-border-green-subtle) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48), 0 0 0 1px var(--mdb-border-gold-subtle);
+}
+
+.sidekick-panel-head {
+  border-bottom-color: var(--mdb-border-green-subtle) !important;
+}
+
+.sidekick-panel-subtitle,
+.sidekick-compose-label {
+  color: var(--mdb-green) !important;
+}
+
+.sidekick-send,
+.sidekick-panel-close {
+  background: var(--mdb-surface-secondary) !important;
+  border-color: var(--mdb-border-green) !important;
+  color: var(--mdb-text) !important;
+}
+
+.sidekick-send:hover:not(:disabled),
+.sidekick-panel-close:hover {
+  border-color: var(--mdb-green) !important;
+  color: var(--mdb-green) !important;
+}
+
+/* ---- Links / interactive highlights ---- */
+a,
+.public-profile-hero-content a,
+.mdb-public-entry-back,
+.mdb-public-entry-login-link button {
+  color: var(--mdb-green) !important;
+}
+
+.logo {
+  color: var(--mdb-gold) !important;
+}
+
+/* Logo image sizing/layout only — never alter the logo asset itself */
+.logo img,
+.hero-logo,
+.mdb-public-entry-mark img,
+.stability-brand img {
+  /* intentionally no filter/recolor */
+}
+
+/* Preserve functional status colors */
+.like-btn.liked,
+.small-action,
+.clear-recent,
+.danger-btn {
+  /* leave existing red/warning colors from component rules */
+}
+
+.mdb-public-entry-message.is-error,
+.sidekick-error {
+  color: #fca5a5 !important;
+}
+
+.mdb-public-entry-message.is-success {
+  color: var(--mdb-green-secondary) !important;
+}

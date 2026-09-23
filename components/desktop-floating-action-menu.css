@@ -10,13 +10,13 @@
   padding: 6px;
   width: 208px;
   max-width: calc(100vw - 24px);
-  border: 1px solid rgba(34, 211, 238, 0.42);
+  border: 1px solid var(--mdb-border-green);
   border-radius: 10px;
-  background: #0b1736;
+  background: var(--mdb-surface-raised);
   box-shadow:
-    0 0 0 1px rgba(2, 6, 23, 0.55),
+    0 0 0 1px rgba(3, 8, 5, 0.55),
     0 16px 36px rgba(0, 0, 0, 0.58);
-  color: #e8f7ff;
+  color: var(--mdb-text);
   font-family: Arial, Helvetica, sans-serif;
   font-size: 13px;
   line-height: 1.3;
@@ -41,7 +41,7 @@
   border: 0 !important;
   border-radius: 7px !important;
   background: rgba(148, 163, 184, 0.06) !important;
-  color: #e8f7ff !important;
+  color: var(--mdb-text) !important;
   font-family: Arial, Helvetica, sans-serif !important;
   font-size: 13px !important;
   font-weight: 600 !important;
@@ -66,7 +66,7 @@
 /* Single-item hover highlight */
 .desktop-floating-action-menu__item:hover {
   outline: none !important;
-  background: rgba(34, 211, 238, 0.26) !important;
+  background: var(--mdb-border-green) !important;
   color: #f5fcff !important;
 }
 
@@ -77,14 +77,14 @@
 /* Keyboard focus — visible ring on the focused item only */
 .desktop-floating-action-menu__item:focus-visible {
   outline: none !important;
-  background: rgba(34, 211, 238, 0.26) !important;
+  background: var(--mdb-border-green) !important;
   color: #f5fcff !important;
-  box-shadow: inset 0 0 0 2px rgba(34, 211, 238, 0.7) !important;
+  box-shadow: inset 0 0 0 2px var(--mdb-border-green) !important;
 }
 
 /* Pressed */
 .desktop-floating-action-menu__item:active {
-  background: rgba(34, 211, 238, 0.36) !important;
+  background: var(--mdb-border-green) !important;
   color: #ffffff !important;
   box-shadow: none !important;
 }
@@ -93,9 +93,9 @@
 .desktop-floating-action-menu__item[aria-selected="true"],
 .desktop-floating-action-menu__item[aria-current="true"],
 .desktop-floating-action-menu__item--selected {
-  background: rgba(34, 211, 238, 0.18) !important;
+  background: var(--mdb-border-green-subtle) !important;
   color: #f0fbff !important;
-  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.35) !important;
+  box-shadow: inset 0 0 0 1px var(--mdb-border-green) !important;
 }
 
 .desktop-floating-action-menu__item[aria-selected="true"]:hover,
@@ -104,7 +104,7 @@
 .desktop-floating-action-menu__item[aria-selected="true"]:focus-visible,
 .desktop-floating-action-menu__item[aria-current="true"]:focus-visible,
 .desktop-floating-action-menu__item--selected:focus-visible {
-  background: rgba(34, 211, 238, 0.3) !important;
+  background: var(--mdb-border-green) !important;
   color: #ffffff !important;
 }
 
