@@ -329,8 +329,8 @@ export function FoundingOnboardingAdminPanel({
                 gap: 10px;
                 padding: 14px;
                 border-radius: 14px;
-                background: rgba(15, 23, 42, 0.72);
-                border: 1px solid rgba(148, 163, 184, 0.18);
+                background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
+                border: 1px solid color-mix(in srgb, var(--mdb-border) 18%, transparent);
               }
               .founding-onboarding-card h4,
               .founding-onboarding-card strong {
@@ -350,7 +350,7 @@ export function FoundingOnboardingAdminPanel({
                 align-items: center;
                 gap: 10px;
                 padding: 8px 0;
-                border-top: 1px solid rgba(148, 163, 184, 0.12);
+                border-top: 1px solid color-mix(in srgb, var(--mdb-border) 12%, transparent);
               }
               .founding-onboarding-row span {
                 display: block;

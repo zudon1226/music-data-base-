@@ -1577,9 +1577,9 @@ export function RingtoneCreatorWorkspace({
                     min-width: 0;
                     max-width: 100%;
                     border-radius: 8px;
-                    border: 1px solid rgba(0, 212, 255, 0.28);
-                    background: #0b1736;
-                    color: #e8f7ff;
+                    border: 1px solid var(--mdb-border-gold-subtle);
+                    background: var(--mdb-surface-raised);
+                    color: var(--mdb-text);
                     padding: 0.55rem 0.75rem;
                     cursor: pointer;
                     box-sizing: border-box;
@@ -1587,7 +1587,7 @@ export function RingtoneCreatorWorkspace({
                     overflow-wrap: anywhere;
                     word-break: break-word;
                     transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.08s ease, filter 0.08s ease, opacity 0.12s ease;
-                    -webkit-tap-highlight-color: rgba(34, 211, 238, 0.28);
+                    -webkit-tap-highlight-color: var(--mdb-border-green);
                     touch-action: manipulation;
                 }
 
@@ -1597,10 +1597,10 @@ export function RingtoneCreatorWorkspace({
                 .ringtone-creator-actions button[aria-selected="true"],
                 .ringtone-wizard-steps button[aria-selected="true"],
                 .ringtone-source-tabs button[aria-pressed="true"] {
-                    background: #22d3ee;
-                    color: #062033;
+                    background: var(--mdb-green);
+                    color: var(--mdb-ink);
                     font-weight: 800;
-                    border-color: #67e8f9;
+                    border-color: var(--mdb-green-secondary);
                     box-shadow: inset 0 0 0 1px rgba(6, 32, 51, 0.2);
                 }
 
@@ -1614,8 +1614,8 @@ export function RingtoneCreatorWorkspace({
                 .ringtone-step > button:active,
                 .ringtone-upload-source > button:active,
                 .ringtone-use-song-btn:active {
-                    background: #67e8f9;
-                    color: #062033;
+                    background: var(--mdb-green-secondary);
+                    color: var(--mdb-ink);
                     transform: scale(0.98);
                     filter: brightness(1.05);
                 }
@@ -1630,7 +1630,7 @@ export function RingtoneCreatorWorkspace({
                 .ringtone-step > button:focus-visible,
                 .ringtone-upload-source > button:focus-visible,
                 .ringtone-use-song-btn:focus-visible {
-                    outline: 2px solid #67e8f9;
+                    outline: 2px solid var(--mdb-green-secondary);
                     outline-offset: 2px;
                 }
 
@@ -1641,9 +1641,9 @@ export function RingtoneCreatorWorkspace({
                 .ringtone-use-song-btn:disabled {
                     opacity: 0.45;
                     cursor: not-allowed;
-                    background: #152d66;
-                    color: #7f9db8;
-                    border-color: rgba(0, 212, 255, 0.14);
+                    background: color-mix(in srgb, var(--mdb-green-dark) 45%, var(--mdb-surface-secondary));
+                    color: var(--mdb-text-muted);
+                    border-color: var(--mdb-border);
                     transform: none;
                     filter: none;
                 }
@@ -1661,9 +1661,9 @@ export function RingtoneCreatorWorkspace({
                     min-width: 0;
                     box-sizing: border-box;
                     overflow-x: hidden;
-                    border: 1px solid rgba(0, 212, 255, 0.28);
+                    border: 1px solid var(--mdb-border-gold-subtle);
                     border-radius: 8px;
-                    background: #071631;
+                    background: var(--mdb-surface);
                     padding: 10px;
                 }
 
@@ -1684,14 +1684,14 @@ export function RingtoneCreatorWorkspace({
                     padding: 0.5rem 0.55rem !important;
                     border: 0;
                     border-radius: 8px;
-                    background: #152d66;
+                    background: color-mix(in srgb, var(--mdb-green-dark) 45%, var(--mdb-surface-secondary));
                     color: white;
                     font-size: 13px;
                     font-weight: 900;
                     cursor: pointer;
                     box-sizing: border-box;
                     transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease, filter 0.08s ease;
-                    -webkit-tap-highlight-color: rgba(34, 211, 238, 0.28);
+                    -webkit-tap-highlight-color: var(--mdb-border-green);
                     touch-action: manipulation;
                 }
 
@@ -1701,8 +1701,8 @@ export function RingtoneCreatorWorkspace({
                 .ringtone-wizard .ringtone-source-tabs button[aria-pressed="true"],
                 .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps) button.active,
                 .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs) button.active {
-                    background: #22d3ee !important;
-                    color: #062033 !important;
+                    background: var(--mdb-green) !important;
+                    color: var(--mdb-ink) !important;
                     font-weight: 900;
                 }
 
@@ -1710,8 +1710,8 @@ export function RingtoneCreatorWorkspace({
                 .ringtone-wizard .ringtone-source-tabs button:not(.active):active,
                 .ringtone-wizard :global(.upload-mode-tabs.ringtone-wizard-steps) button:not(.active):active,
                 .ringtone-wizard :global(.upload-mode-tabs.ringtone-source-tabs) button:not(.active):active {
-                    background: #67e8f9 !important;
-                    color: #062033 !important;
+                    background: var(--mdb-green-secondary) !important;
+                    color: var(--mdb-ink) !important;
                     transform: scale(0.98);
                 }
 
@@ -1766,7 +1766,7 @@ export function RingtoneCreatorWorkspace({
                     max-height: 72px;
                     border-radius: 8px;
                     object-fit: cover;
-                    background: #08122b;
+                    background: var(--mdb-bg);
                     display: block;
                 }
 
@@ -1774,7 +1774,7 @@ export function RingtoneCreatorWorkspace({
                 .ringtone-review img {
                     border-radius: 8px;
                     object-fit: cover;
-                    background: #08122b;
+                    background: var(--mdb-bg);
                     max-width: 100%;
                 }
 
@@ -1789,14 +1789,14 @@ export function RingtoneCreatorWorkspace({
                     align-items: center;
                     padding: 10px;
                     border-radius: 8px;
-                    border: 1px solid rgba(0, 212, 255, 0.28);
-                    background: #0b1736;
+                    border: 1px solid var(--mdb-border-gold-subtle);
+                    background: var(--mdb-surface-raised);
                     box-sizing: border-box;
                 }
 
                 .ringtone-source-card.selected {
-                    border-color: #22d3ee;
-                    box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.35);
+                    border-color: var(--mdb-green);
+                    box-shadow: inset 0 0 0 1px var(--mdb-border-green);
                 }
 
                 .ringtone-source-card-body {
@@ -1807,7 +1807,7 @@ export function RingtoneCreatorWorkspace({
 
                 .ringtone-use-song-btn {
                     justify-self: start;
-                    background: #152d66;
+                    background: color-mix(in srgb, var(--mdb-green-dark) 45%, var(--mdb-surface-secondary));
                     font-weight: 800;
                 }
 
@@ -1848,9 +1848,9 @@ export function RingtoneCreatorWorkspace({
                     margin: 0;
                     padding: 10px 12px;
                     border-radius: 10px;
-                    border: 1px solid rgba(0, 212, 255, 0.28);
-                    background: #08122b;
-                    color: #e8f7ff;
+                    border: 1px solid var(--mdb-border-gold-subtle);
+                    background: var(--mdb-bg);
+                    color: var(--mdb-text);
                     cursor: pointer;
                     user-select: none;
                     box-sizing: border-box;
@@ -1859,14 +1859,14 @@ export function RingtoneCreatorWorkspace({
                 }
 
                 .ringtone-checkbox:hover {
-                    border-color: rgba(34, 211, 238, 0.65);
-                    background: #0b1736;
+                    border-color: var(--mdb-border-green);
+                    background: var(--mdb-surface-raised);
                 }
 
                 .ringtone-checkbox:focus-within {
-                    outline: 2px solid #22d3ee;
+                    outline: 2px solid var(--mdb-green);
                     outline-offset: 2px;
-                    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.22);
+                    box-shadow: 0 0 0 3px var(--mdb-border-green-subtle);
                 }
 
                 .ringtone-checkbox span {
@@ -1890,8 +1890,8 @@ export function RingtoneCreatorWorkspace({
                     min-height: 24px;
                     margin: 2px 0 0;
                     border-radius: 6px;
-                    border: 2px solid rgba(34, 211, 238, 0.75);
-                    background: #020617;
+                    border: 2px solid var(--mdb-border-green);
+                    background: var(--mdb-bg);
                     display: grid;
                     place-content: center;
                     cursor: pointer;
@@ -1903,15 +1903,15 @@ export function RingtoneCreatorWorkspace({
                     height: 12px;
                     transform: scale(0);
                     transition: transform 0.12s ease-in-out;
-                    box-shadow: inset 1em 1em #22d3ee;
-                    background-color: #22d3ee;
+                    box-shadow: inset 1em 1em var(--mdb-green);
+                    background-color: var(--mdb-green);
                     border-radius: 2px;
                     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0, 43% 62%);
                 }
 
                 .ringtone-checkbox input[type="checkbox"]:checked {
-                    background: #083344;
-                    border-color: #22d3ee;
+                    background: var(--mdb-surface-secondary);
+                    border-color: var(--mdb-green);
                 }
 
                 .ringtone-checkbox input[type="checkbox"]:checked::before {
@@ -1919,7 +1919,7 @@ export function RingtoneCreatorWorkspace({
                 }
 
                 .ringtone-checkbox input[type="checkbox"]:focus-visible {
-                    outline: 2px solid #67e8f9;
+                    outline: 2px solid var(--mdb-green-secondary);
                     outline-offset: 2px;
                 }
 
@@ -1942,9 +1942,9 @@ export function RingtoneCreatorWorkspace({
                     min-width: 0;
                     min-height: 44px;
                     border-radius: 8px;
-                    border: 1px solid rgba(0, 212, 255, 0.28);
-                    background: #08122b;
-                    color: #e8f7ff;
+                    border: 1px solid var(--mdb-border-gold-subtle);
+                    background: var(--mdb-bg);
+                    color: var(--mdb-text);
                     padding: 0.65rem 0.8rem;
                     box-sizing: border-box;
                 }
@@ -1967,7 +1967,7 @@ export function RingtoneCreatorWorkspace({
                     min-width: 0;
                     box-sizing: border-box;
                     overflow: hidden;
-                    color: #e8f7ff;
+                    color: var(--mdb-text);
                 }
 
                 .ringtone-file-name {
@@ -1975,7 +1975,7 @@ export function RingtoneCreatorWorkspace({
                     width: 100%;
                     max-width: 100%;
                     min-width: 0;
-                    color: #9ec9e6;
+                    color: var(--mdb-text-secondary);
                     font-size: 13px;
                     line-height: 1.35;
                     overflow-wrap: anywhere;
@@ -2016,7 +2016,7 @@ export function RingtoneCreatorWorkspace({
                 }
 
                 .ringtone-process-state {
-                    color: #67e8f9;
+                    color: var(--mdb-green-secondary);
                     font-weight: 700;
                 }
 
@@ -2034,7 +2034,7 @@ export function RingtoneCreatorWorkspace({
                     display: flex;
                     flex-wrap: wrap;
                     gap: 10px;
-                    color: #a5f3fc;
+                    color: var(--mdb-text-muted);
                     min-width: 0;
                     max-width: 100%;
                     overflow-wrap: anywhere;
@@ -2048,7 +2048,7 @@ export function RingtoneCreatorWorkspace({
                     height: 28px;
                     border-radius: 999px;
                     background: rgba(8, 18, 43, 0.95);
-                    border: 1px solid rgba(0, 212, 255, 0.28);
+                    border: 1px solid var(--mdb-border-gold-subtle);
                     overflow: hidden;
                     box-sizing: border-box;
                 }
@@ -2057,7 +2057,7 @@ export function RingtoneCreatorWorkspace({
                     position: absolute;
                     top: 0;
                     bottom: 0;
-                    background: rgba(34, 211, 238, 0.45);
+                    background: var(--mdb-border-green);
                 }
 
                 .sr-only {

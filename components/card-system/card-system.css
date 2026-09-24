@@ -191,7 +191,7 @@ html body .zml-app.view-grid [data-desktop-media-grid-card="true"] > .desktop-me
   aspect-ratio: 1 / 1 !important;
   border-radius: 8px;
   overflow: hidden !important;
-  background: rgba(15, 23, 42, 0.35);
+  background: color-mix(in srgb, var(--mdb-surface-raised) 35%, transparent);
   flex: 0 0 auto !important;
 }
 
@@ -1189,8 +1189,8 @@ html body .zml-app .control-health-card {
   margin: 0 !important;
   padding: 14px !important;
   border-radius: var(--cs-radius) !important;
-  border: 1px solid rgba(148, 163, 184, 0.16) !important;
-  background: rgba(15, 23, 42, 0.72) !important;
+  border: 1px solid color-mix(in srgb, var(--mdb-border) 16%, transparent) !important;
+  background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent) !important;
   overflow: visible !important;
   gap: 6px !important;
 }

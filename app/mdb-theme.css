@@ -366,3 +366,69 @@ a,
 .mdb-public-entry-message.is-success {
   color: var(--mdb-green-secondary) !important;
 }
+
+/* ---- Legacy navy/blue section cleanup (presentation only) ---- */
+.marketplace-hero-stats span,
+.sales-hero-stats span,
+.license-history-stats span,
+.sales-row,
+.license-history-row,
+.marketplace-chart-row,
+.beat-license-detail-grid button,
+.license-button-grid button,
+.beat-detail-actions .subtle-action,
+.dashboard-empty-card,
+.creator-studio-switcher,
+.discovery-section,
+.song-card,
+.control-overview-card,
+.control-center-card,
+.control-health-card,
+.platform-control-center .control-center-header {
+  background: var(--mdb-surface-raised) !important;
+  border-color: var(--mdb-border-gold-subtle) !important;
+}
+
+.platform-control-center .control-center-header {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--mdb-green-dark) 55%, var(--mdb-surface)),
+    var(--mdb-surface-raised)
+  ) !important;
+}
+
+.search-box,
+.profile-edit-form textarea {
+  background: var(--mdb-bg) !important;
+  border-color: var(--mdb-border) !important;
+}
+
+.drawer-row-actions button,
+.icon-action,
+.dashboard-nav-row button,
+.support-feedback-row button {
+  background: var(--mdb-surface-secondary) !important;
+  color: var(--mdb-text) !important;
+}
+
+.trust-quick-grid button {
+  background: var(--mdb-gold) !important;
+  color: var(--mdb-ink) !important;
+}
+
+.queue-main small,
+.playlist-kicker,
+.player-song small {
+  color: var(--mdb-gold) !important;
+}
+
+.sales-hero p,
+.license-history-hero p,
+.artist-copy p,
+.album-file-summary,
+.comments-list p,
+.card-secondary-actions button,
+.notification-center .notification-item-main span {
+  color: var(--mdb-text-secondary) !important;
+}
+

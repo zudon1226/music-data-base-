@@ -392,7 +392,7 @@ export function TestAccountCleanupCenter({
               .test-account-cleanup-center .cleanup-footnote,
               .test-account-cleanup-center .cleanup-message p {
                 margin: 0;
-                color: #9bdcf0;
+                color: var(--mdb-text-secondary);
               }
 
               .test-account-cleanup-center .cleanup-table-wrap {
@@ -427,7 +427,7 @@ export function TestAccountCleanupCenter({
               }
 
               .test-account-cleanup-center .cleanup-review-table tr {
-                background: rgba(15, 23, 42, 0.55);
+                background: color-mix(in srgb, var(--mdb-surface-raised) 55%, transparent);
               }
 
               .test-account-cleanup-center .cleanup-review-table thead tr {
@@ -441,7 +441,7 @@ export function TestAccountCleanupCenter({
                 max-height: none !important;
                 padding: 10px 12px !important;
                 border: 0 !important;
-                border-bottom: 1px solid rgba(148, 163, 184, 0.14) !important;
+                border-bottom: 1px solid color-mix(in srgb, var(--mdb-border) 14%, transparent) !important;
                 text-align: left !important;
                 vertical-align: middle !important;
                 line-height: 1.25 !important;
@@ -450,7 +450,7 @@ export function TestAccountCleanupCenter({
               }
 
               .test-account-cleanup-center .cleanup-review-table th {
-                color: #67e8f9;
+                color: var(--mdb-green-secondary);
                 font-size: 11px;
                 font-weight: 800;
                 text-transform: uppercase;
@@ -508,12 +508,12 @@ export function TestAccountCleanupCenter({
               }
 
               .test-account-cleanup-center .cleanup-row-selected {
-                background: rgba(34, 211, 238, 0.1) !important;
+                background: var(--mdb-border-green-subtle) !important;
               }
 
               .test-account-cleanup-center .cleanup-empty-row td {
                 text-align: center !important;
-                color: #9bdcf0;
+                color: var(--mdb-text-secondary);
               }
 
               .test-account-cleanup-center .cleanup-confidence-badge {
@@ -538,8 +538,8 @@ export function TestAccountCleanupCenter({
               }
 
               .test-account-cleanup-center .cleanup-confidence-low {
-                background: rgba(148, 163, 184, 0.18);
-                color: #cbd5e1;
+                background: color-mix(in srgb, var(--mdb-border) 18%, transparent);
+                color: var(--mdb-text-secondary);
               }
 
               .test-account-cleanup-center .cleanup-action-panel,
@@ -547,8 +547,8 @@ export function TestAccountCleanupCenter({
               .test-account-cleanup-center .cleanup-delete-panel {
                 padding: 14px;
                 border-radius: 14px;
-                background: rgba(15, 23, 42, 0.72);
-                border: 1px solid rgba(148, 163, 184, 0.16);
+                background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
+                border: 1px solid color-mix(in srgb, var(--mdb-border) 16%, transparent);
                 display: grid;
                 gap: 12px;
                 height: auto !important;
@@ -569,18 +569,18 @@ export function TestAccountCleanupCenter({
               .test-account-cleanup-center .cleanup-block-reasons ul {
                 margin: 0;
                 padding-left: 18px;
-                color: #9bdcf0;
+                color: var(--mdb-text-secondary);
                 display: grid;
                 gap: 4px;
               }
 
-              .test-account-cleanup-center .cleanup-safe-yes { color: #86efac; }
+              .test-account-cleanup-center .cleanup-safe-yes { color: var(--mdb-green-secondary); }
               .test-account-cleanup-center .cleanup-safe-no { color: #fca5a5; }
 
               .test-account-cleanup-center .cleanup-delete-panel label {
                 display: grid;
                 gap: 6px;
-                color: #dbeafe;
+                color: var(--mdb-text-secondary);
               }
 
               .test-account-cleanup-center .cleanup-delete-panel input[type="text"] {
@@ -625,9 +625,9 @@ export function TestAccountCleanupCenter({
                   width: 100% !important;
                   margin: 0 !important;
                   padding: 10px 12px !important;
-                  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+                  border: 1px solid color-mix(in srgb, var(--mdb-border) 18%, transparent) !important;
                   border-radius: 10px !important;
-                  background: rgba(15, 23, 42, 0.72) !important;
+                  background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent) !important;
                   height: auto !important;
                   min-height: 0 !important;
                   align-content: start !important;
@@ -649,7 +649,7 @@ export function TestAccountCleanupCenter({
 
                 .test-account-cleanup-center .cleanup-review-table td::before {
                   content: attr(data-label);
-                  color: #67e8f9;
+                  color: var(--mdb-green-secondary);
                   font-size: 11px;
                   font-weight: 800;
                   text-transform: uppercase;

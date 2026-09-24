@@ -635,7 +635,7 @@ export function RingtoneReviewQueue({
                     flex: 1 1 220px;
                 }
                 .ringtone-review-select-field > span {
-                    color: #e8f7ff;
+                    color: var(--mdb-text);
                     font-weight: 700;
                 }
                 /* Explicit colors: native option menus must not inherit white-on-white. */
@@ -645,19 +645,19 @@ export function RingtoneReviewQueue({
                     width: 100%;
                     min-height: 44px;
                     border-radius: 8px;
-                    border: 1px solid rgba(0, 212, 255, 0.45);
-                    background-color: #08122b;
-                    color: #e8f7ff;
+                    border: 1px solid var(--mdb-border-gold);
+                    background-color: var(--mdb-bg);
+                    color: var(--mdb-text);
                     font: inherit;
                     font-weight: 700;
                     padding: 0.55rem 0.8rem;
                 }
                 .ringtone-review-select:hover {
-                    border-color: rgba(34, 211, 238, 0.75);
+                    border-color: var(--mdb-border-green);
                 }
                 .ringtone-review-select:focus,
                 .ringtone-review-select:focus-visible {
-                    outline: 2px solid #22d3ee;
+                    outline: 2px solid var(--mdb-green);
                     outline-offset: 2px;
                 }
                 .ringtone-review-select:disabled {
@@ -727,9 +727,9 @@ export function RingtoneReviewQueue({
                     min-width: 44px;
                     padding: 0.6rem 0.95rem;
                     border-radius: 8px;
-                    border: 1px solid rgba(0, 212, 255, 0.35);
-                    background: #0b1736;
-                    color: #e8f7ff;
+                    border: 1px solid var(--mdb-border-gold-subtle);
+                    background: var(--mdb-surface-raised);
+                    color: var(--mdb-text);
                     font: inherit;
                     font-weight: 800;
                     font-size: 0.92rem;
@@ -740,13 +740,13 @@ export function RingtoneReviewQueue({
                     transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
                 }
                 .rrq-btn:hover:not(:disabled) {
-                    border-color: rgba(34, 211, 238, 0.75);
-                    background: #102247;
+                    border-color: var(--mdb-border-green);
+                    background: var(--mdb-surface-secondary);
                 }
                 .rrq-btn:focus-visible {
-                    outline: 2px solid #22d3ee;
+                    outline: 2px solid var(--mdb-green);
                     outline-offset: 2px;
-                    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25);
+                    box-shadow: 0 0 0 3px var(--mdb-border-green-subtle);
                 }
                 .rrq-btn:disabled,
                 .rrq-btn[aria-busy="true"] {
@@ -755,9 +755,9 @@ export function RingtoneReviewQueue({
                 }
                 .rrq-btn-secondary,
                 .rrq-btn-media {
-                    background: #0b1736;
-                    border-color: rgba(0, 212, 255, 0.35);
-                    color: #e8f7ff;
+                    background: var(--mdb-surface-raised);
+                    border-color: var(--mdb-border-gold-subtle);
+                    color: var(--mdb-text);
                 }
                 .rrq-btn-approve {
                     background: #065f46;
@@ -787,13 +787,14 @@ export function RingtoneReviewQueue({
                     border-color: #d1d5db;
                 }
                 .rrq-btn-reprocess {
-                    background: #0c4a6e;
-                    border-color: rgba(56, 189, 248, 0.65);
-                    color: #e0f2fe;
+                    background: var(--mdb-surface-secondary);
+                    border-color: var(--mdb-border-green);
+                    color: var(--mdb-text-secondary);
                 }
                 .rrq-btn-reprocess:hover:not(:disabled) {
-                    background: #075985;
-                    border-color: #7dd3fc;
+                    background: var(--mdb-green-dark);
+                    border-color: var(--mdb-green);
+                    color: var(--mdb-text);
                 }
                 .ringtone-modal {
                     position: fixed;

@@ -100,8 +100,8 @@ export function FoundingMemberProfileCard({
                 gap: 12px;
                 padding: 16px;
                 border-radius: 16px;
-                background: rgba(15, 23, 42, 0.72);
-                border: 1px solid rgba(148, 163, 184, 0.18);
+                background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
+                border: 1px solid color-mix(in srgb, var(--mdb-border) 18%, transparent);
               }
               .founding-profile-head {
                 display: flex;

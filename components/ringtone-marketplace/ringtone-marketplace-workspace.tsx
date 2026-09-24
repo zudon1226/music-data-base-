@@ -866,21 +866,21 @@ export function RingtoneMarketplaceWorkspace({
                     min-width: 44px;
                     padding: 0.65rem 0.9rem;
                     border-radius: 8px;
-                    border: 1px solid rgba(0, 212, 255, 0.28);
-                    background: #0b1736;
-                    color: #e8f7ff;
+                    border: 1px solid var(--mdb-border-gold-subtle);
+                    background: var(--mdb-surface-raised);
+                    color: var(--mdb-text);
                     cursor: pointer;
                     white-space: nowrap;
                     transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.08s ease, filter 0.08s ease, opacity 0.12s ease;
-                    -webkit-tap-highlight-color: rgba(34, 211, 238, 0.28);
+                    -webkit-tap-highlight-color: var(--mdb-border-green);
                     touch-action: manipulation;
                 }
                 .ringtone-section-links button.active,
                 .ringtone-section-links button[aria-pressed="true"] {
-                    background: #22d3ee;
-                    color: #062033;
+                    background: var(--mdb-green);
+                    color: var(--mdb-ink);
                     font-weight: 800;
-                    border-color: #67e8f9;
+                    border-color: var(--mdb-green-secondary);
                 }
                 .ringtone-market-actions button:not(:disabled):active,
                 .ringtone-section-links button:not(.active):active,
@@ -890,8 +890,8 @@ export function RingtoneMarketplaceWorkspace({
                 .ringtone-detail > button:active,
                 .ringtone-install-guide button:active,
                 .ringtone-market-controls button:active {
-                    background: #67e8f9;
-                    color: #062033;
+                    background: var(--mdb-green-secondary);
+                    color: var(--mdb-ink);
                     transform: scale(0.98);
                     filter: brightness(1.05);
                 }
@@ -905,30 +905,30 @@ export function RingtoneMarketplaceWorkspace({
                 .ringtone-market-controls button:focus-visible,
                 .ringtone-market-controls select:focus-visible,
                 .ringtone-market-controls input:focus-visible {
-                    outline: 2px solid #67e8f9;
+                    outline: 2px solid var(--mdb-green-secondary);
                     outline-offset: 2px;
                 }
                 .ringtone-pagination button:disabled,
                 .ringtone-market-actions button:disabled {
                     opacity: 0.45;
                     cursor: not-allowed;
-                    background: #152d66;
-                    color: #7f9db8;
-                    border-color: rgba(0, 212, 255, 0.14);
+                    background: color-mix(in srgb, var(--mdb-green-dark) 45%, var(--mdb-surface-secondary));
+                    color: var(--mdb-text-muted);
+                    border-color: var(--mdb-border);
                     transform: none;
                     filter: none;
                 }
                 .ringtone-market-controls select {
-                    accent-color: #22d3ee;
+                    accent-color: var(--mdb-green);
                 }
                 .ringtone-market-controls label { display: grid; gap: 6px; min-width: 160px; flex: 1; }
                 .ringtone-market-controls input,
                 .ringtone-market-controls select {
                     min-height: 44px;
                     border-radius: 8px;
-                    border: 1px solid rgba(0, 212, 255, 0.28);
-                    background: #08122b;
-                    color: #e8f7ff;
+                    border: 1px solid var(--mdb-border-gold-subtle);
+                    background: var(--mdb-bg);
+                    color: var(--mdb-text);
                     padding: 0.65rem 0.8rem;
                     width: 100%;
                 }
@@ -942,7 +942,7 @@ export function RingtoneMarketplaceWorkspace({
                     display: inline-flex;
                     align-items: center;
                     min-height: 44px;
-                    color: #67e8f9;
+                    color: var(--mdb-green-secondary);
                     font-weight: 700;
                     padding: 0 0.4rem;
                 }

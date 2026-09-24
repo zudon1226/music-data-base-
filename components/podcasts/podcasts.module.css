@@ -1,11 +1,11 @@
 .workspace {
-    --podcast-surface: rgba(10, 18, 38, 0.9);
-    --podcast-surface-strong: rgba(13, 24, 49, 0.96);
-    --podcast-surface-soft: rgba(21, 34, 61, 0.72);
-    --podcast-border: rgba(148, 163, 184, 0.2);
-    --podcast-border-strong: rgba(103, 232, 249, 0.42);
+    --podcast-surface: color-mix(in srgb, var(--mdb-surface-raised) 90%, transparent);
+    --podcast-surface-strong: color-mix(in srgb, var(--mdb-surface-raised) 96%, transparent);
+    --podcast-surface-soft: color-mix(in srgb, var(--mdb-surface-secondary) 72%, transparent);
+    --podcast-border: color-mix(in srgb, var(--mdb-border) 20%, transparent);
+    --podcast-border-strong: color-mix(in srgb, var(--mdb-green) 42%, transparent);
     --podcast-text: var(--mdb-text);
-    --podcast-muted: #a8b5cc;
+    --podcast-muted: var(--mdb-text-muted);
     --podcast-accent: var(--mdb-green-secondary);
     --podcast-accent-strong: var(--mdb-green);
     --podcast-purple: #c4b5fd;
@@ -19,8 +19,8 @@
     color: var(--podcast-text);
     background:
         radial-gradient(circle at 88% 2%, var(--mdb-border-green-subtle), transparent 30%),
-        radial-gradient(circle at 8% 22%, rgba(139, 92, 246, 0.12), transparent 34%),
-        linear-gradient(155deg, rgba(5, 10, 25, 0.96), rgba(8, 16, 34, 0.94));
+        radial-gradient(circle at 8% 22%, color-mix(in srgb, var(--mdb-green) 5%, transparent), transparent 34%),
+        linear-gradient(155deg, color-mix(in srgb, var(--mdb-bg) 96%, transparent), color-mix(in srgb, var(--mdb-surface) 94%, transparent));
     border: 1px solid var(--podcast-border);
     border-radius: 20px;
     box-sizing: border-box;
@@ -77,7 +77,11 @@
     gap: 16px;
     min-width: 0;
     padding: clamp(16px, 2.5vw, 24px);
-    background: linear-gradient(135deg, rgba(15, 28, 57, 0.96), rgba(18, 30, 56, 0.75));
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--mdb-surface-raised) 96%, transparent),
+        color-mix(in srgb, var(--mdb-surface-secondary) 75%, transparent)
+    );
     border: 1px solid var(--podcast-border);
     border-radius: 17px;
     box-shadow: 0 18px 42px rgba(3, 8, 5, 0.2);
@@ -103,7 +107,7 @@
     height: 50px;
     flex: 0 0 50px;
     place-items: center;
-    color: #06101f;
+    color: var(--mdb-ink);
     background: linear-gradient(135deg, var(--podcast-accent), #a7f3d0);
     border-radius: 15px;
     box-shadow: 0 12px 30px var(--mdb-border-green-subtle);
@@ -161,7 +165,7 @@
     padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid var(--podcast-border);
-    background: rgba(8, 16, 34, 0.88);
+    background: color-mix(in srgb, var(--mdb-surface) 88%, transparent);
     color: var(--podcast-muted);
     cursor: pointer;
     font-size: 0.82rem;
@@ -170,7 +174,7 @@
 }
 
 .typeToggleActive {
-    color: #06101f;
+    color: var(--mdb-ink);
     background: linear-gradient(135deg, var(--podcast-accent), #a7f3d0);
     border-color: transparent;
 }
@@ -225,14 +229,14 @@
 }
 
 .activeTab {
-    color: #06111f;
+    color: var(--mdb-ink);
     background: linear-gradient(135deg, var(--podcast-accent), #a7f3d0);
     box-shadow: 0 7px 18px var(--mdb-border-green-subtle);
 }
 
 .tab:hover {
     color: var(--podcast-text);
-    background: rgba(148, 163, 184, 0.1);
+    background: color-mix(in srgb, var(--mdb-border) 10%, transparent);
 }
 
 .continueListening {
@@ -270,7 +274,7 @@
     min-width: 72px;
     padding: 0;
     color: var(--podcast-accent);
-    background-color: rgba(8, 16, 34, 0.88);
+    background-color: color-mix(in srgb, var(--mdb-surface) 88%, transparent);
     background-position: center;
     background-size: cover;
     border: 0;
@@ -321,7 +325,7 @@
     padding: 0 12px;
     color: var(--podcast-muted);
     background: rgba(4, 10, 24, 0.72);
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 25%, transparent);
     border-radius: 12px;
 }
 
@@ -373,7 +377,7 @@
 }
 
 .categoryChipActive {
-    color: #06111f;
+    color: var(--mdb-ink);
     background: linear-gradient(135deg, var(--podcast-accent), #a7f3d0);
     border-color: transparent;
 }
@@ -463,8 +467,8 @@
     gap: 9px;
     color: var(--podcast-muted);
     text-align: center;
-    background: rgba(10, 18, 38, 0.62);
-    border: 1px dashed rgba(148, 163, 184, 0.28);
+    background: color-mix(in srgb, var(--mdb-surface-raised) 62%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--mdb-border) 28%, transparent);
     border-radius: 16px;
 }
 
@@ -533,7 +537,7 @@
 
 .showCard:hover,
 .episodeCard:hover {
-    border-color: rgba(103, 232, 249, 0.34);
+    border-color: color-mix(in srgb, var(--mdb-green) 34%, transparent);
     box-shadow: 0 18px 42px rgba(3, 8, 5, 0.26);
     transform: translateY(-2px);
 }
@@ -545,7 +549,7 @@
     min-height: 150px;
     place-items: center;
     overflow: hidden;
-    color: rgba(103, 232, 249, 0.7);
+    color: color-mix(in srgb, var(--mdb-green) 70%, transparent);
     background-color: rgba(19, 32, 59, 0.85);
     background-position: center;
     background-repeat: no-repeat;
@@ -595,9 +599,9 @@ button.showCover {
 
 .coverBadge,
 .audioBadge {
-    color: #cffafe;
-    background: rgba(8, 47, 73, 0.88);
-    border: 1px solid rgba(103, 232, 249, 0.34);
+    color: var(--mdb-text-muted);
+    background: color-mix(in srgb, var(--mdb-green-dark) 88%, var(--mdb-surface));
+    border: 1px solid color-mix(in srgb, var(--mdb-green) 34%, transparent);
 }
 
 .videoBadge {
@@ -614,9 +618,9 @@ button.showCover {
 
 .countPill {
     min-width: 30px;
-    color: #cffafe;
-    background: rgba(8, 47, 73, 0.7);
-    border: 1px solid rgba(103, 232, 249, 0.3);
+    color: var(--mdb-text-muted);
+    background: color-mix(in srgb, var(--mdb-green-dark) 70%, var(--mdb-surface));
+    border: 1px solid color-mix(in srgb, var(--mdb-green) 30%, transparent);
 }
 
 .cardBody {
@@ -677,8 +681,8 @@ button.showCover {
     padding: 4px 7px;
     overflow: hidden;
     color: var(--mdb-text-secondary);
-    background: rgba(148, 163, 184, 0.09);
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: color-mix(in srgb, var(--mdb-border) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 12%, transparent);
     border-radius: 7px;
     font-size: 0.68rem;
     line-height: 1.2;
@@ -718,7 +722,7 @@ button.showCover {
 
 .primaryButton,
 .playButton {
-    color: #05111d;
+    color: var(--mdb-ink);
     background: linear-gradient(135deg, var(--podcast-accent), #a7f3d0);
     border: 1px solid transparent;
     box-shadow: 0 8px 20px var(--mdb-border-green-subtle);
@@ -729,9 +733,9 @@ button.showCover {
 .iconButton,
 .rowActions button,
 .episodeManagerActions button {
-    color: #dbeafe;
+    color: var(--mdb-text-secondary);
     background: rgba(15, 29, 55, 0.84);
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 25%, transparent);
 }
 
 .iconButton {
@@ -764,7 +768,7 @@ button.showCover {
 .episodeManagerActions button:hover:not(:disabled) {
     color: var(--podcast-text);
     background: rgba(27, 45, 77, 0.94);
-    border-color: rgba(103, 232, 249, 0.36);
+    border-color: color-mix(in srgb, var(--mdb-green) 36%, transparent);
 }
 
 .primaryButton:disabled,
@@ -783,7 +787,7 @@ button.showCover {
 .workspace input:focus-visible,
 .workspace select:focus-visible,
 .workspace textarea:focus-visible {
-    outline: 3px solid rgba(103, 232, 249, 0.42);
+    outline: 3px solid color-mix(in srgb, var(--mdb-green) 42%, transparent);
     outline-offset: 2px;
 }
 
@@ -808,9 +812,9 @@ button.showCover {
     gap: 9px;
     min-width: 0;
     padding: 12px 14px;
-    color: #cffafe;
-    background: rgba(8, 47, 73, 0.48);
-    border: 1px solid rgba(103, 232, 249, 0.34);
+    color: var(--mdb-text-muted);
+    background: color-mix(in srgb, var(--mdb-green-dark) 48%, var(--mdb-surface));
+    border: 1px solid color-mix(in srgb, var(--mdb-green) 34%, transparent);
     border-radius: 12px;
 }
 
@@ -853,7 +857,7 @@ button.showCover {
 .panel {
     min-width: 0;
     padding: clamp(14px, 2vw, 19px);
-    background: linear-gradient(150deg, rgba(14, 25, 49, 0.94), rgba(8, 16, 34, 0.9));
+    background: linear-gradient(150deg, rgba(14, 25, 49, 0.94), color-mix(in srgb, var(--mdb-surface) 90%, transparent));
     border: 1px solid var(--podcast-border);
     border-radius: 16px;
     box-shadow: 0 16px 38px rgba(3, 8, 5, 0.14);
@@ -876,7 +880,7 @@ button.showCover {
 }
 
 .selectedStudioShow {
-    background: linear-gradient(135deg, rgba(8, 47, 73, 0.58), rgba(22, 35, 64, 0.72));
+    background: linear-gradient(135deg, color-mix(in srgb, var(--mdb-green-dark) 58%, var(--mdb-surface)), rgba(22, 35, 64, 0.72));
     border-color: var(--podcast-border-strong);
     box-shadow: inset 3px 0 0 var(--podcast-accent);
 }
@@ -898,7 +902,7 @@ button.showCover {
 }
 
 .showSelectButton:hover {
-    background: rgba(103, 232, 249, 0.05);
+    background: color-mix(in srgb, var(--mdb-green) 5%, transparent);
 }
 
 .showThumb,
@@ -913,7 +917,7 @@ button.showCover {
     background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 20%, transparent);
     border-radius: 9px;
 }
 
@@ -947,7 +951,7 @@ button.showCover {
     gap: 6px;
     min-width: 0;
     padding: 8px 10px 10px;
-    border-top: 1px solid rgba(148, 163, 184, 0.12);
+    border-top: 1px solid color-mix(in srgb, var(--mdb-border) 12%, transparent);
 }
 
 .rowActions button,
@@ -974,7 +978,7 @@ button.showCover {
     color: var(--podcast-muted);
     text-align: center;
     background: rgba(5, 11, 25, 0.44);
-    border: 1px dashed rgba(148, 163, 184, 0.23);
+    border: 1px dashed color-mix(in srgb, var(--mdb-border) 23%, transparent);
     border-radius: 12px;
 }
 
@@ -1015,7 +1019,7 @@ button.showCover {
     display: grid;
     min-width: 0;
     gap: 6px;
-    color: #dbeafe;
+    color: var(--mdb-text-secondary);
     font-size: 0.78rem;
     font-weight: 750;
 }
@@ -1041,7 +1045,7 @@ button.showCover {
     padding: 10px 11px;
     color: var(--podcast-text);
     background: rgba(4, 10, 24, 0.72);
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 25%, transparent);
     border-radius: 9px;
     outline: none;
     transition: border-color 150ms ease, background 150ms ease;
@@ -1061,7 +1065,7 @@ button.showCover {
 .field input:hover,
 .field select:hover,
 .field textarea:hover {
-    border-color: rgba(148, 163, 184, 0.42);
+    border-color: color-mix(in srgb, var(--mdb-border) 42%, transparent);
 }
 
 .field input:focus,
@@ -1085,9 +1089,9 @@ button.showCover {
     gap: 9px 11px;
     min-width: 0;
     padding: 11px;
-    color: #dbeafe;
+    color: var(--mdb-text-secondary);
     background: rgba(5, 13, 29, 0.58);
-    border: 1px dashed rgba(103, 232, 249, 0.34);
+    border: 1px dashed color-mix(in srgb, var(--mdb-green) 34%, transparent);
     border-radius: 11px;
 }
 
@@ -1108,7 +1112,7 @@ button.showCover {
     height: 42px;
     place-items: center;
     color: var(--podcast-accent);
-    background: rgba(8, 47, 73, 0.55);
+    background: color-mix(in srgb, var(--mdb-green-dark) 55%, var(--mdb-surface));
     border-radius: 10px;
 }
 
@@ -1121,7 +1125,7 @@ button.showCover {
     overflow: hidden;
     color: var(--podcast-muted);
     background: rgba(15, 29, 55, 0.72);
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 20%, transparent);
     border-radius: 8px;
     cursor: pointer;
     font-size: 0.72rem;
@@ -1131,7 +1135,7 @@ button.showCover {
     min-height: 28px;
     margin-right: 8px;
     padding: 5px 9px;
-    color: #05202a;
+    color: var(--mdb-ink);
     background: var(--podcast-accent);
     border: 0;
     border-radius: 6px;
@@ -1146,9 +1150,9 @@ button.showCover {
     min-width: 0;
     min-height: 44px;
     padding: 8px 10px;
-    color: #dbeafe;
+    color: var(--mdb-text-secondary);
     background: rgba(4, 10, 24, 0.5);
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 20%, transparent);
     border-radius: 9px;
 }
 
@@ -1176,7 +1180,7 @@ button.showCover {
 
 .formNote {
     padding: 10px 12px;
-    color: #bfdbfe;
+    color: var(--mdb-text-secondary);
     background: rgba(30, 58, 138, 0.18);
     border: 1px solid rgba(96, 165, 250, 0.2);
     border-radius: 9px;
@@ -1696,7 +1700,11 @@ button.showCover {
     gap: 16px;
     min-width: 0;
     padding: clamp(14px, 2vw, 20px);
-    background: linear-gradient(135deg, rgba(15, 28, 57, 0.96), rgba(18, 30, 56, 0.75));
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--mdb-surface-raised) 96%, transparent),
+        color-mix(in srgb, var(--mdb-surface-secondary) 75%, transparent)
+    );
     border: 1px solid var(--podcast-border);
     border-radius: 17px;
 }
@@ -1709,7 +1717,7 @@ button.showCover {
     max-width: 100%;
     place-items: center;
     overflow: hidden;
-    color: rgba(103, 232, 249, 0.7);
+    color: color-mix(in srgb, var(--mdb-green) 70%, transparent);
     background-color: rgba(19, 32, 59, 0.85);
     background-position: center;
     background-repeat: no-repeat;
@@ -1777,7 +1785,7 @@ button.showCover {
     min-height: 42px;
     padding: 8px 10px;
     color: var(--podcast-text);
-    background: rgba(8, 16, 34, 0.88);
+    background: color-mix(in srgb, var(--mdb-surface) 88%, transparent);
     border: 1px solid var(--podcast-border);
     border-radius: 10px;
 }
@@ -1887,7 +1895,7 @@ button.showCover {
 .studioWorkspace .analyticsSection {
     min-width: 0;
     padding: 14px;
-    background: linear-gradient(150deg, rgba(14, 25, 49, 0.94), rgba(8, 16, 34, 0.9));
+    background: linear-gradient(150deg, rgba(14, 25, 49, 0.94), color-mix(in srgb, var(--mdb-surface) 90%, transparent));
     border: 1px solid var(--podcast-border);
     border-radius: 16px;
 }
@@ -1985,7 +1993,7 @@ button.showCover {
     min-width: 0;
     padding: 8px 10px;
     background: rgba(7, 14, 31, 0.5);
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 14%, transparent);
     border-radius: 10px;
 }
 
@@ -2054,7 +2062,7 @@ button.showCover {
     margin-top: 16px;
     padding: 14px;
     overflow-x: hidden;
-    background: linear-gradient(150deg, rgba(14, 25, 49, 0.94), rgba(8, 16, 34, 0.9));
+    background: linear-gradient(150deg, rgba(14, 25, 49, 0.94), color-mix(in srgb, var(--mdb-surface) 90%, transparent));
     border: 1px solid var(--podcast-border);
     border-radius: 16px;
 }
@@ -2113,7 +2121,7 @@ button.showCover {
     min-width: 0;
     padding: 10px;
     background: rgba(7, 14, 31, 0.5);
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 14%, transparent);
     border-radius: 12px;
 }
 
@@ -2123,8 +2131,8 @@ button.showCover {
     height: 36px;
     place-items: center;
     overflow: hidden;
-    color: #05111d;
-    background-color: rgba(103, 232, 249, 0.82);
+    color: var(--mdb-ink);
+    background-color: color-mix(in srgb, var(--mdb-green) 82%, transparent);
     background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
@@ -2180,9 +2188,9 @@ button.showCover {
     min-width: 44px;
     min-height: 44px;
     padding: 8px 12px;
-    color: #dbeafe;
+    color: var(--mdb-text-secondary);
     background: rgba(15, 29, 55, 0.84);
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 25%, transparent);
     border-radius: 10px;
     cursor: pointer;
     font-size: 0.78rem;
@@ -2250,7 +2258,7 @@ button.showCover {
 
 .listeningSideActive {
     border-color: rgba(250, 204, 21, 0.7);
-    background: #1d3a72;
+    background: color-mix(in srgb, var(--mdb-green-dark) 55%, var(--mdb-surface-secondary));
     color: var(--mdb-gold);
 }
 
@@ -2262,8 +2270,8 @@ button.showCover {
     display: grid;
     gap: 12px;
     padding: 12px;
-    background: rgba(8, 16, 34, 0.97);
-    border: 1px solid rgba(103, 232, 249, 0.42);
+    background: color-mix(in srgb, var(--mdb-surface) 97%, transparent);
+    border: 1px solid color-mix(in srgb, var(--mdb-green) 42%, transparent);
     border-radius: 14px;
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.42);
     color: var(--mdb-text);
@@ -2277,7 +2285,7 @@ button.showCover {
 
 .listeningMenuSection p {
     margin: 0;
-    color: #a8b5cc;
+    color: var(--mdb-text-muted);
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -2294,9 +2302,9 @@ button.showCover {
     min-height: 44px;
     min-width: 44px;
     padding: 8px 10px;
-    border: 1px solid rgba(148, 163, 184, 0.28);
+    border: 1px solid color-mix(in srgb, var(--mdb-border) 28%, transparent);
     border-radius: 10px;
-    background: rgba(21, 34, 61, 0.88);
+    background: color-mix(in srgb, var(--mdb-surface-secondary) 88%, transparent);
     color: var(--mdb-text);
     font-size: 12px;
     font-weight: 700;

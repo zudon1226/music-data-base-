@@ -151,7 +151,7 @@ export const I18N_GLOBAL_STYLES = `
   .language-selector-search input {
     width: 100%;
     height: 32px;
-    border: 1px solid #263c78;
+    border: 1px solid var(--mdb-border);
     border-radius: 8px;
     background: var(--mdb-bg);
     color: white;

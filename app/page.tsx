@@ -18348,7 +18348,7 @@ function PageContent({
           .auth-form input {
             height: 40px;
             border-radius: 8px;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             color: white;
             padding: 0 12px;
@@ -18394,7 +18394,7 @@ function PageContent({
             margin: 0;
             padding: 8px 10px;
             border-radius: 8px;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             cursor: pointer;
           }
@@ -23504,7 +23504,7 @@ function PageContent({
           }
 
           .queue-main small {
-            color: #16d9ff;
+            color: var(--mdb-gold);
             font-size: 10px;
           }
 
@@ -23679,7 +23679,7 @@ function PageContent({
             min-width: 26px;
             border: 0;
             border-radius: 8px;
-            background: #1f2b55;
+            background: var(--mdb-surface-secondary);
             color: white;
             display: grid;
             place-items: center;
@@ -23697,7 +23697,7 @@ function PageContent({
             height: 24px;
             border: 0;
             border-radius: 7px;
-            background: #1f2b55;
+            background: var(--mdb-surface-secondary);
             color: white;
             display: grid;
             place-items: center;
@@ -23787,8 +23787,8 @@ function PageContent({
             width: 100%;
             height: 41px;
             border-radius: 8px;
-            border: 1px solid #16d9ff;
-            background: #0c1733;
+            border: 1px solid var(--mdb-gold);
+            background: var(--mdb-bg);
             color: white;
             padding: 0 13px;
             display: flex;
@@ -23867,7 +23867,7 @@ function PageContent({
 
           .search-suggestions button:hover {
             border-color: var(--mdb-green);
-            background: #17336e;
+            background: var(--mdb-surface-secondary);
           }
 
           .search-suggestions img {
@@ -24104,7 +24104,7 @@ function PageContent({
           }
 
           .notification-center .notification-item-main span {
-            color: #dbeafe;
+            color: var(--mdb-text-secondary);
             font-size: 12px;
             line-height: 1.3;
           }
@@ -24348,7 +24348,7 @@ function PageContent({
             min-height: 44px;
             border-radius: 8px;
             border: 1px solid var(--mdb-border-green);
-            background: #0c1733;
+            background: var(--mdb-bg);
             color: white;
             padding: 10px 12px;
           }
@@ -24543,9 +24543,9 @@ function PageContent({
           }
 
           .dashboard-nav-row button {
-            border: 1px solid rgba(139, 92, 246, 0.45);
+            border: 1px solid color-mix(in srgb, var(--mdb-green) 18%, transparent);
             border-radius: 8px;
-            background: #1e1b4b;
+            background: var(--mdb-surface-secondary);
             color: white;
             font-weight: 900;
             font-size: 13px;
@@ -24720,7 +24720,7 @@ function PageContent({
           .upload-mode-heading p,
           .producer-credit-note {
             margin: 4px 0 0;
-            color: #9ec9e6;
+            color: var(--mdb-text-secondary);
             font-size: 13px;
             line-height: 1.4;
           }
@@ -24736,7 +24736,7 @@ function PageContent({
           .creator-studio-switcher {
             border: 1px solid rgba(251, 191, 36, 0.35);
             border-radius: 8px;
-            background: #08122b;
+            background: var(--mdb-bg);
             padding: 8px;
           }
 
@@ -24824,7 +24824,7 @@ function PageContent({
             border: 1px solid var(--mdb-border-green);
             border-radius: 8px;
             background: rgba(3, 8, 5, 0.75);
-            color: #dbeafe;
+            color: var(--mdb-text-secondary);
             padding: 12px;
             margin: 12px 0;
             overflow: hidden;
@@ -24847,7 +24847,7 @@ function PageContent({
           }
 
           .video-upload-debug-head span {
-            color: #93c5fd;
+            color: var(--mdb-text-secondary);
             font-size: 11px;
             font-weight: 700;
             text-transform: none;
@@ -24857,8 +24857,8 @@ function PageContent({
           .video-upload-debug-advanced-toggle {
             border: 1px solid var(--mdb-border-green);
             border-radius: 7px;
-            background: rgba(8, 47, 73, 0.75);
-            color: #e0f2fe;
+            background: color-mix(in srgb, var(--mdb-green-dark) 75%, var(--mdb-surface));
+            color: var(--mdb-text-secondary);
             font-size: 11px;
             font-weight: 900;
             padding: 6px 9px;
@@ -24899,13 +24899,13 @@ function PageContent({
           }
 
           .video-upload-debug-status-idle {
-            border: 1px solid rgba(148, 163, 184, 0.45);
+            border: 1px solid color-mix(in srgb, var(--mdb-border) 45%, transparent);
             background: rgba(30, 41, 59, 0.55);
           }
 
           .video-upload-debug-fix-card {
             border: 1px solid var(--mdb-border-green);
-            background: rgba(8, 47, 73, 0.45);
+            background: color-mix(in srgb, var(--mdb-green-dark) 45%, var(--mdb-surface));
           }
 
           .video-upload-debug-fix-card p,
@@ -24924,7 +24924,7 @@ function PageContent({
             align-items: baseline;
             gap: 10px;
             flex-wrap: wrap;
-            color: #e0f2fe;
+            color: var(--mdb-text-secondary);
             font-size: 13px;
             font-weight: 700;
           }
@@ -24983,7 +24983,7 @@ function PageContent({
             min-width: 0;
             border: 1px solid var(--mdb-border-green);
             border-radius: 6px;
-            background: rgba(15, 23, 42, 0.72);
+            background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
             padding: 8px 10px;
           }
 
@@ -25017,8 +25017,8 @@ function PageContent({
           }
 
           .video-upload-debug-rows-advanced div {
-            border-color: rgba(148, 163, 184, 0.35);
-            background: rgba(15, 23, 42, 0.88);
+            border-color: color-mix(in srgb, var(--mdb-border) 35%, transparent);
+            background: color-mix(in srgb, var(--mdb-surface-raised) 88%, transparent);
           }
 
           .video-upload-debug-summary {
@@ -25078,7 +25078,7 @@ function PageContent({
           .playlist-picker select {
             height: 42px;
             border-radius: 8px;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             color: white;
             padding: 0 12px;
@@ -25311,7 +25311,7 @@ function PageContent({
           .video-form-grid select {
             height: 42px;
             border-radius: 8px;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             color: white;
             padding: 0 12px;
@@ -25747,7 +25747,7 @@ function PageContent({
           }
 
           .video-card-body p {
-            color: #c8f5ff;
+            color: var(--mdb-text-secondary);
             font-size: 12.5px;
             line-height: 1.2;
             font-weight: 900;
@@ -26019,7 +26019,7 @@ function PageContent({
           }
 
           .discovery-section {
-            background: linear-gradient(180deg, var(--mdb-surface-raised), #08132c);
+            background: linear-gradient(180deg, var(--mdb-surface-raised), var(--mdb-surface));
           }
 
           .discovery-card {
@@ -26419,7 +26419,7 @@ function PageContent({
           .song-card {
             height: auto;
             min-height: 0;
-            background: #122244;
+            background: var(--mdb-surface-raised);
             border: 1px solid var(--mdb-border-gold-subtle);
             border-radius: 8px;
             overflow: visible;
@@ -26553,7 +26553,7 @@ function PageContent({
 
           .song-head p {
             margin: 3px 0 0;
-            color: #c8f5ff;
+            color: var(--mdb-text-secondary);
             font-size: 12.5px;
             line-height: 1.2;
             font-weight: 900;
@@ -26873,7 +26873,7 @@ function PageContent({
             border: 0;
             border-radius: 8px;
             background: var(--mdb-surface-secondary);
-            color: #dbeafe;
+            color: var(--mdb-text-secondary);
             font-size: 11px;
             line-height: 1;
             font-weight: 900;
@@ -27572,7 +27572,7 @@ function PageContent({
           .playlist-tile.active,
           .playlist-tile:hover {
             border-color: var(--mdb-green);
-            background: #17336e;
+            background: var(--mdb-surface-secondary);
           }
 
           .playlist-tile img {
@@ -27643,7 +27643,7 @@ function PageContent({
           }
 
           .playlist-kicker {
-            color: #16e7ff;
+            color: var(--mdb-gold);
             font-size: 12px;
             font-weight: 900;
             text-transform: uppercase;
@@ -27867,7 +27867,7 @@ function PageContent({
 
           .marketplace-hero p {
             margin: 0;
-            color: #c8f5ff;
+            color: var(--mdb-text-secondary);
             font-weight: 800;
           }
 
@@ -27882,7 +27882,7 @@ function PageContent({
             gap: 2px;
             border: 1px solid var(--mdb-border-gold-subtle);
             border-radius: 8px;
-            background: #13275b;
+            background: var(--mdb-surface-raised);
             padding: 10px;
             color: var(--mdb-text-secondary);
             font-size: 12px;
@@ -28227,7 +28227,7 @@ function PageContent({
           }
 
           .marketplace-release-copy small {
-            color: #c8f5ff;
+            color: var(--mdb-text-secondary);
             font-size: 11px;
             font-weight: 800;
             overflow: hidden;
@@ -28283,7 +28283,7 @@ function PageContent({
             min-height: 38px;
             border: 0;
             border-radius: 8px;
-            background: #233b77;
+            background: var(--mdb-surface-secondary);
             color: white;
             font-weight: 900;
             display: grid;
@@ -28360,7 +28360,7 @@ function PageContent({
           }
 
           .beat-detail-copy p {
-            color: #c8f5ff;
+            color: var(--mdb-text-secondary);
             font-weight: 800;
           }
 
@@ -28374,7 +28374,7 @@ function PageContent({
             min-height: 112px;
             border: 0;
             border-radius: 8px;
-            background: #13275b;
+            background: var(--mdb-surface-raised);
             color: white;
             display: grid;
             gap: 5px;
@@ -28396,7 +28396,7 @@ function PageContent({
           }
 
           .beat-detail-actions .subtle-action {
-            background: #233b77;
+            background: var(--mdb-surface-secondary);
             color: white;
           }
 
@@ -28443,7 +28443,7 @@ function PageContent({
           .sales-hero p,
           .license-history-hero p {
             margin: 0;
-            color: #c8f5ff;
+            color: var(--mdb-text-secondary);
             font-weight: 600;
           }
 
@@ -28466,7 +28466,7 @@ function PageContent({
             gap: 2px;
             border: 1px solid var(--mdb-border-gold-subtle);
             border-radius: 8px;
-            background: #13275b;
+            background: var(--mdb-surface-raised);
             padding: 10px;
             color: var(--mdb-text-secondary);
             font-size: 12px;
@@ -28490,7 +28490,7 @@ function PageContent({
             gap: 10px;
             align-items: center;
             border-radius: 8px;
-            background: #13275b;
+            background: var(--mdb-surface-raised);
             padding: 8px;
           }
 
@@ -28575,7 +28575,7 @@ function PageContent({
             gap: 12px;
             align-items: center;
             border-radius: 8px;
-            background: #13275b;
+            background: var(--mdb-surface-raised);
             padding: 12px;
           }
 
@@ -28610,7 +28610,7 @@ function PageContent({
 
           .license-history-row small,
           .license-history-row p {
-            color: #c8f5ff;
+            color: var(--mdb-text-secondary);
             font-size: 12px;
             font-weight: 800;
           }
@@ -28646,7 +28646,7 @@ function PageContent({
             gap: 10px;
             align-items: center;
             border-radius: 8px;
-            background: #13275b;
+            background: var(--mdb-surface-raised);
             padding: 8px;
           }
 
@@ -29503,7 +29503,7 @@ function PageContent({
             gap: 16px;
             padding: 18px;
             border-radius: 18px;
-            background: linear-gradient(135deg, rgba(8, 47, 73, 0.95), rgba(15, 23, 42, 0.95));
+            background: linear-gradient(135deg, color-mix(in srgb, var(--mdb-green-dark) 95%, var(--mdb-surface)), color-mix(in srgb, var(--mdb-surface-raised) 95%, transparent));
             border: 1px solid var(--mdb-border-green-subtle);
           }
 
@@ -29552,8 +29552,8 @@ function PageContent({
           .control-health-card {
             padding: 14px;
             border-radius: 14px;
-            background: rgba(15, 23, 42, 0.72);
-            border: 1px solid rgba(148, 163, 184, 0.16);
+            background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
+            border: 1px solid color-mix(in srgb, var(--mdb-border) 16%, transparent);
           }
 
           .control-overview-card strong,
@@ -29885,7 +29885,7 @@ function PageContent({
             min-height: 32px;
             border: 0;
             border-radius: 8px;
-            background: #26c6da;
+            background: var(--mdb-gold);
             color: var(--mdb-bg);
             font-size: 12px;
             font-weight: 950;
@@ -29951,7 +29951,7 @@ function PageContent({
             min-height: 36px;
             border: 0;
             border-radius: 8px;
-            background: #253968;
+            background: var(--mdb-surface-secondary);
             color: #ffffff;
             font-size: 13px;
             font-weight: 950;
@@ -30175,8 +30175,8 @@ function PageContent({
           }
 
           .cleanup-file-row.protected {
-            border-color: rgba(148, 163, 184, 0.28);
-            background: rgba(15, 23, 42, 0.72);
+            border-color: color-mix(in srgb, var(--mdb-border) 28%, transparent);
+            background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
           }
 
           .cleanup-file-row label {
@@ -30266,7 +30266,7 @@ function PageContent({
           .dashboard-edit input {
             min-height: 42px;
             border-radius: 8px;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             color: white;
             padding: 0 12px;
@@ -30328,7 +30328,7 @@ function PageContent({
             min-width: 0;
             min-height: 40px;
             border-radius: 8px;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             color: white;
             padding: 0 12px;
@@ -30338,7 +30338,7 @@ function PageContent({
           .dashboard-empty-card {
             border: 1px dashed var(--mdb-border-green);
             border-radius: 8px;
-            background: #081637;
+            background: var(--mdb-surface);
             padding: 16px;
           }
 
@@ -30399,7 +30399,7 @@ function PageContent({
             min-width: 0;
             min-height: 40px;
             border-radius: 8px;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             color: white;
             padding: 0 12px;
@@ -30517,7 +30517,7 @@ function PageContent({
           }
 
           .artist-card-main:hover {
-            background: #17336e;
+            background: var(--mdb-surface-secondary);
           }
 
           .artist-card-main img {
@@ -30668,7 +30668,7 @@ function PageContent({
 
           .artist-copy p {
             margin: 0;
-            color: #dbeafe;
+            color: var(--mdb-text-secondary);
             max-width: 780px;
             line-height: 1.5;
           }
@@ -30886,7 +30886,7 @@ function PageContent({
             min-width: 0;
             height: 34px;
             border-radius: 8px;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             color: white;
             padding: 0 9px;
@@ -30918,7 +30918,7 @@ function PageContent({
 
           .artist-playlist-card:hover {
             border-color: var(--mdb-green);
-            background: #17336e;
+            background: var(--mdb-surface-secondary);
           }
 
           .song-card,
@@ -31025,7 +31025,7 @@ function PageContent({
             border: 1px solid var(--mdb-border-green-subtle);
             border-radius: 8px;
             background: rgba(3, 8, 5, 0.35);
-            color: #dbeafe;
+            color: var(--mdb-text-secondary);
             display: grid;
             gap: 4px;
             padding: 10px;
@@ -31593,7 +31593,7 @@ function PageContent({
             min-width: 0;
             min-height: 78px;
             resize: vertical;
-            border: 1px solid #263c78;
+            border: 1px solid var(--mdb-border);
             border-radius: 8px;
             background: var(--mdb-bg);
             color: white;
@@ -31643,7 +31643,7 @@ function PageContent({
 
           .comments-list p {
             margin: 0;
-            color: #dbeafe;
+            color: var(--mdb-text-secondary);
             line-height: 1.4;
             overflow-wrap: anywhere;
           }
@@ -31729,7 +31729,7 @@ function PageContent({
 
           .playlist-modal-empty p {
             margin: 0;
-            color: #c8f5ff;
+            color: var(--mdb-text-secondary);
           }
 
           .playlist-modal-empty button {
@@ -31782,7 +31782,7 @@ function PageContent({
           }
 
           .player-song small {
-            color: #16d9ff;
+            color: var(--mdb-gold);
             font-size: 11px;
             font-weight: 800;
             line-height: 1.15;
@@ -32334,8 +32334,8 @@ function PageContent({
               min-height: 28px;
               padding: 3px 10px;
               border-radius: 999px;
-              border: 1px solid rgba(148, 163, 184, 0.35);
-              background: rgba(15, 23, 42, 0.92);
+              border: 1px solid color-mix(in srgb, var(--mdb-border) 35%, transparent);
+              background: color-mix(in srgb, var(--mdb-surface-raised) 92%, transparent);
               color: var(--mdb-text-secondary);
               font-size: 11px;
               font-weight: 700;
@@ -32350,7 +32350,7 @@ function PageContent({
             .mobile-nav-pill.is-active {
               border-color: var(--mdb-border-green);
               color: var(--mdb-green);
-              background: rgba(8, 47, 73, 0.95);
+              background: color-mix(in srgb, var(--mdb-green-dark) 95%, var(--mdb-surface));
             }
 
             /* Mobile media Grid: 3 equal columns — geometry owned by card-system.css */
@@ -33196,7 +33196,7 @@ function PageContent({
               border-radius: 8px;
               background: rgba(3, 8, 5, 0.82);
               padding: 10px;
-              color: #dbeafe;
+              color: var(--mdb-text-secondary);
               font-size: 11px;
               line-height: 1.35;
               min-width: 0;
@@ -33254,8 +33254,8 @@ function PageContent({
             .global-video-player .video-playback-debug-copy {
               border: 1px solid var(--mdb-border-green);
               border-radius: 6px;
-              background: rgba(8, 47, 73, 0.72);
-              color: #e0f2fe;
+              background: color-mix(in srgb, var(--mdb-green-dark) 72%, var(--mdb-surface));
+              color: var(--mdb-text-secondary);
               font-size: 12px;
               font-weight: 700;
               padding: 8px 10px;
@@ -33279,7 +33279,7 @@ function PageContent({
               margin: 0;
               padding: 8px;
               border-radius: 6px;
-              background: rgba(15, 23, 42, 0.72);
+              background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
               color: var(--mdb-text);
               font-size: 10px;
               line-height: 1.35;
@@ -34739,7 +34739,7 @@ function PageContent({
               width: 100%;
               min-width: 0;
               margin-top: 2px;
-              color: #c8f5ff;
+              color: var(--mdb-text-secondary);
               font-size: 14px;
               line-height: 1.1;
               overflow: hidden;
