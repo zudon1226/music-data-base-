@@ -162,6 +162,12 @@ import { translateHomeTab, translatePageSubtitle, translatePageTitle } from "../
 import { useTranslation } from "../lib/i18n/provider";
 import { completeDesktopSignIn, DesktopAuthProvider, useDesktopAuthState } from "../lib/desktop-auth-state";
 import { isSongQueueItem, isVideoQueueItem, normalizeSongToQueueItem, normalizeVideoToQueueItem, songToQueueMedia, videoToQueueMedia, type QueueMediaItem } from "../lib/desktop-media-queue";
+import {
+    buildCatalogIdSets,
+    pruneOrphanIdList,
+    pruneOrphanPlaylists,
+    pruneOrphanRecentEntries,
+} from "../lib/orphan-media-refs";
 import { useDesktopMediaQueue } from "../lib/use-desktop-media-queue";
 import {
     hasUserInitiatedPlayback,
@@ -1552,9 +1558,10 @@ function normalizeRecentForSongs(savedRecent: unknown, availableSongs: Song[], a
     const songMap = new Map(availableSongs.map((song) => [song.id, song]));
     const videoMap = new Map(uniqueVideos(availableVideos).map((video) => [video.id, video]));
     const albumMap = new Map(availableAlbums.map((album) => [album.id, album]));
+    const catalog = buildCatalogIdSets(availableSongs, availableVideos, availableAlbums);
     if (!Array.isArray(savedRecent))
         return [];
-    const entries = savedRecent
+    const mapped = savedRecent
         .filter((entry): entry is RecentPlay => Boolean(entry && typeof entry === "object" && "playedAt" in entry))
         .map((entry) => {
         const itemType = entry.itemType || "song";
@@ -1565,16 +1572,23 @@ function normalizeRecentForSongs(savedRecent: unknown, availableSongs: Song[], a
             itemId,
             songId: itemType === "song" ? itemId : entry.songId || "",
             playId: entry.playId || `${itemType}-${itemId}-${entry.playedAt}`,
-            song: itemType === "song" ? songMap.get(itemId) || entry.song : entry.song,
-            video: itemType === "video" ? videoMap.get(itemId) || entry.video : entry.video,
-            album: itemType === "album" ? albumMap.get(itemId) || entry.album : entry.album,
+            // Never resurrect deleted catalog media from stale embedded snapshots.
+            song: itemType === "song" ? songMap.get(itemId) : undefined,
+            video: itemType === "video" ? videoMap.get(itemId) : undefined,
+            album: itemType === "album" ? albumMap.get(itemId) : undefined,
             podcast: itemType === "podcast" && entry.podcast ? snapshotRecentPodcast(entry.podcast) : entry.podcast,
             position: Math.max(0, Number(entry.position) || 0),
             duration: Math.max(0, Number(entry.duration) || 0),
             completed: entry.completed === true,
         };
-    })
-        .filter((entry) => Boolean(entry.itemId || entry.songId));
+    });
+    const entries = pruneOrphanRecentEntries(mapped, catalog).filter((entry) => {
+        const itemType = entry.itemType || "song";
+        if (itemType === "podcast") return Boolean(entry.podcast || entry.itemId);
+        if (itemType === "video") return Boolean(entry.video);
+        if (itemType === "album") return Boolean(entry.album);
+        return Boolean(entry.song);
+    });
     return mergeRecentPlays(entries);
 }
 function getTrendingPeriodWeight(uploaded: string | undefined, period: TrendingPeriod) {
@@ -4124,6 +4138,7 @@ function PageContent({
         moveItem: moveSharedQueueItem,
         moveItemTo: moveSharedQueueItemTo,
         resetQueueOnLogout,
+        pruneCatalogOrphans,
     } = useDesktopMediaQueue({
         accountUserId,
         // Hydrate as soon as Supabase auth is ready and the authenticated user id exists.
@@ -6264,18 +6279,7 @@ function PageContent({
             const savedPurchaseHistory = readJson<PurchaseHistoryItem[] | null>(STORAGE_KEYS.purchaseHistory, null);
             const savedDownloadVault = readJson<DownloadVaultItem[] | null>(STORAGE_KEYS.downloadVault, null);
             const cleanPlaylists = Array.isArray(savedPlaylists) && savedPlaylists.length > 0
-                ? savedPlaylists
-                    .filter((playlist) => playlist?.id && playlist?.name)
-                    .map((playlist) => normalizePlaylistMediaByType({
-                    id: playlist.id,
-                    name: playlist.name,
-                    cover: playlist.cover || DEFAULT_PLAYLIST_COVER,
-                    playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
-                    songIds: uniqueIds(playlist.songIds).filter((id) => songMap.has(id)),
-                    videoIds: uniqueIds(playlist.videoIds),
-                    createdAt: playlist.createdAt || new Date().toISOString(),
-                    updatedAt: playlist.updatedAt || new Date().toISOString(),
-                }))
+                ? normalizePlaylistsForSongs(savedPlaylists, loadedSongs, loadedVideos)
                 : [];
             setSongs(loadedSongs);
             // Never wipe a successfully loaded remote video catalog with the empty local seed.
@@ -6612,6 +6616,13 @@ function PageContent({
         const databaseSongs = uniqueSongs((data.songs || []).map((row) => mapSongRowToSong(row)));
         const nextSongs = uniqueSongs([...databaseSongs, ...DEFAULT_SONGS]);
         setSongs(nextSongs);
+        const catalog = buildCatalogIdSets(nextSongs, videos, albums);
+        setRecentlyPlayed((previous) => normalizeRecentForSongs(previous, nextSongs, videos, albums));
+        setLikedIds((previous) => pruneOrphanIdList(previous, catalog.songIds));
+        setFollowedIds((previous) => pruneOrphanIdList(previous, catalog.songIds));
+        setLibraryIds((previous) => pruneOrphanIdList(previous, catalog.songIds));
+        setPlaylists((previous) => pruneOrphanPlaylists(previous, catalog));
+        pruneCatalogOrphans(catalog.songIds, catalog.videoIds);
         if (accountUserId) {
             await confirmAuthenticatedFromApi(accountUserId);
         }
@@ -6656,12 +6667,16 @@ function PageContent({
         const databaseVideos = uniqueVideos((data.videos || []).map((row) => mapVideoRowToVideoItem(row)));
         setVideoLibraryError("");
         setVideos(databaseVideos);
+        const catalog = buildCatalogIdSets(songs, databaseVideos, albums);
+        setRecentlyPlayed((previous) => normalizeRecentForSongs(previous, songs, databaseVideos, albums));
         setSavedVideoIds((previous) => {
             const videoIds = new Set(databaseVideos.map((video) => video.id));
             const legacyVideoIds = libraryIds.filter((id) => videoIds.has(id));
-            return uniqueIds([...previous, ...legacyVideoIds]);
+            return pruneOrphanIdList([...previous, ...legacyVideoIds], catalog.videoIds);
         });
         setLibraryIds((previous) => previous.filter((id) => !databaseVideos.some((video) => video.id === id)));
+        setPlaylists((previous) => pruneOrphanPlaylists(previous, catalog));
+        pruneCatalogOrphans(catalog.songIds, catalog.videoIds);
         setSelectedVideoId((previous) => databaseVideos.some((video) => video.id === previous) ? previous : databaseVideos[0]?.id || "");
         setActiveVideo((previous) => previous ? databaseVideos.find((video) => video.id === previous.id) || previous : databaseVideos[0] || null);
         return databaseVideos;
@@ -6688,16 +6703,20 @@ function PageContent({
         if (!response.ok) {
             throw new Error(data.error || "Could not load playlists from Supabase.");
         }
-        const nextPlaylists = (data.playlists || []).map((playlist) => normalizePlaylistMediaByType({
-            id: playlist.id,
-            name: playlist.name,
-            cover: getArtworkUrl(playlist.cover),
-            playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
-            songIds: uniqueIds(playlist.songIds),
-            videoIds: uniqueIds(playlist.videoIds),
-            createdAt: playlist.createdAt || new Date().toISOString(),
-            updatedAt: playlist.updatedAt || new Date().toISOString(),
-        }));
+        const catalog = buildCatalogIdSets(songs, videos, albums);
+        const nextPlaylists = pruneOrphanPlaylists(
+            (data.playlists || []).map((playlist) => normalizePlaylistMediaByType({
+                id: playlist.id,
+                name: playlist.name,
+                cover: getArtworkUrl(playlist.cover),
+                playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
+                songIds: uniqueIds(playlist.songIds),
+                videoIds: uniqueIds(playlist.videoIds),
+                createdAt: playlist.createdAt || new Date().toISOString(),
+                updatedAt: playlist.updatedAt || new Date().toISOString(),
+            })),
+            catalog,
+        );
         setPlaylists(nextPlaylists);
         setActivePlaylistId((previous) => nextPlaylists.some((playlist) => playlist.id === previous) ? previous : nextPlaylists[0]?.id || "");
         await confirmAuthenticatedFromApi(playlistUserId);
@@ -6759,6 +6778,12 @@ function PageContent({
             const preservedSaved = previous.filter((album) => savedIdsSnapshot.includes(album.id) && !incomingIds.has(album.id));
             return preservedSaved.length > 0 ? [...nextAlbums, ...preservedSaved] : nextAlbums;
         });
+        const catalogAlbums = (() => {
+            const incomingIds = new Set(nextAlbums.map((album) => album.id));
+            const preserved = albums.filter((album) => savedIdsSnapshot.includes(album.id) && !incomingIds.has(album.id));
+            return preserved.length > 0 ? [...nextAlbums, ...preserved] : nextAlbums;
+        })();
+        setRecentlyPlayed((previous) => normalizeRecentForSongs(previous, songs, videos, catalogAlbums));
         return nextAlbums;
     }
     async function loadAlbums(userIdOverride = "") {
@@ -6815,7 +6840,8 @@ function PageContent({
         if (!response.ok) {
             return likedIds;
         }
-        const ids = uniqueIds(data.likedSongIds || []);
+        const catalog = buildCatalogIdSets(songs, videos, albums);
+        const ids = pruneOrphanIdList(uniqueIds(data.likedSongIds || []), catalog.songIds);
         setLikedIds(ids);
         return ids;
     }
@@ -6938,16 +6964,29 @@ function PageContent({
         const savedAlbums = savedAlbumRows.map((album) => normalizeAlbumRecord(album));
         const savedVideoIdsFromApi = uniqueIds([...(data.videoIds || []), ...savedVideos.map((video) => video.id)]);
         const savedAlbumIdsFromRows = uniqueIds([...(data.albumIds || []), ...savedAlbums.map((album) => album.id)]);
-        const nextSongIds = uniqueIds([...savedSongIds, ...savedSongs.map((song) => song.id)]);
+        // Only keep library IDs that resolve to real catalog rows returned by the API
+        // (or already present locally). Drop orphan IDs whose underlying media is gone.
+        const localSongIds = new Set(songs.map((song) => song.id));
+        const localVideoIds = new Set(videos.map((video) => video.id));
+        const localAlbumIds = new Set(albums.map((album) => album.id));
+        const resolvedSongIds = new Set([...savedSongs.map((song) => song.id), ...localSongIds]);
+        const resolvedVideoIds = new Set([...savedVideos.map((video) => video.id), ...localVideoIds]);
+        const resolvedAlbumIds = new Set([...savedAlbums.map((album) => album.id), ...localAlbumIds]);
+        const nextSongIds = pruneOrphanIdList(
+            uniqueIds([...savedSongIds, ...savedSongs.map((song) => song.id)]),
+            resolvedSongIds,
+        );
+        const prunedVideoIds = pruneOrphanIdList(savedVideoIdsFromApi, resolvedVideoIds);
+        const prunedAlbumIds = pruneOrphanIdList(savedAlbumIdsFromRows, resolvedAlbumIds);
         setLibraryLoadError("");
         setLibraryIds(nextSongIds);
-        setSavedVideoIds(savedVideoIdsFromApi);
-        setSavedAlbumIds(savedAlbumIdsFromRows);
+        setSavedVideoIds(prunedVideoIds);
+        setSavedAlbumIds(prunedAlbumIds);
         writeLibraryCache({
             userId: libraryUserId,
             songIds: nextSongIds,
-            videoIds: savedVideoIdsFromApi,
-            albumIds: savedAlbumIdsFromRows,
+            videoIds: prunedVideoIds,
+            albumIds: prunedAlbumIds,
         });
         if (savedSongs.length > 0) {
             setSongs((previous) => uniqueSongs([...savedSongs, ...previous]));
@@ -6962,27 +7001,30 @@ function PageContent({
             });
         }
         await confirmAuthenticatedFromApi(libraryUserId);
-        return { songIds: nextSongIds, videoIds: savedVideoIdsFromApi, albumIds: savedAlbumIdsFromRows, videos: savedVideos, albums: savedAlbums };
+        return { songIds: nextSongIds, videoIds: prunedVideoIds, albumIds: prunedAlbumIds, videos: savedVideos, albums: savedAlbums };
     }
     async function loadLibrary() {
         return reloadLibrarySavesFromSupabase();
     }
-    function normalizePlaylistsForSongs(savedPlaylists: unknown, availableSongs: Song[]) {
-        const songMap = new Map(availableSongs.map((song) => [song.id, song]));
+    function normalizePlaylistsForSongs(savedPlaylists: unknown, availableSongs: Song[], availableVideos: VideoItem[] = []) {
+        const catalog = buildCatalogIdSets(availableSongs, availableVideos, []);
         if (!Array.isArray(savedPlaylists))
             return [];
-        return savedPlaylists
-            .filter((playlist): playlist is Playlist => Boolean(playlist && typeof playlist === "object" && "id" in playlist && "name" in playlist))
-            .map((playlist) => normalizePlaylistMediaByType({
-            id: String(playlist.id),
-            name: String(playlist.name),
-            cover: typeof playlist.cover === "string" ? playlist.cover : DEFAULT_PLAYLIST_COVER,
-            playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
-            songIds: uniqueIds(Array.isArray(playlist.songIds) ? playlist.songIds : []).filter((id) => songMap.has(id)),
-            videoIds: uniqueIds(Array.isArray(playlist.videoIds) ? playlist.videoIds : []),
-            createdAt: typeof playlist.createdAt === "string" ? playlist.createdAt : new Date().toISOString(),
-            updatedAt: typeof playlist.updatedAt === "string" ? playlist.updatedAt : new Date().toISOString(),
-        }));
+        return pruneOrphanPlaylists(
+            savedPlaylists
+                .filter((playlist): playlist is Playlist => Boolean(playlist && typeof playlist === "object" && "id" in playlist && "name" in playlist))
+                .map((playlist) => normalizePlaylistMediaByType({
+                    id: String(playlist.id),
+                    name: String(playlist.name),
+                    cover: typeof playlist.cover === "string" ? playlist.cover : DEFAULT_PLAYLIST_COVER,
+                    playlistType: getPlaylistTypeFromRecord(playlist as unknown as Record<string, unknown>),
+                    songIds: uniqueIds(Array.isArray(playlist.songIds) ? playlist.songIds : []),
+                    videoIds: uniqueIds(Array.isArray(playlist.videoIds) ? playlist.videoIds : []),
+                    createdAt: typeof playlist.createdAt === "string" ? playlist.createdAt : new Date().toISOString(),
+                    updatedAt: typeof playlist.updatedAt === "string" ? playlist.updatedAt : new Date().toISOString(),
+                })),
+            catalog,
+        );
     }
     async function syncUserAuthProfile(userId: string, options: { displayName?: string; action?: "ensure" | "repair-auth-metadata" } = {}) {
         if (!userId) {
@@ -7231,15 +7273,10 @@ function PageContent({
                         playedAt: row.lastPlayedAt || new Date().toISOString(),
                         position: Math.max(0, Number(row.playbackPosition) || 0),
                         duration: 0,
-                        song: itemType === "song"
-                            ? { id: row.mediaId, title: row.title || "Untitled", artist: row.artist || "", cover: row.coverUrl || "" } as Song
-                            : undefined,
-                        video: itemType === "video"
-                            ? { id: row.mediaId, title: row.title || "Untitled", creator: row.artist || "", cover: row.coverUrl || "" } as VideoItem
-                            : undefined,
-                        album: itemType === "album"
-                            ? { id: row.mediaId, title: row.title || "Untitled", creatorName: row.artist || "", cover: row.coverUrl || "" } as Album
-                            : undefined,
+                        // Do not fabricate catalog stubs — orphans are dropped by normalizeRecentForSongs.
+                        song: undefined,
+                        video: undefined,
+                        album: undefined,
                     } as RecentPlay;
                 }),
                 availableSongs,

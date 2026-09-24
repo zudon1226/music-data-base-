@@ -618,6 +618,32 @@ export function useDesktopMediaQueue(options: {
         setState(next);
     }, []);
 
+    /** Drop queue items whose song/video IDs are no longer in the live catalog. */
+    const pruneCatalogOrphans = useCallback((validSongIds: Set<string>, validVideoIds: Set<string>) => {
+        const userId = ensureHydrated("pruneCatalogOrphans");
+        if (!userId) return 0;
+        const previous = stateRef.current;
+        const nextItems = uniqueMediaQueueItems(previous.items).filter((item) => {
+            const id = String(item.id || "").trim();
+            if (!id) return false;
+            if (item.mediaType === "video") return validVideoIds.has(id);
+            return validSongIds.has(id);
+        });
+        if (nextItems.length === previous.items.length) return 0;
+        const removed = previous.items.length - nextItems.length;
+        const activeIndex = clampQueueActiveIndex(nextItems, previous.activeIndex);
+        const nextState: MediaQueueState = {
+            ...previous,
+            items: nextItems,
+            activeIndex,
+        };
+        stateRef.current = nextState;
+        setState(nextState);
+        allowEmptyPersistRef.current = nextItems.length === 0;
+        persistNow(userId, nextItems, activeIndex, `prune-catalog-orphans removed=${removed}`);
+        return removed;
+    }, [ensureHydrated, persistNow]);
+
     const items = useMemo(() => uniqueMediaQueueItems(state.items), [state.items]);
     const upNextItems = useMemo(
         () => getUpNextMediaItems(items, state.activeIndex),
@@ -649,5 +675,6 @@ export function useDesktopMediaQueue(options: {
         moveItem,
         moveItemTo,
         resetQueueOnLogout,
+        pruneCatalogOrphans,
     };
 }
