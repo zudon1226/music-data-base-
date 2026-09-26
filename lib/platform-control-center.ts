@@ -10,6 +10,8 @@ export type PlatformHealthItem = {
 export type PlatformOverviewStats = {
     totalUsers: number;
     listeners: number;
+    launchNotificationSignups: number;
+    admins: number;
     approvedUsers: number;
     pendingUsers: number;
     rejectedUsers: number;

@@ -8,6 +8,7 @@ import { createPortal, flushSync } from "react-dom";
 import { FoundingMemberGate } from "../components/founding-member-gate";
 import { AppI18nShell } from "../components/app-i18n-shell";
 import { LanguageSelector } from "../components/language-selector";
+import { FoundingArtistBadge } from "../components/founding-artist-badge";
 import { FoundingMemberProfileCard } from "../components/founding-member-profile-card";
 import { PlatformControlCenter } from "../components/platform-control-center";
 import { SubscriptionBillingPanel } from "../components/billing/subscription-billing-panel";
@@ -19,7 +20,13 @@ import { SponsorHomePlacement } from "../components/sponsor/sponsor-home-placeme
 import { SponsorWorkspace } from "../components/sponsor/sponsor-workspace";
 import { AdminSponsorPanel } from "../components/sponsor/admin-sponsor-panel";
 import { PolicyLinksFooter } from "../components/legal/policy-links-footer";
+import { AuthPasswordField } from "../components/auth-password-field";
 import { SignupLegalAcceptance, buildSignupLegalAcceptances } from "../components/legal/signup-legal-acceptance";
+import {
+    clearSupabaseAuthFragmentFromUrl,
+    isSupabasePasswordRecoveryUrl,
+    resolvePasswordRecoveryRedirectUrl,
+} from "../lib/auth-password-recovery-flow";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
 import { CLIENT_PLAN_SUPPORT } from "../lib/billing/plan-entitlements";
 import { copyTextToClipboard } from "../lib/copy-text-to-clipboard";
@@ -51,6 +58,7 @@ import { DesktopAppSidebarNav } from "../components/desktop-app-sidebar-nav";
 import { DesktopContentScrollRoot } from "../components/desktop-content-scroll-root";
 import { MobileAppHorizontalNav } from "../components/mobile-app-horizontal-nav";
 import { MobileContentActionSheet } from "../components/mobile-content-action-sheet";
+import { SidekickShell } from "../components/sidekick/sidekick-shell";
 import { MdbPublicEntryHub, MdbPublicEntryNotify } from "../components/public-beta/mdb-public-entry";
 import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
 import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
@@ -198,8 +206,9 @@ import type { FoundingAccessState } from "../lib/founding-access";
 import {
     FOUNDING_INVITE_REQUIRED_MESSAGE,
     FOUNDING_ROLE_LOCKED_MESSAGE,
+    LISTENER_LAUNCH_WAITLIST_MESSAGE,
+    foundingStatusRoleLabel,
     isFoundingBetaLocked,
-    foundingRoleLabel,
 } from "../lib/founding-onboarding";
 import { describeStorageUploadAuth } from "../lib/supabase-storage-upload";
 import { VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE as SHARED_VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE } from "../lib/video-upload-compatibility";
@@ -654,6 +663,7 @@ type AlbumUploadForm = {
 };
 type EditAlbumForm = AlbumUploadForm;
 type AuthMode = "login" | "signup";
+type AuthCredentialView = "standard" | "forgot" | "reset";
 type PublicEntryView = "hub" | "notify" | "auth";
 type RepeatMode = "off" | "one" | "all";
 type ActiveMediaType = "song" | "video" | "ringtone" | "podcast-audio" | "podcast-video" | null;
@@ -4163,6 +4173,9 @@ function PageContent({
     const [ringtoneCreatorAccessChecked, setRingtoneCreatorAccessChecked] = useState(false);
     const [accountNavRoles, setAccountNavRoles] = useState<string[]>([]);
     const [accountRolesReady, setAccountRolesReady] = useState(false);
+    const accountRolesResolvedUserIdRef = useRef("");
+    const [accountProfileLoadFailedUserId, setAccountProfileLoadFailedUserId] = useState("");
+    const [accountProfileRetryTick, setAccountProfileRetryTick] = useState(0);
     const [accountIsAdmin, setAccountIsAdmin] = useState(false);
     const [activeRingtonePreview, setActiveRingtonePreview] = useState<ActiveRingtonePreview | null>(null);
     const [ringtonePreviewPlaying, setRingtonePreviewPlaying] = useState(false);
@@ -4207,10 +4220,14 @@ function PageContent({
     async function resolveDesktopProtectedActionUserId(loginMessage: string) {
         return desktopActionAuthGuard.requireLiveUserId(loginMessage, (message) => showToast(message, "error"));
     }
-    const [publicEntryView, setPublicEntryView] = useState<PublicEntryView>("hub");
+    const [publicEntryView, setPublicEntryView] = useState<PublicEntryView>(() => (isSupabasePasswordRecoveryUrl() ? "auth" : "hub"));
+    const [postAuthLock, setPostAuthLock] = useState(false);
     const [authMode, setAuthMode] = useState<AuthMode>("login");
+    const [authCredentialView, setAuthCredentialView] = useState<AuthCredentialView>(() => (isSupabasePasswordRecoveryUrl() ? "reset" : "standard"));
     const [authEmail, setAuthEmail] = useState("");
     const [authPassword, setAuthPassword] = useState("");
+    const [authResetPassword, setAuthResetPassword] = useState("");
+    const [authResetPasswordConfirm, setAuthResetPasswordConfirm] = useState("");
     const [authName, setAuthName] = useState("");
     const [authMessage, setAuthMessage] = useState("");
     const [authBusy, setAuthBusy] = useState(false);
@@ -4224,6 +4241,17 @@ function PageContent({
     const [gateRedeemMessageTone, setGateRedeemMessageTone] = useState<"success" | "error" | "">("");
     const [foundingAccess, setFoundingAccess] = useState<FoundingAccessState | null>(null);
     const [foundingAccessLoading, setFoundingAccessLoading] = useState(false);
+    const [foundingAccessReady, setFoundingAccessReady] = useState(false);
+    const [foundingAccessLoadFailedUserId, setFoundingAccessLoadFailedUserId] = useState("");
+    const [foundingArtistDirectory, setFoundingArtistDirectory] = useState<Array<{
+        userId: string;
+        displayName: string;
+        avatarUrl: string;
+    }>>([]);
+    const foundingArtistUserIdSet = useMemo(
+        () => new Set(foundingArtistDirectory.map((entry) => entry.userId).filter(Boolean)),
+        [foundingArtistDirectory],
+    );
     const [accountRole, setAccountRole] = useState<AccountRole>("Listener");
     const [userAuthProfile, setUserAuthProfile] = useState({
         displayName: "",
@@ -5497,6 +5525,10 @@ function PageContent({
         const id = createArtistId(nameOrId);
         return Boolean(verificationState.artists[id] || verificationState.artists[nameOrId]);
     }, [verificationState.artists]);
+    const isFoundingArtistUser = useCallback((userId: string) => {
+        const clean = String(userId || "").trim();
+        return Boolean(clean && foundingArtistUserIdSet.has(clean));
+    }, [foundingArtistUserIdSet]);
     const isProducerVerified = useCallback((idOrName: string) => {
         const id = createArtistId(idOrName);
         return Boolean(verificationState.producers[id] || verificationState.producers[idOrName]);
@@ -5505,6 +5537,12 @@ function PageContent({
         if (!isVerified)
             return null;
         return <span className="verified-badge" title={label}>✓</span>;
+    }
+    function renderFoundingArtistBadgeForUser(userId: string) {
+        if (!isFoundingArtistUser(userId)) {
+            return null;
+        }
+        return <FoundingArtistBadge />;
     }
     function toggleVerification(kind: "artist" | "producer", id: string) {
         if (!id)
@@ -5856,12 +5894,18 @@ function PageContent({
         }
     }
     async function loadLaunchChecklist() {
+        const accessToken = String(authSessionRef.current?.access_token || "").trim();
+        if (!user?.id || !accessToken) {
+            setLaunchChecklistError("Log in as admin to load the launch checklist.");
+            return false;
+        }
         setLaunchChecklistLoading(true);
         setLaunchChecklistError("");
         try {
-            const response = await fetch("/api/launch/checklist", {
+            const response = await fetch(`/api/launch/checklist?userId=${encodeURIComponent(user.id)}`, {
                 cache: "no-store",
                 credentials: "omit",
+                headers: { Authorization: `Bearer ${accessToken}` },
             });
             const data = (await response.json().catch(() => ({}))) as {
                 checklist?: unknown[];
@@ -5900,7 +5944,8 @@ function PageContent({
         ]);
     }
     async function updateLaunchChecklistStatus(area: string, status: LaunchChecklistStatus) {
-        if (!user?.id || !isPlatformOwner) {
+        const accessToken = String(authSessionRef.current?.access_token || "").trim();
+        if (!user?.id || !isPlatformOwner || !accessToken) {
             showToast("Log in as admin before updating launch checklist.", "error");
             return;
         }
@@ -5909,7 +5954,10 @@ function PageContent({
         try {
             const response = await fetch("/api/launch/checklist", {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                },
                 credentials: "omit",
                 body: JSON.stringify({
                     userId: user.id,
@@ -5977,11 +6025,15 @@ function PageContent({
         setAccountRole("Listener");
         setAccountNavRoles([]);
         setAccountIsAdmin(false);
+        accountRolesResolvedUserIdRef.current = "";
         setAccountRolesReady(false);
+        setAccountProfileLoadFailedUserId("");
+        setFoundingAccessLoadFailedUserId("");
         setCanCreateRingtones(false);
         setCreatorStudio("artist");
         setUploadMode("song");
         setPublicEntryView("hub");
+        setPostAuthLock(false);
         setAuthMode("login");
         setAuthEmail("");
         setAuthPassword("");
@@ -6048,6 +6100,19 @@ function PageContent({
         document.documentElement.setAttribute("data-player-collapsed", playerCollapsed ? "true" : "false");
         document.documentElement.classList.toggle("player-collapsed", playerCollapsed);
     }, [playerCollapsed, playerCollapsedReady]);
+    useLayoutEffect(() => {
+        if (typeof document === "undefined")
+            return undefined;
+        const on = view === "Platform Control Center";
+        const root = document.documentElement;
+        const body = document.body;
+        root.toggleAttribute("data-admin-scroll-surface", on);
+        body.toggleAttribute("data-admin-scroll-surface", on);
+        return () => {
+            root.removeAttribute("data-admin-scroll-surface");
+            body.removeAttribute("data-admin-scroll-surface");
+        };
+    }, [view]);
     useEffect(() => {
         const root = document.documentElement;
         const playerVisible = Boolean(
@@ -6061,6 +6126,7 @@ function PageContent({
         );
         const applyHeight = (heightPx: number) => {
             if (!playerVisible) {
+                root.removeAttribute("data-player-visible");
                 root.style.setProperty("--global-player-height", "0px");
                 root.style.setProperty("--mobile-player-height", "0px");
                 root.style.setProperty(
@@ -6069,13 +6135,16 @@ function PageContent({
                 );
                 return;
             }
+            root.setAttribute("data-player-visible", "true");
             const floor = playerCollapsed
                 ? GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX
                 : GLOBAL_PLAYER_HEIGHT_EXPANDED_PX;
-            const next = Math.max(floor, Math.ceil(heightPx || 0));
+            // Mobile dock is a fixed 52/88px shell. Never let measured content grow
+            // --global-player-height or the page reserve (padding-bottom / layout shift).
+            const mobileCompact = window.matchMedia("(max-width: 820px)").matches;
+            const next = mobileCompact ? floor : Math.max(floor, Math.ceil(heightPx || 0));
             // Mobile dock uses 8px bottom inset; desktop uses --player-dock-inset-bottom (12px).
             // Extra cushion on ≤820px keeps Subscribe / video actions clear of the fixed player.
-            const mobileCompact = window.matchMedia("(max-width: 820px)").matches;
             const dockInsetPx = mobileCompact ? 8 : PLAYER_DOCK_INSET_BOTTOM_PX;
             const reserveCushionPx = mobileCompact ? 28 : 16;
             root.style.setProperty("--global-player-height", `${next}px`);
@@ -6149,17 +6218,9 @@ function PageContent({
         pinLeft();
         const frame = window.requestAnimationFrame(() => {
             pinLeft();
-            window.requestAnimationFrame(pinLeft);
         });
-        const main = getMainScrollContainer();
-        const onScroll = () => {
-            if (main && main.scrollLeft !== 0)
-                main.scrollLeft = 0;
-        };
-        main?.addEventListener("scroll", onScroll, { passive: true });
         return () => {
             window.cancelAnimationFrame(frame);
-            main?.removeEventListener("scroll", onScroll);
         };
     }, [view, activeNavigationKey]);
     // Close Add to Playlist on any major workspace/nav change (sidebar, upload toggle, etc.).
@@ -6346,13 +6407,16 @@ function PageContent({
         accountRoles: accountNavRoles,
         // Server-backed profile role is authoritative; ignore local accountRole until rolesReady.
         primaryRole: accountRolesReady ? (userAuthProfile.role || "listener") : "listener",
-        rolesReady: isPlatformOwner || accountRolesReady,
+        rolesReady: isPlatformOwner || (accountRolesReady && foundingAccessReady && (!foundingAccessLoading || Boolean(foundingAccess))),
     }), [
         isPlatformOwner,
         accountIsAdmin,
         accountNavRoles,
         userAuthProfile.role,
         accountRolesReady,
+        foundingAccess,
+        foundingAccessReady,
+        foundingAccessLoading,
     ]);
     const desktopNavAccess = useMemo(() => ({
         accountUserId,
@@ -6360,7 +6424,8 @@ function PageContent({
         isAuthenticated,
         isPlatformOwner,
         capabilities: navCapabilities,
-    }), [accountUserId, authSession, isAuthenticated, isPlatformOwner, navCapabilities]);
+        authorizationReady: isPlatformOwner || (accountRolesReady && foundingAccessReady && (!foundingAccessLoading || Boolean(foundingAccess))),
+    }), [accountUserId, authSession, isAuthenticated, isPlatformOwner, navCapabilities, accountRolesReady, foundingAccess, foundingAccessReady, foundingAccessLoading]);
     useEffect(() => {
         if (!isAuthenticated || !authReady || !accountRolesReady) return;
         const decision = evaluateDesktopNavAccess(view as DesktopNavView, desktopNavAccess);
@@ -6392,38 +6457,227 @@ function PageContent({
         const token = tokenOverride || authSessionRef.current?.access_token || "";
         if (!userId || !token) {
             setFoundingAccess(null);
+            setFoundingAccessReady(false);
             return null;
         }
         setFoundingAccessLoading(true);
         try {
-            const response = await fetch(`/api/founding-members/me?userId=${encodeURIComponent(userId)}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await response.json().catch(() => ({}));
-            const access = (data.access || null) as FoundingAccessState | null;
-            setFoundingAccess(access);
-            return access;
-        }
-        catch {
-            setFoundingAccess(null);
+            // Transient failures must not become a block decision: retry briefly and keep
+            // the last resolved access for this user if the server stays unreachable.
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+                if (attempt > 0) {
+                    await new Promise((resolve) => window.setTimeout(resolve, 600 * attempt));
+                }
+                try {
+                    const response = await fetch(`/api/founding-members/me?userId=${encodeURIComponent(userId)}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    const access = (data.access || null) as FoundingAccessState | null;
+                    if (response.ok && access) {
+                        setFoundingAccessLoadFailedUserId("");
+                        setFoundingAccess(access);
+                        return access;
+                    }
+                }
+                catch {
+                    // retry
+                }
+            }
+            setFoundingAccessLoadFailedUserId(userId);
             return null;
         }
         finally {
             setFoundingAccessLoading(false);
+            setFoundingAccessReady(true);
         }
     }, []);
     useEffect(() => {
-        if (!authReady || !isAuthenticated || !accountUserId || !authSession?.access_token) {
-            setFoundingAccess(null);
+        let cancelled = false;
+        void fetch("/api/artists/founding", { cache: "no-store" })
+            .then((response) => response.json().catch(() => ({})))
+            .then((json) => {
+                if (cancelled || !Array.isArray(json.artists)) {
+                    return;
+                }
+                setFoundingArtistDirectory(json.artists.map((row: Record<string, unknown>) => ({
+                    userId: String(row.userId || "").trim(),
+                    displayName: String(row.displayName || "Artist").trim(),
+                    avatarUrl: String(row.avatarUrl || "").trim(),
+                })).filter((row: { userId: string }) => row.userId));
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+    useEffect(() => {
+        if (!isAuthenticated) {
+            if (!postAuthLock) {
+                setFoundingAccess(null);
+                setFoundingAccessReady(false);
+            }
+            return;
+        }
+        setPostAuthLock(true);
+        if (!authReady || !accountUserId || !authSession?.access_token) {
             return;
         }
         void reloadFoundingAccess(accountUserId, authSession.access_token);
-    }, [authReady, isAuthenticated, accountUserId, authSession?.access_token, authGateTick, reloadFoundingAccess]);
+    }, [authReady, isAuthenticated, accountUserId, authSession?.access_token, authGateTick, reloadFoundingAccess, postAuthLock]);
+    const signupActivationResumeKeyRef = useRef("");
+    useEffect(() => {
+        if (!authReady || !isAuthenticated || !accountUserId || !authSession?.access_token) {
+            return;
+        }
+        const resumeKey = `${accountUserId}:${authSession.access_token.slice(0, 12)}`;
+        if (signupActivationResumeKeyRef.current === resumeKey) {
+            return;
+        }
+        signupActivationResumeKeyRef.current = resumeKey;
+        void resumeSignupAccountActivationClient(
+            accountUserId,
+            authSession.access_token,
+            authSession.refresh_token || "",
+        ).catch(() => undefined);
+    }, [authReady, isAuthenticated, accountUserId, authSession?.access_token, authSession?.refresh_token, authGateTick]);
+    const desktopShellCanRender = canRenderDesktopApplicationShell({
+        authReady,
+        isAuthenticated,
+        accountUserId,
+        localBootstrapReady: hasLoaded,
+        session: authSession,
+        authSessionInitialized,
+    });
+    // No access was ever received for this user (all attempts failed): stay unresolved and
+    // offer Retry / Sign out — never treat an unreachable server as "not a member".
+    const foundingAccessLoadFailed = Boolean(
+        accountUserId
+        && foundingAccessLoadFailedUserId === accountUserId
+        && !foundingAccess,
+    );
+    const foundingAccessUnresolved = !foundingAccessReady || (foundingAccessLoading && !foundingAccess) || foundingAccessLoadFailed;
+    const classifiedLaunchOnly = Boolean(
+        postAuthLock
+        && isAuthenticated
+        && !isPlatformOwner
+        && foundingAccessReady
+        && !foundingAccessUnresolved
+        && foundingAccess?.canAccessApp !== true,
+    );
+    const classifiedAppMember = Boolean(
+        isPlatformOwner
+        || (
+            postAuthLock
+            && isAuthenticated
+            && foundingAccessReady
+            && foundingAccess?.canAccessApp === true
+            && accountRolesReady
+        ),
+    );
+    const [authDestinationLatched, setAuthDestinationLatched] = useState<"none" | "launch" | "app">("none");
+    const nextAuthDestinationLatched = !isAuthenticated && !postAuthLock
+        ? "none"
+        : classifiedLaunchOnly
+            ? "launch"
+            : classifiedAppMember
+                ? "app"
+                : authDestinationLatched;
+    if (nextAuthDestinationLatched !== authDestinationLatched) {
+        setAuthDestinationLatched(nextAuthDestinationLatched);
+    }
+    const stayInPostAuthResolution = Boolean(
+        postAuthLock
+        && authDestinationLatched === "none"
+        && !classifiedLaunchOnly
+        && !classifiedAppMember,
+    );
+    const shouldHoldLoginSurface = stayInPostAuthResolution;
+    // Signed in but founding access / roles still resolving: neutral boot surface only,
+    // never the login form, public hub, or founding gate.
+    const holdPostAuthOnNeutralSurface = Boolean(shouldHoldLoginSurface && isAuthenticated);
+    // Profile/roles could not be established after retries: offer Retry / Sign out. Never grants access.
+    const accountProfileLoadFailed = Boolean(
+        isAuthenticated
+        && !isPlatformOwner
+        && accountUserId
+        && accountProfileLoadFailedUserId === accountUserId
+        && !accountRolesReady
+        && !foundingAccessUnresolved,
+    );
+    const foundingAccessRetryAvailable = Boolean(isAuthenticated && !isPlatformOwner && foundingAccessLoadFailed);
+    const accountLoadFailed = accountProfileLoadFailed || foundingAccessRetryAvailable;
+    const accountProfileLoadFailedActions = accountLoadFailed ? (
+        <div style={{ display: "grid", gap: 9, marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={foundingAccessRetryAvailable ? retryFoundingAccessLoad : retryAccountProfileLoad}
+            style={{ minHeight: 38, border: 0, borderRadius: 8, fontWeight: 900, background: "var(--mdb-green)", color: "var(--mdb-bg)", cursor: "pointer" }}
+          >
+            {t("common.retry")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            style={{ minHeight: 38, border: 0, borderRadius: 8, fontWeight: 900, background: "color-mix(in srgb, var(--mdb-green-dark) 45%, var(--mdb-surface-secondary))", color: "white", cursor: "pointer" }}
+          >
+            {t("auth.signOut")}
+          </button>
+        </div>
+    ) : null;
+    const showingLoginSurface = Boolean(shouldShowLoginScreen || shouldHoldLoginSurface);
+    const [loginSurfacePaintReleased, setLoginSurfacePaintReleased] = useState(false);
+    if (showingLoginSurface && !isAuthenticated && loginSurfacePaintReleased) {
+        setLoginSurfacePaintReleased(false);
+    }
+    useEffect(() => {
+        if (showingLoginSurface) return;
+        // Release only after the neutral surface has committed, so the login layer
+        // and the app shell never paint in the same commit.
+        const frame = window.requestAnimationFrame(() => setLoginSurfacePaintReleased(true));
+        return () => window.cancelAnimationFrame(frame);
+    }, [showingLoginSurface]);
+    const loginRenderPhase = authLoading
+        ? "auth-loading"
+        : holdPostAuthOnNeutralSurface
+            ? "opening-library-post-login"
+        : authCredentialView === "reset"
+            ? "password-reset"
+            : (shouldShowLoginScreen || shouldHoldLoginSurface)
+                ? (shouldHoldLoginSurface
+                    ? "login-form-held-post-auth"
+                    : publicEntryView === "hub"
+                        ? "public-hub"
+                        : publicEntryView === "notify"
+                            ? "public-notify"
+                            : "login-form")
+                : (isAuthenticated && !classifiedLaunchOnly && !loginSurfacePaintReleased)
+                    ? "opening-library-post-login"
+                    : (!isPlatformOwner && isAuthenticated && foundingAccess && !foundingAccess.canAccessApp)
+                    ? "founding-gate"
+                    : !desktopShellCanRender
+                        ? "shell-gate"
+                        : "app-shell";
     useEffect(() => {
         if (typeof window === "undefined") return;
         const invite = new URLSearchParams(window.location.search).get("invite");
         if (invite) setAuthInviteCode(invite.trim().toUpperCase());
     }, []);
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+            if (event === "PASSWORD_RECOVERY") {
+                setAuthCredentialView("reset");
+                setPublicEntryView("auth");
+                setAuthMessage("");
+            }
+        });
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, [supabase]);
     useEffect(() => {
         if (authLoading)
             return;
@@ -6592,8 +6846,32 @@ function PageContent({
         if (!accountUserId) {
             return;
         }
-        void reloadUserProfileFromSupabase(accountUserId, activeUser?.email || "").catch(() => undefined);
-    }, [accountUserId, activeUser?.email]);
+        let cancelled = false;
+        void (async () => {
+            // Roles for a newly signed-in user gate the app shell; retry briefly, then
+            // surface a Retry / Sign out exit instead of an endless "Opening library".
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+                if (attempt > 0) {
+                    await new Promise((resolve) => window.setTimeout(resolve, 1000 * attempt));
+                    if (cancelled) return;
+                }
+                await reloadUserProfileFromSupabase(accountUserId, activeUser?.email || "").catch(() => undefined);
+                if (cancelled || accountRolesResolvedUserIdRef.current === accountUserId) return;
+            }
+            setAccountProfileLoadFailedUserId(accountUserId);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [accountUserId, activeUser?.email, accountProfileRetryTick]);
+    function retryAccountProfileLoad() {
+        setAccountProfileLoadFailedUserId("");
+        setAccountProfileRetryTick((value) => value + 1);
+    }
+    function retryFoundingAccessLoad() {
+        setFoundingAccessLoadFailedUserId("");
+        void reloadFoundingAccess();
+    }
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.displayMode, displayMode);
     }, [displayMode]);
@@ -7049,6 +7327,46 @@ function PageContent({
         await confirmAuthenticatedFromApi(userId);
         return data;
     }
+    async function resumeSignupAccountActivationClient(
+        userId: string,
+        accessToken: string,
+        refreshToken: string,
+        extra: { inviteCode?: string; displayName?: string } = {},
+    ) {
+        if (!userId || !accessToken) {
+            return null;
+        }
+        const response = await desktopActionFetch("/api/signup/resume-activation", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                userId,
+                sessionUserId: userId,
+                accessToken,
+                sessionAccessToken: accessToken,
+                refreshToken,
+                sessionRefreshToken: refreshToken,
+                inviteCode: extra.inviteCode || "",
+                displayName: extra.displayName || "",
+            }),
+        });
+        const data = (await response.json().catch(() => ({}))) as {
+            status?: string;
+            error?: string;
+            accountType?: string;
+        };
+        if (!response.ok) {
+            return null;
+        }
+        await reloadFoundingAccess(userId, accessToken).catch(() => undefined);
+        if (data.status === "activated" || data.status === "legacy_preserved") {
+            await reloadUserProfileFromSupabase(userId).catch(() => undefined);
+        }
+        return data;
+    }
     async function reloadUserProfileFromSupabase(userIdOverride = "", emailOverride = "") {
         const profileUserId = userIdOverride
             || accountUserId
@@ -7068,11 +7386,15 @@ function PageContent({
             });
             setAccountNavRoles([]);
             setAccountIsAdmin(false);
+            accountRolesResolvedUserIdRef.current = "";
             setAccountRolesReady(false);
             return null;
         }
-        // Hide creator chrome until the latest server-backed roles arrive.
-        setAccountRolesReady(false);
+        // Only drop rolesReady for a new user. Same-user reloads must not
+        // unmount the authenticated shell (that paints the intermediate screen).
+        if (accountRolesResolvedUserIdRef.current !== profileUserId) {
+            setAccountRolesReady(false);
+        }
         let response: Response;
         try {
             response = await desktopActionFetch(`/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, {
@@ -7123,9 +7445,15 @@ function PageContent({
                     displayName: previous.displayName || fallbackDisplayName,
                 }));
             }
-            setAccountNavRoles([]);
-            setAccountIsAdmin(false);
-            setAccountRolesReady(true);
+            if (accountRolesResolvedUserIdRef.current !== profileUserId) {
+                setAccountNavRoles([]);
+                setAccountIsAdmin(false);
+                setUserAuthProfile((previous) => ({
+                    ...previous,
+                    role: "listener",
+                }));
+                setAccountRolesReady(false);
+            }
             return null;
         }
         const fallbackDisplayName = desktopRuntime.resolveDisplayName({
@@ -7150,6 +7478,7 @@ function PageContent({
                 : [forcedRole].filter(Boolean);
         setAccountNavRoles(nextRoles);
         setAccountIsAdmin(Boolean(data.isAdmin) || nextRoles.includes("admin"));
+        accountRolesResolvedUserIdRef.current = profileUserId;
         setAccountRolesReady(true);
         setShowUpload(false);
         if (!isPlatformOwnerEmail(emailOverride || activeUser?.email)) {
@@ -7361,7 +7690,7 @@ function PageContent({
                     ? (outcome.message || DESKTOP_AUTH_RATE_LIMIT_MESSAGE)
                     : "Your session could not be restored. Please log in again.";
                 setAuthMessage(message);
-                if (outcome.showLogin) {
+                if (outcome.showLogin && !authSessionRef.current?.access_token) {
                     try {
                         await signOutFromAuthState();
                     }
@@ -10408,7 +10737,6 @@ function PageContent({
         });
         void updateProducerBeat(beat, {
             leases: beat.leases + 1,
-            payouts: Math.round((beat.payouts + priceCents * (PRODUCER_REVENUE_SHARE / 100) / 100) * 100) / 100,
         });
         downloadLicensePdf(record);
         showToast(`${licenseType} license PDF generated.`, "success");
@@ -13940,12 +14268,16 @@ function PageContent({
             showToast(FOUNDING_ROLE_LOCKED_MESSAGE, "error");
             return;
         }
+        if (!isPlatformOwner) {
+            showToast("Account type cannot be changed from Profile. Creator access requires explicit owner approval.", "error");
+            return;
+        }
         const previousRole = accountRole;
         const previousNavRoles = accountNavRoles;
         setAccountRole(nextRole);
         setAccountNavRoles([nextRole.toLowerCase()]);
         try {
-            const response = await fetch("/api/producers", {
+            const response = await desktopActionFetch("/api/producers", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -14019,7 +14351,8 @@ function PageContent({
             tagline: producerProfileForm.tagline.trim() || currentProducerProfile.tagline,
             website: producerProfileForm.website.trim() || currentProducerProfile.website,
         };
-        const response = await fetch("/api/producers", {
+        const response = await desktopActionFetch("/api/producers", {
+            requireAuth: true,
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -14053,7 +14386,8 @@ function PageContent({
         return savedProfile;
     }
     async function saveProducerBeatMetadata(song: Song, profile: ProducerProfile) {
-        const response = await fetch("/api/producers", {
+        const response = await desktopActionFetch("/api/producers", {
+            requireAuth: true,
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -14177,28 +14511,34 @@ function PageContent({
         const safeUpdates = updates.splitPercentage === undefined ? updates : { ...updates, splitPercentage: clampProducerSplitShare(updates.splitPercentage) };
         const nextBeat = { ...beat, ...safeUpdates };
         setProducerBeats((previous) => previous.map((item) => (item.id === beat.id ? nextBeat : item)));
-        const response = await fetch("/api/producers", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "update-beat",
-                id: beat.id,
-                license: safeUpdates.license,
-                leasePrice: safeUpdates.leasePrice,
-                exclusivePrice: safeUpdates.exclusivePrice,
-                splitPercentage: safeUpdates.splitPercentage,
-                plays: safeUpdates.plays,
-                likes: safeUpdates.likes,
-                downloads: safeUpdates.downloads,
-                leases: safeUpdates.leases,
-                payouts: safeUpdates.payouts,
-            }),
-        });
-        if (!response.ok) {
-            const data = (await response.json().catch(() => ({}))) as {
-                error?: string;
-            };
-            showToast(data.error || "Producer beat update failed.", "error");
+        try {
+            const response = await desktopActionFetch("/api/producers", {
+                requireAuth: true,
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "update-beat",
+                    id: beat.id,
+                    license: safeUpdates.license,
+                    leasePrice: safeUpdates.leasePrice,
+                    exclusivePrice: safeUpdates.exclusivePrice,
+                    splitPercentage: safeUpdates.splitPercentage,
+                    plays: safeUpdates.plays,
+                    likes: safeUpdates.likes,
+                    downloads: safeUpdates.downloads,
+                    leases: safeUpdates.leases,
+                    payouts: safeUpdates.payouts,
+                }),
+            });
+            if (!response.ok) {
+                const data = (await response.json().catch(() => ({}))) as {
+                    error?: string;
+                };
+                showToast(data.error || "Producer beat update failed.", "error");
+            }
+        }
+        catch {
+            showToast("Producer beat update failed. Check your connection and try again.", "error");
         }
     }
     async function permanentlyDeleteProducerBeat(beat: ProducerBeat) {
@@ -14934,7 +15274,8 @@ function PageContent({
         if (podcastEpisode) {
             return;
         }
-        fetch(`/api/videos/${encodeURIComponent(playableVideo.id)}`, {
+        desktopActionFetch(`/api/videos/${encodeURIComponent(playableVideo.id)}`, {
+            requireAuth: true,
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ views: nextViews }),
@@ -15149,7 +15490,8 @@ function PageContent({
             : previous);
         cancelEditingVideo();
         try {
-            const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}`, {
+            const response = await desktopActionFetch(`/api/videos/${encodeURIComponent(videoId)}`, {
+                requireAuth: true,
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedVideo),
@@ -15633,7 +15975,8 @@ function PageContent({
     }
     async function removeSongProducerCredit(song: Song) {
         setSongs((previous) => previous.map((item) => (item.id === song.id ? { ...item, producer: "", producerId: "", beatId: "" } : item)));
-        const response = await fetch(`/api/songs/${encodeURIComponent(song.id)}`, {
+        const response = await desktopActionFetch(`/api/songs/${encodeURIComponent(song.id)}`, {
+            requireAuth: true,
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ producer: "", producer_id: "", beat_id: "" }),
@@ -15650,7 +15993,8 @@ function PageContent({
     }
     async function removeVideoProducerCredit(video: VideoItem) {
         setVideos((previous) => previous.map((item) => (item.id === video.id ? { ...item, producer: "", producerId: "", beatId: "" } : item)));
-        const response = await fetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+        const response = await desktopActionFetch(`/api/videos/${encodeURIComponent(video.id)}`, {
+            requireAuth: true,
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ producer: "", producer_id: "", beat_id: "" }),
@@ -16433,6 +16777,89 @@ function PageContent({
         }
         return "Something went wrong while connecting to Supabase. Please try again.";
     }
+    async function handleForgotPasswordSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setAuthMessage("");
+        const email = authEmail.trim();
+        if (!email) {
+            setAuthMessage("Enter your email address.");
+            return;
+        }
+        setAuthBusy(true);
+        try {
+            const redirectTo = resolvePasswordRecoveryRedirectUrl();
+            const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+            if (error) {
+                setAuthMessage(error.message);
+                return;
+            }
+            setAuthMessage(t("auth.passwordResetEmailSent"));
+        }
+        catch (error) {
+            setAuthMessage(getAuthErrorMessage(error));
+        }
+        finally {
+            setAuthBusy(false);
+        }
+    }
+    async function handleResetPasswordSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setAuthMessage("");
+        const nextPassword = authResetPassword;
+        const confirmPassword = authResetPasswordConfirm;
+        if (!nextPassword || !confirmPassword) {
+            setAuthMessage("Enter and confirm your new password.");
+            return;
+        }
+        if (nextPassword.length < 6) {
+            setAuthMessage(t("auth.passwordPlaceholder"));
+            return;
+        }
+        if (nextPassword !== confirmPassword) {
+            setAuthMessage(t("auth.passwordResetMismatch"));
+            return;
+        }
+        setAuthBusy(true);
+        try {
+            const sessionResult = await supabase.auth.getSession();
+            if (sessionResult.error || !sessionResult.data.session?.access_token) {
+                setAuthMessage(t("auth.passwordResetSessionMissing"));
+                setAuthCredentialView("forgot");
+                setAuthMode("login");
+                setPublicEntryView("auth");
+                clearSupabaseAuthFragmentFromUrl();
+                return;
+            }
+            const { error } = await supabase.auth.updateUser({ password: nextPassword });
+            if (error) {
+                const normalized = error.message.toLowerCase();
+                if (normalized.includes("expired") || normalized.includes("invalid") || normalized.includes("jwt")) {
+                    setAuthMessage(t("auth.passwordResetInvalidLink"));
+                    setAuthCredentialView("forgot");
+                    setAuthMode("login");
+                }
+                else {
+                    setAuthMessage(error.message);
+                }
+                return;
+            }
+            clearSupabaseAuthFragmentFromUrl();
+            await supabase.auth.signOut().catch(() => undefined);
+            setAuthResetPassword("");
+            setAuthResetPasswordConfirm("");
+            setAuthPassword("");
+            setAuthCredentialView("standard");
+            setAuthMode("login");
+            setPublicEntryView("auth");
+            setAuthMessage(t("auth.passwordResetSuccess"));
+        }
+        catch (error) {
+            setAuthMessage(getAuthErrorMessage(error));
+        }
+        finally {
+            setAuthBusy(false);
+        }
+    }
     async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setAuthMessage("");
@@ -16452,11 +16879,7 @@ function PageContent({
                 setAuthBusy(false);
                 return;
             }
-            if (authMode === "signup" && foundingBetaLocked && !isPlatformOwnerEmail(email)) {
-                if (!authInviteCode.trim()) {
-                    setAuthMessage(FOUNDING_INVITE_REQUIRED_MESSAGE);
-                    return;
-                }
+            if (authMode === "signup" && authInviteCode.trim() && !isPlatformOwnerEmail(email)) {
                 const validation = await fetch("/api/founding-invites/validate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -16501,6 +16924,11 @@ function PageContent({
                         data: buildSignupUserMetadata({
                             displayName: signupDisplayName,
                             requestedAccountType: signupAccountType,
+                            pendingInviteCode: foundingBetaLocked
+                                && !isPlatformOwnerEmail(email)
+                                && authInviteCode.trim()
+                                ? authInviteCode.trim()
+                                : undefined,
                         }),
                     },
                 })
@@ -16510,7 +16938,9 @@ function PageContent({
                 return;
             }
             if (authMode === "signup" && !response.data.session) {
-                setAuthMessage("Account created. Check your email to confirm your sign up.");
+                setAuthMessage(foundingBetaLocked && authInviteCode.trim() && !isPlatformOwnerEmail(email)
+                    ? "Account created. Confirm your email, then sign in to finish invite redemption and account activation."
+                    : "Account created. Check your email to confirm your sign up.");
                 return;
             }
             markDesktopAuthSignInPending();
@@ -16583,6 +17013,15 @@ function PageContent({
                     return;
                 }
             }
+            await resumeSignupAccountActivationClient(
+                activeSession.user.id,
+                activeSession.access_token,
+                activeSession.refresh_token,
+                {
+                    inviteCode: authInviteCode.trim(),
+                    displayName: signupDisplayName,
+                },
+            ).catch(() => undefined);
             const access = await reloadFoundingAccess(activeSession.user.id, activeSession.access_token);
             // Reload authoritative capabilities before choosing a destination.
             const profileAfterLogin = await reloadUserProfileFromSupabase(
@@ -16595,7 +17034,9 @@ function PageContent({
             setAuthInviteCode("");
             setAuthAccountType(DEFAULT_SIGNUP_ACCOUNT_TYPE);
             setAuthMessage(authMode === "signup"
-                ? "Account created. Your founding application is pending owner approval."
+                ? (signupAccountType === "listener"
+                    ? "You're registered for launch notifications."
+                    : "Creator access is pending owner approval.")
                 : "Welcome back.");
             // Never navigate from founding invite role (e.g. founding_artist → Artist Dashboard).
             // Listener account_type must land on Home even when founding_members is approved.
@@ -16605,7 +17046,7 @@ function PageContent({
                 canArtistDashboard: primaryAfterLogin === "artist" || primaryAfterLogin === "admin",
                 canProducerDashboard: primaryAfterLogin === "producer" || primaryAfterLogin === "admin",
             }) as View;
-            if (access?.canAccessApp !== false) {
+            if (access?.canAccessApp) {
                 setShowUpload(false);
                 setToast(null);
                 setView(nextView);
@@ -16687,6 +17128,12 @@ function PageContent({
                 return;
             }
 
+            await resumeSignupAccountActivationClient(
+                userId,
+                accessToken,
+                refreshToken,
+                { inviteCode, displayName: getAccountDisplayName() },
+            ).catch(() => undefined);
             const access = await reloadFoundingAccess(userId, accessToken);
             await reloadUserProfileFromSupabase(userId);
             setAuthInviteCode("");
@@ -17045,9 +17492,8 @@ function PageContent({
                 <button
                   disabled={Boolean(subscriptionCheckoutBusyPlanId)}
                   onClick={() => void setupSubscriptionPlan(plan)}
-                      type="button"
-                      aria-pressed={activeSubscriptionPlanId === plan.id}
-                    >
+                  type="button"
+                >
                   <Check size={15}/>
                   {subscriptionCheckoutBusyPlanId === plan.id
                       ? "Opening checkout…"
@@ -18094,7 +18540,7 @@ function PageContent({
       </section>);
     }
     if (authLoading) {
-        return (<main className="auth-page">
+        return (<main className="auth-page" data-login-render-phase="auth-loading">
         <section className="auth-panel">
           <div className="auth-mark">
             <img src={BRAND_LOGO} alt="Music Data Base"/>
@@ -18112,9 +18558,135 @@ function PageContent({
           body {
             margin: 0;
             min-height: 100%;
-            background: var(--mdb-bg);
-            color: white;
+            background: var(--mdb-bg, #030805);
+            color: var(--mdb-text, #ffffff);
             font-family: Arial, Helvetica, sans-serif;
+          }
+
+          .auth-page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+            background: var(--mdb-bg, #030805);
+            color: var(--mdb-text, #ffffff);
+          }
+
+          .auth-panel {
+            width: min(440px, 100%);
+            max-width: 100%;
+            border: 1px solid var(--mdb-border-gold-subtle, rgba(245, 200, 76, 0.28));
+            border-radius: 8px;
+            background: var(--mdb-surface-raised, #09110c);
+            padding: 24px;
+          }
+
+          .auth-mark {
+            display: grid;
+            justify-items: center;
+            gap: 10px;
+            text-align: center;
+            max-width: 100%;
+          }
+
+          .auth-mark img {
+            width: min(260px, 82vw);
+            max-width: 100%;
+            height: auto;
+            max-height: min(260px, 45vh);
+            object-fit: contain;
+            display: block;
+          }
+
+          .auth-mark span {
+            color: var(--mdb-gold, #f5c84c);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0;
+          }
+
+          .auth-panel > p {
+            margin: 14px 0 0;
+            text-align: center;
+            color: var(--mdb-text-secondary, #c9cec9);
+            font-size: 14px;
+            font-weight: 700;
+          }
+        `}</style>
+      </main>);
+    }
+    if (authCredentialView === "reset") {
+        return (<main className="auth-page" data-login-render-phase="password-reset">
+        <section className="auth-panel">
+          <div className="auth-mark">
+            <img src={BRAND_LOGO} alt="Music Data Base"/>
+            <span>{BRAND_TAGLINE}</span>
+          </div>
+
+          <div className="auth-copy">
+            <h1>{t("auth.resetPasswordTitle")}</h1>
+            <p>{t("auth.resetPasswordSubtitle")}</p>
+          </div>
+
+          <LanguageSelector compact className="auth-language-selector"/>
+
+          <form className="auth-form" onSubmit={(event) => void handleResetPasswordSubmit(event)}>
+            <AuthPasswordField
+              label={t("auth.newPassword")}
+              name="newPassword"
+              value={authResetPassword}
+              onChange={setAuthResetPassword}
+              placeholder={t("auth.passwordPlaceholder")}
+              autoComplete="new-password"
+              disabled={authBusy}
+              showPasswordLabel={t("auth.showPassword")}
+              hidePasswordLabel={t("auth.hidePassword")}
+            />
+            <AuthPasswordField
+              label={t("auth.confirmPassword")}
+              name="confirmPassword"
+              value={authResetPasswordConfirm}
+              onChange={setAuthResetPasswordConfirm}
+              placeholder={t("auth.passwordPlaceholder")}
+              autoComplete="new-password"
+              disabled={authBusy}
+              showPasswordLabel={t("auth.showPassword")}
+              hidePasswordLabel={t("auth.hidePassword")}
+            />
+
+            {authMessage && <p className="auth-message">{authMessage}</p>}
+
+            <button type="submit" disabled={authBusy}>
+              {authBusy ? t("common.working") : t("auth.updatePassword")}
+            </button>
+          </form>
+
+          <button
+            className="auth-switch"
+            onClick={() => {
+                setAuthCredentialView("standard");
+                setAuthMode("login");
+                setAuthMessage("");
+                setAuthResetPassword("");
+                setAuthResetPasswordConfirm("");
+            }}
+            type="button"
+          >
+            {t("auth.backToLogin")}
+          </button>
+
+          <PolicyLinksFooter className="auth-legal-links" />
+        </section>
+
+        <style jsx global>{`
+          * {
+            box-sizing: border-box;
+          }
+
+          html,
+          body {
+            margin: 0;
           }
 
           .auth-page {
@@ -18153,12 +18725,115 @@ function PageContent({
             font-weight: 900;
             letter-spacing: 0;
           }
+
+          .auth-copy h1 {
+            margin: 0 0 8px;
+            color: white;
+            font-size: 24px;
+            text-align: center;
+          }
+
+          .auth-copy p {
+            margin: 0 0 12px;
+            color: var(--mdb-text-muted);
+            line-height: 1.35;
+            font-size: 14px;
+            text-align: center;
+          }
+
+          .auth-form,
+          .auth-form label,
+          .auth-password-field {
+            display: grid;
+            gap: 9px;
+          }
+
+          .auth-form {
+            gap: 10px;
+          }
+
+          .auth-form span,
+          .auth-password-field span {
+            color: var(--mdb-text-secondary);
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .auth-form input,
+          .auth-password-input-wrap input {
+            height: 40px;
+            border-radius: 8px;
+            border: 1px solid var(--mdb-border);
+            background: var(--mdb-bg);
+            color: white;
+            padding: 0 12px;
+            outline: none;
+            font-size: 16px;
+            width: 100%;
+          }
+
+          .auth-password-input-wrap {
+            position: relative;
+          }
+
+          .auth-password-input-wrap input {
+            padding-right: 48px;
+          }
+
+          .auth-password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 2px;
+            transform: translateY(-50%);
+            min-width: 44px;
+            min-height: 44px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--mdb-text-secondary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+          }
+
+          .auth-form button,
+          .auth-switch {
+            min-height: 38px;
+            border: 0;
+            border-radius: 8px;
+            font-weight: 900;
+          }
+
+          .auth-form button {
+            background: var(--mdb-green);
+            color: var(--mdb-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          }
+
+          .auth-switch {
+            width: 100%;
+            margin-top: 9px;
+            background: color-mix(in srgb, var(--mdb-green-dark) 45%, var(--mdb-surface-secondary));
+            color: white;
+          }
+
+          .auth-message {
+            margin: 0;
+            color: var(--mdb-gold);
+            font-size: 13px;
+            font-weight: 800;
+          }
         `}</style>
       </main>);
     }
-    if (shouldShowLoginScreen) {
-        if (publicEntryView === "hub") {
-            return (<MdbPublicEntryHub
+    if (showingLoginSurface && !holdPostAuthOnNeutralSurface) {
+        if (!shouldHoldLoginSurface && publicEntryView === "hub") {
+            return (<div data-login-render-phase="public-hub" style={{ display: "contents" }}><MdbPublicEntryHub
                 onGetNotified={() => setPublicEntryView("notify")}
                 onJoinBeta={() => {
                     setPublicEntryView("auth");
@@ -18171,12 +18846,18 @@ function PageContent({
                     setAuthMode("login");
                     setAuthMessage("");
                 }}
-            />);
+            /></div>);
         }
-        if (publicEntryView === "notify") {
-            return (<MdbPublicEntryNotify onBack={() => setPublicEntryView("hub")} />);
+        if (!shouldHoldLoginSurface && publicEntryView === "notify") {
+            return (<div data-login-render-phase="public-notify" style={{ display: "contents" }}><MdbPublicEntryNotify onBack={() => setPublicEntryView("hub")} /></div>);
         }
-        return (<main className="auth-page">
+        return (<main
+        className="auth-page"
+        data-login-render-phase={loginRenderPhase}
+        data-roles-ready={accountRolesReady ? "true" : "false"}
+        data-founding-ready={foundingAccessReady ? "true" : "false"}
+        data-held-post-auth={shouldHoldLoginSurface ? "true" : "false"}
+      >
         <section className="auth-panel">
           <div className="auth-mark">
             <img src={BRAND_LOGO} alt="Music Data Base"/>
@@ -18196,15 +18877,32 @@ function PageContent({
           </button>
 
           <div className="auth-copy">
-            <h1>{authMode === "signup" ? t("auth.createAccount") : t("auth.loginTitle")}</h1>
-            <p>{foundingBetaLocked && authMode === "signup"
-                ? t("auth.foundingSignupSubtitle")
-                : t("auth.signupSubtitle")}</p>
+            <h1>{authCredentialView === "forgot"
+                ? t("auth.forgotPasswordTitle")
+                : authMode === "signup"
+                    ? t("auth.createAccount")
+                    : t("auth.loginTitle")}</h1>
+            <p>{authCredentialView === "forgot"
+                ? t("auth.forgotPasswordSubtitle")
+                : foundingBetaLocked && authMode === "signup"
+                    ? t("auth.foundingSignupSubtitle")
+                    : t("auth.signupSubtitle")}</p>
           </div>
 
           <LanguageSelector compact className="auth-language-selector"/>
 
-          <form className="auth-form" onSubmit={handleAuthSubmit}>
+          {authCredentialView === "forgot" ? (<form className="auth-form" onSubmit={(event) => void handleForgotPasswordSubmit(event)}>
+            <label>
+              <span>{t("auth.email")}</span>
+              <input name="email" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder={t("auth.emailPlaceholder")} autoComplete="email"/>
+            </label>
+
+            {authMessage && <p className="auth-message">{authMessage}</p>}
+
+            <button type="submit" disabled={authBusy}>
+              {authBusy ? t("common.working") : t("auth.sendResetLink")}
+            </button>
+          </form>) : (<form className="auth-form" onSubmit={handleAuthSubmit}>
             {authMode === "signup" && (<label>
                 <span>{t("auth.name")}</span>
                 <input name="name" value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder={t("auth.namePlaceholder")}/>
@@ -18251,10 +18949,28 @@ function PageContent({
               <input name="email" type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder={t("auth.emailPlaceholder")} autoComplete="email"/>
             </label>
 
-            <label>
-              <span>{t("auth.password")}</span>
-              <input name="password" type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("auth.passwordPlaceholder")} autoComplete={authMode === "signup" ? "new-password" : "current-password"}/>
-            </label>
+            <AuthPasswordField
+              label={t("auth.password")}
+              name="password"
+              value={authPassword}
+              onChange={setAuthPassword}
+              placeholder={t("auth.passwordPlaceholder")}
+              autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+              disabled={authBusy}
+              showPasswordLabel={t("auth.showPassword")}
+              hidePasswordLabel={t("auth.hidePassword")}
+            />
+
+            {authMode === "login" && authCredentialView === "standard" && (<button
+                type="button"
+                className="auth-forgot-link"
+                onClick={() => {
+                    setAuthCredentialView("forgot");
+                    setAuthMessage("");
+                }}
+            >
+              {t("auth.forgotPassword")}
+            </button>)}
 
             {authMode === "signup" && (
               <SignupLegalAcceptance
@@ -18274,50 +18990,39 @@ function PageContent({
               {authMode === "signup" ? <UserPlus size={17}/> : <LogIn size={17}/>}
               {authBusy ? t("common.working") : authMode === "signup" ? t("auth.signUp") : t("auth.login")}
             </button>
-          </form>
+          </form>)}
 
           <button className="auth-switch" onClick={() => {
+                if (authCredentialView === "forgot") {
+                    setAuthCredentialView("standard");
+                    setAuthMode("login");
+                    setAuthMessage("");
+                    return;
+                }
                 setAuthMode(authMode === "signup" ? "login" : "signup");
+                setAuthCredentialView("standard");
                 setAuthMessage("");
                 setAuthAcceptTerms(false);
                 setAuthAcceptPrivacy(false);
                 setAuthAcceptCreatorUpload(false);
             }} type="button">
-            {authMode === "signup" ? t("auth.switchToLogin") : t("auth.switchToSignup")}
+            {authCredentialView === "forgot"
+                ? t("auth.backToLogin")
+                : authMode === "signup"
+                    ? t("auth.switchToLogin")
+                    : t("auth.switchToSignup")}
           </button>
 
           <PolicyLinksFooter className="auth-legal-links" />
         </section>
 
-        <style jsx global>{`
-          * {
-            box-sizing: border-box;
-          }
-
-          html,
-          body {
-            margin: 0;
-            min-height: 100%;
-            background: var(--mdb-bg);
-            color: white;
-            font-family: Arial, Helvetica, sans-serif;
-          }
-
-          button,
-          input {
-            font-family: inherit;
-          }
-
+        <style jsx>{`
           .auth-page {
             min-height: 100vh;
             display: grid;
             place-items: center;
             padding: 14px;
-            background:
-              linear-gradient(90deg, rgba(3, 8, 5, 0.9), rgba(3, 8, 5, 0.5)),
-              url("https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1600&q=80");
-            background-size: cover;
-            background-position: center;
+            background: var(--mdb-bg);
           }
 
           .auth-panel {
@@ -18366,7 +19071,8 @@ function PageContent({
           }
 
           .auth-form,
-          .auth-form label {
+          .auth-form label,
+          .auth-password-field {
             display: grid;
             gap: 9px;
           }
@@ -18375,14 +19081,16 @@ function PageContent({
             gap: 10px;
           }
 
-          .auth-form span {
+          .auth-form span,
+          .auth-password-field span {
             color: var(--mdb-text-secondary);
             font-size: 11px;
             font-weight: 900;
             text-transform: uppercase;
           }
 
-          .auth-form input {
+          .auth-form input,
+          .auth-password-input-wrap input {
             height: 40px;
             border-radius: 8px;
             border: 1px solid var(--mdb-border);
@@ -18391,6 +19099,45 @@ function PageContent({
             padding: 0 12px;
             outline: none;
             font-size: 16px;
+            width: 100%;
+          }
+
+          .auth-password-input-wrap {
+            position: relative;
+          }
+
+          .auth-password-input-wrap input {
+            padding-right: 48px;
+          }
+
+          .auth-password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 2px;
+            transform: translateY(-50%);
+            min-width: 44px;
+            min-height: 44px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--mdb-text-secondary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+          }
+
+          .auth-forgot-link {
+            justify-self: start;
+            margin: -2px 0 0;
+            padding: 4px 0;
+            border: 0;
+            background: transparent;
+            color: var(--mdb-green);
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            text-align: left;
           }
 
           .auth-account-type {
@@ -18498,34 +19245,181 @@ function PageContent({
         `}</style>
       </main>);
     }
-    if (!isPlatformOwner && foundingBetaLocked && isAuthenticated && authReady) {
-        const accessBlocked = foundingAccessLoading || !foundingAccess?.canAccessApp;
-        if (accessBlocked) {
-            return (<FoundingMemberGate
-            approvalStatus={foundingAccess?.approvalStatus
-                || (foundingAccess?.isFoundingMember ? "rejected" : "blocked")}
-            foundingRole={foundingAccess?.foundingRole || null}
+    if (holdPostAuthOnNeutralSurface || (isAuthenticated && !classifiedLaunchOnly && !loginSurfacePaintReleased)) {
+        return (<main className="auth-page" data-login-render-phase={accountLoadFailed ? "profile-load-failed" : "opening-library-post-login"}>
+        <section className="auth-panel">
+          <div className="auth-mark">
+            <img src={BRAND_LOGO} alt="Music Data Base"/>
+            <span>{BRAND_TAGLINE}</span>
+          </div>
+          <p>{accountLoadFailed ? t("dashboard.profile.loadFailed") : t("auth.openingLibrary")}</p>
+          {accountProfileLoadFailedActions}
+        </section>
+        <style jsx>{`
+          .auth-page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: var(--mdb-bg);
+          }
+          .auth-panel {
+            width: min(440px, 100%);
+            border: 1px solid var(--mdb-border-gold-subtle);
+            border-radius: 8px;
+            background: var(--mdb-surface-raised);
+            padding: 24px;
+          }
+          .auth-mark {
+            display: grid;
+            justify-items: center;
+            gap: 10px;
+            text-align: center;
+          }
+          .auth-mark img {
+            width: min(260px, 82vw);
+            max-height: 260px;
+            object-fit: contain;
+            display: block;
+          }
+          .auth-mark span {
+            color: var(--mdb-gold);
+            font-size: 12px;
+            font-weight: 900;
+          }
+          .auth-page p {
+            margin: 16px 0 0;
+            text-align: center;
+            color: var(--mdb-text-secondary);
+            font-weight: 800;
+          }
+        `}</style>
+      </main>);
+    }
+    if (!isPlatformOwner && isAuthenticated && authReady) {
+        if (foundingAccessUnresolved) {
+            return (<main className="auth-page" data-login-render-phase={foundingAccessRetryAvailable ? "profile-load-failed" : "opening-library-founding"}>
+        <section className="auth-panel">
+          <div className="auth-mark">
+            <img src={BRAND_LOGO} alt="Music Data Base"/>
+            <span>{BRAND_TAGLINE}</span>
+          </div>
+          <p>{foundingAccessRetryAvailable ? t("dashboard.profile.loadFailed") : t("auth.openingLibrary")}</p>
+          {accountProfileLoadFailedActions}
+        </section>
+        <style jsx>{`
+          .auth-page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: var(--mdb-bg);
+          }
+          .auth-panel {
+            width: min(440px, 100%);
+            border: 1px solid var(--mdb-border-gold-subtle);
+            border-radius: 8px;
+            background: var(--mdb-surface-raised);
+            padding: 24px;
+          }
+          .auth-mark {
+            display: grid;
+            justify-items: center;
+            gap: 10px;
+            text-align: center;
+          }
+          .auth-mark img {
+            width: min(260px, 82vw);
+            max-height: 260px;
+            object-fit: contain;
+            display: block;
+          }
+          .auth-mark span {
+            color: var(--mdb-gold);
+            font-size: 12px;
+            font-weight: 900;
+          }
+          .auth-page p {
+            margin: 16px 0 0;
+            text-align: center;
+            color: var(--mdb-text-secondary);
+            font-weight: 800;
+          }
+        `}</style>
+      </main>);
+        }
+        if (!foundingAccess?.canAccessApp) {
+            const waitlist = !foundingAccess?.isFoundingMember;
+            return (<div data-login-render-phase="founding-gate" style={{ display: "contents" }}><FoundingMemberGate
+            approvalStatus={waitlist
+                ? "waitlist"
+                : (foundingAccess?.approvalStatus || "rejected")}
+            foundingRole={waitlist ? null : (foundingAccess?.foundingRole || null)}
             displayName={getAccountDisplayName()}
-            blockedMessage={!foundingAccessLoading && !foundingAccess?.isFoundingMember ? FOUNDING_INVITE_REQUIRED_MESSAGE : undefined}
+            blockedMessage={waitlist ? LISTENER_LAUNCH_WAITLIST_MESSAGE : undefined}
             inviteCode={authInviteCode}
             onInviteCodeChange={setAuthInviteCode}
             onRedeemInvite={() => void handleGateRedeemInvite()}
-            redeemBusy={gateRedeemBusy || foundingAccessLoading}
-            redeemMessage={foundingAccessLoading ? t("common.working") : gateRedeemMessage}
-            redeemMessageTone={foundingAccessLoading ? "" : gateRedeemMessageTone}
+            redeemBusy={gateRedeemBusy}
+            redeemMessage={gateRedeemMessage}
+            redeemMessageTone={gateRedeemMessageTone}
             onLogout={() => void logout()}
-        />);
+        /></div>);
+        }
+        if (!accountRolesReady) {
+            return (<main className="auth-page" data-login-render-phase={accountProfileLoadFailed ? "profile-load-failed" : "opening-library-roles"}>
+        <section className="auth-panel">
+          <div className="auth-mark">
+            <img src={BRAND_LOGO} alt="Music Data Base"/>
+            <span>{BRAND_TAGLINE}</span>
+          </div>
+          <p>{accountProfileLoadFailed ? t("dashboard.profile.loadFailed") : t("auth.openingLibrary")}</p>
+          {accountProfileLoadFailedActions}
+        </section>
+        <style jsx>{`
+          .auth-page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: var(--mdb-bg);
+          }
+          .auth-panel {
+            width: min(440px, 100%);
+            border: 1px solid var(--mdb-border-gold-subtle);
+            border-radius: 8px;
+            background: var(--mdb-surface-raised);
+            padding: 24px;
+          }
+          .auth-mark {
+            display: grid;
+            justify-items: center;
+            gap: 10px;
+            text-align: center;
+          }
+          .auth-mark img {
+            width: min(260px, 82vw);
+            max-height: 260px;
+            object-fit: contain;
+            display: block;
+          }
+          .auth-mark span {
+            color: var(--mdb-gold);
+            font-size: 12px;
+            font-weight: 900;
+          }
+          .auth-page p {
+            margin: 16px 0 0;
+            text-align: center;
+            color: var(--mdb-text-secondary);
+            font-weight: 800;
+          }
+        `}</style>
+      </main>);
         }
     }
-    if (!canRenderDesktopApplicationShell({
-        authReady,
-        isAuthenticated,
-        accountUserId,
-        localBootstrapReady: hasLoaded,
-        session: authSession,
-        authSessionInitialized,
-    })) {
-        return (<main className="auth-page">
+    if (!desktopShellCanRender) {
+        return (<main className="auth-page" data-login-render-phase="opening-library-shell">
         <section className="auth-panel">
           <div className="auth-mark">
             <img src={BRAND_LOGO} alt="Music Data Base"/>
@@ -18533,6 +19427,45 @@ function PageContent({
           </div>
           <p>{isAuthenticated ? t("auth.openingLibrary") : t("auth.loadingLibrary")}</p>
         </section>
+        <style jsx>{`
+          .auth-page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: var(--mdb-bg);
+          }
+          .auth-panel {
+            width: min(440px, 100%);
+            border: 1px solid var(--mdb-border-gold-subtle);
+            border-radius: 8px;
+            background: var(--mdb-surface-raised);
+            padding: 24px;
+          }
+          .auth-mark {
+            display: grid;
+            justify-items: center;
+            gap: 10px;
+            text-align: center;
+          }
+          .auth-mark img {
+            width: min(260px, 82vw);
+            max-height: 260px;
+            object-fit: contain;
+            display: block;
+          }
+          .auth-mark span {
+            color: var(--mdb-gold);
+            font-size: 12px;
+            font-weight: 900;
+          }
+          .auth-page p {
+            margin: 16px 0 0;
+            text-align: center;
+            color: var(--mdb-text-secondary);
+            font-weight: 800;
+          }
+        `}</style>
       </main>);
     }
     const failedUploadErrors = platformErrors.filter((error) => error.category === "upload");
@@ -18580,8 +19513,7 @@ function PageContent({
         && shouldShowUploadControl(desktopNavAccess)
         && !uploadsBlockedForCurrentUser
         && !navCapabilities.isListenerOnly;
-    // Mobile action row: keep the Upload slot mounted from first paint.
-    // Authorization only gates disabled/click — never remounts the button.
+    // Fail closed: hide creator Upload until server roles confirm Artist/Producer.
     const uploadPermissionPending = !authReady || (!isPlatformOwner && !accountRolesReady);
     const uploadActionAuthorized = shouldShowUploadControl(desktopNavAccess) && !uploadsBlockedForCurrentUser;
     const uploadActionEnabled = !uploadPermissionPending && uploadActionAuthorized;
@@ -18589,12 +19521,13 @@ function PageContent({
       className={`zml-app view-${displayMode}`}
       data-app-locale={locale}
       data-access-schema={CLIENT_ACCESS_SCHEMA_VERSION}
-      data-account-role={navCapabilities.isListenerOnly ? "listener" : (userAuthProfile.role || "listener")}
+      data-account-role={navCapabilities.isListenerOnly ? "listener" : isPlatformOwner ? "admin" : (userAuthProfile.role || "listener")}
       data-roles-ready={accountRolesReady ? "true" : "false"}
       data-can-upload={navCapabilities.canUpload ? "true" : "false"}
       data-upload-permission-pending={uploadPermissionPending ? "true" : "false"}
       data-upload-open={canRenderUploadWorkspace ? "true" : "false"}
       data-active-view={view}
+      data-login-render-phase={loginRenderPhase}
       data-player-collapsed={playerCollapsed ? "true" : "false"}
       dir="ltr"
     >
@@ -18805,6 +19738,7 @@ function PageContent({
               }}
             />
 
+            {shouldShowUploadControl(desktopNavAccess) ? (
             <button
               className="upload-btn topbar-mobile-control-btn"
               disabled={!uploadActionEnabled}
@@ -18833,6 +19767,7 @@ function PageContent({
               <Upload size={17}/>
               <span className="topbar-control-label">{t("upload.title")}</span>
             </button>
+            ) : null}
 
             {!isMobileCompact && shouldShowArtistDashboardControl(desktopNavAccess) ? (
             <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
@@ -19322,6 +20257,7 @@ function PageContent({
                       disabled={Boolean(subscriptionCheckoutBusyPlanId)}
                       onClick={() => void setupSubscriptionPlan(plan)}
                       type="button"
+                      aria-pressed={activeSubscriptionPlanId === plan.id}
                     >
                       {subscriptionCheckoutBusyPlanId === plan.id
                           ? "Opening checkout…"
@@ -19383,6 +20319,35 @@ function PageContent({
                 <section className="discovery-grid home-discovery-grid" aria-label="Suggested Artists and Producers">
                   {suggestedCreatorItems.map(renderDiscoveryItemCard)}
                 </section>
+              </section>)}
+
+            {foundingArtistDirectory.length > 0 && (<section className="artist-section">
+                <div className="artist-section-title">
+                  <div>
+                    <span className="section-kicker">Founding Artists</span>
+                    <h3>Early Artist recognition on Music Data Base</h3>
+                  </div>
+                  <span>{foundingArtistDirectory.length} artists</span>
+                </div>
+                <DesktopHorizontalRail className="artist-grid cs-grid--store" label="Founding Artists">
+                  {foundingArtistDirectory.map((artist) => (
+                    <StoreCard
+                      key={artist.userId}
+                      className="artist-card"
+                      cover={getArtworkUrl(artist.avatarUrl || BRAND_LOGO)}
+                      name={<>{artist.displayName}{renderFoundingArtistBadgeForUser(artist.userId)}</>}
+                      meta="Founding Artist"
+                      onOpen={() => openArtistProfile(artist.displayName)}
+                      openLabel={`Open ${artist.displayName}`}
+                      primaryAction={(
+                        <button className="play-btn" onClick={() => openArtistProfile(artist.displayName)} type="button">
+                          <UserCircle size={16}/>
+                          Profile
+                        </button>
+                      )}
+                    />
+                  ))}
+                </DesktopHorizontalRail>
               </section>)}
 
             {creatorGrowthItems.length > 0 && (<section className="artist-section discovery-section">
@@ -20259,8 +21224,16 @@ function PageContent({
 
             {foundingAccess?.isFoundingMember ? (
                 <div className="profile-save">
-                    <h3>{foundingAccess.badgeLabel || "Founding Member"}</h3>
-                    <p>{foundingAccess.foundingRole ? foundingRoleLabel(foundingAccess.foundingRole) : "Founding role"} | Status: {foundingAccess.approvalStatus || "pending"}</p>
+                    <h3>{
+                        foundingAccess.badgeLabel && foundingAccess.badgeLabel !== "Founding Member"
+                            ? foundingAccess.badgeLabel
+                            : (foundingAccess.foundingRole
+                                ? foundingStatusRoleLabel(foundingAccess.foundingRole, foundingAccess.approvalStatus)
+                                : "Access request")
+                    }</h3>
+                    <p>{foundingAccess.foundingRole
+                        ? foundingStatusRoleLabel(foundingAccess.foundingRole, foundingAccess.approvalStatus)
+                        : "Access request"} | Status: {foundingAccess.approvalStatus || "pending"}</p>
                 </div>
             ) : null}
 
@@ -20283,11 +21256,13 @@ function PageContent({
               </div>
             </div>) : (!foundingAccess?.isFoundingMember ? (<div className="profile-save">
               <h3>Account Type</h3>
-              <p>Choose how you want Music Data Base to organize your creator tools.</p>
-              <div className="role-switcher">
-                {(["Listener", "Artist", "Producer"] as AccountRole[]).map((role) => (<button className={accountRole === role ? "active" : ""} key={role} onClick={() => saveAccountRole(role)} type="button">
-                    {role}
-                  </button>))}
+              <p>{navCapabilities.isListenerOnly
+                  ? "Your account is a Listener account. Artist and Producer tools are assigned at signup or through founding approval."
+                  : "Your account type is assigned at signup or through founding approval and cannot be changed here."}</p>
+              <div className="role-switcher" aria-label="Account type">
+                <button className="active" type="button" disabled aria-disabled="true">
+                  {accountRole}
+                </button>
               </div>
             </div>) : null)}
 
@@ -21330,7 +22305,16 @@ function PageContent({
 
                 <div className="artist-copy">
                   <span className="playlist-kicker">Artist Profile</span>
-                  <h2>{activeArtist.name}{renderVerifiedBadge(isArtistVerified(activeArtist.id), "Verified Artist")}</h2>
+                  <h2>
+                    {activeArtist.name}
+                    {(() => {
+                        const ownerUserId = String(
+                            activeArtistSongs.find((song) => String(song.ownerId || "").trim())?.ownerId || "",
+                        ).trim();
+                        return renderFoundingArtistBadgeForUser(ownerUserId);
+                    })()}
+                    {renderVerifiedBadge(isArtistVerified(activeArtist.id), "Verified Artist")}
+                  </h2>
                   <p>{activeArtist.bio}</p>
                   {activeArtist.socialLinks && <small className="profile-link-line">{activeArtist.socialLinks}</small>}
 
@@ -22429,6 +23413,8 @@ function PageContent({
         />
       ) : null}
 
+      {user?.id ? <SidekickShell enabled fetchFn={desktopActionFetch} /> : null}
+
       {commentTarget && (<div className="modal-backdrop" role="presentation" onClick={() => setCommentTarget(null)}>
           <section className="comments-modal" aria-label={`${commentTarget.item.title} comments`} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="playlist-modal-head">
@@ -23281,6 +24267,13 @@ function PageContent({
             --player-dock-radius: 16px;
             --global-player-height-expanded: ${GLOBAL_PLAYER_HEIGHT_EXPANDED_PX}px;
             --global-player-height-collapsed: ${GLOBAL_PLAYER_HEIGHT_COLLAPSED_PX}px;
+            /* No player on first paint — never reserve 88px then collapse after hydrate. */
+            --global-player-height: 0px;
+            --mobile-player-height: 0px;
+            --mobile-player-reserve: calc(env(safe-area-inset-bottom, 0px) + 8px);
+          }
+
+          html[data-player-visible="true"] {
             --global-player-height: var(--global-player-height-expanded);
             --mobile-player-height: var(--global-player-height);
             --mobile-player-reserve: calc(
@@ -23291,8 +24284,8 @@ function PageContent({
             );
           }
 
-          html[data-player-collapsed="true"],
-          html.player-collapsed {
+          html[data-player-visible="true"][data-player-collapsed="true"],
+          html[data-player-visible="true"].player-collapsed {
             --global-player-height: var(--global-player-height-collapsed);
             --mobile-player-height: var(--global-player-height);
             --mobile-player-reserve: calc(
@@ -24637,16 +25630,6 @@ function PageContent({
           .zml-app[data-account-role="listener"] .upload-btn,
           .zml-app[data-account-role="listener"] .dashboard-btn {
             display: none !important;
-          }
-
-          /* Mobile: keep Upload slot visible while auth/roles resolve (and for unauthorized). */
-          @media (max-width: 820px) {
-            .zml-app[data-can-upload="false"] .topbar-account-actions > .upload-btn.topbar-mobile-control-btn,
-            .zml-app[data-account-role="listener"] .topbar-account-actions > .upload-btn.topbar-mobile-control-btn,
-            .zml-app[data-roles-ready="false"] .topbar-account-actions > .upload-btn.topbar-mobile-control-btn,
-            .zml-app[data-upload-permission-pending="true"] .topbar-account-actions > .upload-btn.topbar-mobile-control-btn {
-              display: flex !important;
-            }
           }
 
           .ringtone-payment-mode-banner {
@@ -26039,7 +27022,7 @@ function PageContent({
             padding: 0 13px;
           }
 
-                    .sponsor-actions button:hover:not(:disabled),
+          .sponsor-actions button:hover:not(:disabled),
           .plan-card button:hover:not(:disabled) {
             background: #ffd75e;
             color: #030805;
@@ -28135,7 +29118,7 @@ function PageContent({
             color: white;
             border: 1px solid var(--mdb-border-green-subtle);
             padding: 14px;
-            overflow: visible;
+            overflow: hidden;
             white-space: normal;
           }
 
@@ -29403,7 +30386,7 @@ function PageContent({
             white-space: nowrap;
           }
 
-                    .monetization-plan button:hover:not(:disabled),
+          .monetization-plan button:hover:not(:disabled),
           .monetization-action-row button:hover:not(:disabled),
           .monetization-row-actions button:hover:not(:disabled) {
             background: #ffd75e;
@@ -29590,7 +30573,7 @@ function PageContent({
             padding: 14px;
             border-radius: 14px;
             background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
-            border: 1px solid color-mix(in srgb, var(--mdb-border) 16%, transparent);
+            border: 1px solid var(--mdb-border-gold-subtle);
           }
 
           .control-overview-card strong,
@@ -32213,6 +33196,9 @@ function PageContent({
               --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: var(--global-player-height);
               --mobile-player-bottom-inset: 8px;
+            }
+
+            html[data-player-visible="true"] {
               --mobile-player-reserve: calc(
                 var(--global-player-height)
                 + var(--mobile-player-bottom-inset)
@@ -32237,6 +33223,37 @@ function PageContent({
               width: 0 !important;
               padding: 0 !important;
               pointer-events: none !important;
+            }
+
+            /*
+              First-paint lock: SSR/hydration still uses .topbar-desktop-controls
+              until useMobileCompactLayout flips. Match the mobile action row so
+              Android launch does not restyle the header after JS mounts.
+            */
+            .topbar > .topbar-desktop-controls {
+              display: grid;
+              grid-column: 1 / -1;
+              grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.35fr);
+              gap: 6px;
+              margin: 0;
+              padding: 0;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+            }
+
+            .topbar .topbar-desktop-controls .view-toggle {
+              grid-column: auto;
+              grid-row: auto;
+              justify-self: stretch;
+              width: 100%;
+              max-width: 100%;
+            }
+
+            .topbar-account-actions > .dashboard-btn,
+            .topbar-account-actions > .profile-btn {
+              display: none !important;
             }
 
             .nav {
@@ -32290,7 +33307,16 @@ function PageContent({
               background: rgba(3, 8, 5, 0.96);
               transform: none !important;
               overflow: hidden !important;
-              contain: layout style !important;
+              contain: none !important;
+            }
+
+            .mobile-sticky-chrome .topbar {
+              position: relative !important;
+              top: auto !important;
+              z-index: auto !important;
+              backdrop-filter: none !important;
+              -webkit-backdrop-filter: none !important;
+              background: rgba(3, 8, 5, 0.98) !important;
             }
 
             /*
@@ -32329,10 +33355,10 @@ function PageContent({
               overflow: visible !important;
             }
 
+            /* Visual hide only: collapsing margin/height here shifts content and the scroll position. */
             .mobile-app-chrome.is-header-hidden,
             .mobile-app-chrome[data-header-hidden="true"] {
               transform: none !important;
-              margin-top: calc(-1 * var(--mobile-chrome-height, 0px)) !important;
               opacity: 0 !important;
               pointer-events: none !important;
               visibility: hidden !important;
@@ -32558,7 +33584,7 @@ function PageContent({
               min-width: 0 !important;
               margin-inline: auto !important;
               box-sizing: border-box !important;
-              overflow-x: clip !important;
+              overflow: visible !important;
               display: grid !important;
               gap: 16px !important;
             }
@@ -32583,7 +33609,7 @@ function PageContent({
               transform: none !important;
               left: auto !important;
               right: auto !important;
-              overflow-x: clip !important;
+              overflow: visible !important;
             }
 
             .platform-control-center > *,
@@ -32993,7 +34019,8 @@ function PageContent({
 
             /* Portrait phone only: one 5-equal icon control row */
             @media (max-width: 768px) and (orientation: portrait) {
-              .topbar-mobile-action-row {
+              .topbar-mobile-action-row,
+              .topbar > .topbar-desktop-controls {
                 display: grid !important;
                 grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
                 gap: 6px !important;
@@ -33006,7 +34033,9 @@ function PageContent({
 
               .topbar-mobile-action-row .view-toggle,
               .topbar-mobile-action-row [data-mobile-view-toggle="true"],
-              .topbar-mobile-action-row .topbar-account-actions {
+              .topbar-mobile-action-row .topbar-account-actions,
+              .topbar-desktop-controls .view-toggle,
+              .topbar-desktop-controls .topbar-account-actions {
                 display: contents !important;
               }
 
@@ -33056,7 +34085,9 @@ function PageContent({
               }
 
               .topbar-mobile-action-row .view-toggle-label,
-              .topbar-mobile-action-row .topbar-control-label {
+              .topbar-mobile-action-row .topbar-control-label,
+              .topbar-desktop-controls .view-toggle-label,
+              .topbar-desktop-controls .topbar-control-label {
                 display: none !important;
               }
 
@@ -33893,6 +34924,61 @@ function PageContent({
 
             .discount-code-grid button {
               min-height: 128px;
+              overflow: hidden !important;
+            }
+
+            .discount-code-grid button span,
+            .discount-code-grid button strong,
+            .discount-code-grid button small {
+              max-width: 100%;
+              min-width: 0;
+              overflow: hidden;
+              overflow-wrap: anywhere;
+              word-break: break-word;
+            }
+
+            .marketplace-hero,
+            .marketplace-filters,
+            .marketplace-advanced-grid {
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              overflow-x: visible !important;
+              overflow-y: visible !important;
+            }
+
+            .content > .marketplace-page,
+            .content > .marketplace-page .marketplace-results,
+            .content > .marketplace-page .marketplace-chart-section,
+            .content > .marketplace-page .marketplace-feature-panel,
+            .content > .marketplace-page .horizontal-rail,
+            .content > .marketplace-page .horizontal-rail-track {
+              contain: none !important;
+              isolation: auto !important;
+              will-change: auto !important;
+              transform: none !important;
+              filter: none !important;
+              backdrop-filter: none !important;
+              -webkit-backdrop-filter: none !important;
+            }
+
+            .marketplace-release-card:hover,
+            .marketplace-bundle-card:not([data-card-family="promotion"]):hover,
+            .marketplace-limited-card:not([data-card-family="promotion"]):hover,
+            .marketplace-preorder-card:not([data-card-family="promotion"]):hover {
+              transform: none !important;
+            }
+
+            .marketplace-release-card,
+            .marketplace-bundle-card:not([data-card-family="promotion"]),
+            .marketplace-limited-card:not([data-card-family="promotion"]),
+            .marketplace-preorder-card:not([data-card-family="promotion"]) {
+              transition: border-color 200ms ease, box-shadow 200ms ease !important;
+            }
+
+            .discount-code-grid {
+              min-width: 0;
+              overflow: hidden;
             }
 
             .marketplace-hero-stats {
@@ -34966,6 +36052,9 @@ function PageContent({
               --sidebar-width-mobile: var(--mobile-sidebar-width);
               --mobile-player-height: var(--global-player-height);
               --mobile-player-bottom-inset: 8px;
+            }
+
+            html[data-player-visible="true"] {
               --mobile-player-reserve: calc(
                 var(--global-player-height)
                 + var(--mobile-player-bottom-inset)
@@ -35027,6 +36116,16 @@ function PageContent({
             .horizontal-rail-track {
               min-width: 0 !important;
               overflow-x: hidden !important;
+            }
+
+            .marketplace-page .horizontal-rail,
+            .horizontal-rail-track.marketplace-release-grid,
+            .horizontal-rail-track.marketplace-bundle-grid,
+            .horizontal-rail-track.marketplace-limited-grid,
+            .horizontal-rail-track.marketplace-preorder-grid {
+              overflow: visible !important;
+              overflow-x: visible !important;
+              overflow-y: visible !important;
             }
 
             .horizontal-rail-track.song-grid,
@@ -37225,7 +38324,7 @@ function PageContent({
               display: grid !important;
               gap: 12px !important;
               padding-bottom: 150px !important;
-              overflow-x: hidden !important;
+              overflow: visible !important;
             }
 
             .stability-page,
@@ -37261,7 +38360,7 @@ function PageContent({
               min-width: 0 !important;
               min-height: 0 !important;
               height: auto !important;
-              overflow: hidden !important;
+              overflow: visible !important;
             }
 
             .stability-page #test-account-cleanup-center.stability-panel,
@@ -38282,11 +39381,28 @@ function PageContent({
               min-height: 40px !important;
             }
 
+            /* TEST E: single vertical scroll owner — html only (Test C document scroll, one scrollport). */
+            html {
+              height: auto !important;
+              max-height: none !important;
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
+              -webkit-overflow-scrolling: touch;
+            }
+
+            body {
+              height: auto !important;
+              max-height: none !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
+            }
+
             .zml-app {
               min-height: 100dvh !important;
-              height: 100dvh !important;
-              padding-bottom: 0 !important;
-              overflow: hidden !important;
+              height: auto !important;
+              max-height: none !important;
+              padding-bottom: var(--mobile-player-reserve) !important;
+              overflow: visible !important;
             }
 
             .sidebar {
@@ -38303,36 +39419,81 @@ function PageContent({
               pointer-events: auto !important;
             }
 
-            .content {
-              position: fixed !important;
-              top: 0 !important;
-              left: var(--mobile-sidebar-width) !important;
-              right: 0 !important;
-              bottom: 0 !important;
-              width: auto !important;
-              height: 100dvh !important;
+            .content,
+            .content.desktop-content-scroll-root,
+            [data-main-scroll-container] {
+              position: relative !important;
+              top: auto !important;
+              bottom: auto !important;
+              left: auto !important;
+              right: auto !important;
+              width: 100% !important;
+              height: auto !important;
+              max-height: none !important;
+              min-height: 0 !important;
               margin-left: 0 !important;
-              /* padding-top 0 restores search/action bar to the viewport top edge */
               padding: 0 10px var(--mobile-player-reserve) !important;
-              overflow-y: auto !important;
-              /* clip prevents non-zero scrollLeft drift from nested horizontal pans */
-              overflow-x: clip !important;
-              overscroll-behavior: contain !important;
+              overflow: visible !important;
+              overscroll-behavior: auto !important;
               overscroll-behavior-x: none !important;
               scroll-padding-top: var(--app-header-offset, 0px) !important;
               scroll-padding-bottom: var(--mobile-player-reserve) !important;
-              z-index: 1 !important;
+              z-index: auto !important;
             }
 
-            .zml-app[data-active-view="Platform Control Center"] .content,
-            .zml-app[data-active-view="Platform Control Center"] .content.desktop-content-scroll-root {
+            /*
+              Admin-only inner scrollport. CSS Overflow: visible on the root
+              is treated as auto, so html { overflow: visible } cannot stop
+              TEST E from promoting one compositor texture the size of the
+              document. Physical Samsung: documentElement scrollTop 9482,
+              admin height 22425, DOM still present, viewport black — past
+              Mali max-texture (~8192). Home/Newlevelz stays on TEST E
+              because that page stays under the limit. Mirror desktop:
+              lock the root to the viewport and scroll .content at ~721px.
+            */
+            html[data-admin-scroll-surface],
+            html[data-admin-scroll-surface] body,
+            body[data-admin-scroll-surface] {
+              height: 100% !important;
+              max-height: 100% !important;
+              overflow: hidden !important;
+              overflow-x: hidden !important;
+              overflow-y: hidden !important;
+              -webkit-overflow-scrolling: auto !important;
+            }
+
+            html[data-admin-scroll-surface] .zml-app[data-active-view="Platform Control Center"] {
+              height: 100dvh !important;
+              max-height: 100dvh !important;
+              min-height: 0 !important;
+              overflow: hidden !important;
+            }
+
+            html[data-admin-scroll-surface] .zml-app[data-active-view="Platform Control Center"] .content,
+            html[data-admin-scroll-surface] .zml-app[data-active-view="Platform Control Center"] .content.desktop-content-scroll-root,
+            html[data-admin-scroll-surface] .zml-app[data-active-view="Platform Control Center"] [data-main-scroll-container] {
               width: 100% !important;
               max-width: 100% !important;
               min-width: 0 !important;
+              min-height: 0 !important;
+              height: 100dvh !important;
+              max-height: 100dvh !important;
               margin-inline: 0 !important;
               box-sizing: border-box !important;
-              overflow-x: clip !important;
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
+              -webkit-overflow-scrolling: touch;
               overscroll-behavior-x: none !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .topbar,
+            .zml-app[data-active-view="Platform Control Center"] .mobile-app-chrome,
+            .zml-app[data-active-view="Platform Control Center"] .mobile-sticky-chrome,
+            .zml-app[data-active-view="Platform Control Center"] .player,
+            .zml-app[data-active-view="Platform Control Center"] .video-player-bar {
+              backdrop-filter: none !important;
+              -webkit-backdrop-filter: none !important;
+              filter: none !important;
             }
 
             .zml-app[data-active-view="Platform Control Center"] .platform-control-workspace {
@@ -38341,7 +39502,13 @@ function PageContent({
               min-width: 0 !important;
               margin-inline: auto !important;
               box-sizing: border-box !important;
-              overflow-x: clip !important;
+              overflow: visible !important;
+            }
+
+            .zml-app[data-active-view="Platform Control Center"] .platform-control-workspace > .stability-page > .stability-panel,
+            .zml-app[data-active-view="Platform Control Center"] .platform-control-workspace > .stability-page > .dashboard-panel {
+              transform: translateZ(0);
+              backface-visibility: hidden;
             }
 
             .zml-app[data-active-view="Platform Control Center"] .stability-brand {
@@ -38429,12 +39596,19 @@ function PageContent({
             }
 
             html:has(.zml-app[data-active-view="Queue"]),
+            html:has(.content > .queue-page) {
+              height: auto !important;
+              max-height: none !important;
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
+            }
+
             body:has(.zml-app[data-active-view="Queue"]),
-            html:has(.content > .queue-page),
             body:has(.content > .queue-page) {
               height: auto !important;
               max-height: none !important;
-              overflow: auto !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
             }
 
             .mdb-app-shell:has(.zml-app[data-active-view="Queue"]),
@@ -38503,10 +39677,11 @@ function PageContent({
               right: 8px !important;
               bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
               width: auto !important;
-              max-width: none !important;
-              height: var(--global-player-height, 88px) !important;
-              min-height: var(--global-player-height, 88px) !important;
-              max-height: var(--global-player-height, 88px) !important;
+              max-width: calc(100vw - 16px) !important;
+              min-width: 0 !important;
+              height: var(--global-player-height-expanded, 88px) !important;
+              min-height: var(--global-player-height-expanded, 88px) !important;
+              max-height: var(--global-player-height-expanded, 88px) !important;
               margin: 0 !important;
               padding: 6px 8px !important;
               transform: none !important;
@@ -38517,7 +39692,7 @@ function PageContent({
               grid-template-rows: 1fr !important;
               gap: 5px !important;
               align-items: center !important;
-              overflow: visible !important;
+              overflow: hidden !important;
               box-sizing: border-box !important;
               border-radius: 14px !important;
               border: 1px solid var(--mdb-border-green) !important;
@@ -38960,9 +40135,17 @@ function PageContent({
               overflow-y: visible !important;
             }
 
-            html:has(.zml-app[data-active-view="Queue"]),
+            html:has(.zml-app[data-active-view="Queue"]) {
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
+              padding-bottom: 0 !important;
+              min-height: 0 !important;
+              height: auto !important;
+            }
+
             body:has(.zml-app[data-active-view="Queue"]) {
-              overflow: auto !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
               padding-bottom: 0 !important;
               min-height: 0 !important;
               height: auto !important;
@@ -38993,10 +40176,23 @@ function PageContent({
             .content > .video-page,
             .content > .artist-profile,
             .content > .producer-profile,
-            .content > .marketplace-page,
             .content > .sales-page,
             .content > .license-history-page {
               display: contents !important;
+            }
+
+            .content > .marketplace-page {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 18px;
+              min-width: 0;
+              width: 100%;
+              max-width: 100%;
+              box-sizing: border-box;
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              contain: none !important;
             }
 
             .song-card:last-child,

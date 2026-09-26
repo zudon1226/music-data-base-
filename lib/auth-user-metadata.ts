@@ -3,6 +3,8 @@ export const ALLOWED_AUTH_USER_METADATA_KEYS = [
     "role",
     "avatarUrl",
     "requestedAccountType",
+    /** Validated invite code pending redemption after email confirmation. Cleared after redeem. */
+    "pendingInviteCode",
 ] as const;
 
 /** Keys GoTrue may mirror into user_metadata; ignore for size/forbidden checks. */
@@ -37,6 +39,7 @@ export type MinimalAuthUserMetadata = {
     role?: string;
     avatarUrl?: string;
     requestedAccountType?: string;
+    pendingInviteCode?: string;
 };
 
 function cleanString(value: unknown) {
@@ -59,6 +62,8 @@ export function sanitizeAuthUserMetadata(
     const avatarUrl = cleanString(source.avatarUrl) || cleanString(source.avatar_url);
     const requestedAccountType = cleanString(source.requestedAccountType)
         || cleanString(source.requested_account_type);
+    const pendingInviteCode = cleanString(source.pendingInviteCode)
+        || cleanString(source.pending_invite_code);
 
     if (displayName) {
         sanitized.displayName = displayName;
@@ -72,18 +77,23 @@ export function sanitizeAuthUserMetadata(
     if (requestedAccountType) {
         sanitized.requestedAccountType = requestedAccountType.toLowerCase();
     }
+    if (pendingInviteCode) {
+        sanitized.pendingInviteCode = pendingInviteCode.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+    }
     return sanitized;
 }
 
 export function buildSignupUserMetadata(input: {
     displayName: string;
     requestedAccountType?: string;
+    pendingInviteCode?: string;
 }) {
     return sanitizeAuthUserMetadata({
         displayName: input.displayName,
         // Signup always starts as listener until approval grants creator roles.
         role: "listener",
         requestedAccountType: input.requestedAccountType || "listener",
+        pendingInviteCode: input.pendingInviteCode || "",
     });
 }
 

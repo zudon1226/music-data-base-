@@ -5,21 +5,21 @@
 body {
   margin: 0;
   padding: 0;
-  background: var(--mdb-bg);
+  background: var(--mdb-bg, #030805);
   overflow-x: hidden;
 }
 
 .public-profile-page {
   min-height: 100vh;
-  background: var(--mdb-bg);
-  color: #ffffff;
+  background: var(--mdb-bg, #030805);
+  color: var(--mdb-text, #ffffff);
   font-family: Arial, Helvetica, sans-serif;
   padding: 28px;
 }
 
 .public-profile-hero {
-  border: 1px solid var(--mdb-green);
-  background: var(--mdb-surface-raised);
+  border: 1px solid var(--mdb-border-gold-subtle, rgba(245, 200, 76, 0.28));
+  background: var(--mdb-surface-raised, #09110C);
   border-radius: 10px;
   overflow: hidden;
   max-width: 1180px;
@@ -31,7 +31,7 @@ body {
   height: 280px;
   object-fit: cover;
   display: block;
-  background: var(--mdb-bg);
+  background: var(--mdb-bg, #030805);
 }
 
 .public-profile-hero-content {
@@ -47,13 +47,13 @@ body {
   height: 150px;
   object-fit: cover;
   border-radius: 8px;
-  border: 1px solid var(--mdb-green);
-  background: var(--mdb-bg);
+  border: 1px solid var(--mdb-border-gold-subtle, rgba(245, 200, 76, 0.28));
+  background: var(--mdb-bg, #030805);
 }
 
 .public-profile-hero-content span,
 .public-media-card span {
-  color: var(--mdb-green);
+  color: var(--mdb-green, #39FF5A);
   display: inline-block;
   font-size: 12px;
   font-weight: 800;
@@ -68,20 +68,20 @@ body {
 
 .public-profile-hero-content p {
   max-width: 760px;
-  color: var(--mdb-text-secondary);
+  color: var(--mdb-text-secondary, #C9CEC9);
   line-height: 1.5;
   margin: 0 0 10px;
 }
 
 .public-profile-hero-content a {
-  color: var(--mdb-green);
+  color: var(--mdb-green, #39FF5A);
   font-weight: 800;
   text-decoration: none;
 }
 
 .public-verified-badge {
-  background: var(--mdb-green);
-  color: #00101a !important;
+  background: var(--mdb-green, #39FF5A);
+  color: var(--mdb-ink, #030805) !important;
   width: 30px;
   height: 30px;
   display: inline-grid !important;
@@ -106,8 +106,8 @@ body {
 .public-profile-stats div,
 .public-profile-section,
 .public-empty-state {
-  border: 1px solid #0a91b8;
-  background: var(--mdb-surface-raised);
+  border: 1px solid var(--mdb-border, #263129);
+  background: var(--mdb-surface-raised, #09110C);
   border-radius: 8px;
 }
 
@@ -121,7 +121,7 @@ body {
 }
 
 .public-profile-stats span {
-  color: var(--mdb-text-secondary);
+  color: var(--mdb-text-secondary, #C9CEC9);
   font-size: 13px;
   font-weight: 800;
 }
@@ -144,7 +144,7 @@ body {
 }
 
 .public-section-heading span {
-  color: var(--mdb-green);
+  color: var(--mdb-gold, #F5C84C);
   font-weight: 900;
 }
 
@@ -155,8 +155,8 @@ body {
 }
 
 .public-media-card {
-  border: 1px solid var(--mdb-border-green);
-  background: var(--mdb-surface-secondary);
+  border: 1px solid var(--mdb-border, #263129);
+  background: var(--mdb-surface-secondary, #0D1710);
   border-radius: 8px;
   overflow: hidden;
   transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
@@ -164,8 +164,8 @@ body {
 
 .public-media-card:hover {
   transform: scale(1.02);
-  border-color: var(--mdb-green);
-  box-shadow: 0 0 18px var(--mdb-border-green-subtle);
+  border-color: var(--mdb-border-gold, rgba(245, 200, 76, 0.55));
+  box-shadow: 0 0 18px var(--mdb-gold-glow, rgba(245, 200, 76, 0.16));
 }
 
 .public-media-card img {
@@ -173,7 +173,7 @@ body {
   height: 126px;
   object-fit: cover;
   display: block;
-  background: var(--mdb-bg);
+  background: var(--mdb-bg, #030805);
 }
 
 .public-media-card div {
@@ -252,11 +252,12 @@ body {
     left: 8px !important;
     right: 8px !important;
     bottom: calc(0px + env(safe-area-inset-bottom, 0px)) !important;
-    height: var(--global-player-height, 88px) !important;
-    min-height: var(--global-player-height, 88px) !important;
-    max-height: var(--global-player-height, 88px) !important;
+    height: var(--global-player-height-expanded, 88px) !important;
+    min-height: var(--global-player-height-expanded, 88px) !important;
+    max-height: var(--global-player-height-expanded, 88px) !important;
     width: auto !important;
-    max-width: none !important;
+    max-width: calc(100vw - 16px) !important;
+    min-width: 0 !important;
     padding: 6px 8px !important;
     display: grid !important;
     /* title | shuffle+prev+play+next+repeat cluster | collapse */
@@ -265,12 +266,12 @@ body {
     gap: 5px !important;
     align-items: center !important;
     box-sizing: border-box !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     z-index: 9999 !important;
     transform: none !important;
     margin: 0 !important;
     border-radius: 14px !important;
-    border: 1px solid var(--mdb-border-green) !important;
+    border: 1px solid var(--mdb-border-gold-subtle, rgba(245, 200, 76, 0.28)) !important;
     background:
       linear-gradient(180deg, rgba(9, 17, 12, 0.96), rgba(5, 10, 7, 0.94)) !important;
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4) !important;
@@ -313,15 +314,15 @@ body {
 
   body {
     padding-bottom: calc(
-      var(--global-player-height, 88px)
+      var(--global-player-height, 0px)
       + 8px
       + env(safe-area-inset-bottom, 0px)
       + 8px
     ) !important;
   }
 
-  html[data-player-collapsed="true"] body,
-  html.player-collapsed body {
+  html[data-player-visible="true"][data-player-collapsed="true"] body,
+  html[data-player-visible="true"].player-collapsed body {
     padding-bottom: calc(
       var(--global-player-height-collapsed, 52px)
       + 8px
@@ -566,7 +567,12 @@ body {
     /* 2px lower than prior landscape bottom (2px) → 0px + safe-area */
     bottom: calc(0px + env(safe-area-inset-bottom, 0px)) !important;
     width: auto !important;
-    max-width: none !important;
+    max-width: calc(100vw - 16px) !important;
+    min-width: 0 !important;
+    height: var(--global-player-height-expanded, 88px) !important;
+    min-height: var(--global-player-height-expanded, 88px) !important;
+    max-height: var(--global-player-height-expanded, 88px) !important;
+    overflow: hidden !important;
     margin: 0 !important;
     transform: none !important;
     box-sizing: border-box !important;

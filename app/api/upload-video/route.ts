@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
+import { requireMatchingUserId } from "@/lib/request-auth";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { NextResponse } from "next/server";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
@@ -134,6 +135,10 @@ export async function POST(request: Request) {
         }
         if (!authUserId) {
             return jsonResponse({ error: "You must log in again before uploading a video." }, 401);
+        }
+        const auth = await requireMatchingUserId(request, "/api/upload-video", authUserId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
         }
         const uploadLock = await requireUploadAllowedForUserId(authUserId);
         if (!uploadLock.ok) {

@@ -3,9 +3,10 @@
  * Single server-trusted source for navigation capabilities and diagnostics.
  *
  * Capability rules:
- * - profiles.account_type + active user_roles (filtered) only
- * - Never grant creator chrome from founding_members, invite role, or auth metadata
- * - Founding membership only affects beta app access (canAccessApp), not Upload/Dashboard
+ * - Owner/admin: full access
+ * - Explicitly approved founding creators: chrome from profiles.account_type + user_roles
+ * - Unapproved accounts, including Listener launch signups: no Upload / studios / full app
+ * - Auth metadata, Creator Free, and client role selection never grant creator access
  */
 
 import {

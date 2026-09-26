@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Activity, BarChart3, Music2, RefreshCw, ShieldAlert, Trash2, Users } from "lucide-react";
 import { AdminSupportDashboard } from "./support/admin-support-dashboard";
+import { FoundingArtistAdminPanel } from "./founding-artist-admin-panel";
 import { FoundingOnboardingAdminPanel } from "./founding-onboarding-admin-panel";
 import { TestAccountCleanupCenter } from "./test-account-cleanup-center";
 import { RingtoneReviewQueue } from "./ringtone-review/ringtone-review-queue";
@@ -142,17 +143,19 @@ export function PlatformControlCenter({
             <section className="stability-panel control-center-panel">
                 <div className="panel-title-row">
                     <h3><BarChart3 size={16}/> {t("platformControlCenter.platformOverview")}</h3>
-                    <span>{overview ? `${formatCount(overview.totalUsers)} total users` : t("common.loading")}</span>
+                    <span>{overview ? `${formatCount(overview.totalUsers)} members` : t("common.loading")}</span>
                 </div>
                 <div className={`control-overview-grid control-layout--${controlViewMode}`} data-control-view={controlViewMode}>
                     {[
-                        ["Total users", overview?.totalUsers],
+                        ["Members", overview?.totalUsers],
                         ["Listeners", overview?.listeners],
-                        ["Approved users", overview?.approvedUsers],
-                        ["Pending users", overview?.pendingUsers],
-                        ["Rejected users", overview?.rejectedUsers],
+                        ["Launch notification signups", overview?.launchNotificationSignups],
                         ["Artists", overview?.artists],
                         ["Producers", overview?.producers],
+                        ["Admins", overview?.admins],
+                        ["Approved creators", overview?.approvedUsers],
+                        ["Pending creator requests", overview?.pendingUsers],
+                        ["Rejected users", overview?.rejectedUsers],
                         ["Songs", overview?.totalSongs],
                         ["Videos", overview?.totalVideos],
                         ["Ringtones", overview?.totalRingtones],
@@ -259,6 +262,18 @@ export function PlatformControlCenter({
                 <AdminSupportDashboard accessToken={accessToken} userId={userId} />
             </section>
 
+            <section className="stability-panel control-center-panel" id="founding-artist-designation-controls">
+                <div className="panel-title-row">
+                    <h3><Users size={16}/> Founding Artist designation</h3>
+                    <span>Recognition badge for Artist accounts (admin only)</span>
+                </div>
+                <FoundingArtistAdminPanel
+                    userId={userId}
+                    accessToken={accessToken}
+                    refreshToken={refreshToken}
+                />
+            </section>
+
             <section className="stability-panel control-center-panel" id="founding-onboarding-controls">
                 <div className="panel-title-row">
                     <h3><Users size={16}/> {t("foundingOnboarding.title")}</h3>
@@ -290,6 +305,13 @@ export function PlatformControlCenter({
                     {advancedTools}
                 </section>
             ) : null}
+            <style>{`
+              .platform-control-center > .control-center-panel,
+              .platform-control-center > .stability-panel {
+                transform: translateZ(0);
+                backface-visibility: hidden;
+              }
+            `}</style>
         </section>
     );
 }

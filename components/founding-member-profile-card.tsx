@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Award, Link2, Save, UserCircle } from "lucide-react";
 import type { FoundingMemberRecord } from "../lib/founding-onboarding";
-import { foundingRoleLabel } from "../lib/founding-onboarding";
+import { foundingStatusRoleLabel } from "../lib/founding-onboarding";
 
 type FoundingMemberProfileCardProps = {
     userId: string;
@@ -72,8 +72,12 @@ export function FoundingMemberProfileCard({
             <div className="founding-profile-head">
                 <Award size={18}/>
                 <div>
-                    <h3>{member.badge_label || "Founding Member"}</h3>
-                    <span>{foundingRoleLabel(member.founding_role)}</span>
+                    <h3>{
+                        member.badge_label && member.badge_label !== "Founding Member"
+                            ? member.badge_label
+                            : foundingStatusRoleLabel(member.founding_role, member.approval_status)
+                    }</h3>
+                    <span>{foundingStatusRoleLabel(member.founding_role, member.approval_status)}</span>
                 </div>
             </div>
             <p>Joined {new Date(member.joined_at).toLocaleDateString()}</p>

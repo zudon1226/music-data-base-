@@ -5,7 +5,7 @@ import { isMobileCompactViewport, MOBILE_COMPACT_MEDIA } from "./mobile-compact-
 
 /** True when the viewport uses the compact mobile card/chrome layout (≤820px). */
 export function useMobileCompactLayout(): boolean {
-    const [isMobile, setIsMobile] = useState(false);
+    const [isMobile, setIsMobile] = useState(isMobileCompactViewport);
 
     // useLayoutEffect so song/video rows paint the compact tree (with three-dot) before first paint
     // after hydration — avoids a desktop-card frame that has no overflow control on phones.

@@ -3,7 +3,7 @@ import {
     FOUNDING_INVITE_REQUIRED_MESSAGE,
     FOUNDING_PENDING_MESSAGE,
     FOUNDING_REJECTED_MESSAGE,
-    isFoundingBetaLocked,
+    LISTENER_LAUNCH_WAITLIST_MESSAGE,
 } from "@/lib/founding-onboarding";
 import { resolveRequestUserId } from "@/lib/request-auth";
 import { getSupabaseServerClient, isPlatformOwnerEmail } from "@/lib/server-supabase";
@@ -14,10 +14,15 @@ const EXACT_BYPASS_PATHS = new Set([
     "/api/founding-members/me",
     "/api/auth/repair-metadata",
     "/api/platform/repair-auth-metadata",
+    "/api/signup/resume-activation",
+    "/api/user-profile",
 ]);
 
 const PREFIX_BYPASS_PATHS = [
     "/api/launch/",
+    "/api/legal/",
+    "/api/auth/",
+    "/api/founding-invites/",
 ];
 
 function isBypassPath(pathname: string) {
@@ -26,14 +31,13 @@ function isBypassPath(pathname: string) {
 }
 
 function foundingAccessDeniedMessage(access: Awaited<ReturnType<typeof getFoundingAccessForUser>>) {
-    if (!access.isFoundingMember) return FOUNDING_INVITE_REQUIRED_MESSAGE;
+    if (!access.isFoundingMember) return LISTENER_LAUNCH_WAITLIST_MESSAGE;
     if (access.approvalStatus === "pending") return FOUNDING_PENDING_MESSAGE;
     if (access.approvalStatus === "rejected") return FOUNDING_REJECTED_MESSAGE;
     return FOUNDING_INVITE_REQUIRED_MESSAGE;
 }
 
 export function shouldEnforceFoundingApiAccess(pathname: string) {
-    if (!isFoundingBetaLocked()) return false;
     if (!pathname.startsWith("/api/")) return false;
     return !isBypassPath(pathname);
 }

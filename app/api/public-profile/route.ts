@@ -1,3 +1,4 @@
+import { canReceiveFoundingArtistDesignation } from "@/lib/founding-artist-designation";
 import { loadPublicArtistProfile, loadPublicProducerProfile } from "@/lib/public-profile";
 import { optionalMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
                         bio: String(row.bio || ""),
                         website: String(row.website || ""),
                         verified: false,
+                        isFoundingArtist: false,
                         followers: 0,
                         monthlyListeners: 0,
                         songs: [],
@@ -88,6 +90,7 @@ export async function GET(request: Request) {
                         bio: String(row.bio || ""),
                         website: String(row.website || ""),
                         verified: false,
+                        isFoundingArtist: false,
                         followers: 0,
                         monthlyListeners: 0,
                         songs: [],
@@ -116,7 +119,7 @@ export async function GET(request: Request) {
                 supabase.from("playlists").select("id,name,cover_url,playlist_type,created_at,is_public").eq("user_id", targetUserId).eq("is_public", true).order("created_at", { ascending: false }).limit(40),
                 supabase.from("user_follows").select("id", { count: "exact", head: true }).eq("following_user_id", targetUserId),
                 supabase.from("user_follows").select("id", { count: "exact", head: true }).eq("follower_user_id", targetUserId),
-                supabase.from("profiles").select("username,city,country,display_name,avatar_url,bio,website").or(`id.eq.${targetUserId},user_id.eq.${targetUserId}`).maybeSingle(),
+                supabase.from("profiles").select("username,city,country,display_name,avatar_url,bio,website,is_founding_artist,account_type").or(`id.eq.${targetUserId},user_id.eq.${targetUserId}`).maybeSingle(),
             ]);
             publicPlaylists = (playlistsResult.data || []).map((row) => ({
                 id: String((row as Record<string, unknown>).id || ""),
@@ -135,6 +138,10 @@ export async function GET(request: Request) {
             if (row.avatar_url) profile.avatarUrl = String(row.avatar_url);
             if (row.bio) profile.bio = String(row.bio);
             if (row.website) profile.website = String(row.website);
+            if (profile.type === "artist") {
+                profile.isFoundingArtist = canReceiveFoundingArtistDesignation(row.account_type)
+                    && Boolean(row.is_founding_artist);
+            }
         }
 
         let isFollowing = false;

@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Check, Copy, RefreshCw, Shield, UserCheck, UserX, XCircle } from "lucide-react";
 import type { FoundingInviteRecord, FoundingRole } from "../lib/founding-onboarding";
-import { foundingRoleLabel } from "../lib/founding-onboarding";
+import { foundingRequestLabel, foundingRoleLabel, foundingStatusRoleLabel } from "../lib/founding-onboarding";
 
 type FoundingMemberAdminRow = {
     user_id: string;
@@ -38,13 +38,9 @@ function memberPrimaryLabel(member: FoundingMemberAdminRow) {
     return member.display_name || member.username || member.email || member.user_id;
 }
 
-function memberSecondaryLabel(member: FoundingMemberAdminRow) {
-    const bits = [
-        member.roleLabel || foundingRoleLabel(member.founding_role),
-        member.username ? `@${member.username}` : "",
-        member.email || "",
-    ].filter(Boolean);
-    return bits.join(" · ");
+function memberRequestLabel(member: FoundingMemberAdminRow) {
+    return member.roleLabel
+        || foundingStatusRoleLabel(member.founding_role, member.approval_status);
 }
 
 export function FoundingOnboardingAdminPanel({
@@ -226,13 +222,14 @@ export function FoundingOnboardingAdminPanel({
 
                 <article className="founding-onboarding-card">
                     <h4>Pending Approvals</h4>
-                    {groupedMembers.pending.length === 0 ? <p>No pending founding members.</p> : (
+                    {groupedMembers.pending.length === 0 ? <p>No pending creator requests.</p> : (
                         <div className="founding-onboarding-list">
                             {groupedMembers.pending.map((member) => (
                                 <div className="founding-onboarding-row" key={member.user_id}>
                                     <div>
                                         <strong>{memberPrimaryLabel(member)}</strong>
-                                        <span>{memberSecondaryLabel(member)}</span>
+                                        <span>{foundingRequestLabel(member.founding_role)}</span>
+                                        {member.email ? <span>{member.email}</span> : null}
                                     </div>
                                     <div className="founding-onboarding-row-actions">
                                         <button
@@ -282,7 +279,7 @@ export function FoundingOnboardingAdminPanel({
                         <div className="founding-onboarding-row" key={member.user_id}>
                             <div>
                                 <strong>{memberPrimaryLabel(member)}</strong>
-                                <span><Check size={12}/> {memberSecondaryLabel(member)}</span>
+                                <span><Check size={12}/> {memberRequestLabel(member)}{member.email ? ` · ${member.email}` : ""}</span>
                             </div>
                         </div>
                     ))}
@@ -330,7 +327,7 @@ export function FoundingOnboardingAdminPanel({
                 padding: 14px;
                 border-radius: 14px;
                 background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
-                border: 1px solid color-mix(in srgb, var(--mdb-border) 18%, transparent);
+                border: 1px solid var(--mdb-border-gold-subtle);
               }
               .founding-onboarding-card h4,
               .founding-onboarding-card strong {
@@ -350,7 +347,7 @@ export function FoundingOnboardingAdminPanel({
                 align-items: center;
                 gap: 10px;
                 padding: 8px 0;
-                border-top: 1px solid color-mix(in srgb, var(--mdb-border) 12%, transparent);
+                border-top: 1px solid var(--mdb-border-gold-subtle);
               }
               .founding-onboarding-row span {
                 display: block;

@@ -58,9 +58,9 @@ export async function ensureProfileRow(
         || String(metadata.displayName || metadata.display_name || "").trim()
         || email.split("@")[0]
         || "Music Data Base user";
-    // profiles.account_type is authoritative. Never promote from auth metadata
-    // (stale founding_artist / invite leftovers must not rewrite Listener profiles).
-    const role = normalizeRole(patch.role || existing?.account_type || "listener");
+    // profiles.account_type is authoritative. Never promote from client patches
+    // or auth metadata (stale founding_artist / invite leftovers must not rewrite Listener profiles).
+    const role = normalizeRole(existing?.account_type || "listener");
     const avatarUrl = patch.avatarUrl || existing?.avatar_url || String(metadata.avatarUrl || metadata.avatar_url || "").trim();
 
     await supabase.from("profiles").upsert({

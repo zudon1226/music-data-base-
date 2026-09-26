@@ -569,6 +569,11 @@ export function markDesktopAuthSignInPending() {
     bootstrapRuntime.lastShellBlockDetail = "";
 }
 
+/** Interactive sign-in already called setSession — bootstrap must not call it again. */
+export function noteDesktopSessionAlreadyPersisted() {
+    bootstrapRuntime.setSessionCalled = true;
+}
+
 /** Full reset for logout. Listener stays attached to avoid duplicate registrations. */
 export function resetDesktopAuthSessionBootstrap() {
     bootstrapRuntime.phase = "idle";

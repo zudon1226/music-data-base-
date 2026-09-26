@@ -100,6 +100,78 @@ async function persistRequestedSignupAccountType(options: {
     }).catch(() => undefined);
 }
 
+function foundingRoleForSignupAccountType(accountType: SignupAccountType): FoundingRole {
+    return accountType === "producer" ? "founding_producer" : "founding_artist";
+}
+
+export async function createPendingCreatorAccessRequest(options: {
+    supabase: SupabaseClient;
+    userId: string;
+    displayName: string;
+    accountType: SignupAccountType;
+}) {
+    const existing = await options.supabase
+        .from("founding_members")
+        .select("*")
+        .eq("user_id", options.userId)
+        .maybeSingle();
+    if (existing.error && !isMissingFoundingSetup(existing.error)) {
+        throw existing.error;
+    }
+    if (existing.data) {
+        await persistRequestedSignupAccountType(options);
+        return { ok: true as const, member: existing.data, created: false };
+    }
+
+    const now = new Date().toISOString();
+    const inserted = await options.supabase
+        .from("founding_members")
+        .upsert({
+            user_id: options.userId,
+            founding_role: foundingRoleForSignupAccountType(options.accountType),
+            approval_status: "pending",
+            display_name: options.displayName,
+            social_link: encodeSignupAccountTypeMarker(options.accountType),
+            joined_at: now,
+            updated_at: now,
+        }, { onConflict: "user_id" })
+        .select("*")
+        .maybeSingle();
+    if (inserted.error) {
+        throw inserted.error;
+    }
+    await persistRequestedSignupAccountType(options);
+    return { ok: true as const, member: inserted.data, created: true };
+}
+
+export async function revokeUnapprovedCreatorPrivileges(options: {
+    supabase: SupabaseClient;
+    userId: string;
+    displayName?: string;
+    requestedAccountType?: SignupAccountType;
+}) {
+    const now = new Date().toISOString();
+    await options.supabase
+        .from("user_roles")
+        .update({ status: "disabled", updated_at: now })
+        .eq("user_id", options.userId)
+        .in("role", ["founding_artist", "founding_producer", "artist", "producer", "artist_pro", "producer_pro", "creator", "creator_free"]);
+    await options.supabase
+        .from("profiles")
+        .upsert({
+            id: options.userId,
+            user_id: options.userId,
+            account_type: "listener",
+            display_name: String(options.displayName || "").trim() || undefined,
+            updated_at: now,
+        }, { onConflict: "id" });
+    await repairAuthUserMetadata(options.supabase, options.userId, {
+        displayName: String(options.displayName || "").trim() || undefined,
+        role: "listener",
+        requestedAccountType: options.requestedAccountType || "listener",
+    }).catch(() => undefined);
+}
+
 export async function redeemFoundingInvite(options: {
     supabase: SupabaseClient;
     userId: string;
@@ -379,42 +451,40 @@ export async function setFoundingMemberApproval(options: {
     const requestedType = decodeSignupAccountTypeMarker(member.social_link)
         || normalizeSignupAccountType(metadata.requestedAccountType)
         || (member.founding_role === "founding_producer" ? "producer" : "artist");
-    const grants = resolveSignupAccountTypeGrants(requestedType, { founding: true });
+    const grants = resolveSignupAccountTypeGrants(requestedType, { founding: false });
 
     if (options.approvalStatus === "approved") {
-        for (const role of grants.userRoles) {
-            await options.supabase
-                .from("user_roles")
-                .upsert({
-                    user_id: options.userId,
-                    role,
-                    status: "active",
-                    granted_by: options.reviewerId,
-                    updated_at: now,
-                }, { onConflict: "user_id,role" });
-        }
-        // Listener selection keeps listener account_type and does not grant creator roles.
         if (grants.userRoles.length === 0) {
             await options.supabase
                 .from("user_roles")
                 .update({ status: "disabled", updated_at: now })
                 .eq("user_id", options.userId)
                 .in("role", ["founding_artist", "founding_producer", "artist", "producer"]);
+            await options.supabase
+                .from("profiles")
+                .upsert({
+                    id: options.userId,
+                    user_id: options.userId,
+                    account_type: "listener",
+                    display_name: String(member.display_name || "").trim() || undefined,
+                    updated_at: now,
+                }, { onConflict: "id" });
+            await repairAuthUserMetadata(options.supabase, options.userId, {
+                displayName: String(member.display_name || "").trim() || undefined,
+                role: "listener",
+                requestedAccountType: requestedType,
+            }).catch(() => undefined);
         }
-        await options.supabase
-            .from("profiles")
-            .upsert({
-                id: options.userId,
-                user_id: options.userId,
-                account_type: grants.primaryAccountType,
-                display_name: String(member.display_name || "").trim() || undefined,
-                updated_at: now,
-            }, { onConflict: "id" });
-        await repairAuthUserMetadata(options.supabase, options.userId, {
-            displayName: String(member.display_name || "").trim() || undefined,
-            role: grants.primaryAccountType,
-            requestedAccountType: requestedType,
-        }).catch(() => undefined);
+        else {
+            const { applySignupAccountTypeGrants } = await import("@/lib/signup-account-activation");
+            await applySignupAccountTypeGrants({
+                supabase: options.supabase,
+                userId: options.userId,
+                accountType: requestedType,
+                grantedBy: options.reviewerId,
+                displayName: String(member.display_name || "").trim() || undefined,
+            });
+        }
     }
     else {
         // Rejection must not reactivate or reuse the invite.

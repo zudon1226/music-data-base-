@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,11 +48,31 @@ export async function POST(request: Request) {
       return jsonResponse({ error: "Log in before adding songs to playlists." }, 401);
     }
 
-    if (!playlistId || !songId) {
+    const auth = await requireMatchingUserId(request, "/api/playlist-songs", userId, getSessionTokensFromRecord(body));
+    if (!auth.ok) {
+      return jsonResponse({ error: auth.error }, auth.status);
+    }
+
+    if (!playlistId || !songId || !isUuid(playlistId) || !isUuid(songId)) {
       return jsonResponse({ error: "Choose a playlist and song first." }, 400);
     }
 
     const supabase = getSupabaseServerClient();
+    const playlist = await supabase
+      .from("playlists")
+      .select("id")
+      .eq("id", playlistId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (playlist.error) {
+      return jsonResponse({ error: getErrorMessage(playlist.error) }, 500);
+    }
+
+    if (!playlist.data) {
+      return jsonResponse({ error: "Playlist not found for this user." }, 404);
+    }
+
     const existing = await supabase
       .from("playlist_songs")
       .select("playlist_id,song_id")

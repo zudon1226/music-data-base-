@@ -1,3 +1,4 @@
+import { requireAuthenticatedPlatformOwner } from "@/lib/admin-auth";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 import { NextResponse } from "next/server";
 
@@ -196,6 +197,10 @@ function shouldRepairMime(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    const owner = await requireAuthenticatedPlatformOwner(request, "/api/videos/repair-urls");
+    if (!owner.ok) {
+      return jsonResponse({ error: owner.error }, owner.status);
+    }
     return jsonResponse(await repairVideoUrls(true, shouldRepairMime(request)));
   } catch (error) {
     return jsonResponse({ error: getErrorMessage(error) }, 500);
@@ -204,6 +209,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const owner = await requireAuthenticatedPlatformOwner(request, "/api/videos/repair-urls");
+    if (!owner.ok) {
+      return jsonResponse({ error: owner.error }, owner.status);
+    }
     return jsonResponse(await repairVideoUrls(false, shouldRepairMime(request)));
   } catch (error) {
     return jsonResponse({ error: getErrorMessage(error) }, 500);

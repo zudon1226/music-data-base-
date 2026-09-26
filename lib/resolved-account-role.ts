@@ -4,6 +4,7 @@
  * Does NOT infer creator access from artist_profiles / producer_profiles existence.
  */
 
+import { loadFoundingMemberByUserId } from "@/lib/founding-access";
 import { getSupabaseServerClient, isPlatformOwnerEmail, isUuid } from "@/lib/server-supabase";
 
 export type ResolvedAccountRole = "listener" | "artist" | "producer" | "admin";
@@ -154,6 +155,12 @@ export async function loadResolvedAccountCapabilities(userId: string, email = ""
     const profileRow = (profileData || {}) as { account_type?: string; is_admin?: boolean };
     const primaryRole = normalizeResolvedAccountRole(profileRow.account_type);
     const isAdmin = profileRow.is_admin === true;
+    if (!isPlatformOwner && !isAdmin) {
+        const member = await loadFoundingMemberByUserId(supabase, userId);
+        if (member?.approval_status !== "approved") {
+            return resolveCapabilitiesFromExplicitRoles({ primaryRole: "listener" });
+        }
+    }
     const roleSet = new Set<string>();
     if (primaryRole !== "listener") roleSet.add(primaryRole);
     if (isAdmin) roleSet.add("admin");
@@ -203,6 +210,180 @@ export async function requireCreatorUploadAccess(userId: string, email = "") {
         };
     }
     return { ok: true as const, capabilities };
+}
+
+export const LISTENER_SELF_PROMOTE_BLOCKED_MESSAGE =
+    "Listener accounts cannot change to Artist or Producer. Creator access requires explicit owner approval.";
+
+export const ACCOUNT_TYPE_SELF_SERVICE_BLOCKED_MESSAGE =
+    "Account type cannot be changed from Profile. Creator access requires explicit owner approval.";
+
+/**
+ * Self-service Profile Account Type changes are locked.
+ * Trusted role state is written only by signup activation, founding approval, or owner/admin.
+ */
+export function canSelfServiceChangeAccountType(input: {
+    currentPrimaryRole: unknown;
+    nextAccountType: unknown;
+    isPlatformOwner?: boolean;
+    isAdmin?: boolean;
+}): { ok: true } | { ok: false; status: 403; error: string } {
+    if (input.isPlatformOwner || input.isAdmin) {
+        return { ok: true };
+    }
+    const current = normalizeResolvedAccountRole(input.currentPrimaryRole);
+    const next = normalizeResolvedAccountRole(input.nextAccountType);
+    if (current === next) {
+        return { ok: true };
+    }
+    return {
+        ok: false,
+        status: 403,
+        error: current === "listener"
+            ? LISTENER_SELF_PROMOTE_BLOCKED_MESSAGE
+            : ACCOUNT_TYPE_SELF_SERVICE_BLOCKED_MESSAGE,
+    };
+}
+
+export type OverviewAuthSignal = {
+    user_id?: unknown;
+    requestedAccountType?: unknown;
+    metadataRole?: unknown;
+};
+
+const CREATOR_OR_ADMIN_INTENT = new Set([
+    "artist",
+    "producer",
+    "artist_producer",
+    "founding_artist",
+    "founding_producer",
+    "artist_pro",
+    "producer_pro",
+    "creator",
+    "admin",
+]);
+
+export function isLaunchNotificationSignupAccount(input: {
+    accountType?: unknown;
+    requestedAccountType?: unknown;
+    metadataRole?: unknown;
+}) {
+    if (normalizeResolvedAccountRole(input.accountType) !== "listener") return false;
+    const requested = String(input.requestedAccountType || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const metaRole = String(input.metadataRole || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (requested === "listener") return true;
+    if (requested || CREATOR_OR_ADMIN_INTENT.has(metaRole)) return false;
+    return metaRole === "listener";
+}
+
+export type OverviewFoundingMember = {
+    user_id?: unknown;
+    approval_status?: unknown;
+    founding_role?: unknown;
+};
+
+export type OverviewRoleCounts = {
+    totalUsers: number;
+    listeners: number;
+    launchNotificationSignups: number;
+    artists: number;
+    producers: number;
+    admins: number;
+};
+
+/**
+ * Platform Overview role cards.
+ * Members = approved/full-access non-admin app members only.
+ * Admins are counted separately and are excluded from Members.
+ * Listeners = approved/full-access Listener members only.
+ * Launch notification signups = listener/public registrations without app access.
+ * Leftover profiles with stale creator metadata are not launch signups.
+ * Pending/rejected creator requests are excluded from Members and Listeners.
+ */
+export function countOverviewRolesFromProfiles(
+    profiles: Array<{ id?: unknown; user_id?: unknown; account_type?: unknown; is_admin?: unknown }>,
+    activeRoles: Array<{ user_id?: unknown; role?: unknown }>,
+    foundingMembers: OverviewFoundingMember[] = [],
+    authSignals: OverviewAuthSignal[] = [],
+): OverviewRoleCounts {
+    const rolesByUser = new Map<string, string[]>();
+    for (const row of activeRoles) {
+        const userId = String(row.user_id || "").trim();
+        const role = String(row.role || "").trim().toLowerCase();
+        if (!userId || !role) continue;
+        const list = rolesByUser.get(userId) || [];
+        list.push(role);
+        rolesByUser.set(userId, list);
+    }
+    const foundingByUser = new Map<string, OverviewFoundingMember>();
+    for (const row of foundingMembers) {
+        const userId = String(row.user_id || "").trim();
+        if (userId) foundingByUser.set(userId, row);
+    }
+    const authByUser = new Map<string, OverviewAuthSignal>();
+    for (const row of authSignals) {
+        const userId = String(row.user_id || "").trim();
+        if (userId) authByUser.set(userId, row);
+    }
+
+    const counts: OverviewRoleCounts = {
+        totalUsers: 0,
+        listeners: 0,
+        launchNotificationSignups: 0,
+        artists: 0,
+        producers: 0,
+        admins: 0,
+    };
+
+    const seen = new Set<string>();
+    for (const profile of profiles) {
+        const id = String(profile.id || "").trim();
+        const userId = String(profile.user_id || "").trim();
+        const key = id || userId;
+        if (!key || seen.has(key) || (userId && seen.has(userId)) || (id && seen.has(id))) continue;
+        seen.add(key);
+        if (id) seen.add(id);
+        if (userId) seen.add(userId);
+
+        const primaryRole = normalizeResolvedAccountRole(profile.account_type);
+        const isAdmin = profile.is_admin === true || primaryRole === "admin";
+        if (isAdmin) {
+            counts.admins += 1;
+            continue;
+        }
+
+        const founding = foundingByUser.get(id) || (userId ? foundingByUser.get(userId) : undefined);
+        const approval = String(founding?.approval_status || "").trim().toLowerCase();
+        if (approval === "pending" || approval === "rejected") {
+            continue;
+        }
+        if (approval === "approved") {
+            const mergedRoles = [
+                ...(rolesByUser.get(id) || []),
+                ...(userId && userId !== id ? rolesByUser.get(userId) || [] : []),
+            ];
+            const caps = resolveCapabilitiesFromExplicitRoles({
+                isAdmin: false,
+                primaryRole: profile.account_type || founding?.founding_role || primaryRole,
+                accountRoles: mergedRoles,
+            });
+            if (caps.isArtist) counts.artists += 1;
+            if (caps.isProducer) counts.producers += 1;
+            if (caps.isListenerOnly) counts.listeners += 1;
+            counts.totalUsers += 1;
+            continue;
+        }
+        const auth = authByUser.get(id) || (userId ? authByUser.get(userId) : undefined);
+        if (isLaunchNotificationSignupAccount({
+            accountType: profile.account_type,
+            requestedAccountType: auth?.requestedAccountType,
+            metadataRole: auth?.metadataRole,
+        })) {
+            counts.launchNotificationSignups += 1;
+        }
+    }
+
+    return counts;
 }
 
 /** Creator dashboard/connect/payout access — Artist or Producer accounts only. */

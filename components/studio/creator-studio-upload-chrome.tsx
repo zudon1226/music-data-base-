@@ -63,9 +63,9 @@ export function CreatorStudioUploadChrome({
                         margin: 0 0 8px;
                         padding: 0 12px;
                         border-radius: 8px;
-                        border: 1px solid rgba(34, 211, 238, 0.55);
-                        background: #0b1736;
-                        color: #67e8f9;
+                        border: 1px solid var(--mdb-border-green);
+                        background: var(--mdb-surface-raised);
+                        color: var(--mdb-green-secondary);
                         font-size: 13px;
                         font-weight: 800;
                         box-sizing: border-box;

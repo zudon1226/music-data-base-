@@ -65,6 +65,39 @@ export function foundingRoleLabel(role: FoundingRole) {
     return role === "founding_producer" ? "Founding Producer" : "Founding Artist";
 }
 
+export function foundingRequestLabel(role: FoundingRole) {
+    return role === "founding_producer" ? "Producer Request" : "Artist Request";
+}
+
+export function ordinaryCreatorRoleLabel(role: FoundingRole) {
+    return role === "founding_producer" ? "Producer" : "Artist";
+}
+
+export function hasExplicitFoundingDesignation(
+    accountType?: unknown,
+    accountRoles?: Iterable<string> | null,
+) {
+    const tokens = new Set<string>();
+    const primary = String(accountType || "").trim().toLowerCase();
+    if (primary) tokens.add(primary);
+    for (const role of accountRoles || []) {
+        const clean = String(role || "").trim().toLowerCase();
+        if (clean) tokens.add(clean);
+    }
+    return tokens.has("founding_artist") || tokens.has("founding_producer");
+}
+
+export function foundingStatusRoleLabel(
+    role: FoundingRole,
+    approvalStatus: FoundingApprovalStatus | string | null | undefined,
+    options?: { explicitFounding?: boolean },
+) {
+    if (approvalStatus === "approved") {
+        return options?.explicitFounding ? foundingRoleLabel(role) : ordinaryCreatorRoleLabel(role);
+    }
+    return foundingRequestLabel(role);
+}
+
 export function foundingRoleDashboard(role: FoundingRole) {
     return role === "founding_producer" ? "Producer Dashboard" : "Artist Dashboard";
 }
@@ -93,6 +126,12 @@ export const FOUNDING_PENDING_MESSAGE =
 
 export const FOUNDING_REJECTED_MESSAGE =
     "Your founding member application was not approved.";
+
+export const LISTENER_LAUNCH_WAITLIST_TITLE =
+    "You're registered for launch notifications";
+
+export const LISTENER_LAUNCH_WAITLIST_MESSAGE =
+    "Thanks for signing up. We'll email you when Music Data Base launches. This registration does not include app access, Upload, Artist Studio, or Producer Studio.";
 
 export const FOUNDING_ROLE_LOCKED_MESSAGE =
     "Your founding role is assigned by invite and cannot be changed.";

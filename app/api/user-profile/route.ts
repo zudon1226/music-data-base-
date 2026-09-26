@@ -5,7 +5,6 @@ import {
     logAccountAccessTrace,
 } from "@/lib/account-access";
 import { getFoundingAccessForUser } from "@/lib/founding-access";
-import { normalizeResolvedAccountRole } from "@/lib/resolved-account-role";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 import { getSessionTokensFromRecord, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { ensureProfileRow, repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
@@ -16,10 +15,6 @@ export const dynamic = "force-dynamic";
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
-}
-
-function normalizeRole(value: unknown) {
-    return normalizeResolvedAccountRole(value);
 }
 
 const PROFILE_SELECT = [
@@ -211,11 +206,9 @@ export async function POST(request: Request) {
         const supabase = getSupabaseServerClient();
         const displayName = String(body.displayName || "").trim();
         const avatarUrl = String(body.avatarUrl || body.avatar_url || "").trim();
-        const role = body.role === undefined ? "" : normalizeRole(body.role);
         const patch = {
             displayName: displayName || undefined,
             avatarUrl: avatarUrl || undefined,
-            role: role || undefined,
         };
 
         if (action === "ensure" || action === "repair-auth-metadata") {

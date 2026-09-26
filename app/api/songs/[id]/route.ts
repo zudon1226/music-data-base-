@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { requireMatchingUserId, resolveRequestUserId } from "@/lib/request-auth";
 import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 import {
     cleanupPersistedMediaQueues,
@@ -73,6 +74,10 @@ export async function DELETE(request: Request, { params }: {
         }
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Log in before deleting uploaded tracks." }, 401);
+        }
+        const auth = await requireMatchingUserId(request, "/api/songs/[id]", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
         }
         const isOwnerAdmin = await isPlatformOwnerUserId(userId);
         const supabase = getSupabaseServerClient();
@@ -183,7 +188,47 @@ export async function PATCH(request: Request, { params }: {
         if (Object.keys(updates).length === 0) {
             return jsonResponse({ error: "No song updates provided." }, 400);
         }
+        if (!isUuid(id)) {
+            return jsonResponse({ error: "Song update requires a real database row id." }, 400);
+        }
+        const verified = await resolveRequestUserId(request);
+        if (!verified.userId) {
+            return jsonResponse({ error: verified.error || "Log in before editing songs." }, 401);
+        }
         const supabase = getSupabaseServerClient();
+        const { data: song, error: readError } = await supabase
+            .from("songs")
+            .select("id,user_id,producer_id")
+            .eq("id", id)
+            .maybeSingle();
+        if (readError) {
+            console.error("[api/songs/:id] read before update failed:", readError);
+            return jsonResponse({ error: getErrorMessage(readError) }, 500);
+        }
+        if (!song) {
+            return jsonResponse({ error: "Song not found." }, 404);
+        }
+        const isSongOwner = Boolean(song.user_id) && song.user_id === verified.userId;
+        if (!isSongOwner && !(await isPlatformOwnerUserId(verified.userId))) {
+            const creditedProfileId = String(song.producer_id || "").trim();
+            const clearsCreditOnly = Object.values(updates).every((value) => !value);
+            let ownsCreditedProfile = clearsCreditOnly && creditedProfileId === verified.userId;
+            if (!ownsCreditedProfile && creditedProfileId && clearsCreditOnly) {
+                const { data: profile, error: profileError } = await supabase
+                    .from("producer_profiles")
+                    .select("id")
+                    .eq("id", creditedProfileId)
+                    .eq("user_id", verified.userId)
+                    .maybeSingle();
+                if (profileError && !isMissingOptionalTableError(profileError)) {
+                    return jsonResponse({ error: getErrorMessage(profileError) }, 500);
+                }
+                ownsCreditedProfile = Boolean(profile);
+            }
+            if (!ownsCreditedProfile) {
+                return jsonResponse({ error: "Only the song owner or its credited producer can change this song's producer credit." }, 403);
+            }
+        }
         const { error } = await supabase.from("songs").update(updates).eq("id", id);
         if (error) {
             console.error("[api/songs/:id] update failed:", error);

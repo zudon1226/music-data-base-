@@ -107,7 +107,6 @@ export const ARTIST_ACCOUNT_TYPES = [
     "artist",
     "founding_artist",
     "artist_pro",
-    "creator_free",
 ] as const;
 
 export const PRODUCER_ACCOUNT_TYPES = [

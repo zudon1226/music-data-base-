@@ -33,6 +33,45 @@ export async function POST(request: Request, context: Params) {
         const auth = await requireMatchingUserId(request, "/api/ringtones/[id]/purchase", userId);
         if (!auth.ok) return json({ error: auth.error }, auth.status);
 
+        const useStripeCheckout = body.checkoutProvider === "stripe" || body.startStripeCheckout === true;
+        if (useStripeCheckout) {
+            const { startRingtoneStripeCheckout } = await import("@/lib/ringtone-stripe-checkout");
+            const checkout = await startRingtoneStripeCheckout({
+                buyerId: userId,
+                ringtoneId,
+                idempotencyKey: String(body.idempotencyKey || "").trim() || undefined,
+                successUrl: String(body.successUrl || "").trim() || undefined,
+                cancelUrl: String(body.cancelUrl || "").trim() || undefined,
+                customerEmail: String(body.customerEmail || "").trim() || undefined,
+            });
+            if (!checkout.ok) {
+                return json({
+                    error: checkout.error,
+                    code: "code" in checkout ? checkout.code : undefined,
+                }, checkout.status || 400);
+            }
+            if (checkout.state === "checkout_ready") {
+                return json({
+                    state: "stripe_checkout_ready",
+                    checkoutUrl: checkout.checkoutUrl,
+                    sessionId: checkout.sessionId,
+                    purchase: checkout.purchase,
+                    ringtone: {
+                        id: checkout.ringtone.id,
+                        title: checkout.ringtone.title,
+                        price_cents: checkout.ringtone.price_cents,
+                        currency: checkout.ringtone.currency,
+                    },
+                    message: "Complete Stripe Checkout to unlock downloads.",
+                }, 201);
+            }
+            return json({
+                state: checkout.state,
+                purchase: checkout.purchase,
+                ringtone: checkout.ringtone,
+            }, checkout.state === "already_owned" ? 200 : 201);
+        }
+
         // Ignore any client-supplied amount/currency/creator/status/fee fields.
         const result = await createRingtonePurchaseIntent({
             buyerId: userId,

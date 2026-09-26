@@ -14,6 +14,7 @@ export {
     isDesktopAuthSessionBootstrapSettled,
     isDesktopAuthBootstrapRateLimited,
     markDesktopAuthSignInPending,
+    noteDesktopSessionAlreadyPersisted,
     resetDesktopAuthSessionBootstrap,
     runDesktopAuthBootstrap,
     runDesktopRemoteBootstrap,

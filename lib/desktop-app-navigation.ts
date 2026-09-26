@@ -44,6 +44,8 @@ export type DesktopNavAccessContext = {
     isPlatformOwner: boolean;
     canCreateRingtones?: boolean;
     capabilities?: NavCapabilityFlags;
+    /** Non-owner creator chrome mounts only after this is true. */
+    authorizationReady?: boolean;
 };
 
 export type DesktopNavBlockReason =
@@ -179,14 +181,17 @@ export function mobileNavShortLabel(view: DesktopNavView, fullLabel: string): st
 }
 
 export function shouldShowUploadControl(context: DesktopNavAccessContext) {
+    if (!context.isPlatformOwner && context.authorizationReady === false) return false;
     return resolveDesktopNavCapabilities(context).canUpload;
 }
 
 export function shouldShowArtistDashboardControl(context: DesktopNavAccessContext) {
+    if (!context.isPlatformOwner && context.authorizationReady === false) return false;
     return resolveDesktopNavCapabilities(context).canArtistDashboard;
 }
 
 export function shouldShowProducerDashboardControl(context: DesktopNavAccessContext) {
+    if (!context.isPlatformOwner && context.authorizationReady === false) return false;
     return resolveDesktopNavCapabilities(context).canProducerDashboard;
 }
 

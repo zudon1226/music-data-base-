@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireMatchingUserId, resolveRequestUserId } from "@/lib/request-auth";
 import {
     getErrorMessage,
     getSupabaseLibraryClient,
@@ -116,6 +117,10 @@ export async function PATCH(request: Request, { params }: {
             if (!isUuid(userId)) {
                 return jsonResponse({ error: "Invalid user id for video like." }, 400);
             }
+            const likeAuth = await requireMatchingUserId(request, "/api/videos/[id]", userId);
+            if (!likeAuth.ok) {
+                return jsonResponse({ error: likeAuth.error }, likeAuth.status);
+            }
             if (body.like === false) {
                 const { error: unlikeError } = await supabase
                     .from("video_likes")
@@ -206,6 +211,36 @@ export async function PATCH(request: Request, { params }: {
         if (Object.keys(updates).length === 0) {
             return jsonResponse({ error: "No video updates provided." }, 400);
         }
+        if (!isUuid(id)) {
+            return jsonResponse({ error: "Video update requires a real database row id." }, 400);
+        }
+        const verified = await resolveRequestUserId(request);
+        if (!verified.userId) {
+            return jsonResponse({ error: verified.error || "Log in before updating videos." }, 401);
+        }
+        const { data: video, error: readError } = await supabase
+            .from("videos")
+            .select("id,views,user_id,artist_id,producer_id,producer_profile_id")
+            .eq("id", id)
+            .maybeSingle();
+        if (readError) {
+            console.error("[api/videos/:id] read before update failed:", readError);
+            return jsonResponse({ error: getErrorMessage(readError) }, 500);
+        }
+        if (!video) {
+            return jsonResponse({ error: "Video not found." }, 404);
+        }
+        if (updates.views !== undefined) {
+            updates.views = Math.max(0, Number(video.views) || 0) + 1;
+        }
+        if (Object.keys(updates).some((key) => key !== "views")) {
+            const userId = verified.userId;
+            const ownedByUser = video.user_id === userId || video.artist_id === userId || video.producer_id === userId || video.producer_profile_id === userId;
+            const ownedProducerProfile = !ownedByUser && await isProducerProfileOwner(supabase, [String(video.producer_id || ""), String(video.producer_profile_id || "")], userId);
+            if (!ownedByUser && !ownedProducerProfile && !(await isPlatformOwnerUserId(userId))) {
+                return jsonResponse({ error: "Only the uploader can edit this video." }, 403);
+            }
+        }
         const { error } = await supabase.from("videos").update(updates).eq("id", id);
         if (error) {
             if (/video_codec|audio_codec|mobile_compatible/i.test(getErrorMessage(error))) {
@@ -267,6 +302,10 @@ export async function DELETE(request: Request, { params }: {
         const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
         if (!userId || !isUuid(userId)) {
             return jsonResponse({ error: "Log in before deleting uploaded videos." }, 401);
+        }
+        const auth = await requireMatchingUserId(request, "/api/videos/[id]", userId);
+        if (!auth.ok) {
+            return jsonResponse({ error: auth.error }, auth.status);
         }
         const isOwnerAdmin = await isPlatformOwnerUserId(userId);
         const supabase = getSupabaseServerClient();

@@ -5,7 +5,6 @@ import {
     type FoundingMemberRecord,
     type FoundingRole,
     foundingRoleDashboard,
-    isFoundingBetaLocked,
 } from "@/lib/founding-onboarding";
 import { isPlatformOwnerEmail } from "@/lib/server-supabase";
 
@@ -38,7 +37,7 @@ const DEFAULT_ACCESS: FoundingAccessState = {
     foundingRole: null,
     approvalStatus: null,
     member: null,
-    canAccessApp: true,
+    canAccessApp: false,
     canUpload: false,
     dashboardView: null,
     suggestedCreatorDashboard: null,
@@ -66,8 +65,9 @@ export async function loadFoundingMemberByUserId(
 export function resolveFoundingAccess(
     email: string | null | undefined,
     member: FoundingMemberRecord | null,
+    options?: { isAdmin?: boolean },
 ): FoundingAccessState {
-    if (isPlatformOwnerEmail(email)) {
+    if (isPlatformOwnerEmail(email) || options?.isAdmin) {
         return {
             ...DEFAULT_ACCESS,
             canAccessApp: true,
@@ -77,14 +77,11 @@ export function resolveFoundingAccess(
     }
 
     if (!member) {
-        if (isFoundingBetaLocked()) {
-            return {
-                ...DEFAULT_ACCESS,
-                canAccessApp: false,
-                canUpload: false,
-            };
-        }
-        return DEFAULT_ACCESS;
+        return {
+            ...DEFAULT_ACCESS,
+            canAccessApp: false,
+            canUpload: false,
+        };
     }
 
     const approved = member.approval_status === "approved";
@@ -112,7 +109,18 @@ export async function getFoundingAccessForUser(
     email: string | null | undefined,
 ): Promise<FoundingAccessState> {
     if (isPlatformOwnerEmail(email)) {
-        return resolveFoundingAccess(email, null);
+        return resolveFoundingAccess(email, null, { isAdmin: true });
+    }
+    const profileResult = await supabase
+        .from("profiles")
+        .select("is_admin,account_type")
+        .or(`id.eq.${userId},user_id.eq.${userId}`)
+        .maybeSingle();
+    const profile = (profileResult.data || {}) as { is_admin?: boolean; account_type?: string };
+    const isAdmin = profile.is_admin === true
+        || String(profile.account_type || "").trim().toLowerCase() === "admin";
+    if (isAdmin) {
+        return resolveFoundingAccess(email, null, { isAdmin: true });
     }
     const member = await loadFoundingMemberByUserId(supabase, userId);
     return resolveFoundingAccess(email, member);
@@ -123,10 +131,14 @@ export function canFoundingMemberUploadFromAccess(access: FoundingAccessState, e
     return access.canUpload;
 }
 
-export function shouldBlockUninvitedSignup(email: string | null | undefined, hasValidInvite: boolean) {
-    if (!isFoundingBetaLocked()) return false;
+export function shouldBlockUninvitedSignup(
+    email: string | null | undefined,
+    _hasValidInvite: boolean,
+) {
     if (isPlatformOwnerEmail(email)) return false;
-    return !hasValidInvite;
+    // Listener launch signups and Artist/Producer applications may register
+    // without an invite. Full app/creator access still requires explicit approval.
+    return false;
 }
 
 export function shouldBlockSelfRoleChange(

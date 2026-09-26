@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { repairAuthUserMetadata } from "@/lib/sync-auth-user-metadata";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
+import { getSessionTokensFromRecord, requireMatchingUserId, resolveRequestUserId } from "@/lib/request-auth";
+import {
+    canSelfServiceChangeAccountType,
+    loadResolvedAccountCapabilities,
+} from "@/lib/resolved-account-role";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
-import { getErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient, isPlatformOwnerUserId, isUuid as isRowUuid } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const PLATFORM_OWNER_EMAIL = "zudon1226@gmail.com";
@@ -34,7 +39,7 @@ function isMissingColumnError(error: unknown, columnName: string) {
     return message.includes(columnName.toLowerCase());
 }
 function isUuid(value: string) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value.trim());
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 }
 function isMissingOptionalTableError(error: unknown, tableName: string) {
     const message = getErrorMessage(error).toLowerCase();
@@ -113,6 +118,10 @@ export async function POST(request: Request) {
             if (!name || !userId) {
                 return jsonResponse({ error: "Producer name and user id are required." }, 400);
             }
+            const auth = await requireMatchingUserId(request, "/api/producers", userId, getSessionTokensFromRecord(body));
+            if (!auth.ok) {
+                return jsonResponse({ error: auth.error }, auth.status);
+            }
             const row = {
                 id: String(body.id || "").trim() || safeRandomUUID(),
                 user_id: userId,
@@ -149,8 +158,21 @@ export async function POST(request: Request) {
         }
         if (action === "save-account-role") {
             const userId = String(body.userId || "").trim();
-            const ownerLookup = userId ? await supabase.auth.admin.getUserById(userId).catch(() => null) : null;
-            const isPlatformOwner = isPlatformOwnerEmail(ownerLookup?.data?.user?.email);
+            if (!userId || !isUuid(userId)) {
+                return jsonResponse({ error: "User id is required before setting account type." }, 400);
+            }
+            const auth = await requireMatchingUserId(
+                request,
+                "/api/producers",
+                userId,
+                getSessionTokensFromRecord(body),
+            );
+            if (!auth.ok) {
+                return jsonResponse({ error: auth.error }, auth.status);
+            }
+            const ownerLookup = await supabase.auth.admin.getUserById(userId).catch(() => null);
+            const ownerEmail = ownerLookup?.data?.user?.email || "";
+            const isPlatformOwner = isPlatformOwnerEmail(ownerEmail);
             if (!isPlatformOwner) {
                 const foundingMember = await supabase
                     .from("founding_members")
@@ -161,12 +183,20 @@ export async function POST(request: Request) {
                     return jsonResponse({ error: "Founding roles are assigned by invite and cannot be changed." }, 403);
                 }
             }
-            const accountType = isPlatformOwner ? "admin" : normalizeAccountType(body.accountType);
+            const currentCapabilities = await loadResolvedAccountCapabilities(userId, ownerEmail);
+            const requestedAccountType = isPlatformOwner ? "admin" : normalizeAccountType(body.accountType);
+            const selfService = canSelfServiceChangeAccountType({
+                currentPrimaryRole: currentCapabilities.primaryRole,
+                nextAccountType: requestedAccountType,
+                isPlatformOwner,
+                isAdmin: currentCapabilities.isAdmin,
+            });
+            if (!selfService.ok) {
+                return jsonResponse({ error: selfService.error }, selfService.status);
+            }
+            const accountType = requestedAccountType;
             const displayName = String(body.name || "").trim() || "Producer";
             const skipProducerProfile = isPlatformOwner || body.skipProducerProfile === true;
-            if (!userId) {
-                return jsonResponse({ error: "User id is required before setting account type." }, 400);
-            }
             let profileWarning = "";
             const profilePayload: Record<string, unknown> = {
                 id: userId,
@@ -241,14 +271,61 @@ export async function POST(request: Request) {
             if (!title || !producerName || !producerUserId || !songId) {
                 return jsonResponse({ error: "Beat title, producer, user id, and song id are required." }, 400);
             }
+            const auth = await requireMatchingUserId(request, "/api/producers", producerUserId, getSessionTokensFromRecord(body));
+            if (!auth.ok) {
+                return jsonResponse({ error: auth.error }, auth.status);
+            }
+            if (!isRowUuid(songId)) {
+                return jsonResponse({ error: "Beat song id must be a real database row id." }, 400);
+            }
             const uploadLock = await requireUploadAllowedForUserId(producerUserId);
             if (!uploadLock.ok) {
                 return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
             }
+            const { data: beatSong, error: beatSongError } = await supabase
+                .from("songs")
+                .select("id,user_id")
+                .eq("id", songId)
+                .maybeSingle();
+            if (beatSongError) {
+                return jsonResponse({ error: getErrorMessage(beatSongError) }, 500);
+            }
+            if (!beatSong) {
+                return jsonResponse({ error: "Beat song not found." }, 404);
+            }
+            if (String(beatSong.user_id || "") !== producerUserId) {
+                return jsonResponse({ error: "Only the uploader of this song can save its beat metadata." }, 403);
+            }
+            const producerProfileId = String(body.producerId || "").trim();
+            if (producerProfileId) {
+                const { data: ownedProfile, error: ownedProfileError } = await supabase
+                    .from("producer_profiles")
+                    .select("id")
+                    .eq("id", producerProfileId)
+                    .eq("user_id", producerUserId)
+                    .maybeSingle();
+                if (ownedProfileError) {
+                    return jsonResponse({ error: getErrorMessage(ownedProfileError) }, 500);
+                }
+                if (!ownedProfile) {
+                    return jsonResponse({ error: "Producer profile does not belong to this user." }, 403);
+                }
+            }
+            const { data: existingSongBeat, error: existingSongBeatError } = await supabase
+                .from("producer_beats")
+                .select("id,producer_user_id")
+                .eq("song_id", songId)
+                .maybeSingle();
+            if (existingSongBeatError) {
+                return jsonResponse({ error: getErrorMessage(existingSongBeatError) }, 500);
+            }
+            if (existingSongBeat && String(existingSongBeat.producer_user_id || "") !== producerUserId) {
+                return jsonResponse({ error: "This song's beat belongs to another producer." }, 403);
+            }
             const row = {
-                id: String(body.id || "").trim() || safeRandomUUID(),
+                id: existingSongBeat?.id ? String(existingSongBeat.id) : (String(body.id || "").trim() || safeRandomUUID()),
                 song_id: songId,
-                producer_id: String(body.producerId || "").trim() || null,
+                producer_id: producerProfileId || null,
                 producer_user_id: producerUserId,
                 producer_name: producerName,
                 title,
@@ -284,8 +361,28 @@ export async function POST(request: Request) {
         }
         if (action === "update-beat") {
             const id = String(body.id || "").trim();
-            if (!id)
+            if (!id || !isRowUuid(id))
                 return jsonResponse({ error: "Beat id is required." }, 400);
+            const verified = await resolveRequestUserId(request, getSessionTokensFromRecord(body));
+            if (!verified.userId) {
+                return jsonResponse({ error: verified.error || "Log in before updating producer beats." }, 401);
+            }
+            const { data: currentBeat, error: currentBeatError } = await supabase
+                .from("producer_beats")
+                .select("id,producer_user_id,plays,likes,downloads,leases")
+                .eq("id", id)
+                .maybeSingle();
+            if (currentBeatError) {
+                return jsonResponse({ error: getErrorMessage(currentBeatError) }, 500);
+            }
+            if (!currentBeat) {
+                return jsonResponse({ error: "Producer beat not found." }, 404);
+            }
+            const isBeatProducer = String(currentBeat.producer_user_id || "") === verified.userId;
+            const producerOnlyFields = ["category", "license", "leasePrice", "exclusivePrice", "splitPercentage", "payouts"];
+            if (!isBeatProducer && producerOnlyFields.some((field) => body[field] !== undefined)) {
+                return jsonResponse({ error: "Only the producer who uploaded this beat can change its pricing, license, or payouts." }, 403);
+            }
             const updates: Record<string, unknown> = {};
             if (body.category !== undefined)
                 updates.category = String(body.category || "").trim() || "Beats";
@@ -298,14 +395,12 @@ export async function POST(request: Request) {
             if (body.splitPercentage !== undefined) {
                 updates.split_percentage = Math.max(0, Math.min(100, Number(body.splitPercentage) || 0));
             }
-            if (body.plays !== undefined)
-                updates.plays = Math.max(0, Number(body.plays) || 0);
-            if (body.likes !== undefined)
-                updates.likes = Math.max(0, Number(body.likes) || 0);
-            if (body.downloads !== undefined)
-                updates.downloads = Math.max(0, Number(body.downloads) || 0);
-            if (body.leases !== undefined)
-                updates.leases = Math.max(0, Number(body.leases) || 0);
+            // Engagement counters are open to any signed-in listener, so the client value is ignored and the stored count only advances by one.
+            for (const counter of ["plays", "likes", "downloads", "leases"] as const) {
+                if (body[counter] !== undefined) {
+                    updates[counter] = Math.max(0, Number(currentBeat[counter]) || 0) + 1;
+                }
+            }
             if (body.payouts !== undefined)
                 updates.payouts = Math.max(0, Number(body.payouts) || 0);
             if (Object.keys(updates).length === 0)
@@ -339,6 +434,10 @@ export async function POST(request: Request) {
                 return jsonResponse({ error: "Beat id is required." }, 400);
             if (!userId || !isUuid(userId))
                 return jsonResponse({ error: "Log in before deleting producer beats." }, 401);
+            const auth = await requireMatchingUserId(request, "/api/producers", userId, getSessionTokensFromRecord(body));
+            if (!auth.ok) {
+                return jsonResponse({ error: auth.error }, auth.status);
+            }
             const isOwnerAdmin = await isPlatformOwnerUserId(userId);
             const { data: beat, error: readError } = await supabase
                 .from("producer_beats")

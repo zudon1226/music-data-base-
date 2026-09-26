@@ -1,3 +1,4 @@
+import { loadFoundingArtistFlagForUser } from "@/lib/founding-artist-designation";
 import { getSupabaseServerClient, safeSelect } from "@/lib/server-supabase";
 
 export type PublicMediaItem = {
@@ -20,6 +21,7 @@ export type PublicProfile = {
   bio: string;
   website: string;
   verified: boolean;
+  isFoundingArtist: boolean;
   followers: number;
   monthlyListeners: number;
   songs: PublicMediaItem[];
@@ -139,6 +141,7 @@ function createArtistProfile(row: Record<string, unknown>, identifier: string): 
     bio: getString(row.bio) || `${name} on Music Data Base.`,
     website: getString(row.website),
     verified: Boolean(row.verified),
+    isFoundingArtist: false,
     followers: getNumber(row.followers),
     monthlyListeners: getNumber(row.monthly_listeners),
     songs: [],
@@ -161,6 +164,7 @@ function createProducerProfile(row: Record<string, unknown>, identifier: string)
     bio: getString(row.bio) || getString(row.tagline) || `${name} on Music Data Base.`,
     website: getString(row.website),
     verified: Boolean(row.verified),
+    isFoundingArtist: false,
     followers: getNumber(row.followers),
     monthlyListeners: 0,
     songs: [],
@@ -202,6 +206,10 @@ export async function loadPublicArtistProfile(identifier: string) {
   profile.videos = sortRecent(videos.filter((video) => hasCreatorMatch(video, profile)).map(mapVideo));
   profile.albums = sortRecent(albums.filter((album) => hasCreatorMatch(album, profile)).map(mapAlbum));
   profile.monthlyListeners = profile.monthlyListeners || profile.songs.reduce((total, song) => total + Number.parseInt(song.metricLabel, 10), 0);
+
+  if (profile.userId) {
+    profile.isFoundingArtist = await loadFoundingArtistFlagForUser(supabase, profile.userId);
+  }
 
   return profile;
 }

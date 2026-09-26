@@ -1,15 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { SUPABASE_PROJECT_REF, SUPABASE_PROJECT_URL } from "./supabase-config";
+import { SUPABASE_PROJECT_URL } from "./supabase-config";
 import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session-token-limits";
-
-type AccessTokenClaims = {
-    sub?: string;
-    exp?: number;
-    iss?: string;
-    aud?: string | string[];
-};
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const REFRESH_TOKEN_BODY_KEYS = ["refreshToken", "sessionRefreshToken", "refresh_token"] as const;
 export const ACCESS_TOKEN_BODY_KEYS = ["accessToken", "sessionAccessToken", "access_token"] as const;
@@ -24,43 +15,6 @@ function stripEnvQuotes(value: string) {
 /** Match browser client key normalization so server auth.getUser uses the same key. */
 function readRequestAuthAnonKey() {
     return stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").replace(/\s+/g, "");
-}
-
-function decodeAccessTokenClaims(accessToken: string): AccessTokenClaims | null {
-    try {
-        const parts = accessToken.split(".");
-        if (parts.length !== 3) {
-            return null;
-        }
-        const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-        const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
-        const jsonStr = typeof Buffer !== "undefined"
-            ? Buffer.from(padded, "base64").toString("utf8")
-            : atob(padded);
-        return JSON.parse(jsonStr) as AccessTokenClaims;
-    }
-    catch {
-        return null;
-    }
-}
-
-function resolveAccessTokenUserIdFromClaims(accessToken: string) {
-    const claims = decodeAccessTokenClaims(accessToken);
-    if (!claims?.sub) {
-        return { userId: "", error: "Invalid access token payload." };
-    }
-    const userId = claims.sub.trim();
-    if (!UUID_PATTERN.test(userId)) {
-        return { userId: "", error: "Invalid access token subject." };
-    }
-    if (typeof claims.exp === "number" && claims.exp * 1000 <= Date.now() - 30_000) {
-        return { userId: "", error: "Access token expired." };
-    }
-    const issuer = String(claims.iss || "").trim();
-    if (issuer && issuer !== "supabase" && !issuer.includes(SUPABASE_PROJECT_REF)) {
-        return { userId: "", error: "Access token issuer mismatch." };
-    }
-    return { userId, error: "" };
 }
 
 function readQueryToken(request: Request, keys: readonly string[]) {
@@ -192,30 +146,16 @@ async function verifyAccessTokenUserId(accessToken: string) {
         };
     }
 
-    const claimsResult = resolveAccessTokenUserIdFromClaims(accessToken);
+    // Identity comes only from Supabase-verified tokens; decoded JWT claims are never trusted.
     try {
         const authClient = getUserAuthClient();
         const { data, error } = await authClient.auth.getUser(accessToken);
         if (data.user?.id) {
             return { userId: data.user.id, error: "" };
         }
-        if (claimsResult.userId) {
-            console.warn("[request-auth] auth.getUser rejected bearer token; using validated JWT sub claim", {
-                authUserId: claimsResult.userId,
-                getUserError: error?.message || "Invalid session token.",
-            });
-            return claimsResult;
-        }
-        return { userId: "", error: error?.message || claimsResult.error || "Invalid session token." };
+        return { userId: "", error: error?.message || "Invalid session token." };
     }
     catch (error) {
-        if (claimsResult.userId) {
-            console.warn("[request-auth] auth.getUser failed; using validated JWT sub claim", {
-                authUserId: claimsResult.userId,
-                getUserError: error instanceof Error ? error.message : String(error),
-            });
-            return claimsResult;
-        }
         return {
             userId: "",
             error: error instanceof Error ? error.message : "Invalid session token.",

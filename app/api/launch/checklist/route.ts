@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminUserId } from "@/lib/admin-auth";
 import { DEFAULT_LAUNCH_CHECKLIST } from "@/lib/launch-readiness";
-import { requireMatchingUserId } from "@/lib/request-auth";
+import { requireMatchingUserId, resolveStrictRequestUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -22,8 +22,24 @@ function fallbackChecklist(message = "Run the Phase 6 launch-readiness migration
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
+    if (!isUuid(userId)) {
+      return NextResponse.json({ error: "Valid admin user id is required." }, { status: 401 });
+    }
+    const verified = await resolveStrictRequestUserId(request);
+    if (!verified.userId) {
+      return NextResponse.json({ error: verified.error || "Authentication required." }, { status: 401 });
+    }
+    if (verified.userId !== userId) {
+      return NextResponse.json({ error: "Authorization bearer token user does not match requested user id." }, { status: 403 });
+    }
+    const admin = await requireAdminUserId(userId);
+    if (!admin.ok) {
+      return NextResponse.json({ error: admin.error }, { status: admin.status });
+    }
+
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase
       .from("launch_checklist")

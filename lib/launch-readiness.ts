@@ -54,6 +54,11 @@ export const REQUIRED_LAUNCH_TABLES = [
   "ringtone_downloads",
   "ringtone_favorites",
   "ringtone_reviews",
+  "sponsor_packages",
+  "sponsor_applications",
+  "sponsor_assets",
+  "sponsor_payment_events",
+  "platform_revenue_events",
 ];
 
 export const EXPECTED_STORAGE_BUCKETS = [
@@ -67,6 +72,7 @@ export const EXPECTED_STORAGE_BUCKETS = [
   "ringtone-source",
   "ringtone-previews",
   "ringtone-downloads",
+  "sponsor-assets",
 ];
 
 export const PUBLIC_LAUNCH_ROUTES = [

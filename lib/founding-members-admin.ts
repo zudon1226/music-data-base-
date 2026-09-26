@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingFoundingSetup } from "@/lib/admin-auth";
-import { foundingRoleLabel, type FoundingApprovalStatus, type FoundingRole } from "@/lib/founding-onboarding";
+import { foundingStatusRoleLabel, hasExplicitFoundingDesignation, type FoundingApprovalStatus, type FoundingRole } from "@/lib/founding-onboarding";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
 
 export type FoundingMemberAdminRow = {
@@ -83,11 +83,11 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
     const members = result.data || [];
     const userIds = members.map((member) => String(member.user_id || "")).filter(isUuid);
 
-    const profileMap = new Map<string, { username: string; display_name: string }>();
+    const profileMap = new Map<string, { username: string; display_name: string; account_type: string }>();
     if (userIds.length > 0) {
         const [byId, byUserId] = await Promise.all([
-            supabase.from("profiles").select("id,user_id,username,display_name").in("id", userIds),
-            supabase.from("profiles").select("id,user_id,username,display_name").in("user_id", userIds),
+            supabase.from("profiles").select("id,user_id,username,display_name,account_type").in("id", userIds),
+            supabase.from("profiles").select("id,user_id,username,display_name,account_type").in("user_id", userIds),
         ]);
         for (const result of [byId, byUserId]) {
             if (result.error) continue;
@@ -97,6 +97,7 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
                     profileMap.set(key, {
                         username: String(profile.username || "").trim(),
                         display_name: String(profile.display_name || "").trim(),
+                        account_type: String(profile.account_type || "").trim().toLowerCase(),
                     });
                 }
             }
@@ -104,6 +105,24 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
     }
 
     const emails = new Map<string, string>();
+    const rolesByUser = new Map<string, string[]>();
+    if (userIds.length > 0) {
+        const activeRoles = await supabase
+            .from("user_roles")
+            .select("user_id,role")
+            .eq("status", "active")
+            .in("user_id", userIds);
+        if (!activeRoles.error) {
+            for (const row of activeRoles.data || []) {
+                const userId = String(row.user_id || "").trim();
+                const role = String(row.role || "").trim().toLowerCase();
+                if (!userId || !role) continue;
+                const list = rolesByUser.get(userId) || [];
+                list.push(role);
+                rolesByUser.set(userId, list);
+            }
+        }
+    }
     await Promise.all(userIds.map(async (memberId) => {
         const lookup = await supabase.auth.admin.getUserById(memberId);
         if (lookup.data.user?.email) emails.set(memberId, lookup.data.user.email);
@@ -125,7 +144,12 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
             updated_at: String(member.updated_at || ""),
             email: emails.get(userId) || "",
             username: profile?.username || "",
-            roleLabel: foundingRoleLabel(foundingRole),
+            roleLabel: foundingStatusRoleLabel(foundingRole, member.approval_status as FoundingApprovalStatus, {
+                explicitFounding: hasExplicitFoundingDesignation(
+                    profile?.account_type,
+                    rolesByUser.get(userId),
+                ),
+            }),
         };
     });
 

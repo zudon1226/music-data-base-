@@ -7,13 +7,15 @@ import {
     FOUNDING_INVITE_REQUIRED_MESSAGE,
     FOUNDING_PENDING_MESSAGE,
     FOUNDING_REJECTED_MESSAGE,
-    foundingRoleLabel,
+    LISTENER_LAUNCH_WAITLIST_MESSAGE,
+    LISTENER_LAUNCH_WAITLIST_TITLE,
+    foundingRequestLabel,
     type FoundingApprovalStatus,
     type FoundingRole,
 } from "../lib/founding-onboarding";
 
 type FoundingMemberGateProps = {
-    approvalStatus: FoundingApprovalStatus | "blocked";
+    approvalStatus: FoundingApprovalStatus | "blocked" | "waitlist";
     foundingRole: FoundingRole | null;
     displayName?: string;
     blockedMessage?: string;
@@ -42,13 +44,22 @@ export function FoundingMemberGate({
     const { t } = useTranslation();
     const pending = approvalStatus === "pending";
     const blocked = approvalStatus === "blocked";
+    const waitlist = approvalStatus === "waitlist";
     const message = blockedMessage
-        || (pending ? FOUNDING_PENDING_MESSAGE : FOUNDING_REJECTED_MESSAGE);
-    const title = pending
-        ? t("auth.approvalPending")
-        : blocked
-            ? t("auth.inviteRequired")
-            : t("auth.accessNotApproved");
+        || (waitlist
+            ? LISTENER_LAUNCH_WAITLIST_MESSAGE
+            : pending
+                ? FOUNDING_PENDING_MESSAGE
+                : blocked
+                    ? FOUNDING_INVITE_REQUIRED_MESSAGE
+                    : FOUNDING_REJECTED_MESSAGE);
+    const title = waitlist
+        ? LISTENER_LAUNCH_WAITLIST_TITLE
+        : pending
+            ? t("auth.approvalPending")
+            : blocked
+                ? t("auth.inviteRequired")
+                : t("auth.accessNotApproved");
     const showRedeemForm = blocked && Boolean(onRedeemInvite) && Boolean(onInviteCodeChange);
 
     function handleRedeemSubmit(event: FormEvent<HTMLFormElement>) {
@@ -61,14 +72,14 @@ export function FoundingMemberGate({
         <main className="founding-gate-page">
             <section className="founding-gate-panel">
                 <div className="founding-gate-mark" aria-hidden="true">
-                    {pending ? <Clock3 size={22}/> : <ShieldX size={22}/>}
+                    {pending || waitlist ? <Clock3 size={22}/> : <ShieldX size={22}/>}
                 </div>
 
                 <div className="founding-gate-copy">
                     <h1 className="founding-gate-title">{title}</h1>
                     <p className="founding-gate-description">{message}</p>
-                    {foundingRole ? (
-                        <p className="founding-gate-meta">{t("auth.assignedRole", { role: foundingRoleLabel(foundingRole) })}</p>
+                    {foundingRole && !waitlist ? (
+                        <p className="founding-gate-meta">{t("auth.assignedRole", { role: foundingRequestLabel(foundingRole) })}</p>
                     ) : null}
                     {displayName ? (
                         <p className="founding-gate-meta founding-gate-user">{t("auth.signedInAs", { name: displayName })}</p>
@@ -131,7 +142,7 @@ export function FoundingMemberGate({
                 padding: 12px;
                 margin: 0;
                 background:
-                  linear-gradient(90deg, rgba(2, 6, 23, 0.9), rgba(2, 6, 23, 0.5)),
+                  linear-gradient(90deg, rgba(3, 8, 5, 0.9), rgba(3, 8, 5, 0.5)),
                   url("https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1600&q=80");
                 background-size: cover;
                 background-position: center;
@@ -150,9 +161,9 @@ export function FoundingMemberGate({
                 max-width: 460px;
                 margin: 0;
                 padding: 16px;
-                border: 1px solid rgba(0, 212, 255, 0.35);
+                border: 1px solid var(--mdb-border-gold-subtle);
                 border-radius: 8px;
-                background: rgba(11, 23, 54, 0.96);
+                background: rgba(9, 17, 12, 0.96);
                 box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
                 text-align: center;
               }
@@ -161,7 +172,7 @@ export function FoundingMemberGate({
                 display: grid;
                 place-items: center;
                 margin: 0 0 8px;
-                color: #22d3ee;
+                color: var(--mdb-green);
               }
 
               .founding-gate-copy {
@@ -180,14 +191,14 @@ export function FoundingMemberGate({
 
               .founding-gate-description {
                 margin: 8px 0 0;
-                color: #a9bed6;
+                color: var(--mdb-text-muted);
                 font-size: 14px;
                 line-height: 1.35;
               }
 
               .founding-gate-meta {
                 margin: 8px 0 0;
-                color: #9bdcf0;
+                color: var(--mdb-text-secondary);
                 font-size: 13px;
                 line-height: 1.3;
                 font-weight: 700;
@@ -208,7 +219,7 @@ export function FoundingMemberGate({
               }
 
               .founding-gate-field span {
-                color: #9bdcf0;
+                color: var(--mdb-text-secondary);
                 font-size: 11px;
                 font-weight: 900;
                 text-transform: uppercase;
@@ -227,19 +238,19 @@ export function FoundingMemberGate({
               .founding-gate-redeem-form input {
                 width: 100%;
                 border: 1px solid #263c78;
-                background: #020617;
+                background: var(--mdb-bg);
                 color: white;
                 padding: 0 12px;
                 outline: none;
               }
 
               .founding-gate-redeem-form input:focus {
-                border-color: #22d3ee;
+                border-color: var(--mdb-green);
               }
 
               .founding-gate-message {
                 margin: 8px 0 0;
-                color: #fbbf24;
+                color: var(--mdb-gold);
                 font-size: 13px;
                 font-weight: 800;
                 line-height: 1.3;
@@ -255,15 +266,15 @@ export function FoundingMemberGate({
               }
 
               .founding-gate-message.is-error {
-                color: #fbbf24;
+                color: var(--mdb-gold);
               }
 
               .founding-gate-redeem-button {
                 width: 100%;
                 margin: 12px 0 0;
                 border: 0;
-                background: #22d3ee;
-                color: #020617;
+                background: var(--mdb-green);
+                color: var(--mdb-bg);
                 font-weight: 900;
                 display: inline-flex;
                 align-items: center;
@@ -281,7 +292,7 @@ export function FoundingMemberGate({
                 width: 100%;
                 margin: 16px 0 0;
                 border: 0;
-                background: #152d66;
+                background: color-mix(in srgb, var(--mdb-green-dark) 45%, var(--mdb-surface-secondary));
                 color: white;
                 font-weight: 900;
                 cursor: pointer;

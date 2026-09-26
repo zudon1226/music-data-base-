@@ -6,7 +6,8 @@ import {
 } from "@/lib/legal-acceptance-service";
 import { isLegalPolicyType, type LegalPolicyType } from "@/lib/legal-policies";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
-import { getErrorMessage, isUuid } from "@/lib/server-supabase";
+import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import { resumeSignupAccountActivation } from "@/lib/signup-account-activation";
 import { parseSignupAccountTypeInput } from "@/lib/signup-account-type";
 
 export const runtime = "nodejs";
@@ -82,7 +83,14 @@ export async function POST(request: Request) {
                     { status: recorded.status },
                 );
             }
-            return NextResponse.json(recorded);
+            const supabase = getSupabaseServerClient();
+            const userLookup = await supabase.auth.admin.getUserById(userId);
+            const activation = await resumeSignupAccountActivation({
+                supabase,
+                userId,
+                email: userLookup.data.user?.email || "",
+            }).catch(() => null);
+            return NextResponse.json({ ...recorded, activation });
         }
 
         const recorded = await recordLegalAcceptances({ userId, acceptances });

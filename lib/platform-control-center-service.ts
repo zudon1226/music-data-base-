@@ -8,26 +8,17 @@ import type {
     PlatformOverviewStats,
 } from "@/lib/platform-control-center";
 import { PUBLIC_RINGTONE_STATUSES } from "@/lib/ringtone-constants";
+import { countOverviewRolesFromProfiles, type OverviewAuthSignal, type OverviewRoleCounts } from "@/lib/resolved-account-role";
 import { getErrorMessage, getPublicSiteUrl } from "@/lib/server-supabase";
-import {
-    ARTIST_ACCOUNT_TYPES,
-    PRODUCER_ACCOUNT_TYPES,
-} from "@/lib/signup-account-type";
 
-const ARTIST_ROLE_TOKENS = [
-    ...ARTIST_ACCOUNT_TYPES,
-    "artist",
-    "founding_artist",
-    "artist_pro",
-    "creator",
-] as const;
-
-const PRODUCER_ROLE_TOKENS = [
-    ...PRODUCER_ACCOUNT_TYPES,
-    "producer",
-    "founding_producer",
-    "producer_pro",
-] as const;
+const EMPTY_OVERVIEW_ROLE_COUNTS: OverviewRoleCounts = {
+    totalUsers: 0,
+    listeners: 0,
+    launchNotificationSignups: 0,
+    artists: 0,
+    producers: 0,
+    admins: 0,
+};
 
 function healthStatus(ok: boolean, warning = false): PlatformHealthLabel {
     if (ok) return "Healthy";
@@ -47,63 +38,88 @@ async function countRows(supabase: SupabaseClient, table: string, filters: Array
     return { count: result.count || 0, error: "" };
 }
 
-/** Distinct user IDs from profiles.account_type ∪ active user_roles (no double-count). */
-async function countDistinctCreatorUsers(
-    supabase: SupabaseClient,
-    options: {
-        profileAccountTypes: readonly string[];
-        userRoles: readonly string[];
-    },
-): Promise<{ count: number; error: string }> {
-    const ids = new Set<string>();
+async function loadOverviewRoleCounts(supabase: SupabaseClient): Promise<OverviewRoleCounts & { error: string }> {
     const pageSize = 1000;
+    const profiles: Array<{ id?: string; user_id?: string; account_type?: string; is_admin?: boolean }> = [];
     let from = 0;
-    let error = "";
-
     while (true) {
         const page = await supabase
             .from("profiles")
-            .select("id")
-            .in("account_type", [...options.profileAccountTypes])
+            .select("id,user_id,account_type,is_admin")
             .range(from, from + pageSize - 1);
         if (page.error) {
-            error = getErrorMessage(page.error);
-            break;
+            return { ...EMPTY_OVERVIEW_ROLE_COUNTS, error: getErrorMessage(page.error) };
         }
-        const rows = page.data || [];
-        for (const row of rows) {
-            const id = String((row as { id?: string }).id || "").trim();
-            if (id) ids.add(id);
-        }
-        if (rows.length < pageSize) break;
+        const batch = page.data || [];
+        profiles.push(...batch);
+        if (batch.length < pageSize) break;
         from += pageSize;
     }
 
+    const activeRoles: Array<{ user_id?: string; role?: string }> = [];
     from = 0;
-    while (!error) {
+    while (true) {
         const page = await supabase
             .from("user_roles")
-            .select("user_id")
-            .in("role", [...options.userRoles])
+            .select("user_id,role")
             .eq("status", "active")
             .range(from, from + pageSize - 1);
         if (page.error) {
-            // user_roles may be unavailable in some environments; keep profile-based count.
             if (!/does not exist|schema cache/i.test(getErrorMessage(page.error))) {
-                error = getErrorMessage(page.error);
+                return { ...EMPTY_OVERVIEW_ROLE_COUNTS, error: getErrorMessage(page.error) };
             }
             break;
         }
-        const rows = page.data || [];
-        for (const row of rows) {
-            const id = String((row as { user_id?: string }).user_id || "").trim();
-            if (id) ids.add(id);
-        }
-        if (rows.length < pageSize) break;
+        const batch = page.data || [];
+        activeRoles.push(...batch);
+        if (batch.length < pageSize) break;
         from += pageSize;
     }
 
-    return { count: ids.size, error };
+    const foundingMembers: Array<{ user_id?: string; approval_status?: string; founding_role?: string }> = [];
+    from = 0;
+    while (true) {
+        const page = await supabase
+            .from("founding_members")
+            .select("user_id,approval_status,founding_role")
+            .range(from, from + pageSize - 1);
+        if (page.error) {
+            if (!/does not exist|schema cache/i.test(getErrorMessage(page.error))) {
+                return { ...EMPTY_OVERVIEW_ROLE_COUNTS, error: getErrorMessage(page.error) };
+            }
+            break;
+        }
+        const batch = page.data || [];
+        foundingMembers.push(...batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+    }
+
+    const userIds = profiles.flatMap((profile) => [profile.id, profile.user_id].filter(Boolean) as string[]);
+    const counted = countOverviewRolesFromProfiles(
+        profiles,
+        activeRoles,
+        foundingMembers,
+        await loadOverviewAuthSignals(supabase, userIds),
+    );
+    return { ...counted, error: "" };
+}
+
+async function loadOverviewAuthSignals(supabase: SupabaseClient, userIds: string[]): Promise<OverviewAuthSignal[]> {
+    const uniqueIds = [...new Set(userIds.map((value) => String(value || "").trim()).filter(Boolean))];
+    const signals: OverviewAuthSignal[] = [];
+    await Promise.all(uniqueIds.map(async (userId) => {
+        const listed = await supabase.auth.admin.getUserById(userId);
+        const user = listed.data?.user;
+        if (listed.error || !user) return;
+        const metadata = (user.user_metadata || {}) as Record<string, unknown>;
+        signals.push({
+            user_id: user.id,
+            requestedAccountType: metadata.requestedAccountType || metadata.requested_account_type,
+            metadataRole: metadata.role,
+        });
+    }));
+    return signals;
 }
 
 async function sumColumn(supabase: SupabaseClient, table: string, column: string) {
@@ -203,15 +219,15 @@ function toActivity(
 export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClient): Promise<PlatformControlCenterSnapshot> {
     const siteUrl = getPublicSiteUrl();
     const usesLocalhost = siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1");
-    const deployedCommit = (process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_REF || "").trim().slice(0, 12) || "not-deployed";
+    const onVercel = Boolean(String(process.env.VERCEL || "").trim());
+    const deployedCommitSha = (process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_REF || "").trim().slice(0, 12);
+    const deployedCommit = deployedCommitSha || (onVercel ? "not-deployed" : "local-workspace");
 
     const [
-        totalUsersResult,
+        roleCounts,
         approvedResult,
         pendingResult,
         rejectedResult,
-        artistProfilesResult,
-        producerProfilesResult,
         songsResult,
         videosResult,
         ringtonesResult,
@@ -233,18 +249,10 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         foundingMembersRecent,
         foundingInvitesRecent,
     ] = await Promise.all([
-        countRows(supabase, "profiles"),
+        loadOverviewRoleCounts(supabase),
         countRows(supabase, "founding_members", [["approval_status", "eq", "approved"]]),
         countRows(supabase, "founding_members", [["approval_status", "eq", "pending"]]),
         countRows(supabase, "founding_members", [["approval_status", "eq", "rejected"]]),
-        countDistinctCreatorUsers(supabase, {
-            profileAccountTypes: ARTIST_ACCOUNT_TYPES,
-            userRoles: ARTIST_ROLE_TOKENS,
-        }),
-        countDistinctCreatorUsers(supabase, {
-            profileAccountTypes: PRODUCER_ACCOUNT_TYPES,
-            userRoles: PRODUCER_ROLE_TOKENS,
-        }),
         countRows(supabase, "songs"),
         countRows(supabase, "videos"),
         countRows(supabase, "ringtone_products", [
@@ -298,16 +306,20 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         throw new Error(`Platform download metrics unavailable: ${downloadQueryError}`);
     }
 
-    // Listeners = distinct registered profiles with listener access (creators included).
-    // Not derived by subtracting artist/producer totals from total users.
+    // Members = approved/full-access non-admin accounts only. Admins are separate.
+    // Listeners = approved/full-access Listener members only.
+    // Launch notification signups = notification-only registered accounts, not app members.
+    // Artists/Producers = explicitly approved creators. Admins are separate.
     const overview: PlatformOverviewStats = {
-        totalUsers: totalUsersResult.count,
-        listeners: totalUsersResult.count,
+        totalUsers: roleCounts.totalUsers,
+        listeners: roleCounts.listeners,
+        launchNotificationSignups: roleCounts.launchNotificationSignups,
+        admins: roleCounts.admins,
         approvedUsers: approvedResult.count,
         pendingUsers: pendingResult.count,
         rejectedUsers: rejectedResult.count,
-        artists: artistProfilesResult.count,
-        producers: producerProfilesResult.count,
+        artists: roleCounts.artists,
+        producers: roleCounts.producers,
         totalSongs: songsResult.count,
         totalVideos: videosResult.count,
         totalRingtones: ringtonesResult.count,
@@ -361,8 +373,8 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         {
             id: "supabase",
             label: "Supabase connection",
-            status: healthStatus(!totalUsersResult.error),
-            detail: totalUsersResult.error ? totalUsersResult.error : "Connected to production Supabase project.",
+            status: healthStatus(!roleCounts.error),
+            detail: roleCounts.error ? roleCounts.error : "Connected to production Supabase project.",
         },
         {
             id: "auth",
@@ -391,7 +403,7 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         {
             id: "commit",
             label: "Latest deployed commit",
-            status: deployedCommit === "not-deployed" ? "Warning" : "Healthy",
+            status: onVercel && deployedCommit === "not-deployed" ? "Warning" : "Healthy",
             detail: deployedCommit,
         },
         {

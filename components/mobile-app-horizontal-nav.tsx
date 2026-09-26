@@ -96,8 +96,18 @@ export function MobileAppHorizontalNav({
 
     useEffect(() => {
         const node = activeRef.current;
-        if (!node) return;
-        node.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+        const scroller = scrollerRef.current;
+        if (!node || !scroller) return;
+        // Never use element page-scroll centering here. On Android WebView it
+        // moves overflow-y ancestors (.content / document) when account roles
+        // arrive and items.length changes — that is the post-launch page jump.
+        const scrollerRect = scroller.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        const delta = (nodeRect.left + nodeRect.width / 2) - (scrollerRect.left + scrollerRect.width / 2);
+        if (Math.abs(delta) < 1) return;
+        const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+        const nextLeft = Math.max(0, Math.min(maxLeft, scroller.scrollLeft + delta));
+        scroller.scrollTo({ left: nextLeft, behavior: "auto" });
     }, [activeView, items.length]);
 
     return (

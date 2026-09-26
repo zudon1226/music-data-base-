@@ -441,7 +441,7 @@ export function TestAccountCleanupCenter({
                 max-height: none !important;
                 padding: 10px 12px !important;
                 border: 0 !important;
-                border-bottom: 1px solid color-mix(in srgb, var(--mdb-border) 14%, transparent) !important;
+                border-bottom: 1px solid var(--mdb-border-gold-subtle) !important;
                 text-align: left !important;
                 vertical-align: middle !important;
                 line-height: 1.25 !important;
@@ -548,7 +548,7 @@ export function TestAccountCleanupCenter({
                 padding: 14px;
                 border-radius: 14px;
                 background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent);
-                border: 1px solid color-mix(in srgb, var(--mdb-border) 16%, transparent);
+                border: 1px solid var(--mdb-border-gold-subtle);
                 display: grid;
                 gap: 12px;
                 height: auto !important;
@@ -625,7 +625,7 @@ export function TestAccountCleanupCenter({
                   width: 100% !important;
                   margin: 0 !important;
                   padding: 10px 12px !important;
-                  border: 1px solid color-mix(in srgb, var(--mdb-border) 18%, transparent) !important;
+                  border: 1px solid var(--mdb-border-gold-subtle) !important;
                   border-radius: 10px !important;
                   background: color-mix(in srgb, var(--mdb-surface-raised) 72%, transparent) !important;
                   height: auto !important;

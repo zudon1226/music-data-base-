@@ -15,12 +15,13 @@ import {
     type SetStateAction,
 } from "react";
 import { runAuthStorageCleanupOnce } from "./auth-boot";
-import { logoutAndClearAuth } from "./auth-session";
+import { logoutAndClearAuth, readStoredAuthSession } from "./auth-session";
 import { clearDesktopAuthRecoveryGate } from "./desktop-auth-recovery-gate";
 import {
     clearDesktopApiCredentials,
     publishDesktopApiCredentials,
 } from "./desktop-authenticated-session";
+import { noteDesktopSessionAlreadyPersisted } from "./desktop-auth-bootstrap-flow";
 import { clearLibraryCache, readLibraryCache } from "./library-storage";
 import { supabase as defaultSupabaseClient } from "./supabase";
 
@@ -112,6 +113,8 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
     const [user, setUserState] = useState<SupabaseUser | null>(null);
     const [authRevision, setAuthRevision] = useState(0);
     const persistedUserRef = useRef<SupabaseUser | null>(null);
+    const establishedSessionRef = useRef(false);
+    const explicitSignOutRef = useRef(false);
 
     const bumpRevision = useCallback(() => {
         setAuthRevision((value) => value + 1);
@@ -132,6 +135,7 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
             setUserState(resolvedUser);
         }
         publishDesktopApiCredentials(session);
+        establishedSessionRef.current = true;
         setStatus("authenticated");
         setAuthReady(true);
         bumpRevision();
@@ -139,6 +143,7 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
 
     const clearAuthenticatedState = useCallback(() => {
         persistedUserRef.current = null;
+        establishedSessionRef.current = false;
         clearDesktopApiCredentials();
         setAuthSessionState(null);
         setUserState(null);
@@ -214,6 +219,7 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
     }, []);
 
     const signOut = useCallback(async () => {
+        explicitSignOutRef.current = true;
         try {
             await logoutAndClearAuth(supabase);
         }
@@ -222,6 +228,7 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
         }
         finally {
             clearAuthenticatedState();
+            explicitSignOutRef.current = false;
         }
     }, [clearAuthenticatedState, supabase]);
 
@@ -239,14 +246,33 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
                 markAuthenticated(session, resolveSessionUser(session));
                 return;
             }
+            // A live interactive login can complete while boot is still racing
+            // getSession. Never wipe that session with a timed-out empty boot.
+            if (establishedSessionRef.current) {
+                return;
+            }
             clearAuthenticatedState();
         };
 
         // Never block the existing login screen on getSession / INITIAL_SESSION.
         // iOS Safari can stall GoTrue recover/refresh; the UI must still reach signed-out.
+        // With no persisted session the soft timeout is definitive. With one, a timeout only
+        // means restore is slow (cold WebView start) — wait for the real result, capped.
         const AUTH_BOOT_TIMEOUT_MS = 2500;
+        const AUTH_BOOT_MAX_WAIT_MS = 8000;
+        let bootHardTimer = 0;
         const bootTimer = window.setTimeout(() => {
-            finishBoot(null);
+            if (!isMounted || bootFinishedRef.current) {
+                return;
+            }
+            const stored = readStoredAuthSession();
+            if (!stored?.access_token && !stored?.refresh_token) {
+                finishBoot(null);
+                return;
+            }
+            bootHardTimer = window.setTimeout(() => {
+                finishBoot(null);
+            }, AUTH_BOOT_MAX_WAIT_MS - AUTH_BOOT_TIMEOUT_MS);
         }, AUTH_BOOT_TIMEOUT_MS);
 
         let subscription: { unsubscribe: () => void } | null = null;
@@ -268,10 +294,15 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
                     return;
                 }
                 if (event === "SIGNED_OUT") {
+                    if (!explicitSignOutRef.current && establishedSessionRef.current) {
+                        return;
+                    }
                     clearAuthenticatedState();
                     return;
                 }
                 if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") && session) {
+                    bootFinishedRef.current = true;
+                    setAuthReady(true);
                     if (hasUsableAuthCredentials(session)) {
                         markAuthenticated(session, resolveSessionUser(session, persistedUserRef.current));
                     }
@@ -285,17 +316,12 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
 
         void (async () => {
             try {
-                const result = await Promise.race([
-                    supabase.auth.getSession(),
-                    new Promise<null>((resolve) => {
-                        window.setTimeout(() => resolve(null), AUTH_BOOT_TIMEOUT_MS);
-                    }),
-                ]);
+                // A stalled getSession is resolved by the boot timers above, not here.
+                const result = await supabase.auth.getSession();
                 if (!isMounted || bootFinishedRef.current) {
                     return;
                 }
-                const session = result && "data" in result ? result.data.session : null;
-                finishBoot(session);
+                finishBoot(result.data.session);
             }
             catch {
                 finishBoot(null);
@@ -305,6 +331,7 @@ export function DesktopAuthProvider({ children, supabase = defaultSupabaseClient
         return () => {
             isMounted = false;
             window.clearTimeout(bootTimer);
+            window.clearTimeout(bootHardTimer);
             subscription?.unsubscribe();
         };
     }, [clearAuthenticatedState, markAuthenticated, supabase]);
@@ -414,6 +441,7 @@ export async function completeDesktopSignIn(
             access_token: normalizedSession.access_token,
             refresh_token: normalizedSession.refresh_token,
         });
+        noteDesktopSessionAlreadyPersisted();
     }
     return normalizedSession;
 }
