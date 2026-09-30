@@ -2,10 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingFoundingSetup } from "@/lib/admin-auth";
 import { foundingStatusRoleLabel, hasExplicitFoundingDesignation, type FoundingApprovalStatus, type FoundingRole } from "@/lib/founding-onboarding";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
+import { decodeSignupAccountTypeMarker } from "@/lib/signup-account-type";
 
 export type FoundingMemberAdminRow = {
     user_id: string;
     founding_role: FoundingRole;
+    /** Role implied by the requested signup type; approval grants follow this, not the invite role. */
+    request_role: FoundingRole;
     approval_status: FoundingApprovalStatus;
     invite_id: string | null;
     display_name: string | null;
@@ -132,9 +135,13 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
         const userId = String(member.user_id || "");
         const profile = profileMap.get(userId);
         const foundingRole = member.founding_role as FoundingRole;
+        const labelRole: FoundingRole = decodeSignupAccountTypeMarker(member.social_link) === "podcaster"
+            ? "founding_podcaster"
+            : foundingRole;
         return {
             user_id: userId,
             founding_role: foundingRole,
+            request_role: labelRole,
             approval_status: member.approval_status as FoundingApprovalStatus,
             invite_id: (member.invite_id as string | null) || null,
             display_name: String(member.display_name || profile?.display_name || "").trim() || null,
@@ -144,7 +151,7 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
             updated_at: String(member.updated_at || ""),
             email: emails.get(userId) || "",
             username: profile?.username || "",
-            roleLabel: foundingStatusRoleLabel(foundingRole, member.approval_status as FoundingApprovalStatus, {
+            roleLabel: foundingStatusRoleLabel(labelRole, member.approval_status as FoundingApprovalStatus, {
                 explicitFounding: hasExplicitFoundingDesignation(
                     profile?.account_type,
                     rolesByUser.get(userId),

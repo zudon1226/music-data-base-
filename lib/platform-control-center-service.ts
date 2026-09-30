@@ -17,6 +17,7 @@ const EMPTY_OVERVIEW_ROLE_COUNTS: OverviewRoleCounts = {
     launchNotificationSignups: 0,
     artists: 0,
     producers: 0,
+    podcasters: 0,
     admins: 0,
 };
 
@@ -320,6 +321,7 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         rejectedUsers: rejectedResult.count,
         artists: roleCounts.artists,
         producers: roleCounts.producers,
+        podcasters: roleCounts.podcasters,
         totalSongs: songsResult.count,
         totalVideos: videosResult.count,
         totalRingtones: ringtonesResult.count,

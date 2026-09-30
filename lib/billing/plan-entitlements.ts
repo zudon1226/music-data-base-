@@ -242,7 +242,7 @@ export function unionPodcastEntitlements(
 }
 
 /**
- * Artist + Producer share one Podcast Studio grant.
+ * Artist + Producer + Podcaster share one Podcast Studio grant.
  * Phase 1 runtime stays role-based; plan flags are the later Stripe contract.
  */
 export function resolvePodcastAccess(input: {
@@ -250,6 +250,7 @@ export function resolvePodcastAccess(input: {
     extraPlanSlugs?: Array<string | null | undefined>;
     isArtist?: boolean;
     isProducer?: boolean;
+    isPodcaster?: boolean;
     isAdmin?: boolean;
 }) {
     const slugs = [input.planSlug, ...(input.extraPlanSlugs || [])]
@@ -258,7 +259,7 @@ export function resolvePodcastAccess(input: {
     const planEntitlements = uniqueSlugs.length
         ? unionPodcastEntitlements(...uniqueSlugs.map((slug) => CLIENT_PLAN_SUPPORT[slug].entitlements))
         : { ...LISTENER_PUBLIC_ENTITLEMENTS };
-    const studioAllowedByRole = Boolean(input.isAdmin || input.isArtist || input.isProducer);
+    const studioAllowedByRole = Boolean(input.isAdmin || input.isArtist || input.isProducer || input.isPodcaster);
     return {
         planEntitlements,
         studioAllowedByRole,

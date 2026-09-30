@@ -3,10 +3,11 @@ import { resolvePodcastAccess } from "@/lib/billing/plan-entitlements";
 import { loadResolvedAccountCapabilities } from "@/lib/resolved-account-role";
 import { isUuid } from "@/lib/server-supabase";
 
-/** One Studio grant for Artist, Producer, or both. No duplicate Podcast permission. */
+/** One Studio grant for Artist, Producer, Podcaster, or any combination. No duplicate Podcast permission. */
 export function podcastStudioGrantedForRoles(input: {
     isArtist?: boolean;
     isProducer?: boolean;
+    isPodcaster?: boolean;
     isAdmin?: boolean;
 }) {
     return resolvePodcastAccess(input).studioAllowedByRole;
@@ -19,6 +20,7 @@ export async function canUserManagePodcasts(userId: string, email = "") {
     return podcastStudioGrantedForRoles({
         isArtist: capabilities.isArtist,
         isProducer: capabilities.isProducer,
+        isPodcaster: capabilities.isPodcaster,
         isAdmin: capabilities.isAdmin,
     });
 }
@@ -28,7 +30,7 @@ export async function requirePodcastCreator(userId: string, email = "") {
         return {
             ok: false as const,
             status: 403,
-            error: "Podcast Studio is available for Artist and Producer accounts only.",
+            error: "Podcast Studio is available for Artist, Producer, and Podcaster accounts only.",
         };
     }
     return { ok: true as const, userId };

@@ -35,7 +35,7 @@ export function MdbPublicEntryHub({ onGetNotified, onJoinBeta, onLogin }: MdbPub
                     </article>
 
                     <article className="mdb-public-entry-card">
-                        <h2>ARTISTS &amp; PRODUCERS</h2>
+                        <h2>ARTISTS, PRODUCERS &amp; PODCASTERS</h2>
                         <p>Upload your content and help shape MDB during beta.</p>
                         <button type="button" className="mdb-public-entry-action" onClick={onJoinBeta}>
                             JOIN THE BETA

@@ -79,7 +79,7 @@ expect("supabase/migrations/202608200002_podcast_storage_buckets.sql", /'podcast
 expect("supabase/migrations/202608200002_podcast_storage_buckets.sql", /storage\.foldername\(name\)\)\[1\] = auth\.uid\(\)::text/i, "Owner storage boundary missing");
 
 expect("lib/desktop-app-navigation.ts", /\{ view: "Podcasts" \}/, "Global Podcasts navigation missing");
-expect("lib/desktop-app-navigation.ts", /\{ view: "Podcast Studio", requiresCreator: true \}/, "Creator-only Podcast Studio navigation missing");
+expect("lib/desktop-app-navigation.ts", /\{ view: "Podcast Studio", requiresPodcastStudio: true \}/, "Creator-only Podcast Studio navigation missing");
 expect("lib/role-based-navigation.ts", /"Podcasts"/, "Listener Podcast destination missing");
 expect("lib/listener-media-actions.ts", /"Podcast Studio"/, "Listener Podcast Studio denial missing");
 

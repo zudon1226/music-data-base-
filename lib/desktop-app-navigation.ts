@@ -54,6 +54,7 @@ export type DesktopNavBlockReason =
     | "artist-required"
     | "producer-required"
     | "creator-required"
+    | "podcast-studio-required"
     | "role-required";
 
 export type DesktopNavItemDefinition = {
@@ -63,6 +64,7 @@ export type DesktopNavItemDefinition = {
     requiresArtistDashboard?: boolean;
     requiresProducerDashboard?: boolean;
     requiresCreator?: boolean;
+    requiresPodcastStudio?: boolean;
 };
 
 export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
@@ -84,7 +86,7 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Sales", requiresCreator: true },
     { view: "Artist Dashboard", requiresArtistDashboard: true },
     { view: "Producer Dashboard", requiresProducerDashboard: true },
-    { view: "Podcast Studio", requiresCreator: true },
+    { view: "Podcast Studio", requiresPodcastStudio: true },
     { view: "My Ringtones", requiresRingtoneCreator: true },
     { view: "Platform Control Center", requiresOwner: true },
 ];
@@ -119,6 +121,9 @@ export function evaluateDesktopNavAccess(
     }
     if (item?.requiresCreator && !capabilities.canSales) {
         return { allowed: false, reason: "creator-required" };
+    }
+    if (item?.requiresPodcastStudio && !capabilities.canPodcastStudio) {
+        return { allowed: false, reason: "podcast-studio-required" };
     }
     if (item?.requiresRingtoneCreator && !capabilities.canMyRingtones && !capabilities.canPersonalRingtones) {
         return { allowed: false, reason: "ringtone-creator-required" };

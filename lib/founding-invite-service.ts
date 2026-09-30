@@ -6,6 +6,7 @@ import {
     type FoundingRole,
     isInviteExpired,
     normalizeInviteCode,
+    podcasterInviteRoleError,
     resolveInviteStatus,
 } from "@/lib/founding-onboarding";
 import { getErrorMessage } from "@/lib/server-supabase";
@@ -78,6 +79,22 @@ export async function validateInviteCode(supabase: SupabaseClient, rawCode: stri
     };
 }
 
+async function checkPodcasterInviteRole(
+    supabase: SupabaseClient,
+    rawCode: string,
+    accountType: SignupAccountType,
+) {
+    try {
+        const { invite } = await fetchInviteByCode(supabase, rawCode);
+        if (!invite) return { ok: true as const };
+        const error = podcasterInviteRoleError(accountType, invite.intended_role);
+        return error ? { ok: false as const, error } : { ok: true as const };
+    }
+    catch (error) {
+        return { ok: false as const, error: getErrorMessage(error) };
+    }
+}
+
 async function persistRequestedSignupAccountType(options: {
     supabase: SupabaseClient;
     userId: string;
@@ -101,6 +118,7 @@ async function persistRequestedSignupAccountType(options: {
 }
 
 function foundingRoleForSignupAccountType(accountType: SignupAccountType): FoundingRole {
+    if (accountType === "podcaster") return "founding_podcaster";
     return accountType === "producer" ? "founding_producer" : "founding_artist";
 }
 
@@ -155,7 +173,7 @@ export async function revokeUnapprovedCreatorPrivileges(options: {
         .from("user_roles")
         .update({ status: "disabled", updated_at: now })
         .eq("user_id", options.userId)
-        .in("role", ["founding_artist", "founding_producer", "artist", "producer", "artist_pro", "producer_pro", "creator", "creator_free"]);
+        .in("role", ["founding_artist", "founding_producer", "artist", "producer", "artist_pro", "producer_pro", "creator", "creator_free", "founding_podcaster", "podcaster"]);
     await options.supabase
         .from("profiles")
         .upsert({
@@ -186,6 +204,12 @@ export async function redeemFoundingInvite(options: {
         return { ok: false as const, error: parsedAccountType.error };
     }
     const accountType = parsedAccountType.accountType;
+
+    // Must run before the atomic RPC, which consumes the invite without knowing the account type.
+    const roleCheck = await checkPodcasterInviteRole(options.supabase, options.rawCode, accountType);
+    if (!roleCheck.ok) {
+        return { ok: false as const, error: roleCheck.error };
+    }
 
     const rpc = await options.supabase.rpc("redeem_founding_invite_atomic", {
         p_user_id: options.userId,
@@ -450,7 +474,9 @@ export async function setFoundingMemberApproval(options: {
     const metadata = (userLookup.data.user?.user_metadata || {}) as Record<string, unknown>;
     const requestedType = decodeSignupAccountTypeMarker(member.social_link)
         || normalizeSignupAccountType(metadata.requestedAccountType)
-        || (member.founding_role === "founding_producer" ? "producer" : "artist");
+        || (member.founding_role === "founding_podcaster"
+            ? "podcaster"
+            : member.founding_role === "founding_producer" ? "producer" : "artist");
     const grants = resolveSignupAccountTypeGrants(requestedType, { founding: false });
 
     if (options.approvalStatus === "approved") {
@@ -459,7 +485,7 @@ export async function setFoundingMemberApproval(options: {
                 .from("user_roles")
                 .update({ status: "disabled", updated_at: now })
                 .eq("user_id", options.userId)
-                .in("role", ["founding_artist", "founding_producer", "artist", "producer"]);
+                .in("role", ["founding_artist", "founding_producer", "artist", "producer", "founding_podcaster", "podcaster"]);
             await options.supabase
                 .from("profiles")
                 .upsert({
@@ -492,7 +518,7 @@ export async function setFoundingMemberApproval(options: {
             .from("user_roles")
             .update({ status: "disabled", updated_at: now })
             .eq("user_id", options.userId)
-            .in("role", ["founding_artist", "founding_producer", "artist", "producer", member.founding_role]);
+            .in("role", ["founding_artist", "founding_producer", "artist", "producer", "founding_podcaster", "podcaster", member.founding_role]);
         if (member.invite_id) {
             await options.supabase
                 .from("founding_invites")

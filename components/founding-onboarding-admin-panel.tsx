@@ -8,6 +8,7 @@ import { foundingRequestLabel, foundingRoleLabel, foundingStatusRoleLabel } from
 type FoundingMemberAdminRow = {
     user_id: string;
     founding_role: FoundingRole;
+    request_role?: FoundingRole;
     approval_status: "pending" | "approved" | "rejected";
     display_name: string | null;
     joined_at: string;
@@ -208,6 +209,7 @@ export function FoundingOnboardingAdminPanel({
                         <select value={role} onChange={(event) => setRole(event.target.value as FoundingRole)}>
                             <option value="founding_artist">Founding Artist</option>
                             <option value="founding_producer">Founding Producer</option>
+                            <option value="founding_podcaster">Founding Podcaster</option>
                         </select>
                     </label>
                     <label>
@@ -228,7 +230,7 @@ export function FoundingOnboardingAdminPanel({
                                 <div className="founding-onboarding-row" key={member.user_id}>
                                     <div>
                                         <strong>{memberPrimaryLabel(member)}</strong>
-                                        <span>{foundingRequestLabel(member.founding_role)}</span>
+                                        <span>{foundingRequestLabel(member.request_role || member.founding_role)}</span>
                                         {member.email ? <span>{member.email}</span> : null}
                                     </div>
                                     <div className="founding-onboarding-row-actions">

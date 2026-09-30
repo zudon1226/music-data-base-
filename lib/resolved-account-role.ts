@@ -7,7 +7,7 @@
 import { loadFoundingMemberByUserId } from "@/lib/founding-access";
 import { getSupabaseServerClient, isPlatformOwnerEmail, isUuid } from "@/lib/server-supabase";
 
-export type ResolvedAccountRole = "listener" | "artist" | "producer" | "admin";
+export type ResolvedAccountRole = "listener" | "artist" | "producer" | "podcaster" | "admin";
 
 export type ResolvedAccountCapabilities = {
     primaryRole: ResolvedAccountRole;
@@ -15,8 +15,11 @@ export type ResolvedAccountCapabilities = {
     isAdmin: boolean;
     isArtist: boolean;
     isProducer: boolean;
+    /** Podcast Studio only — never grants music/video/ringtone upload, sales, or creator ringtones. */
+    isPodcaster: boolean;
     isListenerOnly: boolean;
     canUpload: boolean;
+    canPodcastStudio: boolean;
     canArtistDashboard: boolean;
     canProducerDashboard: boolean;
     canSales: boolean;
@@ -53,6 +56,9 @@ export function normalizeResolvedAccountRole(value: unknown): ResolvedAccountRol
         || normalized === "producer_pro"
     ) {
         return "producer";
+    }
+    if (normalized === "podcaster" || normalized === "founding_podcaster") {
+        return "podcaster";
     }
     return "listener";
 }
@@ -96,6 +102,9 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
         || roles.has("founding_producer")
         || roles.has("producer_pro");
     const isCreator = isArtist || isProducer || [...roles].some((role) => CREATOR_ROLE_TOKENS.has(role));
+    const isPodcaster = isAdmin
+        || roles.has("podcaster")
+        || roles.has("founding_podcaster");
 
     if (isPlatformOwner || isAdmin) {
         return {
@@ -104,8 +113,10 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
             isAdmin: true,
             isArtist: true,
             isProducer: true,
+            isPodcaster: true,
             isListenerOnly: false,
             canUpload: true,
+            canPodcastStudio: true,
             canArtistDashboard: true,
             canProducerDashboard: true,
             canSales: true,
@@ -122,7 +133,9 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
             ? "artist"
             : isProducer
                 ? "producer"
-                : "listener";
+                : isPodcaster
+                    ? "podcaster"
+                    : "listener";
 
     return {
         primaryRole,
@@ -130,8 +143,10 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
         isAdmin: false,
         isArtist,
         isProducer,
-        isListenerOnly: !isCreator,
+        isPodcaster,
+        isListenerOnly: !isCreator && !isPodcaster,
         canUpload: isCreator,
+        canPodcastStudio: isCreator || isPodcaster,
         canArtistDashboard: isArtist,
         canProducerDashboard: isProducer,
         canSales: isCreator,
@@ -181,7 +196,7 @@ export async function loadResolvedAccountCapabilities(userId: string, email = ""
                 primaryRole === "listener"
                 && !isAdmin
                 && !isPlatformOwner
-                && (normalized === "artist" || normalized === "producer" || normalized === "admin")
+                && (normalized === "artist" || normalized === "producer" || normalized === "podcaster" || normalized === "admin")
             ) {
                 continue;
             }
@@ -260,6 +275,8 @@ const CREATOR_OR_ADMIN_INTENT = new Set([
     "artist_pro",
     "producer_pro",
     "creator",
+    "podcaster",
+    "founding_podcaster",
     "admin",
 ]);
 
@@ -288,6 +305,7 @@ export type OverviewRoleCounts = {
     launchNotificationSignups: number;
     artists: number;
     producers: number;
+    podcasters: number;
     admins: number;
 };
 
@@ -295,7 +313,8 @@ export type OverviewRoleCounts = {
  * Platform Overview role cards.
  * Members = approved/full-access non-admin app members only.
  * Admins are counted separately and are excluded from Members.
- * Listeners = approved/full-access Listener members only.
+ * Listeners = approved/full-access Listener members only (Podcasters and Admins are never Listeners).
+ * Podcasters = approved members holding the podcaster role.
  * Launch notification signups = listener/public registrations without app access.
  * Leftover profiles with stale creator metadata are not launch signups.
  * Pending/rejected creator requests are excluded from Members and Listeners.
@@ -332,6 +351,7 @@ export function countOverviewRolesFromProfiles(
         launchNotificationSignups: 0,
         artists: 0,
         producers: 0,
+        podcasters: 0,
         admins: 0,
     };
 
@@ -369,6 +389,7 @@ export function countOverviewRolesFromProfiles(
             });
             if (caps.isArtist) counts.artists += 1;
             if (caps.isProducer) counts.producers += 1;
+            if (caps.isPodcaster) counts.podcasters += 1;
             if (caps.isListenerOnly) counts.listeners += 1;
             counts.totalUsers += 1;
             continue;

@@ -24,6 +24,8 @@ function normalizeRole(value: unknown) {
         || cleanValue === "producer_pro"
         || cleanValue === "creator_free"
         || cleanValue === "creator"
+        || cleanValue === "podcaster"
+        || cleanValue === "founding_podcaster"
     ) {
         return cleanValue;
     }

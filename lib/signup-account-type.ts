@@ -1,5 +1,5 @@
 /**
- * Signup account-type selection (Listener / Artist / Producer / Artist & Producer).
+ * Signup account-type selection (Listener / Artist / Producer / Artist & Producer / Podcaster).
  * Reuses profiles.account_type + user_roles; does not invent a parallel role system.
  */
 
@@ -8,6 +8,7 @@ export const SIGNUP_ACCOUNT_TYPES = [
     "artist",
     "producer",
     "artist_producer",
+    "podcaster",
 ] as const;
 
 export type SignupAccountType = (typeof SIGNUP_ACCOUNT_TYPES)[number];
@@ -45,7 +46,7 @@ export function parseSignupAccountTypeInput(value: unknown): {
     if (!normalized) {
         return {
             ok: false,
-            error: "Invalid account type. Choose Listener, Artist, Producer, or Artist & Producer.",
+            error: "Invalid account type. Choose Listener, Artist, Producer, Artist & Producer, or Podcaster.",
         };
     }
     return { ok: true, accountType: normalized };
@@ -69,6 +70,8 @@ export function signupAccountTypeLabel(accountType: SignupAccountType) {
             return "Producer";
         case "artist_producer":
             return "Artist & Producer";
+        case "podcaster":
+            return "Podcaster";
         default:
             return "Listener";
     }
@@ -92,6 +95,10 @@ export function resolveSignupAccountTypeGrants(
     }
     if (accountType === "producer") {
         const role = founding ? "founding_producer" : "producer";
+        return { primaryAccountType: role, userRoles: [role] };
+    }
+    if (accountType === "podcaster") {
+        const role = founding ? "founding_podcaster" : "podcaster";
         return { primaryAccountType: role, userRoles: [role] };
     }
     // Artist & Producer: one user, both creator roles; primary is artist-side.

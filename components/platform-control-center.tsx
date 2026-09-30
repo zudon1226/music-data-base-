@@ -152,6 +152,7 @@ export function PlatformControlCenter({
                         ["Launch notification signups", overview?.launchNotificationSignups],
                         ["Artists", overview?.artists],
                         ["Producers", overview?.producers],
+                        ["Podcasters", overview?.podcasters],
                         ["Admins", overview?.admins],
                         ["Approved creators", overview?.approvedUsers],
                         ["Pending creator requests", overview?.pendingUsers],

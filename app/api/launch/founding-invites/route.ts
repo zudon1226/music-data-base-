@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         const admin = await requireAdminUserId(userId);
         if (!admin.ok) return NextResponse.json({ error: admin.error }, { status: admin.status });
         if (!intendedRole) {
-            return NextResponse.json({ error: "Choose founding_artist or founding_producer." }, { status: 400 });
+            return NextResponse.json({ error: "Choose founding_artist, founding_producer, or founding_podcaster." }, { status: 400 });
         }
 
         const supabase = getSupabaseServerClient();

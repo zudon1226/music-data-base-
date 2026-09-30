@@ -96,7 +96,7 @@ export async function applySignupAccountTypeGrants(options: {
             .from("user_roles")
             .update({ status: "disabled", updated_at: now })
             .eq("user_id", options.userId)
-            .in("role", ["founding_artist", "founding_producer"]);
+            .in("role", ["founding_artist", "founding_producer", "founding_podcaster"]);
     }
 
     const displayName = String(options.displayName || (profileRow as { display_name?: string } | null)?.display_name || "").trim();

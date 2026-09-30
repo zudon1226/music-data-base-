@@ -1,5 +1,5 @@
 
-export const FOUNDING_ROLES = ["founding_artist", "founding_producer"] as const;
+export const FOUNDING_ROLES = ["founding_artist", "founding_producer", "founding_podcaster"] as const;
 export type FoundingRole = (typeof FOUNDING_ROLES)[number];
 
 export const FOUNDING_APPROVAL_STATUSES = ["pending", "approved", "rejected"] as const;
@@ -62,14 +62,17 @@ export function buildFoundingInviteLink(siteUrl: string, inviteCode: string) {
 }
 
 export function foundingRoleLabel(role: FoundingRole) {
+    if (role === "founding_podcaster") return "Founding Podcaster";
     return role === "founding_producer" ? "Founding Producer" : "Founding Artist";
 }
 
 export function foundingRequestLabel(role: FoundingRole) {
+    if (role === "founding_podcaster") return "Podcaster Request";
     return role === "founding_producer" ? "Producer Request" : "Artist Request";
 }
 
 export function ordinaryCreatorRoleLabel(role: FoundingRole) {
+    if (role === "founding_podcaster") return "Podcaster";
     return role === "founding_producer" ? "Producer" : "Artist";
 }
 
@@ -84,7 +87,7 @@ export function hasExplicitFoundingDesignation(
         const clean = String(role || "").trim().toLowerCase();
         if (clean) tokens.add(clean);
     }
-    return tokens.has("founding_artist") || tokens.has("founding_producer");
+    return tokens.has("founding_artist") || tokens.has("founding_producer") || tokens.has("founding_podcaster");
 }
 
 export function foundingStatusRoleLabel(
@@ -99,6 +102,7 @@ export function foundingStatusRoleLabel(
 }
 
 export function foundingRoleDashboard(role: FoundingRole) {
+    if (role === "founding_podcaster") return "Podcast Studio";
     return role === "founding_producer" ? "Producer Dashboard" : "Artist Dashboard";
 }
 
@@ -135,3 +139,22 @@ export const LISTENER_LAUNCH_WAITLIST_MESSAGE =
 
 export const FOUNDING_ROLE_LOCKED_MESSAGE =
     "Your founding role is assigned by invite and cannot be changed.";
+
+export const PODCASTER_INVITE_REQUIRED_MESSAGE =
+    "Podcaster accounts require a Podcaster invite code. Artist and Producer invite codes cannot be used for a Podcaster account.";
+
+export const PODCASTER_INVITE_ACCOUNT_TYPE_MESSAGE =
+    "This invite code is for a Podcaster account. Select Podcaster to use it.";
+
+/**
+ * Podcaster-only invite enforcement: a Podcaster signup needs a founding_podcaster invite,
+ * and a founding_podcaster invite can only create a Podcaster request.
+ * Artist/Producer invite behavior for other account types is intentionally unchanged.
+ */
+export function podcasterInviteRoleError(accountType: unknown, intendedRole: unknown): string | null {
+    const isPodcasterSignup = String(accountType || "").trim().toLowerCase() === "podcaster";
+    const isPodcasterInvite = normalizeFoundingRole(intendedRole) === "founding_podcaster";
+    if (isPodcasterSignup && !isPodcasterInvite) return PODCASTER_INVITE_REQUIRED_MESSAGE;
+    if (!isPodcasterSignup && isPodcasterInvite) return PODCASTER_INVITE_ACCOUNT_TYPE_MESSAGE;
+    return null;
+}

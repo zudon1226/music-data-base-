@@ -207,6 +207,7 @@ import {
     FOUNDING_INVITE_REQUIRED_MESSAGE,
     FOUNDING_ROLE_LOCKED_MESSAGE,
     LISTENER_LAUNCH_WAITLIST_MESSAGE,
+    PODCASTER_INVITE_REQUIRED_MESSAGE,
     foundingStatusRoleLabel,
     isFoundingBetaLocked,
 } from "../lib/founding-onboarding";
@@ -7425,6 +7426,7 @@ function PageContent({
             isAdmin?: boolean;
             isArtist?: boolean;
             isProducer?: boolean;
+            isPodcaster?: boolean;
             canUpload?: boolean;
             isListenerOnly?: boolean;
             avatarUrl?: string;
@@ -7468,7 +7470,7 @@ function PageContent({
             avatarUrl: String(data.avatarUrl || "").trim(),
         };
         const listenerOnly = data.isListenerOnly === true
-            || (nextProfile.role === "listener" && data.canUpload !== true && !data.isArtist && !data.isProducer);
+            || (nextProfile.role === "listener" && data.canUpload !== true && !data.isArtist && !data.isProducer && !data.isPodcaster);
         const forcedRole = listenerOnly ? "listener" : nextProfile.role;
         setUserAuthProfile({ ...nextProfile, role: forcedRole });
         const nextRoles = listenerOnly
@@ -16883,7 +16885,7 @@ function PageContent({
                 const validation = await fetch("/api/founding-invites/validate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ inviteCode: authInviteCode }),
+                    body: JSON.stringify({ inviteCode: authInviteCode, accountType: signupAccountType }),
                 });
                 const validationJson = await validation.json().catch(() => ({}));
                 if (!validation.ok || !validationJson.valid) {
@@ -17088,10 +17090,13 @@ function PageContent({
         }
         setGateRedeemBusy(true);
         try {
+            const metadataAccountType = normalizeSignupAccountType(
+                (session?.user?.user_metadata as Record<string, unknown> | undefined)?.requestedAccountType,
+            ) || DEFAULT_SIGNUP_ACCOUNT_TYPE;
             const validation = await fetch("/api/founding-invites/validate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ inviteCode }),
+                body: JSON.stringify({ inviteCode, accountType: metadataAccountType }),
             });
             const validationJson = await validation.json().catch(() => ({}));
             if (!validation.ok || !validationJson.valid) {
@@ -17100,9 +17105,6 @@ function PageContent({
                 return;
             }
 
-            const metadataAccountType = normalizeSignupAccountType(
-                (session?.user?.user_metadata as Record<string, unknown> | undefined)?.requestedAccountType,
-            ) || DEFAULT_SIGNUP_ACCOUNT_TYPE;
             const redeem = await fetch("/api/founding-invites/redeem", {
                 method: "POST",
                 headers: {
@@ -18941,6 +18943,9 @@ function PageContent({
                     );
                   })}
                 </div>
+                {foundingBetaLocked && authAccountType === "podcaster" && (
+                  <p className="auth-account-type-help" data-podcaster-invite-hint="true">{PODCASTER_INVITE_REQUIRED_MESSAGE}</p>
+                )}
               </fieldset>
             )}
 
@@ -19181,6 +19186,10 @@ function PageContent({
             border: 1px solid var(--mdb-border);
             background: var(--mdb-bg);
             cursor: pointer;
+          }
+
+          .auth-account-type-option:last-child:nth-child(odd) {
+            grid-column: 1 / -1;
           }
 
           .auth-account-type-option.is-selected {
@@ -19830,7 +19839,7 @@ function PageContent({
               studio={creatorStudio}
               canArtistStudio={shouldShowArtistDashboardControl(desktopNavAccess)}
               canProducerStudio={shouldShowProducerDashboardControl(desktopNavAccess)}
-              canPodcastStudio={navCapabilities.canUpload}
+              canPodcastStudio={navCapabilities.canPodcastStudio}
               activeMode={uploadMode}
               brandLogo={BRAND_LOGO}
               onStudioChange={switchCreatorStudio}
@@ -21717,7 +21726,7 @@ function PageContent({
               onPlayPodcast={playPodcast}
               onOpenShow={openPodcastShow}
             />
-          ) : view === "Podcast Studio" && navCapabilities.canUpload ? (
+          ) : view === "Podcast Studio" && navCapabilities.canPodcastStudio ? (
             <PodcastStudioWorkspace
               userId={accountUserId}
               onPlayPodcast={playPodcast}

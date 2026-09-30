@@ -17,6 +17,7 @@ export type PlatformOverviewStats = {
     rejectedUsers: number;
     artists: number;
     producers: number;
+    podcasters: number;
     totalSongs: number;
     totalVideos: number;
     totalRingtones: number;

@@ -10,15 +10,17 @@ import {
     type ResolvedAccountCapabilities,
 } from "@/lib/resolved-account-role";
 
-export type NavAccountRole = "listener" | "artist" | "producer" | "admin";
+export type NavAccountRole = "listener" | "artist" | "producer" | "podcaster" | "admin";
 
 export type NavCapabilityFlags = {
     isPlatformOwner: boolean;
     isAdmin: boolean;
     isArtist: boolean;
     isProducer: boolean;
+    isPodcaster: boolean;
     isListenerOnly: boolean;
     canUpload: boolean;
+    canPodcastStudio: boolean;
     canArtistDashboard: boolean;
     canProducerDashboard: boolean;
     canPlatformControlCenter: boolean;
@@ -69,8 +71,10 @@ function toNavFlags(
         isAdmin: resolved.isAdmin,
         isArtist: resolved.isArtist,
         isProducer: resolved.isProducer,
+        isPodcaster: resolved.isPodcaster,
         isListenerOnly: resolved.isListenerOnly,
         canUpload: resolved.canUpload,
+        canPodcastStudio: resolved.canPodcastStudio,
         canArtistDashboard: resolved.canArtistDashboard,
         canProducerDashboard: resolved.canProducerDashboard,
         canPlatformControlCenter: isPlatformOwner || resolved.isAdmin,
@@ -110,6 +114,9 @@ export function sanitizeNavRolesForPrimary(
     if (primary === "listener") {
         return roles.filter((role) => !CREATOR_ROLE_TOKENS.has(role) && normalizeNavRole(role) === "listener");
     }
+    if (primary === "podcaster") {
+        return roles.filter((role) => !CREATOR_ROLE_TOKENS.has(role));
+    }
     return roles;
 }
 
@@ -121,8 +128,10 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
             isAdmin: false,
             isArtist: false,
             isProducer: false,
+            isPodcaster: false,
             isListenerOnly: true,
             canUpload: false,
+            canPodcastStudio: false,
             canArtistDashboard: false,
             canProducerDashboard: false,
             canPlatformControlCenter: false,
@@ -190,7 +199,7 @@ export function canAccessNavView(view: string, capabilities: NavCapabilityFlags)
     if (view === "Platform Control Center") return capabilities.canPlatformControlCenter;
     if (view === "Artist Dashboard" || view === "Artist Profile") return capabilities.canArtistDashboard;
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
-    if (view === "Podcast Studio") return capabilities.canUpload;
+    if (view === "Podcast Studio") return capabilities.canPodcastStudio;
     if (view === "Sales") return capabilities.canSales;
     if (view === "My Ringtones") return capabilities.canMyRingtones || capabilities.canPersonalRingtones;
     if ((LISTENER_ACCESSIBLE_VIEWS as readonly string[]).includes(view)) return true;
