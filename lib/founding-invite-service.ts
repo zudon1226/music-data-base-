@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes } from "node:crypto";
 import { isMissingFoundingSetup } from "@/lib/admin-auth";
+import { findAdminUserByEmail } from "@/lib/admin-auth-users";
 import {
     type FoundingInviteRecord,
     type FoundingRole,
@@ -9,7 +10,7 @@ import {
     podcasterInviteRoleError,
     resolveInviteStatus,
 } from "@/lib/founding-onboarding";
-import { getErrorMessage } from "@/lib/server-supabase";
+import { getErrorMessage, isPlatformOwnerEmail } from "@/lib/server-supabase";
 import {
     type SignupAccountType,
     decodeSignupAccountTypeMarker,
@@ -529,4 +530,139 @@ export async function setFoundingMemberApproval(options: {
     }
 
     return { ok: true as const, member: result.data };
+}
+
+/** Disabled by the Listener branch of setFoundingMemberApproval. */
+const LISTENER_APPROVAL_DISABLED_ROLES = ["founding_artist", "founding_producer", "artist", "producer", "founding_podcaster", "podcaster"];
+/** Not disabled by that branch, so the grant refuses instead of silently keeping them. */
+const LISTENER_GRANT_BLOCKING_ROLES = ["admin", "artist_pro", "producer_pro", "creator"];
+
+async function loadActiveRoles(supabase: SupabaseClient, userId: string) {
+    const result = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("status", "active");
+    if (result.error) throw result.error;
+    return (result.data || []).map((row) => String(row.role || "").trim().toLowerCase()).filter(Boolean);
+}
+
+async function loadProfileAccess(supabase: SupabaseClient, userId: string) {
+    const result = await supabase
+        .from("profiles")
+        .select("account_type,is_admin,display_name")
+        .or(`id.eq.${userId},user_id.eq.${userId}`)
+        .limit(1);
+    if (result.error) throw result.error;
+    const row = (result.data || [])[0] as { account_type?: string | null; is_admin?: boolean | null; display_name?: string | null } | undefined;
+    if (!row) return null;
+    return {
+        accountType: String(row.account_type || "").trim().toLowerCase(),
+        isAdmin: row.is_admin === true,
+        displayName: String(row.display_name || "").trim(),
+    };
+}
+
+/**
+ * Admin/owner-only: approved app access for an existing Listener without an invite.
+ * Keeps account_type = listener and never grants creator/admin roles.
+ */
+export async function grantListenerAppAccess(options: {
+    supabase: SupabaseClient;
+    email: string;
+    reviewerId: string;
+}) {
+    const email = options.email.trim().toLowerCase();
+    if (!email) return { ok: false as const, status: 400, error: "Listener email is required." };
+    if (isPlatformOwnerEmail(email)) {
+        return { ok: false as const, status: 400, error: "The platform owner account cannot receive Listener access." };
+    }
+
+    const user = await findAdminUserByEmail(options.supabase, email);
+    if (!user) return { ok: false as const, status: 404, error: "No account found for that email." };
+    const targetUserId = user.id;
+    if (targetUserId === options.reviewerId) {
+        return { ok: false as const, status: 400, error: "You cannot grant Listener access to your own account." };
+    }
+
+    const profile = await loadProfileAccess(options.supabase, targetUserId);
+    if (!profile) return { ok: false as const, status: 400, error: "That account has no profile yet." };
+    if (profile.accountType !== "listener") {
+        return { ok: false as const, status: 400, error: "Listener access can only be granted to Listener accounts." };
+    }
+    if (profile.isAdmin) {
+        return { ok: false as const, status: 400, error: "Admin accounts cannot receive Listener access." };
+    }
+    const activeRoles = await loadActiveRoles(options.supabase, targetUserId);
+    const blockingRole = activeRoles.find((role) => LISTENER_GRANT_BLOCKING_ROLES.includes(role));
+    if (blockingRole) {
+        return { ok: false as const, status: 400, error: `That account has an active ${blockingRole} role. Resolve it before granting Listener access.` };
+    }
+
+    const existing = await options.supabase
+        .from("founding_members")
+        .select("approval_status,social_link")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+    if (existing.error) throw existing.error;
+    if (existing.data) {
+        const existingRow = existing.data as { approval_status?: string; social_link?: string | null };
+        if (existingRow.approval_status === "approved" && decodeSignupAccountTypeMarker(existingRow.social_link) === "listener") {
+            return { ok: true as const, alreadyApproved: true, userId: targetUserId };
+        }
+        return {
+            ok: false as const,
+            status: 409,
+            error: "That account already has a founding membership record. Use Pending Approvals instead.",
+        };
+    }
+
+    const now = new Date().toISOString();
+    // founding_role has no listener value; the listener marker in social_link drives approval grants.
+    const insert = await options.supabase
+        .from("founding_members")
+        .insert({
+            user_id: targetUserId,
+            founding_role: "founding_artist",
+            approval_status: "pending",
+            invite_id: null,
+            display_name: profile.displayName || null,
+            social_link: encodeSignupAccountTypeMarker("listener"),
+            joined_at: now,
+            updated_at: now,
+        })
+        .select("user_id")
+        .single();
+    if (insert.error) return { ok: false as const, status: 400, error: getErrorMessage(insert.error) };
+
+    const rollback = async () => {
+        await options.supabase.from("founding_members").delete().eq("user_id", targetUserId);
+    };
+
+    try {
+        const approved = await setFoundingMemberApproval({
+            supabase: options.supabase,
+            userId: targetUserId,
+            approvalStatus: "approved",
+            reviewerId: options.reviewerId,
+        });
+        if (!approved.ok) {
+            await rollback();
+            return { ok: false as const, status: 400, error: approved.error };
+        }
+
+        const after = await loadProfileAccess(options.supabase, targetUserId);
+        const rolesAfter = await loadActiveRoles(options.supabase, targetUserId);
+        const leakedRole = rolesAfter.find((role) =>
+            LISTENER_APPROVAL_DISABLED_ROLES.includes(role) || LISTENER_GRANT_BLOCKING_ROLES.includes(role));
+        if (!after || after.accountType !== "listener" || after.isAdmin || leakedRole) {
+            await rollback();
+            return { ok: false as const, status: 500, error: "Listener access verification failed; the grant was rolled back." };
+        }
+        return { ok: true as const, alreadyApproved: false, userId: targetUserId, member: approved.member };
+    }
+    catch (error) {
+        await rollback();
+        throw error;
+    }
 }

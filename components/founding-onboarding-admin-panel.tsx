@@ -57,6 +57,8 @@ export function FoundingOnboardingAdminPanel({
     const [role, setRole] = useState<FoundingRole>("founding_artist");
     const [expiresAt, setExpiresAt] = useState("");
     const [busyAction, setBusyAction] = useState("");
+    const [listenerEmail, setListenerEmail] = useState("");
+    const [listenerGrantMessage, setListenerGrantMessage] = useState("");
 
     const groupedInvites = useMemo(() => ({
         active: invites.filter((invite) => invite.status === "active"),
@@ -185,6 +187,40 @@ export function FoundingOnboardingAdminPanel({
         }
     }
 
+    async function grantListenerAccess() {
+        const memberEmail = listenerEmail.trim();
+        if (!memberEmail) return;
+        setBusyAction("grant-listener");
+        setError("");
+        setListenerGrantMessage("");
+        try {
+            const response = await fetch("/api/launch/founding-members", {
+                method: "PATCH",
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(authBody(userId, accessToken, refreshToken, {
+                    action: "grant_listener_access",
+                    memberEmail,
+                })),
+            });
+            const json = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(json.error || "Listener access grant failed.");
+            setListenerGrantMessage(json.alreadyApproved
+                ? "This Listener already has app access."
+                : "Listener app access granted.");
+            setListenerEmail("");
+            await loadData();
+        }
+        catch (grantError) {
+            setError(grantError instanceof Error ? grantError.message : "Listener access grant failed.");
+        }
+        finally {
+            setBusyAction("");
+        }
+    }
+
     return (
         <section className="stability-panel founding-onboarding-panel">
             <div className="panel-title-row">
@@ -219,6 +255,29 @@ export function FoundingOnboardingAdminPanel({
                     <button onClick={() => void createInvite()} type="button" disabled={busyAction === "create"}>
                         <Shield size={15}/>
                         {busyAction === "create" ? "Creating..." : "Create Single-Use Invite"}
+                    </button>
+                </article>
+
+                <article className="founding-onboarding-card">
+                    <h4>Grant Listener Access</h4>
+                    <p>App access for an existing Listener account. No invite, upload, studio, or admin access.</p>
+                    <label>
+                        <span>Listener email</span>
+                        <input
+                            type="email"
+                            autoComplete="off"
+                            value={listenerEmail}
+                            onChange={(event) => setListenerEmail(event.target.value)}
+                        />
+                    </label>
+                    {listenerGrantMessage ? <p role="status">{listenerGrantMessage}</p> : null}
+                    <button
+                        onClick={() => void grantListenerAccess()}
+                        type="button"
+                        disabled={Boolean(busyAction) || !listenerEmail.trim()}
+                    >
+                        <UserCheck size={15}/>
+                        {busyAction === "grant-listener" ? "Granting..." : "Grant Listener Access"}
                     </button>
                 </article>
 

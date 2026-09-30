@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminUserId } from "@/lib/admin-auth";
-import { setFoundingMemberApproval } from "@/lib/founding-invite-service";
+import { grantListenerAppAccess, setFoundingMemberApproval } from "@/lib/founding-invite-service";
 import {
     getFoundingMembersListErrorMessage,
     listFoundingMembersForAdmin,
@@ -52,6 +52,21 @@ export async function PATCH(request: Request) {
         if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
         const admin = await requireAdminUserId(userId);
         if (!admin.ok) return NextResponse.json({ error: admin.error }, { status: admin.status });
+        if (action === "grant_listener_access") {
+            const memberEmail = typeof body.memberEmail === "string" ? body.memberEmail.trim() : "";
+            if (!memberEmail) {
+                return NextResponse.json({ error: "Listener email is required." }, { status: 400 });
+            }
+            const granted = await grantListenerAppAccess({
+                supabase: getSupabaseServerClient(),
+                email: memberEmail,
+                reviewerId: userId,
+            });
+            if (!granted.ok) {
+                return NextResponse.json({ error: granted.error }, { status: granted.status });
+            }
+            return NextResponse.json({ ok: true, alreadyApproved: granted.alreadyApproved, memberUserId: granted.userId });
+        }
         if (!memberUserId || !isUuid(memberUserId)) {
             return NextResponse.json({ error: "Member user id is required." }, { status: 400 });
         }

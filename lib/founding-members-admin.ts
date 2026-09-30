@@ -135,9 +135,11 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
         const userId = String(member.user_id || "");
         const profile = profileMap.get(userId);
         const foundingRole = member.founding_role as FoundingRole;
-        const labelRole: FoundingRole = decodeSignupAccountTypeMarker(member.social_link) === "podcaster"
+        const requestedType = decodeSignupAccountTypeMarker(member.social_link);
+        const labelRole: FoundingRole = requestedType === "podcaster"
             ? "founding_podcaster"
             : foundingRole;
+        const listenerApproved = requestedType === "listener" && member.approval_status === "approved";
         return {
             user_id: userId,
             founding_role: foundingRole,
@@ -151,12 +153,14 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
             updated_at: String(member.updated_at || ""),
             email: emails.get(userId) || "",
             username: profile?.username || "",
-            roleLabel: foundingStatusRoleLabel(labelRole, member.approval_status as FoundingApprovalStatus, {
-                explicitFounding: hasExplicitFoundingDesignation(
-                    profile?.account_type,
-                    rolesByUser.get(userId),
-                ),
-            }),
+            roleLabel: listenerApproved
+                ? "Listener access"
+                : foundingStatusRoleLabel(labelRole, member.approval_status as FoundingApprovalStatus, {
+                    explicitFounding: hasExplicitFoundingDesignation(
+                        profile?.account_type,
+                        rolesByUser.get(userId),
+                    ),
+                }),
         };
     });
 
