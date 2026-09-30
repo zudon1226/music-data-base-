@@ -11,7 +11,16 @@ export const LEGAL_POLICY_VERSION = LEGAL_POLICY_VERSION_CORE;
 
 export const LEGAL_LAST_UPDATED_LABEL = "September 10, 2026";
 
-export const LEGAL_CONTACT_EMAIL = "zudon1226@gmail.com";
+export const LEGAL_PRIVACY_LAST_UPDATED_LABEL = "September 30, 2026";
+
+/** Displayed revision only; acceptance still uses `version` (LEGAL_POLICY_VERSION). */
+export const LEGAL_PRIVACY_REVISION = "2026-09-30";
+
+export const LEGAL_CONTACT_EMAIL = "info@digitalmusicdatabase.com";
+
+export const LEGAL_OPERATOR_NAME = "Music Data Base LLC";
+
+export const LEGAL_PUBLIC_SITE_LABEL = "www.digitalmusicdatabase.com";
 
 export const LEGAL_POLICY_TYPES = [
     "privacy",
@@ -26,12 +35,17 @@ export const LEGAL_POLICY_TYPES = [
 
 export type LegalPolicyType = (typeof LEGAL_POLICY_TYPES)[number];
 
+/** Public legal pages; informational pages are not acceptance policy types. */
+export type LegalPageType = LegalPolicyType | "account_deletion";
+
 export type LegalPolicyDefinition = {
-    type: LegalPolicyType;
+    type: LegalPageType;
     slug: string;
     title: string;
     shortTitle: string;
     version: string;
+    /** Shown on the policy page when the text is revised without changing the acceptance version. */
+    displayRevision?: string;
     lastUpdated: string;
     publicPath: string;
 };
@@ -43,7 +57,8 @@ export const LEGAL_POLICIES: LegalPolicyDefinition[] = [
         title: "Privacy Policy",
         shortTitle: "Privacy Policy",
         version: LEGAL_POLICY_VERSION,
-        lastUpdated: LEGAL_LAST_UPDATED_LABEL,
+        displayRevision: LEGAL_PRIVACY_REVISION,
+        lastUpdated: LEGAL_PRIVACY_LAST_UPDATED_LABEL,
         publicPath: "/legal/privacy",
     },
     {
@@ -54,6 +69,16 @@ export const LEGAL_POLICIES: LegalPolicyDefinition[] = [
         version: LEGAL_POLICY_VERSION,
         lastUpdated: LEGAL_LAST_UPDATED_LABEL,
         publicPath: "/legal/terms",
+    },
+    {
+        type: "account_deletion",
+        slug: "account-deletion",
+        title: "Account Deletion",
+        shortTitle: "Account Deletion",
+        version: LEGAL_POLICY_VERSION,
+        displayRevision: LEGAL_PRIVACY_REVISION,
+        lastUpdated: LEGAL_PRIVACY_LAST_UPDATED_LABEL,
+        publicPath: "/legal/account-deletion",
     },
     {
         type: "creator_upload",

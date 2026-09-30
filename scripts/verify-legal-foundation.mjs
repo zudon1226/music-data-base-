@@ -61,7 +61,7 @@ record("sponsor terms no connect transfer", content.includes("do not create Arti
 record("policy version identifier", policies.includes("LEGAL_POLICY_VERSION"));
 record("policy last updated label", policies.includes("LEGAL_LAST_UPDATED_LABEL"));
 record("no fake business address in policies", !content.match(/\d+\s+[A-Z][a-z]+\s+(Street|St\.|Avenue|Ave\.|Road|Rd\.)/));
-record("dmca uses existing contact email", content.includes("LEGAL_CONTACT_EMAIL") && read("lib/legal-policies.ts").includes("zudon1226@gmail.com"));
+record("dmca uses existing contact email", content.includes("LEGAL_CONTACT_EMAIL") && read("lib/legal-policies.ts").includes("info@digitalmusicdatabase.com"));
 
 record("legal acceptances migration", migration.includes("legal_acceptances"));
 record("legal acceptances unique constraint", migration.includes("unique (user_id, policy_type, policy_version)"));

@@ -21,7 +21,7 @@ export function PolicyPageLayout({ policy, sections }: Props) {
                     <p className="legal-policy-meta">
                         Last Updated: {policy.lastUpdated}
                         <span aria-hidden="true"> · </span>
-                        Policy Version: {policy.version}
+                        Policy Version: {policy.displayRevision || policy.version}
                     </p>
                 </header>
 

@@ -1,5 +1,5 @@
-import { LEGAL_CONTACT_EMAIL } from "@/lib/legal-policies";
-import type { LegalPolicyType } from "@/lib/legal-policies";
+import { LEGAL_CONTACT_EMAIL, LEGAL_OPERATOR_NAME, LEGAL_PUBLIC_SITE_LABEL } from "@/lib/legal-policies";
+import type { LegalPageType } from "@/lib/legal-policies";
 
 export type PolicySection = {
     heading?: string;
@@ -7,12 +7,14 @@ export type PolicySection = {
     list?: string[];
 };
 
-export function getLegalPolicyContent(type: LegalPolicyType): PolicySection[] {
+export function getLegalPolicyContent(type: LegalPageType): PolicySection[] {
     switch (type) {
         case "privacy":
             return privacyPolicyContent();
         case "terms":
             return termsOfServiceContent();
+        case "account_deletion":
+            return accountDeletionContent();
         case "creator_upload":
             return creatorUploadAgreementContent();
         case "dmca":
@@ -34,53 +36,216 @@ function privacyPolicyContent(): PolicySection[] {
     return [
         {
             paragraphs: [
-                "This Privacy Policy describes how Music Data Base collects, uses, and protects information when you use our website, applications, and related services (the \"Service\").",
+                `This Privacy Policy explains how ${LEGAL_OPERATOR_NAME} ("Music Data Base," "MDB," "we," "us," or "our") collects, uses, shares, and protects information when you use the Music Data Base website at ${LEGAL_PUBLIC_SITE_LABEL}, the Music Data Base mobile apps, and related services (together, the "Service").`,
+                `The Service is operated by ${LEGAL_OPERATOR_NAME}. By using the Service, you acknowledge the practices described in this Privacy Policy.`,
             ],
         },
         {
-            heading: "Information We Collect",
+            heading: "Information You Provide",
             list: [
-                "Account information such as email address, display name, and account type.",
-                "Profile and creator information you choose to provide.",
-                "Content you upload, publish, purchase, save, or interact with on the Service.",
-                "Billing and subscription status handled through Stripe (payment card details are processed by Stripe, not stored directly by Music Data Base).",
-                "Technical and usage information such as device/browser data, logs, and security events needed to operate and protect the Service.",
+                "Account information: your email address, password, and the account type you select (Listener, Artist, Producer, Artist + Producer, or Podcaster), along with any invite code you enter and your founding member or approval status.",
+                "Profile information: your display name, profile image (avatar), and other profile details you choose to add.",
+                "Content you upload: music and other audio, videos, album details, podcast shows and episodes (audio or video) and cover art, ringtone source audio, sponsor logos and campaign assets, support ticket screenshots, and the titles, descriptions, and other details you attach to them.",
+                "Activity on the Service: songs and videos you like or save to your library, playlists and queues you create, playback state, podcast episode comments, and searches you enter.",
+                "Support communications: support tickets, attached screenshots, and emails you send to us.",
+                "Sidekick messages: messages you send to the Sidekick assistant and the recent conversation history needed to answer them.",
+                "Policy acceptances: which policies you accepted, the policy version, and when you accepted.",
+                "Sponsor applications: business and campaign details you submit when applying to sponsor on the Service.",
+            ],
+        },
+        {
+            heading: "Payment and Payout Information",
+            paragraphs: [
+                "Paid features such as subscriptions, ringtone and marketplace purchases, and sponsor packages are processed by third-party payment processors. During public beta, paid checkout may be locked even where pricing is displayed.",
+            ],
+            list: [
+                "Stripe processes card payments. Payment card details are entered with and processed by Stripe; Music Data Base does not store full payment card numbers. We store records such as your plan, subscription status, purchase records, and Stripe customer, subscription, and payment identifiers.",
+                "Stripe Connect is used for creator payout onboarding. Stripe collects and verifies identity, tax, and bank account information directly. Music Data Base stores your Connect account identifier, onboarding and payout status, and earnings and payout records, but does not store full bank account numbers.",
+                "Our billing system also includes support for PayPal as an alternative payment processor. PayPal is used only if it is offered for a transaction at checkout. If you choose PayPal, the information needed to complete that payment is processed by PayPal.",
+            ],
+        },
+        {
+            heading: "Information Collected Automatically",
+            list: [
+                "Error reports: when something fails in the Service, we may record an error report linked to your account, including the error category, the action that failed, the error message, the related item, and limited technical details. These reports are stored by Music Data Base and used to troubleshoot and support the Service.",
+                "Service logs: our hosting and infrastructure providers process technical information such as IP addresses, browser and device information, and request logs as part of delivering and securing the Service.",
+                "Browser and device storage: the Service uses your browser's or app's local storage and session storage to keep you signed in and to remember preferences such as your display language, library and queue state, and playback settings. You can clear this data through your browser or device settings, but some features may not work without it.",
+            ],
+        },
+        {
+            heading: "Device Permissions and Files",
+            list: [
+                "The Music Data Base Android app requests only internet access.",
+                "When you upload content, you choose files using your device's file picker. Only the files you select are uploaded.",
+                "Share and copy-link features use your device's share sheet or clipboard only when you choose to use them.",
+                "We do not collect your precise location, your contacts, or microphone or camera recordings.",
             ],
         },
         {
             heading: "How We Use Information",
             list: [
-                "Provide, secure, and improve the Service.",
-                "Authenticate users, enforce account permissions, and prevent abuse.",
-                "Process subscriptions, marketplace purchases, sponsor applications, and creator payout eligibility.",
-                "Communicate about account, billing, support, and policy updates.",
-                "Comply with legal obligations and respond to valid rights requests.",
+                "Provide the Service, including streaming, uploads, libraries, playlists, podcasts, and ringtone creation (including server-side audio processing of ringtone clips).",
+                "Create and secure accounts, authenticate you, and enforce account types, roles, invite codes, and approval requirements.",
+                "Process subscriptions, purchases, sponsor applications, and creator payouts when those features are enabled.",
+                "Show in-app notifications about activity such as podcast, ringtone, and subscription updates.",
+                "Respond to support requests and generate Sidekick replies.",
+                "Troubleshoot errors, moderate content, prevent fraud and abuse, and protect users and the platform.",
+                "Keep records of policy acceptances and comply with legal obligations.",
             ],
         },
         {
-            heading: "Sharing",
+            heading: "Service Providers We Use",
             paragraphs: [
-                "We use service providers such as Supabase and Stripe to operate the Service. We do not sell personal information. We may disclose information when required by law, to protect users and the platform, or with your direction.",
+                "We share information with the following service providers only as needed for them to provide their services to us. Each provider processes information under its own terms and privacy policy.",
             ],
-        },
-        {
-            heading: "Retention and Security",
-            paragraphs: [
-                "We retain information as needed to operate the Service, maintain records, resolve disputes, and comply with law. We use reasonable administrative, technical, and organizational safeguards, but no system is completely secure.",
-            ],
-        },
-        {
-            heading: "Your Choices",
             list: [
-                "You may update certain profile information in your account.",
-                "You may request account-related assistance by contacting us.",
-                "Cookie and browser controls may affect certain features.",
+                "Supabase: user authentication (including password reset emails), our Postgres database, and file storage for uploaded media and attachments.",
+                "Vercel: website and application hosting and server-side processing.",
+                "Stripe and Stripe Connect: payment processing, creator payout onboarding, identity verification, and payouts.",
+                "PayPal: payment processing, only for payments you choose to make with PayPal where it is offered.",
+                "OpenAI: when you use Sidekick, your messages and recent conversation history are sent to OpenAI to generate replies. Do not include sensitive personal information in Sidekick messages.",
+                "Unsplash: some default artwork and background images are loaded from Unsplash. When your device loads these images, Unsplash receives standard request information such as your IP address and browser details.",
+            ],
+        },
+        {
+            heading: "Other Sharing",
+            list: [
+                "Public content: content you publish, such as your public profile, uploads, podcast shows and episodes, and podcast episode comments, can be seen by other users of the Service.",
+                "Legal and safety: we may disclose information when required by law or legal process, or when needed to protect the rights, safety, or security of users, Music Data Base, or others.",
+                "With your direction: we may share information when you ask us to.",
+            ],
+        },
+        {
+            heading: "No Sale of Personal Information",
+            paragraphs: [
+                "We do not sell your personal information. The Service does not include third-party advertising networks or third-party analytics tools. Sponsor placements on the Service are managed by Music Data Base.",
+            ],
+        },
+        {
+            heading: "Notifications and Emails",
+            paragraphs: [
+                "In-app notifications are stored with your account and shown inside the Service. The Service does not currently send push notifications. Account emails, such as password reset messages, are sent through our authentication provider, Supabase. We may also contact you about your account, billing, support requests, or policy updates.",
+            ],
+        },
+        {
+            heading: "Data Retention",
+            paragraphs: [
+                "We keep information for as long as your account is active and as needed to provide the Service. When you delete your account, we delete or anonymize your information as described on our Account Deletion page, except for information we need to keep for legal, financial, security, or dispute-resolution purposes, such as anonymized payout records. Residual copies may remain for a limited time in routine backups or logs kept by our service providers. Payment processors and other providers keep information according to their own policies.",
+            ],
+        },
+        {
+            heading: "Security",
+            paragraphs: [
+                "The Service is delivered over encrypted HTTPS connections. Access to data is limited by account authentication, role-based permissions, and database access rules, and privileged service credentials are kept on our servers and are not exposed in the app. No method of transmission or storage is completely secure, and we cannot guarantee absolute security.",
+            ],
+        },
+        {
+            heading: "Your Rights and Choices",
+            list: [
+                "Update your profile information from your Profile in the Service.",
+                "Choose whether to use optional features such as Sidekick, uploads, and support attachments.",
+                "Delete your account at any time from Profile in the Service, or request deletion as described on our Account Deletion page.",
+                `Request access to, correction of, or deletion of your personal information by emailing ${LEGAL_CONTACT_EMAIL}. We may need to verify your identity before completing a request.`,
+                "Depending on where you live, you may have additional privacy rights under applicable law. We will respond to requests as required by applicable law.",
+            ],
+        },
+        {
+            heading: "Account and Data Deletion",
+            paragraphs: [
+                "Signed-in users can permanently delete their account from Profile → Account settings → Delete Account. If you cannot access your account, you can request deletion by email. Details about what is deleted and what may be retained are available at /legal/account-deletion.",
+            ],
+        },
+        {
+            heading: "Children's Privacy",
+            paragraphs: [
+                `The Service is not directed to children under 13, and we do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided personal information to us, contact ${LEGAL_CONTACT_EMAIL} and we will take steps to delete it.`,
+            ],
+        },
+        {
+            heading: "Where Information Is Processed",
+            paragraphs: [
+                "Our primary database and application hosting are located in the United States. Our service providers may process information in other countries where they operate.",
+            ],
+        },
+        {
+            heading: "Changes to This Policy",
+            paragraphs: [
+                "We may update this Privacy Policy from time to time. When we do, we will update the Last Updated date on this page. If changes are material, we may notify you in the Service or ask you to review and accept the updated policy where required.",
             ],
         },
         {
             heading: "Contact",
             paragraphs: [
-                `Privacy questions: ${LEGAL_CONTACT_EMAIL}`,
+                `${LEGAL_OPERATOR_NAME}`,
+                `Privacy questions and requests: ${LEGAL_CONTACT_EMAIL}`,
+            ],
+        },
+    ];
+}
+
+function accountDeletionContent(): PolicySection[] {
+    return [
+        {
+            paragraphs: [
+                `This page explains how to delete your Music Data Base account and associated data, what is deleted, what may be retained, and how to request deletion if you cannot access your account. Music Data Base is operated by ${LEGAL_OPERATOR_NAME}.`,
+            ],
+        },
+        {
+            heading: "Delete Your Account in Music Data Base",
+            paragraphs: [
+                "If you can sign in, you can delete your account yourself at any time:",
+            ],
+            list: [
+                `Step 1: Sign in at ${LEGAL_PUBLIC_SITE_LABEL} or in the Music Data Base app.`,
+                "Step 2: Open your Profile.",
+                "Step 3: Under Account settings, find the Delete Account section and select Delete Account.",
+                "Step 4: Check the box confirming you understand the action cannot be undone, type DELETE, and select Confirm Deletion.",
+            ],
+        },
+        {
+            paragraphs: [
+                "Deletion starts immediately, is permanent, and cannot be undone. You will be signed out when it completes. Platform owner and administrator accounts cannot be deleted from the Profile screen; these accounts must contact us.",
+            ],
+        },
+        {
+            heading: "What Is Deleted",
+            list: [
+                "Your sign-in account, including your email address and login credentials.",
+                "Your profile, account type and roles, founding member record, and policy acceptance records.",
+                "Songs, videos, and albums you uploaded, their media files, and related likes, library saves, playlist entries, and comments attached to that content.",
+                "Your podcast shows, podcast episodes, and podcast episode comments.",
+                "Your artist profile, producer profile, and producer beats.",
+                "Ringtones you created, except where retained as described below.",
+                "Files stored under your account, including your avatar, support ticket screenshots, ringtone source audio, previews, and downloads, and saved media queues.",
+                "Your support tickets.",
+                "Your library saves, playback state, and in-app notifications.",
+                "Subscription records, subscription payment records, ringtone purchase records, and creator payment profile records stored by Music Data Base.",
+            ],
+        },
+        {
+            heading: "What May Be Retained or Anonymized",
+            list: [
+                "Payout records: creator payout and transaction records are kept for financial record-keeping. They are disconnected from your account and marked as anonymized.",
+                "Ringtones with purchase history: ringtones that other users have purchased may be archived instead of fully removed, to preserve records of completed purchases.",
+                "Sponsor applications: sponsor application and campaign records are kept for business records but are disconnected from your account.",
+                "Error reports: technical error reports are kept for troubleshooting but are disconnected from your account.",
+                "Legal and security needs: we may keep information that we are required to keep by law or that we need to resolve disputes, prevent fraud or abuse, or enforce our agreements.",
+                "Backups and logs: residual copies may remain for a limited time in routine backups or logs kept by our service providers.",
+                "Third-party providers: deleting your Music Data Base account does not close accounts you hold directly with Stripe, including a Stripe Connect account, or with PayPal. Payment processors and other service providers keep information according to their own policies.",
+            ],
+        },
+        {
+            heading: "Request Deletion If You Cannot Access Your Account",
+            paragraphs: [
+                `If you cannot sign in, email ${LEGAL_CONTACT_EMAIL} with the subject "Account Deletion Request." If possible, send the request from the email address associated with your account, and include that email address and your display name.`,
+                "Sending an email does not automatically delete an account. We review each request manually, may ask for information to verify that you own the account, and will confirm with you once the request has been processed. If you can sign in, deleting your account from your Profile is the fastest option.",
+            ],
+        },
+        {
+            heading: "More Information",
+            paragraphs: [
+                "Our Privacy Policy explains how we collect, use, and retain information.",
+                `Questions about account deletion: ${LEGAL_CONTACT_EMAIL}`,
             ],
         },
     ];
