@@ -813,8 +813,15 @@ export function RingtoneMarketplaceWorkspace({
                 }
                 .ringtone-purchased-empty {
                     flex-direction: column;
-                    align-items: flex-start;
+                    align-items: stretch;
                     gap: 14px;
+                    /* Grid View packs this list into card-width columns; the empty state spans the row. */
+                    grid-column: 1 / -1;
+                    width: 100%;
+                    min-width: 0;
+                    max-width: 100%;
+                    box-sizing: border-box;
+                    overflow-x: hidden;
                 }
                 .ringtone-market-grid,
                 .ringtone-purchased-list {
@@ -907,6 +914,13 @@ export function RingtoneMarketplaceWorkspace({
                 .ringtone-market-controls input:focus-visible {
                     outline: 2px solid var(--mdb-green-secondary);
                     outline-offset: 2px;
+                }
+                .dashboard-empty-card.ringtone-purchased-empty button.save-upload {
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    white-space: normal;
+                    box-sizing: border-box;
                 }
                 .ringtone-pagination button:disabled,
                 .ringtone-market-actions button:disabled {

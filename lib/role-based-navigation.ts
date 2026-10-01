@@ -191,7 +191,6 @@ export const LISTENER_ACCESSIBLE_VIEWS = [
     "Videos",
     "Podcast Show",
     "Podcast Episode",
-    "Sponsor",
 ] as const;
 
 export function canAccessNavView(view: string, capabilities: NavCapabilityFlags): boolean {
@@ -202,6 +201,8 @@ export function canAccessNavView(view: string, capabilities: NavCapabilityFlags)
     if (view === "Podcast Studio") return capabilities.canPodcastStudio;
     if (view === "Sales") return capabilities.canSales;
     if (view === "My Ringtones") return capabilities.canMyRingtones || capabilities.canPersonalRingtones;
+    // Sponsor management is a business page; Listeners still see sponsored placements.
+    if (view === "Sponsor") return !capabilities.isListenerOnly;
     if ((LISTENER_ACCESSIBLE_VIEWS as readonly string[]).includes(view)) return true;
     return false;
 }
