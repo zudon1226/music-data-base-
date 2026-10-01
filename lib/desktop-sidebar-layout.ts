@@ -40,6 +40,17 @@ export const DESKTOP_SIDEBAR_LAYOUT_CSS = `
       touch-action: manipulation;
     }
 
+    /* Long labels wrap inside the button instead of squeezing the icon. */
+    .desktop-sidebar-nav button > svg {
+      flex: 0 0 auto;
+    }
+
+    .desktop-sidebar-nav button > span {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow-wrap: break-word;
+    }
+
     .content.desktop-content-scroll-root,
     .content {
       position: relative !important;

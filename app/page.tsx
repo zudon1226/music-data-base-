@@ -148,7 +148,7 @@ import {
     shouldShowUploadControl,
     type DesktopNavView,
 } from "../lib/desktop-app-navigation";
-import { resolveNavCapabilities } from "../lib/role-based-navigation";
+import { canAccessNavView, resolveNavCapabilities } from "../lib/role-based-navigation";
 import {
     ACCOUNT_ROLE_UNAVAILABLE_MESSAGE,
     canRenderCreatorMediaControls,
@@ -6447,11 +6447,12 @@ function PageContent({
         // Never keep creator studio chrome mounted for Listener-only accounts.
         if (accountRolesReady && navCapabilities.isListenerOnly) {
             setShowUpload(false);
-            if (isCreatorOnlyNavView(view)) {
+            // My Ringtones stays reachable for Listener personal ringtones.
+            if (isCreatorOnlyNavView(view) && !canAccessNavView(view, navCapabilities)) {
                 setView("Home");
             }
         }
-    }, [accountRolesReady, navCapabilities.isListenerOnly, view]);
+    }, [accountRolesReady, navCapabilities, view]);
     const foundingBetaLocked = isFoundingBetaLocked();
     const reloadFoundingAccess = useCallback(async (userIdOverride = "", tokenOverride = "") => {
         const userId = userIdOverride || accountUserIdRef.current || "";
