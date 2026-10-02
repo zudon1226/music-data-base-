@@ -30,11 +30,13 @@ function readEnv() {
 
 function assertStatic() {
     const en = readFileSync(path.join(root, "lib/i18n/messages/en.ts"), "utf8");
+    const foundingGate = readFileSync(path.join(root, "lib/founding-api-access-server.ts"), "utf8");
     record("en accountDeletion keys", en.includes("accountDeletion:") && en.includes("deleteAccount:"));
     record("delete API route", readFileSync(path.join(root, "app/api/account/delete/route.ts"), "utf8").includes("resolveStrictRequestUserId"));
     record("delete service", readFileSync(path.join(root, "lib/account-deletion-service.ts"), "utf8").includes("deleteAuthenticatedUserAccount"));
     record("profile UI panel", readFileSync(path.join(root, "components/user-profile-dashboard.tsx"), "utf8").includes("AccountDeletePanel"));
     record("confirm DELETE gate", readFileSync(path.join(root, "app/api/account/delete/route.ts"), "utf8").includes('CONFIRM_TEXT = "DELETE"'));
+    record("account delete bypasses founding gate", foundingGate.includes('"/api/account/delete"'));
 }
 
 async function signIn(anon, email, password) {
@@ -121,7 +123,15 @@ async function main() {
         record("listener session", Boolean(listenerSession?.access_token));
         if (listenerSession) {
             const listenerDelete = await deleteViaApi(baseUrl, listenerSession);
-            record("listener self-delete", listenerDelete.ok, `status ${listenerDelete.status}`);
+            const listenerDeleteBody = await listenerDelete.json().catch(() => ({}));
+            const foundingBlocked = listenerDelete.status === 403 && listenerDeleteBody.foundingAccessDenied === true;
+            record(
+                "listener self-delete",
+                listenerDelete.ok,
+                foundingBlocked
+                    ? "status 403 foundingAccessDenied — restart app with /api/account/delete founding bypass"
+                    : `status ${listenerDelete.status}${listenerDeleteBody.code ? ` code ${listenerDeleteBody.code}` : ""}`,
+            );
             record("listener auth removed", !(await userExists(admin, listener.userId)));
             const avatarListed = await admin.storage.from("avatars").list(listener.userId, { limit: 5 });
             record("listener storage cleanup", (avatarListed.data || []).length === 0);

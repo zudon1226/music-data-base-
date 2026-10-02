@@ -39,6 +39,7 @@ type PodcastEpisodeWorkspaceProps = {
     episodeId: string;
     onPlayPodcast: (request: PodcastPlaybackRequest) => void | Promise<void>;
     onOpenShow: (showId: string) => void;
+    onBlockCommentAuthor?: (authorUserId: string, authorName: string) => void | Promise<void>;
 };
 
 type EpisodeDetailResponse = {
@@ -69,6 +70,7 @@ export function PodcastEpisodeWorkspace({
     episodeId,
     onPlayPodcast,
     onOpenShow,
+    onBlockCommentAuthor,
 }: PodcastEpisodeWorkspaceProps) {
     const [episode, setEpisode] = useState<PodcastEpisode | null>(null);
     const [show, setShow] = useState<PodcastShow | null>(null);
@@ -527,7 +529,13 @@ export function PodcastEpisodeWorkspace({
             ) : null}
 
             {!loading && episode ? (
-                <PodcastEpisodeComments episodeId={episode.id} userId={userId} />
+                <PodcastEpisodeComments
+                    episodeId={episode.id}
+                    userId={userId}
+                    onBlockCommentAuthor={onBlockCommentAuthor
+                        ? (comment) => onBlockCommentAuthor(comment.userId, comment.authorName)
+                        : undefined}
+                />
             ) : null}
         </section>
     );

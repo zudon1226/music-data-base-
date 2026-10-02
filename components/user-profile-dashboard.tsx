@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Camera, ExternalLink, LogOut } from "lucide-react";
+import { BlockedUsersPanel } from "@/components/account/blocked-users-panel";
+import { HiddenContentPanel } from "@/components/account/hidden-content-panel";
 import { AccountDeletePanel } from "@/components/account-delete-panel";
 import { LanguageSelector } from "@/components/language-selector";
 import { PROFILE_FIELD_LIMITS } from "@/lib/dashboard/profile-fields";
@@ -431,6 +433,9 @@ export function UserProfileDashboard({
                 </div>
             </div>
 
+            <BlockedUsersPanel fetchFn={fetchFn} userId={userId} />
+            <HiddenContentPanel fetchFn={fetchFn} userId={userId} />
+
             <AccountDeletePanel
                 disabled={Boolean(isPlatformOwner)}
                 fetchFn={fetchFn}
@@ -443,6 +448,10 @@ export function UserProfileDashboard({
                     }
                 }}
             />
+
+            <p className="profile-muted">
+                <a href="/account-deletion">Account deletion help (public)</a>
+            </p>
 
             {children}
         </section>

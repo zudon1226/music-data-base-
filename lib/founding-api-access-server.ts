@@ -16,6 +16,8 @@ const EXACT_BYPASS_PATHS = new Set([
     "/api/platform/repair-auth-metadata",
     "/api/signup/resume-activation",
     "/api/user-profile",
+    /** Google Play / GDPR: any signed-in user must delete their own account, including waitlist-only signups. */
+    "/api/account/delete",
 ]);
 
 const PREFIX_BYPASS_PATHS = [

@@ -175,6 +175,16 @@ async function detachRetainedFinancialRecords(supabase: SupabaseClient, userId: 
             })
             .eq("id", payout.id);
     }
+
+    await supabase
+        .from("ringtone_purchases")
+        .update({ buyer_id: null })
+        .eq("buyer_id", userId);
+
+    await supabase
+        .from("platform_errors")
+        .update({ user_id: null })
+        .eq("user_id", userId);
 }
 
 async function deleteOwnedRingtoneProducts(supabase: SupabaseClient, userId: string) {

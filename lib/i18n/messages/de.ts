@@ -31,6 +31,21 @@ export const deMessages: LocaleMessageDictionary = {
             language: "Sprache",
             languageChanged: "Sprache geändert zu {language}"
         },
+    trust: {
+        blockedUsersTitle: "Blocked Users",
+        blockedUsersDescription: "People you blocked cannot interact with you through applicable Music Data Base social features. Blocking does not delete accounts or change purchases or payouts.",
+        blockedUsersEmpty: "You have not blocked anyone.",
+        unblockUser: "Unblock",
+        blockUser: "Block User",
+        blockUserSuccess: "User blocked.",
+        hiddenContentTitle: "Hidden Content",
+        hiddenContentDescription: "Content you hid is hidden from your discovery and recommendations. Other listeners still see it normally.",
+        hiddenContentEmpty: "You have not hidden any content.",
+        unhideContent: "Unhide",
+        hideContent: "Hide this content",
+        hideContentSuccess: "Content hidden from your view.",
+        reportSent: "Report sent to moderation.",
+    },
 
     accountDeletion: {
         deleteAccount: "Delete Account",

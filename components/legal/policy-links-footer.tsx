@@ -13,6 +13,7 @@ export function PolicyLinksFooter({ className = "" }: Props) {
                     {policy.shortTitle}
                 </Link>
             ))}
+            <Link href="/account-deletion">Account Deletion (public)</Link>
         </nav>
     );
 }

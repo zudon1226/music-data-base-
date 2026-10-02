@@ -113,6 +113,8 @@ import {
     type MobileContentAction,
     type MobileContentSheetMeta,
 } from "../lib/mobile-content-actions";
+import { isHiddenFromUser } from "../lib/filter-hidden-content";
+import { hiddenContentKey, type UserHiddenContentType } from "../lib/user-hidden-content-types";
 import {
     RingtoneCreatorWorkspace,
     type RingtonePreviewRequest,
@@ -5087,6 +5089,7 @@ function PageContent({
     const [moderationReports, setModerationReports] = useState<ModerationReport[]>([]);
     const [copyrightClaims, setCopyrightClaims] = useState<CopyrightClaim[]>([]);
     const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
+    const [hiddenContentKeys, setHiddenContentKeys] = useState<Set<string>>(() => new Set());
     const [verificationRequests, setVerificationRequests] = useState<VerificationReviewRequest[]>([]);
     const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
     const [platformIncidents, setPlatformIncidents] = useState<PlatformIncident[]>([]);
@@ -5306,30 +5309,54 @@ function PageContent({
     function getCurrentUserDisplayName() {
         return getAccountDisplayName();
     }
-    function createModerationReport(itemType: ModerationItemType, itemId: string, itemTitle: string, reason = "Community report", targetUserName = "", targetUserId = "") {
+    async function createModerationReport(itemType: ModerationItemType, itemId: string, itemTitle: string, reason = "Community report", targetUserName = "", targetUserId = "") {
         if (!user?.id) {
             showToast("Log in before reporting content.", "error");
             return;
         }
-        const now = new Date().toISOString();
-        const report: ModerationReport = {
-            id: createToastId(),
-            itemId,
-            itemType,
-            itemTitle,
-            reason,
-            status: "open",
-            reporterId: user.id,
-            reporterName: getCurrentUserDisplayName(),
-            targetUserId,
-            targetUserName,
-            createdAt: now,
-            updatedAt: now,
-        };
-        setModerationReports((previous) => [report, ...previous].slice(0, 100));
-        const notificationType: PlatformNotification["itemType"] | undefined = itemType === "comment" || itemType === "beat" ? undefined : itemType;
-        pushNotification("New moderation report", `${itemTitle} was added to the moderation queue.`, notificationType, itemId);
-        showToast("Report sent to moderation.", "success");
+        try {
+            const response = await desktopActionFetch("/api/moderation/reports", {
+                method: "POST",
+                requireAuth: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    itemType,
+                    itemId,
+                    itemTitle,
+                    reason,
+                    targetUserName,
+                    targetUserId,
+                    reporterName: getCurrentUserDisplayName(),
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as { error?: string };
+            if (!response.ok) {
+                throw new Error(String(data.error || "Report could not be sent."));
+            }
+            const now = new Date().toISOString();
+            const report: ModerationReport = {
+                id: createToastId(),
+                itemId,
+                itemType,
+                itemTitle,
+                reason,
+                status: "open",
+                reporterId: user.id,
+                reporterName: getCurrentUserDisplayName(),
+                targetUserId,
+                targetUserName,
+                createdAt: now,
+                updatedAt: now,
+            };
+            setModerationReports((previous) => [report, ...previous].slice(0, 100));
+            const notificationType: PlatformNotification["itemType"] | undefined = itemType === "comment" || itemType === "beat" ? undefined : itemType;
+            pushNotification("New moderation report", `${itemTitle} was added to the moderation queue.`, notificationType, itemId);
+            showToast("Report sent to moderation.", "success");
+        }
+        catch (reportError) {
+            showToast(reportError instanceof Error ? reportError.message : "Report could not be sent.", "error");
+        }
     }
     function updateModerationReportStatus(reportId: string, status: ModerationStatus) {
         setModerationReports((previous) => previous.map((report) => report.id === reportId ? { ...report, status, updatedAt: new Date().toISOString() } : report));
@@ -5363,34 +5390,144 @@ function PageContent({
         setCopyrightClaims((previous) => previous.map((claim) => claim.id === claimId ? { ...claim, status, updatedAt: new Date().toISOString() } : claim));
         showToast(`Claim marked ${status}.`, status === "resolved" ? "success" : "info");
     }
-    function blockUserFoundation(blockedUserId: string, blockedUserName: string, reason = "Moderation block") {
+    async function blockUserFoundation(blockedUserId: string, blockedUserName: string, reason = "Blocked from Music Data Base") {
         if (!user?.id) {
             showToast("Log in before blocking users.", "error");
             return;
         }
-        const normalizedBlockedId = blockedUserId || createArtistId(blockedUserName);
+        const normalizedBlockedId = /^[0-9a-f-]{36}$/i.test(String(blockedUserId || "").trim())
+            ? String(blockedUserId).trim()
+            : "";
         if (!normalizedBlockedId || !blockedUserName.trim()) {
-            showToast("No user selected to block.", "error");
+            showToast("This profile cannot be blocked until a user account id is available.", "error");
             return;
         }
-        setBlockedUsers((previous) => {
-            const alreadyBlocked = previous.some((entry) => entry.blockerId === user.id && entry.blockedUserId === normalizedBlockedId);
-            if (alreadyBlocked)
-                return previous;
-            return [{
-                    id: createToastId(),
-                    blockerId: user.id,
+        try {
+            const response = await desktopActionFetch("/api/blocked-users", {
+                method: "POST",
+                requireAuth: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
                     blockedUserId: normalizedBlockedId,
                     blockedUserName,
                     reason,
-                    createdAt: new Date().toISOString(),
-                }, ...previous].slice(0, 100);
-        });
-        showToast(`${blockedUserName} added to blocked users.`, "success");
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as { error?: string; block?: { id: string; blocked_user_id: string; blocked_user_name: string; reason?: string; created_at?: string } };
+            if (!response.ok) {
+                throw new Error(String(data.error || "Could not block user."));
+            }
+            const block = data.block;
+            if (block) {
+                setBlockedUsers((previous) => [{
+                    id: block.id,
+                    blockerId: user.id,
+                    blockedUserId: block.blocked_user_id,
+                    blockedUserName: block.blocked_user_name || blockedUserName,
+                    reason: block.reason || reason,
+                    createdAt: block.created_at || new Date().toISOString(),
+                }, ...previous.filter((entry) => entry.blockedUserId !== block.blocked_user_id)].slice(0, 100));
+            }
+            showToast(`${blockedUserName} added to blocked users.`, "success");
+        }
+        catch (blockError) {
+            showToast(blockError instanceof Error ? blockError.message : "Could not block user.", "error");
+        }
     }
-    function unblockUserFoundation(blockedUserId: string) {
-        setBlockedUsers((previous) => previous.filter((entry) => entry.id !== blockedUserId));
-        showToast("Blocked user removed.", "info");
+    async function unblockUserFoundation(blockRowId: string) {
+        if (!user?.id) return;
+        try {
+            const response = await desktopActionFetch("/api/blocked-users", {
+                method: "DELETE",
+                requireAuth: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id, id: blockRowId }),
+            });
+            const data = (await response.json().catch(() => ({}))) as { error?: string };
+            if (!response.ok) {
+                throw new Error(String(data.error || "Could not unblock user."));
+            }
+            setBlockedUsers((previous) => previous.filter((entry) => entry.id !== blockRowId));
+            showToast("Blocked user removed.", "info");
+        }
+        catch (unblockError) {
+            showToast(unblockError instanceof Error ? unblockError.message : "Could not unblock user.", "error");
+        }
+    }
+    async function hideContentFoundation(contentType: UserHiddenContentType, contentId: string, contentTitle = "Content") {
+        if (!user?.id) {
+            showToast("Log in before hiding content.", "error");
+            return;
+        }
+        if (!contentId) return;
+        try {
+            const response = await desktopActionFetch("/api/user-hidden-content", {
+                method: "POST",
+                requireAuth: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    contentType,
+                    contentId,
+                }),
+            });
+            const data = (await response.json().catch(() => ({}))) as { error?: string };
+            if (!response.ok) {
+                throw new Error(String(data.error || "Could not hide content."));
+            }
+            setHiddenContentKeys((previous) => {
+                const next = new Set(previous);
+                next.add(hiddenContentKey(contentType, contentId));
+                return next;
+            });
+            showToast(`${contentTitle} hidden from your view.`, "success");
+        }
+        catch (hideError) {
+            showToast(hideError instanceof Error ? hideError.message : "Could not hide content.", "error");
+        }
+    }
+    async function refreshTrustPreferencesFromServer() {
+        if (!accountUserId || !isAuthenticated) return;
+        try {
+            const [blocksResponse, hiddenResponse] = await Promise.all([
+                desktopActionFetch(`/api/blocked-users?userId=${encodeURIComponent(accountUserId)}`, {
+                    requireAuth: true,
+                    cache: "no-store",
+                }),
+                desktopActionFetch(`/api/user-hidden-content?userId=${encodeURIComponent(accountUserId)}`, {
+                    requireAuth: true,
+                    cache: "no-store",
+                }),
+            ]);
+            const blocksBody = (await blocksResponse.json().catch(() => ({}))) as {
+                blocks?: Array<{ id: string; blocked_user_id: string; blocked_user_name: string; reason?: string; created_at?: string }>;
+            };
+            const hiddenBody = (await hiddenResponse.json().catch(() => ({}))) as {
+                hidden?: Array<{ content_type: string; content_id: string }>;
+            };
+            if (blocksResponse.ok && Array.isArray(blocksBody.blocks)) {
+                setBlockedUsers(blocksBody.blocks.map((block) => ({
+                    id: block.id,
+                    blockerId: accountUserId,
+                    blockedUserId: block.blocked_user_id,
+                    blockedUserName: block.blocked_user_name,
+                    reason: block.reason || "",
+                    createdAt: block.created_at || new Date().toISOString(),
+                })));
+            }
+            if (hiddenResponse.ok && Array.isArray(hiddenBody.hidden)) {
+                setHiddenContentKeys(new Set(
+                    hiddenBody.hidden.map((row) => hiddenContentKey(
+                        row.content_type as UserHiddenContentType,
+                        row.content_id,
+                    )),
+                ));
+            }
+        }
+        catch {
+            /* non-fatal */
+        }
     }
     function requestVerificationReview(creatorType: VerificationReviewRequest["creatorType"], creatorId: string, creatorName: string) {
         if (!user?.id) {
@@ -6326,7 +6463,6 @@ function PageContent({
             const savedVerifications = readJson<VerificationState | null>(STORAGE_KEYS.verifications, null);
             const savedModerationReports = readJson<ModerationReport[] | null>(STORAGE_KEYS.moderationReports, null);
             const savedCopyrightClaims = readJson<CopyrightClaim[] | null>(STORAGE_KEYS.copyrightClaims, null);
-            const savedBlockedUsers = readJson<BlockedUser[] | null>(STORAGE_KEYS.blockedUsers, null);
             const savedVerificationRequests = readJson<VerificationReviewRequest[] | null>(STORAGE_KEYS.verificationRequests, null);
             const savedSupportTickets = readJson<SupportTicket[] | null>(STORAGE_KEYS.supportTickets, null);
             const savedPlatformIncidents = readJson<PlatformIncident[] | null>(STORAGE_KEYS.platformIncidents, null);
@@ -6368,7 +6504,7 @@ function PageContent({
                 : { artists: {}, producers: {} });
             setModerationReports(Array.isArray(savedModerationReports) ? savedModerationReports.slice(0, 100) : []);
             setCopyrightClaims(Array.isArray(savedCopyrightClaims) ? savedCopyrightClaims.slice(0, 100) : []);
-            setBlockedUsers(Array.isArray(savedBlockedUsers) ? savedBlockedUsers.slice(0, 100) : []);
+            setBlockedUsers([]);
             setVerificationRequests(Array.isArray(savedVerificationRequests) ? savedVerificationRequests.slice(0, 100) : []);
             setSupportTickets(Array.isArray(savedSupportTickets) ? savedSupportTickets.slice(0, 100) : []);
             setPlatformIncidents(Array.isArray(savedPlatformIncidents) ? savedPlatformIncidents.slice(0, 50) : []);
@@ -6453,6 +6589,10 @@ function PageContent({
             }
         }
     }, [accountRolesReady, navCapabilities, view]);
+    useEffect(() => {
+        if (!isAuthenticated || !authReady || !accountRolesReady || !accountUserId) return;
+        void refreshTrustPreferencesFromServer();
+    }, [isAuthenticated, authReady, accountRolesReady, accountUserId]);
     const foundingBetaLocked = isFoundingBetaLocked();
     const reloadFoundingAccess = useCallback(async (userIdOverride = "", tokenOverride = "") => {
         const userId = userIdOverride || accountUserIdRef.current || "";
@@ -7827,7 +7967,6 @@ function PageContent({
     const verificationStorageSnapshot = useMemo(() => JSON.stringify(verificationState), [verificationState]);
     const moderationReportStorageSnapshot = useMemo(() => JSON.stringify(moderationReports.slice(0, 100)), [moderationReports]);
     const copyrightClaimStorageSnapshot = useMemo(() => JSON.stringify(copyrightClaims.slice(0, 100)), [copyrightClaims]);
-    const blockedUserStorageSnapshot = useMemo(() => JSON.stringify(blockedUsers.slice(0, 100)), [blockedUsers]);
     const verificationRequestStorageSnapshot = useMemo(() => JSON.stringify(verificationRequests.slice(0, 100)), [verificationRequests]);
     const supportTicketStorageSnapshot = useMemo(() => JSON.stringify(supportTickets.slice(0, 100)), [supportTickets]);
     const platformIncidentStorageSnapshot = useMemo(() => JSON.stringify(platformIncidents.slice(0, 50)), [platformIncidents]);
@@ -7859,7 +7998,6 @@ function PageContent({
         saveLocalStorageSnapshot(STORAGE_KEYS.verifications, verificationStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.moderationReports, moderationReportStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.copyrightClaims, copyrightClaimStorageSnapshot);
-        saveLocalStorageSnapshot(STORAGE_KEYS.blockedUsers, blockedUserStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.verificationRequests, verificationRequestStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.supportTickets, supportTicketStorageSnapshot);
         saveLocalStorageSnapshot(STORAGE_KEYS.platformIncidents, platformIncidentStorageSnapshot);
@@ -7877,7 +8015,6 @@ function PageContent({
         activePlaylistId,
         activeSubscriptionPlanId,
         artistStorageSnapshot,
-        blockedUserStorageSnapshot,
         commentStorageSnapshot,
         copyrightClaimStorageSnapshot,
         downloadVaultStorageSnapshot,
@@ -13382,7 +13519,11 @@ function PageContent({
         }
     }
     function renderDesktopSongCard(song: Song, options: { variant?: "default" | "library" } = {}) {
+        if (isHiddenFromUser(hiddenContentKeys, "song", song.id)) {
+            return null;
+        }
         const isSaved = libraryIds.includes(song.id);
+        const ownerUserId = String(song.ownerId || "").trim();
         const isLiked = likedIds.includes(song.id);
         const artistId = createArtistId(song.artist);
         const isFollowed = followedArtistIds.includes(artistId);
@@ -13430,14 +13571,22 @@ function PageContent({
                 onDelete: () => permanentDeleteSong(song.id, "Permanently delete this song?"),
                 onOpenComments: () => openComments("song", song),
                 onShare: () => copyShareLink("song", song.id, song.title),
-                onReport: () => createModerationReport("song", song.id, song.title, "Community song report", song.artist, artistId),
+                onReport: () => { void createModerationReport("song", song.id, song.title, "Community song report", song.artist, ownerUserId || artistId); },
+                onHide: () => { void hideContentFoundation("song", song.id, song.title); },
+                onBlockUser: ownerUserId && ownerUserId !== accountUserId
+                    ? () => { void blockUserFoundation(ownerUserId, song.artist, `Blocked from song ${song.title}`); }
+                    : undefined,
                 onClaim: () => createCopyrightClaim("song", song.id, song.title, song.artist),
                 onOpenArtist: openArtistProfile,
             }}
         />);
     }
     function renderDesktopVideoCard(video: VideoItem, options: VideoCardOptions = {}) {
+        if (isHiddenFromUser(hiddenContentKeys, "video", video.id)) {
+            return null;
+        }
         const sourceLabel = options.sourceLabel || "Video Card";
+        const ownerUserId = String(video.ownerId || "").trim();
         const artistId = createArtistId(video.creator);
         const isFollowing = followedArtistIds.includes(artistId);
         const isLiked = Boolean(video.likedByUser);
@@ -13497,7 +13646,11 @@ function PageContent({
                 onDelete: () => handlePermanentDeleteVideo(video.id),
                 onOpenComments: () => openComments("video", video),
                 onShare: () => copyShareLink("video", video.id, video.title),
-                onReport: () => createModerationReport("video", video.id, video.title, "Community video report", video.creator, artistId),
+                onReport: () => { void createModerationReport("video", video.id, video.title, "Community video report", video.creator, ownerUserId || artistId); },
+                onHide: () => { void hideContentFoundation("video", video.id, video.title); },
+                onBlockUser: ownerUserId && ownerUserId !== accountUserId
+                    ? () => { void blockUserFoundation(ownerUserId, video.creator, `Blocked from video ${video.title}`); }
+                    : undefined,
                 onClaim: () => createCopyrightClaim("video", video.id, video.title, video.creator),
                 onOpenArtist: openArtistProfile,
             }}
@@ -21726,6 +21879,9 @@ function PageContent({
               episodeId={selectedPodcastEpisodeId}
               onPlayPodcast={playPodcast}
               onOpenShow={openPodcastShow}
+              onBlockCommentAuthor={(authorUserId, authorName) => {
+                void blockUserFoundation(authorUserId, authorName, "Blocked from podcast comment");
+              }}
             />
           ) : view === "Podcast Studio" && navCapabilities.canPodcastStudio ? (
             <PodcastStudioWorkspace

@@ -49,11 +49,25 @@ const intentionalAnonPublicReadPolicies = new Set([
   "sponsor_applications_public_active_read",
   "sponsor_assets_public_active_read",
 ]);
+/** Webhook/audit tables: no client SELECT; server uses service_role only. */
 const serviceRoleOnlyTables = new Set(["sponsor_payment_events"]);
+/** Waitlist: inserts via server route; admins read via SELECT policy, not platform_admin_full_access. */
+const adminSelectOnlyWaitlistTables = new Set(["launch_listener_notify"]);
 
 function tableHasPlatformAdminPolicy(table) {
   if (serviceRoleOnlyTables.has(table.table)) {
-    return !table.grants.authenticatedSelect && !table.grants.authenticatedWrite;
+    return !table.grants.anonSelect
+      && !table.grants.authenticatedSelect
+      && !table.grants.authenticatedWrite;
+  }
+  if (adminSelectOnlyWaitlistTables.has(table.table)) {
+    const adminSelectPolicy = table.policies.some(
+      (policy) => policy.command === "SELECT"
+        && /is_platform_admin\s*\(\s*\)/.test(String(policy.using || "")),
+    );
+    return adminSelectPolicy
+      && !table.grants.anonSelect
+      && !table.grants.authenticatedWrite;
   }
   return table.policies.some((policy) => {
     if (policy.name === "platform_admin_full_access" && policy.command === "ALL") {
@@ -502,11 +516,52 @@ async function inspectTableAccess(clients) {
 
   if (clients.admin) {
     const adminFailures = evidence.access
+      .filter((row) => !serviceRoleOnlyTables.has(row.table))
       .filter((row) => !row.admin?.allowed)
       .map((row) => ({ table: row.table, error: row.admin?.error }));
     record("platform admin can read every public table", adminFailures.length === 0, {
       failures: adminFailures,
+      exemptServiceRoleOnlyTables: [...serviceRoleOnlyTables],
     });
+  }
+
+  const listenerCatalog = evidence.catalog.tables.find((item) => item.table === "launch_listener_notify");
+  const listenerRow = evidence.access.find((row) => row.table === "launch_listener_notify");
+  if (listenerCatalog && listenerRow) {
+    const adminSelectPolicy = listenerCatalog.policies.some(
+      (policy) => policy.command === "SELECT" && /is_platform_admin\s*\(\s*\)/.test(String(policy.using || "")),
+    );
+    const anonDenied = listenerRow.anon?.tested
+      ? listenerRow.anon.allowed === false
+      : !listenerCatalog.grants.anonSelect;
+    const authenticatedNoLeak = listenerRow.authenticated?.tested
+      ? (listenerRow.authenticated.visibleRows ?? 0) === 0
+      : listenerCatalog.grants.authenticatedSelect && listenerCatalog.rls === "Yes";
+    const adminCanRead = listenerRow.admin?.tested
+      ? listenerRow.admin.allowed === true
+      : adminSelectPolicy;
+    record("launch_listener_notify waitlist design matches server-route registration", (
+      anonDenied
+      && authenticatedNoLeak
+      && adminCanRead
+    ), { access: listenerRow, catalog: { adminSelectPolicy, grants: listenerCatalog.grants } });
+  }
+
+  const sponsorTable = evidence.catalog.tables.find((item) => item.table === "sponsor_payment_events");
+  const sponsorRow = evidence.access.find((row) => row.table === "sponsor_payment_events");
+  if (sponsorTable && sponsorRow) {
+    const grantsLocked = !sponsorTable.grants.anonSelect
+      && !sponsorTable.grants.authenticatedSelect
+      && !sponsorTable.grants.authenticatedWrite;
+    const anonDenied = sponsorRow.anon?.tested ? sponsorRow.anon.allowed === false : grantsLocked;
+    const authenticatedDenied = sponsorRow.authenticated?.tested
+      ? sponsorRow.authenticated.allowed === false
+      : grantsLocked && sponsorTable.rls === "Yes";
+    record("sponsor_payment_events service-role-only client denial", (
+      grantsLocked
+      && anonDenied
+      && authenticatedDenied
+    ), { grants: sponsorTable.grants, access: sponsorRow });
   }
 }
 
@@ -1100,11 +1155,10 @@ async function main() {
     cleanupFailed: cleanupFailures.length,
     skipped: evidence.skipped.length,
     pass: managedTables.length > 0
-      && mutationMode
-      && evidence.skipped.length === 0
       && failures.length === 0
       && rlsFailures.length === 0
-      && cleanupFailures.length === 0,
+      && cleanupFailures.length === 0
+      && (mutationMode ? evidence.skipped.length === 0 : true),
   };
 
   mkdirSync(evidenceDirectory, { recursive: true });

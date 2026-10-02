@@ -28,6 +28,7 @@ export type MobileContentActionId =
     | "shuffle"
     | "details"
     | "hide"
+    | "block-user"
     | "remove-device";
 
 export type MobileContentAction = {
@@ -125,6 +126,8 @@ export function buildSongVideoOverflowActions(
         onDetails?: () => void;
         onOpenComments?: () => void;
         onReport?: () => void;
+        onHide?: () => void;
+        onBlockUser?: () => void;
         onClaim?: () => void;
         onEdit?: () => void;
         onDelete?: () => void;
@@ -187,6 +190,12 @@ export function buildSongVideoOverflowActions(
     }
     if (handlers.onReport) {
         actions.push({ id: "report", label: "Report", onClick: handlers.onReport });
+    }
+    if (handlers.onHide) {
+        actions.push({ id: "hide", label: "Hide this content", onClick: handlers.onHide });
+    }
+    if (handlers.onBlockUser) {
+        actions.push({ id: "block-user", label: "Block User", onClick: handlers.onBlockUser });
     }
     if (handlers.onClaim && flags.canClaim) {
         actions.push({ id: "claim", label: "Claim", onClick: handlers.onClaim });

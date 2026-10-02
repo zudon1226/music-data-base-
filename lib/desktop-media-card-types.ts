@@ -73,6 +73,8 @@ export type DesktopSongCardHandlers = {
     onReport: () => void;
     onClaim: () => void;
     onOpenArtist: (name: string) => void;
+    onHide?: () => void;
+    onBlockUser?: () => void;
 };
 
 export type DesktopVideoCardHandlers = {
@@ -90,4 +92,6 @@ export type DesktopVideoCardHandlers = {
     onReport: () => void;
     onClaim: () => void;
     onOpenArtist: (name: string) => void;
+    onHide?: () => void;
+    onBlockUser?: () => void;
 };

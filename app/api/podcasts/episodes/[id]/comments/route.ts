@@ -7,6 +7,7 @@ import {
     mapPodcastCommentRow,
 } from "@/lib/podcast-comments";
 import { requirePodcastRequestUser } from "@/lib/podcast-route-auth";
+import { assertUsersCanInteract } from "@/lib/user-block-enforcement";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -117,6 +118,12 @@ export async function POST(
         }
 
         const supabase = getSupabaseServerClient();
+        const episodeOwnerId = String(episodeResult.data.user_id || "");
+        const blockCheck = await assertUsersCanInteract(supabase, auth.userId, episodeOwnerId);
+        if (!blockCheck.ok) {
+            return jsonResponse({ error: blockCheck.error }, 403);
+        }
+
         const inserted = await supabase
             .from("podcast_episode_comments")
             .insert({

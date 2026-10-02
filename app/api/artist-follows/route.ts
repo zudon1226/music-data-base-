@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
+import { assertUsersCanInteract, normalizeBlockedUserId } from "@/lib/user-block-enforcement";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,6 +120,27 @@ export async function POST(request: Request) {
             return jsonResponse({ error: "Missing artist_id. Choose an artist before following." }, 400);
         }
         const supabase = getSupabaseServerClient();
+        if (shouldFollow) {
+            const explicitTarget = normalizeBlockedUserId(body.targetUserId ?? body.target_user_id);
+            let targetUserId = explicitTarget;
+            if (!targetUserId && isUuid(artistId)) {
+                targetUserId = artistId;
+            }
+            if (!targetUserId) {
+                const profile = await supabase
+                    .from("artist_profiles")
+                    .select("user_id")
+                    .or(`artist_key.eq.${artistId},id.eq.${artistId}`)
+                    .maybeSingle();
+                targetUserId = normalizeBlockedUserId(profile.data?.user_id);
+            }
+            if (targetUserId) {
+                const blockCheck = await assertUsersCanInteract(supabase, userId, targetUserId);
+                if (!blockCheck.ok) {
+                    return jsonResponse({ error: blockCheck.error }, 403);
+                }
+            }
+        }
         if (!shouldFollow) {
             const { error } = await supabase
                 .from("artist_follows")

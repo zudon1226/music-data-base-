@@ -80,6 +80,7 @@ export const LEGAL_POLICIES: LegalPolicyDefinition[] = [
         lastUpdated: LEGAL_PRIVACY_LAST_UPDATED_LABEL,
         publicPath: "/legal/account-deletion",
     },
+    // Play Console canonical URL is served at /account-deletion (see app/account-deletion/page.tsx).
     {
         type: "creator_upload",
         slug: "creator-upload",

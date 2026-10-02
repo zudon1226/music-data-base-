@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
 import { requirePodcastRequestUser } from "@/lib/podcast-route-auth";
+import { getBearerToken } from "@/lib/request-auth";
+import { submitUserModerationReport } from "@/lib/submit-user-moderation-report";
+import { createTrustAuthenticatedClient } from "@/lib/trust-authenticated-client";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -17,6 +20,37 @@ async function requireAdmin(request: Request, body: Record<string, unknown>) {
         return { ok: false as const, status: 403 as const, error: "Admin permission is required." };
     }
     return auth;
+}
+
+export async function POST(request: Request) {
+    try {
+        const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+        const auth = await requirePodcastRequestUser(request, body, "/api/moderation/reports");
+        if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+
+        const accessToken = getBearerToken(request);
+        if (!accessToken) {
+            return jsonResponse({ error: "Missing or invalid Authorization bearer token." }, 401);
+        }
+
+        const reporterName = String(body.reporterName || body.reporter_name || "").trim();
+        const result = await submitUserModerationReport(createTrustAuthenticatedClient(accessToken), {
+            reporterId: auth.userId,
+            reporterName,
+            itemType: String(body.itemType || body.item_type || ""),
+            itemId: String(body.itemId || body.item_id || ""),
+            itemTitle: String(body.itemTitle || body.item_title || ""),
+            reason: String(body.reason || body.details || "Community report"),
+            targetUserId: String(body.targetUserId || body.target_user_id || ""),
+            targetUserName: String(body.targetUserName || body.target_user_name || ""),
+        });
+        if (!result.ok) return jsonResponse({ error: result.error }, result.status);
+        return jsonResponse({ ok: true, report: result.report }, result.status);
+    }
+    catch (error) {
+        console.error("[api/moderation/reports] POST failed:", error);
+        return jsonResponse({ error: getErrorMessage(error) }, 500);
+    }
 }
 
 export async function GET(request: Request) {

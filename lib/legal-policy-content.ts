@@ -152,7 +152,15 @@ function privacyPolicyContent(): PolicySection[] {
         {
             heading: "Account and Data Deletion",
             paragraphs: [
-                "Signed-in users can permanently delete their account from Profile → Account settings → Delete Account. If you cannot access your account, you can request deletion by email. Details about what is deleted and what may be retained are available at /legal/account-deletion.",
+                "Signed-in users can permanently delete their account from Profile → Account settings → Delete Account. If you cannot access your account, you can request deletion by email. Details about what is deleted and what may be retained are available at /account-deletion and /legal/account-deletion.",
+            ],
+        },
+        {
+            heading: "Blocking and Hiding",
+            list: [
+                "Block User controls your experience with another account. It does not delete either account and does not change purchases, payouts, royalties, or ownership records.",
+                "Hide Content controls what content is shown to you. It does not remove content for other users and does not delete the creator's original upload.",
+                "Report sends content or behavior to Music Data Base moderation for review. Reporting is separate from blocking or hiding.",
             ],
         },
         {
@@ -219,13 +227,15 @@ function accountDeletionContent(): PolicySection[] {
                 "Files stored under your account, including your avatar, support ticket screenshots, ringtone source audio, previews, and downloads, and saved media queues.",
                 "Your support tickets.",
                 "Your library saves, playback state, and in-app notifications.",
-                "Subscription records, subscription payment records, ringtone purchase records, and creator payment profile records stored by Music Data Base.",
+                "Subscription records, subscription payment records, and creator payment profile records stored by Music Data Base.",
+                "Personal block and hide preferences stored for your account.",
             ],
         },
         {
             heading: "What May Be Retained or Anonymized",
             list: [
                 "Payout records: creator payout and transaction records are kept for financial record-keeping. They are disconnected from your account and marked as anonymized.",
+                "Paid ringtone purchase records: completed purchase ledger rows may be retained without your account identity attached, to preserve financial and fraud-prevention records.",
                 "Ringtones with purchase history: ringtones that other users have purchased may be archived instead of fully removed, to preserve records of completed purchases.",
                 "Sponsor applications: sponsor application and campaign records are kept for business records but are disconnected from your account.",
                 "Error reports: technical error reports are kept for troubleshooting but are disconnected from your account.",

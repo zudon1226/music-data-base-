@@ -24,6 +24,7 @@ type PodcastEpisodeComment = {
 type PodcastEpisodeCommentsProps = {
     episodeId: string;
     userId: string;
+    onBlockCommentAuthor?: (comment: PodcastEpisodeComment) => void | Promise<void>;
 };
 
 type CommentsResponse = {
@@ -32,7 +33,7 @@ type CommentsResponse = {
     setupRequired?: boolean;
 };
 
-export function PodcastEpisodeComments({ episodeId, userId }: PodcastEpisodeCommentsProps) {
+export function PodcastEpisodeComments({ episodeId, userId, onBlockCommentAuthor }: PodcastEpisodeCommentsProps) {
     const [comments, setComments] = useState<PodcastEpisodeComment[]>([]);
     const [draft, setDraft] = useState("");
     const [loading, setLoading] = useState(true);
@@ -289,6 +290,15 @@ export function PodcastEpisodeComments({ episodeId, userId }: PodcastEpisodeComm
                                                 ? <LoaderCircle className={styles.spinner} size={14} aria-hidden="true" />
                                                 : <Flag size={14} aria-hidden="true" />}
                                             Report
+                                        </button>
+                                    ) : null}
+                                    {onBlockCommentAuthor && comment.userId && comment.userId !== userId ? (
+                                        <button
+                                            type="button"
+                                            disabled={pendingId === comment.id}
+                                            onClick={() => void onBlockCommentAuthor(comment)}
+                                        >
+                                            Block User
                                         </button>
                                     ) : null}
                                 </div>
