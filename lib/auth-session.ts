@@ -1,20 +1,13 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { SUPABASE_PROJECT_REF } from "./supabase-config-constants";
-import { ISOLATED_SUPABASE_URL, isIsolatedSupabaseBrowserE2EEnabled } from "./supabase-runtime-target";
+
+/** Locked production Supabase project ref (matches lib/supabase-config.ts). */
+const SUPABASE_PROJECT_REF = "aehuszoadgqtbkxsliyy";
 
 /** Production GoTrue storage key (matches @supabase/supabase-js default for the locked project). */
 export const SUPABASE_AUTH_STORAGE_KEY = `sb-${SUPABASE_PROJECT_REF}-auth-token`;
 
-function supabaseDefaultAuthStorageKey(supabaseUrl: string) {
-    const hostname = new URL(supabaseUrl).hostname;
-    return `sb-${hostname.split(".")[0]}-auth-token`;
-}
-
-/** Same key the desktop Supabase client uses for persistSession (isolated vs production). */
+/** Same key the desktop Supabase client uses for persistSession. */
 export function resolveSupabaseAuthStorageKey() {
-    if (isIsolatedSupabaseBrowserE2EEnabled()) {
-        return supabaseDefaultAuthStorageKey(ISOLATED_SUPABASE_URL);
-    }
     return SUPABASE_AUTH_STORAGE_KEY;
 }
 
