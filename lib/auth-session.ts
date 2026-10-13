@@ -1,6 +1,22 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_PROJECT_REF } from "./supabase-config-constants";
+import { ISOLATED_SUPABASE_URL, isIsolatedSupabaseBrowserE2EEnabled } from "./supabase-runtime-target";
 
-export const SUPABASE_AUTH_STORAGE_KEY = "sb-aehuszoadgqtbkxsliyy-auth-token";
+/** Production GoTrue storage key (matches @supabase/supabase-js default for the locked project). */
+export const SUPABASE_AUTH_STORAGE_KEY = `sb-${SUPABASE_PROJECT_REF}-auth-token`;
+
+function supabaseDefaultAuthStorageKey(supabaseUrl: string) {
+    const hostname = new URL(supabaseUrl).hostname;
+    return `sb-${hostname.split(".")[0]}-auth-token`;
+}
+
+/** Same key the desktop Supabase client uses for persistSession (isolated vs production). */
+export function resolveSupabaseAuthStorageKey() {
+    if (isIsolatedSupabaseBrowserE2EEnabled()) {
+        return supabaseDefaultAuthStorageKey(ISOLATED_SUPABASE_URL);
+    }
+    return SUPABASE_AUTH_STORAGE_KEY;
+}
 
 export function clearSupabaseAuthStorage() {
     if (typeof window === "undefined") {
@@ -25,7 +41,8 @@ export function readStoredAuthSession(): Session | null {
     if (typeof window === "undefined") {
         return null;
     }
-    const raw = window.localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY) || window.sessionStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+    const storageKey = resolveSupabaseAuthStorageKey();
+    const raw = window.localStorage.getItem(storageKey) || window.sessionStorage.getItem(storageKey);
     if (!raw) {
         return null;
     }

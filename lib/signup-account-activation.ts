@@ -21,6 +21,12 @@ import {
 } from "@/lib/signup-account-type";
 import { normalizeResolvedAccountRole } from "@/lib/resolved-account-role";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isSelfServeCreatorSignupType } from "@/lib/creator-self-signup";
+import {
+    metadataClaimsCreatorEscalation,
+    resolveTrustedSignupAccountType,
+} from "@/lib/signup-account-type-trust";
+import { signupRequiresCreatorUploadAgreement } from "@/lib/legal-policies";
 import { isPlatformOwnerEmail } from "@/lib/server-supabase";
 
 const LEGACY_FOUNDING_ACCOUNT_TYPES = new Set(["founding_artist", "founding_producer"]);
@@ -28,12 +34,17 @@ const LEGACY_FOUNDING_ACCOUNT_TYPES = new Set(["founding_artist", "founding_prod
 export type SignupActivationStatus =
     | "listener"
     | "needs_legal"
+    | "needs_email_confirmation"
     | "needs_invite_redeem"
     | "pending_approval"
     | "rejected"
     | "activated"
     | "legacy_preserved"
     | "owner_bypass";
+
+function isEmailVerified(user: { email_confirmed_at?: string | null; confirmed_at?: string | null } | null | undefined) {
+    return Boolean(user?.email_confirmed_at || user?.confirmed_at);
+}
 
 export async function hasCompletedSignupLegalForAccountType(
     userId: string,
@@ -138,9 +149,9 @@ export async function resumeSignupAccountActivation(options: {
     }
 
     const userLookup = await options.supabase.auth.admin.getUserById(options.userId);
-    const metadata = (userLookup.data.user?.user_metadata || {}) as Record<string, unknown>;
-    const requested = normalizeSignupAccountType(metadata.requestedAccountType)
-        || DEFAULT_SIGNUP_ACCOUNT_TYPE;
+    const authUser = userLookup.data.user;
+    const metadata = (authUser?.user_metadata || {}) as Record<string, unknown>;
+    const emailVerified = isEmailVerified(authUser);
 
     const { data: profileData } = await options.supabase
         .from("profiles")
@@ -155,6 +166,13 @@ export async function resumeSignupAccountActivation(options: {
 
     const { createPendingCreatorAccessRequest, revokeUnapprovedCreatorPrivileges } = await import("@/lib/founding-invite-service");
     let member = await loadFoundingMemberByUserId(options.supabase, options.userId);
+    let requested = await resolveTrustedSignupAccountType({
+        supabase: options.supabase,
+        userId: options.userId,
+        member,
+        metadataRequestedAccountType: metadata.requestedAccountType,
+    });
+
     const pendingCode = String(options.inviteCode || metadata.pendingInviteCode || "").trim();
     if (!member && pendingCode && requested !== "listener") {
         const redeemed = await redeemFoundingInvite({
@@ -173,46 +191,66 @@ export async function resumeSignupAccountActivation(options: {
             await options.supabase.auth.admin.updateUserById(options.userId, {
                 user_metadata: adminPatch,
             }).catch(() => undefined);
+            requested = await resolveTrustedSignupAccountType({
+                supabase: options.supabase,
+                userId: options.userId,
+                member,
+                metadataRequestedAccountType: metadata.requestedAccountType,
+            });
         }
     }
 
-    if (requested !== "listener" && !member) {
-        await createPendingCreatorAccessRequest({
+    if (metadataClaimsCreatorEscalation(requested, metadata.requestedAccountType)) {
+        await revokeUnapprovedCreatorPrivileges({
             supabase: options.supabase,
             userId: options.userId,
             displayName,
-            accountType: requested,
-        });
-        member = await loadFoundingMemberByUserId(options.supabase, options.userId);
+            requestedAccountType: requested,
+        }).catch(() => undefined);
+        await repairAuthUserMetadata(options.supabase, options.userId, {
+            displayName,
+            role: requested === "listener" ? "listener" : requested,
+            requestedAccountType: requested,
+        }).catch(() => undefined);
     }
 
-    if (!member || member.approval_status !== "approved") {
-        if (normalizeResolvedAccountRole(profileAccountType) !== "listener") {
-            await revokeUnapprovedCreatorPrivileges({
+    if (
+        requested !== "listener"
+        && !member
+        && signupRequiresCreatorUploadAgreement(requested)
+    ) {
+        const legalForCreator = await hasCompletedSignupLegalForAccountType(options.userId, requested);
+        if (legalForCreator) {
+            await createPendingCreatorAccessRequest({
                 supabase: options.supabase,
                 userId: options.userId,
                 displayName,
-                requestedAccountType: requested,
+                accountType: requested,
             });
+            member = await loadFoundingMemberByUserId(options.supabase, options.userId);
         }
-        if (!member || requested === "listener") {
-            return {
-                ok: true as const,
-                status: "listener" as const,
-                requestedAccountType: requested,
-                accountType: "listener",
-            };
-        }
-        if (member.approval_status === "rejected") {
-            return {
-                ok: true as const,
-                status: "rejected" as const,
-                requestedAccountType: requested,
-            };
-        }
+    }
+
+    if (member?.approval_status === "rejected") {
+        return {
+            ok: true as const,
+            status: "rejected" as const,
+            requestedAccountType: requested,
+        };
+    }
+
+    if (member?.invite_id && member.approval_status === "pending") {
         return {
             ok: true as const,
             status: "pending_approval" as const,
+            requestedAccountType: requested,
+        };
+    }
+
+    if (!emailVerified) {
+        return {
+            ok: true as const,
+            status: "needs_email_confirmation" as const,
             requestedAccountType: requested,
         };
     }
@@ -222,6 +260,83 @@ export async function resumeSignupAccountActivation(options: {
         return {
             ok: true as const,
             status: "needs_legal" as const,
+            requestedAccountType: requested,
+        };
+    }
+
+    const {
+        ensureListenerOrdinaryAppAccess,
+        ensureOrdinaryCreatorAppAccess,
+    } = await import("@/lib/founding-invite-service");
+
+    if (requested === "listener") {
+        const listenerAccess = await ensureListenerOrdinaryAppAccess({
+            supabase: options.supabase,
+            userId: options.userId,
+            displayName,
+        });
+        if (!listenerAccess.ok) {
+            return {
+                ok: true as const,
+                status: "rejected" as const,
+                requestedAccountType: requested,
+            };
+        }
+        member = await loadFoundingMemberByUserId(options.supabase, options.userId);
+        const now = new Date().toISOString();
+        await options.supabase
+            .from("profiles")
+            .upsert({
+                id: options.userId,
+                user_id: options.userId,
+                account_type: "listener",
+                display_name: displayName,
+                updated_at: now,
+            }, { onConflict: "id" });
+        return {
+            ok: true as const,
+            status: "activated" as const,
+            requestedAccountType: requested,
+            accountType: "listener",
+        };
+    }
+
+    if (isSelfServeCreatorSignupType(requested)) {
+        if (normalizeResolvedAccountRole(profileAccountType) === "listener") {
+            await revokeUnapprovedCreatorPrivileges({
+                supabase: options.supabase,
+                userId: options.userId,
+                displayName,
+                requestedAccountType: requested,
+            }).catch(() => undefined);
+        }
+        const creatorAccess = await ensureOrdinaryCreatorAppAccess({
+            supabase: options.supabase,
+            userId: options.userId,
+            displayName,
+            accountType: requested,
+        });
+        if (!creatorAccess.ok) {
+            if (member?.invite_id) {
+                return {
+                    ok: true as const,
+                    status: "pending_approval" as const,
+                    requestedAccountType: requested,
+                };
+            }
+            return {
+                ok: true as const,
+                status: "rejected" as const,
+                requestedAccountType: requested,
+            };
+        }
+        member = await loadFoundingMemberByUserId(options.supabase, options.userId);
+    }
+
+    if (!member || member.approval_status !== "approved") {
+        return {
+            ok: true as const,
+            status: "pending_approval" as const,
             requestedAccountType: requested,
         };
     }

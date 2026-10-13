@@ -205,6 +205,7 @@ import {
 import { getAuthSession } from "../lib/auth-session";
 import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock";
 import type { FoundingAccessState } from "../lib/founding-access";
+import { isCreatorSelfSignupEnabled } from "../lib/creator-self-signup";
 import {
     FOUNDING_INVITE_REQUIRED_MESSAGE,
     FOUNDING_ROLE_LOCKED_MESSAGE,
@@ -217,6 +218,9 @@ import { describeStorageUploadAuth } from "../lib/supabase-storage-upload";
 import { VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE as SHARED_VIDEO_UPLOAD_INCOMPATIBLE_USER_MESSAGE } from "../lib/video-upload-compatibility";
 import { DESKTOP_VIDEO_UPLOAD_STALL_ERROR_MESSAGE } from "../lib/desktop-video-upload-progress";
 import { UPLOAD_REAUTH_MESSAGE } from "../lib/desktop-video-upload-transaction";
+
+/** Bounded wait for post-login founding/profile API — avoids infinite neutral loader on hung dev server. */
+const MDB_POST_AUTH_API_TIMEOUT_MS = 10_000;
 import { isDesktopVideoUploadLifecycleActive } from "../lib/desktop-video-upload-lifecycle";
 import { runDesktopVideoUpload } from "../lib/desktop-video-upload-runner";
 import { getDesktopVideoUploadCompatibilityDebug, inspectDesktopVideoFileCodecInfo } from "../lib/desktop-video-upload-codec";
@@ -6594,6 +6598,7 @@ function PageContent({
         void refreshTrustPreferencesFromServer();
     }, [isAuthenticated, authReady, accountRolesReady, accountUserId]);
     const foundingBetaLocked = isFoundingBetaLocked();
+    const creatorSelfSignupEnabled = isCreatorSelfSignupEnabled();
     const reloadFoundingAccess = useCallback(async (userIdOverride = "", tokenOverride = "") => {
         const userId = userIdOverride || accountUserIdRef.current || "";
         const token = tokenOverride || authSessionRef.current?.access_token || "";
@@ -6613,6 +6618,8 @@ function PageContent({
                 try {
                     const response = await fetch(`/api/founding-members/me?userId=${encodeURIComponent(userId)}`, {
                         headers: { Authorization: `Bearer ${token}` },
+                        cache: "no-store",
+                        signal: AbortSignal.timeout(MDB_POST_AUTH_API_TIMEOUT_MS),
                     });
                     const data = await response.json().catch(() => ({}));
                     const access = (data.access || null) as FoundingAccessState | null;
@@ -6735,20 +6742,21 @@ function PageContent({
         && !classifiedAppMember,
     );
     const shouldHoldLoginSurface = stayInPostAuthResolution;
-    // Signed in but founding access / roles still resolving: neutral boot surface only,
-    // never the login form, public hub, or founding gate.
-    const holdPostAuthOnNeutralSurface = Boolean(shouldHoldLoginSurface && isAuthenticated);
     // Profile/roles could not be established after retries: offer Retry / Sign out. Never grants access.
     const accountProfileLoadFailed = Boolean(
         isAuthenticated
         && !isPlatformOwner
         && accountUserId
         && accountProfileLoadFailedUserId === accountUserId
-        && !accountRolesReady
-        && !foundingAccessUnresolved,
+        && !accountRolesReady,
     );
     const foundingAccessRetryAvailable = Boolean(isAuthenticated && !isPlatformOwner && foundingAccessLoadFailed);
     const accountLoadFailed = accountProfileLoadFailed || foundingAccessRetryAvailable;
+    // Signed in but founding access / roles still resolving: neutral boot surface only,
+    // never the login form, public hub, or founding gate. Failures must not hide Retry / Sign out.
+    const holdPostAuthOnNeutralSurface = Boolean(
+        shouldHoldLoginSurface && isAuthenticated && !accountLoadFailed,
+    );
     const accountProfileLoadFailedActions = accountLoadFailed ? (
         <div style={{ display: "grid", gap: 9, marginTop: 16 }}>
           <button
@@ -6793,7 +6801,7 @@ function PageContent({
                         : publicEntryView === "notify"
                             ? "public-notify"
                             : "login-form")
-                : (isAuthenticated && !classifiedLaunchOnly && !loginSurfacePaintReleased)
+                : (isAuthenticated && !classifiedLaunchOnly && !loginSurfacePaintReleased && !accountLoadFailed)
                     ? "opening-library-post-login"
                     : (!isPlatformOwner && isAuthenticated && foundingAccess && !foundingAccess.canAccessApp)
                     ? "founding-gate"
@@ -7542,6 +7550,7 @@ function PageContent({
             response = await desktopActionFetch(`/api/user-profile?userId=${encodeURIComponent(profileUserId)}`, {
                 cache: "no-store",
                 requireAuth: true,
+                signal: AbortSignal.timeout(MDB_POST_AUTH_API_TIMEOUT_MS),
             });
         }
         catch {
@@ -7557,6 +7566,9 @@ function PageContent({
                     ...previous,
                     displayName: previous.displayName || fallbackDisplayName,
                 }));
+            }
+            if (accountRolesResolvedUserIdRef.current !== profileUserId) {
+                setAccountProfileLoadFailedUserId(profileUserId);
             }
             return null;
         }
@@ -7596,6 +7608,7 @@ function PageContent({
                     role: "listener",
                 }));
                 setAccountRolesReady(false);
+                setAccountProfileLoadFailedUserId(profileUserId);
             }
             return null;
         }
@@ -14420,8 +14433,12 @@ function PageContent({
             showToast("Log in before changing account type.", "error");
             return;
         }
-        if (foundingAccess?.isFoundingMember) {
+        if (foundingAccess?.isFoundingCohortMember) {
             showToast(FOUNDING_ROLE_LOCKED_MESSAGE, "error");
+            return;
+        }
+        if (foundingAccess?.isBetaAccessCreator) {
+            showToast("Account type cannot be changed from Profile.", "error");
             return;
         }
         if (!isPlatformOwner) {
@@ -17094,9 +17111,13 @@ function PageContent({
                 return;
             }
             if (authMode === "signup" && !response.data.session) {
-                setAuthMessage(foundingBetaLocked && authInviteCode.trim() && !isPlatformOwnerEmail(email)
-                    ? "Account created. Confirm your email, then sign in to finish invite redemption and account activation."
-                    : "Account created. Check your email to confirm your sign up.");
+                const selfServeCreator = creatorSelfSignupEnabled
+                    && (signupAccountType === "artist" || signupAccountType === "producer" || signupAccountType === "artist_producer");
+                setAuthMessage(selfServeCreator
+                    ? "Account created. Confirm your email, then sign in to activate your creator dashboard."
+                    : foundingBetaLocked && authInviteCode.trim() && !isPlatformOwnerEmail(email)
+                        ? "Account created. Confirm your email, then sign in to finish invite redemption and account activation."
+                        : "Account created. Check your email to confirm your sign up.");
                 return;
             }
             markDesktopAuthSignInPending();
@@ -17190,9 +17211,13 @@ function PageContent({
             setAuthInviteCode("");
             setAuthAccountType(DEFAULT_SIGNUP_ACCOUNT_TYPE);
             setAuthMessage(authMode === "signup"
-                ? (signupAccountType === "listener"
-                    ? "You're registered for launch notifications."
-                    : "Creator access is pending owner approval.")
+                ? (access?.canAccessApp
+                    ? (signupAccountType === "listener"
+                        ? "Welcome to Music Data Base. Your listener account is ready."
+                        : "Your account is active. Welcome to Music Data Base.")
+                    : (signupAccountType === "listener"
+                        ? "Account created. Confirm your email, then sign in to start listening."
+                        : "Account created. Confirm your email, then sign in to open your studio."))
                 : "Welcome back.");
             // Never navigate from founding invite role (e.g. founding_artist → Artist Dashboard).
             // Listener account_type must land on Home even when founding_members is approved.
@@ -19040,9 +19065,11 @@ function PageContent({
                     : t("auth.loginTitle")}</h1>
             <p>{authCredentialView === "forgot"
                 ? t("auth.forgotPasswordSubtitle")
-                : foundingBetaLocked && authMode === "signup"
+                : foundingBetaLocked && authMode === "signup" && !creatorSelfSignupEnabled
                     ? t("auth.foundingSignupSubtitle")
-                    : t("auth.signupSubtitle")}</p>
+                    : (creatorSelfSignupEnabled && authMode === "signup"
+                        ? "Choose Listener, Artist, or Producer. Artist and Producer accounts activate after email confirmation — no invite code required."
+                        : t("auth.signupSubtitle"))}</p>
           </div>
 
           <LanguageSelector compact className="auth-language-selector"/>
@@ -19064,7 +19091,12 @@ function PageContent({
                 <input name="name" value={authName} onChange={(event) => setAuthName(event.target.value)} placeholder={t("auth.namePlaceholder")}/>
               </label>)}
 
-            {authMode === "signup" && foundingBetaLocked && (<label>
+            {authMode === "signup" && foundingBetaLocked && !creatorSelfSignupEnabled && (<label>
+                <span>{t("auth.inviteCode")}</span>
+                <input name="inviteCode" value={authInviteCode} onChange={(event) => setAuthInviteCode(event.target.value.toUpperCase())} placeholder={t("auth.inviteCodePlaceholder")} autoComplete="off"/>
+              </label>)}
+
+            {authMode === "signup" && foundingBetaLocked && creatorSelfSignupEnabled && authAccountType === "podcaster" && (<label>
                 <span>{t("auth.inviteCode")}</span>
                 <input name="inviteCode" value={authInviteCode} onChange={(event) => setAuthInviteCode(event.target.value.toUpperCase())} placeholder={t("auth.inviteCodePlaceholder")} autoComplete="off"/>
               </label>)}
@@ -19408,7 +19440,7 @@ function PageContent({
         `}</style>
       </main>);
     }
-    if (holdPostAuthOnNeutralSurface || (isAuthenticated && !classifiedLaunchOnly && !loginSurfacePaintReleased)) {
+    if (holdPostAuthOnNeutralSurface || (isAuthenticated && !classifiedLaunchOnly && !loginSurfacePaintReleased && !accountLoadFailed)) {
         return (<main className="auth-page" data-login-render-phase={accountLoadFailed ? "profile-load-failed" : "opening-library-post-login"}>
         <section className="auth-panel">
           <div className="auth-mark">
@@ -19512,14 +19544,24 @@ function PageContent({
       </main>);
         }
         if (!foundingAccess?.canAccessApp) {
-            const waitlist = !foundingAccess?.isFoundingMember;
+            const denial = foundingAccess?.appAccessDenialReason;
+            const waitlist = denial === "incomplete_registration";
+            const pending = denial === "founding_pending" || foundingAccess?.approvalStatus === "pending";
             return (<div data-login-render-phase="founding-gate" style={{ display: "contents" }}><FoundingMemberGate
             approvalStatus={waitlist
                 ? "waitlist"
-                : (foundingAccess?.approvalStatus || "rejected")}
+                : (pending
+                    ? "pending"
+                    : (denial === "rejected" || foundingAccess?.approvalStatus === "rejected"
+                        ? "rejected"
+                        : "blocked"))}
             foundingRole={waitlist ? null : (foundingAccess?.foundingRole || null)}
             displayName={getAccountDisplayName()}
-            blockedMessage={waitlist ? LISTENER_LAUNCH_WAITLIST_MESSAGE : undefined}
+            blockedMessage={waitlist
+                ? LISTENER_LAUNCH_WAITLIST_MESSAGE
+                : (denial === "email_unverified"
+                    ? "Confirm your email address, then sign in again to access Music Data Base."
+                    : undefined)}
             inviteCode={authInviteCode}
             onInviteCodeChange={setAuthInviteCode}
             onRedeemInvite={() => void handleGateRedeemInvite()}
@@ -21375,7 +21417,7 @@ function PageContent({
               <p>{isPlatformOwner ? "Permanent Owner/Admin account. You control verification, reports, payouts, subscriptions, users, and platform settings." : "Your library, likes, playlists, and uploads are stored in Supabase database tables. Auth metadata only keeps your display name, role, and avatar URL."}</p>
             </div>
 
-            {foundingAccess?.isFoundingMember && foundingAccess.member && foundingAccess.approvalStatus === "approved" ? (
+            {foundingAccess?.isFoundingCohortMember && foundingAccess.member && foundingAccess.approvalStatus === "approved" ? (
                 <FoundingMemberProfileCard
                     userId={accountUserId}
                     accessToken={authSession?.access_token || ""}
@@ -21385,7 +21427,14 @@ function PageContent({
                 />
             ) : null}
 
-            {foundingAccess?.isFoundingMember ? (
+            {foundingAccess?.isBetaAccessCreator ? (
+                <div className="profile-save">
+                    <h3>{foundingAccess.betaAccessLabel || foundingAccess.badgeLabel || "Beta Access"}</h3>
+                    <p>Creator beta access is active. Founding Member designation is separate and requires an invite or admin recognition.</p>
+                </div>
+            ) : null}
+
+            {foundingAccess?.isFoundingCohortMember ? (
                 <div className="profile-save">
                     <h3>{
                         foundingAccess.badgeLabel && foundingAccess.badgeLabel !== "Founding Member"
@@ -21417,7 +21466,7 @@ function PageContent({
                   Admin Tools
                 </button>
               </div>
-            </div>) : (!foundingAccess?.isFoundingMember ? (<div className="profile-save">
+            </div>) : (!foundingAccess?.isFoundingCohortMember && !foundingAccess?.isBetaAccessCreator ? (<div className="profile-save">
               <h3>Account Type</h3>
               <p>{navCapabilities.isListenerOnly
                   ? "Your account is a Listener account. Artist and Producer tools are assigned at signup or through founding approval."

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getFoundingAccessForUser } from "@/lib/founding-access";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
+import { buildFoundingMemberProfilePatchPayload } from "@/lib/founding-member-profile-update";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -54,15 +55,23 @@ export async function PATCH(request: Request) {
         if (!access.member || access.approvalStatus !== "approved") {
             return NextResponse.json({ error: "Only approved founding members can update their profile." }, { status: 403 });
         }
+        if (!access.isFoundingCohortMember) {
+            return NextResponse.json({ error: "Founding profile updates are only available for invited founding members." }, { status: 403 });
+        }
 
-        const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-        if (typeof body.displayName === "string") updatePayload.display_name = body.displayName.trim();
-        if (typeof body.socialLink === "string") updatePayload.social_link = body.socialLink.trim();
-        if (typeof body.profileImageUrl === "string") updatePayload.profile_image_url = body.profileImageUrl.trim();
+        const patch = buildFoundingMemberProfilePatchPayload({
+            existingSocialLink: access.member.social_link,
+            displayName: body.displayName,
+            socialLink: body.socialLink,
+            profileImageUrl: body.profileImageUrl,
+        });
+        if (!patch.ok) {
+            return NextResponse.json({ error: patch.error }, { status: patch.status });
+        }
 
         const result = await supabase
             .from("founding_members")
-            .update(updatePayload)
+            .update(patch.updatePayload)
             .eq("user_id", userId)
             .select("*")
             .single();

@@ -23,6 +23,33 @@ const service = read("lib/founding-invite-service.ts");
 const en = read("lib/i18n/messages/en.ts");
 
 record(
+    "page waits for founding access before gate UI",
+    /foundingAccessReady/.test(page)
+        && /foundingAccessUnresolved/.test(page)
+        && /!foundingAccessReady \|\| \(foundingAccessLoading && !foundingAccess\)/.test(page)
+        && !/accessBlocked = foundingAccessLoading \|\| !foundingAccess\?\.canAccessApp/.test(page),
+);
+record(
+    "unresolved founding access uses splash not invite/rejection titles",
+    /foundingAccessUnresolved/.test(page)
+        && /if \(foundingAccessUnresolved\) \{\s*return \(<main className="auth-page"[^>]*>[\s\S]*?auth\.openingLibrary/.test(page)
+        && /if \(!foundingAccess\?\.canAccessApp\)/.test(page),
+);
+record(
+    "approved app shell waits for profile roles after founding access",
+    /if \(!foundingAccess\?\.canAccessApp\)/.test(page)
+        && /if \(!accountRolesReady\) \{\s*return \(<main className="auth-page"[^>]*>[\s\S]*?auth\.openingLibrary/.test(page),
+);
+record(
+    "login hold does not wait for app shell so login and zml-app cannot paint together",
+    /classifiedAppMember = Boolean\(/.test(page)
+        && /opening-library-post-login/.test(page)
+        &&     /loginSurfacePaintReleased/.test(page)
+        && /authDestinationLatched/.test(page)
+        && !/canAccessApp === true\s*&& accountRolesReady\s*&& desktopShellCanRender/.test(page),
+);
+
+record(
     "gate has labeled invite code input",
     /htmlFor="founding-gate-invite-code"/.test(gate)
         && /t\("auth\.inviteCode"\)/.test(gate)

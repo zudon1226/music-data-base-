@@ -90,3 +90,9 @@ Expected buckets:
 - `downloads`
 
 Use `/api/launch/status` to confirm they exist.
+
+## Creator self-signup (Artist / Producer beta access)
+
+- `NEXT_PUBLIC_CREATOR_SELF_SIGNUP_ENABLED`: set to **`true`** on Vercel (and local `.env.local` when testing) to allow Artist/Producer signup **without invite codes**. Email confirmation and signup legal acceptances are required before server activation. Self-serve accounts receive ordinary `artist`/`producer` roles (`applySignupAccountTypeGrants` with `founding: false`); they are **not** Founding Members unless they redeem an invite or receive admin Founding Artist designation.
+- Keep **`NEXT_PUBLIC_PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_LOCKED=true`** (or unset) during beta so subscriptions/checkout stay disabled.
+- iOS TestFlight and Android Capacitor shells load the same web app; no separate native signup configuration is required beyond deploying the env vars above.

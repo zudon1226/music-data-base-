@@ -6,6 +6,10 @@ import {
     validateSignupAcceptanceInput,
 } from "@/lib/legal-policies";
 import type { SignupAccountType } from "@/lib/signup-account-type";
+import {
+    assertSignupAccountTypeRegistrationAllowed,
+    lockSignupAccountTypeAtRegistration,
+} from "@/lib/signup-account-type-trust";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 const CREATOR_UPLOAD_POLICY: LegalPolicyType = "creator_upload";
@@ -67,7 +71,18 @@ export async function recordSignupLegalAcceptances(input: {
     userId: string;
     accountType: SignupAccountType;
     acceptances: LegalAcceptanceInput[];
+    displayName?: string;
 }) {
+    const supabase = getSupabaseServerClient();
+    const registrationGate = await assertSignupAccountTypeRegistrationAllowed({
+        supabase,
+        userId: input.userId,
+        accountType: input.accountType,
+    });
+    if (!registrationGate.ok) {
+        return registrationGate;
+    }
+
     const validation = validateSignupAcceptanceInput(input.accountType, input.acceptances);
     if (!validation.ok) {
         return { ok: false as const, status: 400, error: validation.error, missing: validation.missing };
@@ -77,6 +92,17 @@ export async function recordSignupLegalAcceptances(input: {
         acceptances: validation.acceptances,
     });
     if (!recorded.ok) return recorded;
+
+    const locked = await lockSignupAccountTypeAtRegistration({
+        supabase,
+        userId: input.userId,
+        accountType: input.accountType,
+        displayName: input.displayName,
+    });
+    if (!locked.ok) {
+        return locked;
+    }
+
     return { ...recorded, required: validation.required };
 }
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingFoundingSetup } from "@/lib/admin-auth";
+import { isBetaAccessCreatorRecord, isFoundingCohortMemberRecord, shouldCountAsFoundingCohortMember } from "@/lib/creator-self-signup";
 import { foundingStatusRoleLabel, hasExplicitFoundingDesignation, type FoundingApprovalStatus, type FoundingRole } from "@/lib/founding-onboarding";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
 import { decodeSignupAccountTypeMarker } from "@/lib/signup-account-type";
@@ -19,6 +20,8 @@ export type FoundingMemberAdminRow = {
     email: string;
     username: string;
     roleLabel: string;
+    isFoundingCohort: boolean;
+    isBetaAccess: boolean;
 };
 
 async function repairOrphanedRedemptions(supabase: SupabaseClient) {
@@ -74,6 +77,8 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
         if (isMissingFoundingSetup(result.error)) {
             return {
                 members: [] as FoundingMemberAdminRow[],
+                foundingCohortMembers: [] as FoundingMemberAdminRow[],
+                betaAccessMembers: [] as FoundingMemberAdminRow[],
                 pending: [] as FoundingMemberAdminRow[],
                 approved: [] as FoundingMemberAdminRow[],
                 rejected: [] as FoundingMemberAdminRow[],
@@ -140,6 +145,21 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
             ? "founding_podcaster"
             : foundingRole;
         const listenerApproved = requestedType === "listener" && member.approval_status === "approved";
+        const isFoundingCohort = shouldCountAsFoundingCohortMember({
+            invite_id: (member.invite_id as string | null) || null,
+            social_link: (member.social_link as string | null) || null,
+            approval_status: member.approval_status as FoundingApprovalStatus,
+        }) || isFoundingCohortMemberRecord({
+            invite_id: (member.invite_id as string | null) || null,
+            social_link: (member.social_link as string | null) || null,
+        });
+        const isBetaAccess = isBetaAccessCreatorRecord({
+            invite_id: (member.invite_id as string | null) || null,
+            social_link: (member.social_link as string | null) || null,
+            approval_status: member.approval_status as FoundingApprovalStatus,
+            badge_label: String(member.badge_label || ""),
+        });
+        const betaBadge = isBetaAccess ? String(member.badge_label || "").trim() : "";
         return {
             user_id: userId,
             founding_role: foundingRole,
@@ -153,19 +173,24 @@ export async function listFoundingMembersForAdmin(supabase: SupabaseClient) {
             updated_at: String(member.updated_at || ""),
             email: emails.get(userId) || "",
             username: profile?.username || "",
+            isFoundingCohort,
+            isBetaAccess,
             roleLabel: listenerApproved
                 ? "Listener access"
-                : foundingStatusRoleLabel(labelRole, member.approval_status as FoundingApprovalStatus, {
+                : (betaBadge || foundingStatusRoleLabel(labelRole, member.approval_status as FoundingApprovalStatus, {
                     explicitFounding: hasExplicitFoundingDesignation(
                         profile?.account_type,
                         rolesByUser.get(userId),
                     ),
-                }),
+                })),
         };
     });
 
+    const foundingCohort = enriched.filter((member) => member.isFoundingCohort);
     return {
         members: enriched,
+        foundingCohortMembers: foundingCohort,
+        betaAccessMembers: enriched.filter((member) => member.isBetaAccess),
         pending: enriched.filter((member) => member.approval_status === "pending"),
         approved: enriched.filter((member) => member.approval_status === "approved"),
         rejected: enriched.filter((member) => member.approval_status === "rejected"),

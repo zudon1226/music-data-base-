@@ -69,10 +69,12 @@ export async function POST(request: Request) {
             if (!parsedAccountType.ok) {
                 return NextResponse.json({ error: parsedAccountType.error }, { status: 400 });
             }
+            const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
             const recorded = await recordSignupLegalAcceptances({
                 userId,
                 accountType: parsedAccountType.accountType,
                 acceptances,
+                displayName: displayName || undefined,
             });
             if (!recorded.ok) {
                 return NextResponse.json(

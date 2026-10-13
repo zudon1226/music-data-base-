@@ -10,6 +10,11 @@ import {
     podcasterInviteRoleError,
     resolveInviteStatus,
 } from "@/lib/founding-onboarding";
+import {
+    creatorBetaAccessBadgeLabel,
+    isCreatorSelfSignupEnabled,
+    isSelfServeCreatorSignupType,
+} from "@/lib/creator-self-signup";
 import { getErrorMessage, isPlatformOwnerEmail } from "@/lib/server-supabase";
 import {
     type SignupAccountType,
@@ -123,6 +128,118 @@ function foundingRoleForSignupAccountType(accountType: SignupAccountType): Found
     return accountType === "producer" ? "founding_producer" : "founding_artist";
 }
 
+/** Ordinary Artist/Producer signup — approved app access, not founding cohort (invite_id stays null). */
+export async function ensureOrdinaryCreatorAppAccess(options: {
+    supabase: SupabaseClient;
+    userId: string;
+    displayName: string;
+    accountType: SignupAccountType;
+}) {
+    if (!isSelfServeCreatorSignupType(options.accountType)) {
+        return { ok: false as const, error: "Account type is not eligible for ordinary creator app access." };
+    }
+    const existing = await options.supabase
+        .from("founding_members")
+        .select("approval_status,invite_id")
+        .eq("user_id", options.userId)
+        .maybeSingle();
+    if (existing.error && !isMissingFoundingSetup(existing.error)) {
+        throw existing.error;
+    }
+    const row = existing.data as { approval_status?: string; invite_id?: string | null } | null;
+    if (row?.approval_status === "rejected") {
+        return { ok: false as const, error: "This account was rejected and cannot be activated automatically." };
+    }
+    if (row?.invite_id && row.approval_status === "pending") {
+        return { ok: false as const, error: "Founding invite accounts require cohort approval." };
+    }
+    const now = new Date().toISOString();
+    const badge = creatorBetaAccessBadgeLabel(options.accountType);
+    const marker = encodeSignupAccountTypeMarker(options.accountType);
+    const upsert = await options.supabase
+        .from("founding_members")
+        .upsert({
+            user_id: options.userId,
+            founding_role: foundingRoleForSignupAccountType(options.accountType),
+            approval_status: "approved",
+            invite_id: null,
+            display_name: options.displayName,
+            social_link: marker,
+            badge_label: badge,
+            joined_at: now,
+            approved_at: now,
+            approved_by: null,
+            rejected_at: null,
+            rejected_by: null,
+            updated_at: now,
+        }, { onConflict: "user_id" })
+        .select("*")
+        .maybeSingle();
+    if (upsert.error) {
+        throw upsert.error;
+    }
+    await persistRequestedSignupAccountType({
+        supabase: options.supabase,
+        userId: options.userId,
+        displayName: options.displayName,
+        accountType: options.accountType,
+    });
+    return { ok: true as const, member: upsert.data };
+}
+
+/** @deprecated Use ensureOrdinaryCreatorAppAccess */
+export const approveSelfServeCreatorBetaAccess = ensureOrdinaryCreatorAppAccess;
+
+/** Listener app access row — not founding cohort; never grants upload or creator roles. */
+export async function ensureListenerOrdinaryAppAccess(options: {
+    supabase: SupabaseClient;
+    userId: string;
+    displayName: string;
+}) {
+    const existing = await options.supabase
+        .from("founding_members")
+        .select("approval_status,invite_id,social_link")
+        .eq("user_id", options.userId)
+        .maybeSingle();
+    if (existing.error && !isMissingFoundingSetup(existing.error)) {
+        throw existing.error;
+    }
+    const row = existing.data as { approval_status?: string; invite_id?: string | null; social_link?: string | null } | null;
+    if (row?.approval_status === "rejected") {
+        return { ok: false as const, error: "This account was rejected and cannot be activated automatically." };
+    }
+    if (row?.invite_id) {
+        return { ok: false as const, error: "Founding invite accounts use a separate approval path." };
+    }
+    if (row?.approval_status === "approved" && decodeSignupAccountTypeMarker(row.social_link) === "listener") {
+        return { ok: true as const, alreadyApproved: true as const };
+    }
+    const now = new Date().toISOString();
+    const upsert = await options.supabase
+        .from("founding_members")
+        .upsert({
+            user_id: options.userId,
+            founding_role: "founding_artist",
+            approval_status: "approved",
+            invite_id: null,
+            display_name: options.displayName,
+            social_link: encodeSignupAccountTypeMarker("listener"),
+            badge_label: "Listener access",
+            joined_at: now,
+            approved_at: now,
+            approved_by: null,
+            rejected_at: null,
+            rejected_by: null,
+            updated_at: now,
+        }, { onConflict: "user_id" })
+        .select("*")
+        .maybeSingle();
+    if (upsert.error) {
+        throw upsert.error;
+    }
+    return { ok: true as const, member: upsert.data };
+}
+
 export async function createPendingCreatorAccessRequest(options: {
     supabase: SupabaseClient;
     userId: string;
@@ -143,17 +260,23 @@ export async function createPendingCreatorAccessRequest(options: {
     }
 
     const now = new Date().toISOString();
+    const selfServePending = isCreatorSelfSignupEnabled() && isSelfServeCreatorSignupType(options.accountType);
+    const insertRow: Record<string, unknown> = {
+        user_id: options.userId,
+        founding_role: foundingRoleForSignupAccountType(options.accountType),
+        approval_status: "pending",
+        invite_id: null,
+        display_name: options.displayName,
+        social_link: encodeSignupAccountTypeMarker(options.accountType),
+        joined_at: now,
+        updated_at: now,
+    };
+    if (selfServePending) {
+        insertRow.badge_label = creatorBetaAccessBadgeLabel(options.accountType);
+    }
     const inserted = await options.supabase
         .from("founding_members")
-        .upsert({
-            user_id: options.userId,
-            founding_role: foundingRoleForSignupAccountType(options.accountType),
-            approval_status: "pending",
-            display_name: options.displayName,
-            social_link: encodeSignupAccountTypeMarker(options.accountType),
-            joined_at: now,
-            updated_at: now,
-        }, { onConflict: "user_id" })
+        .upsert(insertRow, { onConflict: "user_id" })
         .select("*")
         .maybeSingle();
     if (inserted.error) {

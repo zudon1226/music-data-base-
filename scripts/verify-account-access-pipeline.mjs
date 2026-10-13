@@ -54,7 +54,7 @@ record("profile API logs access trace", profileApi.includes("logAccountAccessTra
     && profileApi.includes("accessTrace"));
 record("founding me API nulls dashboardView", foundingMe.includes("dashboardView: null"));
 record("silent unauthorized view recovery", page.includes("Silent recovery for deep links"));
-record("schema v4", read("lib/client-access-session.ts").includes("CLIENT_ACCESS_SCHEMA_VERSION = 4"));
+record("schema v5", read("lib/client-access-session.ts").includes("CLIENT_ACCESS_SCHEMA_VERSION = 5"));
 
 const env = readEnv();
 for (const [k, v] of Object.entries(env)) {

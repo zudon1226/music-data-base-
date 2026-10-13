@@ -251,7 +251,10 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         foundingInvitesRecent,
     ] = await Promise.all([
         loadOverviewRoleCounts(supabase),
-        countRows(supabase, "founding_members", [["approval_status", "eq", "approved"]]),
+        countRows(supabase, "founding_members", [
+            ["approval_status", "eq", "approved"],
+            ["invite_id", "not_is", null],
+        ]),
         countRows(supabase, "founding_members", [["approval_status", "eq", "pending"]]),
         countRows(supabase, "founding_members", [["approval_status", "eq", "rejected"]]),
         countRows(supabase, "songs"),
@@ -275,7 +278,7 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
         supabase.from("storage_cleanup_delete_logs").select("id,bucket,file_name,deleted_by,created_at").order("created_at", { ascending: false }).limit(8),
         supabase.from("platform_errors").select("id,category,action,message,created_at,status").eq("category", "upload").order("created_at", { ascending: false }).limit(8),
         supabase.from("platform_errors").select("id,category,action,message,created_at,status").eq("category", "storage").order("created_at", { ascending: false }).limit(8),
-        supabase.from("founding_members").select("user_id,founding_role,approval_status,display_name,updated_at,approved_by,rejected_by").order("updated_at", { ascending: false }).limit(8),
+        supabase.from("founding_members").select("user_id,founding_role,approval_status,display_name,updated_at,approved_by,rejected_by,invite_id").order("updated_at", { ascending: false }).limit(8),
         supabase.from("founding_invites").select("id,invite_code,status,intended_role,updated_at,created_by").order("updated_at", { ascending: false }).limit(8),
     ]);
 
@@ -463,7 +466,7 @@ export async function buildPlatformControlCenterSnapshot(supabase: SupabaseClien
     ));
 
     const ownerActions = [
-        ...(foundingMembersRecent.data || []).filter((row) => row.approved_by || row.rejected_by).map((row) => toActivity(
+        ...(foundingMembersRecent.data || []).filter((row) => (row.approved_by || row.rejected_by) && row.invite_id).map((row) => toActivity(
             `member-${row.user_id}`,
             "founding-review",
             `${row.founding_role} ${row.approval_status}`,

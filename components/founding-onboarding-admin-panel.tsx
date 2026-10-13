@@ -15,6 +15,8 @@ type FoundingMemberAdminRow = {
     email?: string;
     username?: string;
     roleLabel?: string;
+    isFoundingCohort?: boolean;
+    isBetaAccess?: boolean;
 };
 
 type FoundingOnboardingAdminPanelProps = {
@@ -73,8 +75,9 @@ export function FoundingOnboardingAdminPanel({
             : members.filter((member) => member.approval_status === "pending");
         return {
             pending,
-            approved: members.filter((member) => member.approval_status === "approved"),
+            approved: members.filter((member) => member.approval_status === "approved" && member.isFoundingCohort),
             rejected: members.filter((member) => member.approval_status === "rejected"),
+            betaAccess: members.filter((member) => member.isBetaAccess),
         };
     }, [members, pendingMembers]);
 

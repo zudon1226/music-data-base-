@@ -33,10 +33,22 @@ function isBypassPath(pathname: string) {
 }
 
 function foundingAccessDeniedMessage(access: Awaited<ReturnType<typeof getFoundingAccessForUser>>) {
-    if (!access.isFoundingMember) return LISTENER_LAUNCH_WAITLIST_MESSAGE;
+    switch (access.appAccessDenialReason) {
+        case "rejected":
+            return FOUNDING_REJECTED_MESSAGE;
+        case "email_unverified":
+            return "Confirm your email address before using Music Data Base.";
+        case "incomplete_registration":
+            return LISTENER_LAUNCH_WAITLIST_MESSAGE;
+        case "founding_pending":
+            return FOUNDING_PENDING_MESSAGE;
+        default:
+            break;
+    }
     if (access.approvalStatus === "pending") return FOUNDING_PENDING_MESSAGE;
     if (access.approvalStatus === "rejected") return FOUNDING_REJECTED_MESSAGE;
-    return FOUNDING_INVITE_REQUIRED_MESSAGE;
+    if (access.isFoundingCohortMember) return FOUNDING_INVITE_REQUIRED_MESSAGE;
+    return "App access is not available for this account yet.";
 }
 
 export function shouldEnforceFoundingApiAccess(pathname: string) {

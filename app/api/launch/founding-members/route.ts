@@ -26,8 +26,10 @@ export async function GET(request: Request) {
         const listed = await listFoundingMembersForAdmin(supabase);
         return NextResponse.json({
             members: listed.members,
+            foundingCohortMembers: listed.foundingCohortMembers,
+            betaAccessMembers: listed.betaAccessMembers,
             pending: listed.pending || listed.members.filter((member) => member.approval_status === "pending"),
-            approved: listed.approved || listed.members.filter((member) => member.approval_status === "approved"),
+            approved: listed.foundingCohortMembers.filter((member) => member.approval_status === "approved"),
             rejected: listed.rejected || listed.members.filter((member) => member.approval_status === "rejected"),
             setupRequired: listed.setupRequired,
         });

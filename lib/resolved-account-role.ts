@@ -172,7 +172,7 @@ export async function loadResolvedAccountCapabilities(userId: string, email = ""
     const isAdmin = profileRow.is_admin === true;
     if (!isPlatformOwner && !isAdmin) {
         const member = await loadFoundingMemberByUserId(supabase, userId);
-        if (member?.approval_status !== "approved") {
+        if (member?.approval_status === "rejected") {
             return resolveCapabilitiesFromExplicitRoles({ primaryRole: "listener" });
         }
     }

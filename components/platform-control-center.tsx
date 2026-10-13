@@ -154,7 +154,7 @@ export function PlatformControlCenter({
                         ["Producers", overview?.producers],
                         ["Podcasters", overview?.podcasters],
                         ["Admins", overview?.admins],
-                        ["Approved creators", overview?.approvedUsers],
+                        ["Founding members (invited)", overview?.approvedUsers],
                         ["Pending creator requests", overview?.pendingUsers],
                         ["Rejected users", overview?.rejectedUsers],
                         ["Songs", overview?.totalSongs],

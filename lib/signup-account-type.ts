@@ -15,7 +15,7 @@ export type SignupAccountType = (typeof SIGNUP_ACCOUNT_TYPES)[number];
 
 export const DEFAULT_SIGNUP_ACCOUNT_TYPE: SignupAccountType = "listener";
 
-const SIGNUP_ACCOUNT_TYPE_MARKER_PREFIX = "mdb_signup_account_type=";
+export const SIGNUP_ACCOUNT_TYPE_MARKER_PREFIX = "mdb_signup_account_type=";
 
 export function normalizeSignupAccountType(value: unknown): SignupAccountType | null {
     const normalized = String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -60,6 +60,18 @@ export function decodeSignupAccountTypeMarker(value: unknown): SignupAccountType
     const text = String(value || "").trim();
     if (!text.startsWith(SIGNUP_ACCOUNT_TYPE_MARKER_PREFIX)) return null;
     return normalizeSignupAccountType(text.slice(SIGNUP_ACCOUNT_TYPE_MARKER_PREFIX.length));
+}
+
+/** Any value using the trusted marker prefix (including malformed suffixes). */
+export function hasSignupAccountTypeMarkerPrefix(value: unknown) {
+    return String(value || "").trim().startsWith(SIGNUP_ACCOUNT_TYPE_MARKER_PREFIX);
+}
+
+/** Exact marker string produced by encodeSignupAccountTypeMarker for a known signup type. */
+export function isValidSignupAccountTypeMarker(value: unknown) {
+    const text = String(value || "").trim();
+    const decoded = decodeSignupAccountTypeMarker(text);
+    return decoded !== null && text === encodeSignupAccountTypeMarker(decoded);
 }
 
 export function signupAccountTypeLabel(accountType: SignupAccountType) {
