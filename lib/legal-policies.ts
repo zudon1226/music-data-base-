@@ -59,7 +59,7 @@ export const LEGAL_POLICIES: LegalPolicyDefinition[] = [
         version: LEGAL_POLICY_VERSION,
         displayRevision: LEGAL_PRIVACY_REVISION,
         lastUpdated: LEGAL_PRIVACY_LAST_UPDATED_LABEL,
-        publicPath: "/legal/privacy",
+        publicPath: "/privacy-policy",
     },
     {
         type: "terms",

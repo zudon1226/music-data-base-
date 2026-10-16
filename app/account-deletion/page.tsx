@@ -40,7 +40,7 @@ export default function AccountDeletionPublicPage() {
                         from the address tied to your account when possible. We verify ownership before processing offline requests.
                     </p>
                     <p>
-                        <Link href="/legal/privacy">Privacy Policy</Link>
+                        <Link href="/privacy-policy">Privacy Policy</Link>
                         {" · "}
                         <Link href="/">Return to Music Data Base</Link>
                     </p>
