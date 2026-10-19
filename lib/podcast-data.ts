@@ -52,6 +52,7 @@ export const PODCAST_EPISODE_COLUMNS = [
     "published_at",
     "created_at",
     "updated_at",
+    "moderation_state",
 ].join(",");
 
 export async function loadPodcastCreatorNames(userIds: string[]) {

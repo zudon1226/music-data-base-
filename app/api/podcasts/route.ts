@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
+import { filterPublicCatalogRows } from "@/lib/moderation-status.mjs";
 import { mapPodcastRows, PODCAST_EPISODE_COLUMNS, PODCAST_SHOW_COLUMNS } from "@/lib/podcast-data";
 import { requirePodcastRequestCreator } from "@/lib/podcast-route-auth";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
@@ -74,8 +75,11 @@ export async function GET(request: Request) {
                 .order("published_at", { ascending: false, nullsFirst: false })
                 .order("created_at", { ascending: false })
                 .limit(limit);
-            if (scope === "mine" && !mineIsAdmin) episodeQuery = episodeQuery.eq("user_id", userId);
-            else episodeQuery = episodeQuery.eq("status", "published");
+            if (scope === "mine" && !mineIsAdmin) {
+                episodeQuery = episodeQuery.eq("user_id", userId);
+            } else if (scope === "public") {
+                episodeQuery = episodeQuery.eq("status", "published");
+            }
             if (type === "audio" || type === "video") {
                 episodeQuery = episodeQuery.eq("episode_type", type);
             }
@@ -83,7 +87,9 @@ export async function GET(request: Request) {
             if (episodeResult.error) {
                 return jsonResponse({ error: getErrorMessage(episodeResult.error), shows: [], episodes: [] }, 500);
             }
-            episodeRows = (episodeResult.data || []) as unknown as Record<string, unknown>[];
+            episodeRows = scope === "public"
+                ? filterPublicCatalogRows((episodeResult.data || []) as unknown as Record<string, unknown>[])
+                : (episodeResult.data || []) as unknown as Record<string, unknown>[];
         }
         const mapped = await mapPodcastRows({
             showRows,
@@ -91,13 +97,7 @@ export async function GET(request: Request) {
             publishedOnly: scope === "public",
         });
         const publicShows = scope === "public"
-            ? mapped.shows.filter((show) => {
-                if ((show.episodeCount || 0) <= 0) return false;
-                if (type === "audio" || type === "video") {
-                    return episodeRows.some((episode) => String(episode.podcast_id) === show.id);
-                }
-                return true;
-            })
+            ? mapped.shows.filter((show) => episodeRows.some((episode) => String(episode.podcast_id) === show.id))
             : mapped.shows;
         return jsonResponse({
             shows: scope === "public"

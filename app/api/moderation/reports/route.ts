@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
+import { syncCatalogHoldForReportedItem } from "@/lib/moderation-catalog-hold";
+import {
+    canTransitionModerationStatus,
+    isModerationStatus,
+} from "@/lib/moderation-status.mjs";
 import { requirePodcastRequestUser } from "@/lib/podcast-route-auth";
 import { getBearerToken } from "@/lib/request-auth";
 import { submitUserModerationReport } from "@/lib/submit-user-moderation-report";
@@ -81,11 +86,24 @@ export async function PATCH(request: Request) {
         if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
         const reportId = String(body.id || body.reportId || "").trim();
         const status = String(body.status || "").trim();
-        const allowed = new Set(["open", "reviewing", "takedown_pending", "removed", "dismissed", "resolved"]);
         if (!reportId) return jsonResponse({ error: "Report id is required." }, 400);
-        if (!allowed.has(status)) return jsonResponse({ error: "Invalid moderation status." }, 400);
+        if (!isModerationStatus(status)) return jsonResponse({ error: "Invalid moderation status." }, 400);
 
         const supabase = getSupabaseServerClient();
+        const existing = await supabase
+            .from("moderation_reports")
+            .select("id,item_type,item_id,item_title,reason,status,updated_at")
+            .eq("id", reportId)
+            .maybeSingle();
+        if (existing.error) return jsonResponse({ error: getErrorMessage(existing.error) }, 500);
+        if (!existing.data) return jsonResponse({ error: "Moderation report not found." }, 404);
+        if (!canTransitionModerationStatus(String(existing.data.status || ""), status)) {
+            return jsonResponse({
+                error: `Cannot change report status from ${existing.data.status} to ${status}.`,
+                code: "INVALID_STATUS_TRANSITION",
+            }, 409);
+        }
+
         const updated = await supabase
             .from("moderation_reports")
             .update({
@@ -102,6 +120,13 @@ export async function PATCH(request: Request) {
 
         if (status === "removed" && updated.data.item_type === "comment") {
             await supabase.from("podcast_episode_comments").delete().eq("id", String(updated.data.item_id || ""));
+        } else {
+            const hold = await syncCatalogHoldForReportedItem(
+                supabase,
+                String(updated.data.item_type || ""),
+                String(updated.data.item_id || ""),
+            );
+            if (!hold.ok) return jsonResponse({ error: hold.error, report: updated.data }, 500);
         }
         return jsonResponse({ ok: true, report: updated.data });
     }

@@ -10,6 +10,7 @@ import {
     extensionFromStoragePath,
     mimeTypeForMediaExtension,
 } from "@/lib/media-download-filename";
+import { isCatalogItemPubliclyPlayable } from "@/lib/moderation-status.mjs";
 import { ACCESS_TOKEN_BODY_KEYS, getRecordString, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -78,7 +79,7 @@ export async function POST(request: Request, context: Params) {
 
         const videoResult = await supabase
             .from("videos")
-            .select("id,title,user_id,artist_id,producer_id,producer_profile_id,storage_path,video_url,download_enabled")
+            .select("id,title,user_id,artist_id,producer_id,producer_profile_id,storage_path,video_url,download_enabled,moderation_state")
             .eq("id", videoId)
             .maybeSingle();
 
@@ -98,6 +99,9 @@ export async function POST(request: Request, context: Params) {
         }
 
         if (!videoData) return json({ error: "Video not found.", code: "NOT_FOUND" }, 404);
+        if (!isCatalogItemPubliclyPlayable(videoData, { allowOwner: true, viewerUserId: userId })) {
+            return json({ error: "Video not found.", code: "NOT_FOUND" }, 404);
+        }
 
         if (!isDownloadEnabledFlag(videoData.download_enabled)) {
             return json({

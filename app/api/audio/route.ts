@@ -1,13 +1,18 @@
 import {
+    AudioPlaybackGuardError,
+    evaluateSongAudioPlaybackAccess,
+    resolveAudioPlaybackViewer,
+    resolveCatalogSongForAudio,
+} from "@/lib/audio-playback-guard";
+import {
     encodeSongStoragePath,
     extractSongStoragePathFromPublicUrl,
     isLegacySongFilenamePath,
     normalizeSongStoragePath,
-    resolveSongStoragePath,
     SONGS_BUCKET,
 } from "@/lib/song-storage-path";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
-import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
+import { readSupabaseProjectUrl } from "@/lib/supabase-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,80 +38,8 @@ async function downloadFromStorage(path: string) {
     };
 }
 
-async function lookupSongStoragePath(supabase: ReturnType<typeof getSupabaseServerClient>, songId: string) {
-    const { data } = await supabase
-        .from("songs")
-        .select("storage_path,audio_url")
-        .eq("id", songId)
-        .maybeSingle();
-    if (!data) {
-        return "";
-    }
-    return resolveSongStoragePath(
-        typeof data.storage_path === "string" ? data.storage_path : "",
-        typeof data.audio_url === "string" ? data.audio_url : "",
-    );
-}
-
-async function lookupLegacySongStoragePath(
-    supabase: ReturnType<typeof getSupabaseServerClient>,
-    fileName: string,
-) {
-    const cleanFileName = normalizeSongStoragePath(fileName);
-    if (!cleanFileName) {
-        return "";
-    }
-
-    const exactMatch = await supabase
-        .from("songs")
-        .select("storage_path,audio_url")
-        .eq("storage_path", cleanFileName)
-        .limit(1)
-        .maybeSingle();
-    if (exactMatch.data) {
-        return resolveSongStoragePath(
-            typeof exactMatch.data.storage_path === "string" ? exactMatch.data.storage_path : "",
-            typeof exactMatch.data.audio_url === "string" ? exactMatch.data.audio_url : "",
-        );
-    }
-
-    const suffixMatches = await supabase
-        .from("songs")
-        .select("storage_path,audio_url")
-        .ilike("storage_path", `%/${cleanFileName}`)
-        .order("created_at", { ascending: false })
-        .limit(5);
-    for (const row of suffixMatches.data || []) {
-        const resolved = resolveSongStoragePath(
-            typeof row.storage_path === "string" ? row.storage_path : "",
-            typeof row.audio_url === "string" ? row.audio_url : "",
-        );
-        if (resolved.includes("/")) {
-            return resolved;
-        }
-    }
-
-    const endsWithMatches = await supabase
-        .from("songs")
-        .select("storage_path,audio_url")
-        .ilike("storage_path", `%${cleanFileName}`)
-        .order("created_at", { ascending: false })
-        .limit(5);
-    for (const row of endsWithMatches.data || []) {
-        const resolved = resolveSongStoragePath(
-            typeof row.storage_path === "string" ? row.storage_path : "",
-            typeof row.audio_url === "string" ? row.audio_url : "",
-        );
-        if (resolved) {
-            return resolved;
-        }
-    }
-
-    return "";
-}
-
 async function fetchPublicSongBlob(storagePath: string) {
-    const publicUrl = `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${SONGS_BUCKET}/${encodeSongStoragePath(storagePath)}`;
+    const publicUrl = `${readSupabaseProjectUrl()}/storage/v1/object/public/${SONGS_BUCKET}/${encodeSongStoragePath(storagePath)}`;
     const response = await fetch(publicUrl, { cache: "no-store" });
     if (!response.ok) {
         return { error: `Public audio URL fetch failed with HTTP ${response.status}.` };
@@ -121,43 +54,31 @@ async function fetchPublicSongBlob(storagePath: string) {
 
 type AudioDownloadResult =
     | { storagePath: string; data: Blob; contentType: string }
-    | { error: string; storagePath?: string };
+    | { error: string; storagePath?: string; status?: number; code?: string };
 
-async function resolveAudioDownload(rawPath: string, songId: string): Promise<AudioDownloadResult> {
-    let storagePath = normalizeSongStoragePath(rawPath);
-    let supabase = getSupabaseServerClient();
-
-    if (songId) {
-        const fromSongId = await lookupSongStoragePath(supabase, songId);
-        if (fromSongId) {
-            storagePath = fromSongId;
-        }
+async function resolveAudioDownload(storagePath: string): Promise<AudioDownloadResult> {
+    const normalized = normalizeSongStoragePath(storagePath);
+    if (!normalized) {
+        return { error: "Missing audio path.", status: 400, code: "MISSING_PATH" };
     }
 
-    if (!storagePath && songId) {
-        return { error: "Missing audio path for song." };
-    }
-    if (!storagePath) {
-        return { error: "Missing audio path." };
-    }
-
-    const candidates = [storagePath];
-    const fromPublicUrl = extractSongStoragePathFromPublicUrl(storagePath);
+    const candidates = [normalized];
+    const fromPublicUrl = extractSongStoragePathFromPublicUrl(normalized);
     if (fromPublicUrl && !candidates.includes(fromPublicUrl)) {
         candidates.push(fromPublicUrl);
     }
 
-    if (isLegacySongFilenamePath(storagePath)) {
-        const legacyResolved = await lookupLegacySongStoragePath(supabase, storagePath);
-        if (legacyResolved && !candidates.includes(legacyResolved)) {
-            candidates.unshift(legacyResolved);
+    if (isLegacySongFilenamePath(normalized)) {
+        const supabase = getSupabaseServerClient();
+        const catalog = await resolveCatalogSongForAudio(supabase, { rawPath: normalized });
+        if (catalog.storagePath && !candidates.includes(catalog.storagePath)) {
+            candidates.unshift(catalog.storagePath);
         }
     }
 
     let lastError = "Audio file could not be loaded.";
     for (const candidate of candidates) {
         const download = await downloadFromStorage(candidate);
-        supabase = download.supabase;
         if (!download.error && download.data) {
             return {
                 storagePath: download.normalizedPath,
@@ -178,7 +99,7 @@ async function resolveAudioDownload(rawPath: string, songId: string): Promise<Au
         lastError = publicFetch.error || lastError;
     }
 
-    return { error: lastError, storagePath };
+    return { error: lastError, storagePath: normalized, status: 500 };
 }
 
 export async function GET(request: Request) {
@@ -186,7 +107,21 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const path = searchParams.get("path") || "";
         const songId = String(searchParams.get("songId") || "").trim();
-        const resolved = await resolveAudioDownload(path, songId);
+        const supabase = getSupabaseServerClient();
+        const viewer = await resolveAudioPlaybackViewer(request);
+        const catalog = await resolveCatalogSongForAudio(supabase, { songId, rawPath: path });
+        const access = evaluateSongAudioPlaybackAccess(catalog.song, viewer);
+
+        if (!access.ok) {
+            return Response.json({ error: access.error, code: access.code }, { status: 404 });
+        }
+
+        const storagePath = catalog.storagePath || normalizeSongStoragePath(path);
+        if (!storagePath) {
+            return Response.json({ error: songId ? "Missing audio path for song." : "Missing audio path.", code: "MISSING_PATH" }, { status: 400 });
+        }
+
+        const resolved = await resolveAudioDownload(storagePath);
 
         if ("error" in resolved) {
             console.error("[api/audio] Supabase download failed:", {
@@ -195,7 +130,10 @@ export async function GET(request: Request) {
                 storagePath: resolved.storagePath || path,
                 error: resolved.error,
             });
-            return Response.json({ error: resolved.error || "Audio file could not be loaded." }, { status: 500 });
+            return Response.json(
+                { error: resolved.error || "Audio file could not be loaded.", code: resolved.code || "AUDIO_FETCH_FAILED" },
+                { status: resolved.status || 500 },
+            );
         }
 
         return new Response(resolved.data.stream(), {
@@ -206,6 +144,10 @@ export async function GET(request: Request) {
         });
     }
     catch (error) {
+        if (error instanceof AudioPlaybackGuardError) {
+            console.error("[api/audio] moderation guard blocked delivery:", error.message);
+            return Response.json({ error: error.message, code: error.code }, { status: 503 });
+        }
         console.error("[api/audio] Server error:", error);
         return Response.json({ error: error instanceof Error ? error.message : "Audio file could not be loaded." }, { status: 500 });
     }

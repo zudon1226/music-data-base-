@@ -1,16 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isModerationItemType } from "@/lib/moderation-status.mjs";
 import { getErrorMessage } from "@/lib/server-supabase";
-
-const ALLOWED_ITEM_TYPES = new Set([
-    "song",
-    "video",
-    "album",
-    "comment",
-    "artist",
-    "producer",
-    "beat",
-    "playlist",
-]);
 
 export type SubmitModerationReportInput = {
     reporterId: string;
@@ -29,7 +19,7 @@ export async function submitUserModerationReport(
 ) {
     const itemType = String(input.itemType || "").trim();
     const itemId = String(input.itemId || "").trim();
-    if (!ALLOWED_ITEM_TYPES.has(itemType)) {
+    if (!isModerationItemType(itemType)) {
         return { ok: false as const, status: 400, error: "Invalid report item type." };
     }
     if (!itemId) {

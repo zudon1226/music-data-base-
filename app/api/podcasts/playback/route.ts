@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isCatalogItemPubliclyPlayable } from "@/lib/moderation-status.mjs";
 import { requirePodcastOwner } from "@/lib/podcast-access";
 import { mapPodcastRows, PODCAST_EPISODE_COLUMNS, PODCAST_SHOW_COLUMNS } from "@/lib/podcast-data";
 import { requirePodcastRequestUser } from "@/lib/podcast-route-auth";
@@ -34,7 +35,9 @@ export async function POST(request: Request) {
         if (showResult.error) return jsonResponse({ error: getErrorMessage(showResult.error) }, 500);
         if (!showResult.data) return jsonResponse({ error: "Podcast show not found." }, 404);
         const showRow = showResult.data as unknown as Record<string, unknown>;
-        const publicPlayback = episodeRow.status === "published" && showRow.status === "published";
+        const publicPlayback = episodeRow.status === "published"
+            && showRow.status === "published"
+            && isCatalogItemPubliclyPlayable(episodeRow);
         if (!publicPlayback) {
             const auth = await requirePodcastRequestUser(request, body, "/api/podcasts/playback");
             if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);

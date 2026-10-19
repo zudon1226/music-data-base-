@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isCatalogItemPubliclyPlayable } from "@/lib/moderation-status.mjs";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, getSupabaseLibraryClient, isUuid } from "@/lib/server-supabase";
 export const runtime = "nodejs";
@@ -182,10 +183,13 @@ export async function GET(request: Request) {
                 bucket.songIds.push(itemId);
             albumItemBuckets.set(albumId, bucket);
         });
-        const uniqueSongs = [...new Map((songsResult.data || []).map((song) => [String(song.id), song as Record<string, unknown>])).values()];
-        const uniqueVideos = [...new Map((videosResult.data || []).map((video) => [String(video.id), video as Record<string, unknown>])).values()];
+        const uniqueSongs = [...new Map((songsResult.data || []).map((song) => [String(song.id), song as Record<string, unknown>])).values()]
+            .filter((row) => isCatalogItemPubliclyPlayable(row, { allowOwner: true, viewerUserId: userId }));
+        const uniqueVideos = [...new Map((videosResult.data || []).map((video) => [String(video.id), video as Record<string, unknown>])).values()]
+            .filter((row) => isCatalogItemPubliclyPlayable(row, { allowOwner: true, viewerUserId: userId }));
         const uniquePodcastShows = [...new Map((podcastShowsResult.data || []).map((show) => [String(show.id), show as Record<string, unknown>])).values()];
-        const uniquePodcastEpisodes = [...new Map((podcastEpisodesResult.data || []).map((episode) => [String(episode.id), episode as Record<string, unknown>])).values()];
+        const uniquePodcastEpisodes = [...new Map((podcastEpisodesResult.data || []).map((episode) => [String(episode.id), episode as Record<string, unknown>])).values()]
+            .filter((row) => isCatalogItemPubliclyPlayable(row, { allowOwner: true, viewerUserId: userId }));
         const uniqueAlbums = [
             ...new Map((albumsResult.data || []).map((album) => {
                 const albumId = String(album.id || "");
@@ -199,7 +203,7 @@ export async function GET(request: Request) {
                     },
                 ];
             })).values(),
-        ];
+        ].filter((row) => isCatalogItemPubliclyPlayable(row, { allowOwner: true, viewerUserId: userId }));
         return jsonResponse({
             rows: saves,
             songIds: uniqueSongIds,
