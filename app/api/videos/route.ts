@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+    filterPublicCatalogRows,
+    isModerationHoldColumnError,
+} from "@/lib/moderation-status.mjs";
+import { readSupabaseProjectUrl } from "@/lib/supabase-config";
 import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
 import { getVideoPlaybackUrl } from "@/lib/canonical-video";
 
@@ -6,15 +11,18 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const FULL_SELECT =
-    "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id";
+    "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id,moderation_state";
+
+const MODERATION_HOLD_MIGRATION_MESSAGE =
+    "Catalog moderation_state is not available until migration 202610172000 is applied.";
 
 const SELECT_FALLBACKS = [
-    "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at",
-    "id,title,description,album_id,category,video_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id",
-    "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id",
-    "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at,user_id",
-    "id,title,description,category,video_url,storage_path,thumbnail_url,views,likes,created_at,user_id",
-    "id,title,video_url,storage_path,thumbnail_url,created_at",
+    "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,moderation_state",
+    "id,title,description,album_id,category,video_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id,moderation_state",
+    "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,category,video_url,cover_url,storage_path,thumbnail_url,video_codec,audio_codec,mobile_compatible,views,likes,created_at,user_id,moderation_state",
+    "id,title,description,artist_name,artist_id,producer,producer_name,producer_id,producer_profile_id,beat_id,album_id,category,video_url,cover_url,storage_path,thumbnail_url,views,likes,created_at,user_id,moderation_state",
+    "id,title,description,category,video_url,storage_path,thumbnail_url,views,likes,created_at,user_id,moderation_state",
+    "id,title,video_url,storage_path,thumbnail_url,created_at,moderation_state",
 ] as const;
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -26,8 +34,7 @@ function isUuid(value: string) {
 }
 
 function getSupabaseVideoPublicUrl(storagePath: string) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "")
-        || "https://aehuszoadgqtbkxsliyy.supabase.co";
+    const supabaseUrl = readSupabaseProjectUrl().replace(/\/+$/, "");
     const cleanPath = normalizeVideoStoragePath(storagePath);
     if (!supabaseUrl || !cleanPath) return "";
     return `${supabaseUrl}/storage/v1/object/public/videos/${cleanPath.split("/").map(encodeURIComponent).join("/")}`;
@@ -138,6 +145,9 @@ async function loadVideosFromDatabase() {
         if (!result.error) {
             return ((result.data || []) as unknown as Record<string, unknown>[]);
         }
+        if (isModerationHoldColumnError(result.error)) {
+            throw new Error(MODERATION_HOLD_MIGRATION_MESSAGE);
+        }
         lastError = result.error;
         console.warn("[api/videos] select fallback:", getErrorMessage(result.error));
     }
@@ -239,6 +249,10 @@ export async function GET(request: Request) {
             rows = await loadVideosFromDatabase();
         }
         catch (error) {
+            const message = getErrorMessage(error);
+            if (message === MODERATION_HOLD_MIGRATION_MESSAGE) {
+                return jsonResponse({ error: message, videos: [] }, 500);
+            }
             console.error("[api/videos] database load failed:", error);
             rows = [];
         }
@@ -247,7 +261,7 @@ export async function GET(request: Request) {
             rows = await listShallowStorageVideos();
         }
 
-        const videos = rows.map((video) => ({
+        const videos = filterPublicCatalogRows(rows).map((video) => ({
             ...video,
             video_url: normalizeVideoUrl(video),
         }));

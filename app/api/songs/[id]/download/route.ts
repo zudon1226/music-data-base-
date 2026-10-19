@@ -10,6 +10,7 @@ import {
     extensionFromStoragePath,
     mimeTypeForMediaExtension,
 } from "@/lib/media-download-filename";
+import { isCatalogItemPubliclyPlayable } from "@/lib/moderation-status.mjs";
 import { ACCESS_TOKEN_BODY_KEYS, getRecordString, requireMatchingUserId } from "@/lib/request-auth";
 import { resolveSongStoragePath, SONGS_BUCKET } from "@/lib/song-storage-path";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
@@ -57,7 +58,7 @@ export async function POST(request: Request, context: Params) {
 
         const songResult = await supabase
             .from("songs")
-            .select("id,title,user_id,storage_path,audio_url,download_enabled")
+            .select("id,title,user_id,storage_path,audio_url,download_enabled,moderation_state")
             .eq("id", songId)
             .maybeSingle();
 
@@ -77,6 +78,9 @@ export async function POST(request: Request, context: Params) {
         }
 
         if (!song) return json({ error: "Song not found.", code: "NOT_FOUND" }, 404);
+        if (!isCatalogItemPubliclyPlayable(song as Record<string, unknown>, { allowOwner: true, viewerUserId: userId })) {
+            return json({ error: "Song not found.", code: "NOT_FOUND" }, 404);
+        }
 
         if (!isDownloadEnabledFlag(song.download_enabled)) {
             return json({

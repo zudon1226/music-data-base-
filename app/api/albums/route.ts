@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { repairDeadAlbumVideoReferences } from "@/lib/album-video-refs";
+import { filterPublicCatalogRows } from "@/lib/moderation-status.mjs";
 import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { getSupabaseLibraryClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
@@ -9,7 +10,7 @@ type AlbumItemInput = {
     itemId: string;
     itemType: "song" | "video";
 };
-const ALBUM_SELECT = "id,user_id,title,creator_name,owner_type,artist_name,artist_id,producer_name,producer_id,producer_profile_id,cover_url,category,release_date,created_at,updated_at";
+const ALBUM_SELECT = "id,user_id,title,creator_name,owner_type,artist_name,artist_id,producer_name,producer_id,producer_profile_id,cover_url,category,release_date,created_at,updated_at,moderation_state";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
@@ -422,7 +423,7 @@ export async function GET(request: Request) {
             console.error("[api/albums] load failed:", albumsResult.error);
             return jsonResponse({ error: getErrorMessage(albumsResult.error), albums: [], setupRequired: isMissingTable(albumsResult.error) }, isMissingTable(albumsResult.error) ? 409 : 500);
         }
-        const albumRows = (albumsResult.data || []) as Record<string, unknown>[];
+        const albumRows = filterPublicCatalogRows((albumsResult.data || []) as Record<string, unknown>[]);
         const albumIds = albumRows.map((album) => String(album.id || "")).filter((id) => isUuid(id));
         const { itemBuckets, error: itemsError } = await loadAlbumItemBuckets(supabase, albumIds);
         if (itemsError) {

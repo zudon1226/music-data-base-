@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isCatalogItemPubliclyPlayable } from "@/lib/moderation-status.mjs";
 import { requirePodcastOwner } from "@/lib/podcast-access";
 import { mapPodcastRows, PODCAST_EPISODE_COLUMNS, PODCAST_SHOW_COLUMNS } from "@/lib/podcast-data";
 import { deletePodcastEpisodePermanently } from "@/lib/podcast-delete-lifecycle";
@@ -45,7 +46,9 @@ export async function GET(
         if (showResult.error) return jsonResponse({ error: getErrorMessage(showResult.error) }, 500);
         if (!showResult.data) return jsonResponse({ error: "Podcast show not found." }, 404);
         const showRow = showResult.data as unknown as Record<string, unknown>;
-        const isPublic = episodeRow.status === "published" && showRow.status === "published";
+        const isPublic = episodeRow.status === "published"
+            && showRow.status === "published"
+            && isCatalogItemPubliclyPlayable(episodeRow);
         let canManage = false;
         if (!isPublic) {
             const userId = new URL(request.url).searchParams.get("userId")?.trim() || "";
