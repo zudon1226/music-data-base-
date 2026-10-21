@@ -67,7 +67,7 @@ export async function POST(request: Request, context: Params) {
             if (!missingColumn) return json({ error: getErrorMessage(songResult.error) }, 500);
             const fallback = await supabase
                 .from("songs")
-                .select("id,title,user_id,storage_path,audio_url")
+                .select("id,title,user_id,storage_path,audio_url,moderation_state")
                 .eq("id", songId)
                 .maybeSingle();
             if (fallback.error) return json({ error: getErrorMessage(fallback.error) }, 500);
