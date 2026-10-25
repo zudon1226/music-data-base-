@@ -60,6 +60,8 @@ import { MobileAppHorizontalNav } from "../components/mobile-app-horizontal-nav"
 import { MobileContentActionSheet } from "../components/mobile-content-action-sheet";
 import { SidekickShell } from "../components/sidekick/sidekick-shell";
 import { MdbPublicEntryHub, MdbPublicEntryNotify } from "../components/public-beta/mdb-public-entry";
+import { PublicBetaFreeSignupSection } from "../components/public-beta/public-beta-free-signup-section";
+import { isPublicBetaPaidSubscriptionCheckoutLocked } from "../lib/public-beta-subscription-checkout";
 import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
 import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
 import { safeRandomUUID } from "../lib/safe-random-uuid";
@@ -6608,6 +6610,7 @@ function PageContent({
     }, [isAuthenticated, authReady, accountRolesReady, accountUserId]);
     const foundingBetaLocked = isFoundingBetaLocked();
     const creatorSelfSignupEnabled = isCreatorSelfSignupEnabled();
+    const publicBetaSubscriptionHomeLocked = isPublicBetaPaidSubscriptionCheckoutLocked();
     const reloadFoundingAccess = useCallback(async (userIdOverride = "", tokenOverride = "") => {
         const userId = userIdOverride || accountUserIdRef.current || "";
         const token = tokenOverride || authSessionRef.current?.access_token || "";
@@ -17353,6 +17356,15 @@ function PageContent({
             clearLocalSessionState();
         }
     }
+    async function openVerifiedPublicRegistration() {
+        setPublicEntryView("auth");
+        setAuthMode("signup");
+        setAuthAccountType("listener");
+        setAuthMessage("");
+        if (isAuthenticated) {
+            await logout();
+        }
+    }
     function applyDesktopView(nextView: View) {
         // Exactly one destination workspace: always unmount upload chrome when leaving via nav.
         if (nextView === "Queue" && view !== "Queue") {
@@ -20446,6 +20458,9 @@ function PageContent({
               </div>
             </section>
 
+            {publicBetaSubscriptionHomeLocked ? (
+              <PublicBetaFreeSignupSection onSignUpFree={() => void openVerifiedPublicRegistration()} />
+            ) : (
             <section className="subscription-section" aria-label="Subscriptions">
               <div className="subscription-head">
                 <p className="section-kicker">Subscriptions</p>
@@ -20476,6 +20491,7 @@ function PageContent({
                   </article>))}
               </div>
             </section>
+            )}
 
             {discoveryForYouItems.length > 0 && (<section className="artist-section discovery-section">
                 <div className="artist-section-title">

@@ -230,7 +230,11 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                     </div>
                 </div>
             ) : (
-                <p className="empty-small">No active paid subscription yet. Select a monthly plan below.</p>
+                <p className="empty-small">
+                    {betaLocked
+                        ? "No paid subscription during public beta. Membership checkout opens at full launch."
+                        : "No active paid subscription yet. Select a monthly plan below."}
+                </p>
             )}
 
             {access?.withdrawalsLocked ? (
@@ -283,6 +287,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                 <p className="profile-feedback" role="status">{betaMessage || "Subscriptions coming at full launch."}</p>
             ) : null}
 
+            {!betaLocked ? (
             <div className="monetization-plan-grid">
                 {paidPlans.map((plan) => {
                     const selected = isServerActivePlan(subscription, plan.id);
@@ -305,6 +310,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                     );
                 })}
             </div>
+            ) : null}
 
             {subscription && subscription.auto_renew !== false && subscription.status !== "cancelled" ? (
                 <div className="monetization-row-actions">
