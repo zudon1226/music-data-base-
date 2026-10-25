@@ -1,4 +1,4 @@
-import { SUPABASE_PROJECT_URL } from "./supabase-config";
+import { buildGuardedAudioPlaybackUrl } from "./guarded-playback-url.mjs";
 
 export const SONGS_BUCKET = "songs";
 export const SONGS_PUBLIC_PATH_MARKER = `/storage/v1/object/public/${SONGS_BUCKET}/`;
@@ -40,20 +40,31 @@ export function extractSongStoragePathFromPublicUrl(audioUrl: string | null | un
     return "";
 }
 
+/** Recover the object path from `/api/audio?path=` so catalog responses can omit storage_path. */
+export function extractSongStoragePathFromGuardedPlaybackUrl(audioUrl: string | null | undefined) {
+    const cleanUrl = String(audioUrl || "").trim();
+    if (!cleanUrl) return "";
+    try {
+        const url = new URL(cleanUrl, "https://digitalmusicdatabase.com");
+        if (url.pathname !== "/api/audio") return "";
+        return normalizeSongStoragePath(url.searchParams.get("path") || "");
+    }
+    catch {
+        return "";
+    }
+}
+
 export function resolveSongStoragePath(
     storagePath: string | null | undefined,
     audioUrl: string | null | undefined,
 ) {
     const normalizedPath = normalizeSongStoragePath(storagePath);
-    const fromUrl = extractSongStoragePathFromPublicUrl(audioUrl);
-
-    if (normalizedPath.includes("/")) {
-        return normalizedPath;
-    }
-    if (fromUrl.includes("/")) {
-        return fromUrl;
-    }
-    return normalizedPath || fromUrl;
+    // Any stored catalog path, including a slash-less filename, is the object
+    // that service-role playback, download, and preview may read. A URL may
+    // supply a path only when the catalog path is missing.
+    if (normalizedPath) return normalizedPath;
+    return extractSongStoragePathFromPublicUrl(audioUrl)
+        || extractSongStoragePathFromGuardedPlaybackUrl(audioUrl);
 }
 
 export function isLegacySongFilenamePath(path: string | null | undefined) {
@@ -61,10 +72,11 @@ export function isLegacySongFilenamePath(path: string | null | undefined) {
     return Boolean(normalized) && !normalized.includes("/");
 }
 
-export function buildSongPublicUrl(storagePath: string) {
-    const normalizedPath = normalizeSongStoragePath(storagePath);
-    if (!normalizedPath) {
-        return "";
-    }
-    return `${SUPABASE_PROJECT_URL}${SONGS_PUBLIC_PATH_MARKER}${encodeSongStoragePath(normalizedPath)}`;
+/** @deprecated Prefer buildSongGuardedPlaybackUrl. Does not return a public Storage URL. */
+export function buildSongPublicUrl(storagePath: string, songId?: string) {
+    return buildSongGuardedPlaybackUrl(storagePath, songId);
+}
+
+export function buildSongGuardedPlaybackUrl(storagePath: string, songId?: string) {
+    return buildGuardedAudioPlaybackUrl({ storagePath: normalizeSongStoragePath(storagePath), songId: songId || "" });
 }

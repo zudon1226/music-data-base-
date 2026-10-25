@@ -79,7 +79,7 @@ export async function POST(request: Request, context: Params) {
 
         const videoResult = await supabase
             .from("videos")
-            .select("id,title,user_id,artist_id,producer_id,producer_profile_id,storage_path,video_url,download_enabled,moderation_state")
+            .select("id,title,user_id,artist_id,producer_id,storage_path,video_url,download_enabled,moderation_state")
             .eq("id", videoId)
             .maybeSingle();
 
@@ -88,7 +88,7 @@ export async function POST(request: Request, context: Params) {
             if (!missingColumn) return json({ error: getErrorMessage(videoResult.error) }, 500);
             const fallback = await supabase
                 .from("videos")
-                .select("id,title,user_id,artist_id,producer_id,producer_profile_id,storage_path,video_url")
+                .select("id,title,user_id,artist_id,producer_id,storage_path,video_url,moderation_state")
                 .eq("id", videoId)
                 .maybeSingle();
             if (fallback.error) return json({ error: getErrorMessage(fallback.error) }, 500);
@@ -99,7 +99,7 @@ export async function POST(request: Request, context: Params) {
         }
 
         if (!videoData) return json({ error: "Video not found.", code: "NOT_FOUND" }, 404);
-        if (!isCatalogItemPubliclyPlayable(videoData, { allowOwner: true, viewerUserId: userId })) {
+        if (!isCatalogItemPubliclyPlayable(videoData)) {
             return json({ error: "Video not found.", code: "NOT_FOUND" }, 404);
         }
 
@@ -116,7 +116,6 @@ export async function POST(request: Request, context: Params) {
                 videoData.user_id as string,
                 videoData.artist_id as string,
                 videoData.producer_id as string,
-                videoData.producer_profile_id as string,
             ],
         });
         if (!entitlement.ok) {

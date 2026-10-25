@@ -3,6 +3,8 @@
  * One normalize path and one getVideoPlaybackUrl used across upload, library, player, and queue wiring.
  */
 
+import { buildGuardedVideoPlaybackUrl } from "./guarded-playback-url.mjs";
+import { isCatalogItemPubliclyPlayable } from "./moderation-status.mjs";
 import { buildVideoPublicStorageUrl } from "./supabase-storage-upload";
 
 export const VIDEOS_STORAGE_BUCKET = "videos";
@@ -28,7 +30,7 @@ export type CanonicalVideo = {
 };
 
 export type VideoPlaybackUrlResult =
-    | { ok: true; playableUrl: string; source: "playableUrl" | "videoUrl" | "signedFromStoragePath" | "publicFromStoragePath" }
+    | { ok: true; playableUrl: string; source: "playableUrl" | "videoUrl" | "signedFromStoragePath" | "publicFromStoragePath" | "guardedApi" }
     | { ok: false; error: "missing_playable_url"; message: string };
 
 export type VideoCodecProbe = {
@@ -177,9 +179,23 @@ export function resolveVideoPlaybackUrl(
         };
     }
     const record = video as Record<string, unknown>;
+    if (!isCatalogItemPubliclyPlayable(record)) {
+        return {
+            ok: false,
+            error: "missing_playable_url",
+            message: "Video is not available for playback.",
+        };
+    }
     const storagePath = normalizeVideoStoragePath(
         firstNonEmpty(record, ["storagePath", "storage_path"]),
     );
+    const videoId = firstNonEmpty(record, ["id"]);
+    if (storagePath && videoId) {
+        const guarded = buildGuardedVideoPlaybackUrl({ id: videoId, storagePath });
+        if (guarded) {
+            return { ok: true, playableUrl: guarded, source: "guardedApi" };
+        }
+    }
 
     const playableUrl = firstNonEmpty(record, ["playableUrl"]);
     const videoUrl = firstNonEmpty(record, [
@@ -209,9 +225,17 @@ export function resolveVideoPlaybackUrl(
         if (isPublicSupabaseVideoUrl(candidate)) {
             const fromUrl = extractStoragePathFromPublicUrl(candidate);
             const path = storagePath || normalizeVideoStoragePath(fromUrl);
-            const rebuilt = path ? buildPublicVideoUrlFromStoragePath(path) : candidate;
-            if (rebuilt && !isArtworkOrNonVideoUrl(rebuilt) && !isAudioOnlyUrl(rebuilt)) {
-                return { ok: true, playableUrl: rebuilt, source };
+            if (path && videoId) {
+                const guarded = buildGuardedVideoPlaybackUrl({ id: videoId, storagePath: path });
+                if (guarded && !isArtworkOrNonVideoUrl(guarded) && !isAudioOnlyUrl(guarded)) {
+                    return { ok: true, playableUrl: guarded, source: "guardedApi" };
+                }
+            }
+            if (path) {
+                const rebuilt = buildPublicVideoUrlFromStoragePath(path);
+                if (rebuilt && !isArtworkOrNonVideoUrl(rebuilt) && !isAudioOnlyUrl(rebuilt)) {
+                    return { ok: true, playableUrl: rebuilt, source: "publicFromStoragePath" };
+                }
             }
             return null;
         }
@@ -433,18 +457,13 @@ export function normalizeCanonicalVideo(
         playableUrl: firstNonEmpty(record, ["playableUrl"]) || firstNonEmpty(previous, ["playableUrl"]) || rawVideoUrl,
     });
 
-    const playableUrl = playback.ok
-        ? playback.playableUrl
-        : (rawVideoUrl && !isBlockedVideoPlaybackUrl(rawVideoUrl) ? rawVideoUrl : "");
-    const durableVideoUrl = storagePath
-        ? (buildPublicVideoUrlFromStoragePath(storagePath) || playableUrl)
-        : playableUrl;
+    const playableUrl = playback.ok ? playback.playableUrl : "";
 
     const videoCodec = firstNonEmpty(record, ["videoCodec", "video_codec"])
         || firstNonEmpty(previous, ["videoCodec", "video_codec"]);
     const audioCodec = firstNonEmpty(record, ["audioCodec", "audio_codec"])
         || firstNonEmpty(previous, ["audioCodec", "audio_codec"]);
-    const mimeType = inferMimeType({ ...previous, ...record }, playableUrl || durableVideoUrl);
+    const mimeType = inferMimeType({ ...previous, ...record }, playableUrl);
     const container = inferContainer({ ...previous, ...record }, mimeType);
 
     const assessed = assessUploadCompatibility({
@@ -477,8 +496,7 @@ export function normalizeCanonicalVideo(
         || "/music-data-base-logo.png";
     const id = firstNonEmpty(record, ["id"])
         || firstNonEmpty(previous, ["id"])
-        || durableVideoUrl
-        || storagePath
+        || (playback.ok ? storagePath : "")
         || title;
 
     const durationRaw = record.duration ?? record.durationSeconds ?? previous.duration;
@@ -493,9 +511,9 @@ export function normalizeCanonicalVideo(
         title,
         creatorName,
         mediaType: "video",
-        storagePath,
-        videoUrl: durableVideoUrl,
-        playableUrl: playableUrl || durableVideoUrl,
+        storagePath: playback.ok ? storagePath : "",
+        videoUrl: playableUrl,
+        playableUrl,
         coverUrl,
         mimeType,
         container,

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAdminUserId } from "@/lib/admin-auth";
-import { resolveSongPlayableUrl } from "@/lib/desktop-media-queue";
+import { resolveGuardedAudioPlaybackUrlFromRecord } from "@/lib/guarded-playback-url.mjs";
+import {
+    isCatalogItemPubliclyPlayable,
+    isModerationHoldColumnError,
+} from "@/lib/moderation-status.mjs";
 import { loadResolvedAccountCapabilities } from "@/lib/resolved-account-role";
 import { requireRingtoneStudioAccess } from "@/lib/ringtone-access";
 import { isSongUsageColumnError, songAllowsRingtoneCreation } from "@/lib/song-usage-permissions";
@@ -20,16 +24,22 @@ async function mapEligibleSongRows(data: Array<Record<string, unknown>> | null) 
         noPlayableAudio: 0,
         knownTooShort: 0,
         notPermitted: 0,
+        notClearModeration: 0,
     };
     const songs = [];
     for (const row of data || []) {
         const record = row as Record<string, unknown>;
+        if (!isCatalogItemPubliclyPlayable(record)) {
+            excluded.notClearModeration += 1;
+            continue;
+        }
         if (!songAllowsRingtoneCreation(record)) {
             excluded.notPermitted += 1;
             continue;
         }
-        const resolved = resolveSongPlayableUrl(record);
-        if (!resolved.playableUrl && !resolved.storagePath) {
+        const guardedPlaybackUrl = resolveGuardedAudioPlaybackUrlFromRecord(record);
+        const storagePath = String(record.storage_path || record.storagePath || "").trim();
+        if (!guardedPlaybackUrl) {
             excluded.noPlayableAudio += 1;
             continue;
         }
@@ -43,8 +53,8 @@ async function mapEligibleSongRows(data: Array<Record<string, unknown>> | null) 
             title: String(record.title || ""),
             artist: String(record.artist || ""),
             artworkUrl: String(record.cover_url || ""),
-            audioUrl: resolved.playableUrl || String(record.audio_url || ""),
-            storagePath: resolved.storagePath || String(record.storage_path || ""),
+            audioUrl: guardedPlaybackUrl,
+            storagePath,
             durationSeconds,
             createdAt: record.created_at ? String(record.created_at) : null,
             ownerUserId: record.user_id ? String(record.user_id) : "",
@@ -53,6 +63,22 @@ async function mapEligibleSongRows(data: Array<Record<string, unknown>> | null) 
         });
     }
     return { songs, excluded };
+}
+
+const SONG_SOURCE_SELECT_WITH_MOD = "id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id,streaming_enabled,ringtone_enabled,ringtone_creation_enabled,moderation_state";
+const SONG_SOURCE_SELECT_USAGE_LEGACY = "id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id,moderation_state";
+
+async function runSourceSongSelect<T extends { data: unknown; error: unknown }>(
+    run: (columns: string) => Promise<T>,
+): Promise<T & { moderationUnavailable?: boolean }> {
+    const withModeration = await run(SONG_SOURCE_SELECT_WITH_MOD);
+    if (!withModeration.error) {
+        return withModeration;
+    }
+    if (isModerationHoldColumnError(withModeration.error)) {
+        return { ...withModeration, moderationUnavailable: true };
+    }
+    return withModeration;
 }
 
 /** Eligible source songs: creator-owned uploads or listener Library saves with creation permission. */
@@ -72,23 +98,33 @@ export async function GET(request: Request) {
         const supabase = getSupabaseServerClient();
 
         if (!useLibrarySources) {
-            let query = supabase
-                .from("songs")
-                .select("id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id,streaming_enabled,ringtone_enabled,ringtone_creation_enabled")
-                .eq("ringtone_enabled", true)
-                .eq("ringtone_creation_enabled", true)
-                .order("created_at", { ascending: false })
-                .limit(isAdmin ? 500 : 200);
-
-            if (!isAdmin) {
-                query = query.or(`user_id.eq.${userId},producer_id.eq.${userId}`);
+            const result = await runSourceSongSelect(async (columns) => {
+                let query = supabase
+                    .from("songs")
+                    .select(columns)
+                    .eq("ringtone_enabled", true)
+                    .eq("ringtone_creation_enabled", true)
+                    .order("created_at", { ascending: false })
+                    .limit(isAdmin ? 500 : 200);
+                if (!isAdmin) {
+                    query = query.or(`user_id.eq.${userId},producer_id.eq.${userId}`);
+                }
+                return query;
+            });
+            if (result.moderationUnavailable) {
+                return json({
+                    error: "Catalog moderation_state is unavailable.",
+                    code: "MODERATION_UNAVAILABLE",
+                }, 503);
             }
 
-            let { data, error } = await query;
+            let { data, error } = result;
             if (error && isSongUsageColumnError(getErrorMessage(error))) {
                 let legacyQuery = supabase
                     .from("songs")
-                    .select("id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id")
+                    .select(SONG_SOURCE_SELECT_USAGE_LEGACY)
+                    .eq("ringtone_enabled", true)
+                    .eq("ringtone_creation_enabled", true)
                     .order("created_at", { ascending: false })
                     .limit(isAdmin ? 500 : 200);
                 if (!isAdmin) {
@@ -108,7 +144,7 @@ export async function GET(request: Request) {
                 return json({ error: getErrorMessage(error) }, 500);
             }
 
-            const mapped = await mapEligibleSongRows((data || []) as Array<Record<string, unknown>>);
+            const mapped = await mapEligibleSongRows((data || []) as unknown as Array<Record<string, unknown>>);
             for (const song of mapped.songs) {
                 (song as Record<string, unknown>).sourceScope = "owned";
             }
@@ -149,18 +185,25 @@ export async function GET(request: Request) {
             });
         }
 
-        const { data, error } = await supabase
+        const libraryResult = await runSourceSongSelect(async (columns) => supabase
             .from("songs")
-            .select("id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id,streaming_enabled,ringtone_enabled,ringtone_creation_enabled")
+            .select(columns)
             .in("id", songIds)
             .eq("ringtone_enabled", true)
             .eq("ringtone_creation_enabled", true)
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: false }));
+        if (libraryResult.moderationUnavailable) {
+            return json({
+                error: "Catalog moderation_state is unavailable.",
+                code: "MODERATION_UNAVAILABLE",
+            }, 503);
+        }
+        const { data, error } = libraryResult;
         if (error) {
             return json({ error: getErrorMessage(error) }, 500);
         }
 
-        const mapped = await mapEligibleSongRows((data || []) as Array<Record<string, unknown>>);
+        const mapped = await mapEligibleSongRows((data || []) as unknown as Array<Record<string, unknown>>);
 
         console.info("[api/ringtones/source-songs]", {
             userId,

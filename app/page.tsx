@@ -226,7 +226,8 @@ import { runDesktopVideoUpload } from "../lib/desktop-video-upload-runner";
 import { getDesktopVideoUploadCompatibilityDebug, inspectDesktopVideoFileCodecInfo } from "../lib/desktop-video-upload-codec";
 import { buildVideoUploadDebugPanelView } from "../lib/video-upload-debug-panel";
 import { refreshDesktopSupabaseSessionWhenSafe } from "../lib/desktop-upload-auth-session-guard";
-import { buildSongPublicUrl, resolveSongStoragePath } from "../lib/song-storage-path";
+import { resolveGuardedAudioPlaybackUrlFromRecord } from "../lib/guarded-playback-url.mjs";
+import { buildSongGuardedPlaybackUrl, resolveSongStoragePath } from "../lib/song-storage-path";
 import { applyLibraryCacheToState, clearLibraryCache, readLibraryCache, serializeLibraryCache, writeLibraryCache } from "../lib/library-storage";
 import { desktopUploadFetch, resolveDesktopUploadSession } from "../lib/desktop-upload-auth";
 import { supabase } from "../lib/supabase";
@@ -294,6 +295,7 @@ type VideoItem = {
     url?: string;
     file_url?: string;
     public_url?: string;
+    publicUrl?: string;
     storagePath: string;
     storage_path?: string;
     fileName?: string;
@@ -2261,12 +2263,15 @@ function normalizeVideoStoragePath(value: string) {
     cleanPath = cleanPath.replace(/^storage-(?=\d{10,}-)/i, "");
     return cleanPath;
 }
-function getVideoPublicUrlFromStoragePath(storagePath: string) {
+function getVideoPublicUrlFromStoragePath(storagePath: string, videoId?: string) {
     const cleanPath = normalizeVideoStoragePath(storagePath);
     if (!cleanPath)
         return "";
-    const { data } = supabase.storage.from(VIDEOS_STORAGE_BUCKET).getPublicUrl(cleanPath);
-    return data.publicUrl || "";
+    const params = new URLSearchParams();
+    params.set("path", cleanPath);
+    if (videoId?.trim())
+        params.set("videoId", videoId.trim());
+    return `/api/video-playback?${params.toString()}`;
 }
 function getVideoUrlExtension(value: string) {
     try {
@@ -2626,7 +2631,7 @@ async function logVideoPlaybackProbe(video: VideoItem | Record<string, unknown>,
         });
     }
     if (!primaryProbe.ok && storagePath) {
-        const storageUrl = getVideoPublicUrlFromStoragePath(storagePath);
+        const storageUrl = getVideoPublicUrlFromStoragePath(storagePath, selectedVideoId);
         if (storageUrl && storageUrl !== finalUrl) {
             const storageProbe = await probeVideoPlaybackUrl(storageUrl);
             console.log("[video playback storage fallback probe]", {
@@ -2702,12 +2707,11 @@ function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
     const canonical = normalizeCanonicalVideo(record, { previous: record });
     const producerName = getStringField(record, ["producer_name", "producer"]) || "";
     const artist = canonical.creatorName;
-    if (!canonical.playableUrl && !canonical.videoUrl) {
+    const approvedPlaybackUrl = canonical.playableUrl || canonical.videoUrl;
+    if (!approvedPlaybackUrl) {
         console.warn("[video normalize] no playable URL", {
             id: canonical.id,
             title: canonical.title,
-            video_url: getStringField(record, ["video_url", "videoUrl", "playableUrl"]),
-            storage_path: canonical.storagePath,
         });
     }
     return {
@@ -2729,12 +2733,13 @@ function normalizeVideo(video: VideoItem | Record<string, unknown>): VideoItem {
         cover: canonical.coverUrl,
         cover_url: canonical.coverUrl,
         thumbnail_url: canonical.coverUrl,
-        videoUrl: canonical.videoUrl || canonical.playableUrl,
-        video_url: canonical.videoUrl || canonical.playableUrl,
-        playableUrl: canonical.playableUrl || canonical.videoUrl,
-        url: getStringField(record, ["url"]) || canonical.playableUrl || canonical.videoUrl,
-        file_url: getStringField(record, ["file_url"]) || canonical.playableUrl || canonical.videoUrl,
-        public_url: getStringField(record, ["public_url"]) || canonical.videoUrl || canonical.playableUrl,
+        videoUrl: approvedPlaybackUrl,
+        video_url: approvedPlaybackUrl,
+        playableUrl: approvedPlaybackUrl,
+        url: approvedPlaybackUrl,
+        file_url: approvedPlaybackUrl,
+        public_url: approvedPlaybackUrl,
+        publicUrl: approvedPlaybackUrl,
         storagePath: canonical.storagePath,
         storage_path: canonical.storagePath,
         uploaded: getStringField(record, ["uploaded"]) || formatVideoCreatedAt(getStringField(record, ["created_at"])),
@@ -3184,9 +3189,16 @@ function isPublicAudioUrl(value: string) {
         return false;
     }
 }
+function isGuardedSongPlaybackUrl(value: string) {
+    return String(value || "").trim().startsWith("/api/audio?");
+}
 function getAudioPlaybackUrl(song: Song | null | undefined) {
     if (!song)
         return "";
+    const guardedFromRecord = resolveGuardedAudioPlaybackUrlFromRecord(song as Record<string, unknown>);
+    if (guardedFromRecord) {
+        return guardedFromRecord;
+    }
     const storagePath = resolveSongStoragePath(song.audioPath, song.audio);
     if (storagePath) {
         const params = new URLSearchParams({ path: storagePath });
@@ -3194,9 +3206,6 @@ function getAudioPlaybackUrl(song: Song | null | undefined) {
             params.set("songId", song.id);
         }
         return `/api/audio?${params.toString()}`;
-    }
-    if (song.audio && isPublicAudioUrl(song.audio)) {
-        return song.audio;
     }
     return "";
 }
@@ -11633,18 +11642,18 @@ function PageContent({
                 cover: item.artworkUrl || catalog.cover || BRAND_LOGO,
             })
             : normalizeVideoForPlayback(fromQueue);
-        // Queue wins for playback URLs even if catalog/normalize drops them.
+        const approvedQueueUrl = String(normalized.playableUrl || normalized.videoUrl || "").trim();
         const video = {
             ...normalized,
-            videoUrl: item.playableUrl || normalized.videoUrl || "",
-            video_url: item.playableUrl || normalized.video_url || "",
+            videoUrl: approvedQueueUrl,
+            video_url: approvedQueueUrl,
             storagePath: item.storagePath || normalized.storagePath || "",
             storage_path: item.storagePath || normalized.storage_path || "",
             creator: item.artistName || normalized.creator,
             artistName: item.artistName || normalized.artistName,
             cover: item.artworkUrl || normalized.cover || BRAND_LOGO,
         };
-        setForcedQueuePlayableUrl(item.playableUrl || "");
+        setForcedQueuePlayableUrl(approvedQueueUrl);
         playVideo(video, "Shared Queue");
     }
     function getPlaybackList() {
@@ -11682,7 +11691,7 @@ function PageContent({
     }
     function getAutoplayEligibleCatalog() {
         const source = libraryContentSongs.length > 0 ? libraryContentSongs : uniqueSongs(audioSongs);
-        return source.filter((song) => !isVideoSong(song) && isPublicAudioUrl(getAudioPlaybackUrl(song)));
+        return source.filter((song) => !isVideoSong(song) && isGuardedSongPlaybackUrl(getAudioPlaybackUrl(song)));
     }
     function stopMusicPlaybackAtEnd() {
         setIsPlaying(false);
@@ -11700,7 +11709,7 @@ function PageContent({
             return false;
         }
         const audioUrl = getAudioPlaybackUrl(nextSongCandidate);
-        if (!isPublicAudioUrl(audioUrl)) {
+        if (!isGuardedSongPlaybackUrl(audioUrl)) {
             return false;
         }
         playSong(nextSongCandidate);
@@ -11782,7 +11791,7 @@ function PageContent({
             return;
         }
         const audioUrl = getAudioPlaybackUrl(currentSong);
-        if (!isPublicAudioUrl(audioUrl)) {
+        if (!isGuardedSongPlaybackUrl(audioUrl)) {
             audioRef.current.pause();
             audioRef.current.removeAttribute("src");
             audioRef.current.load();
@@ -12801,12 +12810,6 @@ function PageContent({
         const resolvedPlayableUrl = String(
             getVideoPlaybackUrl(catalog)
             || getVideoPlaybackUrl(video)
-            || (catalog as { videoUrl?: string }).videoUrl
-            || (catalog as { video_url?: string }).video_url
-            || (catalog as { playableUrl?: string }).playableUrl
-            || (video as { videoUrl?: string }).videoUrl
-            || (video as { video_url?: string }).video_url
-            || (video as { playableUrl?: string }).playableUrl
             || "",
         ).trim();
         const rawStoragePath = String(
@@ -12862,7 +12865,7 @@ function PageContent({
                 addedAny = true;
         }
         for (const video of albumVideos) {
-            const rawVideoUrl = String(video.videoUrl || (video as { video_url?: string }).video_url || "").trim();
+            const approvedVideoUrl = getVideoPlaybackUrl(video);
             const rawStoragePath = String(video.storagePath || (video as { storage_path?: string }).storage_path || "").trim();
             const result = addVideoRecordToQueue({
                 ...video,
@@ -12871,9 +12874,9 @@ function PageContent({
                 artist: video.creator || video.artistName || "",
                 artistName: video.artistName || video.creator || "",
                 creator: video.creator || video.artistName || "",
-                playableUrl: rawVideoUrl,
-                videoUrl: rawVideoUrl,
-                video_url: rawVideoUrl,
+                playableUrl: approvedVideoUrl,
+                videoUrl: approvedVideoUrl,
+                video_url: approvedVideoUrl,
                 storagePath: rawStoragePath,
                 storage_path: rawStoragePath,
                 cover: video.cover,
@@ -14080,7 +14083,7 @@ function PageContent({
         };
 
         let savedStoragePath = prepareResult.storagePath || storagePath;
-        let publicUrl = prepareResult.publicUrl || "";
+        let publicUrl = "";
 
         if (!prepareResponse.ok || prepareResult.error || !prepareResult.token) {
             const prepareErrorDetails = prepareResult.details ? ` ${JSON.stringify(prepareResult.details)}` : "";
@@ -14104,7 +14107,7 @@ function PageContent({
                 throw new Error(`Direct Supabase Storage upload failed: ${directUpload.error.message}. Signed prepare error: ${prepareFailureReason}`);
             }
             savedStoragePath = directUpload.data?.path || storagePath;
-            publicUrl = buildSongPublicUrl(savedStoragePath);
+            publicUrl = buildSongGuardedPlaybackUrl(savedStoragePath);
         }
         else {
             setUploadStatus("Uploading audio to Supabase Storage...");
@@ -14131,16 +14134,16 @@ function PageContent({
                     throw new Error(`Signed client upload failed (${signedClientError}). Direct fallback failed: ${directUpload.error.message}`);
                 }
                 savedStoragePath = directUpload.data?.path || storagePath;
-                publicUrl = buildSongPublicUrl(savedStoragePath);
+                publicUrl = buildSongGuardedPlaybackUrl(savedStoragePath);
             }
             else {
                 savedStoragePath = storageUpload.data?.path || prepareResult.storagePath || storagePath;
-                publicUrl = prepareResult.publicUrl || buildSongPublicUrl(savedStoragePath);
+                publicUrl = buildSongGuardedPlaybackUrl(savedStoragePath);
             }
         }
 
         if (!publicUrl) {
-            throw new Error("Supabase did not return a public URL for the uploaded audio.");
+            throw new Error("Could not build guarded playback URL for the uploaded audio.");
         }
 
         setUploadProgress(88);

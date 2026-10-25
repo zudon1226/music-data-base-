@@ -195,13 +195,11 @@ export async function POST(request: Request) {
             return jsonResponse({ error: getErrorMessage(uploadError), details: getErrorDetails(uploadError) }, 500);
         }
 
-        const { data } = supabase.storage.from(VIDEOS_BUCKET).getPublicUrl(storagePath);
-        if (!data.publicUrl) {
-            return jsonResponse({ error: "Supabase did not return a public URL for the uploaded video." }, 500);
-        }
+        const playbackUrl = `/api/video-playback?${new URLSearchParams({ path: storagePath }).toString()}`;
 
         return jsonResponse({
-            publicUrl: data.publicUrl,
+            playbackUrl,
+            publicUrl: playbackUrl,
             storagePath,
             fileName: file.name || cleanFileName,
             fileSize: file.size,

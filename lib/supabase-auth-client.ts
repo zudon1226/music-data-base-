@@ -7,8 +7,9 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
+    isApprovedIsolatedLocalSupabaseUrl,
+    readSupabaseProjectUrl,
     resolveSupabaseLoginUrl,
-    SUPABASE_PROJECT_URL,
 } from "./supabase-config";
 import { createSupabaseAuthStorage } from "./supabase-auth-storage";
 
@@ -30,6 +31,9 @@ function readBrowserSupabaseAnonKey() {
 }
 
 function assertDirectSupabaseAuthUrl(supabaseUrl: string) {
+    if (isApprovedIsolatedLocalSupabaseUrl(supabaseUrl)) {
+        return;
+    }
     let parsed: URL;
     try {
         parsed = new URL(supabaseUrl);
@@ -113,7 +117,7 @@ export function readDesktopSupabaseAuthConfig() {
     assertDirectSupabaseAuthUrl(supabaseUrl);
     return {
         supabaseUrl,
-        projectUrl: SUPABASE_PROJECT_URL,
+        projectUrl: readSupabaseProjectUrl(),
         anonKey: readBrowserSupabaseAnonKey(),
     };
 }

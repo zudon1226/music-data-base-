@@ -1,8 +1,9 @@
 import { isAdminUserId } from "@/lib/admin-auth";
+import { bindCatalogObjectPath } from "@/lib/guarded-playback-url.mjs";
 import { isCatalogItemPubliclyPlayable, isModerationHoldColumnError } from "@/lib/moderation-status.mjs";
 import { getBearerToken, resolveStrictRequestUserId } from "@/lib/request-auth";
 import {
-    isLegacySongFilenamePath,
+    extractSongStoragePathFromPublicUrl,
     normalizeSongStoragePath,
     resolveSongStoragePath,
 } from "@/lib/song-storage-path";
@@ -41,14 +42,11 @@ export function evaluateSongAudioPlaybackAccess(
     song: SongPlaybackRow | null | undefined,
     viewer: AudioPlaybackViewer,
 ) {
+    void viewer;
     if (!song) {
         return { ok: false as const, code: "NOT_FOUND" as const, error: "Song not found." };
     }
-    if (!isCatalogItemPubliclyPlayable(song as Record<string, unknown>, {
-        allowOwner: true,
-        viewerUserId: viewer.userId,
-        isAdmin: viewer.isAdmin,
-    })) {
+    if (!isCatalogItemPubliclyPlayable(song as Record<string, unknown>)) {
         return { ok: false as const, code: "NOT_FOUND" as const, error: "Song not found." };
     }
     return { ok: true as const, song };
@@ -157,33 +155,59 @@ async function findSongsByStoragePath(
     return matches;
 }
 
+export type CatalogAudioResolution = {
+    song: SongPlaybackRow | null;
+    storagePath: string;
+    catalogRequired: boolean;
+    pathError: "MISSING_PATH" | "PATH_MISMATCH" | "AMBIGUOUS" | null;
+};
+
+function requestedSongObjectPath(rawPath: string) {
+    const fromPublic = extractSongStoragePathFromPublicUrl(rawPath);
+    const normalized = normalizeSongStoragePath(fromPublic || rawPath);
+    if (!normalized || /^https?:\/\//i.test(normalized)) return "";
+    return normalized;
+}
+
 export async function resolveCatalogSongForAudio(
     supabase: ReturnType<typeof getSupabaseServerClient>,
     input: { songId?: string; rawPath?: string },
-): Promise<{ song: SongPlaybackRow | null; storagePath: string; catalogRequired: boolean }> {
+): Promise<CatalogAudioResolution> {
     const songId = String(input.songId || "").trim();
     const rawPath = String(input.rawPath || "");
-    let storagePath = normalizeSongStoragePath(rawPath);
+    const clientPath = requestedSongObjectPath(rawPath);
 
     if (songId && isUuid(songId)) {
         const song = await loadSongById(supabase, songId);
         if (!song) {
-            return { song: null, storagePath: storagePath || "", catalogRequired: true };
+            return { song: null, storagePath: "", catalogRequired: true, pathError: null };
         }
-        const fromSong = resolveSongStoragePath(song.storage_path, song.audio_url);
-        if (fromSong) storagePath = fromSong;
-        return { song, storagePath, catalogRequired: true };
+        const fromSong = requestedSongObjectPath(resolveSongStoragePath(song.storage_path, song.audio_url));
+        const bound = bindCatalogObjectPath(fromSong, clientPath);
+        if (!bound.ok) {
+            return { song, storagePath: "", catalogRequired: true, pathError: bound.code };
+        }
+        return { song, storagePath: bound.storagePath, catalogRequired: true, pathError: null };
     }
 
-    if (!storagePath && isLegacySongFilenamePath(rawPath)) {
-        storagePath = normalizeSongStoragePath(rawPath);
+    if (!clientPath) {
+        return { song: null, storagePath: "", catalogRequired: false, pathError: "MISSING_PATH" };
     }
 
-    if (!storagePath) {
-        return { song: null, storagePath: "", catalogRequired: false };
+    const songs = await findSongsByStoragePath(supabase, clientPath);
+    const song = pickUniqueCatalogSongForStoragePath(songs, clientPath);
+    if (!song) {
+        return {
+            song: null,
+            storagePath: "",
+            catalogRequired: true,
+            pathError: songs.length > 1 ? "AMBIGUOUS" : null,
+        };
     }
-
-    const songs = await findSongsByStoragePath(supabase, storagePath);
-    const song = pickUniqueCatalogSongForStoragePath(songs, storagePath);
-    return { song, storagePath, catalogRequired: true };
+    const fromSong = requestedSongObjectPath(resolveSongStoragePath(song.storage_path, song.audio_url));
+    const bound = bindCatalogObjectPath(fromSong, clientPath);
+    if (!bound.ok) {
+        return { song, storagePath: "", catalogRequired: true, pathError: bound.code };
+    }
+    return { song, storagePath: bound.storagePath, catalogRequired: true, pathError: null };
 }

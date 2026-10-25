@@ -3,9 +3,9 @@ import {
     filterPublicCatalogRows,
     isModerationHoldColumnError,
 } from "@/lib/moderation-status.mjs";
-import { readSupabaseProjectUrl } from "@/lib/supabase-config";
 import { getErrorMessage, getSupabaseLibraryClient } from "@/lib/server-supabase";
 import { getVideoPlaybackUrl } from "@/lib/canonical-video";
+import { buildGuardedVideoPlaybackUrl } from "@/lib/guarded-playback-url.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,11 +33,10 @@ function isUuid(value: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-function getSupabaseVideoPublicUrl(storagePath: string) {
-    const supabaseUrl = readSupabaseProjectUrl().replace(/\/+$/, "");
+function getGuardedStorageRecoveryVideoUrl(storagePath: string) {
     const cleanPath = normalizeVideoStoragePath(storagePath);
-    if (!supabaseUrl || !cleanPath) return "";
-    return `${supabaseUrl}/storage/v1/object/public/videos/${cleanPath.split("/").map(encodeURIComponent).join("/")}`;
+    if (!cleanPath) return "";
+    return buildGuardedVideoPlaybackUrl({ storagePath: cleanPath });
 }
 
 function getVideoStoragePathFromPublicUrl(value: string) {
@@ -190,7 +189,7 @@ async function listShallowStorageVideos() {
             description: "Recovered from Supabase video storage.",
             artist_name: "Recovered Upload",
             category: "Recovered Video",
-            video_url: getSupabaseVideoPublicUrl(path),
+            video_url: getGuardedStorageRecoveryVideoUrl(path),
             storage_path: path,
             thumbnail_url: "",
             views: 0,

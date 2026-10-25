@@ -1,6 +1,6 @@
 /** DESKTOP ONLY — signed storage upload via fetch (no second Supabase/GoTrue client). */
 
-import { resolveSupabaseLoginUrl, SUPABASE_PROJECT_REF } from "./supabase-config";
+import { resolveSupabaseLoginUrl, resolveSupabaseStorageUploadUrl } from "./supabase-config";
 
 function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "")
@@ -11,7 +11,7 @@ function readBrowserSupabaseAnonKey() {
 
 /** Storage hostname client URL (browser direct upload). */
 export function getSupabaseStorageUploadUrl() {
-    return `https://${SUPABASE_PROJECT_REF}.storage.supabase.co`;
+    return resolveSupabaseStorageUploadUrl();
 }
 
 export function describeStorageUploadAuth() {
@@ -36,14 +36,15 @@ export function describeStorageUploadAuth() {
     };
 }
 
-/** Matches server getPublicVideoUrl() / Supabase getPublicUrl output. */
+/** Application guarded playback path (not a direct Storage URL). */
 export function buildVideoPublicStorageUrl(storagePath: string) {
     const cleanPath = storagePath.trim().replace(/^\/+/, "").replace(/^videos\/+/i, "");
     if (!cleanPath) {
         return "";
     }
-    const projectUrl = resolveSupabaseLoginUrl().replace(/\/+$/, "");
-    return `${projectUrl}/storage/v1/object/public/videos/${cleanPath}`;
+    const params = new URLSearchParams();
+    params.set("path", cleanPath);
+    return `/api/video-playback?${params.toString()}`;
 }
 
 export type SignedStorageUploadResult = {

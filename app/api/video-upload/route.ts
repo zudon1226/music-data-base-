@@ -336,40 +336,31 @@ function getVideoContentType(file: File, fallback = "video/mp4") {
     return fallback;
 }
 
-function getPublicVideoUrl(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string) {
-    return supabase.storage.from(VIDEOS_BUCKET).getPublicUrl(storagePath).data.publicUrl || "";
+function getGuardedVideoPlaybackUrl(storagePath: string, videoId?: string) {
+    const cleanPath = storagePath.trim().replace(/^\/+/, "");
+    if (!cleanPath) return "";
+    const params = new URLSearchParams();
+    params.set("path", cleanPath);
+    if (videoId?.trim()) params.set("videoId", videoId.trim());
+    return `/api/video-playback?${params.toString()}`;
 }
 
-async function probePublicVideoUrl(publicUrl: string) {
-    let response = await fetch(publicUrl, { method: "HEAD", cache: "no-store" });
-    if (response.status === 405 || response.status === 403) {
-        response = await fetch(publicUrl, {
-            method: "GET",
-            cache: "no-store",
-            headers: { Range: "bytes=0-0" },
-        });
+async function verifyUploadedVideoObject(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string, playbackUrl: string) {
+    const { isBlockedOutboundMediaProbeUrl, validateUploadedVideoBlob } = await import("@/lib/safe-media-verification-url.mjs");
+    if (playbackUrl && !playbackUrl.startsWith("/api/video-playback")) {
+        throw new Error("Uploaded video playback URL must be a guarded /api/video-playback path.");
     }
-    return {
-        ok: response.ok,
-        status: response.status,
-        contentType: response.headers.get("content-type") || "",
-        contentLength: response.headers.get("content-length") || "",
-    };
-}
-
-async function verifyUploadedVideoObject(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string, publicUrl: string) {
+    if (isBlockedOutboundMediaProbeUrl(playbackUrl)) {
+        throw new Error("Uploaded video verification cannot use outbound HTTP URLs.");
+    }
     const download = await supabase.storage.from(VIDEOS_BUCKET).download(storagePath);
     if (download.error) {
         throw new Error(`Uploaded video object could not be read from storage: ${getErrorMessage(download.error)}`);
     }
-    const probe = await probePublicVideoUrl(publicUrl);
-    if (!probe.ok || probe.status !== 200) {
-        throw new Error(`Uploaded video public URL did not return 200. HTTP ${probe.status}`);
+    if (!download.data) {
+        throw new Error("Uploaded video object could not be read from storage.");
     }
-    if (!probe.contentType.toLowerCase().startsWith("video/")) {
-        throw new Error(`Uploaded video public URL returned unexpected content-type: ${probe.contentType || "none"}`);
-    }
-    return probe;
+    return validateUploadedVideoBlob(download.data, storagePath);
 }
 
 async function cleanupUploadedVideoObject(supabase: ReturnType<typeof getSupabaseLibraryClient>, storagePath: string) {
@@ -675,10 +666,10 @@ async function directStorageUpload(request: Request, file: File, storagePath: st
         }, 500);
     }
 
-    const publicUrl = getPublicVideoUrl(storageClient, storagePath);
+    const publicUrl = getGuardedVideoPlaybackUrl(storagePath);
     if (!publicUrl) {
         return jsonResponse({
-            error: "Direct storage upload succeeded but Supabase did not return a public URL.",
+            error: "Direct storage upload succeeded but guarded playback URL could not be built.",
             details: { bucket: VIDEOS_BUCKET, storagePath },
             uploadMethod: "direct",
         }, 500);
@@ -897,19 +888,22 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
         }, 400);
     }
 
-    const publicUrl = getPublicVideoUrl(supabase, storagePath);
-    if (!publicUrl) {
+    const expectedPlaybackUrl = getGuardedVideoPlaybackUrl(storagePath);
+    if (!expectedPlaybackUrl) {
         return jsonResponse({
-            error: "Supabase did not return a public URL for the uploaded video.",
+            error: "Guarded playback URL could not be built for the uploaded video.",
             details: { bucket: VIDEOS_BUCKET, storagePath, authUserId },
         }, 500);
     }
-    if (providedPublicUrl !== publicUrl) {
+    const normalizedProvided = providedPublicUrl.replace(/&videoId=[^&]+/, "");
+    const normalizedExpected = expectedPlaybackUrl.replace(/&videoId=[^&]+/, "");
+    if (normalizedProvided !== normalizedExpected && !providedPublicUrl.startsWith("/api/video-playback?")) {
         return jsonResponse({
-            error: "Video metadata public URL does not match the uploaded storage path.",
-            details: { providedPublicUrl, generatedPublicUrl: publicUrl, storagePath, authUserId },
+            error: "Video metadata playback URL does not match the uploaded storage path.",
+            details: { providedPublicUrl, generatedPlaybackUrl: expectedPlaybackUrl, storagePath, authUserId },
         }, 400);
     }
+    const publicUrl = expectedPlaybackUrl;
 
     let publicProbe: Awaited<ReturnType<typeof verifyUploadedVideoObject>>;
     try {
@@ -1057,9 +1051,9 @@ async function saveVideoMetadata(request: Request, body: Record<string, unknown>
         compatibility: publishMeta,
         verification: {
             storageObjectExists: true,
-            publicUrlStatus: publicProbe.status,
+            storageObjectSize: publicProbe.size,
             contentType: publicProbe.contentType,
-            contentLength: publicProbe.contentLength,
+            playbackUrlGuarded: publicUrl.startsWith("/api/video-playback"),
             rowHasRealUuid: true,
             storagePathMatches: true,
             videoUrlMatches: true,

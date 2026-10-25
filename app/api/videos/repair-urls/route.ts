@@ -1,4 +1,5 @@
 import { requireAuthenticatedPlatformOwner } from "@/lib/admin-auth";
+import { isCatalogItemPubliclyPlayable, isModerationHoldColumnError } from "@/lib/moderation-status.mjs";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
 import { NextResponse } from "next/server";
 
@@ -9,11 +10,13 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status });
 }
 
-function getSupabaseVideoPublicUrl(storagePath: string) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
+function getGuardedVideoRepairUrl(storagePath: string, videoId?: string) {
   const cleanPath = storagePath.trim().replace(/^\/+/, "");
-  if (!supabaseUrl || !cleanPath) return "";
-  return `${supabaseUrl}/storage/v1/object/public/videos/${cleanPath.split("/").map(encodeURIComponent).join("/")}`;
+  if (!cleanPath) return "";
+  const params = new URLSearchParams();
+  params.set("path", cleanPath);
+  if (videoId?.trim()) params.set("videoId", videoId.trim());
+  return `/api/video-playback?${params.toString()}`;
 }
 
 function isLikelyStoragePath(value: string) {
@@ -49,20 +52,24 @@ function shouldRepairVideoUrl(videoUrl: string) {
   }
 }
 
-async function probeStorageContentType(url: string) {
+async function probeStorageObjectContentType(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  storagePath: string,
+) {
   try {
-    let response = await fetch(url, { method: "HEAD", cache: "no-store" });
-    if (response.status === 405 || response.status === 403) {
-      response = await fetch(url, {
-        method: "GET",
-        cache: "no-store",
-        headers: { Range: "bytes=0-0" },
-      });
+    const { data, error } = await supabase.storage.from("videos").download(storagePath);
+    if (error || !data) {
+      return {
+        ok: false,
+        status: 404,
+        contentType: "",
+        error: getErrorMessage(error) || "Object not found.",
+      };
     }
     return {
-      ok: response.ok,
-      status: response.status,
-      contentType: response.headers.get("content-type") || "",
+      ok: true,
+      status: 200,
+      contentType: data.type || "video/mp4",
     };
   } catch (error) {
     return {
@@ -77,40 +84,46 @@ async function probeStorageContentType(url: string) {
 async function repairStorageMp4Metadata(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   storagePath: string,
-  publicUrl: string,
 ) {
-  const response = await fetch(publicUrl, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`Could not download ${storagePath} for MIME repair: HTTP ${response.status}`);
+  const { data, error } = await supabase.storage.from("videos").download(storagePath);
+  if (error || !data) {
+    throw new Error(`Could not download ${storagePath} for MIME repair: ${getErrorMessage(error) || "missing object"}`);
   }
-  const body = await response.arrayBuffer();
-  const { error } = await supabase.storage
+  const body = await data.arrayBuffer();
+  const { error: uploadError } = await supabase.storage
     .from("videos")
     .upload(storagePath, body, {
       cacheControl: "3600",
       contentType: "video/mp4",
       upsert: true,
     });
-  if (error) throw error;
+  if (uploadError) throw uploadError;
 }
 
 async function repairVideoUrls(dryRun: boolean, repairMime: boolean) {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("videos")
-    .select("id,title,video_url,storage_path")
+    .select("id,title,video_url,storage_path,moderation_state")
     .not("storage_path", "is", null);
 
-  if (error) throw error;
+  if (error) {
+    if (isModerationHoldColumnError(error)) {
+      throw new Error("Catalog moderation_state is not available until migration 202610172000 is applied.");
+    }
+    throw error;
+  }
 
-  const candidates = (data || [])
+  const clearRows = (data || []).filter((row) => isCatalogItemPubliclyPlayable(row as Record<string, unknown>));
+
+  const candidates = clearRows
     .filter((row) => typeof row.storage_path === "string" && row.storage_path.trim())
     .map((row) => ({
       id: String(row.id),
       title: String(row.title || ""),
       before: String(row.video_url || ""),
       storagePath: String(row.storage_path || ""),
-      after: getSupabaseVideoPublicUrl(String(row.storage_path || "")),
+      after: getGuardedVideoRepairUrl(String(row.storage_path || ""), String(row.id || "")),
     }))
     .filter((row) => row.after && shouldRepairVideoUrl(row.before));
 
@@ -136,18 +149,18 @@ async function repairVideoUrls(dryRun: boolean, repairMime: boolean) {
   }> = [];
 
   if (repairMime) {
-    const rowsWithStoragePaths = (data || [])
+    const rowsWithStoragePaths = clearRows
       .filter((row) => typeof row.storage_path === "string" && row.storage_path.trim())
       .map((row) => ({
         id: String(row.id),
         title: String(row.title || ""),
         storagePath: String(row.storage_path || ""),
-        publicUrl: getSupabaseVideoPublicUrl(String(row.storage_path || "")),
+        publicUrl: getGuardedVideoRepairUrl(String(row.storage_path || ""), String(row.id || "")),
       }))
       .filter((row) => row.publicUrl);
 
     for (const row of rowsWithStoragePaths) {
-      const probe = await probeStorageContentType(row.publicUrl);
+      const probe = await probeStorageObjectContentType(supabase, row.storagePath);
       const needsMimeRepair = !probe.contentType.toLowerCase().startsWith("video/mp4");
       if (!needsMimeRepair) {
         mimeRepairs.push({
@@ -160,7 +173,7 @@ async function repairVideoUrls(dryRun: boolean, repairMime: boolean) {
       }
       try {
         if (!dryRun) {
-          await repairStorageMp4Metadata(supabase, row.storagePath, row.publicUrl);
+          await repairStorageMp4Metadata(supabase, row.storagePath);
         }
         mimeRepairs.push({
           ...row,

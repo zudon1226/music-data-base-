@@ -1,5 +1,11 @@
-import { SUPABASE_PROJECT_URL } from "./supabase-config";
 import { resolveVideoPlaybackUrl as resolveCanonicalPlaybackUrl } from "./canonical-video";
+import {
+    buildGuardedVideoPlaybackUrl,
+    coerceSongPlaybackCandidate,
+    isPublicSupabaseMediaObjectUrl,
+    resolveGuardedAudioPlaybackUrlFromRecord,
+} from "./guarded-playback-url.mjs";
+import { isCatalogItemPubliclyPlayable } from "./moderation-status.mjs";
 
 export type MediaQueueType = "song" | "video";
 
@@ -93,31 +99,12 @@ function parseDuration(value: unknown): number | null {
     return null;
 }
 
-function readSupabaseProjectUrl() {
-    if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_URL) {
-        return clean(process.env.NEXT_PUBLIC_SUPABASE_URL).replace(/\/+$/, "");
-    }
-    return SUPABASE_PROJECT_URL.replace(/\/+$/, "");
-}
-
 function normalizeStoragePath(value: string, bucket: string) {
     let path = value.trim().replace(/^\/+/, "");
     path = path.replace(new RegExp(`^${bucket}/+`, "i"), "");
     path = path.replace(/^public\/+/i, "");
     path = path.replace(new RegExp(`^object\\/public\\/${bucket}\\/+`, "i"), "");
     return path;
-}
-
-function publicUrlFromStoragePath(storagePath: string, bucket: string) {
-    const projectUrl = readSupabaseProjectUrl();
-    const path = normalizeStoragePath(storagePath, bucket);
-    if (!projectUrl || !path) return "";
-    const encoded = path
-        .split("/")
-        .filter(Boolean)
-        .map((segment) => encodeURIComponent(decodeURIComponent(segment)))
-        .join("/");
-    return `${projectUrl}/storage/v1/object/public/${bucket}/${encoded}`;
 }
 
 function extractStoragePathFromPublicUrl(url: string, bucket: string) {
@@ -153,6 +140,14 @@ export function resolveVideoPlayableUrl(input: Record<string, unknown>): {
     storagePath: string | null;
     sourceUrls: Record<string, string>;
 } {
+    if (!isCatalogItemPubliclyPlayable(input)) {
+        const rawStorage = firstNonEmpty(input, ["storagePath", "storage_path"]);
+        return {
+            playableUrl: "",
+            storagePath: rawStorage ? normalizeStoragePath(rawStorage, VIDEOS_BUCKET) : null,
+            sourceUrls: {},
+        };
+    }
     const sourceUrls: Record<string, string> = {};
     const urlKeys = [
         "playableUrl",
@@ -182,6 +177,18 @@ export function resolveVideoPlayableUrl(input: Record<string, unknown>): {
             const fromPublic = extractStoragePathFromPublicUrl(resolved.playableUrl, VIDEOS_BUCKET);
             if (fromPublic) storagePath = normalizeStoragePath(fromPublic, VIDEOS_BUCKET);
         }
+        const videoId = clean(input.id);
+        if (
+            videoId
+            && storagePath
+            && (resolved.source === "publicFromStoragePath" || isPublicSupabaseMediaObjectUrl(resolved.playableUrl))
+        ) {
+            return {
+                playableUrl: buildGuardedVideoPlaybackUrl({ id: videoId, storagePath }),
+                storagePath,
+                sourceUrls,
+            };
+        }
         return {
             playableUrl: resolved.playableUrl,
             storagePath: storagePath || null,
@@ -189,9 +196,22 @@ export function resolveVideoPlayableUrl(input: Record<string, unknown>): {
         };
     }
 
-    // Fallback: keep any durable non-blocked HTTP URL so enqueue never loses a valid videoUrl.
+    // Fallback: never enqueue raw Supabase public Storage URLs; coerce to guarded routes when possible.
     for (const candidate of urlKeys.map((key) => clean(input[key])).filter(Boolean)) {
         if (isUploadApiUrl(candidate) || candidate.startsWith("blob:") || candidate.startsWith("data:")) {
+            continue;
+        }
+        if (isPublicSupabaseMediaObjectUrl(candidate)) {
+            const fromPublic = extractStoragePathFromPublicUrl(candidate, VIDEOS_BUCKET);
+            if (fromPublic) storagePath = normalizeStoragePath(fromPublic, VIDEOS_BUCKET);
+            const videoId = clean(input.id);
+            if (videoId && storagePath) {
+                return {
+                    playableUrl: buildGuardedVideoPlaybackUrl({ id: videoId, storagePath }),
+                    storagePath,
+                    sourceUrls,
+                };
+            }
             continue;
         }
         if (isHttpUrl(candidate) || candidate.startsWith("/")) {
@@ -199,18 +219,31 @@ export function resolveVideoPlayableUrl(input: Record<string, unknown>): {
                 const fromPublic = extractStoragePathFromPublicUrl(candidate, VIDEOS_BUCKET);
                 if (fromPublic) storagePath = normalizeStoragePath(fromPublic, VIDEOS_BUCKET);
             }
-            return {
-                playableUrl: candidate,
-                storagePath: storagePath || null,
-                sourceUrls,
-            };
+            if (candidate.startsWith("/api/video-playback?")) {
+                return {
+                    playableUrl: candidate,
+                    storagePath: storagePath || null,
+                    sourceUrls,
+                };
+            }
+            if (isHttpUrl(candidate) && !isPublicSupabaseMediaObjectUrl(candidate)) {
+                return {
+                    playableUrl: candidate,
+                    storagePath: storagePath || null,
+                    sourceUrls,
+                };
+            }
         }
     }
 
     if (storagePath) {
-        const publicUrl = publicUrlFromStoragePath(storagePath, VIDEOS_BUCKET);
-        if (publicUrl) {
-            return { playableUrl: publicUrl, storagePath, sourceUrls };
+        const videoId = clean(input.id);
+        if (videoId && isUuid(videoId)) {
+            return {
+                playableUrl: buildGuardedVideoPlaybackUrl({ id: videoId, storagePath }),
+                storagePath,
+                sourceUrls,
+            };
         }
     }
 
@@ -225,6 +258,13 @@ export function resolveSongPlayableUrl(input: Record<string, unknown>): {
     playableUrl: string;
     storagePath: string | null;
 } {
+    if (!isCatalogItemPubliclyPlayable(input)) {
+        const rawStorage = firstNonEmpty(input, ["storagePath", "storage_path", "audioPath", "audio_path"]);
+        return {
+            playableUrl: "",
+            storagePath: rawStorage ? normalizeStoragePath(rawStorage, SONGS_BUCKET) : null,
+        };
+    }
     const rawStorage = firstNonEmpty(input, ["storagePath", "storage_path", "audioPath", "audio_path"]);
     let storagePath = rawStorage ? normalizeStoragePath(rawStorage, SONGS_BUCKET) : "";
     const candidates = [
@@ -239,6 +279,14 @@ export function resolveSongPlayableUrl(input: Record<string, unknown>): {
         "file_url",
     ].map((key) => clean(input[key])).filter(Boolean);
 
+    const guardedFromRecord = resolveGuardedAudioPlaybackUrlFromRecord(input);
+    if (guardedFromRecord) {
+        return {
+            playableUrl: guardedFromRecord,
+            storagePath: storagePath || null,
+        };
+    }
+
     for (const candidate of candidates) {
         if (isUploadApiUrl(candidate) || candidate.startsWith("blob:") || candidate.startsWith("data:")) {
             continue;
@@ -247,22 +295,18 @@ export function resolveSongPlayableUrl(input: Record<string, unknown>): {
             const fromPublic = extractStoragePathFromPublicUrl(candidate, SONGS_BUCKET);
             if (fromPublic) storagePath = normalizeStoragePath(fromPublic, SONGS_BUCKET);
         }
-        if (isHttpUrl(candidate) || candidate.startsWith("/")) {
-            return { playableUrl: candidate, storagePath: storagePath || null };
+        const coerced = coerceSongPlaybackCandidate(input, candidate);
+        if (coerced) {
+            return { playableUrl: coerced, storagePath: storagePath || null };
         }
     }
 
     if (storagePath) {
-        // Songs often play via /api/audio; keep storage path and a public fallback URL.
-        const publicUrl = publicUrlFromStoragePath(storagePath, SONGS_BUCKET);
         const songId = clean(input.id);
-        if (songId && isUuid(songId)) {
-            return {
-                playableUrl: `/api/audio?path=${encodeURIComponent(storagePath)}&songId=${encodeURIComponent(songId)}`,
-                storagePath,
-            };
+        const guarded = resolveGuardedAudioPlaybackUrlFromRecord({ ...input, storage_path: storagePath, id: songId });
+        if (guarded) {
+            return { playableUrl: guarded, storagePath };
         }
-        return { playableUrl: publicUrl || "", storagePath };
     }
 
     return { playableUrl: "", storagePath: null };

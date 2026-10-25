@@ -10,7 +10,7 @@ import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { recordServerPlatformError } from "@/lib/platform-error-reporting";
 import { getErrorMessage, getSupabaseServerClient } from "@/lib/server-supabase";
-import { SUPABASE_PROJECT_URL } from "@/lib/supabase-config";
+import { buildGuardedAudioPlaybackUrl } from "@/lib/guarded-playback-url.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,17 +63,9 @@ function normalizeStoragePath(path: string) {
     return path.trim().replace(/^\/+/, "");
 }
 
-function getPublicSongUrl(supabase: ReturnType<typeof getSupabaseServerClient>, storagePath: string) {
+function getGuardedSongPlaybackUrl(storagePath: string, songId?: string) {
     const normalizedPath = normalizeStoragePath(storagePath);
-    const fromClient = supabase.storage.from(SONGS_BUCKET).getPublicUrl(normalizedPath).data.publicUrl;
-    if (fromClient?.includes(".supabase.co/storage/")) {
-        return fromClient;
-    }
-    const encodedPath = normalizedPath
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/");
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${SONGS_BUCKET}/${encodedPath}`;
+    return buildGuardedAudioPlaybackUrl({ storagePath: normalizedPath, songId: songId || "" });
 }
 
 async function requireAudioUploadUser(request: Request, body: Record<string, unknown>) {
@@ -178,7 +170,7 @@ async function handlePrepareStorageUpload(request: Request, body: Record<string,
         storagePath: savedStoragePath,
         token: signedUpload.data.token,
         signedUrl: signedUpload.data.signedUrl || "",
-        publicUrl: getPublicSongUrl(supabase, savedStoragePath),
+        playbackUrl: getGuardedSongPlaybackUrl(savedStoragePath),
         uploadMethod: "signed",
     });
 }
@@ -262,7 +254,6 @@ async function insertSongMetadata(
 
 async function handleSaveSongMetadata(request: Request, body: Record<string, unknown>) {
     const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
-    const publicUrl = getRecordString(body, ["publicUrl", "public_url", "audio_url"]);
     const title = getRecordString(body, ["title"]) || "Untitled song";
     const artist = getRecordString(body, ["artist"]) || "Unknown artist";
     const category = getRecordString(body, ["category"]) || "New Releases";
@@ -280,10 +271,6 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
     if (!storagePath) {
         return jsonResponse({ error: "storagePath is required after the Storage upload completes." }, 400);
     }
-    if (!publicUrl) {
-        return jsonResponse({ error: "publicUrl is required after the Storage upload completes." }, 400);
-    }
-
     const auth = await requireAudioUploadUser(request, body);
     if (!auth.ok) {
         return jsonResponse(
@@ -298,8 +285,9 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
     }
 
     const supabase = getSupabaseServerClient();
+    const songId = safeRandomUUID();
     const songRow = {
-        id: safeRandomUUID(),
+        id: songId,
         title,
         artist,
         description: artist,
@@ -309,7 +297,7 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
         album_id: albumId || null,
         category,
         type,
-        audio_url: publicUrl,
+        audio_url: getGuardedSongPlaybackUrl(folderCheck.storagePath, songId),
         storage_path: folderCheck.storagePath,
         cover_url: coverUrl,
         avatar_url: coverUrl,
@@ -357,15 +345,17 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
                 legacyUserId: auth.legacyUserId,
                 userIdMatchesAuth: String(lastSongInsertPayload.user_id || "") === auth.authUserId,
                 insertPayload: lastSongInsertPayload,
-                publicUrl,
+                playbackUrl: getGuardedSongPlaybackUrl(folderCheck.storagePath, songId),
                 storagePath: folderCheck.storagePath,
                 bucket: SONGS_BUCKET,
             },
         }, 500);
     }
 
+    const playbackUrl = getGuardedSongPlaybackUrl(folderCheck.storagePath, songId);
     return jsonResponse({
-        publicUrl,
+        playbackUrl,
+        publicUrl: playbackUrl,
         storagePath: folderCheck.storagePath,
         song: savedSong || songRow,
     });

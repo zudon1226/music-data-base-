@@ -1,14 +1,15 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import {
+    resolveSupabaseAuthStorageKey as resolveSelectedAuthStorageKey,
+    SUPABASE_PROJECT_REF,
+} from "./supabase-config";
 
-/** Locked production Supabase project ref (matches lib/supabase-config.ts). */
-const SUPABASE_PROJECT_REF = "aehuszoadgqtbkxsliyy";
-
-/** Production GoTrue storage key (matches @supabase/supabase-js default for the locked project). */
+/** Legacy production-only storage key label (prefer resolveSupabaseAuthStorageKey). */
 export const SUPABASE_AUTH_STORAGE_KEY = `sb-${SUPABASE_PROJECT_REF}-auth-token`;
 
 /** Same key the desktop Supabase client uses for persistSession. */
 export function resolveSupabaseAuthStorageKey() {
-    return SUPABASE_AUTH_STORAGE_KEY;
+    return resolveSelectedAuthStorageKey();
 }
 
 export function clearSupabaseAuthStorage() {
