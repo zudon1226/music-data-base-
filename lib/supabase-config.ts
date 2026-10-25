@@ -18,7 +18,10 @@ function parseEnabledFlag(value: string | undefined) {
 }
 
 function previewStagingExplicitlyEnabled() {
-    return parseEnabledFlag(process.env.MDB_PREVIEW_SUPABASE_ENABLED);
+    return (
+        parseEnabledFlag(process.env.MDB_PREVIEW_SUPABASE_ENABLED)
+        || parseEnabledFlag(process.env.NEXT_PUBLIC_MDB_PREVIEW_SUPABASE_ENABLED)
+    );
 }
 
 /** Vercel deployment tier when present; otherwise local Node/Next workspace. */
@@ -28,6 +31,26 @@ export function readSupabaseDeploymentTier() {
     if (vercelEnv === "preview") return "preview" as const;
     if (vercelEnv === "development") return "preview" as const;
     return "local" as const;
+}
+
+/**
+ * Browser bundles only receive NEXT_PUBLIC_* vars, so Preview client code sees tier "local".
+ * When preview staging is explicitly enabled and a non-production project URL is configured,
+ * treat the runtime like Preview for Supabase selection (server routes still use VERCEL_ENV).
+ */
+function readEffectiveSupabaseDeploymentTier(configuredRef: string) {
+    const tier = readSupabaseDeploymentTier();
+    if (tier !== "local") {
+        return tier;
+    }
+    if (
+        previewStagingExplicitlyEnabled()
+        && configuredRef
+        && configuredRef !== SUPABASE_PROJECT_REF
+    ) {
+        return "preview" as const;
+    }
+    return tier;
 }
 
 function extractRefFromSupabaseProjectHostname(hostname: string) {
@@ -112,10 +135,13 @@ export function resolveSupabaseProjectSelection(): SupabaseProjectSelection {
     const configuredRef = normalizedUrl && hasSupabaseProjectHost(normalizedUrl)
         ? extractRefFromSupabaseProjectUrl(normalizedUrl)
         : "";
+    const effectiveTier = readEffectiveSupabaseDeploymentTier(configuredRef);
 
     if (tier === "production") {
         if (previewStagingExplicitlyEnabled()) {
-            throw new Error("MDB_PREVIEW_SUPABASE_ENABLED cannot be set on production deployments.");
+            throw new Error(
+                "MDB_PREVIEW_SUPABASE_ENABLED and NEXT_PUBLIC_MDB_PREVIEW_SUPABASE_ENABLED cannot be set on production deployments.",
+            );
         }
         if (configuredRef && configuredRef !== SUPABASE_PROJECT_REF) {
             throw new Error(
@@ -133,7 +159,7 @@ export function resolveSupabaseProjectSelection(): SupabaseProjectSelection {
         return productionSelection();
     }
 
-    if (tier === "preview" && previewStagingExplicitlyEnabled()) {
+    if (effectiveTier === "preview" && previewStagingExplicitlyEnabled()) {
         if (!normalizedUrl || !hasSupabaseProjectHost(normalizedUrl)) {
             throw new Error(
                 "Preview staging requires NEXT_PUBLIC_SUPABASE_URL set to https://<project-ref>.supabase.co.",
@@ -154,10 +180,20 @@ export function resolveSupabaseProjectSelection(): SupabaseProjectSelection {
             configuredRef,
         );
         const serviceRoleKey = sanitizeApiKey(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
-        if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
-            throw new Error("Preview staging requires SUPABASE_SERVICE_ROLE_KEY for server routes.");
+        const serverPreviewDeployment = tier === "preview";
+        if (serverPreviewDeployment) {
+            if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
+                throw new Error("Preview staging requires SUPABASE_SERVICE_ROLE_KEY for server routes.");
+            }
+            assertLegacyJwtMatchesProjectRef("SUPABASE_SERVICE_ROLE_KEY", serviceRoleKey, configuredRef);
         }
-        assertLegacyJwtMatchesProjectRef("SUPABASE_SERVICE_ROLE_KEY", serviceRoleKey, configuredRef);
+        else if (
+            serviceRoleKey
+            && serviceRoleKey !== "your_service_role_key_here"
+            && serviceRoleKey.startsWith("eyJ")
+        ) {
+            assertLegacyJwtMatchesProjectRef("SUPABASE_SERVICE_ROLE_KEY", serviceRoleKey, configuredRef);
+        }
         return previewStagingSelection(normalizedUrl, configuredRef);
     }
 
@@ -172,7 +208,7 @@ export function resolveSupabaseProjectSelection(): SupabaseProjectSelection {
 
     if (configuredRef && configuredRef !== SUPABASE_PROJECT_REF) {
         throw new Error(
-            `Non-production NEXT_PUBLIC_SUPABASE_URL requires MDB_PREVIEW_SUPABASE_ENABLED=1 on Preview deployments.`,
+            "Non-production NEXT_PUBLIC_SUPABASE_URL requires MDB_PREVIEW_SUPABASE_ENABLED=1 or NEXT_PUBLIC_MDB_PREVIEW_SUPABASE_ENABLED=1 on Preview deployments.",
         );
     }
 
