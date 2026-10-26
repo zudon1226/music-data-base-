@@ -38,6 +38,12 @@ import {
     normalizeSignupAccountType,
     signupAccountTypeLabel,
 } from "../lib/signup-account-type";
+import {
+    buildSignUpNoSessionMessage,
+    classifySignUpWithoutSession,
+    resolveAuthTransportErrorMessage,
+    resolveSignUpClientErrorMessage,
+} from "../lib/signup-auth-response";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
 import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
@@ -16948,13 +16954,7 @@ function PageContent({
         setActiveArtistId((previous) => (previous === previousId ? nextId : previous));
     }
     function getAuthErrorMessage(error: unknown) {
-        if (error instanceof Error) {
-            if (error.message === "Failed to fetch") {
-                return "Could not reach Supabase. Check your Supabase URL, anon key, internet connection, and allowed site URL settings.";
-            }
-            return error.message;
-        }
-        return "Something went wrong while connecting to Supabase. Please try again.";
+        return resolveAuthTransportErrorMessage(error);
     }
     async function handleForgotPasswordSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -17113,17 +17113,20 @@ function PageContent({
                 })
                 : await supabase.auth.signInWithPassword({ email, password });
             if (response.error) {
-                setAuthMessage(response.error.message);
+                setAuthMessage(authMode === "signup"
+                    ? resolveSignUpClientErrorMessage(response.error)
+                    : response.error.message);
                 return;
             }
             if (authMode === "signup" && !response.data.session) {
-                const selfServeCreator = creatorSelfSignupEnabled
-                    && (signupAccountType === "artist" || signupAccountType === "producer" || signupAccountType === "artist_producer");
-                setAuthMessage(selfServeCreator
-                    ? "Account created. Confirm your email, then sign in to activate your creator dashboard."
-                    : foundingBetaLocked && authInviteCode.trim() && !isPlatformOwnerEmail(email)
-                        ? "Account created. Confirm your email, then sign in to finish invite redemption and account activation."
-                        : "Account created. Check your email to confirm your sign up.");
+                const classification = classifySignUpWithoutSession(response.data.user);
+                setAuthMessage(buildSignUpNoSessionMessage({
+                    classification,
+                    signupAccountType,
+                    creatorSelfSignupEnabled,
+                    foundingBetaLocked,
+                    hasPendingInviteCode: Boolean(foundingBetaLocked && authInviteCode.trim() && !isPlatformOwnerEmail(email)),
+                }));
                 return;
             }
             markDesktopAuthSignInPending();

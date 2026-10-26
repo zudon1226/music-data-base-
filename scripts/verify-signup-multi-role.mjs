@@ -23,6 +23,7 @@ function read(rel) {
 function main() {
     const helper = read("lib/signup-account-type.ts");
     const inviteService = read("lib/founding-invite-service.ts");
+    const activation = read("lib/signup-account-activation.ts");
 
     record(
         "artist_producer grants both creator roles",
@@ -32,7 +33,8 @@ function main() {
 
     record(
         "approval loops grants.userRoles (multi upsert)",
-        /for \(const role of grants\.userRoles\)[\s\S]*?user_roles[\s\S]*?onConflict:\s*"user_id,role"/.test(inviteService),
+        /applySignupAccountTypeGrants/.test(inviteService)
+            && /for \(const role of grants\.userRoles\)[\s\S]*?user_roles[\s\S]*?onConflict:\s*"user_id,role"/.test(activation),
     );
 
     record(
@@ -46,6 +48,14 @@ function main() {
             read("app/page.tsx").indexOf("async function handleAuthSubmit"),
             read("app/page.tsx").indexOf("async function handleAuthSubmit") + 2500,
         )),
+    );
+
+    const pageAuth = read("app/page.tsx");
+    record(
+        "signup without session uses privacy-preserving helper",
+        pageAuth.includes("classifySignUpWithoutSession")
+            && pageAuth.includes("buildSignUpNoSessionMessage")
+            && !pageAuth.includes("Account created. Check your email to confirm your sign up."),
     );
 
     writeFileSync(
