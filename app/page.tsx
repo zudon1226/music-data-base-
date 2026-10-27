@@ -207,6 +207,10 @@ import { isUploadBlockedForEmail, UPLOAD_LOCK_MESSAGE } from "../lib/upload-lock
 import type { FoundingAccessState } from "../lib/founding-access";
 import { isCreatorSelfSignupEnabled } from "../lib/creator-self-signup";
 import {
+    isPublicBetaPaidSubscriptionCheckoutLocked,
+    PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE,
+} from "../lib/public-beta-subscription-checkout";
+import {
     FOUNDING_INVITE_REQUIRED_MESSAGE,
     FOUNDING_ROLE_LOCKED_MESSAGE,
     LISTENER_LAUNCH_WAITLIST_MESSAGE,
@@ -10237,6 +10241,10 @@ function PageContent({
             transaction.status !== "refunded").length;
     }
     function subscribeToCreator(creatorType: "artist" | "producer", creatorId: string, creatorName: string) {
+        if (isPublicBetaPaidSubscriptionCheckoutLocked()) {
+            showToast(PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE, "error");
+            return;
+        }
         addMonetizationTransaction({
             itemId: creatorId,
             itemType: "subscription",
@@ -10340,6 +10348,10 @@ function PageContent({
         }
 
         // Paid plans must never become Selected or show success before provider confirmation.
+        if (isPublicBetaPaidSubscriptionCheckoutLocked()) {
+            showToast(PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE, "error");
+            return;
+        }
         if (!user?.id) {
             showToast("Sign in to subscribe to a paid plan.", "error");
             return;
@@ -17656,6 +17668,34 @@ function PageContent({
         </section>);
     }
     function renderSubscriptionPlanSetup(context: "artist" | "producer" | "listener" | "platform" = "platform") {
+        if (isPublicBetaPaidSubscriptionCheckoutLocked()) {
+            const freePlans = (context === "platform"
+                ? SUBSCRIPTION_PLANS
+                : SUBSCRIPTION_PLANS.filter((plan) => plan.audience === "creator" || plan.audience === "listener" || plan.audience === context)
+            ).filter((plan) => plan.priceCents <= 0);
+            return (<section className="dashboard-panel monetization-panel" data-subscription-beta-locked="true">
+              <div className="artist-section-title">
+                <h3>{PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE}</h3>
+                <span>Free Sign Up</span>
+              </div>
+              <p>Free listener access and free creator signup stay open. Paid subscription plans stay hidden until full launch.</p>
+              {freePlans.length > 0 ? (<div className="monetization-plan-grid" data-subscription-free-plans="true">
+                {freePlans.map((plan) => (<article className={activeSubscriptionPlanId === plan.id ? "monetization-plan active" : "monetization-plan"} key={plan.id}>
+                  <span>{plan.audience}</span>
+                  <strong>{plan.name}</strong>
+                  <small>{plan.features.join(" | ")}</small>
+                  <button
+                    disabled={Boolean(subscriptionCheckoutBusyPlanId)}
+                    onClick={() => void setupSubscriptionPlan(plan)}
+                    type="button"
+                  >
+                    <Check size={15}/>
+                    {activeSubscriptionPlanId === plan.id ? "Selected" : "Select Plan"}
+                  </button>
+                </article>))}
+              </div>) : null}
+            </section>);
+        }
         const plans = context === "platform"
             ? SUBSCRIPTION_PLANS
             : SUBSCRIPTION_PLANS.filter((plan) => plan.audience === "creator" || plan.audience === "listener" || plan.audience === context);
@@ -17694,6 +17734,15 @@ function PageContent({
         </section>);
     }
     function renderSubscriptionManagement() {
+        if (isPublicBetaPaidSubscriptionCheckoutLocked()) {
+            return (<section className="stability-panel monetization-panel" data-subscription-beta-locked="true">
+              <div className="panel-title-row">
+                <h3>{PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE}</h3>
+                <span>Free Sign Up</span>
+              </div>
+              <p>Paid subscription prices stay hidden during public beta. Existing billing code remains for full launch.</p>
+            </section>);
+        }
         const premiumPlan = SUBSCRIPTION_PLANS.find((plan) => plan.id === "premium-listener");
         return (<section className="stability-panel monetization-panel">
           <div className="panel-title-row">
@@ -20443,7 +20492,21 @@ function PageContent({
               </div>
             </section>
 
-            <section className="subscription-section" aria-label="Subscriptions">
+            <section className="subscription-section" aria-label="Subscriptions" data-subscription-beta-locked={isPublicBetaPaidSubscriptionCheckoutLocked() ? "true" : "false"}>
+              {isPublicBetaPaidSubscriptionCheckoutLocked() ? (<>
+                <div className="subscription-head">
+                  <p className="section-kicker">Free Sign Up</p>
+                  <h2>{PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE}</h2>
+                </div>
+                <p>Free Sign Up is open during public beta. Listener access and creator signup stay free. Paid prices and Subscribe buttons stay hidden until full launch.</p>
+                {!isAuthenticated ? (<button className="sub-btn" type="button" onClick={() => {
+                    setPublicEntryView("auth");
+                    setAuthMode("signup");
+                    setAuthMessage("");
+                }}>
+                  Free Sign Up
+                </button>) : null}
+              </>) : (<>
               <div className="subscription-head">
                 <p className="section-kicker">Subscriptions</p>
                 <h2>Choose Your Music Data Base Plan</h2>
@@ -20472,6 +20535,7 @@ function PageContent({
                     </button>
                   </article>))}
               </div>
+              </>)}
             </section>
 
             {discoveryForYouItems.length > 0 && (<section className="artist-section discovery-section">
@@ -22576,10 +22640,10 @@ function PageContent({
                       <Share2 size={16}/>
                       Share Artist
                     </button>
-                    <button onClick={() => subscribeToCreator("artist", activeArtist.id, activeArtist.name)} type="button">
+                    {isPublicBetaPaidSubscriptionCheckoutLocked() ? null : (<button onClick={() => subscribeToCreator("artist", activeArtist.id, activeArtist.name)} type="button">
                       <Bell size={16}/>
                       Subscribe
-                    </button>
+                    </button>)}
                     <button onClick={() => playSongList(activeArtistSongs)} disabled={activeArtistSongs.length === 0} type="button">
                       <Play size={16} fill="currentColor"/>
                       Play Songs
@@ -22743,10 +22807,10 @@ function PageContent({
                       <Share2 size={16}/>
                       Share Producer
                     </button>
-                    <button onClick={() => subscribeToCreator("producer", activeProducerProfile.id || activeProducerProfile.name, activeProducerProfile.name)} type="button">
+                    {isPublicBetaPaidSubscriptionCheckoutLocked() ? null : (<button onClick={() => subscribeToCreator("producer", activeProducerProfile.id || activeProducerProfile.name, activeProducerProfile.name)} type="button">
                       <Bell size={16}/>
                       Subscribe
-                    </button>
+                    </button>)}
                   </div>
                 </div>
               </div>

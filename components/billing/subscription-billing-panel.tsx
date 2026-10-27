@@ -6,6 +6,10 @@ import { CHECKOUT_UNAVAILABLE_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from 
 import { displayFeaturesForPlanRow } from "@/lib/billing/plan-entitlements";
 import { resolvePresentablePaidPlans } from "@/lib/billing/plan-catalog";
 import type { SubscriptionPlanRow } from "@/lib/billing/types";
+import {
+    isPublicBetaPaidSubscriptionCheckoutLocked,
+    PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE,
+} from "@/lib/public-beta-subscription-checkout";
 
 type FetchFn = (path: string, init?: RequestInit & { requireAuth?: boolean }) => Promise<Response>;
 
@@ -83,8 +87,9 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
     const [busyPlanId, setBusyPlanId] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const [betaLocked, setBetaLocked] = useState(false);
+    const [serverBetaLocked, setServerBetaLocked] = useState(false);
     const [betaMessage, setBetaMessage] = useState("");
+    const betaLocked = isPublicBetaPaidSubscriptionCheckoutLocked() || serverBetaLocked;
 
     const load = useCallback(async () => {
         if (!userId) return;
@@ -100,7 +105,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
         setPlans(Array.isArray(data.plans) ? data.plans : []);
         setSubscription(data.subscription || null);
         setAccess(data.access || null);
-        setBetaLocked(data.publicBetaPaidSubscriptionCheckoutLocked === true);
+        setServerBetaLocked(data.publicBetaPaidSubscriptionCheckoutLocked === true);
         setBetaMessage(String(data.publicBetaPaidSubscriptionCheckoutMessage || ""));
         const configured = data.providers?.configuredProviders;
         if (Array.isArray(configured) && configured.length) {
@@ -193,20 +198,25 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
         }
     }
 
-    const paidPlans = resolvePresentablePaidPlans(plans as SubscriptionPlanRow[], audience);
+    const paidPlans = betaLocked ? [] : resolvePresentablePaidPlans(plans as SubscriptionPlanRow[], audience);
+    const freePlans = plans.filter((plan) => Number(plan.price_cents || 0) <= 0);
     const billingIntervals = [...new Set(paidPlans.map((plan) => plan.billing_interval || "month"))];
     const billingCadenceLabel = billingIntervals.length === 1
         ? `${billingIntervals[0]} · auto-renew`
         : `${billingIntervals.join(" + ")} · auto-renew`;
 
     return (
-        <section className="dashboard-panel monetization-panel" data-billing-panel="subscription">
+        <section className="dashboard-panel monetization-panel" data-billing-panel="subscription" data-subscription-beta-locked={betaLocked ? "true" : "false"}>
             <div className="artist-section-title">
-                <h3>Subscription & Billing</h3>
-                <span>{audience} · {billingCadenceLabel}</span>
+                <h3>{betaLocked ? PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE : "Subscription & Billing"}</h3>
+                <span>{betaLocked ? "Free Sign Up" : `${audience} · ${billingCadenceLabel}`}</span>
             </div>
 
-            {subscription && String(subscription.status).toLowerCase() === "active" ? (
+            {betaLocked ? (
+                <p className="profile-feedback" role="status">Free Sign Up stays open. Creator Free stays available. Paid prices and Subscribe buttons stay hidden until full launch.</p>
+            ) : null}
+
+            {subscription && String(subscription.status).toLowerCase() === "active" && Number(subscription.price_cents || 0) > 0 && !betaLocked ? (
                 <div className="monetization-summary-grid">
                     <div>
                         <strong>{subscription.plan_name}</strong>
@@ -229,7 +239,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                         <span>Paid through</span>
                     </div>
                 </div>
-            ) : (
+            ) : betaLocked ? null : (
                 <p className="empty-small">No active paid subscription yet. Select a monthly plan below.</p>
             )}
 
@@ -247,7 +257,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                 </article>
             ) : null}
 
-            {audience === "listener" ? (
+            {betaLocked ? null : audience === "listener" ? (
                 <small>
                     Listener benefits: Unlimited streaming, Library, Playlists, Queue, Recommendations. Cancel anytime;
                     access continues until the paid period ends.
@@ -260,7 +270,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                 </small>
             )}
 
-            {providers.length ? (
+            {betaLocked ? null : providers.length ? (
                 <div className="source-row" style={{ marginTop: 10 }}>
                     <span>Provider</span>
                     {providers.map((id) => (
@@ -279,11 +289,45 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                 <p className="profile-feedback" role="status">{CHECKOUT_UNAVAILABLE_MESSAGE}</p>
             )}
 
-            {betaLocked ? (
-                <p className="profile-feedback" role="status">{betaMessage || "Subscriptions coming at full launch."}</p>
+            {betaLocked && freePlans.length > 0 ? (
+                <div className="monetization-plan-grid" data-subscription-free-plans="true">
+                    {freePlans.map((plan) => (
+                        <article className="monetization-plan" key={plan.id}>
+                            <span>{plan.audience}</span>
+                            <strong>{plan.name}</strong>
+                            <small>{planDisplayFeatures(plan).join(" | ")}</small>
+                            <button
+                                disabled={busy}
+                                onClick={() => void fetchFn("/api/subscriptions", {
+                                    method: "POST",
+                                    requireAuth: true,
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        userId,
+                                        action: "activate_free",
+                                        planId: plan.id,
+                                        audience,
+                                    }),
+                                }).then(async (response) => {
+                                    const data = await response.json().catch(() => ({}));
+                                    if (!response.ok) throw new Error(String(data.error || "Free plan could not be selected."));
+                                    onToast?.(String(data.message || `${plan.name} is active.`), "success");
+                                    await load();
+                                }).catch((err) => {
+                                    const message = err instanceof Error ? err.message : "Free plan could not be selected.";
+                                    setError(message);
+                                    onToast?.(message, "error");
+                                })}
+                                type="button"
+                            >
+                                Select Plan
+                            </button>
+                        </article>
+                    ))}
+                </div>
             ) : null}
 
-            <div className="monetization-plan-grid">
+            {betaLocked ? null : <div className="monetization-plan-grid">
                 {paidPlans.map((plan) => {
                     const selected = isServerActivePlan(subscription, plan.id);
                     const opening = busyPlanId === plan.id;
@@ -304,7 +348,7 @@ export function SubscriptionBillingPanel({ userId, audience, email, fetchFn, onT
                         </article>
                     );
                 })}
-            </div>
+            </div>}
 
             {subscription && subscription.auto_renew !== false && subscription.status !== "cancelled" ? (
                 <div className="monetization-row-actions">
