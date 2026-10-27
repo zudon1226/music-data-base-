@@ -11,12 +11,13 @@
  * checkout sessions are not created and no live subscriptions are started.
  */
 
-import { isPlatformOwnerUserId } from "@/lib/server-supabase";
-
 export const PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_ENV =
     "NEXT_PUBLIC_PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_LOCKED";
 export const PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_MESSAGE =
     "Subscriptions coming at full launch.";
+/** Public beta heading. Paid plan cards stay in the source for full launch. */
+export const PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE =
+    "Subscriptions Coming at Full Launch";
 
 function parseTruthyEnv(value: string | undefined) {
     if (value === undefined || value === "") return null;
@@ -37,16 +38,16 @@ export function getPublicBetaPaidSubscriptionCheckoutMessage() {
     return PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_MESSAGE;
 }
 
-/** Owner/admin test path remains available when beta lock is on. */
-export async function canUserBypassPublicBetaPaidSubscriptionCheckout(userId: string) {
-    return isPlatformOwnerUserId(userId);
+/**
+ * Paid checkout stays locked for every account, including admin and owner.
+ * Account-management actions use their own admin routes and are not a checkout bypass.
+ */
+export async function canUserBypassPublicBetaPaidSubscriptionCheckout(_userId: string) {
+    return false;
 }
 
-export async function assertPaidSubscriptionCheckoutAllowed(userId: string) {
+export async function assertPaidSubscriptionCheckoutAllowed(_userId: string) {
     if (!isPublicBetaPaidSubscriptionCheckoutLocked()) {
-        return { ok: true as const };
-    }
-    if (await canUserBypassPublicBetaPaidSubscriptionCheckout(userId)) {
         return { ok: true as const };
     }
     return {

@@ -9,8 +9,14 @@ import {
     listActiveSubscriptionPlans,
     listUserSubscriptionPayments,
 } from "@/lib/billing/subscription-service";
+import { isPublicBetaPaidSubscriptionCheckoutLocked } from "@/lib/public-beta-subscription-checkout";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
+
+function plansVisibleDuringBeta<T extends { price_cents?: number | null }>(plans: T[]) {
+    if (!isPublicBetaPaidSubscriptionCheckoutLocked()) return plans;
+    return plans.filter((plan) => Number(plan?.price_cents || 0) <= 0);
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +47,7 @@ export async function GET(request: Request) {
                 subscription,
                 access,
                 payments,
-                plans,
+                plans: plansVisibleDuringBeta(plans),
                 providers,
                 ...getSubscriptionCheckoutPublicState(),
             });
@@ -50,7 +56,7 @@ export async function GET(request: Request) {
         const plans = await listActiveSubscriptionPlans(audience || undefined);
         return NextResponse.json({
             ok: true,
-            plans,
+            plans: plansVisibleDuringBeta(plans),
             providers: getBillingProviderCatalog(),
             ...getSubscriptionCheckoutPublicState(),
         });
