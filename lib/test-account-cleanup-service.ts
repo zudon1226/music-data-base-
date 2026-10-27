@@ -9,6 +9,7 @@ import type {
     TestConfidenceLevel,
 } from "@/lib/test-account-cleanup";
 import { getErrorMessage, isPlatformOwnerEmail, PLATFORM_OWNER_EMAIL, safeSelect } from "@/lib/server-supabase";
+import { buildCleanupBlockReasons, type CleanupFoundingRecord } from "@/lib/test-account-cleanup-protection";
 
 const TEST_EMAIL_PREFIXES = [
     "browser-probe-",
@@ -65,11 +66,13 @@ type ProfileRecord = {
     is_admin: boolean | null;
 };
 
-type FoundingRecord = {
+type FoundingRecord = CleanupFoundingRecord & {
     user_id: string;
     approval_status: string;
     founding_role: string;
 };
+
+const FOUNDING_CLEANUP_COLUMNS = "user_id,approval_status,founding_role,invite_id,social_link";
 
 type LabelRecord = {
     user_id: string;
@@ -266,52 +269,15 @@ async function evaluateProtection(
     manualLabel: TestAccountReviewLabel | null,
     counts: ActivityCounts,
 ) {
-    const blockReasons: string[] = [];
-
-    if (isPlatformOwnerEmail(user.email)) {
-        blockReasons.push("Platform owner account is permanently protected");
-    }
-    if (RECOGNIZED_REAL_USER_EMAILS.has(normalizeEmail(user.email))) {
-        blockReasons.push("Recognized real-user email is protected");
-    }
-    if (await isAdminUserId(user.id)) {
-        blockReasons.push("Admin account is protected");
-    }
-    if (profile?.is_admin || profile?.account_type === "admin") {
-        blockReasons.push("Profile is marked as admin");
-    }
-    if (founding?.approval_status === "approved") {
-        blockReasons.push("Approved founding artist/producer is protected");
-    }
-    if (manualLabel === "protected_real_user") {
-        blockReasons.push("Manually marked as protected real user");
-    }
-    if (counts.uploadsCount > 0) {
-        blockReasons.push(`Account owns ${counts.uploadsCount} upload(s)`);
-    }
-    if (counts.playlistsCount > 0) {
-        blockReasons.push(`Account owns ${counts.playlistsCount} playlist(s)`);
-    }
-    if (counts.followersCount > 0) {
-        blockReasons.push(`Account has ${counts.followersCount} follower/follow relationship(s)`);
-    }
-    if (counts.purchasesCount > 0) {
-        blockReasons.push(`Account has ${counts.purchasesCount} purchase/preorder record(s)`);
-    }
-    if (counts.payoutsCount > 0) {
-        blockReasons.push(`Account has ${counts.payoutsCount} payout record(s)`);
-    }
-
-    let protectedStatus = "Reviewable";
-    if (blockReasons.length > 0) protectedStatus = "Protected";
-    else if (manualLabel === "confirmed_test_account") protectedStatus = "Confirmed test account";
-    else if (manualLabel === "needs_review") protectedStatus = "Needs review";
-
-    return {
-        isProtected: blockReasons.length > 0,
-        blockReasons,
-        protectedStatus,
-    };
+    return buildCleanupBlockReasons({
+        isPlatformOwner: isPlatformOwnerEmail(user.email),
+        isRecognizedRealUser: RECOGNIZED_REAL_USER_EMAILS.has(normalizeEmail(user.email)),
+        isAdminUser: await isAdminUserId(user.id),
+        profile,
+        founding,
+        manualLabel,
+        counts,
+    });
 }
 
 async function buildReviewRow(
@@ -351,7 +317,7 @@ async function buildReviewRow(
 export async function listTestAccountReviewAccounts(supabase: SupabaseClient): Promise<TestAccountReviewList> {
     const [profiles, foundingMembers, labels, authUsers] = await Promise.all([
         safeSelect<ProfileRecord>(supabase.from("profiles").select("id,user_id,display_name,account_type,is_admin")),
-        safeSelect<FoundingRecord>(supabase.from("founding_members").select("user_id,approval_status,founding_role")),
+        safeSelect<FoundingRecord>(supabase.from("founding_members").select(FOUNDING_CLEANUP_COLUMNS)),
         safeSelect<LabelRecord>(supabase.from("test_account_review_labels").select("user_id,label,notes")),
         loadAuthUsers(supabase),
     ]);
@@ -431,7 +397,7 @@ export async function buildTestAccountDependencyPreview(
         countRows(supabase, "marketplace_preorders", [["creator_user_id", "eq", targetUserId]]),
         countRows(supabase, "payouts", [["user_id", "eq", targetUserId]]),
         countPrivateStorageObjects(supabase, targetUserId),
-        safeSelect<FoundingRecord>(supabase.from("founding_members").select("user_id,approval_status,founding_role").eq("user_id", targetUserId).limit(1)),
+        safeSelect<FoundingRecord>(supabase.from("founding_members").select(FOUNDING_CLEANUP_COLUMNS).eq("user_id", targetUserId).limit(1)),
         safeSelect<LabelRecord>(supabase.from("test_account_review_labels").select("user_id,label,notes").eq("user_id", targetUserId).limit(1)),
     ]);
 
@@ -647,7 +613,7 @@ export function getProtectedUserRules() {
     return [
         "Platform owner email is permanently protected",
         "Any admin account is protected",
-        "Approved founding artists/producers are protected",
+        "Approved invited founding artists and producers are protected",
         "Manually marked protected real users are protected",
         "Accounts with uploads, playlists, followers, purchases, or payouts are protected",
         "Deletion requires dry-run safety and explicit owner confirmation",
