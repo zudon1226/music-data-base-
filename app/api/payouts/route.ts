@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
 import { getCreatorBillingAccessForUser } from "@/lib/billing/subscription-service";
 import { requireCreatorAccountAccess, requireCreatorAudienceAccess } from "@/lib/resolved-account-role";
+import { isPublicBetaPayoutRequestsLocked, payoutRequestsLockedResult } from "@/lib/public-beta-payout-requests";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { evaluateWithdrawalEligibility } from "@/lib/creator-withdrawal-eligibility";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
@@ -35,6 +36,15 @@ export async function POST(request: Request) {
         const auth = await requireMatchingUserId(request, "/api/payouts", userId);
         if (!auth.ok) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
+        if (isPublicBetaPayoutRequestsLocked()) {
+            const locked = payoutRequestsLockedResult();
+            return NextResponse.json({
+                error: locked.error,
+                code: locked.code,
+                withdrawalsLocked: true,
+            }, { status: locked.status });
         }
 
         const creatorAccess = await requireCreatorAudienceAccess(userId, creatorType as "artist" | "producer");

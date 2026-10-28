@@ -47,6 +47,9 @@ record("beta message is launch copy", lockSource.includes("Purchases coming at f
 record("source songs filter ringtone permissions", sourceSongsSource.includes("ringtone_creation_enabled"));
 record("songs API filters streaming catalog", songsSource.includes("streaming_enabled"));
 record("usage migration exists", migrationSource.includes("streaming_enabled"));
+record("owner bypass removed", !lockSource.includes("isPlatformOwnerUserId")
+    && lockSource.includes("export async function canBuyerBypassPublicBetaPaidRingtoneLock(_buyerId: string)")
+    && /canBuyerBypassPublicBetaPaidRingtoneLock\(_buyerId: string\) \{\s*return false;\s*\}/.test(lockSource));
 
 record("unset => locked", isPublicBetaPaidRingtonePurchaseLocked(undefined) === true);
 record("true => locked", isPublicBetaPaidRingtonePurchaseLocked("true") === true);

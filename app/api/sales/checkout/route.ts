@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  isPublicBetaPaidSalesCheckoutLocked,
+  PUBLIC_BETA_PAID_SALES_CHECKOUT_CODE,
+  PUBLIC_BETA_PAID_SALES_CHECKOUT_MESSAGE,
+} from "@/lib/public-beta-sales-checkout";
 import { requireAuthenticatedSalesUser } from "@/lib/sales-auth";
 import {
   startPaidSalesStripeCheckout,
@@ -21,6 +26,15 @@ export async function POST(request: Request) {
     const auth = await requireAuthenticatedSalesUser(request, "/api/sales/checkout", claimedUserId);
     if (!auth.ok) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    if (isPublicBetaPaidSalesCheckoutLocked()) {
+      return NextResponse.json({
+        error: PUBLIC_BETA_PAID_SALES_CHECKOUT_MESSAGE,
+        code: PUBLIC_BETA_PAID_SALES_CHECKOUT_CODE,
+        entitlementsGranted: false,
+        completedCount: 0,
+      }, { status: 403 });
     }
 
     // Ignore client price/amount/currency/status/identity — catalog + session user are authoritative.

@@ -6,9 +6,9 @@
  * Semantics (read literally — do not invert):
  *   true  / 1 / yes / on  / UNSET  → checkout LOCKED (public beta default)
  *   false / 0 / no  / off          → checkout UNLOCKED (full launch only)
+ *
+ * While locked, every account is rejected, including administrators and the owner.
  */
-
-import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 
 export const PUBLIC_BETA_SPONSOR_CHECKOUT_ENV = "NEXT_PUBLIC_PUBLIC_BETA_SPONSOR_CHECKOUT_LOCKED";
 export const PUBLIC_BETA_SPONSOR_CHECKOUT_MESSAGE = "Sponsor payment activation is coming at full launch.";
@@ -31,9 +31,8 @@ export function getPublicBetaSponsorCheckoutMessage() {
     return PUBLIC_BETA_SPONSOR_CHECKOUT_MESSAGE;
 }
 
-export async function canUserStartSponsorCheckout(userId: string) {
-    if (!isPublicBetaSponsorCheckoutLocked()) return true;
-    return isPlatformOwnerUserId(userId);
+export async function canUserStartSponsorCheckout(_userId: string) {
+    return !isPublicBetaSponsorCheckoutLocked();
 }
 
 export async function assertSponsorCheckoutAllowed(userId: string) {

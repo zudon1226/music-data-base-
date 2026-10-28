@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  PUBLIC_BETA_PAID_SALES_CHECKOUT_CODE,
+  PUBLIC_BETA_PAID_SALES_CHECKOUT_MESSAGE,
+  selectCheckoutItemsUnderBetaLock,
+} from "@/lib/public-beta-sales-checkout";
 import { requireAuthenticatedSalesUser } from "@/lib/sales-auth";
 import {
   catalogItemToSalesRow,
@@ -187,8 +192,20 @@ export async function POST(request: Request) {
         resolvedItems.push(resolved.item);
       }
 
+      const betaSelection = selectCheckoutItemsUnderBetaLock(resolvedItems);
+      if (betaSelection.locked && betaSelection.items.length === 0) {
+        return jsonResponse({
+          error: PUBLIC_BETA_PAID_SALES_CHECKOUT_MESSAGE,
+          code: PUBLIC_BETA_PAID_SALES_CHECKOUT_CODE,
+          entitlementsGranted: false,
+          completedCount: 0,
+          pendingCount: 0,
+        }, 403);
+      }
+      const checkoutItems = betaSelection.items;
+
       const purchasedAt = new Date().toISOString();
-      const purchaseRows = resolvedItems.map((item) => {
+      const purchaseRows = checkoutItems.map((item) => {
         const row = catalogItemToSalesRow(userId, item);
         return {
           ...row,
@@ -262,8 +279,14 @@ export async function POST(request: Request) {
         if (vaultError) console.error("[api/sales] vault sync failed:", vaultError);
       }
 
-      const { error: clearError } = await supabase.from(CART_TABLE).delete().eq("user_id", userId);
-      if (clearError) console.error("[api/sales] cart cleanup failed:", clearError);
+      for (const item of checkoutItems) {
+        let deleteQuery = supabase.from(CART_TABLE).delete().eq("user_id", userId).eq("item_id", item.itemId).eq("item_type", item.itemType);
+        if (item.itemType === "beat") {
+          deleteQuery = deleteQuery.eq("license_type", item.licenseType || "");
+        }
+        const { error: clearError } = await deleteQuery;
+        if (clearError) console.error("[api/sales] cart cleanup failed:", clearError);
+      }
 
       return jsonResponse({
         ok: true,
@@ -272,9 +295,11 @@ export async function POST(request: Request) {
         pendingCount: pendingPurchases.length,
         entitlementsGranted: completedPurchases.length > 0,
         paymentConfirmationRequired: pendingPurchases.length > 0,
-        message: pendingPurchases.length > 0
-          ? "Paid items were saved as pending. Licenses and downloads unlock only after verified payment confirmation."
-          : "Free items completed and entitlements granted.",
+        message: betaSelection.droppedPaidItems.length > 0
+          ? PUBLIC_BETA_PAID_SALES_CHECKOUT_MESSAGE
+          : pendingPurchases.length > 0
+            ? "Paid items were saved as pending. Licenses and downloads unlock only after verified payment confirmation."
+            : "Free items completed and entitlements granted.",
       });
     }
 

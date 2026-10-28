@@ -5,9 +5,6 @@ import { isOversizedBearerToken, SUPABASE_REFRESH_TOKEN_HEADER } from "./session
 export const REFRESH_TOKEN_BODY_KEYS = ["refreshToken", "sessionRefreshToken", "refresh_token"] as const;
 export const ACCESS_TOKEN_BODY_KEYS = ["accessToken", "sessionAccessToken", "access_token"] as const;
 
-const REFRESH_TOKEN_QUERY_KEYS = ["refreshToken", "sessionRefreshToken", "refresh_token"] as const;
-const ACCESS_TOKEN_QUERY_KEYS = ["accessToken", "sessionAccessToken", "access_token"] as const;
-
 function stripEnvQuotes(value: string) {
     return value.trim().replace(/^["']|["']$/g, "");
 }
@@ -15,17 +12,6 @@ function stripEnvQuotes(value: string) {
 /** Match browser client key normalization so server auth.getUser uses the same key. */
 function readRequestAuthAnonKey() {
     return stripEnvQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").replace(/\s+/g, "");
-}
-
-function readQueryToken(request: Request, keys: readonly string[]) {
-    const url = new URL(request.url);
-    for (const key of keys) {
-        const value = url.searchParams.get(key)?.trim();
-        if (value) {
-            return value;
-        }
-    }
-    return "";
 }
 
 export function getBearerToken(request: Request) {
@@ -59,10 +45,6 @@ export function getAccessTokenFromRequest(request: Request, bodyAccessToken = ""
     if (headerToken) {
         return headerToken;
     }
-    const queryToken = readQueryToken(request, ACCESS_TOKEN_QUERY_KEYS);
-    if (queryToken) {
-        return queryToken;
-    }
     return String(bodyAccessToken || "").trim();
 }
 
@@ -70,10 +52,6 @@ export function getRefreshTokenFromRequest(request: Request, bodyRefreshToken = 
     const headerToken = request.headers.get(SUPABASE_REFRESH_TOKEN_HEADER)?.trim() || "";
     if (headerToken) {
         return headerToken;
-    }
-    const queryToken = readQueryToken(request, REFRESH_TOKEN_QUERY_KEYS);
-    if (queryToken) {
-        return queryToken;
     }
     return String(bodyRefreshToken || "").trim();
 }

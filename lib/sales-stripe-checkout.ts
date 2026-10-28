@@ -13,6 +13,7 @@ import {
   resolveSalesCatalogItem,
   type ResolvedSalesCatalogItem,
 } from "@/lib/sales-catalog";
+import { paidSalesCheckoutLockedResult, isPublicBetaPaidSalesCheckoutLocked } from "@/lib/public-beta-sales-checkout";
 import { getErrorMessage, getPublicSiteUrl, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 const PURCHASE_TABLE = "purchase_history";
@@ -248,6 +249,9 @@ export async function startPaidSalesStripeCheckout(
   }
   if (!Array.isArray(input.cartItems) || input.cartItems.length === 0) {
     return { ok: false, status: 400, error: "Checkout requires cart items.", code: "CART_REQUIRED" };
+  }
+  if (isPublicBetaPaidSalesCheckoutLocked()) {
+    return paidSalesCheckoutLockedResult();
   }
   if (!deps.isStripeConfigured()) {
     return {

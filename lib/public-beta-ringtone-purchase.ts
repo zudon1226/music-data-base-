@@ -8,9 +8,8 @@
  *   false / 0 / no  / off          → purchases UNLOCKED (full launch only)
  *
  * PUBLIC BETA requires true or unset. Setting false enables paid checkout when Stripe is live.
+ * While locked, every account is rejected, including administrators and the owner.
  */
-
-import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 
 export const PUBLIC_BETA_PAID_RINGTONE_PURCHASE_ENV = "NEXT_PUBLIC_PUBLIC_BETA_PAID_RINGTONE_PURCHASES_LOCKED";
 export const PUBLIC_BETA_PAID_RINGTONE_PURCHASE_MESSAGE = "Purchases coming at full launch.";
@@ -23,7 +22,7 @@ function parseTruthyEnv(value: string | undefined) {
     return null;
 }
 
-/** When true, paid marketplace checkout stays blocked for normal buyers. */
+/** When true, paid marketplace checkout stays blocked for every account. */
 export function isPublicBetaPaidRingtonePurchaseLocked() {
     const parsed = parseTruthyEnv(process.env.NEXT_PUBLIC_PUBLIC_BETA_PAID_RINGTONE_PURCHASES_LOCKED);
     if (parsed === null) return true;
@@ -76,7 +75,10 @@ export function getPublicBetaPaidRingtonePurchaseMessage() {
     return PUBLIC_BETA_PAID_RINGTONE_PURCHASE_MESSAGE;
 }
 
-/** Owner/admin test path remains available when beta lock is on. */
-export async function canBuyerBypassPublicBetaPaidRingtoneLock(buyerId: string) {
-    return isPlatformOwnerUserId(buyerId);
+/**
+ * Paid ringtone purchases stay locked for every account, including administrators and the owner.
+ * The buyer id is ignored. Free ringtone acquisition does not use this function.
+ */
+export async function canBuyerBypassPublicBetaPaidRingtoneLock(_buyerId: string) {
+    return false;
 }
