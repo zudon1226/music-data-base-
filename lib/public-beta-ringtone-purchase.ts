@@ -33,42 +33,34 @@ export type MarketplaceRingtoneDownloadContext = {
     userId: string;
     priceCents: number;
     hasPaidPurchase: boolean;
-    ownerTesting?: boolean;
-    creatorTesting?: boolean;
 };
 
 /**
- * Server-side marketplace download gate for paid catalog ringtones.
- * Free ringtones (price_cents === 0) remain downloadable after free acquisition.
- * Personal creator source files use /api/ringtones/source-url — not this gate.
+ * Server-side marketplace download gate for catalog ringtones.
+ * A paid or free file is delivered only when the buyer has a purchase entitlement.
+ * Client or administrator flags cannot grant the file. Creator source files use
+ * /api/ringtones/source-url — not this gate.
  */
 export async function assertMarketplaceRingtoneDownloadAllowed(input: MarketplaceRingtoneDownloadContext) {
-    const priceCents = Math.max(0, Math.round(Number(input.priceCents) || 0));
-    const ownerTesting = input.ownerTesting === true;
-    const creatorTesting = input.creatorTesting === true;
-
-    if (ownerTesting || creatorTesting) {
+    if (input.hasPaidPurchase) {
         return { ok: true as const };
     }
 
-    if (!input.hasPaidPurchase) {
-        if (priceCents > 0 && isPublicBetaPaidRingtonePurchaseLocked()) {
-            return {
-                ok: false as const,
-                status: 403,
-                code: "PURCHASING_UNAVAILABLE",
-                error: PUBLIC_BETA_PAID_RINGTONE_PURCHASE_MESSAGE,
-            };
-        }
+    const priceCents = Math.max(0, Math.round(Number(input.priceCents) || 0));
+    if (priceCents > 0 && isPublicBetaPaidRingtonePurchaseLocked()) {
         return {
             ok: false as const,
             status: 403,
-            code: "PURCHASE_REQUIRED",
-            error: "Download requires a paid purchase for this ringtone.",
+            code: "PURCHASING_UNAVAILABLE",
+            error: PUBLIC_BETA_PAID_RINGTONE_PURCHASE_MESSAGE,
         };
     }
-
-    return { ok: true as const };
+    return {
+        ok: false as const,
+        status: 403,
+        code: "PURCHASE_REQUIRED",
+        error: "Download requires a paid purchase for this ringtone.",
+    };
 }
 
 export function getPublicBetaPaidRingtonePurchaseMessage() {

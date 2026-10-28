@@ -94,7 +94,10 @@ async function main() {
     assertIncludes(marketUi, "onBrowseMarketplace", "browse marketplace CTA wiring");
     record("no internal ringtone tabs", !marketUi.includes("ringtone-market-tabs"));
     record("no duplicate workspace h1", !/<h1>/.test(marketUi));
-    assertIncludes(downloadRoute, "creatorTesting", "creator testing download path");
+    record(
+        "client testing flags do not authorize ringtone download",
+        !downloadRoute.includes("ownerTesting") && !downloadRoute.includes("creatorTesting"),
+    );
     assertIncludes(downloadRoute, "buildRingtoneContentDisposition", "Content-Disposition builder");
     assertIncludes(downloadRoute, "Cache-Control\": \"private, no-store\"", "no-store cache");
     assertIncludes(downloadRoute, "X-Content-Type-Options\": \"nosniff\"", "nosniff");

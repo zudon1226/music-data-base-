@@ -187,7 +187,6 @@ export async function downloadPurchasedRingtone(input: {
     userId: string;
     session: Session | null;
     deviceType: "iphone" | "android";
-    creatorTesting?: boolean;
 }) {
     const response = await fetch(`/api/ringtones/${input.ringtoneId}/download`, {
         method: "POST",
@@ -195,7 +194,6 @@ export async function downloadPurchasedRingtone(input: {
         body: JSON.stringify({
             userId: input.userId,
             deviceType: input.deviceType,
-            creatorTesting: input.creatorTesting === true,
         }),
     });
     return parseJson(response);
@@ -209,7 +207,6 @@ export async function downloadAndroidRingtoneAudio(input: {
     ringtoneId: string;
     userId: string;
     session: Session | null;
-    creatorTesting?: boolean;
 }) {
     const response = await fetch(`/api/ringtones/${input.ringtoneId}/download`, {
         method: "POST",
@@ -217,7 +214,6 @@ export async function downloadAndroidRingtoneAudio(input: {
         body: JSON.stringify({
             userId: input.userId,
             deviceType: "android",
-            creatorTesting: input.creatorTesting === true,
         }),
     });
 

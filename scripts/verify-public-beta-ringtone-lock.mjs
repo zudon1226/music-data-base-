@@ -42,6 +42,13 @@ record("purchase flow checks beta lock", purchaseSource.includes("isPublicBetaPa
 record("purchase confirm blocks paid during beta", purchaseSource.includes("pendingAmountCents > 0 && isPublicBetaPaidRingtonePurchaseLocked()"));
 record("download route uses server download gate", downloadSource.includes("assertMarketplaceRingtoneDownloadAllowed"));
 record("download ticket route uses server download gate", ticketSource.includes("assertMarketplaceRingtoneDownloadAllowed"));
+record("download routes ignore testing flags", !downloadSource.includes("ownerTesting")
+    && !downloadSource.includes("creatorTesting")
+    && !ticketSource.includes("ownerTesting")
+    && !ticketSource.includes("creatorTesting"));
+record("download gate requires an entitlement", !lockSource.includes("ownerTesting")
+    && !lockSource.includes("creatorTesting")
+    && lockSource.includes("if (input.hasPaidPurchase)"));
 record("marketplace exposes beta lock state", marketplaceSource.includes("publicBetaPaidPurchaseLocked"));
 record("beta message is launch copy", lockSource.includes("Purchases coming at full launch."));
 record("source songs filter ringtone permissions", sourceSongsSource.includes("ringtone_creation_enabled"));

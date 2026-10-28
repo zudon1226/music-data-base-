@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { isAdminUserId } from "@/lib/admin-auth";
 import { assertMarketplaceRingtoneDownloadAllowed } from "@/lib/public-beta-ringtone-purchase";
 import { buyerHasPaidRingtonePurchase } from "@/lib/ringtone-access";
 import {
@@ -46,17 +45,11 @@ export async function POST(request: Request, context: Params) {
         if (product.error) return json({ error: getErrorMessage(product.error) }, 500);
         if (!product.data) return json({ error: "Ringtone not found." }, 404);
 
-        const isAdmin = await isAdminUserId(userId);
-        const ownerTesting = isAdmin && body.ownerTesting === true;
-        const creatorTesting = body.creatorTesting === true
-            && String(product.data.creator_id || "") === userId;
         const purchase = await buyerHasPaidRingtonePurchase(userId, ringtoneId);
         const downloadAccess = await assertMarketplaceRingtoneDownloadAllowed({
             userId,
             priceCents: Number(product.data.price_cents) || 0,
             hasPaidPurchase: Boolean(purchase),
-            ownerTesting,
-            creatorTesting,
         });
         if (!downloadAccess.ok) {
             return json({
