@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminUserId } from "@/lib/admin-auth";
+import { assertPublicBetaCommerceTransactionAllowed } from "@/lib/public-beta-commerce-lock";
 import { adminUpdatePayoutStatus, listAdminPayouts } from "@/lib/creator-payout-admin";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { getErrorMessage, isUuid } from "@/lib/server-supabase";
@@ -51,6 +52,11 @@ export async function POST(request: Request) {
         const admin = await requireAdminUserId(userId);
         if (!admin.ok) {
             return NextResponse.json({ error: admin.error }, { status: admin.status });
+        }
+
+        const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+        if (!commerceGate.ok) {
+            return NextResponse.json({ error: commerceGate.error, code: commerceGate.code }, { status: commerceGate.status });
         }
 
         const payout = await adminUpdatePayoutStatus({

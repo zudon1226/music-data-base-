@@ -8,6 +8,11 @@ import { DesktopMediaList } from "@/components/desktop-media-list";
 import { DesktopMediaListRow } from "@/components/desktop-media-list-row";
 import type { RingtonePreviewRequest } from "@/components/ringtone-creator/ringtone-creator-workspace";
 import { useTranslation } from "@/lib/i18n/provider";
+import { PublicBetaCommerceLockNotice } from "@/components/public-beta/public-beta-commerce-lock-notice";
+import {
+    getPublicBetaCommerceLockMessage,
+    isPublicBetaCommerceLocked,
+} from "@/lib/public-beta-commerce-lock";
 import {
     buildRingtoneOverflowActions,
     type MobileContentAction,
@@ -133,8 +138,14 @@ export function RingtoneMarketplaceWorkspace({
                 ? mode
                 : "",
         );
-        setPaidCheckoutAvailable(result.body.paidCheckoutAvailable !== false);
-        setOwnerTestCheckout(result.body.ownerTestCheckout === true);
+        setPaidCheckoutAvailable(
+            !result.body.publicBetaCommerceLocked
+            && result.body.paidCheckoutAvailable !== false,
+        );
+        setOwnerTestCheckout(
+            !result.body.publicBetaCommerceLocked
+            && result.body.ownerTestCheckout === true,
+        );
     }
 
     async function loadPurchases() {
@@ -251,6 +262,12 @@ export function RingtoneMarketplaceWorkspace({
     }
 
     async function handlePurchase(ringtoneId: string) {
+        if (isPublicBetaCommerceLocked()) {
+            const message = getPublicBetaCommerceLockMessage();
+            setError(message);
+            setStatusMessage(message);
+            return;
+        }
         if (!isAuthenticated || !userId) {
             onRequireLogin();
             return;
@@ -427,7 +444,7 @@ export function RingtoneMarketplaceWorkspace({
                             onFavorite: ringtone.favorited ? undefined : () => { void handleFavorite(ringtone, true); },
                             onUnfavorite: ringtone.favorited ? () => { void handleFavorite(ringtone, false); } : undefined,
                             onDetails: () => { void openDetail(ringtone.id); },
-                            onPurchase: ringtone.owned || !(ringtone.price_cents === 0 || paidCheckoutAvailable)
+                            onPurchase: ringtone.owned || isPublicBetaCommerceLocked() || !(ringtone.price_cents === 0 || paidCheckoutAvailable)
                                 ? undefined
                                 : () => { void handlePurchase(ringtone.id); },
                         }),
@@ -454,7 +471,7 @@ export function RingtoneMarketplaceWorkspace({
                     onFavorite: ringtone.favorited ? undefined : () => { void handleFavorite(ringtone, true); },
                     onUnfavorite: ringtone.favorited ? () => { void handleFavorite(ringtone, false); } : undefined,
                     onDetails: () => { void openDetail(ringtone.id); },
-                    onPurchase: ringtone.owned || !(ringtone.price_cents === 0 || paidCheckoutAvailable)
+                    onPurchase: ringtone.owned || isPublicBetaCommerceLocked() || !(ringtone.price_cents === 0 || paidCheckoutAvailable)
                         ? undefined
                         : () => { void handlePurchase(ringtone.id); },
                 })}
@@ -469,6 +486,9 @@ export function RingtoneMarketplaceWorkspace({
         <section className="ringtone-marketplace-page dashboard-page" data-ringtone-destination={destination}>
             <div className="sr-only" aria-live="polite">{statusMessage}</div>
             {error ? <p className="ringtone-error" role="alert">{error}</p> : null}
+            {destination === "marketplace" && isPublicBetaCommerceLocked() ? (
+                <PublicBetaCommerceLockNotice className="ringtone-commerce-lock-notice"/>
+            ) : null}
             {destination === "marketplace" && paymentMode === "safely-disabled" ? (
                 <p className="ringtone-payment-mode-banner" role="status" data-payment-mode={paymentMode}>
                     {t("ringtones.purchasingUnavailable")}{" "}

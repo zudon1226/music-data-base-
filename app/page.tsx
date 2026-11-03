@@ -67,6 +67,11 @@ import { MobileContentActionSheet } from "../components/mobile-content-action-sh
 import { SidekickShell } from "../components/sidekick/sidekick-shell";
 import { MdbPublicEntryHub, MdbPublicEntryNotify } from "../components/public-beta/mdb-public-entry";
 import { PublicBetaFreeSignupSection } from "../components/public-beta/public-beta-free-signup-section";
+import { PublicBetaCommerceLockNotice } from "../components/public-beta/public-beta-commerce-lock-notice";
+import {
+    getPublicBetaCommerceLockMessage,
+    isPublicBetaCommerceLocked,
+} from "../lib/public-beta-commerce-lock";
 import { isPublicBetaPaidSubscriptionCheckoutLocked } from "../lib/public-beta-subscription-checkout";
 import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
 import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
@@ -6616,7 +6621,7 @@ function PageContent({
     }, [isAuthenticated, authReady, accountRolesReady, accountUserId]);
     const foundingBetaLocked = isFoundingBetaLocked();
     const creatorSelfSignupEnabled = isCreatorSelfSignupEnabled();
-    const publicBetaSubscriptionHomeLocked = isPublicBetaPaidSubscriptionCheckoutLocked();
+    const publicBetaSubscriptionHomeLocked = isPublicBetaCommerceLocked() || isPublicBetaPaidSubscriptionCheckoutLocked();
     const reloadFoundingAccess = useCallback(async (userIdOverride = "", tokenOverride = "") => {
         const userId = userIdOverride || accountUserIdRef.current || "";
         const token = tokenOverride || authSessionRef.current?.access_token || "";
@@ -10091,7 +10096,11 @@ function PageContent({
         });
         return [...artistPlacements, ...producerPlacements].sort((a, b) => b.score - a.score).slice(0, 6);
     }, [marketplaceArtistStores, marketplaceProducerStores, producerBeats]);
-    const marketplaceDiscountCodes = useMemo<MarketplaceDiscountCode[]>(() => [
+    const marketplaceDiscountCodes = useMemo<MarketplaceDiscountCode[]>(() => {
+        if (isPublicBetaCommerceLocked()) {
+            return [];
+        }
+        return [
         {
             code: "MDB10",
             label: "New buyer code",
@@ -10113,7 +10122,8 @@ function PageContent({
             appliesTo: "beats",
             detail: "Foundation code for beat packs and licensing promos.",
         },
-    ], []);
+    ];
+    }, []);
     const marketplaceBundles = useMemo<MarketplaceBundle[]>(() => {
         const bundles: MarketplaceBundle[] = [];
         marketplaceArtistStores.slice(0, 4).forEach((artist) => {
@@ -10255,6 +10265,9 @@ function PageContent({
             transaction.status !== "refunded").length;
     }
     function subscribeToCreator(creatorType: "artist" | "producer", creatorId: string, creatorName: string) {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         addMonetizationTransaction({
             itemId: creatorId,
             itemType: "subscription",
@@ -10405,6 +10418,9 @@ function PageContent({
         }
     }
     function recordDownloadFoundation(item: { id: string; title: string; itemType: MonetizationTransaction["itemType"]; creatorType: "artist" | "producer" | "platform"; creatorName: string; }) {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         addMonetizationTransaction({
             itemId: item.id,
             itemType: item.itemType,
@@ -10419,6 +10435,9 @@ function PageContent({
         showToast("Download foundation recorded. File delivery can be connected later.", "success");
     }
     function recordPurchaseFoundation(item: { id: string; title: string; itemType: MonetizationTransaction["itemType"]; creatorType: "artist" | "producer" | "platform"; creatorName: string; amountCents?: number; transactionType?: MonetizationTransaction["transactionType"]; }) {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         addMonetizationTransaction({
             itemId: item.id,
             itemType: item.itemType,
@@ -10483,7 +10502,17 @@ function PageContent({
     function selectBeatLicenseForCart(beat: ProducerBeat, licenseType: LicenseType) {
         setSelectedBeatLicenses((previous) => ({ ...previous, [beat.id]: licenseType }));
     }
+    function blockPublicBetaCommerceAction() {
+        if (!isPublicBetaCommerceLocked()) {
+            return false;
+        }
+        showToast(getPublicBetaCommerceLockMessage(), "info");
+        return true;
+    }
     function addMarketplaceReleaseToCart(release: MarketplaceRelease, beatLicenseOverride?: LicenseType) {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         const itemType = getMarketplaceSalesType(release);
         if (!itemType) {
             showToast("Only songs, albums, and beats can be purchased right now.", "info");
@@ -10538,6 +10567,9 @@ function PageContent({
         showToast(`${itemType === "beat" ? `${beatLicenseType} beat license` : itemType === "album" ? "Album" : "Song"} added to cart.`, "success");
     }
     function addMarketplaceBundleToCart(bundle: MarketplaceBundle) {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         const buyableReleases = bundle.releases.filter((release) => release.releaseType === "song" || release.releaseType === "album" || release.releaseType === "beat");
         if (buyableReleases.length === 0) {
             showToast("This bundle has no purchasable items yet.", "info");
@@ -10564,6 +10596,9 @@ function PageContent({
         showToast("Bundle sale foundation saved.", "success");
     }
     function reserveMarketplacePreorder(preorder: MarketplacePreorder) {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         if (!user?.id) {
             setAuthMode("login");
             setAuthMessage("Log in before saving preorder interest.");
@@ -10591,6 +10626,9 @@ function PageContent({
         showToast("Preorder foundation saved.", "success");
     }
     function copyMarketplaceDiscountCode(code: string) {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         void navigator.clipboard?.writeText(code).catch(() => undefined);
         showToast(`${code} copied. Discount validation can be connected to checkout later.`, "success");
     }
@@ -10614,6 +10652,9 @@ function PageContent({
         showToast("Shopping cart cleared.", "success");
     }
     async function checkoutSalesCart() {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         if (!user?.id) {
             showToast("Log in before checkout.", "error");
             return;
@@ -10887,6 +10928,9 @@ function PageContent({
         window.URL.revokeObjectURL(url);
     }
     function createBeatLicense(beat: ProducerBeat, licenseType: LicenseType) {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         if (!user?.id) {
             showToast("Log in before generating a license.", "error");
             return;
@@ -10950,6 +10994,9 @@ function PageContent({
         }
     }
     function requestCreatorPayout(creatorType: "artist" | "producer") {
+        if (blockPublicBetaCommerceAction()) {
+            return;
+        }
         if (!user?.id) {
             showToast("Log in before requesting a payout.", "error");
             return;
@@ -16068,7 +16115,7 @@ function PageContent({
                         [
                             { id: "play", label: "Play", onClick: () => playMarketplaceRelease(release) },
                             { id: "profile", label: "Store", onClick: () => openMarketplaceReleaseStore(release) },
-                            ...(getMarketplaceSalesType(release) ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
+                            ...(getMarketplaceSalesType(release) && !isPublicBetaCommerceLocked() ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
                         ],
                     )}
                 />
@@ -16090,7 +16137,7 @@ function PageContent({
                 menuActions={[
                     { id: "play", label: "Play", onClick: () => playMarketplaceRelease(release) },
                     { id: "profile", label: "Store", onClick: () => openMarketplaceReleaseStore(release) },
-                    ...(getMarketplaceSalesType(release) ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
+                    ...(getMarketplaceSalesType(release) && !isPublicBetaCommerceLocked() ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
                     ...(beat ? [{ id: "details" as const, label: "Details", onClick: () => setActiveBeatDetailId(beat.id) }] : []),
                 ]}
             />
@@ -16112,7 +16159,7 @@ function PageContent({
                             <Play size={14} fill="currentColor"/>
                             Play
                         </button>
-                        {getMarketplaceSalesType(release) ? (
+                        {getMarketplaceSalesType(release) && !isPublicBetaCommerceLocked() ? (
                             <button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
                                 <Disc3 size={14}/>
                                 Buy
@@ -20795,6 +20842,7 @@ function PageContent({
                 <h3>Shopping Cart</h3>
                 <span>{formatCurrencyFromCents(salesCartSubtotalCents)}</span>
               </div>
+              {isPublicBetaCommerceLocked() ? <PublicBetaCommerceLockNotice/> : null}
               {visibleSalesCart.length === 0 ? (<p className="empty-small">No cart items yet. Use Buy Song, Buy Album, or Buy Beat from Marketplace.</p>) : (<div className="sales-row-list">
                   {visibleSalesCart.map((item) => (<article className="sales-row" key={`${item.userId}-${item.itemType}-${item.itemId}`}>
                       <img src={getArtworkUrl(item.cover)} alt=""/>
@@ -20808,16 +20856,18 @@ function PageContent({
                       </button>
                     </article>))}
                 </div>)}
-              <div className="sales-actions">
-                <button onClick={checkoutSalesCart} type="button" disabled={visibleSalesCart.length === 0}>
-                  <Disc3 size={15}/>
-                  Checkout
-                </button>
-                <button onClick={clearSalesCart} type="button" disabled={visibleSalesCart.length === 0}>
-                  <Trash2 size={15}/>
-                  Clear Cart
-                </button>
-              </div>
+              {!isPublicBetaCommerceLocked() ? (
+                <div className="sales-actions">
+                  <button onClick={checkoutSalesCart} type="button" disabled={visibleSalesCart.length === 0}>
+                    <Disc3 size={15}/>
+                    Checkout
+                  </button>
+                  <button onClick={clearSalesCart} type="button" disabled={visibleSalesCart.length === 0}>
+                    <Trash2 size={15}/>
+                    Clear Cart
+                  </button>
+                </div>
+              ) : null}
             </section>
 
             <section className="sales-panel">
@@ -21003,15 +21053,19 @@ function PageContent({
               <div className="marketplace-feature-panel">
                 <div className="artist-section-title">
                   <h3>Discount Codes</h3>
-                  <span>{marketplaceDiscountCodes.length} active foundations</span>
+                  <span>{isPublicBetaCommerceLocked() ? "Paused for public beta" : `${marketplaceDiscountCodes.length} active foundations`}</span>
                 </div>
-                <div className="discount-code-grid">
-                  {marketplaceDiscountCodes.map((discount) => (<button key={discount.code} onClick={() => copyMarketplaceDiscountCode(discount.code)} type="button">
-                      <span>{discount.label}</span>
-                      <strong>{discount.code}</strong>
-                      <small>{discount.percentOff}% off {discount.appliesTo} | {discount.detail}</small>
-                    </button>))}
-                </div>
+                {isPublicBetaCommerceLocked() ? (
+                  <PublicBetaCommerceLockNotice compact/>
+                ) : (
+                  <div className="discount-code-grid">
+                    {marketplaceDiscountCodes.map((discount) => (<button key={discount.code} onClick={() => copyMarketplaceDiscountCode(discount.code)} type="button">
+                        <span>{discount.label}</span>
+                        <strong>{discount.code}</strong>
+                        <small>{discount.percentOff}% off {discount.appliesTo} | {discount.detail}</small>
+                      </button>))}
+                  </div>
+                )}
               </div>
             </section>
 
@@ -21035,7 +21089,11 @@ function PageContent({
                       </button>))}
                   </div>
                   <div className="beat-detail-actions">
-                    <button onClick={() => addMarketplaceReleaseToCart({
+                    {isPublicBetaCommerceLocked() ? (
+                      <PublicBetaCommerceLockNotice compact className="beat-detail-commerce-lock"/>
+                    ) : (
+                      <>
+                        <button onClick={() => addMarketplaceReleaseToCart({
                 id: activeBeatDetail.id,
                 releaseType: "beat",
                 title: activeBeatDetail.title,
@@ -21051,13 +21109,15 @@ function PageContent({
                 score: activeBeatDetail.plays * 3 + activeBeatDetail.likes * 8 + activeBeatDetail.leases * 10 + activeBeatDetail.downloads,
                 item: activeBeatDetail,
             })} type="button">
-                      <Disc3 size={15}/>
-                      Add {getSelectedBeatLicense(activeBeatDetail)} to Cart
-                    </button>
-                    <button onClick={() => createBeatLicense(activeBeatDetail, getSelectedBeatLicense(activeBeatDetail))} type="button">
-                      <BookOpen size={15}/>
-                      Generate PDF
-                    </button>
+                          <Disc3 size={15}/>
+                          Add {getSelectedBeatLicense(activeBeatDetail)} to Cart
+                        </button>
+                        <button onClick={() => createBeatLicense(activeBeatDetail, getSelectedBeatLicense(activeBeatDetail))} type="button">
+                          <BookOpen size={15}/>
+                          Generate PDF
+                        </button>
+                      </>
+                    )}
                     <button className="subtle-action" onClick={() => setActiveBeatDetailId("")} type="button">
                       Close
                     </button>
@@ -21094,6 +21154,7 @@ function PageContent({
                       <h3>Bundle Sales</h3>
                       <span>{marketplaceBundles.length} bundles</span>
                     </div>
+                    {isPublicBetaCommerceLocked() ? <PublicBetaCommerceLockNotice compact/> : null}
                     <DesktopHorizontalRail className="marketplace-bundle-grid cs-grid--promotion" label="Marketplace Bundles">
                       {marketplaceBundles.map((bundle) => (
                         <PromotionCard
@@ -21103,9 +21164,9 @@ function PageContent({
                           label={`${bundle.bundleType} bundle`}
                           title={bundle.title}
                           meta={`${bundle.releases.length} items | ${formatCurrencyFromCents(bundle.priceCents)} bundle | ${formatCurrencyFromCents(bundle.originalPriceCents)} value`}
-                          actionLabel="Add Bundle"
-                          actionIcon={<Disc3 size={15}/>}
-                          onAction={() => addMarketplaceBundleToCart(bundle)}
+                          actionLabel={isPublicBetaCommerceLocked() ? undefined : "Add Bundle"}
+                          actionIcon={isPublicBetaCommerceLocked() ? undefined : <Disc3 size={15}/>}
+                          onAction={isPublicBetaCommerceLocked() ? undefined : () => addMarketplaceBundleToCart(bundle)}
                         />
                       ))}
                     </DesktopHorizontalRail>
@@ -21116,6 +21177,7 @@ function PageContent({
                       <h3>Limited Releases</h3>
                       <span>{marketplaceLimitedReleases.length} drops</span>
                     </div>
+                    {isPublicBetaCommerceLocked() ? <PublicBetaCommerceLockNotice compact/> : null}
                     <DesktopHorizontalRail className="marketplace-limited-grid cs-grid--promotion" label="Limited Releases">
                       {marketplaceLimitedReleases.map((drop) => (
                         <PromotionCard
@@ -21125,9 +21187,9 @@ function PageContent({
                           label={drop.label}
                           title={drop.release.title}
                           meta={`${drop.remaining} left | Ends ${formatAlbumCreatedDate(drop.endsAt)}`}
-                          actionLabel="Buy"
-                          actionIcon={<Disc3 size={15}/>}
-                          onAction={() => addMarketplaceReleaseToCart(drop.release)}
+                          actionLabel={isPublicBetaCommerceLocked() ? undefined : "Buy"}
+                          actionIcon={isPublicBetaCommerceLocked() ? undefined : <Disc3 size={15}/>}
+                          onAction={isPublicBetaCommerceLocked() ? undefined : () => addMarketplaceReleaseToCart(drop.release)}
                         />
                       ))}
                     </DesktopHorizontalRail>
@@ -21138,6 +21200,7 @@ function PageContent({
                       <h3>Pre-Order Foundation</h3>
                       <span>{marketplacePreorders.length} upcoming</span>
                     </div>
+                    {isPublicBetaCommerceLocked() ? <PublicBetaCommerceLockNotice compact/> : null}
                     <DesktopHorizontalRail className="marketplace-preorder-grid cs-grid--promotion" label="Marketplace Preorders">
                       {marketplacePreorders.map((preorder) => (
                         <PromotionCard
@@ -21147,9 +21210,9 @@ function PageContent({
                           label={preorder.releaseType}
                           title={preorder.title}
                           meta={`${preorder.creatorName} | Releases ${formatAlbumCreatedDate(preorder.releaseDate)} | ${formatCurrencyFromCents(preorder.priceCents)}`}
-                          actionLabel="Reserve"
-                          actionIcon={<Clock3 size={15}/>}
-                          onAction={() => reserveMarketplacePreorder(preorder)}
+                          actionLabel={isPublicBetaCommerceLocked() ? undefined : "Reserve"}
+                          actionIcon={isPublicBetaCommerceLocked() ? undefined : <Clock3 size={15}/>}
+                          onAction={isPublicBetaCommerceLocked() ? undefined : () => reserveMarketplacePreorder(preorder)}
                         />
                       ))}
                     </DesktopHorizontalRail>

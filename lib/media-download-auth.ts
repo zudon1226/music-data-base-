@@ -5,6 +5,10 @@ import {
     evaluatePremiumListenerDownloadAccess,
     PREMIUM_LISTENER_DOWNLOAD_REQUIRED_MESSAGE,
 } from "@/lib/billing/listener-download-access";
+import {
+    getPublicBetaCommerceLockMessage,
+    isPublicBetaPremiumListenerDownloadBlocked,
+} from "@/lib/public-beta-commerce-lock";
 import { getUserSubscription } from "@/lib/billing/subscription-service";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -67,6 +71,15 @@ export async function authorizeMediaDownload(input: {
             status: 403,
             error: PREMIUM_LISTENER_DOWNLOAD_REQUIRED_MESSAGE,
             code: "PREMIUM_LISTENER_REQUIRED",
+        };
+    }
+
+    if (isPublicBetaPremiumListenerDownloadBlocked()) {
+        return {
+            ok: false,
+            status: 403,
+            error: getPublicBetaCommerceLockMessage(),
+            code: "COMMERCE_LOCKED",
         };
     }
 

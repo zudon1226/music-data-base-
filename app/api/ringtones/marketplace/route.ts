@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+    getPublicBetaCommerceLockMessage,
+    isPublicBetaCommerceLocked,
+} from "@/lib/public-beta-commerce-lock";
+import {
     getPublicBetaPaidRingtonePurchaseMessage,
     isPublicBetaPaidRingtonePurchaseLocked,
 } from "@/lib/public-beta-ringtone-purchase";
@@ -100,7 +104,7 @@ export async function GET(request: Request) {
         const { data, error, count } = await query.range(from, to);
         if (error) return json({ error: getErrorMessage(error) }, 500);
 
-        let rows = data || [];
+        const rows = data || [];
         const ringtoneIds = rows.map((row) => row.id).filter(Boolean);
         const creatorIds = [...new Set(rows.map((row) => row.creator_id).filter(Boolean))];
         const sourceSongIds = [...new Set(rows.map((row) => row.source_song_id).filter(Boolean))];
@@ -211,7 +215,8 @@ export async function GET(request: Request) {
             .slice(0, 8);
 
         const paymentMode = getRingtonePaymentMode();
-        const publicBetaPaidPurchaseLocked = isPublicBetaPaidRingtonePurchaseLocked();
+        const publicBetaCommerceLocked = isPublicBetaCommerceLocked();
+        const publicBetaPaidPurchaseLocked = publicBetaCommerceLocked || isPublicBetaPaidRingtonePurchaseLocked();
         const ownerTestCheckout = userId && isUuid(userId)
             ? await canBuyerUseRingtoneTestCheckout(userId)
             : false;
@@ -226,9 +231,13 @@ export async function GET(request: Request) {
             popularCreators,
             filtersApplied: { filter, sort, q, creatorId, section },
             paymentMode,
+            publicBetaCommerceLocked,
+            publicBetaCommerceLockMessage: getPublicBetaCommerceLockMessage(),
             publicBetaPaidPurchaseLocked,
-            publicBetaPaidPurchaseMessage: getPublicBetaPaidRingtonePurchaseMessage(),
-            paidCheckoutAvailable: Boolean(buyerPaidCheckout) || Boolean(ownerTestCheckout),
+            publicBetaPaidPurchaseMessage: publicBetaCommerceLocked
+                ? getPublicBetaCommerceLockMessage()
+                : getPublicBetaPaidRingtonePurchaseMessage(),
+            paidCheckoutAvailable: !publicBetaCommerceLocked && (Boolean(buyerPaidCheckout) || Boolean(ownerTestCheckout)),
             ownerTestCheckout: Boolean(ownerTestCheckout) && (paymentMode === "safely-disabled" || publicBetaPaidPurchaseLocked),
         });
     } catch (error) {

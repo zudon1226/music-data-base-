@@ -7,6 +7,7 @@ import {
   resolveSalesCatalogItem,
 } from "@/lib/sales-catalog";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import { assertPublicBetaCommerceTransactionAllowed } from "@/lib/public-beta-commerce-lock";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 
 export const runtime = "nodejs";
@@ -110,6 +111,10 @@ export async function POST(request: Request) {
     const supabase = getSupabaseServerClient();
 
     if (action === "addCartItem") {
+      const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+      if (!commerceGate.ok) {
+        return jsonResponse({ error: commerceGate.error, code: commerceGate.code }, commerceGate.status);
+      }
       const item = body.item && typeof body.item === "object" ? (body.item as Record<string, unknown>) : body;
       const resolved = await resolveSalesCatalogItem({
         itemId: String(item.itemId || item.item_id || ""),
@@ -163,6 +168,10 @@ export async function POST(request: Request) {
     }
 
     if (action === "checkout") {
+      const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+      if (!commerceGate.ok) {
+        return jsonResponse({ error: commerceGate.error, code: commerceGate.code, entitlementsGranted: false }, commerceGate.status);
+      }
       const rawItems = Array.isArray(body.cartItems) ? (body.cartItems as Record<string, unknown>[]) : [];
       if (rawItems.length === 0) return jsonResponse({ error: "Checkout requires cart items." }, 400);
 

@@ -5,6 +5,7 @@ import {
   toSafeSalesCheckoutResponse,
   type SalesCheckoutCartLine,
 } from "@/lib/sales-stripe-checkout";
+import { assertPublicBetaCommerceTransactionAllowed } from "@/lib/public-beta-commerce-lock";
 import { getErrorMessage } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -21,6 +22,16 @@ export async function POST(request: Request) {
     const auth = await requireAuthenticatedSalesUser(request, "/api/sales/checkout", claimedUserId);
     if (!auth.ok) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+    if (!commerceGate.ok) {
+      return NextResponse.json({
+        error: commerceGate.error,
+        code: commerceGate.code,
+        entitlementsGranted: false,
+        completedCount: 0,
+      }, { status: commerceGate.status });
     }
 
     // Ignore client price/amount/currency/status/identity — catalog + session user are authoritative.

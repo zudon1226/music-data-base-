@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PublicBetaCommerceLockNotice } from "@/components/public-beta/public-beta-commerce-lock-notice";
 import { CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
+import { isPublicBetaCommerceLocked } from "@/lib/public-beta-commerce-lock";
 
 type FetchFn = (path: string, init?: RequestInit & { requireAuth?: boolean }) => Promise<Response>;
 
@@ -223,6 +225,8 @@ export function CreatorConnectPayoutPanel({ userId, creatorType, email, fetchFn,
 
     const onboardingStatus = connect?.profile?.onboarding_status || "not_started";
     const connectReady = connect?.onboardingComplete && connect?.payoutsEnabled;
+    const commerceLocked = isPublicBetaCommerceLocked();
+    const connectOnboardingBlocked = commerceLocked;
 
     return (
         <section className="dashboard-panel monetization-panel" data-creator-connect-panel={creatorType}>
@@ -254,6 +258,7 @@ export function CreatorConnectPayoutPanel({ userId, creatorType, email, fetchFn,
                             <small>Payout onboarding will activate when Stripe TEST keys are configured server-side.</small>
                         </article>
                     ) : null}
+                    {commerceLocked ? <PublicBetaCommerceLockNotice compact/> : null}
                     {withdrawalsLocked ? (
                         <article>
                             <strong>Withdrawals locked</strong>
@@ -269,14 +274,18 @@ export function CreatorConnectPayoutPanel({ userId, creatorType, email, fetchFn,
                     <div className="monetization-action-row">
                         <button
                             type="button"
-                            disabled={busy !== "" || !connect?.connectConfigured}
+                            disabled={busy !== "" || !connect?.connectConfigured || connectOnboardingBlocked}
                             onClick={() => void startConnectOnboarding()}
                         >
-                            {connectReady ? "Update Stripe Payout Setup" : "Start Stripe Payout Setup"}
+                            {connectOnboardingBlocked
+                                ? "Payout setup at full launch"
+                                : connectReady
+                                    ? "Update Stripe Payout Setup"
+                                    : "Start Stripe Payout Setup"}
                         </button>
                         <button
                             type="button"
-                            disabled={busy !== "" || availableCents <= 0 || withdrawalsLocked || !connectReady}
+                            disabled={busy !== "" || availableCents <= 0 || withdrawalsLocked || commerceLocked || !connectReady}
                             onClick={() => void requestWithdrawal()}
                         >
                             Request Withdrawal

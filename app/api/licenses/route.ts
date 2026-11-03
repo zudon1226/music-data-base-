@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedSalesUser } from "@/lib/sales-auth";
 import { normalizeSalesLicenseType, resolveSalesCatalogItem } from "@/lib/sales-catalog";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import { assertPublicBetaCommerceTransactionAllowed } from "@/lib/public-beta-commerce-lock";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 
 export const runtime = "nodejs";
@@ -79,6 +80,11 @@ export async function POST(request: Request) {
     const claimedUserId = String(body.userId || body.user_id || body.buyerId || body.purchaserId || "").trim();
     const auth = await requireAuthenticatedSalesUser(request, "/api/licenses", claimedUserId);
     if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+
+    const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+    if (!commerceGate.ok) {
+      return jsonResponse({ error: commerceGate.error, code: commerceGate.code }, commerceGate.status);
+    }
 
     const userId = auth.userId;
     const beatId = String(body.beatId || body.beat_id || "").trim();

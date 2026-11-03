@@ -5,6 +5,7 @@
 
 import { normalizeSalesLicenseType } from "@/lib/sales-catalog";
 import { recordCreatorSaleEarnings } from "@/lib/creator-earnings";
+import { assertPublicBetaCommerceTransactionAllowed } from "@/lib/public-beta-commerce-lock";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 
@@ -114,6 +115,11 @@ export async function completePendingSalesFromStripeSession(input: {
 }) {
     if (!isUuid(input.userId) || !input.purchaseIds.length) {
         throw new Error("Invalid sales fulfillment input.");
+    }
+
+    const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+    if (!commerceGate.ok) {
+        throw new Error(commerceGate.error);
     }
 
     const supabase = getSupabaseServerClient();

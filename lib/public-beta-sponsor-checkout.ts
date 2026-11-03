@@ -8,6 +8,10 @@
  *   false / 0 / no  / off          → checkout UNLOCKED (full launch only)
  */
 
+import {
+    assertPublicBetaCommerceTransactionAllowed,
+    isPublicBetaCommerceLocked,
+} from "@/lib/public-beta-commerce-lock";
 import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 
 export const PUBLIC_BETA_SPONSOR_CHECKOUT_ENV = "NEXT_PUBLIC_PUBLIC_BETA_SPONSOR_CHECKOUT_LOCKED";
@@ -33,10 +37,15 @@ export function getPublicBetaSponsorCheckoutMessage() {
 
 export async function canUserStartSponsorCheckout(userId: string) {
     if (!isPublicBetaSponsorCheckoutLocked()) return true;
+    if (isPublicBetaCommerceLocked()) return false;
     return isPlatformOwnerUserId(userId);
 }
 
 export async function assertSponsorCheckoutAllowed(userId: string) {
+    const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+    if (!commerceGate.ok) {
+        return commerceGate;
+    }
     if (await canUserStartSponsorCheckout(userId)) {
         return { ok: true as const };
     }

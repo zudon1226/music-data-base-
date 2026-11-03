@@ -13,6 +13,7 @@ import {
   resolveSalesCatalogItem,
   type ResolvedSalesCatalogItem,
 } from "@/lib/sales-catalog";
+import { assertPublicBetaCommerceTransactionAllowed } from "@/lib/public-beta-commerce-lock";
 import { getErrorMessage, getPublicSiteUrl, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 const PURCHASE_TABLE = "purchase_history";
@@ -243,6 +244,15 @@ export async function startPaidSalesStripeCheckout(
   input: StartPaidSalesStripeCheckoutInput,
   deps: SalesStripeCheckoutDeps = createDefaultSalesStripeCheckoutDeps(),
 ): Promise<StartPaidSalesStripeCheckoutResult> {
+  const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+  if (!commerceGate.ok) {
+    return {
+      ok: false,
+      status: commerceGate.status,
+      error: commerceGate.error,
+      code: commerceGate.code,
+    };
+  }
   if (!isUuid(input.userId)) {
     return { ok: false, status: 400, error: "Invalid user id." };
   }

@@ -11,6 +11,10 @@
  * checkout sessions are not created and no live subscriptions are started.
  */
 
+import {
+    assertPublicBetaCommerceTransactionAllowed,
+    isPublicBetaCommerceLocked,
+} from "@/lib/public-beta-commerce-lock";
 import { isPlatformOwnerUserId } from "@/lib/server-supabase";
 
 export const PUBLIC_BETA_PAID_SUBSCRIPTION_CHECKOUT_ENV =
@@ -43,10 +47,14 @@ export async function canUserBypassPublicBetaPaidSubscriptionCheckout(userId: st
 }
 
 export async function assertPaidSubscriptionCheckoutAllowed(userId: string) {
+    const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+    if (!commerceGate.ok) {
+        return commerceGate;
+    }
     if (!isPublicBetaPaidSubscriptionCheckoutLocked()) {
         return { ok: true as const };
     }
-    if (await canUserBypassPublicBetaPaidSubscriptionCheckout(userId)) {
+    if (!isPublicBetaCommerceLocked() && await canUserBypassPublicBetaPaidSubscriptionCheckout(userId)) {
         return { ok: true as const };
     }
     return {

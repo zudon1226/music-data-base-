@@ -1,0 +1,17 @@
+.public-beta-commerce-lock-notice {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--mdb-border-gold-subtle);
+  background: color-mix(in srgb, var(--mdb-bg) 55%, var(--mdb-surface-raised));
+  color: var(--mdb-gold);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.public-beta-commerce-lock-notice.is-compact {
+  padding: 10px 12px;
+  font-size: 13px;
+}

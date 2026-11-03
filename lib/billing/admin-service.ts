@@ -1,6 +1,7 @@
 import type { SubscriptionStatus } from "@/lib/billing/constants";
 import { evaluateCreatorBillingAccess, normalizeSubscriptionStatus } from "@/lib/billing/creator-access";
 import { getPaymentProvider } from "@/lib/billing/payment-provider";
+import { isPublicBetaPaidSubscriptionEntitlementBlocked } from "@/lib/public-beta-commerce-lock";
 import { applySuccessfulPayment } from "@/lib/billing/subscription-service";
 import type { SubscriptionPaymentRow, SubscriptionRow } from "@/lib/billing/types";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
@@ -147,7 +148,11 @@ export async function adminReactivateSubscription(input: {
     if (error) throw new Error(getErrorMessage(error));
     if (!sub) throw new Error("Subscription not found.");
 
-    await applySuccessfulPayment({
+    if (isPublicBetaPaidSubscriptionEntitlementBlocked() && Math.max(0, Number(sub.price_cents || 0)) > 0) {
+        throw new Error("Paid subscription reactivation is unavailable during public beta.");
+    }
+
+    const paymentResult = await applySuccessfulPayment({
         userId: sub.user_id,
         subscriptionId: sub.id,
         providerPaymentId: `admin_reactivate_${Date.now()}`,
@@ -157,6 +162,9 @@ export async function adminReactivateSubscription(input: {
         provider: (sub.payment_provider as "stripe" | "paypal" | "test") || "test",
         planId: sub.plan_id || undefined,
     });
+    if ("commerceBlocked" in paymentResult && paymentResult.commerceBlocked) {
+        throw new Error("Paid subscription reactivation is unavailable during public beta.");
+    }
 
     return adminOverrideSubscriptionStatus({
         subscriptionId: input.subscriptionId,

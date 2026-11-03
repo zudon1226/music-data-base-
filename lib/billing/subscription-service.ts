@@ -24,6 +24,11 @@ import {
 import { CHECKOUT_UNAVAILABLE_MESSAGE } from "@/lib/billing/constants";
 import { FREE_PLAN_ACTIVE_SUFFIX } from "@/lib/billing/env";
 import {
+    getPublicBetaCommerceLockMessage,
+    isPublicBetaCommerceLocked,
+    isPublicBetaPaidSubscriptionEntitlementBlocked,
+} from "@/lib/public-beta-commerce-lock";
+import {
     assertPaidSubscriptionCheckoutAllowed,
     getPublicBetaPaidSubscriptionCheckoutMessage,
     isPublicBetaPaidSubscriptionCheckoutLocked,
@@ -448,6 +453,10 @@ export async function applySuccessfulPayment(input: {
     planId?: string;
     customerId?: string;
 }) {
+    if (isPublicBetaPaidSubscriptionEntitlementBlocked()) {
+        return { ok: true as const, duplicate: false, commerceBlocked: true as const };
+    }
+
     const supabase = getSupabaseServerClient();
 
     // Idempotent: repeated webhook deliveries must not create duplicate active periods/payments.
@@ -653,9 +662,14 @@ export async function applySubscriptionProviderStatus(input: {
 }
 
 export function getSubscriptionCheckoutPublicState() {
+    const commerceLocked = isPublicBetaCommerceLocked();
     return {
-        publicBetaPaidSubscriptionCheckoutLocked: isPublicBetaPaidSubscriptionCheckoutLocked(),
-        publicBetaPaidSubscriptionCheckoutMessage: getPublicBetaPaidSubscriptionCheckoutMessage(),
+        publicBetaCommerceLocked: commerceLocked,
+        publicBetaCommerceLockMessage: getPublicBetaCommerceLockMessage(),
+        publicBetaPaidSubscriptionCheckoutLocked: commerceLocked || isPublicBetaPaidSubscriptionCheckoutLocked(),
+        publicBetaPaidSubscriptionCheckoutMessage: commerceLocked
+            ? getPublicBetaCommerceLockMessage()
+            : getPublicBetaPaidSubscriptionCheckoutMessage(),
     };
 }
 

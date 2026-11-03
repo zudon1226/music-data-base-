@@ -9,7 +9,9 @@ import {
     cancelSubscriptionRenewal,
     getSubscriptionPlanById,
     getUserSubscription,
+    mapStripeSubscriptionStatusToDb,
 } from "@/lib/billing/subscription-service";
+import { shouldBlockPaidSubscriptionProviderActivation } from "@/lib/public-beta-commerce-lock";
 import { recordServerPlatformError } from "@/lib/platform-error-reporting";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -92,6 +94,25 @@ export async function POST(request: Request, context: Params) {
         }
 
         if (event.providerSubscriptionStatus && !event.status) {
+            const subscription = await getUserSubscription(userId);
+            const mappedStatus = mapStripeSubscriptionStatusToDb(event.providerSubscriptionStatus);
+            let pendingPlanPriceCents = 0;
+            if (event.planId) {
+                const pendingPlan = await getSubscriptionPlanById(event.planId);
+                pendingPlanPriceCents = Math.max(0, Number(pendingPlan?.price_cents || 0));
+            }
+            if (shouldBlockPaidSubscriptionProviderActivation({
+                mappedStatus,
+                subscriptionPriceCents: subscription?.price_cents,
+                pendingPlanPriceCents,
+            })) {
+                return NextResponse.json({
+                    ok: true,
+                    ignored: true,
+                    reason: "COMMERCE_LOCKED",
+                    eventType: event.eventType,
+                });
+            }
             const rawObject = (event.raw as { data?: { object?: Record<string, unknown> } })?.data?.object || {};
             await applySubscriptionProviderStatus({
                 userId,
@@ -121,6 +142,14 @@ export async function POST(request: Request, context: Params) {
                 planId: event.planId,
                 customerId: event.customerId,
             });
+            if ("commerceBlocked" in result && result.commerceBlocked) {
+                return NextResponse.json({
+                    ok: true,
+                    ignored: true,
+                    reason: "COMMERCE_LOCKED",
+                    eventType: event.eventType,
+                });
+            }
             return NextResponse.json({ ok: true, eventType: event.eventType, duplicate: Boolean(result.duplicate) });
         }
 

@@ -44,6 +44,8 @@ record("listener download access helper present", accessLib.includes("evaluatePr
     && accessLib.includes("premium-listener")
     && accessLib.includes('effectiveStatus !== "active"'));
 record("premium required message constant", accessLib.includes("Premium Listener is required to download music and videos."));
+record("public beta blocks premium listener downloads", authLib.includes("isPublicBetaPremiumListenerDownloadBlocked")
+    && authLib.includes("COMMERCE_LOCKED"));
 record("song download route streams attachment", songRoute.includes("Content-Disposition")
     && songRoute.includes("private, no-store")
     && songRoute.includes("authorizeMediaDownload")

@@ -5,6 +5,10 @@
 
 import { stripeFormGet, stripeFormPost, isStripeLiveConfigured } from "@/lib/billing/providers/stripe-rest";
 import { assertStripeTestModeOnly } from "@/lib/billing/stripe-safety";
+import {
+    assertPublicBetaCommerceTransactionAllowed,
+    isPublicBetaConnectOnboardingBlocked,
+} from "@/lib/public-beta-commerce-lock";
 import { getErrorMessage, getPublicSiteUrl, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export type CreatorPaymentProfile = {
@@ -111,6 +115,13 @@ export async function ensureStripeConnectAccount(input: {
         return { ok: true as const, profile: synced, created: false };
     }
 
+    if (isPublicBetaConnectOnboardingBlocked()) {
+        const gate = assertPublicBetaCommerceTransactionAllowed();
+        if (!gate.ok) {
+            return { ok: false as const, status: gate.status, error: gate.error, code: gate.code };
+        }
+    }
+
     const params: Record<string, string> = {
         "controller[fees][payer]": "application",
         "controller[losses][payments]": "application",
@@ -142,6 +153,13 @@ export async function createConnectOnboardingLink(input: {
     returnUrl?: string;
     refreshUrl?: string;
 }) {
+    if (isPublicBetaConnectOnboardingBlocked()) {
+        const gate = assertPublicBetaCommerceTransactionAllowed();
+        if (!gate.ok) {
+            return { ok: false as const, status: gate.status, error: gate.error, code: gate.code };
+        }
+    }
+
     const ensured = await ensureStripeConnectAccount(input);
     if (!ensured.ok) return ensured;
 

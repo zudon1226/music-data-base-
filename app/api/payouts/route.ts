@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "@/lib/billing/constants";
+import { assertPublicBetaCommerceTransactionAllowed } from "@/lib/public-beta-commerce-lock";
 import { getCreatorBillingAccessForUser } from "@/lib/billing/subscription-service";
 import { requireCreatorAccountAccess, requireCreatorAudienceAccess } from "@/lib/resolved-account-role";
 import { requireMatchingUserId } from "@/lib/request-auth";
@@ -35,6 +36,15 @@ export async function POST(request: Request) {
         const auth = await requireMatchingUserId(request, "/api/payouts", userId);
         if (!auth.ok) {
             return NextResponse.json({ error: auth.error }, { status: auth.status });
+        }
+
+        const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+        if (!commerceGate.ok) {
+            return NextResponse.json({
+                error: commerceGate.error,
+                code: commerceGate.code,
+                withdrawalsLocked: true,
+            }, { status: commerceGate.status });
         }
 
         const creatorAccess = await requireCreatorAudienceAccess(userId, creatorType as "artist" | "producer");

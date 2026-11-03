@@ -18,6 +18,7 @@ import {
     stripeMarketplaceWebhookSecret,
     verifyStripeWebhookSignature,
 } from "@/lib/billing/providers/stripe-rest";
+import { isPublicBetaMarketplacePaymentFulfillmentBlocked } from "@/lib/public-beta-commerce-lock";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 function verifyMarketplaceStripeSignature(rawBody: string, signatureHeader: string | null) {
@@ -112,12 +113,18 @@ export async function processMarketplaceStripeWebhook(rawBody: string, signature
     }
 
     if (eventType.startsWith("transfer.")) {
+        if (isPublicBetaMarketplacePaymentFulfillmentBlocked()) {
+            return { ok: true as const, ignored: true, eventType, reason: "COMMERCE_LOCKED" };
+        }
         const { applyConnectTransferWebhook } = await import("@/lib/connect-payout-webhook");
         const result = await applyConnectTransferWebhook(eventType, object);
         return { eventType, ...result };
     }
 
     if (eventType.startsWith("payout.")) {
+        if (isPublicBetaMarketplacePaymentFulfillmentBlocked()) {
+            return { ok: true as const, ignored: true, eventType, reason: "COMMERCE_LOCKED" };
+        }
         const { applyConnectPayoutWebhook } = await import("@/lib/connect-payout-webhook");
         const result = await applyConnectPayoutWebhook(eventType, object);
         return { eventType, ...result };
@@ -214,6 +221,10 @@ export async function processMarketplaceStripeWebhook(rawBody: string, signature
 
     if (eventType !== "checkout.session.completed" || mode !== "payment") {
         return { ok: true as const, ignored: true, reason: "Unhandled platform event.", eventType };
+    }
+
+    if (isPublicBetaMarketplacePaymentFulfillmentBlocked()) {
+        return { ok: true as const, ignored: true, eventType, reason: "COMMERCE_LOCKED" };
     }
 
     const flow = String(metadata.flow || "").trim();

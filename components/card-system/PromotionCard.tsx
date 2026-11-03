@@ -8,8 +8,8 @@ export type PromotionCardProps = {
     label: ReactNode;
     title: ReactNode;
     meta?: ReactNode;
-    actionLabel: ReactNode;
-    onAction: () => void;
+    actionLabel?: ReactNode;
+    onAction?: () => void;
     actionIcon?: ReactNode;
     className?: string;
 };
@@ -41,10 +41,12 @@ export function PromotionCard({
                     <small className="cs-promotion-card__meta">{meta}</small>
                 ) : null}
             </div>
-            <button className="cs-promotion-card__action" type="button" onClick={onAction}>
-                {actionIcon}
-                {actionLabel}
-            </button>
+            {actionLabel && onAction ? (
+                <button className="cs-promotion-card__action" type="button" onClick={onAction}>
+                    {actionIcon}
+                    {actionLabel}
+                </button>
+            ) : null}
         </article>
     );
 }

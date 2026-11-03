@@ -5,6 +5,11 @@
 
 import { randomUUID } from "node:crypto";
 import {
+    assertPublicBetaCommerceTransactionAllowed,
+    getPublicBetaCommerceLockMessage,
+    isPublicBetaCommerceLocked,
+} from "@/lib/public-beta-commerce-lock";
+import {
     canBuyerBypassPublicBetaPaidRingtoneLock,
     getPublicBetaPaidRingtonePurchaseMessage,
     isPublicBetaPaidRingtonePurchaseLocked,
@@ -82,6 +87,9 @@ export function canStartPaidRingtonePurchase() {
 
 /** Paid intents for normal buyers require live Stripe or global test mode, unless public beta lock is on. */
 export async function canBuyerStartPaidRingtonePurchase(buyerId: string) {
+    if (isPublicBetaCommerceLocked()) {
+        return false;
+    }
     if (isPublicBetaPaidRingtonePurchaseLocked()) {
         return canBuyerBypassPublicBetaPaidRingtoneLock(buyerId);
     }
@@ -91,6 +99,9 @@ export async function canBuyerStartPaidRingtonePurchase(buyerId: string) {
 }
 
 export function getPaidRingtonePurchaseUnavailableMessage() {
+    if (isPublicBetaCommerceLocked()) {
+        return getPublicBetaCommerceLockMessage();
+    }
     if (isPublicBetaPaidRingtonePurchaseLocked()) {
         return getPublicBetaPaidRingtonePurchaseMessage();
     }
@@ -99,6 +110,7 @@ export function getPaidRingtonePurchaseUnavailableMessage() {
 
 /** Test-provider completion: global test mode, or platform owner only. */
 export async function canBuyerUseRingtoneTestCheckout(buyerId: string) {
+    if (isPublicBetaCommerceLocked()) return false;
     if (isRingtonePaymentsTestModeEnabled()) return true;
     return isPlatformOwnerUserId(buyerId);
 }
@@ -156,6 +168,16 @@ export async function createRingtonePurchaseIntent(input: {
 }) {
     const product = await loadPurchasableRingtone(input.ringtoneId);
     if (!product.ok) return product;
+
+    const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+    if (!commerceGate.ok) {
+        return {
+            ok: false as const,
+            error: commerceGate.error,
+            status: commerceGate.status,
+            code: commerceGate.code,
+        };
+    }
 
     const existingPaid = await findPaidRingtonePurchase(input.buyerId, input.ringtoneId);
     if (existingPaid) {
@@ -285,14 +307,25 @@ export async function confirmRingtonePurchasePayment(input: {
 
     const outcome = input.outcome || "paid";
     const pendingAmountCents = Math.max(0, Math.round(Number(existing.data.amount_cents) || 0));
-    if (outcome === "paid" && pendingAmountCents > 0 && isPublicBetaPaidRingtonePurchaseLocked()) {
-        if (!(await canBuyerBypassPublicBetaPaidRingtoneLock(input.buyerId))) {
+    if (outcome === "paid") {
+        const commerceGate = assertPublicBetaCommerceTransactionAllowed();
+        if (!commerceGate.ok) {
             return {
                 ok: false as const,
-                error: getPublicBetaPaidRingtonePurchaseMessage(),
-                status: 503,
-                code: "PURCHASING_UNAVAILABLE",
+                error: commerceGate.error,
+                status: commerceGate.status,
+                code: commerceGate.code,
             };
+        }
+        if (pendingAmountCents > 0 && isPublicBetaPaidRingtonePurchaseLocked()) {
+            if (!(await canBuyerBypassPublicBetaPaidRingtoneLock(input.buyerId))) {
+                return {
+                    ok: false as const,
+                    error: getPublicBetaPaidRingtonePurchaseMessage(),
+                    status: 503,
+                    code: "PURCHASING_UNAVAILABLE",
+                };
+            }
         }
     }
     if (outcome !== "paid") {
