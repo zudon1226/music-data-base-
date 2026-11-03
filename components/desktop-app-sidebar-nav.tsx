@@ -5,6 +5,7 @@ import {
     Bell,
     BookOpen,
     Clock3,
+    Receipt,
     Disc3,
     Film,
     Heart,
@@ -35,6 +36,7 @@ import { useTranslation } from "../lib/i18n/provider";
 const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     Home: <Home size={17}/>,
     Marketplace: <Disc3 size={17}/>,
+    "My Purchases": <Receipt size={17}/>,
     Podcasts: <Mic2 size={17}/>,
     Sales: <Upload size={17}/>,
     "License History": <BookOpen size={17}/>,

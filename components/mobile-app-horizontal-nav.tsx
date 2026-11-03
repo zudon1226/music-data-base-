@@ -9,6 +9,7 @@ import {
     Home,
     ListMusic,
     Mic2,
+    Receipt,
     Smartphone,
     Star,
     Upload,
@@ -30,6 +31,7 @@ import { useTranslation } from "../lib/i18n/provider";
 const MOBILE_NAV_ICONS: Partial<Record<DesktopNavView, ReactNode>> = {
     Home: <Home size={16} aria-hidden="true" />,
     Marketplace: <Disc3 size={16} aria-hidden="true" />,
+    "My Purchases": <Receipt size={16} aria-hidden="true" />,
     Podcasts: <Mic2 size={16} aria-hidden="true" />,
     Sales: <Upload size={16} aria-hidden="true" />,
     Library: <BookOpen size={16} aria-hidden="true" />,

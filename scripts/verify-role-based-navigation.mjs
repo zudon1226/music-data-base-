@@ -90,6 +90,7 @@ function resolveNavCapabilities(input = {}) {
 const LISTENER_NAV_VIEWS = [
     "Home",
     "Marketplace",
+    "My Purchases",
     "Podcasts",
     "Ringtone Marketplace",
     "My Purchased Ringtones",

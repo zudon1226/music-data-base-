@@ -80,6 +80,7 @@ import { useMobileAutoHideHeader } from "../lib/use-mobile-auto-hide-header";
 import { useMobileCompactLayout } from "../lib/use-mobile-compact-layout";
 import { DestinationPageHeading } from "../components/destination-page-heading";
 import { UserProfileDashboard } from "../components/user-profile-dashboard";
+import { ListenerPurchasesPanel } from "../components/listener/listener-purchases-panel";
 import { AdminSupportDashboard } from "../components/support/admin-support-dashboard";
 import { SupportReportPanel, type SupportReportPrefill } from "../components/support/support-report-panel";
 import {
@@ -976,7 +977,7 @@ type MediaDownloadVaultItem = {
     downloadCount: number;
     downloadedAt: string;
 };
-type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Sponsor" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "My Purchases" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Sponsor" | "Platform Control Center";
 type PodcastShellProps = {
     initialPodcastShowId?: string;
     initialPodcastEpisodeId?: string;
@@ -1290,6 +1291,7 @@ function showGlobalSearchHeading(view: View, searchQuery: string) {
         && view !== "Podcast Show"
         && view !== "Podcast Episode"
         && view !== "License History"
+        && view !== "My Purchases"
         && !isDashboardView(view);
 }
 const LICENSE_TYPES: LicenseType[] = ["Basic", "Premium", "Unlimited", "Exclusive"];
@@ -20735,6 +20737,15 @@ function PageContent({
           />
         ) : null}
 
+        {view === "My Purchases" ? (
+          <ListenerPurchasesPanel
+            userId={accountUserId}
+            isAuthenticated={Boolean(accountUserId && authSession?.access_token)}
+            fetchFn={desktopActionFetch}
+            onRequireLogin={() => showToast(DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE, "error")}
+          />
+        ) : null}
+
         {(view === "Ringtone Marketplace" || view === "My Purchased Ringtones" || view === "Favorite Ringtones") ? (
           <RingtoneMarketplaceWorkspace
             destination={
@@ -21500,6 +21511,11 @@ function PageContent({
             <div className="profile-save">
               <h3>Account Sync</h3>
               <p>{isPlatformOwner ? "Permanent Owner/Admin account. You control verification, reports, payouts, subscriptions, users, and platform settings." : "Your library, likes, playlists, and uploads are stored in Supabase database tables. Auth metadata only keeps your display name, role, and avatar URL."}</p>
+              {!isPlatformOwner ? (
+                <button className="follow-btn" onClick={() => applyDesktopView("My Purchases")} type="button">
+                  My Purchases
+                </button>
+              ) : null}
             </div>
 
             {foundingAccess?.isFoundingCohortMember && foundingAccess.member && foundingAccess.approvalStatus === "approved" ? (
@@ -23569,7 +23585,7 @@ function PageContent({
                     {followingVideos.map((video) => renderVideoCard(video, { sourceLabel: "Following Videos" }))}
                   </DesktopHorizontalRail>)}
               </section>
-            </section>)) : (view === "Ringtone Marketplace" || view === "My Purchased Ringtones" || view === "Favorite Ringtones" || view === "My Ringtones" || view === "Podcast Studio") ? null : visibleSongs.length === 0 &&
+            </section>)) : (view === "Ringtone Marketplace" || view === "My Purchased Ringtones" || view === "Favorite Ringtones" || view === "My Ringtones" || view === "My Purchases" || view === "Podcast Studio") ? null : visibleSongs.length === 0 &&
             inlineVideos.length === 0 &&
             visibleAlbums.length === 0 &&
             searchArtistResults.length === 0 &&

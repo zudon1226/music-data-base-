@@ -425,6 +425,7 @@ for (const symbol of REQUIRED_PAGE_WIRING) {
 const DESKTOP_NAV_VIEWS = [
   "Home",
   "Marketplace",
+  "My Purchases",
   "Ringtone Marketplace",
   "My Purchased Ringtones",
   "Favorite Ringtones",

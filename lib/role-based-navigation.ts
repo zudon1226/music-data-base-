@@ -163,6 +163,7 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
 export const LISTENER_NAV_VIEWS = [
     "Home",
     "Marketplace",
+    "My Purchases",
     "Podcasts",
     "Ringtone Marketplace",
     "My Purchased Ringtones",

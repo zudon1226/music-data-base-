@@ -76,6 +76,7 @@ export const MOBILE_VIEW_TOGGLE_VIEWS = [
     "Producer Profile",
     "Artist Dashboard",
     "Producer Dashboard",
+    "My Purchases",
     "My Purchased Ringtones",
     "Favorite Ringtones",
     "Ringtone Marketplace",

@@ -78,7 +78,7 @@ record("album-create creator gate", albumCreate.includes("requireCreatorUploadAc
 record("sidebar uses role-visible items only", sidebar.includes("listVisibleDesktopNavItems"));
 record(
     "listener destinations remain in LISTENER_NAV_VIEWS",
-    ["My Purchased Ringtones", "Favorite Ringtones", "Library", "Liked", "Following", "Playlists", "Recently Played", "Queue", "Profile"]
+    ["My Purchases", "My Purchased Ringtones", "Favorite Ringtones", "Library", "Liked", "Following", "Playlists", "Recently Played", "Queue", "Profile"]
         .every((view) => roleLib.includes(`"${view}"`)),
 );
 record(
@@ -100,7 +100,7 @@ record(
     "listener destinations never blocked by founding whitelist",
     !page.includes("That area is not available for your founding role.")
     && page.includes("server-trusted role capabilities only")
-    && ["Marketplace", "Ringtone Marketplace", "My Purchased Ringtones", "Notifications"]
+    && ["Marketplace", "My Purchases", "Ringtone Marketplace", "My Purchased Ringtones", "Notifications"]
         .every((view) => roleLib.includes(`"${view}"`)),
 );
 record(

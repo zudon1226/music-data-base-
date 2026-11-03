@@ -10,6 +10,7 @@ import {
 export type DesktopNavView =
     | "Home"
     | "Marketplace"
+    | "My Purchases"
     | "Podcasts"
     | "Sales"
     | "License History"
@@ -70,6 +71,7 @@ export type DesktopNavItemDefinition = {
 export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Home" },
     { view: "Marketplace" },
+    { view: "My Purchases" },
     { view: "Podcasts" },
     { view: "Ringtone Marketplace" },
     { view: "My Purchased Ringtones" },
@@ -143,6 +145,7 @@ export function listVisibleDesktopNavItems(context: DesktopNavAccessContext) {
 export const MOBILE_NAV_VIEW_ORDER: DesktopNavView[] = [
     "Home",
     "Marketplace",
+    "My Purchases",
     "Podcasts",
     "Library",
     "Liked",

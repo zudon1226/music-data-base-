@@ -37,6 +37,7 @@ const songDelete = read("app/api/songs/[id]/route.ts");
 const LISTENER_NAV = [
     "Home",
     "Marketplace",
+    "My Purchases",
     "Ringtone Marketplace",
     "My Purchased Ringtones",
     "Favorite Ringtones",
@@ -114,7 +115,7 @@ record("song DELETE returns 403 for non-owner", songDelete.includes("403")
     && songDelete.includes("Only the owner can delete"));
 record(
     "listener destinations listed",
-    LISTENER_NAV.length === 12,
+    LISTENER_NAV.length === 13,
     LISTENER_NAV.join(", "),
 );
 

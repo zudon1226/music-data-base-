@@ -4,6 +4,7 @@ import type { TranslationKey } from "./messages/en";
 export const DESKTOP_NAV_TRANSLATION_KEYS: Record<DesktopNavView, TranslationKey> = {
     Home: "nav.home",
     Marketplace: "nav.marketplace",
+    "My Purchases": "nav.myPurchases",
     Podcasts: "nav.videos",
     "Ringtone Marketplace": "ringtones.marketplace",
     "My Purchased Ringtones": "ringtones.myPurchasedRingtones",
@@ -35,6 +36,7 @@ export const DESKTOP_NAV_TRANSLATION_KEYS: Record<DesktopNavView, TranslationKey
 export const VIEW_TITLE_KEYS: Partial<Record<DesktopNavView, TranslationKey>> = {
     Home: "home.title",
     Marketplace: "marketplace.title",
+    "My Purchases": "listenerPurchases.title",
     Podcasts: "video.title",
     "Ringtone Marketplace": "ringtones.marketplace",
     "My Purchased Ringtones": "ringtones.myPurchasedRingtones",
