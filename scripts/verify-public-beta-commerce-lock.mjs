@@ -41,6 +41,12 @@ const routes = [
     ["lib/billing/admin-service.ts", "isPublicBetaPaidSubscriptionEntitlementBlocked"],
     ["lib/media-download-auth.ts", "isPublicBetaPremiumListenerDownloadBlocked"],
     ["lib/stripe-connect.ts", "isPublicBetaConnectOnboardingBlocked"],
+    ["app/api/apple/transactions/verify/route.ts", "entitlementsGranted: false"],
+    ["lib/apple/apple-transaction-verify.ts", "APPLE_IAP_STAGE1_VERIFY_OUTCOME"],
+    ["lib/apple/apple-iap-stage1.ts", "APPLE_IAP_STAGE1_ENTITLEMENT_GRANTS_DISABLED"],
+    ["app/api/apple/notifications/route.ts", "entitlementsGranted: false"],
+    ["app/api/apple/transactions/restore/route.ts", "entitlementsGranted: false"],
+    ["lib/apple/apple-fulfillment-router.ts", "STAGE1_KILL_SWITCH"],
 ];
 
 for (const [file, needle] of routes) {

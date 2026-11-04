@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadAppleVerifiedReceiptLines } from "@/lib/apple/apple-listener-vault";
 import { getErrorMessage } from "@/lib/server-supabase";
 
 export type ListenerPurchaseLine = {
@@ -397,7 +398,21 @@ export async function loadListenerPurchasesBundle(
             const product = productById.get(String(record.ringtone_id || "")) || null;
             return mapRingtoneReceipt(record, product);
         });
-    const receipts = [...marketplaceReceipts, ...ringtoneReceipts].sort((a, b) =>
+    let appleReceipts: ListenerReceiptLine[] = [];
+    const appleLoaded = await loadAppleVerifiedReceiptLines(supabase, userId);
+    if (!appleLoaded.ok) {
+        return { ok: false, error: appleLoaded.error };
+    }
+    if (appleLoaded.setupRequired) {
+        setupRequired = true;
+    } else {
+        appleReceipts = appleLoaded.receipts;
+    }
+
+    const stripeReceiptIds = new Set([...marketplaceReceipts, ...ringtoneReceipts].map((row) => row.id));
+    const dedupedAppleReceipts = appleReceipts.filter((row) => !stripeReceiptIds.has(row.id));
+
+    const receipts = [...marketplaceReceipts, ...ringtoneReceipts, ...dedupedAppleReceipts].sort((a, b) =>
         String(b.confirmedAt).localeCompare(String(a.confirmedAt)));
 
     const vaultDownloads = (vaultResult.data || []).map((row) =>

@@ -39,6 +39,12 @@ const pbx = read("ios/App/App.xcodeproj/project.pbxproj");
 record("marketing version 1.0.0", pbx.includes("MARKETING_VERSION = 1.0.0"));
 record("build number 1", pbx.includes("CURRENT_PROJECT_VERSION = 1"));
 record("bundle identifier in project", pbx.includes("PRODUCT_BUNDLE_IDENTIFIER = com.digitalmusicdatabase.app"));
+record("StoreKit bridge in Xcode project", pbx.includes("MDBStoreKitPlugin.swift"));
+record("StoreKit bridge source file", existsSync(join(root, "ios/App/App/MDBStoreKitPlugin.swift")));
+const storekitBridge = existsSync(join(root, "lib/ios/mdb-storekit-bridge.ts"))
+    ? read("lib/ios/mdb-storekit-bridge.ts")
+    : "";
+record("JS StoreKit bridge respects commerce lock", storekitBridge.includes("isPublicBetaCommerceLocked"));
 
 const plist = read("ios/App/App/Info.plist");
 record("photo library permission", plist.includes("NSPhotoLibraryUsageDescription"));
