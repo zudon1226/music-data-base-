@@ -72,3 +72,19 @@ Use an existing Vercel **Preview** for branch `fix/storage-moderation-enforcemen
 **Local build note:** `npm run build` requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (and related vars Vercel uses). Current `.env.local` may only carry Vercel OIDC pull token — use Vercel Preview env or `vercel env pull` to `.env.local` for local full builds.
 
 **Dependencies:** `npm ci` from lockfile restores a complete `typescript` package (corrupted partial installs omitted `lib/typescript.js`, often on OneDrive paths). Node **v24** works; project typescript **5.9.3** requires Node `>=14.17`. ESLint may need `NODE_OPTIONS=--max-old-space-size=8192` on this machine.
+
+## Preview PWA sign-in (existing production accounts)
+
+Vercel **Preview** defaults to the **staging** Supabase project (`jzlegcbotqfzevtczwhx`). Production accounts are **not** present there, so GoTrue returns **Invalid login credentials** even with the correct email and password.
+
+For Microsoft Store PWA QA on a Preview host with **your existing production account** (no new signup, no staging mirror):
+
+```bash
+node scripts/sync-vercel-preview-pwa-production-auth.mjs
+```
+
+This updates **Preview scope only** to production Supabase (`aehuszoadgqtbkxsliyy`) and sets `MDB_PREVIEW_PWA_USE_PRODUCTION_SUPABASE` / `NEXT_PUBLIC_MDB_PREVIEW_PWA_USE_PRODUCTION_SUPABASE`. It does **not** change Production Vercel env or Production Supabase.
+
+Redeploy Preview after sync. Re-run `node scripts/sync-vercel-preview-supabase-staging.mjs` when you need Apple IAP / staging Preview again.
+
+Until sync runs, the app shows a clearer login message explaining staging vs production.

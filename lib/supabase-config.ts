@@ -1,3 +1,5 @@
+import { previewPwaProductionSupabaseRequested } from "./preview-pwa-production-supabase.ts";
+
 export const SUPABASE_PROJECT_REF = "aehuszoadgqtbkxsliyy";
 export const SUPABASE_PROJECT_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
 
@@ -138,6 +140,11 @@ export function resolveSupabaseProjectSelection(): SupabaseProjectSelection {
     const effectiveTier = readEffectiveSupabaseDeploymentTier(configuredRef);
 
     if (tier === "production") {
+        if (previewPwaProductionSupabaseRequested()) {
+            throw new Error(
+                "MDB_PREVIEW_PWA_USE_PRODUCTION_SUPABASE is only allowed on Preview deployments, not Production.",
+            );
+        }
         if (previewStagingExplicitlyEnabled()) {
             throw new Error(
                 "MDB_PREVIEW_SUPABASE_ENABLED and NEXT_PUBLIC_MDB_PREVIEW_SUPABASE_ENABLED cannot be set on production deployments.",
@@ -156,6 +163,35 @@ export function resolveSupabaseProjectSelection(): SupabaseProjectSelection {
         if (serviceRoleKey && serviceRoleKey !== "your_service_role_key_here" && serviceRoleKey.startsWith("eyJ")) {
             assertLegacyJwtMatchesProjectRef("SUPABASE_SERVICE_ROLE_KEY", serviceRoleKey, SUPABASE_PROJECT_REF);
         }
+        return productionSelection();
+    }
+
+    if (tier === "preview" && previewPwaProductionSupabaseRequested()) {
+        if (previewStagingExplicitlyEnabled()) {
+            throw new Error(
+                "Preview PWA production Supabase mode cannot be combined with MDB_PREVIEW_SUPABASE_ENABLED.",
+            );
+        }
+        const anonKey = sanitizeApiKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
+        if (!anonKey) {
+            throw new Error("Preview PWA production mode requires NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+        }
+        if (!normalizedUrl || !hasSupabaseProjectHost(normalizedUrl)) {
+            throw new Error(
+                `Preview PWA production mode requires NEXT_PUBLIC_SUPABASE_URL for project ${SUPABASE_PROJECT_REF}.`,
+            );
+        }
+        if (configuredRef !== SUPABASE_PROJECT_REF) {
+            throw new Error(
+                `Preview PWA production mode requires production Supabase project ${SUPABASE_PROJECT_REF}, not ${configuredRef || "unknown"}.`,
+            );
+        }
+        assertLegacyJwtMatchesProjectRef("NEXT_PUBLIC_SUPABASE_ANON_KEY", anonKey, SUPABASE_PROJECT_REF);
+        const serviceRoleKey = sanitizeApiKey(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+        if (!serviceRoleKey || serviceRoleKey === "your_service_role_key_here") {
+            throw new Error("Preview PWA production mode requires SUPABASE_SERVICE_ROLE_KEY for server routes.");
+        }
+        assertLegacyJwtMatchesProjectRef("SUPABASE_SERVICE_ROLE_KEY", serviceRoleKey, SUPABASE_PROJECT_REF);
         return productionSelection();
     }
 

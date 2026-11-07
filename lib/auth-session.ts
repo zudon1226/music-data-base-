@@ -26,6 +26,21 @@ export function clearSupabaseAuthStorage() {
     }
 }
 
+/** Drop GoTrue keys from other Supabase projects (common after PWA reinstall / Preview host changes). */
+export function purgeStaleSupabaseAuthStorageKeys(activeStorageKey: string) {
+    if (typeof window === "undefined" || !activeStorageKey) {
+        return;
+    }
+    for (const storage of [window.localStorage, window.sessionStorage]) {
+        for (let index = storage.length - 1; index >= 0; index -= 1) {
+            const key = storage.key(index);
+            if (key?.startsWith("sb-") && key !== activeStorageKey) {
+                storage.removeItem(key);
+            }
+        }
+    }
+}
+
 export async function getAuthSession(supabase: SupabaseClient) {
     const { data: { session }, error } = await supabase.auth.getSession();
     return { session, error: error ?? null };

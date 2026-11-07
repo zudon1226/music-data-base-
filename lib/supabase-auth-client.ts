@@ -9,9 +9,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
     isApprovedIsolatedLocalSupabaseUrl,
     readSupabaseProjectUrl,
+    resolveSupabaseAuthStorageKey,
     resolveSupabaseLoginUrl,
 } from "./supabase-config";
-import { createSupabaseAuthStorage } from "./supabase-auth-storage";
+import { createSupabaseAuthStorage, purgeStaleSupabaseAuthStorageKeys } from "./supabase-auth-storage";
 
 const DESKTOP_BROWSER_CLIENT_KEY = "__mdb_desktop_supabase_client__";
 
@@ -81,6 +82,7 @@ export function createDesktopSupabaseAuthClient(): SupabaseClient {
 
     if (typeof window !== "undefined") {
         const scope = globalThis as DesktopBrowserClientGlobal;
+        purgeStaleSupabaseAuthStorageKeys(resolveSupabaseAuthStorageKey());
         if (scope[DESKTOP_BROWSER_CLIENT_KEY]) {
             return scope[DESKTOP_BROWSER_CLIENT_KEY];
         }

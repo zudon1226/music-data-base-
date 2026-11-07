@@ -44,6 +44,7 @@ import {
     resolveAuthTransportErrorMessage,
     resolveSignUpClientErrorMessage,
 } from "../lib/signup-auth-response";
+import { resolveSignInClientErrorMessage } from "../lib/login-auth-error";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
 import { DESKTOP_PROTECTED_API_LOGIN_REQUIRED_MESSAGE } from "../lib/desktop-protected-api-pipeline";
 import { clearDesktopAuthRecoveryGate, noteValidatedDesktopSession } from "../lib/desktop-auth-recovery-gate";
@@ -17164,7 +17165,7 @@ function PageContent({
             if (response.error) {
                 setAuthMessage(authMode === "signup"
                     ? resolveSignUpClientErrorMessage(response.error)
-                    : response.error.message);
+                    : resolveSignInClientErrorMessage(response.error));
                 return;
             }
             if (authMode === "signup" && !response.data.session) {
