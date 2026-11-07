@@ -1,4 +1,4 @@
-import { previewPwaProductionSupabaseRequested } from "./preview-pwa-production-supabase.ts";
+import { previewPwaProductionSupabaseRequested } from "./preview-pwa-production-supabase";
 
 export const SUPABASE_PROJECT_REF = "aehuszoadgqtbkxsliyy";
 export const SUPABASE_PROJECT_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
@@ -167,11 +167,7 @@ export function resolveSupabaseProjectSelection(): SupabaseProjectSelection {
     }
 
     if (tier === "preview" && previewPwaProductionSupabaseRequested()) {
-        if (previewStagingExplicitlyEnabled()) {
-            throw new Error(
-                "Preview PWA production Supabase mode cannot be combined with MDB_PREVIEW_SUPABASE_ENABLED.",
-            );
-        }
+        // Preview PWA production mode takes precedence over legacy staging preview flags.
         const anonKey = sanitizeApiKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
         if (!anonKey) {
             throw new Error("Preview PWA production mode requires NEXT_PUBLIC_SUPABASE_ANON_KEY.");

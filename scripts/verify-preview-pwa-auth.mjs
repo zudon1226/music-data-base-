@@ -18,7 +18,7 @@ const checks = [
     ["preview PWA production flag module", preview.includes("MDB_PREVIEW_PWA_USE_PRODUCTION_SUPABASE")],
     ["supabase-config blocks flag on production", config.includes("only allowed on Preview deployments")],
     ["supabase-config preview PWA production branch", config.includes("previewPwaProductionSupabaseRequested")],
-    ["supabase-config rejects staging+preview PWA prod", config.includes("cannot be combined with MDB_PREVIEW_SUPABASE_ENABLED")],
+    ["supabase-config preview PWA prod precedence", config.includes("Preview PWA production mode takes precedence")],
     ["login maps staging invalid credentials", loginErr.includes("preview-staging")],
     ["auth client purges stale sb keys", authClient.includes("purgeStaleSupabaseAuthStorageKeys")],
     ["docs mention preview PWA production auth", /preview.*production.*auth|PWA production/i.test(docs)],

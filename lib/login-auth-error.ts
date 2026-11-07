@@ -1,4 +1,4 @@
-import { describeSupabaseRuntimeIdentity } from "./supabase-config.ts";
+import { describeSupabaseRuntimeIdentity } from "./supabase-config";
 
 const INVALID_LOGIN_PATTERNS = [
     "invalid login credentials",
