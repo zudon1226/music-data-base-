@@ -98,7 +98,8 @@
     "verify:founding:pending": "node scripts/verify-founding-pending-approvals.mjs",
     "verify:rls": "node scripts/verify-supabase-rls-security.mjs",
     "verify:listener-personal-ringtone": "node scripts/verify-listener-personal-ringtone.mjs",
-    "verify:public-beta-support": "node scripts/verify-public-beta-support.mjs"
+    "verify:public-beta-support": "node scripts/verify-public-beta-support.mjs",
+    "verify:pwa": "node scripts/verify-pwa-microsoft-store.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.2",
