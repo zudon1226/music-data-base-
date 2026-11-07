@@ -99,6 +99,7 @@
     "verify:rls": "node scripts/verify-supabase-rls-security.mjs",
     "verify:listener-personal-ringtone": "node scripts/verify-listener-personal-ringtone.mjs",
     "verify:public-beta-support": "node scripts/verify-public-beta-support.mjs",
+    "verify:pwa": "node scripts/verify-pwa-microsoft-store.mjs",
     "verify:apple-iap": "node scripts/validate-apple-root-certificates.mjs && node scripts/run-apple-jws-library-chain-test.mjs && node scripts/verify-apple-certificate-chain.mjs && node scripts/verify-apple-iap-foundation.mjs && node lib/apple/apple-transaction-verify-logic.test.mjs && node lib/apple/apple-transaction-verify.test.mjs && node lib/apple/app-store-jws.test.mjs && node lib/apple/apple-environment-validation.test.mjs && node lib/apple/apple-grant-kill-switch.test.mjs && node scripts/verify-apple-iap-e2e-matrix.mjs && node scripts/verify-apple-storekit-native.mjs && node scripts/verify-apple-iap-internal-qa.mjs && node lib/apple/apple-iap-internal-qa.test.mjs"
   },
   "dependencies": {
