@@ -134,6 +134,7 @@ import { mixtapeTrackToPlaybackSong } from "@/lib/mixtape-playback-client";
 import type { MixtapePlaybackRequest, MixtapeTrack } from "@/lib/mixtape-types";
 import { isMixtapePath, mixtapePath, parseMixtapePath } from "@/lib/mixtape-routes";
 import { PersistedModerationReports } from "../components/moderation/PersistedModerationReports";
+import { MixtapeModerationReports } from "../components/mixtapes/MixtapeModerationReports";
 import {
     consumeAnonymousPublicPodcastReturnPath,
     isAnonymousPublicPodcastListenerPath,
@@ -18661,6 +18662,7 @@ function PageContent({
           <div className="trust-panel-grid">
             <div>
               <h4>Moderation Queue</h4>
+              <MixtapeModerationReports adminUserId={accountUserId} onToast={showToast} />
               <PersistedModerationReports userId={accountUserId} />
               {moderationReports.length === 0 ? (<div className="dashboard-empty-card">
                   <h3>No moderation reports</h3>

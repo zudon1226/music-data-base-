@@ -25,6 +25,10 @@ const storage = "supabase/migrations/202611181001_mixtape_storage_bucket.sql";
 
 expectFile(foundation, "Mixtape foundation migration missing");
 expectFile(storage, "Mixtape storage migration missing");
+expectFile(
+    "supabase/migrations/202611201430_mixtape_reports_moderation_audit.sql",
+    "Mixtape report moderation audit migration missing",
+);
 expectFile("lib/mixtape-play-threshold.shared.mjs", "Mixtape play threshold helper missing");
 expectFile("lib/mixtape-play-threshold.test.mjs", "Mixtape play threshold test missing");
 expectFile("lib/mixtape-playback-engagement.shared.mjs", "Mixtape playback engagement helper missing");

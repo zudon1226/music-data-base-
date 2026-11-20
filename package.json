@@ -95,6 +95,7 @@
     "verify:mixtapes:playback-auth-staging": "node scripts/verify-mixtape-playback-auth-staging.mjs",
     "verify:mixtapes:browser-engagement": "node scripts/verify-mixtape-browser-playback-engagement.mjs",
     "verify:mixtapes:approved-e2e": "node scripts/verify-mixtape-approved-staging-e2e.mjs",
+    "verify:mixtapes:moderation-e2e": "node scripts/verify-mixtape-report-moderation-staging-e2e.mjs",
     "verify:mixtapes:staging-acceptance": "node scripts/verify-mixtapes-staging-acceptance.mjs",
     "verify:mixtapes:engagement-cleanup": "node lib/mixtape-engagement-fixture-cleanup.test.mjs",
     "verify:marketplace": "node scripts/verify-marketplace.mjs",

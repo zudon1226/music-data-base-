@@ -33,6 +33,7 @@ const MIGRATION_FILES = [
 const OPTIONAL_MIGRATION_FILES = [
     "202611181002_mixtape_qualified_play_ambiguity_fix.sql",
     "202611181003_mixtape_storage_anon_policy_eval.sql",
+    "202611201430_mixtape_reports_moderation_audit.sql",
 ];
 
 const FORBIDDEN_MIGRATION_PATTERNS = [

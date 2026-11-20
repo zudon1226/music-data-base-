@@ -19,6 +19,8 @@ const STEPS = [
     { name: "Mixtapes playback-engagement tests", rel: "lib/mixtape-playback-engagement.test.mjs" },
     { name: "Mixtapes Phase 2 UI tests", rel: "lib/mixtape-phase2-ui.test.mjs" },
     { name: "Mixtapes Studio catalog tests", rel: "lib/mixtape-studio-catalog.test.mjs" },
+    { name: "Mixtapes report moderation tests", rel: "lib/mixtape-report-moderation.test.mjs" },
+    { name: "Moderation status tests", rel: "lib/moderation-status.test.mjs" },
 ];
 
 for (const step of STEPS) {
