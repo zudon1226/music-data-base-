@@ -83,6 +83,10 @@ export const nlMessages: LocaleMessageDictionary = {
             artistProfile: "Artiestenprofiel",
             producerProfile: "Producerprofiel",
             sponsor: "Sponsoring",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Hoofdnavigatie"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const nlMessages: LocaleMessageDictionary = {
             create: "Afspeellijst maken",
             pageSubtitle: "Maak afspeellijsten, voeg nummers toe, stel covers in en speel ze achter elkaar af."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Muziekalbums",
             empty: "Nog geen albums."

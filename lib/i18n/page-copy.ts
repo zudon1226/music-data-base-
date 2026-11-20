@@ -41,6 +41,8 @@ const VIEW_SUBTITLE_KEYS: Partial<Record<DesktopNavView, TranslationKey>> = {
     Playlists: "playlists.pageSubtitle",
     Trending: "trending.pageSubtitle",
     Beats: "beats.pageSubtitle",
+    Mixtapes: "mixtapes.pageSubtitle",
+    "Mixtape Studio": "mixtapeStudio.pageSubtitle",
 };
 
 type TranslateFn = (key: TranslationKey, values?: Record<string, string | number>) => string;
@@ -62,6 +64,8 @@ export function translatePageTitle(view: string, t: TranslateFn, options: PageCo
     if (view === "Podcast Show") return "Podcast Show";
     if (view === "Podcast Episode") return "Podcast Episode";
     if (view === "Podcast Studio") return "Podcast Studio";
+    if (view === "Mixtapes") return t("mixtapes.title");
+    if (view === "Mixtape Studio") return t("mixtapeStudio.title");
     if (view === "Artist Profile") return options.activeArtistName || t("nav.artistProfile");
     if (view === "Producer Profile") return options.activeProducerName || t("nav.producerProfile");
     if (view === "Home" && options.activeTab) {
@@ -80,6 +84,8 @@ export function translatePageSubtitle(view: string, t: TranslateFn, options: Pag
     if (view === "Podcast Show") return "Episodes, follows, and saves for this Podcast show.";
     if (view === "Podcast Episode") return "Play this audio or video Podcast episode.";
     if (view === "Podcast Studio") return "Create, publish, and manage your podcast shows and episodes.";
+    if (view === "Mixtapes") return t("mixtapes.pageSubtitle");
+    if (view === "Mixtape Studio") return t("mixtapeStudio.pageSubtitle");
     const subtitleKey = VIEW_SUBTITLE_KEYS[view as DesktopNavView];
     if (subtitleKey) return t(subtitleKey);
     return t("home.defaultSubtitle");

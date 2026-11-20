@@ -83,6 +83,10 @@ export const viMessages: LocaleMessageDictionary = {
             artistProfile: "Hồ sơ nghệ sĩ",
             producerProfile: "Hồ sơ nhà sản xuất",
             sponsor: "Tài trợ",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Điều hướng chính"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const viMessages: LocaleMessageDictionary = {
             create: "Tạo danh sách phát",
             pageSubtitle: "Tạo danh sách phát, thêm bài, đặt ảnh bìa và phát liên tục."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Album",
             empty: "Chưa có album."

@@ -83,6 +83,10 @@ export const etMessages: LocaleMessageDictionary = {
             artistProfile: "Artisti profiil",
             producerProfile: "Produtsendi profiil",
         sponsor: "Sponsorlus",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Põhinavigatsioon"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const etMessages: LocaleMessageDictionary = {
             create: "Loo esitusloend",
             pageSubtitle: "Loo esitusloendeid, lisa lugusid, määra kaaned ja esita neid järjest."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albumid",
             empty: "Albumeid pole veel."

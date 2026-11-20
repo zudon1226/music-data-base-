@@ -83,6 +83,10 @@ export const zuMessages: LocaleMessageDictionary = {
             artistProfile: "Iphrofayili Yomculi",
             producerProfile: "Iphrofayili Yomkhiqizi",
             sponsor: "Umxhasi",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Ukuzulazula okuyinhloko"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const zuMessages: LocaleMessageDictionary = {
             create: "Dala uhlulwengoma",
             pageSubtitle: "Dala uhlulwengoma, engeza izingoma, setha izikhover, bese uzidlalela."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Ama-albhamu",
             empty: "Akukho ama-albhamu okwamanje."

@@ -83,6 +83,10 @@ export const svMessages: LocaleMessageDictionary = {
             artistProfile: "Artistprofil",
             producerProfile: "Producentprofil",
             sponsor: "Sponsring",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Huvudnavigering"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const svMessages: LocaleMessageDictionary = {
             create: "Skapa spellista",
             pageSubtitle: "Skapa spellistor, lägg till låtar, sätt omslag och spela dem rakt igenom."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Album",
             empty: "Inga album ännu."

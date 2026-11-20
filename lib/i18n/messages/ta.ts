@@ -83,6 +83,10 @@ export const taMessages: LocaleMessageDictionary = {
             artistProfile: "கலைஞர் சுயவிவரம்",
             producerProfile: "தயாரிப்பாளர் சுயவிவரம்",
             sponsor: "ஆதரவு",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "முதன்மை வழிசெலுத்தல்"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const taMessages: LocaleMessageDictionary = {
             create: "பிளேலிஸ்ட் உருவாக்கு",
             pageSubtitle: "பிளேலிஸ்ட்களை உருவாக்கி, பாடல்களைச் சேர்த்து, அட்டைகளை அமைத்து, நேரடியாக இயக்குங்கள்."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "ஆல்பங்கள்",
             empty: "இன்னும் ஆல்பங்கள் இல்லை."

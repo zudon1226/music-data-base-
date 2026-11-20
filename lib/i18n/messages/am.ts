@@ -83,6 +83,10 @@ export const amMessages: LocaleMessageDictionary = {
             artistProfile: "የአርቲስት መገለለው",
             producerProfile: "የአምራዎት መገለለው",
         sponsor: "ስፖንሰር",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "ካና አስሳ"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const amMessages: LocaleMessageDictionary = {
             create: "አጫዋች ዝርዝር ይፍጠሩ",
             pageSubtitle: "አጫዋች ዝርዝሮችን ይፍጠሩ ፣ ዘፈኖችን ያክሉ ፣ ሽፋኖችን ያዘጋጁ እና በቀጥታ ያጫውቷቸው ።"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "አልበሞች",
             empty: "እስካሁን አልበሞች የሉም ።"

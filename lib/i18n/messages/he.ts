@@ -83,6 +83,10 @@ export const heMessages: LocaleMessageDictionary = {
             artistProfile: "פרופיל אמן",
             producerProfile: "פרופיל מפיק",
             sponsor: "חסות",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "ניווט ראשי"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const heMessages: LocaleMessageDictionary = {
             create: "צור רשימת השמעה",
             pageSubtitle: "צור רשימות השמעה, הוסף שירים, הגדר עטיפות ונגן אותם ברצף."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "אלבומים",
             empty: "אין אלבומים עדיין."

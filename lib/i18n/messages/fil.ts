@@ -83,6 +83,10 @@ export const filMessages: LocaleMessageDictionary = {
             artistProfile: "Propayl ng Artista",
             producerProfile: "Propayl ng Tagagawa",
             sponsor: "Patronado",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Pangunahing nabigasyon"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const filMessages: LocaleMessageDictionary = {
             create: "Gumawa ng listahan",
             pageSubtitle: "Gumawa ng mga listahan, magdagdag ng kanta, mag-set ng cover, at patugtugin nang diretso."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Mga album",
             empty: "Wala pang album."

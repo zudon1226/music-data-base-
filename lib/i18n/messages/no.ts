@@ -83,6 +83,10 @@ export const noMessages: LocaleMessageDictionary = {
             artistProfile: "Artistprofil",
             producerProfile: "Produsentprofil",
             sponsor: "Sponsing",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Hovednavigasjon"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const noMessages: LocaleMessageDictionary = {
             create: "Opprett spilleliste",
             pageSubtitle: "Opprett spillelister, legg til sanger, sett omslag og spill dem rett gjennom."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Album",
             empty: "Ingen album ennå."

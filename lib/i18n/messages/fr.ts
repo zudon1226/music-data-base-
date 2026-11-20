@@ -83,6 +83,10 @@ export const frMessages: LocaleMessageDictionary = {
             artistProfile: "Profil artiste",
             producerProfile: "Profil producteur",
             sponsor: "Parrainage",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Navigation principale"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const frMessages: LocaleMessageDictionary = {
             create: "Créer une playlist",
             pageSubtitle: "Créez des playlists, ajoutez des titres, définissez des couvertures et lisez-les en continu."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albums musicaux",
             empty: "Aucun album pour le moment."

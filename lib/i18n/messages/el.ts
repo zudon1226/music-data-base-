@@ -83,6 +83,10 @@ export const elMessages: LocaleMessageDictionary = {
             artistProfile: "Προφίλ καλλιτέχνη",
             producerProfile: "Προφίλ παραγωγού",
         sponsor: "Χορηγία",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Κύρια πλοήγηση"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const elMessages: LocaleMessageDictionary = {
             create: "Δημιουργία λίστας αναπαραγωγής",
             pageSubtitle: "Δημιουργήστε λίστες αναπαραγωγής, προσθέστε τραγούδια, ορίστε εξώφυλλα και αναπαράγετέ τες."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Άλμπουμ",
             empty: "Δεν υπάρχουν ακόμα άλμπουμ."

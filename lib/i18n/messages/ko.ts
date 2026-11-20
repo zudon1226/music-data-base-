@@ -83,6 +83,10 @@ export const koMessages: LocaleMessageDictionary = {
             artistProfile: "아티스트 프로필",
             producerProfile: "프로듀서 프로필",
             sponsor: "스폰서",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "기본 탐색"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const koMessages: LocaleMessageDictionary = {
             create: "플레이리스트 만들기",
             pageSubtitle: "플레이리스트를 만들고, 곡을 추가하고, 커버를 설정한 뒤 바로 재생하세요."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "앨범",
             empty: "아직 앨범이 없습니다."

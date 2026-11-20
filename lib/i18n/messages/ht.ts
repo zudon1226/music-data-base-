@@ -83,6 +83,10 @@ export const htMessages: LocaleMessageDictionary = {
             artistProfile: "Pwofil atis",
             producerProfile: "Pwofil pwodiktè",
             sponsor: "Patwonaj",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Navigasyon prensipal"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const htMessages: LocaleMessageDictionary = {
             create: "Kreye lis",
             pageSubtitle: "Kreye lis, ajoute mizik, mete kouvèti epi jwe yo san rete."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albòm",
             empty: "Pa gen albòm ankò."

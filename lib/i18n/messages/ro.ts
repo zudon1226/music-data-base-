@@ -83,6 +83,10 @@ export const roMessages: LocaleMessageDictionary = {
             artistProfile: "Profil artist",
             producerProfile: "Profil producător",
             sponsor: "Sponsorizare",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Navigare principală"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const roMessages: LocaleMessageDictionary = {
             create: "Creează playlist",
             pageSubtitle: "Creează playlisturi, adaugă melodii, setează coperte și redă-le direct."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albume",
             empty: "Niciun album încă."

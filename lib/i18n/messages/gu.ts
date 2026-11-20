@@ -83,6 +83,10 @@ export const guMessages: LocaleMessageDictionary = {
             artistProfile: "કલાકાર પ્રોફ઼ાઇલ",
             producerProfile: "નિર્માતા પ્રોફ઼ાઇલ",
             sponsor: "પ્રાયોજન",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "મુખ્ય નેવિગેશન"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const guMessages: LocaleMessageDictionary = {
             create: "પ્લેલિસ્ટ બનાએઁ",
             pageSubtitle: "પ્લેલિસ્ટ બનાએઁ, ગાને જોડ઼ેં, કવર સેટ કરેં ઔર સીધે ચલાએઁ૤"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "એલ્બમ",
             empty: "અભી કોઈ એલ્બમ નહીં૤"

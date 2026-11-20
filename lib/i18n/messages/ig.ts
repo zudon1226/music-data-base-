@@ -83,6 +83,10 @@ export const igMessages: LocaleMessageDictionary = {
             artistProfile: "Profaịlụ Onye Egwu",
             producerProfile: "Profaịlụ Onye Mmeputa",
             sponsor: "Nkwado",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Isi njikọ"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const igMessages: LocaleMessageDictionary = {
             create: "Mepụta ndepụta ikwu egwu",
             pageSubtitle: "Mepụta ndepụta ikwu egwu, tinye egwu, seta ihe mkpuchi, ma kụọ ha ozugbo."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albọm",
             empty: "Enweghị albọm."

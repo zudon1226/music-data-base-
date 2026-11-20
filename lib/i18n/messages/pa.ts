@@ -83,6 +83,10 @@ export const paMessages: LocaleMessageDictionary = {
             artistProfile: "ਕਲਾਕਾਰ ਪ੍ਰੋਫ਼ਾਇਲ",
             producerProfile: "ਨਿਰ੍ਮਾਤਾ ਪ੍ਰੋਫ਼ਾਇਲ",
             sponsor: "ਸਪਾਂਸਰ",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "ਮੁਖ੍ਯ ਨੇਵਿਗੇਸ਼ਨ"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const paMessages: LocaleMessageDictionary = {
             create: "ਪ੍ਲੇਲਿਸ੍ਟ ਬਨਾਏਁ",
             pageSubtitle: "ਪ੍ਲੇਲਿਸ੍ਟ ਬਨਾਏਁ, ਗਾਨੇ ਜੋਡ਼ੇਂ, ਕਵਰ ਸੇਟ ਕਰੇਂ ਔਰ ਸੀਧੇ ਚਲਾਏਁ੤"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "ਏਲ੍ਬਮ",
             empty: "ਅਭੀ ਕੋਈ ਏਲ੍ਬਮ ਨਹੀਂ੤"

@@ -83,6 +83,10 @@ export const hiMessages: LocaleMessageDictionary = {
             artistProfile: "कलाकार प्रोफ़ाइल",
             producerProfile: "निर्माता प्रोफ़ाइल",
             sponsor: "प्रायोजन",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "मुख्य नेविगेशन"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const hiMessages: LocaleMessageDictionary = {
             create: "प्लेलिस्ट बनाएँ",
             pageSubtitle: "प्लेलिस्ट बनाएँ, गाने जोड़ें, कवर सेट करें और सीधे चलाएँ।"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "एल्बम",
             empty: "अभी कोई एल्बम नहीं।"

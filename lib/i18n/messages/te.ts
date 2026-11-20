@@ -83,6 +83,10 @@ export const teMessages: LocaleMessageDictionary = {
             artistProfile: "కళాకారుని ప్రొఫైల్",
             producerProfile: "నిర్మాత ప్రొఫైల్",
             sponsor: "ప్రాయోజకత",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "ప్రధాన నావిగేషన్"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const teMessages: LocaleMessageDictionary = {
             create: "ప్లేలిస్ట్ సృష్టించు",
             pageSubtitle: "ప్లేలిస్ట్‌లు సృష్టించి, పాటలు జోడించి, కవర్లు సెట్ చేసి నేరుగా ప్లే చేయండి."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "ఆల్బమ్‌లు",
             empty: "ఇంకా ఆల్బమ్‌లు లేవు."

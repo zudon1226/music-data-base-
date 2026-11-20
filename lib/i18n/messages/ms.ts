@@ -83,6 +83,10 @@ export const msMessages: LocaleMessageDictionary = {
             artistProfile: "Profil Artis",
             producerProfile: "Profil Pengeluar",
             sponsor: "Penaja",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Navigasi utama"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const msMessages: LocaleMessageDictionary = {
             create: "Cipta senarai main",
             pageSubtitle: "Cipta senarai main, tambah lagu, tetapkan kulit, dan mainkannya terus."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Album",
             empty: "Tiada album lagi."

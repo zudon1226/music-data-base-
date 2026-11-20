@@ -52,6 +52,10 @@ export const enMessages = {
         artistProfile: "Artist Profile",
         producerProfile: "Producer Profile",
         sponsor: "Sponsor",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+        podcasts: "Podcasts",
+        publicGuestDiscovery: "Public discovery",
         mainNavigation: "Main navigation",
     },
     sponsor: {
@@ -178,6 +182,14 @@ export const enMessages = {
         resetDisabled: "Reset Disabled",
     },
     playlists: { title: "Playlists", empty: "No playlists yet.", create: "Create playlist", pageSubtitle: "Create playlists, add songs, set covers, and play them straight through." },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: { title: "Albums", empty: "No albums yet." },
     sales: { title: "Sales", pageSubtitle: "Shopping cart, purchase history, and download vault." },
     licenseHistory: { title: "License History", pageSubtitle: "Review generated beat licenses and download license PDFs." },

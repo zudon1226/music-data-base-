@@ -31,6 +31,8 @@ const MOBILE_NAV_ICONS: Partial<Record<DesktopNavView, ReactNode>> = {
     Home: <Home size={16} aria-hidden="true" />,
     Marketplace: <Disc3 size={16} aria-hidden="true" />,
     Podcasts: <Mic2 size={16} aria-hidden="true" />,
+    Mixtapes: <ListMusic size={16} aria-hidden="true" />,
+    "Mixtape Studio": <Disc3 size={16} aria-hidden="true" />,
     Sales: <Upload size={16} aria-hidden="true" />,
     Library: <BookOpen size={16} aria-hidden="true" />,
     Liked: <Heart size={16} aria-hidden="true" />,
@@ -56,6 +58,9 @@ type MobileAppHorizontalNavProps = {
     onOwnerRequired: () => void;
     onRingtoneCreatorRequired?: () => void;
     onRoleRequired?: (reason: DesktopNavBlockReason) => void;
+    publicPodcastListenerOnly?: boolean;
+    publicMixtapeListenerOnly?: boolean;
+    onPublicPodcastLogin?: () => void;
 };
 
 export function MobileAppHorizontalNav({
@@ -65,12 +70,21 @@ export function MobileAppHorizontalNav({
     onOwnerRequired,
     onRingtoneCreatorRequired,
     onRoleRequired,
+    publicPodcastListenerOnly = false,
+    publicMixtapeListenerOnly = false,
+    onPublicPodcastLogin,
 }: MobileAppHorizontalNavProps) {
     const { t } = useTranslation();
     const scrollerRef = useRef<HTMLDivElement | null>(null);
     const activeRef = useRef<HTMLButtonElement | null>(null);
 
     const items = useMemo(() => {
+        if (publicMixtapeListenerOnly) {
+            return [{ view: "Mixtapes" as const, label: "Mixtapes", fullLabel: "Mixtapes" }];
+        }
+        if (publicPodcastListenerOnly) {
+            return [{ view: "Podcasts" as const, label: "Podcasts", fullLabel: "Podcasts" }];
+        }
         return listVisibleMobileNavItems(access).map((item) => {
             const fullLabel = item.view === "Podcasts" || item.view === "Podcast Studio"
                 ? item.view
@@ -81,7 +95,7 @@ export function MobileAppHorizontalNav({
                 fullLabel,
             };
         });
-    }, [access, t]);
+    }, [access, publicMixtapeListenerOnly, publicPodcastListenerOnly, t]);
 
     const handleNavClick = useMemo(
         () => createDesktopNavHandler({
@@ -115,6 +129,7 @@ export function MobileAppHorizontalNav({
             className="mobile-horizontal-nav"
             aria-label="Primary navigation"
             data-mobile-horizontal-nav="true"
+            data-public-podcast-listener-nav={publicPodcastListenerOnly ? "true" : "false"}
         >
             <div
                 className="mobile-horizontal-nav-scroller"
@@ -142,6 +157,16 @@ export function MobileAppHorizontalNav({
                     );
                 })}
             </div>
+            {publicPodcastListenerOnly && onPublicPodcastLogin ? (
+                <button
+                    type="button"
+                    className="mobile-nav-pill public-podcast-login-btn"
+                    data-public-podcast-login="true"
+                    onClick={onPublicPodcastLogin}
+                >
+                    Log in
+                </button>
+            ) : null}
         </nav>
     );
 }

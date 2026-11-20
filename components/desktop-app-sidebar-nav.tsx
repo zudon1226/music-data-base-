@@ -36,6 +36,7 @@ const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     Home: <Home size={17}/>,
     Marketplace: <Disc3 size={17}/>,
     Podcasts: <Mic2 size={17}/>,
+    Mixtapes: <ListMusic size={17}/>,
     Sales: <Upload size={17}/>,
     "License History": <BookOpen size={17}/>,
     Trending: <Zap size={17}/>,
@@ -49,6 +50,7 @@ const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     "Artist Dashboard": <BarChart3 size={17}/>,
     "Producer Dashboard": <Disc3 size={17}/>,
     "Podcast Studio": <Mic2 size={17}/>,
+    "Mixtape Studio": <Disc3 size={17}/>,
     "My Ringtones": <Smartphone size={17}/>,
     "Ringtone Marketplace": <Smartphone size={17}/>,
     "My Purchased Ringtones": <Smartphone size={17}/>,
@@ -70,6 +72,9 @@ type DesktopAppSidebarNavProps = {
     onOwnerRequired: () => void;
     onRingtoneCreatorRequired?: () => void;
     onRoleRequired?: (reason: DesktopNavBlockReason) => void;
+    publicPodcastListenerOnly?: boolean;
+    publicMixtapeListenerOnly?: boolean;
+    onPublicPodcastLogin?: () => void;
 };
 
 /** DESKTOP ONLY — sidebar buttons use the shared nav router and layout stack. */
@@ -80,11 +85,20 @@ export function DesktopAppSidebarNav({
     onOwnerRequired,
     onRingtoneCreatorRequired,
     onRoleRequired,
+    publicPodcastListenerOnly = false,
+    publicMixtapeListenerOnly = false,
+    onPublicPodcastLogin,
 }: DesktopAppSidebarNavProps) {
     const { t, locale } = useTranslation();
 
     // Rebuild every label from the active locale so chrome never keeps mount-time English.
     const localizedItems = useMemo(() => {
+        if (publicMixtapeListenerOnly) {
+            return [{ view: "Mixtapes" as const, label: "Mixtapes" }];
+        }
+        if (publicPodcastListenerOnly) {
+            return [{ view: "Podcasts" as const, label: "Podcasts" }];
+        }
         const visibleItems = listVisibleDesktopNavItems(access);
         return visibleItems.map((item) => ({
             view: item.view,
@@ -92,7 +106,7 @@ export function DesktopAppSidebarNav({
                 ? item.view
                 : t(DESKTOP_NAV_TRANSLATION_KEYS[item.view]),
         }));
-    }, [access, t]);
+    }, [access, publicMixtapeListenerOnly, publicPodcastListenerOnly, t]);
 
     const handleNavClick = useMemo(
         () => createDesktopNavHandler({
@@ -129,6 +143,16 @@ export function DesktopAppSidebarNav({
                         <span>{item.label}</span>
                     </button>
                 ))}
+                {publicPodcastListenerOnly && onPublicPodcastLogin ? (
+                    <button
+                        type="button"
+                        className="public-podcast-login-btn"
+                        data-public-podcast-login="true"
+                        onClick={onPublicPodcastLogin}
+                    >
+                        Log in
+                    </button>
+                ) : null}
             </nav>
         </>
     );

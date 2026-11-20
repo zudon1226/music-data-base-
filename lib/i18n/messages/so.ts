@@ -83,6 +83,10 @@ export const soMessages: LocaleMessageDictionary = {
             artistProfile: "Muuqaalka fanaanka",
             producerProfile: "Muuqaalka soo saaraha",
             sponsor: "Taageerada",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Hagidda ugu weyn"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const soMessages: LocaleMessageDictionary = {
             create: "Samee liis heeso",
             pageSubtitle: "Samee liisas heeso, ku dar heeso, deji daboolka, oo si toos ah u ciyaar."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albamo",
             empty: "Weli ma jiraan albamo."

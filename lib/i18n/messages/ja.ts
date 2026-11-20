@@ -83,6 +83,10 @@ export const jaMessages: LocaleMessageDictionary = {
             artistProfile: "アーティストプロフィール",
             producerProfile: "プロデューサープロフィール",
             sponsor: "スポンサー",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "メインナビゲーション"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const jaMessages: LocaleMessageDictionary = {
             create: "プレイリストを作成",
             pageSubtitle: "プレイリストを作成し、曲を追加、カバーを設定してそのまま再生。"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "アルバム",
             empty: "アルバムはまだありません。"

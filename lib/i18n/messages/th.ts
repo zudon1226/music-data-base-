@@ -83,6 +83,10 @@ export const thMessages: LocaleMessageDictionary = {
             artistProfile: "โปรไฟล์ศิลปิน",
             producerProfile: "โปรไฟล์โปรดิวเซอร์",
             sponsor: "สปอนเซอร์",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "การนำทางหลัก"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const thMessages: LocaleMessageDictionary = {
             create: "สร้างเพลย์ลิสต์",
             pageSubtitle: "สร้างเพลย์ลิสต์ เพิ่มเพลง ตั้งปก และเล่นต่อเนื่องได้ทันที"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "อัลบั้ม",
             empty: "ยังไม่มีอัลบั้ม"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, type FormEvent } from "react";
+import { GuestPublicDiscoveryNav } from "../public-guest/GuestPublicDiscoveryNav";
 import { PolicyLinksFooter } from "../legal/policy-links-footer";
 import "./mdb-public-entry.css";
 
@@ -24,6 +25,8 @@ export function MdbPublicEntryHub({ onGetNotified, onJoinBeta, onLogin }: MdbPub
                 </div>
                 <h1 className="mdb-public-entry-title">MDB</h1>
                 <p className="mdb-public-entry-coming-soon">COMING SOON</p>
+
+                <GuestPublicDiscoveryNav activeSection="home" className="mdb-public-entry-discovery-nav" />
 
                 <div className="mdb-public-entry-grid">
                     <article className="mdb-public-entry-card">

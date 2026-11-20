@@ -83,6 +83,10 @@ export const bsMessages: LocaleMessageDictionary = {
             artistProfile: "Profil izvođača",
             producerProfile: "Profil producenta",
         sponsor: "Sponzorstvo",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Glavna navigacija"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const bsMessages: LocaleMessageDictionary = {
             create: "Kreiraj plejlistu",
             pageSubtitle: "Kreirajte plejliste, dodajte pjesme, postavite omote i puštajte ih redom."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albumi",
             empty: "Još nema albuma."

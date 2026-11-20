@@ -83,6 +83,10 @@ export const ukMessages: LocaleMessageDictionary = {
             artistProfile: "Профіль артиста",
             producerProfile: "Профіль продюсера",
             sponsor: "Спонсорство",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Головна навігація"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const ukMessages: LocaleMessageDictionary = {
             create: "Створити плейлист",
             pageSubtitle: "Створюйте плейлисти, додавайте пісні, встановлюйте обкладинки та відтворюйте їх послідовно."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Альбоми",
             empty: "Поки що немає альбомів."

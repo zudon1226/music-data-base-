@@ -83,6 +83,10 @@ export const bgMessages: LocaleMessageDictionary = {
             artistProfile: "Профил на артист",
             producerProfile: "Профил на продуцент",
         sponsor: "Спонсорство",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Основна навигация"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const bgMessages: LocaleMessageDictionary = {
             create: "Създай плейлист",
             pageSubtitle: "Създавайте плейлисти, добавяйте песни, задавайте обложки и ги пускайте последователно."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Албуми",
             empty: "Все още няма албуми."

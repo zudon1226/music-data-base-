@@ -83,6 +83,10 @@ export const sqMessages: LocaleMessageDictionary = {
             artistProfile: "Profili i artistit",
             producerProfile: "Profili i producentit",
             sponsor: "Sponsorizim",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Navigimi kryesor"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const sqMessages: LocaleMessageDictionary = {
             create: "Krijo listë luajtjeje",
             pageSubtitle: "Krijo lista, shto këngë, vendos kopertina dhe luaji ato me radhë."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albumet",
             empty: "Ende nuk ka albume."

@@ -83,6 +83,10 @@ export const afMessages: LocaleMessageDictionary = {
             artistProfile: "Kunstenaarsprofiel",
             producerProfile: "Produseerprofiel",
         sponsor: "Borg",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Hoofnavigasie"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const afMessages: LocaleMessageDictionary = {
             create: "Skep speellys",
             pageSubtitle: "Skep speellyste, voeg liedjies by, stel omslagfoto's en speel regdeur."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Musiekalbums",
             empty: "Nog geen albums nie."

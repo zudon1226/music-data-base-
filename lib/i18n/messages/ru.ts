@@ -83,6 +83,10 @@ export const ruMessages: LocaleMessageDictionary = {
             artistProfile: "Профиль артиста",
             producerProfile: "Профиль продюсера",
             sponsor: "Спонсорство",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Основная навигация"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const ruMessages: LocaleMessageDictionary = {
             create: "Создать плейлист",
             pageSubtitle: "Создавайте плейлисты, добавляйте песни, задавайте обложки и воспроизводите их подряд."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Альбомы",
             empty: "Пока нет альбомов."

@@ -83,6 +83,10 @@ export const fiMessages: LocaleMessageDictionary = {
             artistProfile: "Artistiprofiili",
             producerProfile: "Tuottajaprofiili",
             sponsor: "Sponsorointi",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Päänavigointi"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const fiMessages: LocaleMessageDictionary = {
             create: "Luo soittolista",
             pageSubtitle: "Luo soittolistoja, lisää kappaleita, aseta kannet ja toista ne suoraan."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albumit",
             empty: "Ei vielä albumeita."

@@ -83,6 +83,10 @@ export const bnMessages: LocaleMessageDictionary = {
             artistProfile: "শিল্পী প্রোফাইল",
             producerProfile: "প্রযোজক প্রোফাইল",
         sponsor: "স্পনসর",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "প্রধান নেভিগেশন"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const bnMessages: LocaleMessageDictionary = {
             create: "প্লেলিস্ট তৈরি করুন",
             pageSubtitle: "প্লেলিস্ট তৈরি করুন, গান যোগ করুন, কভার সেট করুন এবং সরাসরি চালান।"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "অ্যালবাম",
             empty: "এখনো কোনো অ্যালবাম নেই।"

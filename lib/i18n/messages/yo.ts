@@ -83,6 +83,10 @@ export const yoMessages: LocaleMessageDictionary = {
             artistProfile: "Àkọrọ àwọn orin",
             producerProfile: "Àkọrọ olòṣẹ̀-ẹ̀",
             sponsor: "Atilẹyin",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Ìrọ̀ àkọ́kọ́"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const yoMessages: LocaleMessageDictionary = {
             create: "Ṣẹda àkójọ orin",
             pageSubtitle: "Ṣẹda àkójọ orin, fi orin kun, ṣeto àwọn ìbòrí, kí o sì ṣeré wọn tààrà."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Àwọn àkọ́ orin",
             empty: "Kò sì àwọn àkọ́ orin sẹ́."

@@ -83,6 +83,10 @@ export const trMessages: LocaleMessageDictionary = {
             artistProfile: "Sanatçı Profili",
             producerProfile: "Prodüktör Profili",
             sponsor: "Sponsorluk",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Ana gezinme"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const trMessages: LocaleMessageDictionary = {
             create: "Çalma listesi oluştur",
             pageSubtitle: "Çalma listeleri oluşturun, şarkı ekleyin, kapak belirleyin ve doğrudan çalın."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albümler",
             empty: "Henüz albüm yok."

@@ -83,6 +83,10 @@ export const urMessages: LocaleMessageDictionary = {
             artistProfile: "فنکار پروفائل",
             producerProfile: "پروڈیوسر پروفائل",
             sponsor: "کفالت",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "مرکزی نیویگیشن"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const urMessages: LocaleMessageDictionary = {
             create: "پلے لسٹ بنائیں",
             pageSubtitle: "پلے لسٹس بنائیں، گانے شامل کریں، کور سیٹ کریں اور سیدھا چلائیں۔"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "البمز",
             empty: "ابھی کوئی البم نہیں۔"

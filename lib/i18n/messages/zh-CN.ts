@@ -83,6 +83,10 @@ export const zhCNMessages: LocaleMessageDictionary = {
             artistProfile: "艺人资料",
             producerProfile: "制作人资料",
             sponsor: "赞助",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "主导航"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const zhCNMessages: LocaleMessageDictionary = {
             create: "创建播放列表",
             pageSubtitle: "创建播放列表、添加歌曲、设置封面并直接播放。"
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "专辑",
             empty: "还没有专辑。"

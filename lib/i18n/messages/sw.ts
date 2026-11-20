@@ -83,6 +83,10 @@ export const swMessages: LocaleMessageDictionary = {
             artistProfile: "Wasifu wa Msanii",
             producerProfile: "Wasifu wa Mtayarishaji",
             sponsor: "Ufadhili",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Urambazaji mkuu"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const swMessages: LocaleMessageDictionary = {
             create: "Unda orodha ya kucheza",
             pageSubtitle: "Unda orodha za kucheza, ongeza nyimbo, weka vifuniko, na uzicheze moja kwa moja."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albamu",
             empty: "Bado hakuna albamu."

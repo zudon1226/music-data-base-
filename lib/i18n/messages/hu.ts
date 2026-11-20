@@ -83,6 +83,10 @@ export const huMessages: LocaleMessageDictionary = {
             artistProfile: "Előadói profil",
             producerProfile: "Producer profil",
             sponsor: "Szponzoráció",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Fő navigáció"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const huMessages: LocaleMessageDictionary = {
             create: "Lejátszási lista létrehozása",
             pageSubtitle: "Hozz létre listákat, adj hozzá számokat, állíts be borítókat, és játszd le őket egyben."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albumok",
             empty: "Még nincsenek albumok."

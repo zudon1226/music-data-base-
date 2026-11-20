@@ -83,6 +83,10 @@ export const ltMessages: LocaleMessageDictionary = {
             artistProfile: "Atlikėjo profilis",
             producerProfile: "Prodiuserio profilis",
             sponsor: "Rėmimas",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Pagrindinė navigacija"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const ltMessages: LocaleMessageDictionary = {
             create: "Sukurti grojaraštį",
             pageSubtitle: "Kurkite grojaraščius, pridėkite dainas, nustatykite viršelius ir grokite juos paeiliui."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albumai",
             empty: "Dar nėra albumų."

@@ -83,6 +83,10 @@ export const arMessages: LocaleMessageDictionary = {
             artistProfile: "ملف الفنان",
             producerProfile: "ملف المنتج",
         sponsor: "رعاية",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "التنقل الرئيسي"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const arMessages: LocaleMessageDictionary = {
             create: "إنشاء قائمة تشغيل",
             pageSubtitle: "أنشئ قوائم تشغيل وأضف أغاني وحدّد الأغلفة وشغّلها بالكامل."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "الألبومات",
             empty: "لا توجد ألبومات بعد."

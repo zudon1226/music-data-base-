@@ -83,6 +83,10 @@ export const csMessages: LocaleMessageDictionary = {
             artistProfile: "Profil umělce",
             producerProfile: "Profil producenta",
         sponsor: "Sponzorství",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Hlavní navigace"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const csMessages: LocaleMessageDictionary = {
             create: "Vytvořit playlist",
             pageSubtitle: "Vytvářejte playlisty, přidávejte skladby, nastavujte obaly a přehrávejte je najednou."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Alba",
             empty: "Zatím žádná alba."

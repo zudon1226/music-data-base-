@@ -83,6 +83,10 @@ export const lvMessages: LocaleMessageDictionary = {
             artistProfile: "Izpildītāja profils",
             producerProfile: "Producenta profils",
             sponsor: "Sponsorēšana",
+        mixtapes: "Mixtapes",
+        mixtapeStudio: "Mixtape Studio",
+            podcasts: "Podcasts",
+            publicGuestDiscovery: "Public discovery",
             mainNavigation: "Galvenā navigācija"
         },
     sponsor: {
@@ -242,6 +246,14 @@ export const lvMessages: LocaleMessageDictionary = {
             create: "Izveidot atskaņošanas sarakstu",
             pageSubtitle: "Veidojiet sarakstus, pievienojiet dziesmas, iestatiet vākus un atskaņojiet tos pēc kārtas."
         },
+    mixtapes: {
+        title: "Mixtapes",
+        pageSubtitle: "Discover published mixtape sets and play them in the global player.",
+    },
+    mixtapeStudio: {
+        title: "Mixtape Studio",
+        pageSubtitle: "Create mixtapes, upload tracks, set cover art, and publish to the catalog.",
+    },
     albums: {
             title: "Albumi",
             empty: "Vēl nav albumu."
