@@ -6656,9 +6656,15 @@ function PageContent({
         if (!decision.allowed) {
             // Token refresh can briefly mark founding access loading before caps repopulate.
             // Do not unmount creator studios mid-action (e.g. Mixtape Studio create).
+            const deferStudioBounce = view === "Mixtape Studio" || view === "Podcast Studio";
+            const flickerDenial = "reason" in decision
+                && (decision.reason === "mixtape-studio-required" || decision.reason === "podcast-studio-required");
             if (
-                foundingAccessLoading
-                && (view === "Mixtape Studio" || view === "Podcast Studio")
+                deferStudioBounce
+                && (
+                    foundingAccessLoading
+                    || (foundingAccess?.canAccessApp === true && flickerDenial)
+                )
             ) {
                 return;
             }
@@ -6668,7 +6674,7 @@ function PageContent({
             setToast(null);
             setView("Home");
         }
-    }, [foundingAccessLoading, isAuthenticated, authReady, accountRolesReady, view, desktopNavAccess]);
+    }, [foundingAccess, foundingAccessLoading, isAuthenticated, authReady, accountRolesReady, view, desktopNavAccess]);
     useEffect(() => {
         if (!shouldShowUploadControl(desktopNavAccess) && showUpload) {
             setShowUpload(false);

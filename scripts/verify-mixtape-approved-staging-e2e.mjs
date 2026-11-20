@@ -222,6 +222,22 @@ function isStudioMineListGet(response) {
  * @param {import('playwright').Page} page
  * @param {import('playwright').Locator} studio
  */
+async function waitForMixtapeStudioReady(page, timeout = STUDIO_CREATE_SYNC_TIMEOUT_MS) {
+    await page.waitForFunction(
+        () => {
+            const view = document.querySelector("main.zml-app")?.getAttribute("data-active-view");
+            if (view !== "Mixtape Studio") return false;
+            const title = document.querySelector("[data-mixtape-studio] #mixtape-title");
+            if (!title) return false;
+            const rect = title.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return false;
+            const style = window.getComputedStyle(title);
+            return style.visibility !== "hidden" && style.display !== "none";
+        },
+        { timeout },
+    );
+}
+
 async function reopenMixtapeStudioIfNeeded(page) {
     const onStudio = await page
         .locator('main.zml-app[data-active-view="Mixtape Studio"]')
@@ -416,23 +432,30 @@ async function runAuthenticated(browser, media) {
             record("open Mixtape Studio", "pass");
             await page.screenshot({ path: join(evidenceDir, "studio-open.png"), fullPage: true });
 
-            const studio = page.locator("[data-mixtape-studio]");
-            await page
-                .waitForResponse(
-                    (response) => isStudioMineListGet(response) && response.status() === 200,
-                    { timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS },
-                )
-                .catch(() => null);
-            await studio.getByText(/Loading studio/i).waitFor({ state: "hidden", timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS }).catch(() => null);
-            await studio.locator("#mixtape-title").waitFor({ state: "visible", timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS });
-            const titleInput = studio.locator("#mixtape-title");
-            await titleInput.click();
-            await titleInput.fill(auditMixtapeTitle);
-            const titleValue = await titleInput.inputValue();
-            if (titleValue !== auditMixtapeTitle) {
-                record("create test mixtape", "fail", `title input did not bind (got "${titleValue.slice(0, 40)}")`);
+            let titleBound = false;
+            const titleDeadline = Date.now() + STUDIO_CREATE_SYNC_TIMEOUT_MS;
+            while (Date.now() < titleDeadline && !titleBound) {
+                await reopenMixtapeStudioIfNeeded(page);
+                await waitForMixtapeStudioReady(page, Math.max(5_000, titleDeadline - Date.now()));
+                const studio = page.locator("[data-mixtape-studio]");
+                const titleInput = studio.locator("#mixtape-title");
+                try {
+                    await titleInput.fill(auditMixtapeTitle, { timeout: 10_000 });
+                    const titleValue = await titleInput.inputValue();
+                    if (titleValue === auditMixtapeTitle) {
+                        titleBound = true;
+                    }
+                }
+                catch {
+                    // Studio remounted during founding-cap refresh; retry until deadline.
+                }
+            }
+            if (!titleBound) {
+                record("create test mixtape", "fail", "title input did not bind before studio sync deadline");
             }
             else {
+            const studio = page.locator("[data-mixtape-studio]");
+            await reopenMixtapeStudioIfNeeded(page);
             await studio.locator("#mixtape-description").fill(`${AUDIT_PREFIX} release audit fixture`);
             await studio.locator("#mixtape-genre").fill("Audit");
             const createMixtape = studio.getByRole("button", { name: /Create mixtape/i });
@@ -441,7 +464,6 @@ async function runAuthenticated(browser, media) {
                 timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS,
             });
             await createMixtape.click({ timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS });
-            await studio.getByText(/Mixtape created/i).waitFor({ state: "visible", timeout: 15_000 }).catch(() => null);
             const createPost = await createPostWait.catch(() => null);
             const createBody = createPost ? await createPost.json().catch(() => ({})) : {};
             auditMixtapeId = String(createBody.mixtape?.id || "").trim();
@@ -456,16 +478,8 @@ async function runAuthenticated(browser, media) {
                 );
             }
             else {
-                const studioStillOpen = await page
-                    .waitForFunction(
-                        () => document.querySelector("main.zml-app")?.getAttribute("data-active-view") === "Mixtape Studio",
-                        { timeout: 5_000 },
-                    )
-                    .catch(() => null);
-                if (!studioStillOpen) {
-                    record("create test mixtape", "fail", "Mixtape Studio view closed after create POST");
-                    auditMixtapeId = "";
-                }
+                await studio.getByText(/Mixtape created/i).waitFor({ state: "visible", timeout: 15_000 }).catch(() => null);
+                await reopenMixtapeStudioIfNeeded(page);
             }
             if (auditMixtapeId) {
                 const expectedId = auditMixtapeId;
@@ -499,7 +513,6 @@ async function runAuthenticated(browser, media) {
                         auditMixtapeId = "";
                     }
                 }
-            }
             }
             if (auditMixtapeId) {
                 const selectorValue = await studio.locator("select#mixtape-select").inputValue().catch(() => "");
@@ -543,6 +556,7 @@ async function runAuthenticated(browser, media) {
                 await page.getByRole("button", { name: /Publish mixtape/i }).click();
                 await page.waitForTimeout(3000);
                 record("publish mixtape", "pass");
+            }
             }
         }
 
