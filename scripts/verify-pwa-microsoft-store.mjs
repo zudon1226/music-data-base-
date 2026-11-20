@@ -35,6 +35,7 @@ record("public/sw.js", existsSync(join(root, swPath)));
 const sw = existsSync(join(root, swPath)) ? read(swPath) : "";
 record("SW network-only (no cache.put)", !/cache\.put/i.test(sw));
 record("SW clears legacy caches on activate", /caches\.keys/.test(sw) && /caches\.delete/.test(sw));
+record("SW handles fetch network failures", /Response\.error/.test(sw) && /network fetch failed/i.test(sw));
 
 const registrar = read("components/pwa/register-service-worker.tsx");
 record("SW registrar component", existsSync(join(root, "components/pwa/register-service-worker.tsx")));

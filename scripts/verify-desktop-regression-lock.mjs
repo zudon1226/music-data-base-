@@ -327,7 +327,12 @@ assertIncludes(supabaseBarrel, "__mdb_desktop_supabase_client__", "supabase.ts s
 const supabaseConfig = read("lib/supabase-config.ts");
 assertIncludes(supabaseConfig, "SUPABASE_PROJECT_URL", "supabase-config.ts locked project URL");
 assertIncludes(supabaseConfig, "vercel.app", "supabase-config.ts rejects Vercel site URL for auth");
-assertIncludes(supabaseConfig, "return SUPABASE_PROJECT_URL", "supabase-config.ts pins login URL to project host");
+assertIncludes(supabaseConfig, "resolveSupabaseLoginUrl", "supabase-config.ts exposes login URL resolver");
+assertIncludes(
+    supabaseConfig,
+    "resolveSupabaseProjectSelection().projectUrl",
+    "supabase-config.ts pins login URL to selected project host (production vs preview-staging)",
+);
 
 const authUserMetadata = read("lib/auth-user-metadata.ts");
 assertIncludes(authUserMetadata, "musicData", "auth-user-metadata.ts forbids musicData");
