@@ -8,12 +8,6 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/ringtones/[id]/process": ["./node_modules/ffmpeg-static/**/*"],
   },
-  async rewrites() {
-    return [
-      { source: "/podcast/episode/:id", destination: "/" },
-      { source: "/podcast/:id", destination: "/" },
-    ];
-  },
   async headers() {
     return [
       {
