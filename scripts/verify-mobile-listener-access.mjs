@@ -54,14 +54,19 @@ const LISTENER_ACCESSIBLE = [
     "Notifications",
 ];
 
-record("access schema version exported", accessSession.includes("CLIENT_ACCESS_SCHEMA_VERSION = 4"));
+record("access schema version exported", accessSession.includes("CLIENT_ACCESS_SCHEMA_VERSION = 5"));
 record("obsolete role keys listed", accessSession.includes("zml_account_role") && accessSession.includes("mdb.foundingRole"));
 record("auth boot migrates access session", authBoot.includes("migrateClientAccessSession"));
 record("page migrates access session on boot", page.includes("migrateClientAccessSession()"));
 record("page stamps access schema on main", page.includes("data-access-schema={CLIENT_ACCESS_SCHEMA_VERSION}"));
 record("page stamps listener role attrs", page.includes('data-account-role={navCapabilities.isListenerOnly ? "listener"'));
 record("upload workspace requires non-listener", page.includes("canRenderUploadWorkspace") && page.includes("!navCapabilities.isListenerOnly"));
-record("my ringtones gated by canMyRingtones", page.includes('view === "My Ringtones" && navCapabilities.canMyRingtones'));
+record(
+    "my ringtones gated by canMyRingtones",
+    page.includes('view === "My Ringtones"')
+        && page.includes("navCapabilities.canMyRingtones")
+        && page.includes("navCapabilities.canPersonalRingtones"),
+);
 record("header upload still capability gated", page.includes("shouldShowUploadControl(desktopNavAccess)"));
 record("mobile account actions wrap exists", page.includes('className="topbar-account-actions"'));
 record(

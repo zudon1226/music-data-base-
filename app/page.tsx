@@ -60,6 +60,7 @@ import { MobileAppHorizontalNav } from "../components/mobile-app-horizontal-nav"
 import { MobileContentActionSheet } from "../components/mobile-content-action-sheet";
 import { SidekickShell } from "../components/sidekick/sidekick-shell";
 import { MdbPublicEntryHub, MdbPublicEntryNotify } from "../components/public-beta/mdb-public-entry";
+import { GuestPublicDiscoveryNav } from "../components/public-guest/GuestPublicDiscoveryNav";
 import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
 import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
 import { safeRandomUUID } from "../lib/safe-random-uuid";
@@ -125,9 +126,35 @@ import { PodcastEpisodeWorkspace } from "../components/podcasts/PodcastEpisodeWo
 import { PodcastListeningControls } from "../components/podcasts/PodcastListeningControls";
 import { PodcastShowWorkspace } from "../components/podcasts/PodcastShowWorkspace";
 import { PodcastStudioWorkspace } from "../components/podcasts/PodcastStudioWorkspace";
+import { MixtapeDiscoveryWorkspace } from "../components/mixtapes/MixtapeDiscoveryWorkspace";
+import { MixtapeShowWorkspace } from "../components/mixtapes/MixtapeShowWorkspace";
+import { MixtapeStudioWorkspace } from "../components/mixtapes/MixtapeStudioWorkspace";
+import { MixtapeListeningControls } from "../components/mixtapes/MixtapeListeningControls";
+import { mixtapeTrackToPlaybackSong } from "@/lib/mixtape-playback-client";
+import type { MixtapePlaybackRequest, MixtapeTrack } from "@/lib/mixtape-types";
+import { isMixtapePath, mixtapePath, parseMixtapePath } from "@/lib/mixtape-routes";
 import { PersistedModerationReports } from "../components/moderation/PersistedModerationReports";
+import {
+    consumeAnonymousPublicPodcastReturnPath,
+    isAnonymousPublicPodcastListenerPath,
+    isAnonymousPublicPodcastListenerView,
+    isPublicPodcastDiscoveryPath,
+    normalizeAppPathname,
+    redirectAnonymousPublicPodcastListenerToLoginHub,
+} from "../lib/public-podcast-listener";
+import {
+    consumeAnonymousPublicMixtapeReturnPath,
+    isAnonymousPublicMixtapeListenerPath,
+    isAnonymousPublicMixtapeListenerView,
+    isPublicMixtapeDiscoveryPath,
+    redirectAnonymousPublicMixtapeListenerToLoginHub,
+} from "../lib/public-mixtape-listener";
 import { isPodcastPath, parsePodcastPath, podcastEpisodePath, podcastShowPath } from "../lib/podcast-routes";
-import { podcastResumeStartSeconds, type PodcastResumeProgress } from "../lib/podcast-resume";
+import {
+    podcastResumeStartSeconds,
+    sanitizePodcastResumeProgressList,
+    type PodcastResumeProgress,
+} from "../lib/podcast-resume";
 import {
     PODCAST_SKIP_BACK_SECONDS,
     PODCAST_SKIP_FORWARD_SECONDS,
@@ -195,6 +222,8 @@ import {
     probeBrowserMp4H264AacSupport,
     assessUploadCompatibility,
     classifyVideoPlaybackFailure,
+    buildHtmlMediaElementDiagnostics,
+    logMediaPlaybackExactError,
     AV1_DEVICE_UNSUPPORTED_MESSAGE,
     MISSING_VIDEO_URL_MESSAGE,
     VIDEO_UNKNOWN_PLAYBACK_ERROR_MESSAGE,
@@ -965,10 +994,13 @@ type MediaDownloadVaultItem = {
     downloadCount: number;
     downloadedAt: string;
 };
-type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Sponsor" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Mixtapes" | "Mixtape Show" | "Mixtape Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Sponsor" | "Platform Control Center";
 type PodcastShellProps = {
     initialPodcastShowId?: string;
     initialPodcastEpisodeId?: string;
+    initialPublicPodcastDiscovery?: boolean;
+    initialMixtapeId?: string;
+    initialPublicMixtapeDiscovery?: boolean;
 };
 type PlatformErrorRow = {
     id: string;
@@ -1264,13 +1296,18 @@ function usesLibrarySearchScope(view: View, searchQuery: string) {
     return Boolean(searchQuery.trim()) && view === "Library";
 }
 function isDashboardView(view: View) {
-    return view === "Artist Dashboard" || view === "Producer Dashboard" || view === "Podcast Studio";
+    return view === "Artist Dashboard" || view === "Producer Dashboard" || view === "Podcast Studio" || view === "Mixtape Studio";
 }
 function isPodcastDetailView(view: View) {
     return view === "Podcast Show" || view === "Podcast Episode";
 }
-function podcastChromeView(view: View): DesktopNavView {
-    return isPodcastDetailView(view) ? "Podcasts" : view as DesktopNavView;
+function isMixtapeDetailView(view: View) {
+    return view === "Mixtape Show";
+}
+function sidebarNavView(view: View): DesktopNavView {
+    if (isPodcastDetailView(view)) return "Podcasts";
+    if (isMixtapeDetailView(view)) return "Mixtapes";
+    return view as DesktopNavView;
 }
 function showGlobalSearchHeading(view: View, searchQuery: string) {
     return Boolean(searchQuery.trim())
@@ -1278,6 +1315,8 @@ function showGlobalSearchHeading(view: View, searchQuery: string) {
         && view !== "Podcasts"
         && view !== "Podcast Show"
         && view !== "Podcast Episode"
+        && view !== "Mixtapes"
+        && view !== "Mixtape Show"
         && view !== "License History"
         && !isDashboardView(view);
 }
@@ -3776,6 +3815,9 @@ export default function Page(props: PodcastShellProps = {}) {
                 <PageContent
                     initialPodcastShowId={props.initialPodcastShowId}
                     initialPodcastEpisodeId={props.initialPodcastEpisodeId}
+                    initialPublicPodcastDiscovery={props.initialPublicPodcastDiscovery}
+                    initialMixtapeId={props.initialMixtapeId}
+                    initialPublicMixtapeDiscovery={props.initialPublicMixtapeDiscovery}
                 />
             </AppI18nShell>
         </DesktopAuthProvider>
@@ -3785,6 +3827,9 @@ export default function Page(props: PodcastShellProps = {}) {
 function PageContent({
     initialPodcastShowId = "",
     initialPodcastEpisodeId = "",
+    initialPublicPodcastDiscovery = false,
+    initialMixtapeId = "",
+    initialPublicMixtapeDiscovery = false,
 }: PodcastShellProps) {
     const { t, locale } = useTranslation();
     const router = useRouter();
@@ -3793,6 +3838,7 @@ function PageContent({
     const mainVideoRef = useRef<HTMLVideoElement | null>(null);
     const videoPreviewRef = useRef<HTMLElement | null>(null);
     const notificationWrapRef = useRef<HTMLDivElement | null>(null);
+    const sidekickHeaderLauncherRef = useRef<HTMLSpanElement | null>(null);
     const albumUploadUserRef = useRef<SupabaseUser | null>(null);
     const activeUploadKeysRef = useRef<Set<string>>(new Set());
     const uploadInProgressRef = useRef(false);
@@ -3885,18 +3931,28 @@ function PageContent({
     const [songs, setSongs] = useState<Song[]>(DEFAULT_SONGS);
     const [videos, setVideos] = useState<VideoItem[]>([]);
     const podcastRoute = parsePodcastPath(pathname || "");
+    const mixtapeRoute = parseMixtapePath(pathname || "");
     const [view, setView] = useState<View>(() => (
-        initialPodcastEpisodeId || podcastRoute?.kind === "episode"
-            ? "Podcast Episode"
-            : initialPodcastShowId || podcastRoute?.kind === "show"
-                ? "Podcast Show"
-                : "Home"
+        initialPublicPodcastDiscovery || isPublicPodcastDiscoveryPath(pathname || "")
+            ? "Podcasts"
+            : initialPublicMixtapeDiscovery || (pathname || "").replace(/\/+$/, "") === "/mixtapes"
+                ? "Mixtapes"
+                : initialMixtapeId || mixtapeRoute?.kind === "mixtape"
+                    ? "Mixtape Show"
+                    : initialPodcastEpisodeId || podcastRoute?.kind === "episode"
+                        ? "Podcast Episode"
+                        : initialPodcastShowId || podcastRoute?.kind === "show"
+                            ? "Podcast Show"
+                            : "Home"
     ));
     const [selectedPodcastShowId, setSelectedPodcastShowId] = useState(
         initialPodcastShowId || (podcastRoute?.kind === "show" ? podcastRoute.id : ""),
     );
     const [selectedPodcastEpisodeId, setSelectedPodcastEpisodeId] = useState(
         initialPodcastEpisodeId || (podcastRoute?.kind === "episode" ? podcastRoute.id : ""),
+    );
+    const [selectedMixtapeId, setSelectedMixtapeId] = useState(
+        initialMixtapeId || (mixtapeRoute?.kind === "mixtape" ? mixtapeRoute.id : ""),
     );
     const [activeTab, setActiveTab] = useState("Trending");
     const [search, setSearch] = useState("");
@@ -3999,6 +4055,11 @@ function PageContent({
     const [podcastPlayableUrl, setPodcastPlayableUrl] = useState("");
     const podcastMetricPendingRef = useRef(false);
     const podcastMetricEpisodeIdRef = useRef("");
+    const mixtapePlaybackSessionRef = useRef("");
+    const mixtapePlaybackTrackRef = useRef("");
+    const mixtapePlaybackErrorNotifiedRef = useRef(false);
+    const [mixtapePlaybackContext, setMixtapePlaybackContext] = useState<MixtapeTrack[]>([]);
+    const [mixtapePlaybackRate, setMixtapePlaybackRate] = useState<PodcastPlaybackRate>(1);
     const podcastResumePositionRef = useRef(0);
     const [podcastPlaybackRate, setPodcastPlaybackRate] = useState<PodcastPlaybackRate>(1);
     const [podcastSleepMode, setPodcastSleepMode] = useState<PodcastSleepMode>("off");
@@ -4033,6 +4094,24 @@ function PageContent({
         confirmAuthenticatedFromApi,
         signOut: signOutFromAuthState,
     } = useDesktopAuthState();
+    const anonymousPublicPodcastListener = Boolean(
+        authReady
+        && !isAuthenticated
+        && isAnonymousPublicPodcastListenerPath(pathname || ""),
+    );
+    const anonymousPublicMixtapeListener = Boolean(
+        authReady
+        && !isAuthenticated
+        && isAnonymousPublicMixtapeListenerPath(pathname || ""),
+    );
+    const anonymousPublicGuestListener = anonymousPublicPodcastListener || anonymousPublicMixtapeListener;
+    useEffect(() => {
+        if (!authReady || !isAuthenticated) return;
+        const returnPath = consumeAnonymousPublicPodcastReturnPath() || consumeAnonymousPublicMixtapeReturnPath();
+        if (!returnPath) return;
+        if (normalizeAppPathname(pathname || "") === returnPath) return;
+        window.location.assign(returnPath);
+    }, [authReady, isAuthenticated, pathname]);
     const authSessionRef = useRef(authSession);
     const accountUserIdRef = useRef(accountUserId);
     const userRef = useRef(user);
@@ -6779,7 +6858,9 @@ function PageContent({
           </button>
         </div>
     ) : null;
-    const showingLoginSurface = Boolean(shouldShowLoginScreen || shouldHoldLoginSurface);
+    const showingLoginSurface = Boolean(
+        (shouldShowLoginScreen && !anonymousPublicGuestListener) || shouldHoldLoginSurface,
+    );
     const [loginSurfacePaintReleased, setLoginSurfacePaintReleased] = useState(false);
     if (showingLoginSurface && !isAuthenticated && loginSurfacePaintReleased) {
         setLoginSurfacePaintReleased(false);
@@ -8173,13 +8254,18 @@ function PageContent({
             && currentPodcastEpisode?.episodeType === "audio";
         const podcastVideoActive = activeMediaType === "podcast-video"
             && currentPodcastEpisode?.episodeType === "video";
+        const mixtapeAudioActive = activeMediaType === "song" && currentSong?.type === "Mixtape";
         if (audioRef.current) {
-            audioRef.current.playbackRate = podcastAudioActive ? podcastPlaybackRate : 1;
+            audioRef.current.playbackRate = podcastAudioActive
+                ? podcastPlaybackRate
+                : mixtapeAudioActive
+                    ? mixtapePlaybackRate
+                    : 1;
         }
         if (mainVideoRef.current) {
             mainVideoRef.current.playbackRate = podcastVideoActive ? podcastPlaybackRate : 1;
         }
-    }, [activeMediaType, currentPodcastEpisode, podcastPlaybackRate, isPlaying, videoPlaying, podcastPlayableUrl]);
+    }, [activeMediaType, currentPodcastEpisode, currentSong?.type, podcastPlaybackRate, mixtapePlaybackRate, isPlaying, videoPlaying, podcastPlayableUrl]);
     useEffect(() => {
         const podcastActive = Boolean(currentPodcastEpisode)
             && (activeMediaType === "podcast-audio" || activeMediaType === "podcast-video");
@@ -8659,13 +8745,15 @@ function PageContent({
     const recentlyPlayedAlbums = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "album" && (entry.album || entry.itemId)), [recentlyPlayed]);
     const recentlyPlayedPodcasts = useMemo(() => recentlyPlayed.filter((entry) => entry.itemType === "podcast" && (entry.podcast || entry.itemId)), [recentlyPlayed]);
     const podcastContinueListeningProgress = useMemo((): PodcastResumeProgress[] => (
-        recentlyPlayedPodcasts.map((entry) => ({
-            episodeId: String(entry.podcast?.id || entry.itemId || "").trim(),
-            position: Math.max(0, Number(entry.position) || 0),
-            duration: Math.max(0, Number(entry.duration) || 0),
-            completed: entry.completed === true,
-            playedAt: entry.playedAt,
-        }))
+        sanitizePodcastResumeProgressList(
+            recentlyPlayedPodcasts.map((entry) => ({
+                episodeId: String(entry.podcast?.id || entry.itemId || "").trim(),
+                position: Math.max(0, Number(entry.position) || 0),
+                duration: Math.max(0, Number(entry.duration) || 0),
+                completed: entry.completed === true,
+                playedAt: entry.playedAt,
+            })),
+        )
     ), [recentlyPlayedPodcasts]);
     const visibleRecentPlays = recentTab === "Videos"
         ? recentlyPlayedVideos
@@ -8792,6 +8880,12 @@ function PageContent({
     }, [view]);
     useEffect(() => {
         const parsed = parsePodcastPath(window.location.pathname);
+        if (isPublicPodcastDiscoveryPath(window.location.pathname)) {
+            setSelectedPodcastShowId("");
+            setSelectedPodcastEpisodeId("");
+            if (viewRef.current !== "Podcasts") setView("Podcasts");
+            return;
+        }
         if (parsed?.kind === "show") {
             setSelectedPodcastShowId(parsed.id);
             if (viewRef.current !== "Podcast Show") setView("Podcast Show");
@@ -8800,10 +8894,74 @@ function PageContent({
         if (parsed?.kind === "episode") {
             setSelectedPodcastEpisodeId(parsed.id);
             if (viewRef.current !== "Podcast Episode") setView("Podcast Episode");
+            return;
+        }
+        const mixtapePathParsed = parseMixtapePath(window.location.pathname);
+        if ((window.location.pathname || "").replace(/\/+$/, "") === "/mixtapes") {
+            if (viewRef.current !== "Mixtapes") setView("Mixtapes");
+            return;
+        }
+        if (mixtapePathParsed?.kind === "mixtape") {
+            setSelectedMixtapeId(mixtapePathParsed.id);
+            if (viewRef.current !== "Mixtape Show") setView("Mixtape Show");
         }
     }, []);
     useEffect(() => {
+        if (!anonymousPublicPodcastListener) return;
+        if (!isAnonymousPublicPodcastListenerPath(pathname || "")) {
+            redirectAnonymousPublicPodcastListenerToLoginHub();
+            return;
+        }
+        if (isPublicPodcastDiscoveryPath(pathname || "")) {
+            setSelectedPodcastShowId("");
+            setSelectedPodcastEpisodeId("");
+            if (view !== "Podcasts") setView("Podcasts");
+            return;
+        }
+        const parsed = parsePodcastPath(pathname || "");
+        if (parsed?.kind === "show") {
+            setSelectedPodcastShowId(parsed.id);
+            if (view !== "Podcast Show") setView("Podcast Show");
+            return;
+        }
+        if (parsed?.kind === "episode") {
+            setSelectedPodcastEpisodeId(parsed.id);
+            if (view !== "Podcast Episode") setView("Podcast Episode");
+            return;
+        }
+        if (!isAnonymousPublicPodcastListenerView(view)) {
+            setView("Podcasts");
+        }
+    }, [anonymousPublicPodcastListener, pathname, view]);
+    useEffect(() => {
+        if (!anonymousPublicMixtapeListener) return;
+        if (!isAnonymousPublicMixtapeListenerPath(pathname || "")) {
+            redirectAnonymousPublicMixtapeListenerToLoginHub();
+            return;
+        }
+        if (isPublicMixtapeDiscoveryPath(pathname || "")) {
+            setSelectedMixtapeId("");
+            if (view !== "Mixtapes") setView("Mixtapes");
+            return;
+        }
+        const parsed = parseMixtapePath(pathname || "");
+        if (parsed?.kind === "mixtape") {
+            setSelectedMixtapeId(parsed.id);
+            if (view !== "Mixtape Show") setView("Mixtape Show");
+            return;
+        }
+        if (!isAnonymousPublicMixtapeListenerView(view)) {
+            setView("Mixtapes");
+        }
+    }, [anonymousPublicMixtapeListener, pathname, view]);
+    useEffect(() => {
         function onPodcastRoutePopState(event: PopStateEvent) {
+            if (isPublicPodcastDiscoveryPath(window.location.pathname)) {
+                setSelectedPodcastShowId("");
+                setSelectedPodcastEpisodeId("");
+                setView("Podcasts");
+                return;
+            }
             const parsed = parsePodcastPath(window.location.pathname);
             if (parsed?.kind === "show") {
                 setSelectedPodcastShowId(parsed.id);
@@ -8815,18 +8973,91 @@ function PageContent({
                 setView("Podcast Episode");
                 return;
             }
+            const mixtapeDiscovery = (window.location.pathname || "").replace(/\/+$/, "") === "/mixtapes";
+            if (mixtapeDiscovery) {
+                setSelectedMixtapeId("");
+                setView("Mixtapes");
+                return;
+            }
+            const mixtapeParsed = parseMixtapePath(window.location.pathname);
+            if (mixtapeParsed?.kind === "mixtape") {
+                setSelectedMixtapeId(mixtapeParsed.id);
+                setView("Mixtape Show");
+                return;
+            }
             const restored = typeof event.state?.view === "string" ? event.state.view as View : "";
-            if (restored && !isPodcastDetailView(restored)) {
+            if (restored && !isPodcastDetailView(restored) && !isMixtapeDetailView(restored)) {
                 setView(restored);
                 return;
             }
             if (isPodcastDetailView(viewRef.current)) {
                 setView("Podcasts");
+                return;
+            }
+            if (isMixtapeDetailView(viewRef.current)) {
+                setView("Mixtapes");
             }
         }
         window.addEventListener("popstate", onPodcastRoutePopState);
         return () => window.removeEventListener("popstate", onPodcastRoutePopState);
     }, []);
+    useEffect(() => {
+        if (!isPlaying || !accountUserId) return;
+        const sessionId = mixtapePlaybackSessionRef.current;
+        const trackId = mixtapePlaybackTrackRef.current;
+        if (!sessionId || !trackId || currentSong?.type !== "Mixtape" || currentSong?.id !== trackId) return;
+        const tick = () => {
+            void (async () => {
+                const response = await desktopActionFetch("/api/mixtapes/playback", {
+                    requireAuth: true,
+                    injectAuthenticatedUserId: true,
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "advance", playbackSessionId: sessionId }),
+                    cache: "no-store",
+                });
+                const body = (await response.json().catch(() => ({}))) as { advanced?: boolean; error?: string };
+                if (response.status === 401 || response.status === 403) {
+                    mixtapePlaybackSessionRef.current = "";
+                    if (!mixtapePlaybackErrorNotifiedRef.current) {
+                        mixtapePlaybackErrorNotifiedRef.current = true;
+                        showToast(body.error || "Mixtape playback session expired. Sign in and play again.", "error");
+                    }
+                    return;
+                }
+                if (response.status === 409) {
+                    mixtapePlaybackSessionRef.current = "";
+                    const renew = await desktopActionFetch("/api/mixtapes/playback", {
+                        requireAuth: true,
+                        injectAuthenticatedUserId: true,
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ trackId, action: "begin-session" }),
+                        cache: "no-store",
+                    });
+                    const renewBody = (await renew.json().catch(() => ({}))) as { playbackSessionId?: string };
+                    if (renew.ok && renewBody.playbackSessionId) {
+                        mixtapePlaybackSessionRef.current = String(renewBody.playbackSessionId);
+                        mixtapePlaybackErrorNotifiedRef.current = false;
+                    }
+                    return;
+                }
+                if (!response.ok) return;
+                if (body.advanced) {
+                    void desktopActionFetch("/api/mixtapes/playback", {
+                        requireAuth: true,
+                        injectAuthenticatedUserId: true,
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "qualify", playbackSessionId: sessionId }),
+                        cache: "no-store",
+                    });
+                }
+            })();
+        };
+        const timer = window.setInterval(tick, 25000);
+        return () => window.clearInterval(timer);
+    }, [isPlaying, accountUserId, currentSong?.id, currentSong?.type]);
     useEffect(() => {
         const video = mainVideoRef.current;
         if (!video)
@@ -11324,6 +11555,90 @@ function PageContent({
         setIsPlaying(true);
     }
 
+    async function resolveMixtapePlayback(track: MixtapeTrack, context: MixtapeTrack[]) {
+        if (!accountUserId) {
+            showToast("Sign in to play mixtape tracks.", "info");
+            return;
+        }
+        const signedResponse = await desktopActionFetch("/api/mixtapes/playback", {
+            requireAuth: true,
+            injectAuthenticatedUserId: true,
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ trackId: track.id }),
+            cache: "no-store",
+        });
+        const signedData = (await signedResponse.json().catch(() => ({}))) as {
+            error?: string;
+            signedUrl?: string;
+        };
+        if (!signedResponse.ok || !signedData.signedUrl) {
+            throw new Error(signedData.error || "Mixtape playback could not start.");
+        }
+        const sessionResponse = await desktopActionFetch("/api/mixtapes/playback", {
+            requireAuth: true,
+            injectAuthenticatedUserId: true,
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ trackId: track.id, action: "begin-session" }),
+            cache: "no-store",
+        });
+        const sessionData = (await sessionResponse.json().catch(() => ({}))) as {
+            playbackSessionId?: string;
+            error?: string;
+        };
+        if (sessionResponse.ok && sessionData.playbackSessionId) {
+            mixtapePlaybackSessionRef.current = String(sessionData.playbackSessionId);
+            mixtapePlaybackTrackRef.current = track.id;
+            mixtapePlaybackErrorNotifiedRef.current = false;
+        }
+        else {
+            mixtapePlaybackSessionRef.current = "";
+            mixtapePlaybackTrackRef.current = track.id;
+            if (sessionResponse.status === 409) {
+                throw new Error(sessionData.error || "Mixtape playback session could not start.");
+            }
+        }
+        const playbackContext = context.length > 0 ? context : [track];
+        setMixtapePlaybackContext(playbackContext);
+        const playbackSong = mixtapeTrackToPlaybackSong(track, signedData.signedUrl) as Song;
+        playSong(playbackSong);
+    }
+
+    async function onPlayMixtape(request: MixtapePlaybackRequest) {
+        try {
+            await resolveMixtapePlayback(request.track, request.context);
+        }
+        catch (error) {
+            showToast(error instanceof Error ? error.message : "Mixtape playback failed.", "error");
+        }
+    }
+
+    function playAdjacentMixtapeTrack(direction: "previous" | "next") {
+        if (!currentSong || currentSong.type !== "Mixtape" || mixtapePlaybackContext.length < 2)
+            return;
+        const currentIndex = mixtapePlaybackContext.findIndex((track) => track.id === currentSong.id);
+        const offset = direction === "next" ? 1 : -1;
+        const nextIndex = currentIndex < 0
+            ? 0
+            : (currentIndex + offset + mixtapePlaybackContext.length) % mixtapePlaybackContext.length;
+        const nextTrack = mixtapePlaybackContext[nextIndex];
+        if (!nextTrack) return;
+        void resolveMixtapePlayback(nextTrack, mixtapePlaybackContext).catch((error) => {
+            showToast(error instanceof Error ? error.message : "Mixtape playback could not continue.", "error");
+        });
+    }
+
+    function skipActiveMixtape(deltaSeconds: number) {
+        if (!currentSong || currentSong.type !== "Mixtape") return;
+        const audio = audioRef.current;
+        if (!audio) return;
+        const durationValue = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : duration;
+        const nextTime = clampPodcastSeekSeconds(audio.currentTime, deltaSeconds, durationValue);
+        audio.currentTime = nextTime;
+        setProgress(nextTime);
+    }
+
     function playAdjacentPodcastEpisode(direction: "previous" | "next") {
         if (!currentPodcastEpisode || podcastPlaybackContext.length < 2)
             return;
@@ -11536,6 +11851,12 @@ function PageContent({
         setCurrentPodcastEpisode(null);
         setPodcastPlaybackContext([]);
         setPodcastPlayableUrl("");
+        if (song.type !== "Mixtape") {
+            setMixtapePlaybackContext([]);
+            mixtapePlaybackSessionRef.current = "";
+            mixtapePlaybackTrackRef.current = "";
+            mixtapePlaybackErrorNotifiedRef.current = false;
+        }
         setCurrentSong(song);
         setIsPlaying(isPublicAudioUrl(song.audio));
         setProgress(0);
@@ -11832,6 +12153,10 @@ function PageContent({
         }
     }
     function nextSong() {
+        if (currentSong?.type === "Mixtape") {
+            playAdjacentMixtapeTrack("next");
+            return;
+        }
         if (mediaQueueItems.length > 0) {
             const nextItem = advanceSharedQueueNext();
             if (nextItem) {
@@ -11853,6 +12178,10 @@ function PageContent({
         playSong(playbackList[nextIndex]);
     }
     function previousSong() {
+        if (currentSong?.type === "Mixtape") {
+            playAdjacentMixtapeTrack("previous");
+            return;
+        }
         if (mediaQueueItems.length > 0) {
             const previousItem = advanceSharedQueuePrevious();
             if (previousItem) {
@@ -11868,6 +12197,10 @@ function PageContent({
         playSong(playbackList[previousIndex]);
     }
     function handleTrackEnded() {
+        if (currentSong?.type === "Mixtape" && mixtapePlaybackContext.length > 1) {
+            playAdjacentMixtapeTrack("next");
+            return;
+        }
         if (repeatMode === "one" && audioRef.current) {
             audioRef.current.currentTime = 0;
             audioRef.current.play().catch(() => setIsPlaying(false));
@@ -17398,15 +17731,36 @@ function PageContent({
         if (nextView === "Notifications") {
             void reloadNotificationsFromServer();
         }
+        if (typeof window !== "undefined" && anonymousPublicPodcastListener && nextView === "Podcasts") {
+            const cleanPath = (window.location.pathname || "").replace(/\/+$/, "") || "/";
+            if (cleanPath !== "/podcast") {
+                window.history.pushState({ view: "Podcasts" }, "", "/podcast");
+            }
+        }
+        if (typeof window !== "undefined" && nextView === "Mixtapes") {
+            const cleanPath = (window.location.pathname || "").replace(/\/+$/, "") || "/";
+            if (cleanPath !== "/mixtapes") {
+                window.history.pushState({ view: "Mixtapes" }, "", "/mixtapes");
+            }
+        }
         if (typeof window !== "undefined" && !isPodcastDetailView(nextView) && isPodcastPath(window.location.pathname)) {
-            window.history.pushState({ view: nextView }, "", "/");
+            if (!anonymousPublicPodcastListener || nextView !== "Podcasts") {
+                window.history.pushState({ view: nextView }, "", "/");
+            }
+        }
+        if (typeof window !== "undefined" && !isMixtapeDetailView(nextView) && isMixtapePath(window.location.pathname)) {
+            if (!anonymousPublicMixtapeListener || nextView !== "Mixtapes") {
+                window.history.pushState({ view: nextView }, "", "/");
+            }
         }
         // Explicit nav action: pin destination heading under sticky topbar (not mere scrollTop=0).
         scheduleNavigationScrollReset({ focusHeading: true, ensureUploadVisible: false });
     }
     function rememberCurrentHistoryView() {
-        if (typeof window === "undefined" || isPodcastPath(window.location.pathname)) return;
-        window.history.replaceState({ view }, "", window.location.pathname || "/");
+        if (typeof window === "undefined") return;
+        const cleanPath = window.location.pathname || "/";
+        if (isPodcastPath(cleanPath) || isMixtapePath(cleanPath)) return;
+        window.history.replaceState({ view }, "", cleanPath);
     }
     function openPodcastShow(showId: string) {
         const nextShowId = String(showId || "").trim();
@@ -17435,9 +17789,28 @@ function PageContent({
         if (showId) setSelectedPodcastShowId(showId);
         applyDesktopView("Podcast Episode");
     }
+    function openMixtapeShow(mixtapeId: string) {
+        const nextMixtapeId = String(mixtapeId || "").trim();
+        if (!nextMixtapeId) return;
+        rememberCurrentHistoryView();
+        const nextPath = mixtapePath(nextMixtapeId);
+        if (typeof window !== "undefined" && window.location.pathname !== nextPath) {
+            window.history.pushState({ view: "Mixtape Show", mixtapeId: nextMixtapeId }, "", nextPath);
+        }
+        setSelectedMixtapeId(nextMixtapeId);
+        applyDesktopView("Mixtape Show");
+    }
     function denyUnauthorizedDesktopNav() {
         setToast(null);
         setShowUpload(false);
+        if (anonymousPublicPodcastListener) {
+            redirectAnonymousPublicPodcastListenerToLoginHub();
+            return;
+        }
+        if (anonymousPublicMixtapeListener) {
+            redirectAnonymousPublicMixtapeListenerToLoginHub();
+            return;
+        }
         showToast(ACCOUNT_ROLE_UNAVAILABLE_MESSAGE, "error");
         if (view !== "Home") {
             applyDesktopView("Home");
@@ -17462,6 +17835,18 @@ function PageContent({
     function handleNav(nextView: View) {
         setShowNotificationCenter(false);
         setToast(null);
+        if (anonymousPublicPodcastListener) {
+            if (!isAnonymousPublicPodcastListenerView(nextView)) {
+                redirectAnonymousPublicPodcastListenerToLoginHub();
+                return;
+            }
+        }
+        if (anonymousPublicMixtapeListener) {
+            if (!isAnonymousPublicMixtapeListenerView(nextView)) {
+                redirectAnonymousPublicMixtapeListenerToLoginHub();
+                return;
+            }
+        }
         // FoundingMemberGate already blocks unapproved app access. Navigation uses
         // server-trusted role capabilities only — never founding invite leftovers.
         const accessDecision = evaluateDesktopNavAccess(nextView as DesktopNavView, desktopNavAccess);
@@ -18695,51 +19080,56 @@ function PageContent({
                 onEnded={handleVideoEnded}
                 onError={(event) => {
                     const media = event.currentTarget;
-                    const errorCode = media.error?.code ?? null;
-                    const canPlayType = probeBrowserVideoCanPlayType(activeVideoPlaybackUrl, activeVideo, media);
-                    const classified = classifyVideoPlaybackFailure({
-                        playableUrl: activeVideoPlaybackUrl,
-                        videoUrl,
-                        storagePath,
-                        videoCodec,
-                        audioCodec: activeVideo.audioCodec || activeVideo.audio_codec || "",
-                        mediaErrorCode: errorCode,
-                        canPlayType,
-                        sourceAssigned: Boolean(media.currentSrc || media.getAttribute("src") || media.querySelector("source")?.getAttribute("src") || activeVideoPlaybackUrl),
-                    });
-                    logVideoElementState("error event", media, {
-                        exactError: media.error?.message || "",
-                    });
-                    console.log("MEDIA ERROR", media.error);
-                    console.log("MEDIA CODE", errorCode);
-                    console.log("MEDIA MESSAGE", media.error?.message);
-                    // Temporary UI only — never write unsupported into the database from a browser probe/error.
-                    if (classified) {
-                        setVideoPlaybackUiFailure(classified);
-                    }
-                    setVideoPlaying(false);
-                    if (classified) {
-                        showToast(classified.message, "error");
-                    }
-                    console.error("[mobile video] exact media error", {
-                        selectedVideoId: activeVideo.id,
-                        title: activeVideo.title,
-                        finalVideoUrl: activeVideoPlaybackUrl,
-                        videoUrl,
-                        storagePath,
-                        videoCodec,
-                        classification: classified?.kind || "none",
-                        src: media.currentSrc || media.src,
-                        currentSrc: media.currentSrc,
-                        readyState: media.readyState,
-                        networkState: media.networkState,
-                        errorCode,
-                        errorMessage: media.error?.message || "",
-                        canPlayType,
-                    });
+                    void (async () => {
+                        const errorCode = media.error?.code ?? null;
+                        const canPlayType = probeBrowserVideoCanPlayType(activeVideoPlaybackUrl, activeVideo, media);
+                        const probe = activeVideoPlaybackUrl
+                            ? await probeVideoPlaybackUrl(activeVideoPlaybackUrl)
+                            : null;
+                        const classified = classifyVideoPlaybackFailure({
+                            playableUrl: activeVideoPlaybackUrl,
+                            videoUrl,
+                            storagePath,
+                            videoCodec,
+                            audioCodec: activeVideo.audioCodec || activeVideo.audio_codec || "",
+                            mediaErrorCode: errorCode,
+                            networkStatus: probe?.status ?? null,
+                            canPlayType,
+                            sourceAssigned: Boolean(media.currentSrc || media.getAttribute("src") || media.querySelector("source")?.getAttribute("src") || activeVideoPlaybackUrl),
+                        });
+                        const diagnostics = buildHtmlMediaElementDiagnostics(
+                            media,
+                            {
+                                selectedVideoId: activeVideo.id,
+                                title: activeVideo.title,
+                                finalVideoUrl: activeVideoPlaybackUrl,
+                                videoUrl,
+                                storagePath,
+                                videoCodec,
+                                audioCodec: activeVideo.audioCodec || activeVideo.audio_codec || "",
+                                sourceMimeType: playerConfig.sourceType,
+                                classification: classified?.kind || "none",
+                            },
+                            probe,
+                        );
+                        logVideoElementState("error event", media, {
+                            exactError: media.error?.message || "",
+                            httpStatus: probe?.status ?? null,
+                            httpContentType: probe?.contentType || "",
+                        });
+                        logMediaPlaybackExactError(diagnostics);
+                        // Temporary UI only — never write unsupported into the database from a browser probe/error.
+                        if (classified) {
+                            setVideoPlaybackUiFailure(classified);
+                        }
+                        setVideoPlaying(false);
+                        if (classified) {
+                            showToast(classified.message, "error");
+                        }
+                    })();
                 }}
             >
-                <source src={activeVideoPlaybackUrl} type="video/mp4"/>
+                <source src={activeVideoPlaybackUrl} type={playerConfig.sourceType}/>
             </video>);
         })() : null}
         {showMissingUrl ? (<div className="video-missing-source" data-playback-failure="missing-url">{MISSING_VIDEO_URL_MESSAGE}</div>) : null}
@@ -19774,6 +20164,8 @@ function PageContent({
     return (<main
       className={`zml-app view-${displayMode}`}
       data-app-locale={locale}
+      data-public-podcast-listener-mode={anonymousPublicPodcastListener ? "true" : "false"}
+      data-public-mixtape-listener-mode={anonymousPublicMixtapeListener ? "true" : "false"}
       data-access-schema={CLIENT_ACCESS_SCHEMA_VERSION}
       data-account-role={navCapabilities.isListenerOnly ? "listener" : isPlatformOwner ? "admin" : (userAuthProfile.role || "listener")}
       data-roles-ready={accountRolesReady ? "true" : "false"}
@@ -19786,15 +20178,38 @@ function PageContent({
       dir="ltr"
     >
       <aside className="sidebar" data-sidebar-locale={locale} dir="ltr">
-        <button className="logo" onClick={() => handleNav("Home")} title={t("nav.home")}>
+        <button
+          className="logo"
+          onClick={() => handleNav(
+            anonymousPublicMixtapeListener
+                ? "Mixtapes"
+                : anonymousPublicPodcastListener
+                    ? "Podcasts"
+                    : "Home",
+          )}
+          title={
+            anonymousPublicMixtapeListener
+                ? "Mixtapes"
+                : anonymousPublicPodcastListener
+                    ? "Podcasts"
+                    : t("nav.home")
+          }
+        >
           <img src={BRAND_LOGO} alt="Music Data Base"/>
           <span>{BRAND_TAGLINE}</span>
         </button>
 
         <DesktopAppSidebarNav
           key={`sidebar-nav-${locale}`}
-          activeView={podcastChromeView(view)}
+          activeView={sidebarNavView(view)}
           access={desktopNavAccess}
+          publicPodcastListenerOnly={anonymousPublicPodcastListener}
+          publicMixtapeListenerOnly={anonymousPublicMixtapeListener}
+          onPublicPodcastLogin={() => (
+            anonymousPublicMixtapeListener
+                ? redirectAnonymousPublicMixtapeListenerToLoginHub()
+                : redirectAnonymousPublicPodcastListenerToLoginHub()
+          )}
           onNavigate={(nextView) => {
             handleNav(nextView as View);
           }}
@@ -19809,7 +20224,7 @@ function PageContent({
           }}
         />
 
-        <section className="mini-stats" aria-label={t("stats.ariaLabel")}>
+        {!anonymousPublicGuestListener ? (<section className="mini-stats" aria-label={t("stats.ariaLabel")}>
           <div>
             <strong>{songs.length}</strong>
             <span>{t("stats.tracks")}</span>
@@ -19826,9 +20241,9 @@ function PageContent({
             <strong>{totalPlays}</strong>
             <span>{t("stats.plays")}</span>
           </div>
-        </section>
+        </section>) : null}
 
-        <section className="queue-panel">
+        {!anonymousPublicGuestListener ? (<section className="queue-panel">
           <div className="panel-title-row">
             <h2>{t("queue.title")}</h2>
             {queueCount > 0 && (<button className="small-action" onClick={clearQueue} title={t("queue.clearQueue")}>
@@ -19860,12 +20275,14 @@ function PageContent({
                   </button>
                 </div>))}
             </div>)}
-        </section>
+        </section>) : null}
 
+        {!anonymousPublicGuestListener ? (
         <button className="reset-btn" disabled title="Reset is disabled until the audit is complete" type="button">
           <RotateCcw size={15}/>
           {t("queue.resetDisabled")}
         </button>
+        ) : null}
       </aside>
 
         <DesktopContentScrollRoot>
@@ -19878,7 +20295,7 @@ function PageContent({
           data-notification-panel-open={showNotificationCenter ? "true" : "false"}
         >
         <header className="topbar" data-topbar-locale={locale} dir="ltr">
-          <div
+          {!anonymousPublicGuestListener ? (<div
             ref={searchWrapRef}
             className={`search-wrap${searchSuggestionsOpen ? " search-wrap--suggestions-open" : ""}`}
             data-search-suggestions-open={searchSuggestionsOpen ? "true" : "false"}
@@ -19930,7 +20347,14 @@ function PageContent({
                 </div>
               ), document.body)
               : null}
+          </div>) : (
+          <div className="search-wrap guest-listener-search-wrap" dir="ltr">
+            <GuestPublicDiscoveryNav
+              activeSection={anonymousPublicMixtapeListener ? "mixtapes" : "podcasts"}
+            />
+            <LanguageSelector compact className="topbar-language-selector"/>
           </div>
+          )}
 
           <div className={isMobileCompact ? "topbar-mobile-action-row" : "topbar-desktop-controls"}>
           {showMobileViewToggle ? (
@@ -19955,7 +20379,21 @@ function PageContent({
           )}
 
           <div className="topbar-account-actions" role="toolbar" aria-label={t("nav.mainNavigation")}>
-            {displayMode === "list" && desktopListOverflow.open && desktopListOverflow.trigger ? (
+            {anonymousPublicGuestListener ? (
+            <button
+              type="button"
+              className="profile-btn"
+              data-public-podcast-login="true"
+              onClick={() => (
+                anonymousPublicMixtapeListener
+                    ? redirectAnonymousPublicMixtapeListenerToLoginHub()
+                    : redirectAnonymousPublicPodcastListenerToLoginHub()
+              )}
+            >
+              {t("auth.loginTitle")}
+            </button>
+            ) : null}
+            {!anonymousPublicGuestListener && displayMode === "list" && desktopListOverflow.open && desktopListOverflow.trigger ? (
             <DesktopFloatingActionMenu
                 open={desktopListOverflow.open}
                 anchorEl={desktopListOverflow.trigger}
@@ -19964,7 +20402,7 @@ function PageContent({
                 onClose={() => setDesktopListOverflow({ open: false, meta: null, actions: [], trigger: null })}
             />
         ) : null}
-        <NotificationCenterPanel
+        {!anonymousPublicGuestListener ? (<NotificationCenterPanel
               wrapRef={notificationWrapRef}
               open={showNotificationCenter}
               notifications={notifications}
@@ -19990,9 +20428,17 @@ function PageContent({
                 setShowNotificationCenter(false);
                 handleNav("Notifications");
               }}
-            />
+            />) : null}
 
-            {shouldShowUploadControl(desktopNavAccess) ? (
+            {!anonymousPublicGuestListener && user?.id && !isMobileCompact ? (
+            <span
+              ref={sidekickHeaderLauncherRef}
+              className="sidekick-header-launcher-slot"
+              data-sidekick-header-launcher="true"
+            />
+            ) : null}
+
+            {!anonymousPublicGuestListener && shouldShowUploadControl(desktopNavAccess) ? (
             <button
               className="upload-btn topbar-mobile-control-btn"
               disabled={!uploadActionEnabled}
@@ -20023,27 +20469,28 @@ function PageContent({
             </button>
             ) : null}
 
-            {!isMobileCompact && shouldShowArtistDashboardControl(desktopNavAccess) ? (
+            {!anonymousPublicGuestListener && !isMobileCompact && shouldShowArtistDashboardControl(desktopNavAccess) ? (
             <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
               <BarChart3 size={17}/>
               {t("header.artistShort")}
             </button>
             ) : null}
 
-            {!isMobileCompact && shouldShowProducerDashboardControl(desktopNavAccess) ? (
+            {!anonymousPublicGuestListener && !isMobileCompact && shouldShowProducerDashboardControl(desktopNavAccess) ? (
             <button className="dashboard-btn producer-dashboard-btn" onClick={() => handleNav("Producer Dashboard")} title={t("nav.producerDashboard")} type="button">
               <Disc3 size={17}/>
               {t("header.producerShort")}
             </button>
             ) : null}
 
-            {!isMobileCompact ? (
+            {!anonymousPublicGuestListener && !isMobileCompact ? (
             <button className="profile-btn" onClick={openProfileFromHeader} title={t("nav.profile")} type="button">
               <User size={17}/>
               {t("nav.profile")}
             </button>
             ) : null}
 
+            {!anonymousPublicGuestListener ? (
             <button
               className="logout-btn topbar-mobile-control-btn"
               onClick={logout}
@@ -20054,14 +20501,22 @@ function PageContent({
               <LogOut size={17}/>
               <span className="topbar-control-label">{t("common.logout")}</span>
             </button>
+            ) : null}
           </div>
           </div>
         </header>
 
         <MobileAppHorizontalNav
           key={`mobile-nav-${locale}`}
-          activeView={podcastChromeView(view)}
+          activeView={sidebarNavView(view)}
           access={desktopNavAccess}
+          publicPodcastListenerOnly={anonymousPublicPodcastListener}
+          publicMixtapeListenerOnly={anonymousPublicMixtapeListener}
+          onPublicPodcastLogin={() => (
+            anonymousPublicMixtapeListener
+                ? redirectAnonymousPublicMixtapeListenerToLoginHub()
+                : redirectAnonymousPublicPodcastListenerToLoginHub()
+          )}
           onNavigate={(nextView) => {
             handleNav(nextView as View);
           }}
@@ -21973,6 +22428,8 @@ function PageContent({
           ) : view === "Podcasts" ? (
             <PodcastDiscoveryWorkspace
               userId={accountUserId}
+              anonymousPublicListener={anonymousPublicPodcastListener}
+              onSignInRequired={() => redirectAnonymousPublicPodcastListenerToLoginHub()}
               continueListeningProgress={podcastContinueListeningProgress}
               onPlayPodcast={playPodcast}
               onOpenShow={openPodcastShow}
@@ -22001,6 +22458,23 @@ function PageContent({
               userId={accountUserId}
               onPlayPodcast={playPodcast}
             />
+          ) : view === "Mixtapes" ? (
+            <MixtapeDiscoveryWorkspace
+              userId={accountUserId}
+              anonymousPublicListener={anonymousPublicMixtapeListener}
+              onSignInRequired={() => redirectAnonymousPublicMixtapeListenerToLoginHub()}
+              onPlayMixtape={onPlayMixtape}
+              onOpenMixtape={openMixtapeShow}
+            />
+          ) : view === "Mixtape Show" ? (
+            <MixtapeShowWorkspace
+              userId={accountUserId}
+              mixtapeId={selectedMixtapeId}
+              onPlayMixtape={onPlayMixtape}
+              onBackToDiscovery={() => handleNav("Mixtapes")}
+            />
+          ) : view === "Mixtape Studio" && navCapabilities.canMixtapeStudio ? (
+            <MixtapeStudioWorkspace userId={accountUserId} />
           ) : view === "Producer Dashboard" ? (<section className="dashboard-page producer-dashboard">
             <div className="dashboard-brand">
               <img src={BRAND_LOGO} alt="Music Data Base"/>
@@ -23692,7 +24166,13 @@ function PageContent({
         />
       ) : null}
 
-      {user?.id ? <SidekickShell enabled fetchFn={desktopActionFetch} /> : null}
+      {user?.id ? (
+        <SidekickShell
+          enabled
+          fetchFn={desktopActionFetch}
+          headerLauncherMountRef={isMobileCompact ? undefined : sidekickHeaderLauncherRef}
+        />
+      ) : null}
 
       {commentTarget && (<div className="modal-backdrop" role="presentation" onClick={() => setCommentTarget(null)}>
           <section className="comments-modal" aria-label={`${commentTarget.item.title} comments`} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
@@ -24397,6 +24877,7 @@ function PageContent({
           ref={playerBarRef}
           className={`player music-bottom-player bottom-player mobile-bottom-player fixed-mobile-player${playerCollapsed ? " is-collapsed" : ""}`}
           data-player-collapsed={playerCollapsed ? "true" : "false"}
+          data-mixtape-player={currentSong.type === "Mixtape" ? "audio" : undefined}
           dir="ltr"
         >
           <div className="player-song player-main" dir="ltr">
@@ -24407,60 +24888,117 @@ function PageContent({
                 {currentSong.title}
               </strong>
               <small className="artist-name">
-                <ArtistNameButton name={currentSong.artist} className="artist-name" onOpen={openArtistProfile}/>
+                {currentSong.type === "Mixtape"
+                    ? `${currentSong.artist} | Mixtape`
+                    : <ArtistNameButton name={currentSong.artist} className="artist-name" onOpen={openArtistProfile}/>}
               </small>
-              {!playerCollapsed && activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
+              {!playerCollapsed && currentSong.type !== "Mixtape" && activeAlbumTrackInfo && <small className="player-album-meta">{activeAlbumTrackInfo.title} | Track {activeAlbumTrackInfo.current} of {activeAlbumTrackInfo.total}</small>}
             </div>
+            {currentSong.type === "Mixtape" ? (
+              <MixtapeListeningControls
+                variant="mobile"
+                playbackRate={mixtapePlaybackRate}
+                onSkipBack={() => skipActiveMixtape(-PODCAST_SKIP_BACK_SECONDS)}
+                onSkipForward={() => skipActiveMixtape(PODCAST_SKIP_FORWARD_SECONDS)}
+                onPlaybackRateChange={setMixtapePlaybackRate}
+              />
+            ) : null}
           </div>
 
           <div className="player-center" dir="ltr">
             <div className="player-controls" dir="ltr">
+              {currentSong.type !== "Mixtape" ? (
+                <button
+                  type="button"
+                  className={`player-shuffle-control${shuffleOn ? " mode-on" : ""}`}
+                  onClick={() => setShuffleOn((value) => !value)}
+                  title={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}
+                  aria-label={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}
+                  data-player-control="shuffle"
+                >
+                  <Shuffle size={16}/>
+                </button>
+              ) : null}
+
               <button
                 type="button"
-                className={`player-shuffle-control${shuffleOn ? " mode-on" : ""}`}
-                onClick={() => setShuffleOn((value) => !value)}
-                title={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}
-                aria-label={shuffleOn ? t("player.shuffleOn") : t("player.shuffleOff")}
-                data-player-control="shuffle"
+                className="player-prev-control"
+                onClick={previousSong}
+                title={currentSong.type === "Mixtape" ? "Previous mixtape track" : t("player.previous")}
+                aria-label={currentSong.type === "Mixtape" ? "Previous mixtape track" : t("player.previous")}
+                disabled={currentSong.type === "Mixtape" ? mixtapePlaybackContext.length < 2 : false}
+                data-player-control="previous"
               >
-                <Shuffle size={16}/>
-              </button>
-
-              <button type="button" className="player-prev-control" onClick={previousSong} title={t("player.previous")} aria-label={t("player.previous")} data-player-control="previous">
                 <SkipBack size={17} fill="currentColor"/>
               </button>
+
+              {currentSong.type === "Mixtape" ? (
+                <button
+                  type="button"
+                  className="podcast-skip-control"
+                  onClick={() => skipActiveMixtape(-PODCAST_SKIP_BACK_SECONDS)}
+                  title="Skip back 15 seconds"
+                  aria-label="Skip back 15 seconds"
+                >
+                  -15
+                </button>
+              ) : null}
 
               <button type="button" className="main-play" onClick={togglePlay} title={isPlaying ? t("player.pause") : t("player.play")} aria-label={isPlaying ? t("player.pause") : t("player.play")} data-player-control="play">
                 {isPlaying ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
               </button>
 
-              <button type="button" className="player-next-control" onClick={nextSong} title={t("player.next")} aria-label={t("player.next")} data-player-control="next">
+              {currentSong.type === "Mixtape" ? (
+                <button
+                  type="button"
+                  className="podcast-skip-control"
+                  onClick={() => skipActiveMixtape(PODCAST_SKIP_FORWARD_SECONDS)}
+                  title="Skip forward 30 seconds"
+                  aria-label="Skip forward 30 seconds"
+                >
+                  +30
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                className="player-next-control"
+                onClick={nextSong}
+                title={currentSong.type === "Mixtape" ? "Next mixtape track" : t("player.next")}
+                aria-label={currentSong.type === "Mixtape" ? "Next mixtape track" : t("player.next")}
+                disabled={currentSong.type === "Mixtape" ? mixtapePlaybackContext.length < 2 : false}
+                data-player-control="next"
+              >
                 <SkipForward size={17} fill="currentColor"/>
               </button>
 
-              <button
-                type="button"
-                className={`player-repeat-control${repeatMode !== "off" ? " mode-on" : ""}`}
-                onClick={toggleRepeatMode}
-                title={t("player.repeatMode", { mode: repeatMode })}
-                aria-label={t("player.repeatMode", { mode: repeatMode })}
-                data-player-control="repeat"
-              >
-                <RotateCcw size={16}/>
-                {repeatMode === "one" && <span className="repeat-one">1</span>}
-              </button>
+              {currentSong.type !== "Mixtape" ? (
+                <>
+                  <button
+                    type="button"
+                    className={`player-repeat-control${repeatMode !== "off" ? " mode-on" : ""}`}
+                    onClick={toggleRepeatMode}
+                    title={t("player.repeatMode", { mode: repeatMode })}
+                    aria-label={t("player.repeatMode", { mode: repeatMode })}
+                    data-player-control="repeat"
+                  >
+                    <RotateCcw size={16}/>
+                    {repeatMode === "one" && <span className="repeat-one">1</span>}
+                  </button>
 
-              <button
-                type="button"
-                className={`player-autoplay-control${autoplayOn ? " mode-on" : ""}`}
-                onClick={toggleAutoplay}
-                title={autoplayOn ? t("player.autoplayOn") : t("player.autoplayOff")}
-                aria-label={autoplayOn ? t("player.autoplayOn") : t("player.autoplayOff")}
-                aria-pressed={autoplayOn}
-                data-player-control="autoplay"
-              >
-                <Radio size={16}/>
-              </button>
+                  <button
+                    type="button"
+                    className={`player-autoplay-control${autoplayOn ? " mode-on" : ""}`}
+                    onClick={toggleAutoplay}
+                    title={autoplayOn ? t("player.autoplayOn") : t("player.autoplayOff")}
+                    aria-label={autoplayOn ? t("player.autoplayOn") : t("player.autoplayOff")}
+                    aria-pressed={autoplayOn}
+                    data-player-control="autoplay"
+                  >
+                    <Radio size={16}/>
+                  </button>
+                </>
+              ) : null}
             </div>
 
             <div className="progress-row">
@@ -24472,9 +25010,19 @@ function PageContent({
           </div>
 
           <div className="player-side">
-            <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
-              {t("player.queueCount", { count: queueCount })}
-            </button>
+            {currentSong.type === "Mixtape" ? (
+              <MixtapeListeningControls
+                variant="desktop"
+                playbackRate={mixtapePlaybackRate}
+                onSkipBack={() => skipActiveMixtape(-PODCAST_SKIP_BACK_SECONDS)}
+                onSkipForward={() => skipActiveMixtape(PODCAST_SKIP_FORWARD_SECONDS)}
+                onPlaybackRateChange={setMixtapePlaybackRate}
+              />
+            ) : (
+              <button className="queue-drawer-button" onClick={() => setShowQueueDrawer(true)} type="button">
+                {t("player.queueCount", { count: queueCount })}
+              </button>
+            )}
             <label className="volume">
               <Volume2 size={18}/>
               <input name="volume" type="range" min="0" max="100" value={Math.round(volume * 100)} onChange={changeVolume} aria-label={t("player.volume")}/>
@@ -25071,6 +25619,8 @@ function PageContent({
             position: relative;
             margin: 0;
             transform: none;
+            min-width: 44px;
+            min-height: 44px;
           }
 
           .search-wrap {
@@ -33455,16 +34005,18 @@ function PageContent({
               left: auto;
               right: auto;
               transform: none;
-              height: 41px;
-              min-height: 41px;
-              max-height: 41px;
+              height: 44px;
+              min-height: 44px;
+              min-width: 44px;
+              max-height: 44px;
               box-sizing: border-box;
             }
 
             .topbar .topbar-account-actions .notification-button {
-              height: 41px;
-              min-height: 41px;
-              max-height: 41px;
+              height: 44px;
+              min-height: 44px;
+              min-width: 44px;
+              max-height: 44px;
               box-sizing: border-box;
             }
           }
@@ -33644,15 +34196,26 @@ function PageContent({
             }
 
             .mobile-horizontal-nav {
-              display: block !important;
+              display: flex !important;
+              align-items: center;
+              gap: 8px;
               position: relative;
               margin: 0;
-              padding: 0 0 4px;
+              padding: 0 8px 4px 0;
               overflow: hidden;
+            }
+
+            .mobile-horizontal-nav > .public-podcast-login-btn {
+              flex: 0 0 auto;
+              border-color: color-mix(in srgb, var(--mdb-green) 55%, var(--mdb-border));
+              background: color-mix(in srgb, var(--mdb-green) 18%, var(--mdb-surface-raised));
+              color: var(--mdb-text-primary);
             }
 
             .mobile-horizontal-nav-scroller {
               display: flex;
+              flex: 1 1 auto;
+              min-width: 0;
               gap: 5px;
               overflow-x: auto;
               overflow-y: hidden;
@@ -34294,6 +34857,20 @@ function PageContent({
               margin: 0;
               transform: none;
               flex-shrink: 0;
+            }
+
+            .topbar-account-actions .sidekick-header-launcher-slot {
+              width: auto;
+              max-width: min(120px, 12vw);
+              min-width: 0;
+              flex: 0 1 auto;
+              overflow: hidden;
+            }
+
+            .topbar-account-actions .sidekick-launcher--header {
+              width: 100%;
+              min-width: 0;
+              max-width: 100%;
             }
 
             /* Portrait phone only: one 5-equal icon control row */
@@ -39952,8 +40529,8 @@ function PageContent({
             .video-bottom-player,
             .fixed-mobile-player {
               position: fixed !important;
-              left: 8px !important;
-              right: 8px !important;
+              left: max(8px, env(safe-area-inset-left, 0px)) !important;
+              right: max(8px, env(safe-area-inset-right, 0px)) !important;
               bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
               width: auto !important;
               max-width: calc(100vw - 16px) !important;
