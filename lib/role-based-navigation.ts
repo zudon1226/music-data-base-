@@ -21,6 +21,7 @@ export type NavCapabilityFlags = {
     isListenerOnly: boolean;
     canUpload: boolean;
     canPodcastStudio: boolean;
+    canMixtapeStudio: boolean;
     canArtistDashboard: boolean;
     canProducerDashboard: boolean;
     canPlatformControlCenter: boolean;
@@ -65,7 +66,9 @@ export function collectNavRoles(input: ResolveNavCapabilitiesInput): Set<string>
 function toNavFlags(
     resolved: ResolvedAccountCapabilities,
     isPlatformOwner: boolean,
+    accountRoles: Iterable<string> = [],
 ): NavCapabilityFlags {
+    const roles = [...accountRoles];
     return {
         isPlatformOwner,
         isAdmin: resolved.isAdmin,
@@ -75,6 +78,9 @@ function toNavFlags(
         isListenerOnly: resolved.isListenerOnly,
         canUpload: resolved.canUpload,
         canPodcastStudio: resolved.canPodcastStudio,
+        canMixtapeStudio: resolved.canPodcastStudio
+            || resolved.canUpload
+            || roles.some((role) => role === "dj" || role === "founding_dj"),
         canArtistDashboard: resolved.canArtistDashboard,
         canProducerDashboard: resolved.canProducerDashboard,
         canPlatformControlCenter: isPlatformOwner || resolved.isAdmin,
@@ -132,6 +138,7 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
             isListenerOnly: true,
             canUpload: false,
             canPodcastStudio: false,
+            canMixtapeStudio: false,
             canArtistDashboard: false,
             canProducerDashboard: false,
             canPlatformControlCenter: false,
@@ -153,7 +160,7 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
         primaryRole,
         accountRoles: sanitizedRoles,
     });
-    return toNavFlags(resolved, isPlatformOwner);
+    return toNavFlags(resolved, isPlatformOwner, sanitizedRoles);
 }
 
 /**
@@ -164,6 +171,7 @@ export const LISTENER_NAV_VIEWS = [
     "Home",
     "Marketplace",
     "Podcasts",
+    "Mixtapes",
     "Ringtone Marketplace",
     "My Purchased Ringtones",
     "Favorite Ringtones",
@@ -191,6 +199,7 @@ export const LISTENER_ACCESSIBLE_VIEWS = [
     "Videos",
     "Podcast Show",
     "Podcast Episode",
+    "Mixtape Show",
 ] as const;
 
 export function canAccessNavView(view: string, capabilities: NavCapabilityFlags): boolean {
@@ -199,6 +208,7 @@ export function canAccessNavView(view: string, capabilities: NavCapabilityFlags)
     if (view === "Artist Dashboard" || view === "Artist Profile") return capabilities.canArtistDashboard;
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
     if (view === "Podcast Studio") return capabilities.canPodcastStudio;
+    if (view === "Mixtape Studio") return capabilities.canMixtapeStudio;
     if (view === "Sales") return capabilities.canSales;
     if (view === "My Ringtones") return capabilities.canMyRingtones || capabilities.canPersonalRingtones;
     // Sponsor management is a business page; Listeners still see sponsored placements.

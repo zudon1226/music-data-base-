@@ -14,6 +14,7 @@ export const CREATOR_ONLY_NAV_VIEWS = [
     "Artist Dashboard",
     "Producer Dashboard",
     "Podcast Studio",
+    "Mixtape Studio",
     "Artist Profile",
     "Producer Profile",
     "My Ringtones",

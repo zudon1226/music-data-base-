@@ -11,6 +11,7 @@ export type DesktopNavView =
     | "Home"
     | "Marketplace"
     | "Podcasts"
+    | "Mixtapes"
     | "Sales"
     | "License History"
     | "Trending"
@@ -30,6 +31,7 @@ export type DesktopNavView =
     | "Producer Dashboard"
     | "Producer Profile"
     | "Podcast Studio"
+    | "Mixtape Studio"
     | "My Ringtones"
     | "Ringtone Marketplace"
     | "My Purchased Ringtones"
@@ -55,6 +57,7 @@ export type DesktopNavBlockReason =
     | "producer-required"
     | "creator-required"
     | "podcast-studio-required"
+    | "mixtape-studio-required"
     | "role-required";
 
 export type DesktopNavItemDefinition = {
@@ -65,12 +68,14 @@ export type DesktopNavItemDefinition = {
     requiresProducerDashboard?: boolean;
     requiresCreator?: boolean;
     requiresPodcastStudio?: boolean;
+    requiresMixtapeStudio?: boolean;
 };
 
 export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Home" },
     { view: "Marketplace" },
     { view: "Podcasts" },
+    { view: "Mixtapes" },
     { view: "Ringtone Marketplace" },
     { view: "My Purchased Ringtones" },
     { view: "Favorite Ringtones" },
@@ -87,6 +92,7 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Artist Dashboard", requiresArtistDashboard: true },
     { view: "Producer Dashboard", requiresProducerDashboard: true },
     { view: "Podcast Studio", requiresPodcastStudio: true },
+    { view: "Mixtape Studio", requiresMixtapeStudio: true },
     { view: "My Ringtones", requiresRingtoneCreator: true },
     { view: "Platform Control Center", requiresOwner: true },
 ];
@@ -125,6 +131,9 @@ export function evaluateDesktopNavAccess(
     if (item?.requiresPodcastStudio && !capabilities.canPodcastStudio) {
         return { allowed: false, reason: "podcast-studio-required" };
     }
+    if (item?.requiresMixtapeStudio && !capabilities.canMixtapeStudio) {
+        return { allowed: false, reason: "mixtape-studio-required" };
+    }
     if (item?.requiresRingtoneCreator && !capabilities.canMyRingtones && !capabilities.canPersonalRingtones) {
         return { allowed: false, reason: "ringtone-creator-required" };
     }
@@ -144,6 +153,7 @@ export const MOBILE_NAV_VIEW_ORDER: DesktopNavView[] = [
     "Home",
     "Marketplace",
     "Podcasts",
+    "Mixtapes",
     "Library",
     "Liked",
     "Following",
@@ -158,6 +168,7 @@ export const MOBILE_NAV_VIEW_ORDER: DesktopNavView[] = [
     "Artist Dashboard",
     "Producer Dashboard",
     "Podcast Studio",
+    "Mixtape Studio",
     "My Ringtones",
     "Sales",
     "Platform Control Center",

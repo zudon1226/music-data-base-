@@ -1,4 +1,4 @@
-import { SUPABASE_PROJECT_URL } from "./supabase-config";
+import { readSupabaseProjectUrl } from "./supabase-config";
 import { resolveVideoPlaybackUrl as resolveCanonicalPlaybackUrl } from "./canonical-video";
 
 export type MediaQueueType = "song" | "video";
@@ -93,13 +93,6 @@ function parseDuration(value: unknown): number | null {
     return null;
 }
 
-function readSupabaseProjectUrl() {
-    if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_URL) {
-        return clean(process.env.NEXT_PUBLIC_SUPABASE_URL).replace(/\/+$/, "");
-    }
-    return SUPABASE_PROJECT_URL.replace(/\/+$/, "");
-}
-
 function normalizeStoragePath(value: string, bucket: string) {
     let path = value.trim().replace(/^\/+/, "");
     path = path.replace(new RegExp(`^${bucket}/+`, "i"), "");
@@ -109,7 +102,7 @@ function normalizeStoragePath(value: string, bucket: string) {
 }
 
 function publicUrlFromStoragePath(storagePath: string, bucket: string) {
-    const projectUrl = readSupabaseProjectUrl();
+    const projectUrl = readSupabaseProjectUrl().replace(/\/+$/, "");
     const path = normalizeStoragePath(storagePath, bucket);
     if (!projectUrl || !path) return "";
     const encoded = path
