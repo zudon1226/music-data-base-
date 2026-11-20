@@ -1,6 +1,6 @@
 /** DESKTOP ONLY — signed storage upload via fetch (no second Supabase/GoTrue client). */
 
-import { resolveSupabaseLoginUrl, SUPABASE_PROJECT_REF } from "./supabase-config";
+import { resolveSupabaseLoginUrl, resolveSupabaseStorageUploadUrl } from "./supabase-config";
 
 function readBrowserSupabaseAnonKey() {
     return (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "")
@@ -11,7 +11,7 @@ function readBrowserSupabaseAnonKey() {
 
 /** Storage hostname client URL (browser direct upload). */
 export function getSupabaseStorageUploadUrl() {
-    return `https://${SUPABASE_PROJECT_REF}.storage.supabase.co`;
+    return resolveSupabaseStorageUploadUrl();
 }
 
 export function describeStorageUploadAuth() {

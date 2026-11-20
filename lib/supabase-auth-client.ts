@@ -6,10 +6,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import {
-    resolveSupabaseLoginUrl,
-    SUPABASE_PROJECT_URL,
-} from "./supabase-config";
+import { resolveSupabaseAuthStorageKey, resolveSupabaseLoginUrl } from "./supabase-config";
 import { createSupabaseAuthStorage } from "./supabase-auth-storage";
 
 const DESKTOP_BROWSER_CLIENT_KEY = "__mdb_desktop_supabase_client__";
@@ -113,7 +110,8 @@ export function readDesktopSupabaseAuthConfig() {
     assertDirectSupabaseAuthUrl(supabaseUrl);
     return {
         supabaseUrl,
-        projectUrl: SUPABASE_PROJECT_URL,
+        projectUrl: supabaseUrl,
+        authStorageKey: resolveSupabaseAuthStorageKey(),
         anonKey: readBrowserSupabaseAnonKey(),
     };
 }
