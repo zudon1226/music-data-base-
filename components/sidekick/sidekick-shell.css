@@ -227,8 +227,32 @@
   letter-spacing: 0.04em;
 }
 
+.sidekick-header-launcher-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 0;
+  position: relative;
+}
+
+.sidekick-launcher--header {
+  position: static;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  min-height: 36px;
+  height: 36px;
+  max-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+  box-shadow: none;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
 @media (min-width: 821px) {
-  .sidekick-launcher {
+  .sidekick-launcher:not(.sidekick-launcher--header) {
     bottom: calc(
       var(--global-player-height, 88px)
       + var(--player-dock-inset-bottom, 12px)

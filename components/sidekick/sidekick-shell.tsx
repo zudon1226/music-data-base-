@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import "./sidekick-shell.css";
 import {
@@ -16,12 +16,14 @@ type SidekickFetchFn = (
 type SidekickShellProps = {
     enabled?: boolean;
     fetchFn: SidekickFetchFn;
+    /** When set (desktop header), the launcher mounts in this element instead of floating over content. */
+    headerLauncherMountRef?: RefObject<HTMLElement | null>;
 };
 
 /**
  * Sidekick shell — portaled to document.body; does not alter html/body scroll ownership.
  */
-export function SidekickShell({ enabled = true, fetchFn }: SidekickShellProps) {
+export function SidekickShell({ enabled = true, fetchFn, headerLauncherMountRef }: SidekickShellProps) {
     const titleId = useId();
     const bodyId = useId();
     const responseId = useId();
@@ -36,6 +38,13 @@ export function SidekickShell({ enabled = true, fetchFn }: SidekickShellProps) {
     const closeRef = useRef<HTMLButtonElement | null>(null);
     const panelRef = useRef<HTMLElement | null>(null);
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
+    const [headerLauncherMount, setHeaderLauncherMount] = useState<HTMLElement | null>(null);
+    const useHeaderLauncher = Boolean(headerLauncherMountRef);
+
+    useLayoutEffect(() => {
+        const next = headerLauncherMountRef?.current ?? null;
+        setHeaderLauncherMount((previous) => (previous === next ? previous : next));
+    });
 
     useEffect(() => {
         const frame = window.requestAnimationFrame(() => setMounted(true));
@@ -142,24 +151,36 @@ export function SidekickShell({ enabled = true, fetchFn }: SidekickShellProps) {
         return null;
     }
 
-    return createPortal(
-        <>
-            <button
-                ref={launcherRef}
-                type="button"
-                className="sidekick-launcher"
-                aria-label="Sidekick"
-                aria-expanded={open}
-                aria-controls={open ? titleId : undefined}
-                onClick={() => {
-                    if (open) close();
-                    else openPanel();
-                }}
-            >
-                Sidekick
-            </button>
+    const launcherClassName = useHeaderLauncher
+        ? "sidekick-launcher sidekick-launcher--header"
+        : "sidekick-launcher";
 
-            {open ? (
+    const launcherButton = (
+        <button
+            ref={launcherRef}
+            type="button"
+            className={launcherClassName}
+            aria-label="Sidekick"
+            aria-expanded={open}
+            aria-controls={open ? titleId : undefined}
+            onClick={() => {
+                if (open) close();
+                else openPanel();
+            }}
+        >
+            Sidekick
+        </button>
+    );
+
+  return (
+      <>
+          {useHeaderLauncher && headerLauncherMount
+              ? createPortal(launcherButton, headerLauncherMount)
+              : !useHeaderLauncher
+                  ? createPortal(launcherButton, document.body)
+                  : null}
+          {createPortal(
+              open ? (
                 <div
                     className="sidekick-panel-backdrop"
                     role="presentation"
@@ -239,8 +260,9 @@ export function SidekickShell({ enabled = true, fetchFn }: SidekickShellProps) {
                         </div>
                     </section>
                 </div>
-            ) : null}
-        </>,
-        document.body,
-    );
+              ) : null,
+              document.body,
+          )}
+      </>
+  );
 }
