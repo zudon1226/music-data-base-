@@ -57,7 +57,7 @@ expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /fetch\(`\/api\/podc
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /styles\.discoverySections/, "Discovery sections must use a separate tab class");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /aria-label="Filter podcasts by format"/, "All/Audio/Video format tabs must remain");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /All[\s\S]*Audio[\s\S]*Video/, "Format tabs must remain All/Audio/Video");
-expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Sign in to see liked podcasts/, "Guest Liked empty copy missing");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /coercePodcastDiscoverySectionForUser/, "Guest Liked tab must stay gated");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /No liked episodes yet/, "Signed-in Liked empty copy missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /\/api\/podcasts\/likes/, "Liked collection must reuse existing likes API");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /\/api\/podcasts\/follows/, "Phase 2H show follows must remain");

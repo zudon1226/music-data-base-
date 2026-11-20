@@ -27,13 +27,16 @@ function forbid(relativePath, pattern, label) {
 expectFile("lib/podcast-resume.ts", "Phase 2F resume helper missing");
 expectFile("scripts/verify-podcast-phase2f.mjs", "Phase 2F verify script missing");
 
-expect("lib/podcast-resume.ts", /export const PODCAST_RESUME_MIN_SECONDS = 5/, "Resume minimum progress missing");
-expect("lib/podcast-resume.ts", /PODCAST_RESUME_COMPLETED_RATIO = 0\.95/, "Completed ratio missing");
-expect("lib/podcast-resume.ts", /export function isEligiblePodcastResume/, "Eligibility helper missing");
-expect("lib/podcast-resume.ts", /export function podcastResumeStartSeconds/, "Resume start helper missing");
-expect("lib/podcast-resume.ts", /export function selectContinueListeningPodcasts/, "Continue listening selector missing");
+expect("lib/podcast-resume.shared.mjs", /export const PODCAST_RESUME_MIN_SECONDS = 5/, "Resume minimum progress missing");
+expect("lib/podcast-resume.shared.mjs", /PODCAST_RESUME_COMPLETED_RATIO = 0\.95/, "Completed ratio missing");
+expect("lib/podcast-resume.shared.mjs", /export function isEligiblePodcastResume/, "Eligibility helper missing");
+expect("lib/podcast-resume.shared.mjs", /export function podcastResumeStartSeconds/, "Resume start helper missing");
+expect("lib/podcast-resume.shared.mjs", /export function selectContinueListeningPodcasts/, "Continue listening selector missing");
+expect("lib/podcast-resume.ts", /export function selectContinueListeningPodcasts/, "Resume TS wrapper missing");
+expect("lib/podcast-resume.shared.mjs", /export function sanitizePodcastResumeProgressList/, "Guest progress sanitizer missing");
 expect("lib/podcast-resume.ts", /isPublishedPodcastEpisode/, "Continue listening must require published episodes");
 expect("lib/podcast-resume.ts", /from "@\/lib\/podcast-discovery"/, "Resume helper must reuse discovery published check");
+expectFile("lib/podcast-resume.shared.mjs", "Resume shared helper missing");
 
 forbid("lib/podcast-resume.ts", /from\("user_recently_played"\)|create table|localStorage/, "Resume helper must not create a second history store");
 
@@ -49,6 +52,7 @@ expect("app/page.tsx", /recordPodcastRecentlyPlayed\(episode, startPosition\)/, 
 expect("app/page.tsx", /continueListeningProgress=\{podcastContinueListeningProgress\}/, "Discovery must receive existing Recently Played progress");
 
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /selectContinueListeningPodcasts/, "Discovery must select Continue listening from published catalog");
+forbid("components/podcasts/PodcastDiscoveryWorkspace.tsx", /progress:\s*userId\s*\?\s*continueListeningProgress\s*:\s*\[\]/, "Guest Continue listening must use local progress");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Continue listening/, "Continue listening heading missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Resume \$\{item\.episode\.title\}/, "Resume control missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /aria-label="Search published podcasts"/, "Phase 2E search must remain");

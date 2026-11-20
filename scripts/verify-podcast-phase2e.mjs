@@ -48,8 +48,8 @@ expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /\/api\/library-save
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /fetch\(`\/api\/podcasts\/\$\{encodeURIComponent\(showId\)\}`/, "Saved show hydrate must use public show GET");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /fetch\(`\/api\/podcasts\/episodes\/\$\{encodeURIComponent\(episodeId\)\}`/, "Saved episode hydrate must use public episode GET");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /No podcasts match your search/, "Search empty state missing");
-expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Sign in to see saved podcasts/, "Guest Saved empty state missing");
-expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Sign in to see shows you follow/, "Guest Following empty state missing");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /visiblePodcastDiscoverySectionIds/, "Guest discovery tabs must stay gated");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /data-podcast-guest-sign-in-prompt/, "Guest sign-in prompt missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /isPublishedPodcastShow/, "Discovery must keep published-only shows");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /isPublishedPodcastEpisode/, "Discovery must keep published-only episodes");
 

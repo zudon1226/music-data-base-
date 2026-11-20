@@ -55,7 +55,7 @@ expect("lib/podcast-delete-lifecycle.ts", /from\("podcast_show_follows"\)/, "Sho
 
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /\/api\/podcasts\/follows/, "Discovery must load show follows");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /toggleFollowShow/, "Discovery must toggle show follow");
-expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Sign in to see shows you follow/, "Guest Following copy must be show-based");
+expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /visiblePodcastDiscoverySectionIds/, "Guest Following tab must stay gated");
 expect("components/podcasts/PodcastShowWorkspace.tsx", /\/api\/podcasts\/follows/, "Show page must use show follows");
 expect("components/podcasts/PodcastEpisodeWorkspace.tsx", /\/api\/podcasts\/follows/, "Episode page must use show follows");
 forbid("components/podcasts/PodcastDiscoveryWorkspace.tsx", /\/api\/follows/, "Discovery must not call creator follows API");

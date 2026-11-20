@@ -32,6 +32,7 @@ import {
     uniquePodcastCategories,
     type PodcastDiscoverySection,
 } from "@/lib/podcast-discovery";
+import { coercePodcastDiscoverySectionForUser, visiblePodcastDiscoverySectionIds } from "@/lib/podcast-guest-discovery";
 import { selectContinueListeningPodcasts, type PodcastResumeProgress } from "@/lib/podcast-resume";
 import {
     type PodcastEpisode,
@@ -44,6 +45,8 @@ import styles from "./podcasts.module.css";
 
 type PodcastDiscoveryWorkspaceProps = {
     userId: string;
+    anonymousPublicListener?: boolean;
+    onSignInRequired?: () => void;
     continueListeningProgress?: PodcastResumeProgress[];
     onPlayPodcast: (request: PodcastPlaybackRequest) => void | Promise<void>;
     onOpenShow: (showId: string) => void;
@@ -124,6 +127,8 @@ function responseError(body: { error?: string }, fallback: string) {
 
 export function PodcastDiscoveryWorkspace({
     userId,
+    anonymousPublicListener = false,
+    onSignInRequired,
     continueListeningProgress = [],
     onPlayPodcast,
     onOpenShow,
@@ -131,6 +136,15 @@ export function PodcastDiscoveryWorkspace({
 }: PodcastDiscoveryWorkspaceProps) {
     const [activeTab, setActiveTab] = useState<PodcastTab>("All");
     const [activeSection, setActiveSection] = useState<PodcastDiscoverySection>("discover");
+    const guestListener = anonymousPublicListener || !userId;
+    const visibleSectionIds = useMemo(
+        () => visiblePodcastDiscoverySectionIds(userId),
+        [userId],
+    );
+    const visibleDiscoverySections = useMemo(
+        () => DISCOVERY_SECTIONS.filter((section) => visibleSectionIds.includes(section.id)),
+        [visibleSectionIds],
+    );
     const [searchInput, setSearchInput] = useState("");
     const [activeCategory, setActiveCategory] = useState("");
     const [shows, setShows] = useState<PodcastShow[]>([]);
@@ -146,6 +160,13 @@ export function PodcastDiscoveryWorkspace({
     const [likedEpisodeIds, setLikedEpisodeIds] = useState<Set<string>>(() => new Set());
     const [followingShowIds, setFollowingShowIds] = useState<Set<string>>(() => new Set());
     const [savedLoading, setSavedLoading] = useState(Boolean(userId));
+
+    useEffect(() => {
+        const coerced = coercePodcastDiscoverySectionForUser(userId, activeSection);
+        if (coerced !== activeSection) {
+            setActiveSection(coerced);
+        }
+    }, [userId, activeSection]);
     const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set());
     const [followKeys, setFollowKeys] = useState<Set<string>>(() => new Set());
     const [hydrateAttemptedIds, setHydrateAttemptedIds] = useState<Set<string>>(() => new Set());
@@ -491,10 +512,10 @@ export function PodcastDiscoveryWorkspace({
     const visibleEpisodes = visibleLists.episodes;
     const continueListening = useMemo(
         () => selectContinueListeningPodcasts({
-            progress: userId ? continueListeningProgress : [],
+            progress: continueListeningProgress,
             publishedEpisodes: catalog.episodes,
         }),
-        [catalog.episodes, continueListeningProgress, userId],
+        [catalog.episodes, continueListeningProgress],
     );
     const hasQuery = Boolean(searchInput.trim());
     const hasCategory = Boolean(activeCategory);
@@ -647,24 +668,6 @@ export function PodcastDiscoveryWorkspace({
     }
 
     function emptyCopy() {
-        if (activeSection === "saved" && !userId) {
-            return {
-                title: "Sign in to see saved podcasts",
-                detail: "Save a show or episode and it will appear here.",
-            };
-        }
-        if (activeSection === "following" && !userId) {
-            return {
-                title: "Sign in to see shows you follow",
-                detail: "Follow a published podcast show to collect it here.",
-            };
-        }
-        if (activeSection === "liked" && !userId) {
-            return {
-                title: "Sign in to see liked podcasts",
-                detail: "Like a published episode and it will appear here.",
-            };
-        }
         if (hasQuery) {
             return {
                 title: "No podcasts match your search",
@@ -835,8 +838,31 @@ export function PodcastDiscoveryWorkspace({
                 </div>
             ) : null}
 
-            <div className={styles.discoverySections} role="tablist" aria-label="Podcast discovery sections">
-                {DISCOVERY_SECTIONS.map((section) => (
+            {guestListener ? (
+                <div className={styles.guestSignInPrompt} data-podcast-guest-sign-in-prompt="true">
+                    <p>
+                        Sign in to save shows, follow podcasts, and like episodes. Public browsing, playback, and comments stay open without an account.
+                    </p>
+                    {onSignInRequired ? (
+                        <button
+                            type="button"
+                            className={styles.guestSignInButton}
+                            data-public-podcast-login="true"
+                            onClick={onSignInRequired}
+                        >
+                            Log in
+                        </button>
+                    ) : null}
+                </div>
+            ) : null}
+
+            <div
+                className={guestListener ? `${styles.discoverySections} ${styles.discoverySectionsGuest}` : styles.discoverySections}
+                role="tablist"
+                aria-label="Podcast discovery sections"
+                data-podcast-discovery-section-count={String(visibleDiscoverySections.length)}
+            >
+                {visibleDiscoverySections.map((section) => (
                     <button
                         key={section.id}
                         type="button"

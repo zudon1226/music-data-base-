@@ -40,6 +40,8 @@ const requiredFiles = [
   "supabase/migrations/202608230001_podcast_phase2c_episode_comments.sql",
   "app/podcast/[id]/page.tsx",
   "app/podcast/episode/[id]/page.tsx",
+  "lib/public-podcast-metadata.ts",
+  "lib/public-podcast-metadata.shared.mjs",
   "lib/podcast-routes.ts",
   "components/podcasts/podcasts.module.css",
   "lib/podcast-types.ts",
@@ -48,6 +50,7 @@ const requiredFiles = [
   "lib/podcast-delete-lifecycle.ts",
   "lib/podcast-discovery.ts",
   "lib/podcast-resume.ts",
+  "lib/podcast-resume.shared.mjs",
   "lib/podcast-playback-controls.ts",
   "components/podcasts/PodcastListeningControls.tsx",
   "scripts/verify-podcast-phase2e.mjs",
@@ -119,8 +122,11 @@ expect("app/page.tsx", /<PodcastEpisodeWorkspace/, "Podcast episode workspace no
 expect("app/page.tsx", /<PodcastStudioWorkspace/, "Podcast Studio workspace not mounted");
 expect("app/page.tsx", /function openPodcastShow\(/, "Podcast show deep-link opener missing");
 expect("app/page.tsx", /function openPodcastEpisode\(/, "Podcast episode deep-link opener missing");
-expect("next.config.ts", /source: "\/podcast\/episode\/:id"/, "Podcast episode rewrite missing");
-expect("next.config.ts", /source: "\/podcast\/:id"/, "Podcast show rewrite missing");
+if (/source:\s*"\/podcast\/:id"|source:\s*"\/podcast\/episode\/:id"/.test(read("next.config.ts"))) {
+  failures.push("Podcast deep links must use App Router pages (remove podcast rewrites to /)");
+}
+expect("lib/public-podcast-metadata.ts", /buildPublicPodcastShowMetadata/, "Public podcast show metadata builder missing");
+expect("lib/public-podcast-metadata.ts", /buildPublicPodcastEpisodeMetadata/, "Public podcast episode metadata builder missing");
 expect("app/api/podcasts/episodes/[id]/route.ts", /export async function GET/, "Public episode GET missing");
 expect("lib/role-based-navigation.ts", /"Podcast Show"/, "Listener Podcast show destination missing");
 expect("lib/role-based-navigation.ts", /"Podcast Episode"/, "Listener Podcast episode destination missing");
@@ -176,7 +182,10 @@ expect("app/page.tsx", /<NotificationCenterPanel/, "Existing notification bell m
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /from "@\/lib\/podcast-discovery"/, "Phase 2E discovery helper wiring missing");
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Discover[\s\S]*Saved[\s\S]*Following/, "Phase 2E Discover\/Saved\/Following sections missing");
 expect("components/podcasts/podcasts.module.css", /\.discoverySearch/, "Phase 2E local search styles missing");
-expect("lib/podcast-resume.ts", /export function isEligiblePodcastResume/, "Phase 2F resume eligibility helper missing");
+if (!/export function isEligiblePodcastResume|isEligiblePodcastResume/.test(read("lib/podcast-resume.ts"))
+    && !/export function isEligiblePodcastResume/.test(read("lib/podcast-resume.shared.mjs"))) {
+    failures.push("Phase 2F resume eligibility helper missing (lib/podcast-resume.ts)");
+}
 expect("components/podcasts/PodcastDiscoveryWorkspace.tsx", /Continue listening/, "Phase 2F Continue listening UI missing");
 
 const commentCreateSource = read("app/api/podcasts/episodes/[id]/comments/route.ts");
