@@ -568,6 +568,111 @@ export function isPositivelyBrowserUnsupportedVideoCodec(videoCodec: string) {
  * Classify playback failures without conflating missing-url and unsupported-codec.
  * Never returns missing-url when any durable URL / rebuildable storagePath exists.
  */
+export const HTML_MEDIA_ERROR_NAMES: Record<number, string> = {
+    1: "MEDIA_ERR_ABORTED",
+    2: "MEDIA_ERR_NETWORK",
+    3: "MEDIA_ERR_DECODE",
+    4: "MEDIA_ERR_SRC_NOT_SUPPORTED",
+};
+
+const HTML_MEDIA_READY_STATE = ["HAVE_NOTHING", "HAVE_METADATA", "HAVE_CURRENT_DATA", "HAVE_FUTURE_DATA", "HAVE_ENOUGH_DATA"];
+const HTML_MEDIA_NETWORK_STATE = ["NETWORK_EMPTY", "NETWORK_IDLE", "NETWORK_LOADING", "NETWORK_NO_SOURCE"];
+
+export function describeHtmlMediaErrorCode(code: number | null | undefined) {
+    if (code == null || !Number.isFinite(code)) return "";
+    return HTML_MEDIA_ERROR_NAMES[code] || `MEDIA_ERR_UNKNOWN_${code}`;
+}
+
+export type VideoPlaybackHttpProbeSummary = {
+    ok: boolean;
+    status: number;
+    contentType: string;
+    acceptRanges?: string;
+    contentRange?: string;
+    contentLength?: string;
+    finalUrl?: string;
+    videoCodec?: string;
+    audioCodec?: string;
+    error?: string;
+};
+
+export type HtmlMediaElementDiagnostics = {
+    selectedVideoId: string;
+    title: string;
+    finalVideoUrl: string;
+    videoUrl: string;
+    storagePath: string;
+    videoCodec: string;
+    audioCodec: string;
+    sourceMimeType: string;
+    currentSrc: string;
+    elementSrc: string;
+    readyState: number;
+    readyStateLabel: string;
+    networkState: number;
+    networkStateLabel: string;
+    mediaErrorCode: number | null;
+    mediaErrorName: string;
+    mediaErrorMessage: string;
+    canPlayDeclaredMime: string;
+    httpStatus: number | null;
+    httpContentType: string;
+    httpProbeOk: boolean | null;
+    httpProbeError: string;
+    classification: string;
+};
+
+export function buildHtmlMediaElementDiagnostics(
+    media: Pick<HTMLVideoElement, "currentSrc" | "src" | "readyState" | "networkState" | "error" | "canPlayType">,
+    context: {
+        selectedVideoId?: string;
+        title?: string;
+        finalVideoUrl?: string;
+        videoUrl?: string;
+        storagePath?: string;
+        videoCodec?: string;
+        audioCodec?: string;
+        sourceMimeType?: string;
+        classification?: string | null;
+    },
+    probe?: VideoPlaybackHttpProbeSummary | null,
+): HtmlMediaElementDiagnostics {
+    const sourceMimeType = context.sourceMimeType?.trim() || "video/mp4";
+    const error = media.error;
+    return {
+        selectedVideoId: context.selectedVideoId || "",
+        title: context.title || "",
+        finalVideoUrl: context.finalVideoUrl || "",
+        videoUrl: context.videoUrl || "",
+        storagePath: context.storagePath || "",
+        videoCodec: context.videoCodec || "",
+        audioCodec: context.audioCodec || "",
+        sourceMimeType,
+        currentSrc: media.currentSrc || "",
+        elementSrc: media.src || "",
+        readyState: media.readyState,
+        readyStateLabel: HTML_MEDIA_READY_STATE[media.readyState] || String(media.readyState),
+        networkState: media.networkState,
+        networkStateLabel: HTML_MEDIA_NETWORK_STATE[media.networkState] || String(media.networkState),
+        mediaErrorCode: error?.code ?? null,
+        mediaErrorName: describeHtmlMediaErrorCode(error?.code ?? null),
+        mediaErrorMessage: error?.message || "",
+        canPlayDeclaredMime: media.canPlayType?.(sourceMimeType) || "",
+        httpStatus: probe?.status ?? null,
+        httpContentType: probe?.contentType || "",
+        httpProbeOk: probe ? Boolean(probe.ok) : null,
+        httpProbeError: probe?.error || "",
+        classification: context.classification || "none",
+    };
+}
+
+/** Structured mobile/desktop video error log — always JSON-serializable (no empty DevTools objects). */
+export function logMediaPlaybackExactError(diagnostics: HtmlMediaElementDiagnostics) {
+    const payload = JSON.stringify(diagnostics);
+    console.error("[mobile video] exact media error", payload);
+    console.error("[mobile video] exact media error (parsed)", diagnostics);
+}
+
 export function classifyVideoPlaybackFailure(input: {
     playableUrl?: string | null;
     videoUrl?: string | null;
