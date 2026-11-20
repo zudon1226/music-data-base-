@@ -6654,13 +6654,21 @@ function PageContent({
         if (!isAuthenticated || !authReady || !accountRolesReady) return;
         const decision = evaluateDesktopNavAccess(view as DesktopNavView, desktopNavAccess);
         if (!decision.allowed) {
+            // Token refresh can briefly mark founding access loading before caps repopulate.
+            // Do not unmount creator studios mid-action (e.g. Mixtape Studio create).
+            if (
+                foundingAccessLoading
+                && (view === "Mixtape Studio" || view === "Podcast Studio")
+            ) {
+                return;
+            }
             // Silent recovery for deep links / legacy founding redirects.
             // Intentional unauthorized clicks toast via denyUnauthorizedDesktopNav only.
             setShowUpload(false);
             setToast(null);
             setView("Home");
         }
-    }, [isAuthenticated, authReady, accountRolesReady, view, desktopNavAccess]);
+    }, [foundingAccessLoading, isAuthenticated, authReady, accountRolesReady, view, desktopNavAccess]);
     useEffect(() => {
         if (!shouldShowUploadControl(desktopNavAccess) && showUpload) {
             setShowUpload(false);

@@ -1,7 +1,13 @@
 "use client";
 
 import type { FormEvent, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    mergeMineCatalogResponse,
+    shouldApplyMineCatalogRequest,
+    shouldClearStudioLoading,
+    upsertMixtapeById,
+} from "@/lib/mixtape-studio-catalog";
 import { ImagePlus, LoaderCircle, Plus, UploadCloud } from "lucide-react";
 import { authFetch } from "@/lib/client-api-auth";
 import type { Mixtape, MixtapeTrack } from "@/lib/mixtape-types";
@@ -38,14 +44,34 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
     const [coverUploading, setCoverUploading] = useState(false);
     const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
     const [statusBusy, setStatusBusy] = useState(false);
+    const [createdDraft, setCreatedDraft] = useState<Mixtape | null>(null);
+    const loadSeqRef = useRef(0);
+    const selectedIdRef = useRef("");
+    const createdDraftRef = useRef<Mixtape | null>(null);
+    const studioCatalogReadyRef = useRef(false);
+
+    useEffect(() => {
+        selectedIdRef.current = selectedId;
+    }, [selectedId]);
+
+    useEffect(() => {
+        createdDraftRef.current = createdDraft;
+    }, [createdDraft]);
+
+    const studioMixtapes = useMemo(() => {
+        if (!createdDraft) return mixtapes;
+        return upsertMixtapeById(mixtapes, createdDraft);
+    }, [createdDraft, mixtapes]);
 
     const selectedMixtape = useMemo(
-        () => mixtapes.find((mixtape) => mixtape.id === selectedId) || null,
-        [mixtapes, selectedId],
+        () => studioMixtapes.find((mixtape) => mixtape.id === selectedId) || null,
+        [studioMixtapes, selectedId],
     );
 
     const loadMine = useCallback(async (signal?: AbortSignal) => {
-        setLoading(true);
+        const requestSeq = ++loadSeqRef.current;
+        const showLoading = !studioCatalogReadyRef.current;
+        if (showLoading) setLoading(true);
         setError("");
         try {
             const response = await authFetch(
@@ -54,20 +80,31 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
                 { cache: "no-store", signal },
             );
             const body = (await response.json().catch(() => ({}))) as CollectionResponse;
+            if (signal?.aborted) return;
             if (!response.ok) throw new Error(body.error || "Studio catalog could not be loaded.");
+            if (!shouldApplyMineCatalogRequest(requestSeq, loadSeqRef.current, false)) return;
             const nextMixtapes = Array.isArray(body.mixtapes) ? body.mixtapes : [];
-            setMixtapes(nextMixtapes);
-            setTracks(Array.isArray(body.tracks) ? body.tracks : []);
-            if (!selectedId && nextMixtapes[0]) setSelectedId(nextMixtapes[0].id);
+            const nextTracks = Array.isArray(body.tracks) ? body.tracks : [];
+            setMixtapes((prev) => mergeMineCatalogResponse(nextMixtapes, prev, selectedIdRef.current));
+            setTracks(nextTracks);
+            studioCatalogReadyRef.current = true;
+            const draft = createdDraftRef.current;
+            if (draft && nextMixtapes.some((mixtape) => mixtape.id === draft.id)) {
+                setCreatedDraft(null);
+            }
+            setSelectedId((current) => current || nextMixtapes[0]?.id || "");
         }
         catch (loadError) {
             if (signal?.aborted) return;
+            if (!shouldApplyMineCatalogRequest(requestSeq, loadSeqRef.current, false)) return;
             setError(loadError instanceof Error ? loadError.message : "Studio catalog could not be loaded.");
         }
         finally {
-            if (!signal?.aborted) setLoading(false);
+            if (showLoading && shouldClearStudioLoading(requestSeq, loadSeqRef.current)) {
+                setLoading(false);
+            }
         }
-    }, [selectedId, userId]);
+    }, [userId]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -104,8 +141,8 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
         };
     }, [selectedMixtape?.coverImageUrl, selectedMixtape?.coverStoragePath, selectedMixtape?.id]);
 
-    const createMixtape = async (event: FormEvent) => {
-        event.preventDefault();
+    const createMixtape = async (event?: FormEvent) => {
+        event?.preventDefault();
         setMessage("");
         const response = await authFetch(supabase, "/api/mixtapes", {
             method: "POST",
@@ -117,10 +154,16 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
             setError(body.error || "Mixtape could not be created.");
             return;
         }
+        const created = body.mixtape as Mixtape;
         setForm(emptyForm);
-        setSelectedId(body.mixtape.id);
+        studioCatalogReadyRef.current = true;
+        setLoading(false);
+        setCreatedDraft(created);
+        setMixtapes((prev) => upsertMixtapeById(prev, created));
+        setSelectedId(created.id);
+        selectedIdRef.current = created.id;
         setMessage("Mixtape created.");
-        await loadMine();
+        void loadMine();
     };
 
     const patchMixtapeStatus = async (
@@ -303,7 +346,7 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
             {error ? <div className={styles.errorState}>{error}</div> : null}
             {message ? <p>{message}</p> : null}
 
-            <form className={styles.studioGrid} onSubmit={(event) => void createMixtape(event)}>
+            <div className={styles.studioGrid}>
                 <div className={styles.formField}>
                     <label htmlFor="mixtape-title">Title</label>
                     <input id="mixtape-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
@@ -316,14 +359,14 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
                     <label htmlFor="mixtape-genre">Genre</label>
                     <input id="mixtape-genre" value={form.genre} onChange={(event) => setForm({ ...form, genre: event.target.value })} />
                 </div>
-                <button type="submit"><Plus size={16} aria-hidden /> Create mixtape</button>
-            </form>
+                <button type="button" onClick={() => void createMixtape()}><Plus size={16} aria-hidden /> Create mixtape</button>
+            </div>
 
             <div className={styles.formField}>
                 <label htmlFor="mixtape-select">Your mixtapes</label>
                 <select id="mixtape-select" value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
                     <option value="">Select mixtape</option>
-                    {mixtapes.map((mixtape) => (
+                    {studioMixtapes.map((mixtape) => (
                         <option key={mixtape.id} value={mixtape.id}>{mixtape.title}</option>
                     ))}
                 </select>

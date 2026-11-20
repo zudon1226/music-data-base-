@@ -195,6 +195,160 @@ async function waitForMixtapeShow(page, timeout = 120_000) {
     await show.getByRole("button", { name: "Play" }).first().waitFor({ state: "visible", timeout });
 }
 
+const FAVORITES_SYNC_TIMEOUT_MS = 30_000;
+const STUDIO_CREATE_SYNC_TIMEOUT_MS = 60_000;
+
+function isMixtapeCreatePost(response) {
+    const url = response.url();
+    return (
+        response.request().method() === "POST"
+        && url.includes("/api/mixtapes")
+        && !url.includes("/tracks")
+        && !url.includes("/favorites")
+        && !url.includes("/playback")
+        && !url.includes("/reports")
+        && !url.includes("/uploads")
+        && !url.includes("/analytics")
+    );
+}
+
+function isStudioMineListGet(response) {
+    return response.request().method() === "GET"
+        && response.url().includes("/api/mixtapes")
+        && response.url().includes("scope=mine");
+}
+
+/**
+ * @param {import('playwright').Page} page
+ * @param {import('playwright').Locator} studio
+ */
+async function reopenMixtapeStudioIfNeeded(page) {
+    const onStudio = await page
+        .locator('main.zml-app[data-active-view="Mixtape Studio"]')
+        .count()
+        .catch(() => 0);
+    if (onStudio) return;
+    const studioNav = page.locator('.desktop-sidebar-nav button[data-nav-view="Mixtape Studio"]').first();
+    if (await studioNav.count()) {
+        await studioNav.click();
+    }
+    else {
+        const studioLink = page.getByRole("link", { name: /Mixtape Studio/i });
+        if (await studioLink.count()) await studioLink.first().click();
+    }
+    await page.waitForFunction(
+        () => document.querySelector("main.zml-app")?.getAttribute("data-active-view") === "Mixtape Studio",
+        { timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS },
+    );
+}
+
+async function waitForStudioSelectorMixtape(page, studio, mixtapeId, timeout = STUDIO_CREATE_SYNC_TIMEOUT_MS) {
+  await reopenMixtapeStudioIfNeeded(page);
+  await page.waitForFunction(
+        (id) => {
+            const select = document.querySelector('[data-mixtape-studio] select#mixtape-select');
+            if (!select) return false;
+            const hasOption = [...select.options].some((option) => option.value === id);
+            return hasOption || select.value === id;
+        },
+        mixtapeId,
+        { timeout },
+    );
+    const studioLocator = page.locator("[data-mixtape-studio]");
+    const option = studioLocator.locator(`select#mixtape-select option[value="${mixtapeId}"]`);
+    if ((await option.count()) === 0) {
+        throw new Error(`studio select value missing option for id=${mixtapeId}`);
+    }
+    await studioLocator.locator("select#mixtape-select").selectOption(mixtapeId).catch(() => null);
+}
+
+function isAuthenticatedFavoritesGet(response) {
+    return response.request().method() === "GET" && response.url().includes("/api/mixtapes/favorites");
+}
+
+/**
+ * Wait for GET /api/mixtapes/favorites and verify list includes or excludes mixtapeId.
+ * @param {import('playwright').Page} page
+ */
+async function assertFavoritesGetResponse(response, mixtapeId, expectFavorited) {
+    if (!response.ok()) {
+        throw new Error(`favorites GET failed http=${response.status()}`);
+    }
+    const body = await response.json().catch(() => ({}));
+    const ids = Array.isArray(body.favoriteMixtapeIds) ? body.favoriteMixtapeIds : [];
+    const includes = ids.includes(mixtapeId);
+    if (expectFavorited && !includes) {
+        throw new Error("favorites GET did not include test mixtape after favorite");
+    }
+    if (!expectFavorited && includes) {
+        throw new Error("favorites GET still includes test mixtape after unfavorite");
+    }
+    return body;
+}
+
+async function waitForFavoritesGetForMixtape(page, mixtapeId, expectFavorited, timeout = FAVORITES_SYNC_TIMEOUT_MS) {
+    const response = await page.waitForResponse(isAuthenticatedFavoritesGet, { timeout });
+    return assertFavoritesGetResponse(response, mixtapeId, expectFavorited);
+}
+
+/**
+ * @param {import('playwright').Locator} show
+ */
+async function waitForShowFavoriteLabel(show, expectFavorited, timeout = FAVORITES_SYNC_TIMEOUT_MS) {
+    const pattern = expectFavorited ? /^Favorited$/i : /^Favorite$/i;
+    await show.getByRole("button", { name: pattern }).waitFor({ state: "visible", timeout });
+}
+
+/**
+ * @param {import('playwright').Page} page
+ * @param {import('playwright').Locator} show
+ */
+async function waitForMixtapeShowFavoritesSynced(page, show, mixtapeId, expectFavorited, timeout = FAVORITES_SYNC_TIMEOUT_MS) {
+    await waitForFavoritesGetForMixtape(page, mixtapeId, expectFavorited, timeout);
+    await waitForShowFavoriteLabel(show, expectFavorited, timeout);
+}
+
+/**
+ * @param {import('playwright').Locator} show
+ * @param {import('playwright').Page} page
+ */
+async function clickFavoriteToggle(show, page, expectAfterFavorited) {
+    const clickPattern = expectAfterFavorited ? /^Favorite$/i : /^Favorited$/i;
+    const btn = show.getByRole("button", { name: clickPattern });
+    await btn.waitFor({ state: "visible", timeout: FAVORITES_SYNC_TIMEOUT_MS });
+    const postWait = page.waitForResponse(
+        (r) => r.url().includes("/api/mixtapes/favorites") && r.request().method() === "POST",
+        { timeout: FAVORITES_SYNC_TIMEOUT_MS },
+    );
+    await btn.click();
+    const post = await postWait;
+    if (!post.ok()) {
+        throw new Error(`favorites POST failed http=${post.status()}`);
+    }
+    const postBody = await post.json().catch(() => ({}));
+    if (Boolean(postBody.favorited) !== expectAfterFavorited) {
+        throw new Error(
+            `favorites POST favorited=${String(postBody.favorited)} expected=${String(expectAfterFavorited)}`,
+        );
+    }
+    await waitForShowFavoriteLabel(show, expectAfterFavorited, FAVORITES_SYNC_TIMEOUT_MS);
+}
+
+/**
+ * @param {import('playwright').Page} page
+ * @param {import('playwright').Locator} show
+ */
+async function reloadAndAssertFavoriteState(page, show, mixtapeId, expectFavorited) {
+    const favoritesGet = page.waitForResponse(isAuthenticatedFavoritesGet, {
+        timeout: FAVORITES_SYNC_TIMEOUT_MS,
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForMixtapeShow(page);
+    const response = await favoritesGet;
+    await assertFavoritesGetResponse(response, mixtapeId, expectFavorited);
+    await waitForShowFavoriteLabel(show, expectFavorited, FAVORITES_SYNC_TIMEOUT_MS);
+}
+
 async function runAuthenticated(browser, media) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
@@ -239,7 +393,13 @@ async function runAuthenticated(browser, media) {
                 if (await studioLink.count()) await studioLink.first().click();
             }
             const mounted = await page.waitForSelector("[data-mixtape-studio]", { timeout: 20_000 }).catch(() => null);
-            if (mounted) break;
+            const activeView = await page
+                .waitForFunction(
+                    () => document.querySelector("main.zml-app")?.getAttribute("data-active-view") === "Mixtape Studio",
+                    { timeout: 20_000 },
+                )
+                .catch(() => null);
+            if (mounted && activeView) break;
             await page.waitForTimeout(2000);
         }
 
@@ -257,25 +417,101 @@ async function runAuthenticated(browser, media) {
             await page.screenshot({ path: join(evidenceDir, "studio-open.png"), fullPage: true });
 
             const studio = page.locator("[data-mixtape-studio]");
-            await studio.locator("#mixtape-title").waitFor({ state: "visible", timeout: 60_000 });
-            await studio.locator("#mixtape-title").fill(auditMixtapeTitle);
+            await page
+                .waitForResponse(
+                    (response) => isStudioMineListGet(response) && response.status() === 200,
+                    { timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS },
+                )
+                .catch(() => null);
+            await studio.getByText(/Loading studio/i).waitFor({ state: "hidden", timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS }).catch(() => null);
+            await studio.locator("#mixtape-title").waitFor({ state: "visible", timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS });
+            const titleInput = studio.locator("#mixtape-title");
+            await titleInput.click();
+            await titleInput.fill(auditMixtapeTitle);
+            const titleValue = await titleInput.inputValue();
+            if (titleValue !== auditMixtapeTitle) {
+                record("create test mixtape", "fail", `title input did not bind (got "${titleValue.slice(0, 40)}")`);
+            }
+            else {
             await studio.locator("#mixtape-description").fill(`${AUDIT_PREFIX} release audit fixture`);
             await studio.locator("#mixtape-genre").fill("Audit");
             const createMixtape = studio.getByRole("button", { name: /Create mixtape/i });
             await createMixtape.waitFor({ state: "visible", timeout: 30_000 });
-            await createMixtape.click({ timeout: 60_000 });
-            await page.waitForSelector(`#mixtape-select option:has-text("${auditMixtapeTitle}")`, {
-                timeout: 60_000,
-            }).catch(() => null);
-
-            const option = page.locator("#mixtape-select option").filter({ hasText: auditMixtapeTitle });
-            if (await option.count() === 0) {
-                record("create test mixtape", "fail", "title not in studio selector");
+            const createPostWait = page.waitForResponse(isMixtapeCreatePost, {
+                timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS,
+            });
+            await createMixtape.click({ timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS });
+            await studio.getByText(/Mixtape created/i).waitFor({ state: "visible", timeout: 15_000 }).catch(() => null);
+            const createPost = await createPostWait.catch(() => null);
+            const createBody = createPost ? await createPost.json().catch(() => ({})) : {};
+            auditMixtapeId = String(createBody.mixtape?.id || "").trim();
+            const createStatus = createPost?.status() ?? 0;
+            if (createStatus !== 201 || !auditMixtapeId) {
+                record(
+                    "create test mixtape",
+                    "fail",
+                    createPost
+                        ? `POST status=${createStatus} id=${auditMixtapeId || "missing"}`
+                        : "no create POST response",
+                );
             }
             else {
-                auditMixtapeId = await option.getAttribute("value") || "";
-                await page.selectOption("#mixtape-select", auditMixtapeId);
-                record("create test mixtape", "pass", auditMixtapeId);
+                const studioStillOpen = await page
+                    .waitForFunction(
+                        () => document.querySelector("main.zml-app")?.getAttribute("data-active-view") === "Mixtape Studio",
+                        { timeout: 5_000 },
+                    )
+                    .catch(() => null);
+                if (!studioStillOpen) {
+                    record("create test mixtape", "fail", "Mixtape Studio view closed after create POST");
+                    auditMixtapeId = "";
+                }
+            }
+            if (auditMixtapeId) {
+                const expectedId = auditMixtapeId;
+                let listed = false;
+                const listDeadline = Date.now() + STUDIO_CREATE_SYNC_TIMEOUT_MS;
+                while (Date.now() < listDeadline && !listed) {
+                    const mineResp = await page
+                        .waitForResponse(isStudioMineListGet, {
+                            timeout: Math.max(1_000, listDeadline - Date.now()),
+                        })
+                        .catch(() => null);
+                    if (!mineResp) break;
+                    const mineBody = await mineResp.json().catch(() => ({}));
+                    const rows = Array.isArray(mineBody.mixtapes) ? mineBody.mixtapes : [];
+                    listed = rows.some((row) => String(row.id) === expectedId);
+                }
+                if (!listed) {
+                    record("create test mixtape", "fail", "mine list GET never included new mixtape id");
+                    auditMixtapeId = "";
+                }
+                else {
+                    try {
+                        await waitForStudioSelectorMixtape(page, studio, auditMixtapeId);
+                    }
+                    catch (error) {
+                        record(
+                            "create test mixtape",
+                            "fail",
+                            error instanceof Error ? error.message : "studio selector missing new mixtape id",
+                        );
+                        auditMixtapeId = "";
+                    }
+                }
+            }
+            }
+            if (auditMixtapeId) {
+                const selectorValue = await studio.locator("select#mixtape-select").inputValue().catch(() => "");
+                await studio.locator("select#mixtape-select").selectOption(auditMixtapeId).catch(() => null);
+                const selectedValue = await studio.locator("select#mixtape-select").inputValue().catch(() => "");
+                record(
+                    "create test mixtape",
+                    selectedValue === auditMixtapeId ? "pass" : "fail",
+                    `id=${auditMixtapeId} selected=${selectedValue || selectorValue || "empty"}`,
+                );
+            }
+            if (auditMixtapeId) {
 
                 await page.locator('input[type="file"][accept*="audio"]').first().setInputFiles(media.mp3Path);
                 await page.waitForTimeout(5000);
@@ -369,27 +605,31 @@ async function runAuthenticated(browser, media) {
             const audioCount = await countAudio(page);
             record("global player single audio", audioCount === 1 ? "pass" : "fail", `audioCount=${audioCount}`);
 
-            const fav = show.getByRole("button", { name: /^Favorite$/i });
-            if (await fav.count()) {
-                await fav.click();
-                await page.waitForTimeout(1500);
-                const favoritedBtn = show.getByRole("button", { name: /^Favorited$/i });
-                const favorited = (await favoritedBtn.count()) > 0;
-                await page.reload({ waitUntil: "domcontentloaded" });
-                await waitForMixtapeShow(page);
-                const stillFavorited = (await show.getByRole("button", { name: /^Favorited$/i }).count()) > 0;
-                if (stillFavorited) {
-                    await show.getByRole("button", { name: /^Favorited$/i }).click();
-                    await page.waitForTimeout(800);
-                }
-                record(
-                    "favorite/unfavorite",
-                    favorited && stillFavorited ? "pass" : "fail",
-                    favorited ? "persisted after refresh" : "toggle failed",
-                );
+            const favoriteBtn = show.getByRole("button", { name: /^Favorite$/i });
+            const favoritedBtn = show.getByRole("button", { name: /^Favorited$/i });
+            if ((await favoriteBtn.count()) === 0 && (await favoritedBtn.count()) === 0) {
+                record("favorite/unfavorite", "blocked", "Favorite control missing on show workspace");
             }
             else {
-                record("favorite/unfavorite", "blocked", "Favorite control missing on show workspace");
+                let favoriteDetail = "";
+                let favoriteStatus = "fail";
+                try {
+                    if (await favoriteBtn.count()) {
+                        await clickFavoriteToggle(show, page, true);
+                    }
+                    else {
+                        await waitForShowFavoriteLabel(show, true, FAVORITES_SYNC_TIMEOUT_MS);
+                    }
+                    await reloadAndAssertFavoriteState(page, show, auditMixtapeId, true);
+                    await clickFavoriteToggle(show, page, false);
+                    await reloadAndAssertFavoriteState(page, show, auditMixtapeId, false);
+                    favoriteStatus = "pass";
+                    favoriteDetail = "favorite persisted after reload; unfavorite persisted after reload";
+                }
+                catch (error) {
+                    favoriteDetail = error instanceof Error ? error.message : String(error);
+                }
+                record("favorite/unfavorite", favoriteStatus, favoriteDetail);
             }
 
             const reportBtn = show.getByRole("button", { name: /^Report$/i }).first();
