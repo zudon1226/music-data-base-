@@ -2,6 +2,7 @@ node_modules/
 .next/
 .npm-cache/
 .env.local
+.env.staging.local
 .vercel/
 .next-dev.err.log
 .next-dev.out.log
@@ -20,3 +21,6 @@ next-start*.log
 scripts/_phase6-*.mjs
 
 *.pid
+.vercel
+.env*
+tmp-mixtape-approved-e2e/staging-artist-credentials.env
