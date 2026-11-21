@@ -3,10 +3,14 @@
 import type { FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    mergeMineCatalogResponse,
+    applyProgressiveMineCatalogPage,
+    MINE_CATALOG_DEFAULT_LIMIT,
+    isMineCatalogLoadIncomplete,
+    MINE_CATALOG_MAX_PAGES,
     shouldApplyMineCatalogRequest,
     shouldClearStudioLoading,
     upsertMixtapeById,
+    upsertTrackById,
 } from "@/lib/mixtape-studio-catalog";
 import { ImagePlus, LoaderCircle, Plus, UploadCloud } from "lucide-react";
 import { authFetch } from "@/lib/client-api-auth";
@@ -24,6 +28,8 @@ type CollectionResponse = {
     mixtapes?: Mixtape[];
     tracks?: MixtapeTrack[];
     error?: string;
+    hasMore?: boolean;
+    nextCursor?: string;
 };
 
 const emptyForm = {
@@ -44,11 +50,27 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
     const [coverUploading, setCoverUploading] = useState(false);
     const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
     const [statusBusy, setStatusBusy] = useState(false);
+    const [loadingMoreCatalog, setLoadingMoreCatalog] = useState(false);
+    const [catalogPageCount, setCatalogPageCount] = useState(0);
+    const [catalogIncomplete, setCatalogIncomplete] = useState(false);
     const [createdDraft, setCreatedDraft] = useState<Mixtape | null>(null);
     const loadSeqRef = useRef(0);
     const selectedIdRef = useRef("");
     const createdDraftRef = useRef<Mixtape | null>(null);
     const studioCatalogReadyRef = useRef(false);
+    const catalogAbortRef = useRef<AbortController | null>(null);
+    const tracksRef = useRef<MixtapeTrack[]>([]);
+
+    useEffect(() => {
+        tracksRef.current = tracks;
+    }, [tracks]);
+
+    const beginCatalogLoad = useCallback(() => {
+        catalogAbortRef.current?.abort();
+        const controller = new AbortController();
+        catalogAbortRef.current = controller;
+        return controller.signal;
+    }, []);
 
     useEffect(() => {
         selectedIdRef.current = selectedId;
@@ -68,62 +90,138 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
         [studioMixtapes, selectedId],
     );
 
+    const applyCatalogPage = useCallback((
+        requestSeq: number,
+        pageMixtapes: Mixtape[],
+        pageTracks: MixtapeTrack[],
+        pages: number,
+        lastPageHasMore: boolean,
+        isFirstPage: boolean,
+    ) => {
+        if (!shouldApplyMineCatalogRequest(requestSeq, loadSeqRef.current, false)) return;
+        setCatalogPageCount(pages);
+        setCatalogIncomplete(isMineCatalogLoadIncomplete(pages, lastPageHasMore));
+        const preserveId = selectedIdRef.current;
+        setMixtapes((prev) => {
+            const { mixtapes: merged, tracks: mergedTracks } = applyProgressiveMineCatalogPage(
+                prev,
+                tracksRef.current,
+                pageMixtapes,
+                pageTracks,
+                preserveId,
+            );
+            tracksRef.current = mergedTracks;
+            queueMicrotask(() => setTracks(mergedTracks));
+            const draft = createdDraftRef.current;
+            if (draft && merged.some((mixtape) => mixtape.id === draft.id)) {
+                queueMicrotask(() => setCreatedDraft(null));
+            }
+            if (isFirstPage) {
+                studioCatalogReadyRef.current = true;
+                queueMicrotask(() => {
+                    setLoading(false);
+                    setSelectedId((current) => current || pageMixtapes[0]?.id || merged[0]?.id || "");
+                });
+            }
+            return merged;
+        });
+    }, []);
+
     const loadMine = useCallback(async (signal?: AbortSignal) => {
         const requestSeq = ++loadSeqRef.current;
-        const showLoading = !studioCatalogReadyRef.current;
-        if (showLoading) setLoading(true);
-        setError("");
+        const showInitialBlock = !studioCatalogReadyRef.current;
+        queueMicrotask(() => {
+            if (showInitialBlock) setLoading(true);
+            setError("");
+        });
+        let pages = 0;
+        let hadFirstPage = false;
         try {
-            const response = await authFetch(
-                supabase,
-                `/api/mixtapes?scope=mine&userId=${encodeURIComponent(userId)}`,
-                { cache: "no-store", signal },
-            );
-            const body = (await response.json().catch(() => ({}))) as CollectionResponse;
-            if (signal?.aborted) return;
-            if (!response.ok) throw new Error(body.error || "Studio catalog could not be loaded.");
-            if (!shouldApplyMineCatalogRequest(requestSeq, loadSeqRef.current, false)) return;
-            const nextMixtapes = Array.isArray(body.mixtapes) ? body.mixtapes : [];
-            const nextTracks = Array.isArray(body.tracks) ? body.tracks : [];
-            setMixtapes((prev) => mergeMineCatalogResponse(nextMixtapes, prev, selectedIdRef.current));
-            setTracks(nextTracks);
-            studioCatalogReadyRef.current = true;
-            const draft = createdDraftRef.current;
-            if (draft && nextMixtapes.some((mixtape) => mixtape.id === draft.id)) {
-                setCreatedDraft(null);
+            let cursor = "";
+            let hasMore = true;
+            let lastPageHasMore = false;
+            while (hasMore && pages < MINE_CATALOG_MAX_PAGES) {
+                if (signal?.aborted) return;
+                if (pages > 0) setLoadingMoreCatalog(true);
+                const query = new URLSearchParams({
+                    scope: "mine",
+                    userId,
+                    limit: String(MINE_CATALOG_DEFAULT_LIMIT),
+                });
+                if (cursor) query.set("cursor", cursor);
+                let response;
+                let body: CollectionResponse;
+                try {
+                    response = await authFetch(
+                        supabase,
+                        `/api/mixtapes?${query.toString()}`,
+                        { cache: "no-store", signal },
+                    );
+                    body = (await response.json().catch(() => ({}))) as CollectionResponse;
+                }
+                catch (pageError) {
+                    if (signal?.aborted) return;
+                    if (!shouldApplyMineCatalogRequest(requestSeq, loadSeqRef.current, false)) return;
+                    if (pages === 0) throw pageError;
+                    setError(
+                        pageError instanceof Error
+                            ? `Some mixtapes could not be loaded: ${pageError.message}`
+                            : "Some mixtapes could not be loaded.",
+                    );
+                    break;
+                }
+                if (signal?.aborted) return;
+                if (!response.ok) {
+                    if (pages === 0) throw new Error(body.error || "Studio catalog could not be loaded.");
+                    if (!shouldApplyMineCatalogRequest(requestSeq, loadSeqRef.current, false)) return;
+                    setError(body.error || "Additional mixtapes could not be loaded.");
+                    break;
+                }
+                const pageMixtapes = Array.isArray(body.mixtapes) ? body.mixtapes : [];
+                const pageTracks = Array.isArray(body.tracks) ? body.tracks : [];
+                pages += 1;
+                hasMore = Boolean(body.hasMore && body.nextCursor);
+                lastPageHasMore = hasMore;
+                cursor = String(body.nextCursor || "");
+                if (!pageMixtapes.length) hasMore = false;
+                const isFirstPage = pages === 1;
+                applyCatalogPage(requestSeq, pageMixtapes, pageTracks, pages, lastPageHasMore, isFirstPage);
+                if (isFirstPage) hadFirstPage = true;
             }
-            setSelectedId((current) => current || nextMixtapes[0]?.id || "");
         }
         catch (loadError) {
             if (signal?.aborted) return;
             if (!shouldApplyMineCatalogRequest(requestSeq, loadSeqRef.current, false)) return;
-            setError(loadError instanceof Error ? loadError.message : "Studio catalog could not be loaded.");
+            if (!hadFirstPage) {
+                setError(loadError instanceof Error ? loadError.message : "Studio catalog could not be loaded.");
+            }
         }
         finally {
-            if (showLoading && shouldClearStudioLoading(requestSeq, loadSeqRef.current)) {
+            setLoadingMoreCatalog(false);
+            if (showInitialBlock && !hadFirstPage && shouldClearStudioLoading(requestSeq, loadSeqRef.current)) {
                 setLoading(false);
             }
         }
-    }, [userId]);
+    }, [applyCatalogPage, userId]);
 
     useEffect(() => {
-        const controller = new AbortController();
-        void loadMine(controller.signal);
-        return () => controller.abort();
-    }, [loadMine]);
+        const signal = beginCatalogLoad();
+        queueMicrotask(() => void loadMine(signal));
+        return () => catalogAbortRef.current?.abort();
+    }, [beginCatalogLoad, loadMine]);
 
     useEffect(() => {
         let active = true;
         const path = selectedMixtape?.coverStoragePath?.trim() || "";
         const legacyUrl = selectedMixtape?.coverImageUrl?.trim() || "";
         if (!path && !legacyUrl) {
-            setCoverPreviewUrl("");
+            queueMicrotask(() => setCoverPreviewUrl(""));
             return () => {
                 active = false;
             };
         }
         if (legacyUrl && !path) {
-            setCoverPreviewUrl(legacyUrl);
+            queueMicrotask(() => setCoverPreviewUrl(legacyUrl));
             return () => {
                 active = false;
             };
@@ -163,7 +261,7 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
         setSelectedId(created.id);
         selectedIdRef.current = created.id;
         setMessage("Mixtape created.");
-        void loadMine();
+        void loadMine(beginCatalogLoad());
     };
 
     const patchMixtapeStatus = async (
@@ -203,7 +301,7 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
             if (status === "archived") {
                 setSelectedId("");
             }
-            await loadMine();
+            await loadMine(beginCatalogLoad());
         }
         catch (statusError) {
             setError(statusError instanceof Error ? statusError.message : "Mixtape status could not be updated.");
@@ -258,7 +356,7 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
             const patched = (await patch.json().catch(() => ({}))) as { error?: string };
             if (!patch.ok) throw new Error(patched.error || "Cover could not be saved on the mixtape.");
             setMessage("Cover artwork updated.");
-            await loadMine();
+            await loadMine(beginCatalogLoad());
         }
         catch (coverError) {
             setError(coverError instanceof Error ? coverError.message : "Cover upload failed.");
@@ -320,10 +418,14 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
                     status: "draft",
                 }),
             });
-            const created = (await create.json().catch(() => ({}))) as { error?: string };
+            const created = (await create.json().catch(() => ({}))) as { error?: string; track?: MixtapeTrack };
             if (!create.ok) throw new Error(created.error || "Track could not be saved.");
+            if (created.track) {
+                setTracks((prev) => upsertTrackById(prev, created.track as MixtapeTrack));
+            } else {
+                void loadMine(beginCatalogLoad());
+            }
             setMessage("Track uploaded.");
-            await loadMine();
         }
         catch (uploadError) {
             setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");
@@ -343,6 +445,7 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
                 <h2>Mixtape Studio</h2>
             </header>
             {loading ? <p><LoaderCircle size={18} aria-hidden /> Loading studio…</p> : null}
+            {!loading && loadingMoreCatalog ? <p><LoaderCircle size={18} aria-hidden /> Loading more mixtapes…</p> : null}
             {error ? <div className={styles.errorState}>{error}</div> : null}
             {message ? <p>{message}</p> : null}
 
@@ -370,6 +473,14 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
                         <option key={mixtape.id} value={mixtape.id}>{mixtape.title}</option>
                     ))}
                 </select>
+                {catalogPageCount > 1 ? (
+                    <small>{studioMixtapes.length} mixtapes loaded across {catalogPageCount} pages.</small>
+                ) : null}
+                {catalogIncomplete ? (
+                    <small role="status">
+                        Not all mixtapes could be loaded (safety page limit). Refresh or reduce catalog size.
+                    </small>
+                ) : null}
             </div>
 
             {selectedId && selectedMixtape ? (
@@ -411,7 +522,7 @@ export function MixtapeStudioWorkspace({ userId }: MixtapeStudioWorkspaceProps) 
                         </label>
                         {uploading ? <span><LoaderCircle size={16} aria-hidden /> Uploading track…</span> : null}
                     </div>
-                    <MotionTrackList tracks={selectedTracks} mixtapeId={selectedId} userId={userId} onReload={() => void loadMine()} />
+                    <MotionTrackList tracks={selectedTracks} mixtapeId={selectedId} userId={userId} onReload={() => void loadMine(beginCatalogLoad())} />
                 </>
             ) : null}
 

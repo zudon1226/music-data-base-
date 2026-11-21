@@ -33,8 +33,10 @@ export function MixtapeShowWorkspace({
     const [favorited, setFavorited] = useState(false);
 
     const loadDetail = useCallback(async (signal?: AbortSignal) => {
-        setLoading(true);
-        setError("");
+        queueMicrotask(() => {
+            setLoading(true);
+            setError("");
+        });
         try {
             const response = await fetch(`/api/mixtapes/${encodeURIComponent(mixtapeId)}`, {
                 cache: "no-store",
@@ -58,7 +60,7 @@ export function MixtapeShowWorkspace({
 
     useEffect(() => {
         const controller = new AbortController();
-        void loadDetail(controller.signal);
+        queueMicrotask(() => void loadDetail(controller.signal));
         return () => controller.abort();
     }, [loadDetail]);
 

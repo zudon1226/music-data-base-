@@ -59,8 +59,10 @@ export function MixtapeDiscoveryWorkspace({
     const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
     const loadCatalog = useCallback(async (signal?: AbortSignal) => {
-        setLoading(true);
-        setError("");
+        queueMicrotask(() => {
+            setLoading(true);
+            setError("");
+        });
         try {
             const scope = section === "featured" ? "featured" : "public";
             const response = await fetch(`/api/mixtapes?scope=${encodeURIComponent(scope)}&limit=80`, {
@@ -86,15 +88,12 @@ export function MixtapeDiscoveryWorkspace({
 
     useEffect(() => {
         const controller = new AbortController();
-        void loadCatalog(controller.signal);
+        queueMicrotask(() => void loadCatalog(controller.signal));
         return () => controller.abort();
     }, [loadCatalog]);
 
     useEffect(() => {
-        if (!userId || section !== "favorites") {
-            setFavoriteIds([]);
-            return;
-        }
+        if (!userId || section !== "favorites") return;
         const controller = new AbortController();
         void (async () => {
             const response = await authFetch(

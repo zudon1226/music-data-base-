@@ -22,6 +22,19 @@ export const MIXTAPE_COVER_MIME_TYPES = new Set([
 const AUDIO_EXTENSIONS = new Set(["mp3", "m4a", "aac"]);
 const COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp"]);
 
+const COVER_EXTENSION_MIME: Record<string, readonly string[]> = {
+    jpg: ["image/jpeg"],
+    jpeg: ["image/jpeg"],
+    png: ["image/png"],
+    webp: ["image/webp"],
+};
+
+const AUDIO_EXTENSION_MIME: Record<string, readonly string[]> = {
+    mp3: ["audio/mpeg"],
+    m4a: ["audio/mp4", "audio/m4a", "audio/x-m4a"],
+    aac: ["audio/aac", "audio/mp4"],
+};
+
 function cleanExtension(fileName: string) {
     return fileName.split(".").pop()?.trim().toLowerCase() || "";
 }
@@ -50,6 +63,10 @@ export function validateMixtapeAudioDescriptor(input: {
     if (!MIXTAPE_AUDIO_MIME_TYPES.has(contentType)) {
         return { ok: false as const, error: "Unsupported mixtape audio MIME type." };
     }
+    const allowedAudioMime = AUDIO_EXTENSION_MIME[extension];
+    if (!allowedAudioMime?.includes(contentType)) {
+        return { ok: false as const, error: "Mixtape audio file extension does not match its MIME type." };
+    }
     if (!Number.isFinite(input.fileSize) || input.fileSize <= 0 || input.fileSize > MIXTAPE_AUDIO_MAX_BYTES) {
         return {
             ok: false as const,
@@ -68,6 +85,10 @@ export function validateMixtapeCoverDescriptor(input: {
     const contentType = input.contentType.trim().toLowerCase();
     if (!COVER_EXTENSIONS.has(extension) || !MIXTAPE_COVER_MIME_TYPES.has(contentType)) {
         return { ok: false as const, error: "Mixtape cover must be JPEG, PNG, or WebP." };
+    }
+    const allowedCoverMime = COVER_EXTENSION_MIME[extension];
+    if (!allowedCoverMime?.includes(contentType)) {
+        return { ok: false as const, error: "Mixtape cover file extension does not match its MIME type." };
     }
     if (!Number.isFinite(input.fileSize) || input.fileSize <= 0 || input.fileSize > MIXTAPE_COVER_MAX_BYTES) {
         return { ok: false as const, error: "Mixtape cover must be between 1 byte and 20 MB." };

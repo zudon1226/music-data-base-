@@ -25,13 +25,17 @@ export function MixtapeStudioAnalyticsPanel({ userId }: MixtapeStudioAnalyticsPa
 
     const loadAnalytics = useCallback(async (signal?: AbortSignal) => {
         if (!userId) {
-            setAnalytics(null);
-            setError("");
-            setLoading(false);
+            queueMicrotask(() => {
+                setAnalytics(null);
+                setError("");
+                setLoading(false);
+            });
             return;
         }
-        setLoading(true);
-        setError("");
+        queueMicrotask(() => {
+            setLoading(true);
+            setError("");
+        });
         try {
             const response = await authFetch(
                 supabase,
@@ -56,7 +60,7 @@ export function MixtapeStudioAnalyticsPanel({ userId }: MixtapeStudioAnalyticsPa
 
     useEffect(() => {
         const controller = new AbortController();
-        void loadAnalytics(controller.signal);
+        queueMicrotask(() => void loadAnalytics(controller.signal));
         return () => controller.abort();
     }, [loadAnalytics]);
 
