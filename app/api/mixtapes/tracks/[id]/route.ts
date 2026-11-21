@@ -4,6 +4,7 @@ import { requireMixtapeOwner } from "@/lib/mixtape-access";
 import { mapMixtapeRows, MIXTAPE_COLUMNS, MIXTAPE_TRACK_COLUMNS } from "@/lib/mixtape-data";
 import { requireMixtapeRequestCreator, requireMixtapeRequestUser } from "@/lib/mixtape-route-auth";
 import type { MixtapeTrackStatus } from "@/lib/mixtape-types";
+import { applyMixtapeTrackPositionChange } from "@/lib/mixtape-track-position";
 import { validateMixtapeTrackPublishRules } from "@/lib/mixtape-validation";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
@@ -106,6 +107,7 @@ export async function PATCH(
         const owner = await requireMixtapeOwner(auth.userId, trackRow.user_id);
         if (!owner.ok) return jsonResponse({ error: owner.error }, owner.status);
 
+        const supabase = getSupabaseServerClient();
         const updates: Record<string, unknown> = {};
         if ("title" in body) {
             const title = cleanText(body.title, 200);
@@ -113,11 +115,16 @@ export async function PATCH(
             updates.title = title;
         }
         if ("description" in body) updates.description = cleanText(body.description, 4000);
+        let positionApplied = false;
         if ("position" in body) {
             const position = positiveInteger(body.position);
             if (!position) return jsonResponse({ error: "Track position must be 1 or greater." }, 400);
-            updates.position = position;
+            const reordered = await applyMixtapeTrackPositionChange(supabase, id, trackRow, position);
+            if (!reordered.ok) return jsonResponse({ error: reordered.error }, 500);
+            trackRow.position = reordered.position;
+            positionApplied = true;
         }
+
         if ("durationSeconds" in body || "duration_seconds" in body) {
             const raw = Number(body.durationSeconds ?? body.duration_seconds ?? 0);
             updates.duration_seconds = Number.isFinite(raw) && raw > 0 ? raw : null;
@@ -142,14 +149,26 @@ export async function PATCH(
         });
         if (!publishRules.ok) return jsonResponse({ error: publishRules.error }, 400);
 
-        const supabase = getSupabaseServerClient();
-        const updated = await supabase
-            .from("mixtape_tracks")
-            .update(updates)
-            .eq("id", id)
-            .select(MIXTAPE_TRACK_COLUMNS)
-            .single();
-        if (updated.error) return jsonResponse({ error: getErrorMessage(updated.error) }, 500);
+        let updatedRow: Record<string, unknown> | null = null;
+        if (Object.keys(updates).length > 0) {
+            const updated = await supabase
+                .from("mixtape_tracks")
+                .update(updates)
+                .eq("id", id)
+                .select(MIXTAPE_TRACK_COLUMNS)
+                .single();
+            if (updated.error) return jsonResponse({ error: getErrorMessage(updated.error) }, 500);
+            updatedRow = updated.data as unknown as Record<string, unknown>;
+        }
+        else if (!positionApplied) {
+            return jsonResponse({ error: "No track updates were provided." }, 400);
+        }
+        else {
+            const refreshed = await loadTrack(id);
+            if (refreshed.error) return jsonResponse({ error: getErrorMessage(refreshed.error) }, 500);
+            if (!refreshed.data) return jsonResponse({ error: "Mixtape track not found." }, 404);
+            updatedRow = refreshed.data as unknown as Record<string, unknown>;
+        }
         const mixtapeResult = await supabase
             .from("mixtapes")
             .select(MIXTAPE_COLUMNS)
@@ -157,7 +176,7 @@ export async function PATCH(
             .maybeSingle();
         const mapped = await mapMixtapeRows({
             mixtapeRows: mixtapeResult.data ? [mixtapeResult.data as unknown as Record<string, unknown>] : [],
-            trackRows: [updated.data as unknown as Record<string, unknown>],
+            trackRows: [updatedRow as Record<string, unknown>],
         });
         return jsonResponse({ ok: true, track: mapped.tracks[0] });
     }
