@@ -23,6 +23,16 @@ import {
     loadMixtapeStagingE2eCredentialsFromFile,
     resolveMixtapeE2eCredentialPath,
 } from "./lib/load-mixtape-staging-e2e-credentials.mjs";
+import {
+    STUDIO_FIRST_PAGE_TIMEOUT_MS,
+    STUDIO_SELECT_BY_ID_TIMEOUT_MS,
+    clickMixtapeStatusButton,
+    createMixtapeInStudio,
+    ensureStudioMixtapeSelected,
+    uploadStudioCover,
+    uploadStudioTrack,
+    waitForStudioFirstCatalogPage,
+} from "./lib/mixtape-studio-playwright-harness.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -196,87 +206,6 @@ async function waitForMixtapeShow(page, timeout = 120_000) {
 }
 
 const FAVORITES_SYNC_TIMEOUT_MS = 30_000;
-const STUDIO_CREATE_SYNC_TIMEOUT_MS = 60_000;
-
-function isMixtapeCreatePost(response) {
-    const url = response.url();
-    return (
-        response.request().method() === "POST"
-        && url.includes("/api/mixtapes")
-        && !url.includes("/tracks")
-        && !url.includes("/favorites")
-        && !url.includes("/playback")
-        && !url.includes("/reports")
-        && !url.includes("/uploads")
-        && !url.includes("/analytics")
-    );
-}
-
-function isStudioMineListGet(response) {
-    return response.request().method() === "GET"
-        && response.url().includes("/api/mixtapes")
-        && response.url().includes("scope=mine");
-}
-
-/**
- * @param {import('playwright').Page} page
- * @param {import('playwright').Locator} studio
- */
-async function waitForMixtapeStudioReady(page, timeout = STUDIO_CREATE_SYNC_TIMEOUT_MS) {
-    await page.waitForFunction(
-        () => {
-            const view = document.querySelector("main.zml-app")?.getAttribute("data-active-view");
-            if (view !== "Mixtape Studio") return false;
-            const title = document.querySelector("[data-mixtape-studio] #mixtape-title");
-            if (!title) return false;
-            const rect = title.getBoundingClientRect();
-            if (rect.width <= 0 || rect.height <= 0) return false;
-            const style = window.getComputedStyle(title);
-            return style.visibility !== "hidden" && style.display !== "none";
-        },
-        { timeout },
-    );
-}
-
-async function reopenMixtapeStudioIfNeeded(page) {
-    const onStudio = await page
-        .locator('main.zml-app[data-active-view="Mixtape Studio"]')
-        .count()
-        .catch(() => 0);
-    if (onStudio) return;
-    const studioNav = page.locator('.desktop-sidebar-nav button[data-nav-view="Mixtape Studio"]').first();
-    if (await studioNav.count()) {
-        await studioNav.click();
-    }
-    else {
-        const studioLink = page.getByRole("link", { name: /Mixtape Studio/i });
-        if (await studioLink.count()) await studioLink.first().click();
-    }
-    await page.waitForFunction(
-        () => document.querySelector("main.zml-app")?.getAttribute("data-active-view") === "Mixtape Studio",
-        { timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS },
-    );
-}
-
-async function waitForStudioSelectorMixtape(page, studio, mixtapeId, timeout = STUDIO_CREATE_SYNC_TIMEOUT_MS) {
-  await reopenMixtapeStudioIfNeeded(page);
-  await page.waitForFunction(
-        (id) => {
-            const select = document.querySelector('[data-mixtape-studio] select#mixtape-select');
-            if (!select) return false;
-            const hasOption = [...select.options].some((option) => option.value === id);
-            return hasOption || select.value === id;
-        },
-        mixtapeId,
-        { timeout },
-    );
-    const studioLocator = page.locator("[data-mixtape-studio]");
-    const option = studioLocator.locator(`select#mixtape-select option[value="${mixtapeId}"]`);
-    if ((await option.count()) === 0) {
-        throw new Error(`studio select value missing option for id=${mixtapeId}`);
-    }
-    await studioLocator.locator("select#mixtape-select").selectOption(mixtapeId).catch(() => null);
-}
 
 function isAuthenticatedFavoritesGet(response) {
     return response.request().method() === "GET" && response.url().includes("/api/mixtapes/favorites");
@@ -397,167 +326,96 @@ async function runAuthenticated(browser, media) {
         }
         record("sign in", "pass");
 
-        await page.waitForSelector('main.zml-app[data-can-upload="true"]', { timeout: 90_000 });
-        await page.waitForTimeout(2000);
-        const studioNav = page.locator('.desktop-sidebar-nav button[data-nav-view="Mixtape Studio"]').first();
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-            if (await studioNav.count()) {
-                await studioNav.click();
-            }
-            else {
-                const studioLink = page.getByRole("link", { name: /Mixtape Studio/i });
-                if (await studioLink.count()) await studioLink.first().click();
-            }
-            const mounted = await page.waitForSelector("[data-mixtape-studio]", { timeout: 20_000 }).catch(() => null);
-            const activeView = await page
-                .waitForFunction(
-                    () => document.querySelector("main.zml-app")?.getAttribute("data-active-view") === "Mixtape Studio",
-                    { timeout: 20_000 },
-                )
-                .catch(() => null);
-            if (mounted && activeView) break;
-            await page.waitForTimeout(2000);
-        }
+        await page.waitForSelector('main.zml-app[data-can-upload="true"]', { timeout: 90_000 }).catch(() => null);
 
-        const studioVisible = await page.locator("[data-mixtape-studio]").count();
-        if (!studioVisible) {
-            record("open Mixtape Studio", "blocked", "Studio surface not available for this account");
-            record("create test mixtape", "blocked", "requires Studio");
-            record("upload audio track", "blocked", "requires Studio");
-            record("upload cover", "blocked", "requires Studio");
-            record("reorder tracks", "blocked", "requires Studio");
-            record("publish mixtape", "blocked", "requires Studio");
-        }
-        else {
-            record("open Mixtape Studio", "pass");
+        try {
+            await waitForStudioFirstCatalogPage(page, STUDIO_FIRST_PAGE_TIMEOUT_MS);
+            record("open Mixtape Studio", "pass", "first catalog page only");
             await page.screenshot({ path: join(evidenceDir, "studio-open.png"), fullPage: true });
 
-            let titleBound = false;
-            const titleDeadline = Date.now() + STUDIO_CREATE_SYNC_TIMEOUT_MS;
-            while (Date.now() < titleDeadline && !titleBound) {
-                await reopenMixtapeStudioIfNeeded(page);
-                await waitForMixtapeStudioReady(page, Math.max(5_000, titleDeadline - Date.now()));
-                const studio = page.locator("[data-mixtape-studio]");
-                const titleInput = studio.locator("#mixtape-title");
-                try {
-                    await titleInput.fill(auditMixtapeTitle, { timeout: 10_000 });
-                    const titleValue = await titleInput.inputValue();
-                    if (titleValue === auditMixtapeTitle) {
-                        titleBound = true;
-                    }
-                }
-                catch {
-                    // Studio remounted during founding-cap refresh; retry until deadline.
-                }
-            }
-            if (!titleBound) {
-                record("create test mixtape", "fail", "title input did not bind before studio sync deadline");
-            }
-            else {
-            const studio = page.locator("[data-mixtape-studio]");
-            await reopenMixtapeStudioIfNeeded(page);
-            await studio.locator("#mixtape-description").fill(`${AUDIT_PREFIX} release audit fixture`);
-            await studio.locator("#mixtape-genre").fill("Audit");
-            const createMixtape = studio.getByRole("button", { name: /Create mixtape/i });
-            await createMixtape.waitFor({ state: "visible", timeout: 30_000 });
-            const createPostWait = page.waitForResponse(isMixtapeCreatePost, {
-                timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS,
+            const created = await createMixtapeInStudio(page, {
+                title: auditMixtapeTitle,
+                description: `${AUDIT_PREFIX} release audit fixture`,
+                genre: "Audit",
             });
-            await createMixtape.click({ timeout: STUDIO_CREATE_SYNC_TIMEOUT_MS });
-            const createPost = await createPostWait.catch(() => null);
-            const createBody = createPost ? await createPost.json().catch(() => ({})) : {};
-            auditMixtapeId = String(createBody.mixtape?.id || "").trim();
-            const createStatus = createPost?.status() ?? 0;
-            if (createStatus !== 201 || !auditMixtapeId) {
-                record(
-                    "create test mixtape",
-                    "fail",
-                    createPost
-                        ? `POST status=${createStatus} id=${auditMixtapeId || "missing"}`
-                        : "no create POST response",
+            auditMixtapeId = created.id;
+            const selectedValue = await page.locator("[data-mixtape-studio] select#mixtape-select").inputValue();
+            record(
+                "create test mixtape",
+                selectedValue === auditMixtapeId ? "pass" : "fail",
+                `id=${auditMixtapeId} http=${created.httpStatus} selected=${selectedValue}`,
+            );
+
+            const trackA = await uploadStudioTrack(page, media.mp3Path);
+            const trackB = await uploadStudioTrack(page, media.mp3Path2);
+            const tracksOk = trackA.trackStatus === 201 && trackB.trackStatus === 201;
+            record(
+                "upload audio track",
+                tracksOk ? "pass" : "fail",
+                `a=${trackA.trackStatus} b=${trackB.trackStatus}`,
+            );
+
+            const coverUpload = await uploadStudioCover(page, media.pngPath);
+            record(
+                "upload cover",
+                coverUpload.patchStatus === 200 ? "pass" : "fail",
+                `prepare=${coverUpload.prepareStatus} patch=${coverUpload.patchStatus}`,
+            );
+
+            const studio = page.locator("[data-mixtape-studio]");
+            const trackRows = studio.locator(".trackRow, [class*='trackRow']");
+            if (await trackRows.count() >= 2) {
+                const firstTitleBefore = await trackRows.nth(0).locator("strong").innerText();
+                const secondTitleBefore = await trackRows.nth(1).locator("strong").innerText();
+                const reorderWait = page.waitForResponse(
+                    (r) => r.request().method() === "PATCH" && r.url().includes("/api/mixtapes/tracks/"),
+                    { timeout: 60_000 },
                 );
+                await studio.getByRole("button", { name: "Down" }).first().click();
+                const reorderRes = await reorderWait.catch(() => null);
+                const reorderOk = reorderRes?.ok() ?? false;
+                record("reorder tracks", reorderOk ? "pass" : "fail", `status=${reorderRes?.status() ?? 0}`);
+                if (reorderOk && auditMixtapeId) {
+                    await page.reload({ waitUntil: "domcontentloaded" });
+                    await waitForStudioFirstCatalogPage(page, STUDIO_FIRST_PAGE_TIMEOUT_MS);
+                    await ensureStudioMixtapeSelected(page, auditMixtapeId);
+                    const rowsAfter = studio.locator(".trackRow, [class*='trackRow']");
+                    const firstTitleAfter = await rowsAfter.nth(0).locator("strong").innerText().catch(() => "");
+                    const secondTitleAfter = await rowsAfter.nth(1).locator("strong").innerText().catch(() => "");
+                    const swapped = firstTitleAfter === secondTitleBefore && secondTitleAfter === firstTitleBefore;
+                    record(
+                        "reorder persists after refresh",
+                        swapped ? "pass" : "fail",
+                        `first=${firstTitleAfter.slice(0, 24)} second=${secondTitleAfter.slice(0, 24)}`,
+                    );
+                }
             }
             else {
-                await studio.getByText(/Mixtape created/i).waitFor({ state: "visible", timeout: 15_000 }).catch(() => null);
-                await reopenMixtapeStudioIfNeeded(page);
+                record("reorder tracks", "blocked", "fewer than 2 tracks in UI");
             }
-            if (auditMixtapeId) {
-                const expectedId = auditMixtapeId;
-                let listed = false;
-                const listDeadline = Date.now() + STUDIO_CREATE_SYNC_TIMEOUT_MS;
-                while (Date.now() < listDeadline && !listed) {
-                    const mineResp = await page
-                        .waitForResponse(isStudioMineListGet, {
-                            timeout: Math.max(1_000, listDeadline - Date.now()),
-                        })
-                        .catch(() => null);
-                    if (!mineResp) break;
-                    const mineBody = await mineResp.json().catch(() => ({}));
-                    const rows = Array.isArray(mineBody.mixtapes) ? mineBody.mixtapes : [];
-                    listed = rows.some((row) => String(row.id) === expectedId);
-                }
-                if (!listed) {
-                    record("create test mixtape", "fail", "mine list GET never included new mixtape id");
-                    auditMixtapeId = "";
-                }
-                else {
-                    try {
-                        await waitForStudioSelectorMixtape(page, studio, auditMixtapeId);
-                    }
-                    catch (error) {
-                        record(
-                            "create test mixtape",
-                            "fail",
-                            error instanceof Error ? error.message : "studio selector missing new mixtape id",
-                        );
-                        auditMixtapeId = "";
-                    }
-                }
-            }
-            if (auditMixtapeId) {
-                const selectorValue = await studio.locator("select#mixtape-select").inputValue().catch(() => "");
-                await studio.locator("select#mixtape-select").selectOption(auditMixtapeId).catch(() => null);
-                const selectedValue = await studio.locator("select#mixtape-select").inputValue().catch(() => "");
-                record(
-                    "create test mixtape",
-                    selectedValue === auditMixtapeId ? "pass" : "fail",
-                    `id=${auditMixtapeId} selected=${selectedValue || selectorValue || "empty"}`,
+
+            const publishTrackButtons = studio.getByRole("button", { name: /^Publish$/i });
+            const pubCount = await publishTrackButtons.count();
+            for (let i = 0; i < pubCount; i++) {
+                const trackPubWait = page.waitForResponse(
+                    (r) => r.request().method() === "PATCH" && r.url().includes("/api/mixtapes/tracks/"),
+                    { timeout: 60_000 },
                 );
+                await publishTrackButtons.nth(i).click();
+                await trackPubWait.catch(() => null);
             }
-            if (auditMixtapeId) {
-
-                await page.locator('input[type="file"][accept*="audio"]').first().setInputFiles(media.mp3Path);
-                await page.waitForTimeout(5000);
-                await page.locator('input[type="file"][accept*="audio"]').first().setInputFiles(media.mp3Path2);
-                await page.waitForTimeout(5000);
-                record("upload audio track", "pass", "two tracks uploaded");
-
-                const coverInput = page.locator('input[type="file"][accept*="image"]').first();
-                await coverInput.setInputFiles(media.pngPath);
-                await page.waitForTimeout(4000);
-                record("upload cover", "pass");
-
-                const trackRows = page.locator("[data-mixtape-studio] .trackRow, [data-mixtape-studio] [class*='trackRow']");
-                if (await trackRows.count() >= 2) {
-                    await page.getByRole("button", { name: "Down" }).first().click();
-                    await page.waitForTimeout(2000);
-                    record("reorder tracks", "pass", "Down on first track");
-                }
-                else {
-                    record("reorder tracks", "blocked", "fewer than 2 tracks in UI");
-                }
-
-                const publishTrackButtons = page.getByRole("button", { name: /^Publish$/i });
-                const pubCount = await publishTrackButtons.count();
-                for (let i = 0; i < pubCount; i++) {
-                    await publishTrackButtons.nth(i).click();
-                    await page.waitForTimeout(800);
-                }
-                await page.getByRole("button", { name: /Publish mixtape/i }).click();
-                await page.waitForTimeout(3000);
-                record("publish mixtape", "pass");
-            }
-            }
+            const mixtapePubStatus = await clickMixtapeStatusButton(page, /Publish mixtape/i, "PATCH", auditMixtapeId);
+            record("publish mixtape", mixtapePubStatus === 200 ? "pass" : "fail", `status=${mixtapePubStatus}`);
+        }
+        catch (studioError) {
+            const detail = studioError instanceof Error ? studioError.message : String(studioError);
+            record("open Mixtape Studio", "fail", detail);
+            record("create test mixtape", "blocked", detail);
+            record("upload audio track", "blocked", detail);
+            record("upload cover", "blocked", detail);
+            record("reorder tracks", "blocked", detail);
+            record("publish mixtape", "blocked", detail);
+            auditMixtapeId = "";
         }
 
         if (!auditMixtapeId) {
@@ -668,18 +526,13 @@ async function runAuthenticated(browser, media) {
             // Cleanup: archive only our audit mixtape (never the preserved reproducibility fixture)
             if (auditMixtapeTitle.startsWith("mdb-e2e-audit-") && auditMixtapeId !== PRESERVED_MIXTAPE_ID) {
                 await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-                const studio = page.getByRole("link", { name: /Mixtape Studio/i });
-                if (await studio.count()) await studio.first().click();
-                await page.waitForTimeout(2000);
-                if (await page.locator("#mixtape-select").count()) {
-                    await page.selectOption("#mixtape-select", auditMixtapeId);
-                    const archive = page.getByRole("button", { name: /^Archive$/i });
-                    if (await archive.count()) {
-                        await archive.click();
-                        await page.waitForTimeout(2000);
-                        record("cleanup audit fixture", "pass", "archived owned mixtape");
-                    }
-                }
+                await waitForStudioFirstCatalogPage(page, STUDIO_FIRST_PAGE_TIMEOUT_MS).catch(() => null);
+                const archiveStatus = await clickMixtapeStatusButton(page, /^Archive$/i, "DELETE", auditMixtapeId).catch(() => 0);
+                record(
+                    "cleanup audit fixture",
+                    archiveStatus === 200 ? "pass" : "fail",
+                    `id=${auditMixtapeId} status=${archiveStatus}`,
+                );
             }
         }
 
@@ -711,12 +564,22 @@ async function runAuthenticated(browser, media) {
             }
         }
         const guestShow = mixtapeShowLocator(guestPage);
+        const guestDetailVisible = auditMixtapeId
+            ? (await guestShow.count()) > 0 || guestPage.url().includes(auditMixtapeId)
+            : guestPage.url().includes("/mixtapes");
+        record(
+            "guest discovery detail",
+            guestDetailVisible ? "pass" : "fail",
+            auditMixtapeId ? "published mixtape reachable" : "discovery route",
+        );
         const guestFav = auditMixtapeId ? await guestShow.getByRole("button", { name: /^Favorite$/i }).count() : 0;
         record("guest favorite restricted", guestFav === 0 ? "pass" : "fail", `favoriteButtons=${guestFav}`);
         const guestPlay = auditMixtapeId ? guestShow.getByRole("button", { name: "Play" }).first() : null;
-        let guestPlaybackStatus = "blocked";
-        let guestPlaybackDetail = auditMixtapeId ? "detail play as guest" : "discovery only";
-        if (guestPlay && (await guestPlay.count())) {
+        let guestPlaybackPolicyPass = true;
+        let guestPlaybackDetail = auditMixtapeId
+            ? "guest may see Play; server must deny playback"
+            : "discovery only";
+        if (auditMixtapeId && guestPlay && (await guestPlay.count())) {
             const guestPosts = [];
             const onGuestPlayback = (r) => {
                 if (r.url().includes("/api/mixtapes/playback") && r.request().method() === "POST") guestPosts.push(r);
@@ -726,12 +589,21 @@ async function runAuthenticated(browser, media) {
             await guestPage.waitForTimeout(2500);
             guestPage.off("response", onGuestPlayback);
             const anyOk = guestPosts.some((r) => r.ok());
-            guestPlaybackStatus = guestPosts.length === 0 ? "pass" : anyOk ? "fail" : "pass";
+            const guestDenied = guestPosts.length === 0 || guestPosts.every((r) => !r.ok());
+            guestPlaybackPolicyPass = guestDenied && !anyOk;
             guestPlaybackDetail = guestPosts.length
                 ? `posts=${guestPosts.map((r) => r.status()).join(",")}`
-                : "Play visible; no playback POST (client auth gate)";
+                : "client auth gate; no playback POST";
         }
-        record("guest playback policy", guestPlaybackStatus, guestPlaybackDetail);
+        else if (auditMixtapeId) {
+            guestPlaybackDetail = "no play control or gated without playback POST";
+        }
+        const guestAudio = await guestPage.locator("audio").count();
+        record(
+            "guest playback policy",
+            guestPlaybackPolicyPass && guestAudio <= 1 ? "pass" : "fail",
+            `${guestPlaybackDetail}; audioCount=${guestAudio}`,
+        );
         await guestPage.screenshot({ path: join(evidenceDir, "guest-restrictions.png"), fullPage: true });
         await guest.close();
     }

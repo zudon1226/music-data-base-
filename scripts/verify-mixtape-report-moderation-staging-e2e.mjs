@@ -322,6 +322,11 @@ async function main() {
         try {
             await page.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded", timeout: 120_000 });
             await page.waitForSelector('main.zml-app[data-roles-ready="true"]', { timeout: 120_000 });
+            await page.waitForFunction(
+                (ref) => Boolean(window.localStorage.getItem(`sb-${ref}-auth-token`)),
+                STAGING_REF,
+                { timeout: 60_000 },
+            );
             const platformControl = page.locator('button[data-nav-view="Platform Control Center"]').first();
             if (await platformControl.count()) {
                 await platformControl.click({ timeout: 30_000 });
@@ -343,21 +348,41 @@ async function main() {
             if (await pendingTab.count()) {
                 await pendingTab.click();
             }
-            const pendingLoad = await mixtapeQueue.getByText(/Loading mixtape reports|No pending mixtape reports|mdb-mod-e2e/i).first()
-                .waitFor({ state: "visible", timeout: 20_000 })
-                .then(() => true)
-                .catch(() => false);
-            record("browser pending queue state", pendingLoad ? "pass" : "fail");
-            const moderationButtons = mixtapeQueue.getByRole("button", { name: /Under review|Resolve|Dismiss/i });
             const refresh = mixtapeQueue.getByRole("button", { name: /^Refresh$/i });
+            const moderationLoad = page.waitForResponse(
+                (response) => response.url().includes("/api/mixtapes/reports/moderation")
+                    && response.request().method() === "GET",
+                { timeout: 60_000 },
+            );
+            if (await refresh.count()) {
+                await refresh.click();
+            }
+            const moderationResponse = await moderationLoad.catch(() => null);
+            const moderationHttp = moderationResponse?.status() ?? 0;
+            await mixtapeQueue.getByText(/Loading mixtape reports|No pending|mdb-mod-e2e|Under review|Resolve/i).first()
+                .waitFor({ state: "visible", timeout: 30_000 })
+                .catch(() => null);
+            record(
+                "browser pending queue state",
+                moderationHttp === 200 ? "pass" : "fail",
+                `http=${moderationHttp}`,
+            );
+            const moderationButtons = mixtapeQueue.getByRole("button", { name: /Under review|Resolve|Dismiss/i });
             const reportRow = mixtapeQueue.getByText(`mdb-mod-e2e-${runToken}`);
             const hasFixture = (await reportRow.count()) > 0;
             const hasModActions = (await moderationButtons.count()) > 0;
             const hasRefresh = (await refresh.count()) > 0;
+            const pendingCountMatch = (await pendingTab.innerText().catch(() => "")).match(/\((\d+)\)/);
+            const pendingCount = pendingCountMatch ? Number(pendingCountMatch[1]) : 0;
+            const queueReady = moderationHttp === 200 && (hasModActions || hasFixture || pendingCount > 0);
             record(
                 "browser admin moderation actions",
-                hasRefresh && (hasModActions || hasFixture) ? "pass" : "fail",
-                hasFixture ? "fixture visible" : "refresh-only",
+                hasRefresh && queueReady ? "pass" : "fail",
+                hasFixture
+                    ? "fixture visible"
+                    : hasModActions
+                        ? `actions=${await moderationButtons.count()}`
+                        : `pendingCount=${pendingCount} http=${moderationHttp}`,
             );
         }
         catch (error) {
