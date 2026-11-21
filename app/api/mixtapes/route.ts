@@ -4,6 +4,12 @@ import { filterPublicCatalogRows } from "@/lib/moderation-status.mjs";
 import { mapMixtapeRows, MIXTAPE_COLUMNS, MIXTAPE_TRACK_COLUMNS } from "@/lib/mixtape-data";
 import { requireMixtapeRequestCreator } from "@/lib/mixtape-route-auth";
 import { isTrackShapedMixtapePayload, validateMixtapeOwnedCoverStoragePath } from "@/lib/mixtape-validation";
+import {
+    clampMineCatalogLimit,
+    decodeMineCatalogCursor,
+    encodeMineCatalogCursor,
+    mineCatalogCursorOrFilter,
+} from "@/lib/mixtape-mine-catalog-pagination.mjs";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -37,7 +43,10 @@ export async function GET(request: Request) {
         const scopeParam = url.searchParams.get("scope")?.trim().toLowerCase() || "public";
         const scope = scopeParam === "mine" || scopeParam === "featured" ? scopeParam : "public";
         const userId = url.searchParams.get("userId")?.trim() || "";
-        const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 60)));
+        const limit = scope === "mine"
+            ? clampMineCatalogLimit(url.searchParams.get("limit"))
+            : Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 60)));
+        const cursorToken = String(url.searchParams.get("cursor") || "").trim();
         let mineIsAdmin = false;
         if (scope === "mine") {
             const auth = await requireMixtapeRequestCreator(request, { userId }, "/api/mixtapes");
@@ -46,12 +55,24 @@ export async function GET(request: Request) {
         }
 
         const supabase = getSupabaseServerClient();
-        let mixtapeQuery = supabase
-            .from("mixtapes")
-            .select(MIXTAPE_COLUMNS)
-            .order("published_at", { ascending: false, nullsFirst: false })
-            .order("created_at", { ascending: false })
-            .limit(limit);
+        let mixtapeQuery = supabase.from("mixtapes").select(MIXTAPE_COLUMNS);
+        if (scope === "mine") {
+            mixtapeQuery = mixtapeQuery
+                .order("updated_at", { ascending: false })
+                .order("id", { ascending: false })
+                .limit(limit + 1);
+            const cursor = cursorToken ? decodeMineCatalogCursor(cursorToken) : null;
+            if (cursorToken && !cursor) {
+                return jsonResponse({ error: "Invalid catalog cursor.", mixtapes: [], tracks: [] }, 400);
+            }
+            if (cursor) mixtapeQuery = mixtapeQuery.or(mineCatalogCursorOrFilter(cursor));
+        }
+        else {
+            mixtapeQuery = mixtapeQuery
+                .order("published_at", { ascending: false, nullsFirst: false })
+                .order("created_at", { ascending: false })
+                .limit(limit);
+        }
         if (scope === "mine" && !mineIsAdmin) mixtapeQuery = mixtapeQuery.eq("user_id", userId);
         else if (scope === "public") mixtapeQuery = mixtapeQuery.eq("status", "published");
         else if (scope === "featured") {
@@ -70,7 +91,16 @@ export async function GET(request: Request) {
                 categories: [],
             }, isMixtapeSetupMissing(mixtapeResult.error) ? 409 : 500);
         }
-        const mixtapeRows = (mixtapeResult.data || []) as unknown as Record<string, unknown>[];
+        let mixtapeRows = (mixtapeResult.data || []) as unknown as Record<string, unknown>[];
+        let hasMore = false;
+        let nextCursor = "";
+        if (scope === "mine") {
+            hasMore = mixtapeRows.length > limit;
+            if (hasMore) mixtapeRows = mixtapeRows.slice(0, limit);
+            if (hasMore && mixtapeRows.length > 0) {
+                nextCursor = encodeMineCatalogCursor(mixtapeRows[mixtapeRows.length - 1]);
+            }
+        }
         const mixtapeIds = mixtapeRows.map((mixtape) => String(mixtape.id || "")).filter(Boolean);
         let trackRows: Record<string, unknown>[] = [];
         if (mixtapeIds.length > 0) {
@@ -95,7 +125,7 @@ export async function GET(request: Request) {
             trackRows,
             publishedOnly: scope === "public" || scope === "featured",
         });
-        return jsonResponse({
+        const responseBody: Record<string, unknown> = {
             mixtapes: scope === "public" || scope === "featured"
                 ? mapped.mixtapes.map((mixtape) => ({ ...mixtape, coverStoragePath: "" }))
                 : mapped.mixtapes,
@@ -103,7 +133,13 @@ export async function GET(request: Request) {
                 ? mapped.tracks.map((track) => serializePublicTrack(track as unknown as Record<string, unknown>))
                 : mapped.tracks,
             categories: mapped.categories,
-        });
+        };
+        if (scope === "mine") {
+            responseBody.hasMore = hasMore;
+            responseBody.nextCursor = nextCursor;
+            responseBody.pageSize = limit;
+        }
+        return jsonResponse(responseBody);
     }
     catch (error) {
         console.error("[api/mixtapes] GET failed:", error);
