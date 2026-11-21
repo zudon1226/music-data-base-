@@ -17,6 +17,10 @@ const eslintConfig = defineConfig([
     "app/page_v*.tsx",
     "app/page-dev.tsx",
     "app/page-test.tsx",
+    // E2E / probe artifacts (not maintained app source)
+    "tmp/**",
+    "tmp-*/**",
+    "tmp-eslint-baseline.json",
   ]),
 ]);
 
