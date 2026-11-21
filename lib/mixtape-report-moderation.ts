@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
     canTransitionMixtapeReportStatus,
     isMixtapeReportStatus,
@@ -50,6 +51,39 @@ export type MixtapeReportRow = {
     } | null;
 };
 
+function normalizeMixtapeJoin(
+    value: unknown,
+): MixtapeReportRow["mixtapes"] {
+    const row = (Array.isArray(value) ? value[0] : value) as Record<string, unknown> | null | undefined;
+    if (!row || typeof row !== "object") return null;
+    return {
+        id: String(row.id || ""),
+        title: String(row.title || ""),
+        status: String(row.status || ""),
+        user_id: String(row.user_id || ""),
+    };
+}
+
+function normalizeMixtapeReportRows(rows: unknown): MixtapeReportRow[] {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row) => {
+        const record = row as Record<string, unknown>;
+        return {
+            id: String(record.id || ""),
+            mixtape_id: String(record.mixtape_id || ""),
+            reporter_user_id: String(record.reporter_user_id || ""),
+            reason_code: String(record.reason_code || ""),
+            details: String(record.details || ""),
+            status: String(record.status || ""),
+            created_at: String(record.created_at || ""),
+            updated_at: String(record.updated_at || ""),
+            reviewed_by: record.reviewed_by == null ? null : String(record.reviewed_by),
+            reviewed_at: record.reviewed_at == null ? null : String(record.reviewed_at),
+            mixtapes: normalizeMixtapeJoin(record.mixtapes),
+        };
+    });
+}
+
 async function attachProfileNames(reports: MixtapeReportRow[]) {
     const ids = new Set<string>();
     for (const report of reports) {
@@ -90,34 +124,41 @@ async function attachProfileNames(reports: MixtapeReportRow[]) {
     });
 }
 
-export async function listMixtapeReportsForModeration(options: { status?: string; limit?: number } = {}) {
-    const supabase = getSupabaseServerClient();
-    const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 200);
-    let query = supabase
-        .from("mixtape_reports")
-        .select(REPORT_SELECT)
-        .order("created_at", { ascending: false })
-        .limit(limit);
-    const status = String(options.status || "").trim();
-    if (status && isMixtapeReportStatus(status)) {
-        query = query.eq("status", status);
-    }
-    let result = await query;
-    if (result.error && isMissingModerationAuditColumnError(result.error)) {
-        query = supabase
+async function fetchModerationReportList(
+    supabase: SupabaseClient,
+    mode: "full" | "core",
+    limit: number,
+    statusFilter: string,
+) {
+    const listQuery = mode === "full"
+        ? supabase
+            .from("mixtape_reports")
+            .select(REPORT_SELECT)
+            .order("created_at", { ascending: false })
+            .limit(limit)
+        : supabase
             .from("mixtape_reports")
             .select(REPORT_SELECT_CORE)
             .order("created_at", { ascending: false })
             .limit(limit);
-        if (status && isMixtapeReportStatus(status)) {
-            query = query.eq("status", status);
-        }
-        result = await query;
+    if (statusFilter && isMixtapeReportStatus(statusFilter)) {
+        return listQuery.eq("status", statusFilter);
+    }
+    return listQuery;
+}
+
+export async function listMixtapeReportsForModeration(options: { status?: string; limit?: number } = {}) {
+    const supabase = getSupabaseServerClient();
+    const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 200);
+    const status = String(options.status || "").trim();
+    let result = await fetchModerationReportList(supabase, "full", limit, status);
+    if (result.error && isMissingModerationAuditColumnError(result.error)) {
+        result = await fetchModerationReportList(supabase, "core", limit, status);
     }
     if (result.error) {
         return { ok: false as const, error: getErrorMessage(result.error), reports: [] };
     }
-    const enriched = await attachProfileNames((result.data || []) as MixtapeReportRow[]);
+    const enriched = await attachProfileNames(normalizeMixtapeReportRows(result.data));
     return { ok: true as const, reports: enriched };
 }
 
@@ -144,7 +185,7 @@ export async function getMixtapeReportForModeration(reportId: string) {
     if (!result.data) {
         return { ok: false as const, status: 404, error: "Mixtape report not found." };
     }
-    const [report] = await attachProfileNames([result.data as MixtapeReportRow]);
+    const [report] = await attachProfileNames(normalizeMixtapeReportRows([result.data]));
     return { ok: true as const, report };
 }
 
@@ -183,7 +224,7 @@ export async function updateMixtapeReportModerationStatus(
     }
 
     const reviewedAt = new Date().toISOString();
-    let updated = await supabase
+    const withAudit = await supabase
         .from("mixtape_reports")
         .update({
             status: nextStatus,
@@ -193,31 +234,32 @@ export async function updateMixtapeReportModerationStatus(
         .eq("id", reportId)
         .select(REPORT_SELECT)
         .maybeSingle();
-    if (updated.error && /reviewed_by|reviewed_at|schema cache/i.test(getErrorMessage(updated.error))) {
-        updated = await supabase
+    const updated = withAudit.error && isMissingModerationAuditColumnError(withAudit.error)
+        ? await supabase
             .from("mixtape_reports")
             .update({ status: nextStatus })
             .eq("id", reportId)
-            .select(REPORT_SELECT)
-            .maybeSingle();
-    }
+            .select(REPORT_SELECT_CORE)
+            .maybeSingle()
+        : withAudit;
     if (updated.error) {
         return { ok: false as const, status: 500, error: getErrorMessage(updated.error) };
     }
-    if (!updated.data) {
+    const [updatedRow] = normalizeMixtapeReportRows(updated.data ? [updated.data] : []);
+    if (!updatedRow?.id) {
         return { ok: false as const, status: 404, error: "Mixtape report not found." };
     }
 
-    const preservedOwnership = String(updated.data.reporter_user_id) === String(existing.data.reporter_user_id)
-        && String(updated.data.mixtape_id) === String(existing.data.mixtape_id)
-        && String(updated.data.reason_code) === String(existing.data.reason_code)
-        && String(updated.data.details) === String(existing.data.details)
-        && String(updated.data.created_at) === String(existing.data.created_at);
+    const preservedOwnership = updatedRow.reporter_user_id === String(existing.data.reporter_user_id)
+        && updatedRow.mixtape_id === String(existing.data.mixtape_id)
+        && updatedRow.reason_code === String(existing.data.reason_code)
+        && updatedRow.details === String(existing.data.details)
+        && updatedRow.created_at === String(existing.data.created_at);
     if (!preservedOwnership) {
         return { ok: false as const, status: 500, error: "Report metadata was altered unexpectedly." };
     }
 
-    const [report] = await attachProfileNames([updated.data as MixtapeReportRow]);
+    const [report] = await attachProfileNames([updatedRow]);
     return { ok: true as const, report };
 }
 
