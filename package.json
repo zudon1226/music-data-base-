@@ -84,6 +84,7 @@
     "verify:dashboard": "node scripts/verify-user-dashboard-phase1.mjs && node lib/dashboard/profile-fields.test.mjs",
     "verify:dashboard2": "node scripts/verify-user-dashboard-phase2.mjs",
     "verify:supabase-identity": "node lib/supabase-preview-staging.test.mjs",
+    "verify:password-recovery": "node lib/auth-password-recovery-flow.test.mjs",
     "verify:podcasts": "node lib/supabase-preview-staging.test.mjs && node scripts/verify-podcast-phase1.mjs && node lib/public-podcast-listener.test.mjs && node lib/public-podcast-metadata.test.mjs && node lib/podcast-resume.test.mjs && node lib/podcast-guest-discovery.test.mjs && node scripts/verify-public-podcast-listener.mjs && node scripts/verify-podcast-metadata-routes.mjs && node scripts/verify-podcast-guest-continue.mjs && node scripts/verify-podcast-guest-navigation.mjs && node scripts/verify-podcast-phase2e.mjs && node scripts/verify-podcast-phase2f.mjs && node scripts/verify-podcast-phase2g.mjs && node scripts/verify-podcast-phase2h.mjs && node scripts/verify-podcast-phase2i.mjs",
     "verify:podcasts-2e": "node scripts/verify-podcast-phase2e.mjs",
     "verify:podcasts-2f": "node scripts/verify-podcast-phase2f.mjs",

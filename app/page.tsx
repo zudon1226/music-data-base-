@@ -25,7 +25,7 @@ import { SignupLegalAcceptance, buildSignupLegalAcceptances } from "../component
 import {
     clearSupabaseAuthFragmentFromUrl,
     isSupabasePasswordRecoveryUrl,
-    resolvePasswordRecoveryRedirectUrl,
+    submitPasswordRecoveryRequest,
 } from "../lib/auth-password-recovery-flow";
 import { CREATOR_UPLOADS_LOCKED_MESSAGE, CREATOR_WITHDRAWAL_LOCKED_MESSAGE } from "../lib/billing/constants";
 import { CLIENT_PLAN_SUPPORT } from "../lib/billing/plan-entitlements";
@@ -17320,8 +17320,7 @@ function PageContent({
         }
         setAuthBusy(true);
         try {
-            const redirectTo = resolvePasswordRecoveryRedirectUrl();
-            const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+            const { error } = await submitPasswordRecoveryRequest(supabase, email);
             if (error) {
                 setAuthMessage(error.message);
                 return;
