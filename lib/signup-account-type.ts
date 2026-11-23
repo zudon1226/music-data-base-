@@ -1,10 +1,11 @@
 /**
- * Signup account-type selection (Listener / Artist / Producer / Artist & Producer / Podcaster).
+ * Signup account-type selection (Listener / Creator / Artist / Producer / Artist & Producer / Podcaster).
  * Reuses profiles.account_type + user_roles; does not invent a parallel role system.
  */
 
 export const SIGNUP_ACCOUNT_TYPES = [
     "listener",
+    "creator",
     "artist",
     "producer",
     "artist_producer",
@@ -46,7 +47,7 @@ export function parseSignupAccountTypeInput(value: unknown): {
     if (!normalized) {
         return {
             ok: false,
-            error: "Invalid account type. Choose Listener, Artist, Producer, Artist & Producer, or Podcaster.",
+            error: "Invalid account type. Choose Listener, Creator, Artist, Producer, Artist & Producer, or Podcaster.",
         };
     }
     return { ok: true, accountType: normalized };
@@ -74,8 +75,27 @@ export function isValidSignupAccountTypeMarker(value: unknown) {
     return decoded !== null && text === encodeSignupAccountTypeMarker(decoded);
 }
 
+export function signupAccountTypeDescription(accountType: SignupAccountType): string {
+    switch (accountType) {
+        case "creator":
+            return "Publish and manage videos only — not music tracks.";
+        case "artist":
+            return "Publish music and videos as an artist.";
+        case "producer":
+            return "Publish music, beats, and videos as a producer.";
+        case "artist_producer":
+            return "Publish music and videos with both artist and producer tools.";
+        case "podcaster":
+            return "Publish podcasts through approved podcast workflows.";
+        default:
+            return "Stream, discover, save playlists, and enjoy the catalog.";
+    }
+}
+
 export function signupAccountTypeLabel(accountType: SignupAccountType) {
     switch (accountType) {
+        case "creator":
+            return "Creator";
         case "artist":
             return "Artist";
         case "producer":
@@ -100,6 +120,10 @@ export function resolveSignupAccountTypeGrants(
             primaryAccountType: "listener",
             userRoles: [] as string[],
         };
+    }
+    if (accountType === "creator") {
+        const role = founding ? "founding_creator" : "creator";
+        return { primaryAccountType: role, userRoles: [role] };
     }
     if (accountType === "artist") {
         const role = founding ? "founding_artist" : "artist";

@@ -5,9 +5,16 @@
  */
 
 import { loadFoundingMemberByUserId } from "@/lib/founding-access";
+import {
+    accountTypeAllowsVideoUpload,
+    MUSIC_UPLOAD_DENIED_MESSAGE,
+    roleTokenAllowsMusicUpload,
+    roleTokenAllowsVideoUpload,
+    VIDEO_UPLOAD_DENIED_MESSAGE,
+} from "@/lib/media-upload-permissions";
 import { getSupabaseServerClient, isPlatformOwnerEmail, isUuid } from "@/lib/server-supabase";
 
-export type ResolvedAccountRole = "listener" | "artist" | "producer" | "podcaster" | "admin";
+export type ResolvedAccountRole = "listener" | "artist" | "producer" | "podcaster" | "creator" | "admin";
 
 export type ResolvedAccountCapabilities = {
     primaryRole: ResolvedAccountRole;
@@ -17,11 +24,17 @@ export type ResolvedAccountCapabilities = {
     isProducer: boolean;
     /** Podcast Studio only — never grants music/video/ringtone upload, sales, or creator ringtones. */
     isPodcaster: boolean;
+    /** Video-only creator account (not Artist / music publisher). */
+    isVideoCreator: boolean;
     isListenerOnly: boolean;
+    canUploadMusic: boolean;
+    canUploadVideo: boolean;
     canUpload: boolean;
     canPodcastStudio: boolean;
     canArtistDashboard: boolean;
     canProducerDashboard: boolean;
+    /** Video Creator dashboard (video studio, library, analytics). */
+    canCreatorDashboard: boolean;
     canSales: boolean;
     canMyRingtones: boolean;
     /** Listener-only personal ringtones from Library (not marketplace seller tools). */
@@ -32,21 +45,27 @@ const CREATOR_ROLE_TOKENS = new Set([
     "artist",
     "producer",
     "admin",
-    "creator",
     "founding_artist",
     "founding_producer",
     "artist_pro",
     "producer_pro",
+    "creator",
+    "founding_creator",
 ]);
 
 export function normalizeResolvedAccountRole(value: unknown): ResolvedAccountRole {
     const normalized = String(value || "").trim().toLowerCase();
     if (normalized === "admin") return "admin";
     if (
+        normalized === "creator"
+        || normalized === "founding_creator"
+    ) {
+        return "creator";
+    }
+    if (
         normalized === "artist"
         || normalized === "founding_artist"
         || normalized === "artist_pro"
-        || normalized === "creator"
     ) {
         return "artist";
     }
@@ -92,19 +111,33 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
         isAdmin: input.isAdmin || isPlatformOwner,
     });
     const isAdmin = isPlatformOwner || Boolean(input.isAdmin) || roles.has("admin");
+    const primaryNormalized = normalizeResolvedAccountRole(input.primaryRole);
+    const isVideoCreator = isAdmin
+        || primaryNormalized === "creator"
+        || roles.has("creator")
+        || roles.has("founding_creator");
     const isArtist = isAdmin
         || roles.has("artist")
         || roles.has("founding_artist")
-        || roles.has("artist_pro")
-        || roles.has("creator");
+        || roles.has("artist_pro");
     const isProducer = isAdmin
         || roles.has("producer")
         || roles.has("founding_producer")
         || roles.has("producer_pro");
-    const isCreator = isArtist || isProducer || [...roles].some((role) => CREATOR_ROLE_TOKENS.has(role));
+    const isMusicCreator = isArtist || isProducer;
+    const isCreator = isMusicCreator || isVideoCreator || [...roles].some((role) => CREATOR_ROLE_TOKENS.has(role));
     const isPodcaster = isAdmin
         || roles.has("podcaster")
         || roles.has("founding_podcaster");
+    const canUploadMusic = isAdmin
+        || isMusicCreator
+        || [...roles].some((role) => roleTokenAllowsMusicUpload(role));
+    const canUploadVideo = isAdmin
+        || isMusicCreator
+        || isVideoCreator
+        || [...roles].some((role) => roleTokenAllowsVideoUpload(role))
+        || accountTypeAllowsVideoUpload(input.primaryRole);
+    const canCreatorDashboard = isAdmin || isVideoCreator;
 
     if (isPlatformOwner || isAdmin) {
         return {
@@ -114,11 +147,15 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
             isArtist: true,
             isProducer: true,
             isPodcaster: true,
+            isVideoCreator: true,
             isListenerOnly: false,
+            canUploadMusic: true,
+            canUploadVideo: true,
             canUpload: true,
             canPodcastStudio: true,
             canArtistDashboard: true,
             canProducerDashboard: true,
+            canCreatorDashboard: true,
             canSales: true,
             canMyRingtones: true,
             canPersonalRingtones: true,
@@ -133,9 +170,11 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
             ? "artist"
             : isProducer
                 ? "producer"
-                : isPodcaster
-                    ? "podcaster"
-                    : "listener";
+                : isVideoCreator
+                    ? "creator"
+                    : isPodcaster
+                        ? "podcaster"
+                        : "listener";
 
     return {
         primaryRole,
@@ -144,13 +183,17 @@ export function resolveCapabilitiesFromExplicitRoles(input: {
         isArtist,
         isProducer,
         isPodcaster,
+        isVideoCreator,
         isListenerOnly: !isCreator && !isPodcaster,
-        canUpload: isCreator,
-        canPodcastStudio: isCreator || isPodcaster,
+        canUploadMusic,
+        canUploadVideo,
+        canUpload: canUploadMusic || canUploadVideo,
+        canPodcastStudio: isMusicCreator || isPodcaster,
         canArtistDashboard: isArtist,
         canProducerDashboard: isProducer,
-        canSales: isCreator,
-        canMyRingtones: isCreator,
+        canCreatorDashboard,
+        canSales: isMusicCreator,
+        canMyRingtones: isMusicCreator,
         canPersonalRingtones: !isCreator,
     };
 }
@@ -196,7 +239,7 @@ export async function loadResolvedAccountCapabilities(userId: string, email = ""
                 primaryRole === "listener"
                 && !isAdmin
                 && !isPlatformOwner
-                && (normalized === "artist" || normalized === "producer" || normalized === "podcaster" || normalized === "admin")
+                && (normalized === "artist" || normalized === "producer" || normalized === "podcaster" || normalized === "creator" || normalized === "admin")
             ) {
                 continue;
             }
@@ -220,7 +263,33 @@ export async function requireCreatorUploadAccess(userId: string, email = "") {
         return {
             ok: false as const,
             status: 403,
-            error: "Upload is available for Artist and Producer accounts only.",
+            error: VIDEO_UPLOAD_DENIED_MESSAGE,
+            capabilities,
+        };
+    }
+    return { ok: true as const, capabilities };
+}
+
+export async function requireMusicUploadAccess(userId: string, email = "") {
+    const capabilities = await loadResolvedAccountCapabilities(userId, email);
+    if (!capabilities.canUploadMusic) {
+        return {
+            ok: false as const,
+            status: 403,
+            error: MUSIC_UPLOAD_DENIED_MESSAGE,
+            capabilities,
+        };
+    }
+    return { ok: true as const, capabilities };
+}
+
+export async function requireVideoUploadAccess(userId: string, email = "") {
+    const capabilities = await loadResolvedAccountCapabilities(userId, email);
+    if (!capabilities.canUploadVideo) {
+        return {
+            ok: false as const,
+            status: 403,
+            error: VIDEO_UPLOAD_DENIED_MESSAGE,
             capabilities,
         };
     }

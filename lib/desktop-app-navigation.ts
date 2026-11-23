@@ -26,6 +26,7 @@ export type DesktopNavView =
     | "Playlists"
     | "Profile"
     | "Notifications"
+    | "Creator Dashboard"
     | "Artist Dashboard"
     | "Artist Profile"
     | "Producer Dashboard"
@@ -64,6 +65,7 @@ export type DesktopNavItemDefinition = {
     view: DesktopNavView;
     requiresOwner?: boolean;
     requiresRingtoneCreator?: boolean;
+    requiresCreatorDashboard?: boolean;
     requiresArtistDashboard?: boolean;
     requiresProducerDashboard?: boolean;
     requiresCreator?: boolean;
@@ -89,6 +91,7 @@ export const DESKTOP_NAV_ITEMS: DesktopNavItemDefinition[] = [
     { view: "Profile" },
     // Notifications page is topbar-only (not a sidebar item) — full page via dropdown "View all".
     { view: "Sales", requiresCreator: true },
+    { view: "Creator Dashboard", requiresCreatorDashboard: true },
     { view: "Artist Dashboard", requiresArtistDashboard: true },
     { view: "Producer Dashboard", requiresProducerDashboard: true },
     { view: "Podcast Studio", requiresPodcastStudio: true },
@@ -118,6 +121,9 @@ export function evaluateDesktopNavAccess(
 
     if (item?.requiresOwner && !capabilities.canPlatformControlCenter) {
         return { allowed: false, reason: "owner-required" };
+    }
+    if (item?.requiresCreatorDashboard && !capabilities.canCreatorDashboard) {
+        return { allowed: false, reason: "role-required" };
     }
     if (item?.requiresArtistDashboard && !capabilities.canArtistDashboard) {
         return { allowed: false, reason: "artist-required" };
@@ -165,6 +171,7 @@ export const MOBILE_NAV_VIEW_ORDER: DesktopNavView[] = [
     "Recently Played",
     "Queue",
     "Profile",
+    "Creator Dashboard",
     "Artist Dashboard",
     "Producer Dashboard",
     "Podcast Studio",
@@ -191,6 +198,7 @@ export function listVisibleMobileNavItems(context: DesktopNavAccessContext) {
 
 export function mobileNavShortLabel(view: DesktopNavView, fullLabel: string): string {
     if (view === "Liked") return "Favorites";
+    if (view === "Creator Dashboard") return "Creator Studio";
     if (view === "Artist Dashboard") return "Artist Studio";
     if (view === "Producer Dashboard") return "Producer Studio";
     return fullLabel;
@@ -209,6 +217,14 @@ export function shouldShowArtistDashboardControl(context: DesktopNavAccessContex
 export function shouldShowProducerDashboardControl(context: DesktopNavAccessContext) {
     if (!context.isPlatformOwner && context.authorizationReady === false) return false;
     return resolveDesktopNavCapabilities(context).canProducerDashboard;
+}
+
+export function shouldShowCreatorDashboardControl(context: DesktopNavAccessContext) {
+    if (!context.isPlatformOwner && context.authorizationReady === false) return false;
+    const capabilities = resolveDesktopNavCapabilities(context);
+    return capabilities.canCreatorDashboard
+        && !capabilities.canArtistDashboard
+        && !capabilities.canProducerDashboard;
 }
 
 /** @deprecated Prefer role capabilities via resolveDesktopNavCapabilities. */

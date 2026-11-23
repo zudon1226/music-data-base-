@@ -142,12 +142,14 @@ export function resolvePostAuthDestination(input: {
     isPlatformOwner?: boolean;
     canArtistDashboard?: boolean;
     canProducerDashboard?: boolean;
+    canCreatorDashboard?: boolean;
     requestedView?: string | null;
-}): "Home" | "Artist Dashboard" | "Producer Dashboard" | "Platform Control Center" {
+}): "Home" | "Creator Dashboard" | "Artist Dashboard" | "Producer Dashboard" | "Platform Control Center" {
     if (input.isPlatformOwner) {
         return "Home";
     }
     const requested = String(input.requestedView || "").trim();
+    if (requested === "Creator Dashboard" && input.canCreatorDashboard) return "Creator Dashboard";
     if (requested === "Artist Dashboard" && input.canArtistDashboard) return "Artist Dashboard";
     if (requested === "Producer Dashboard" && input.canProducerDashboard) return "Producer Dashboard";
     return "Home";
