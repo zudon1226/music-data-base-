@@ -70,21 +70,23 @@ Preserved: six destinations, active state, click/history, Ringtone **Beta** pill
 
 ## Preview deployment
 
-*(Filled after deploy)*
-
 | Field | Value |
 |-------|-------|
-| Commit | *(see git)* |
-| Deployment ID | *(see deploy output)* |
-| Preview URL | *(see deploy output)* |
+| Commit | **`88311ce`** — `fix(phase29e): contain guest hub nav width on mobile Home` |
+| Deployment ID | `dpl_ABQmE4DTE4md4Uwe1ueFGsaf4ABM` |
+| Preview URL | https://music-data-base-pwa-clean-git-baseline-recovered-43ha1u3ht.vercel.app |
+| Status | **Ready** |
+| Protection | `vercel_authentication` (enabled) |
+| Target | **preview** only — `music-data-base-pwa-clean-git-baseline-recovered` |
 
-### Post-deploy checks
+### Post-deploy checks (`verify-phase29d-preview-api.mjs`)
 
-*(Filled after deploy)*
-
-- Six routes **HTTP 200**
-- Staging Supabase ref on `/api/songs`
-- `publicBetaPaidPurchaseLocked: true`, `paidCheckoutAvailable: false`
+| Check | Result |
+|-------|--------|
+| `/`, `/music`, `/videos`, `/ringtones`, `/mixtapes`, `/podcast` | **200** |
+| `/api/songs` staging ref `jzlegcbotqfzevtczwhx` | **PASS** |
+| Ringtone locks | `publicBetaPaidPurchaseLocked: true`, `paidCheckoutAvailable: false` |
+| Guest `POST /api/upload-audio` | **401** |
 
 ---
 
