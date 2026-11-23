@@ -117,6 +117,12 @@
 }
 
 @media (max-width: 719px) {
+  /* Mobile shell renders a dedicated horizontal row — hide duplicate inline nav copies. */
+  .guest-public-discovery-nav--sidebar,
+  .guest-listener-search-wrap .guest-public-discovery-nav {
+    display: none;
+  }
+
   .guest-public-discovery-nav--inline .guest-public-discovery-nav__list {
     gap: 4px;
   }
