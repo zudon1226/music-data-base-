@@ -10,7 +10,7 @@ import {
     type ResolvedAccountCapabilities,
 } from "@/lib/resolved-account-role";
 
-export type NavAccountRole = "listener" | "artist" | "producer" | "podcaster" | "admin";
+export type NavAccountRole = "listener" | "artist" | "producer" | "podcaster" | "creator" | "admin";
 
 export type NavCapabilityFlags = {
     isPlatformOwner: boolean;
@@ -20,10 +20,13 @@ export type NavCapabilityFlags = {
     isPodcaster: boolean;
     isListenerOnly: boolean;
     canUpload: boolean;
+    canUploadMusic: boolean;
+    canUploadVideo: boolean;
     canPodcastStudio: boolean;
     canMixtapeStudio: boolean;
     canArtistDashboard: boolean;
     canProducerDashboard: boolean;
+    canCreatorDashboard: boolean;
     canPlatformControlCenter: boolean;
     canSales: boolean;
     canMyRingtones: boolean;
@@ -77,12 +80,14 @@ function toNavFlags(
         isPodcaster: resolved.isPodcaster,
         isListenerOnly: resolved.isListenerOnly,
         canUpload: resolved.canUpload,
+        canUploadMusic: resolved.canUploadMusic,
+        canUploadVideo: resolved.canUploadVideo,
         canPodcastStudio: resolved.canPodcastStudio,
-        canMixtapeStudio: resolved.canPodcastStudio
-            || resolved.canUpload
+        canMixtapeStudio: resolved.canUploadMusic
             || roles.some((role) => role === "dj" || role === "founding_dj"),
         canArtistDashboard: resolved.canArtistDashboard,
         canProducerDashboard: resolved.canProducerDashboard,
+        canCreatorDashboard: resolved.canCreatorDashboard,
         canPlatformControlCenter: isPlatformOwner || resolved.isAdmin,
         canSales: resolved.canSales,
         canMyRingtones: resolved.canMyRingtones,
@@ -99,6 +104,7 @@ const CREATOR_ROLE_TOKENS = new Set([
     "founding_producer",
     "artist_pro",
     "producer_pro",
+    "founding_creator",
 ]);
 
 /**
@@ -137,10 +143,13 @@ export function resolveNavCapabilities(input: ResolveNavCapabilitiesInput): NavC
             isPodcaster: false,
             isListenerOnly: true,
             canUpload: false,
+            canUploadMusic: false,
+            canUploadVideo: false,
             canPodcastStudio: false,
             canMixtapeStudio: false,
             canArtistDashboard: false,
             canProducerDashboard: false,
+            canCreatorDashboard: false,
             canPlatformControlCenter: false,
             canSales: false,
             canMyRingtones: false,
@@ -205,6 +214,7 @@ export const LISTENER_ACCESSIBLE_VIEWS = [
 export function canAccessNavView(view: string, capabilities: NavCapabilityFlags): boolean {
     if (capabilities.canPlatformControlCenter) return true;
     if (view === "Platform Control Center") return capabilities.canPlatformControlCenter;
+    if (view === "Creator Dashboard") return capabilities.canCreatorDashboard;
     if (view === "Artist Dashboard" || view === "Artist Profile") return capabilities.canArtistDashboard;
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
     if (view === "Podcast Studio") return capabilities.canPodcastStudio;
