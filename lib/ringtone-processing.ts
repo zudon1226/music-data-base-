@@ -28,6 +28,7 @@ import {
     RINGTONE_MIN_DURATION_SECONDS,
     RINGTONE_STORAGE_BUCKETS,
 } from "@/lib/ringtone-constants";
+import { normalizeSongStoragePath, SONGS_BUCKET } from "@/lib/song-storage-path";
 
 export const RINGTONE_PROCESSING_VERSION = "ringtone-ffmpeg-v1";
 
@@ -135,6 +136,14 @@ export function checksumBuffer(buffer: Buffer) {
     return createHash("sha256").update(buffer).digest("hex");
 }
 
+/** Library songs bucket paths are owner-prefixed but may differ from ringtone creator id (legacy rows). */
+export function isAuthorizedLibrarySourcePath(sourcePath: string): boolean {
+    const normalized = normalizeSongStoragePath(sourcePath);
+    if (!normalized || normalized.includes("..")) return false;
+    const segments = normalized.split("/").filter(Boolean);
+    return segments.length >= 2;
+}
+
 export function planRingtoneProcessing(input: {
     ringtoneId: string;
     creatorId: string;
@@ -158,7 +167,12 @@ export function planRingtoneProcessing(input: {
     if (input.durationSeconds > RINGTONE_MAX_DURATION_SECONDS) {
         return { ok: false, error: "Processing refuses clips longer than 30 seconds." };
     }
-    if (!input.sourcePath.startsWith(`${input.creatorId}/`)) {
+    const librarySource = input.sourceBucket === SONGS_BUCKET;
+    if (librarySource) {
+        if (!isAuthorizedLibrarySourcePath(input.sourcePath)) {
+            return { ok: false, error: "Source song storage path is invalid." };
+        }
+    } else if (!input.sourcePath.startsWith(`${input.creatorId}/`)) {
         return { ok: false, error: "Source path must be owner-scoped under the creator id." };
     }
 

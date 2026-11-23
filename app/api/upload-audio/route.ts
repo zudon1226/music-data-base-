@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
 import { requireMusicUploadAccess } from "@/lib/resolved-account-role";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
+import { parseSalesPriceCentsFromBody } from "@/lib/sales-price-input";
 import {
     isSongUsageColumnError,
     parseSongUsageFromBody,
@@ -285,6 +286,12 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
         return jsonResponse({ error: usage.error }, 400);
     }
 
+    const salePrice = parseSalesPriceCentsFromBody(body);
+    if (!salePrice.ok) {
+        return jsonResponse({ error: salePrice.error, code: "VALIDATION_FAILED" }, 400);
+    }
+    const songPriceCents = salePrice.priceCents ?? 0;
+
     if (!storagePath) {
         return jsonResponse({ error: "storagePath is required after the Storage upload completes." }, 400);
     }
@@ -323,6 +330,7 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
         ringtone_creation_enabled: usage.ringtone_creation_enabled,
         ringtone_sale_enabled: usage.ringtone_sale_enabled,
         ringtone_price: usage.ringtone_price,
+        price_cents: songPriceCents,
     };
 
     const { savedSong, tableError, lastSongInsertPayload } = await insertSongMetadata(

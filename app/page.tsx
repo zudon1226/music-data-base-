@@ -442,6 +442,8 @@ type Playlist = {
 };
 type UploadForm = Pick<Song, "title" | "artist" | "type" | "cover"> & {
     producerId: string;
+    /** Optional à-la-carte download price (dollars); stored as `songs.price_cents`. */
+    salePriceDollars: string;
 };
 type VideoUploadForm = {
     title: string;
@@ -694,6 +696,7 @@ type Album = {
     cover: string;
     category: string;
     releaseDate: string;
+    priceCents: number;
     createdAt: string;
     updatedAt: string;
     songIds: string[];
@@ -719,6 +722,8 @@ type AlbumUploadForm = {
     cover: string;
     category: string;
     releaseDate: string;
+    bundlePriceDollars: string;
+    trackSalePriceDollars: string;
 };
 type EditAlbumForm = AlbumUploadForm;
 type AuthMode = "login" | "signup";
@@ -2905,6 +2910,7 @@ function normalizeAlbumRecord(album: Partial<Album> | Record<string, unknown>): 
         cover: getArtworkUrl(getStringField(record, ["cover", "coverUrl", "cover_url", "coverImage", "cover_image", "image", "image_url", "thumbnail_url"])),
         category: getStringField(record, ["category", "genre"]) || "Album",
         releaseDate: getStringField(record, ["releaseDate", "release_date"]),
+        priceCents: Math.max(0, Math.round(Number(record.priceCents ?? record.price_cents ?? 0))),
         createdAt: getStringField(record, ["createdAt", "created_at"]),
         updatedAt: getStringField(record, ["updatedAt", "updated_at", "createdAt", "created_at"]),
         songIds: uniqueIds(songIdsSource),
@@ -4411,6 +4417,7 @@ function PageContent({
         type: "Beats",
         cover: "",
         producerId: "",
+        salePriceDollars: "",
     });
     const [songPublicationMode, setSongPublicationMode] = useState<SongPublicationMode>("");
     const [librarySearchScope, setLibrarySearchScope] = useState<LibrarySearchScope>("library");
@@ -4485,6 +4492,8 @@ function PageContent({
         cover: "",
         category: "Album",
         releaseDate: "",
+        bundlePriceDollars: "",
+        trackSalePriceDollars: "",
     });
     const [albumSongFiles, setAlbumSongFiles] = useState<File[]>([]);
     const [albumVideoFiles, setAlbumVideoFiles] = useState<File[]>([]);
@@ -5140,6 +5149,8 @@ function PageContent({
         cover: "",
         category: "Album",
         releaseDate: "",
+        bundlePriceDollars: "",
+        trackSalePriceDollars: "",
     });
     const [producerProfiles, setProducerProfiles] = useState<ProducerProfile[]>([]);
     const [producerBeats, setProducerBeats] = useState<ProducerBeat[]>([]);
@@ -14528,6 +14539,7 @@ function PageContent({
         uploadUser?: SupabaseUser | null,
         albumId = "",
         publicationMode: Exclude<SongPublicationMode, ""> = "public_streaming",
+        salePriceDollars = "",
     ) {
         const fileError = getAudioFileError(file);
         if (fileError) {
@@ -14681,6 +14693,7 @@ function PageContent({
                 producer: producer?.name || "",
                 album_id: albumId || "",
                 publicationMode,
+                salePriceDollars: salePriceDollars.trim() || undefined,
             }),
         }, { onSession: syncDesktopUploadSession });
 
@@ -14899,7 +14912,7 @@ function PageContent({
                 type: uploadForm.type,
                 cover: uploadForm.cover,
                 producerId: producerCreditId,
-            }, undefined, "", songPublicationMode);
+            }, undefined, "", songPublicationMode, uploadForm.salePriceDollars);
             const databaseSongs = await reloadSongLibraryFromSupabase();
             const savedSong = databaseSongs.find((song) => song.id === newSong.id) || newSong;
             saveToLibrary(savedSong);
@@ -14912,6 +14925,7 @@ function PageContent({
                 type: "Beats",
                 cover: "",
                 producerId: "",
+                salePriceDollars: "",
             });
             setUploadFile(null);
             setUploadStatus("");
@@ -15161,7 +15175,14 @@ function PageContent({
             await reloadSongLibraryFromSupabase();
             await reloadProducerDataFromSupabase();
             saveToLibrary({ ...newSong, producer: profile.name, producerId: profile.id, beatId: beat.id });
-            setUploadForm({ title: "", artist: "", type: isInstrumental ? "Instrumental" : "Beats", cover: "", producerId: "" });
+            setUploadForm({
+                title: "",
+                artist: "",
+                type: isInstrumental ? "Instrumental" : "Beats",
+                cover: "",
+                producerId: "",
+                salePriceDollars: "",
+            });
             setUploadFile(null);
             setUploadStatus("");
             setShowUpload(false);
@@ -15484,6 +15505,7 @@ function PageContent({
         coverUrl: string;
         category: string;
         releaseDate: string;
+        bundlePriceDollars?: string;
     };
     async function createAlbumRowInSupabase(payload: AlbumSavePayload) {
         const response = await desktopActionFetch("/api/albums/create", {
@@ -15625,6 +15647,7 @@ function PageContent({
                 coverUrl,
                 category,
                 releaseDate: albumForm.releaseDate,
+                bundlePriceDollars: albumForm.bundlePriceDollars.trim() || undefined,
             };
             let albumRow = await createAlbumRowInSupabase(albumPayload);
             setAlbums((previous) => [albumRow, ...previous.filter((album) => album.id !== albumRow.id)]);
@@ -15638,7 +15661,7 @@ function PageContent({
                     type: category,
                     cover: coverUrl,
                     producerId: producerProfile?.id || "",
-                }, uploadUser, albumRow.id, "public_streaming");
+                }, uploadUser, albumRow.id, "public_streaming", albumForm.trackSalePriceDollars);
                 uploadedSongs.push(song);
                 completedSteps += 1;
                 setAlbumUploadProgress(Math.round((completedSteps / totalSteps) * 100));
@@ -15692,7 +15715,15 @@ function PageContent({
             if (ownerType === "producer" && producerProfile?.id) {
                 setActiveProducerId(producerProfile.id);
             }
-            setAlbumForm({ title: "", creatorName: "", cover: "", category: "Album", releaseDate: "" });
+            setAlbumForm({
+                title: "",
+                creatorName: "",
+                cover: "",
+                category: "Album",
+                releaseDate: "",
+                bundlePriceDollars: "",
+                trackSalePriceDollars: "",
+            });
             setAlbumSongFiles([]);
             setAlbumVideoFiles([]);
             setAlbumUploadProgress(100);
@@ -16869,6 +16900,8 @@ function PageContent({
             cover: album.cover,
             category: album.category,
             releaseDate: album.releaseDate,
+            bundlePriceDollars: album.priceCents > 0 ? (album.priceCents / 100).toFixed(2) : "",
+            trackSalePriceDollars: "",
         });
     }
     function cancelEditingAlbum() {
@@ -16879,6 +16912,8 @@ function PageContent({
             cover: "",
             category: "Album",
             releaseDate: "",
+            bundlePriceDollars: "",
+            trackSalePriceDollars: "",
         });
     }
     async function saveEditedAlbum(albumId: string) {
@@ -16895,6 +16930,10 @@ function PageContent({
         const currentAlbum = albums.find((album) => album.id === albumId);
         const nextCover = getArtworkUrl(editAlbumForm.cover);
         const nextCategory = editAlbumForm.category.trim() || "Album";
+        const bundlePriceDollars = editAlbumForm.bundlePriceDollars.trim();
+        const nextPriceCents = bundlePriceDollars
+            ? Math.max(0, Math.round(Number(bundlePriceDollars) * 100))
+            : (currentAlbum?.priceCents ?? 0);
         const previousAlbums = albums;
         setAlbums((previous) => previous.map((album) => album.id === albumId
             ? {
@@ -16906,6 +16945,7 @@ function PageContent({
                 cover: nextCover,
                 category: nextCategory,
                 releaseDate: editAlbumForm.releaseDate,
+                priceCents: Number.isFinite(nextPriceCents) ? nextPriceCents : album.priceCents,
                 updatedAt: new Date().toISOString(),
             }
             : album));
@@ -16923,6 +16963,7 @@ function PageContent({
                     coverUrl: nextCover,
                     category: nextCategory,
                     releaseDate: editAlbumForm.releaseDate,
+                    bundlePriceDollars: bundlePriceDollars || undefined,
                 }),
             });
             const data = (await response.json().catch(() => ({}))) as {
@@ -20786,6 +20827,36 @@ function PageContent({
 
                   <input name="albumCover" className="wide" value={albumForm.cover} onChange={(event) => setAlbumForm({ ...albumForm, cover: event.target.value })} placeholder="Cover image URL"/>
 
+                  <label className="wide upload-pricing-field">
+                    <span>Album bundle price (USD)</span>
+                    <input
+                      name="albumBundlePrice"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={albumForm.bundlePriceDollars}
+                      onChange={(event) => setAlbumForm({ ...albumForm, bundlePriceDollars: event.target.value })}
+                      placeholder="0.00 = free bundle"
+                    />
+                    <small>Stored as album bundle price. Per-track à-la-carte prices are separate. Paid checkout stays disabled during public beta.</small>
+                  </label>
+
+                  <label className="wide upload-pricing-field">
+                    <span>Default track price (USD)</span>
+                    <input
+                      name="albumTrackPrice"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={albumForm.trackSalePriceDollars}
+                      onChange={(event) => setAlbumForm({ ...albumForm, trackSalePriceDollars: event.target.value })}
+                      placeholder="Optional per-song price"
+                    />
+                    <small>Applied to each song file in this upload as `songs.price_cents`.</small>
+                  </label>
+
                   <label className="audio-file-field wide">
                     <span>Album songs</span>
                     <input name="albumSongFiles" type="file" multiple accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/x-m4a" onChange={(event) => {
@@ -21015,6 +21086,23 @@ function PageContent({
                     <span>Public streaming — listeners can discover and play this song</span>
                   </label>
                 </fieldset>
+              ) : null}
+
+              {!isBeatLikeUploadMode(uploadMode) ? (
+                <label className="wide upload-pricing-field">
+                  <span>Download / sale price (USD)</span>
+                  <input
+                    name="songSalePrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={uploadForm.salePriceDollars}
+                    onChange={(event) => setUploadForm({ ...uploadForm, salePriceDollars: event.target.value })}
+                    placeholder="0.00 = free / streaming only"
+                  />
+                  <small>Saved to `songs.price_cents`; checkout uses the server catalog. Paid purchase remains locked during public beta.</small>
+                </label>
               ) : null}
 
               <label className="audio-file-field wide">

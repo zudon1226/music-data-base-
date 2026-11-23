@@ -3,6 +3,7 @@ import { repairDeadAlbumVideoReferences } from "@/lib/album-video-refs";
 import { filterPublicCatalogRows } from "@/lib/moderation-status.mjs";
 import { logRouteAuth, optionalMatchingUserId, requireMatchingUserId } from "@/lib/request-auth";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
+import { parseSalesPriceCentsFromBody } from "@/lib/sales-price-input";
 import { getSupabaseLibraryClient, isPlatformOwnerUserId } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ type AlbumItemInput = {
     itemId: string;
     itemType: "song" | "video";
 };
-const ALBUM_SELECT = "id,user_id,title,creator_name,owner_type,artist_name,artist_id,producer_name,producer_id,producer_profile_id,cover_url,category,release_date,created_at,updated_at,moderation_state";
+const ALBUM_SELECT = "id,user_id,title,creator_name,owner_type,artist_name,artist_id,producer_name,producer_id,producer_profile_id,cover_url,category,release_date,price_cents,created_at,updated_at,moderation_state";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
@@ -128,6 +129,7 @@ function mapAlbumRow(row: Record<string, unknown>, items: Record<string, {
         cover: String(row.cover_url || "/music-data-base-logo.png"),
         category: String(row.category || "Album"),
         releaseDate: String(row.release_date || ""),
+        priceCents: Math.max(0, Math.round(Number(row.price_cents) || 0)),
         createdAt: String(row.created_at || ""),
         updatedAt: String(row.updated_at || row.created_at || ""),
         songIds: albumItems.songIds,
@@ -588,6 +590,10 @@ export async function PATCH(request: Request) {
             return jsonResponse({ error: "Album title is required." }, 400);
         if (!creatorName)
             return jsonResponse({ error: "Artist or producer name is required." }, 400);
+        const bundlePrice = parseSalesPriceCentsFromBody(body, { fieldPrefix: "bundle" });
+        if (!bundlePrice.ok) {
+            return jsonResponse({ error: bundlePrice.error, code: "VALIDATION_FAILED" }, 400);
+        }
         const supabase = getSupabaseServerClient();
         const existingAlbum = await supabase.from("albums").select("id,user_id,owner_type").eq("id", id).single();
         if (existingAlbum.error || !existingAlbum.data) {
@@ -607,6 +613,9 @@ export async function PATCH(request: Request) {
             release_date: releaseDate || null,
             updated_at: now,
         };
+        if (!("omitted" in bundlePrice)) {
+            albumUpdate.price_cents = bundlePrice.priceCents ?? 0;
+        }
         if (ownerType === "producer")
             albumUpdate.producer_name = creatorName;
         else

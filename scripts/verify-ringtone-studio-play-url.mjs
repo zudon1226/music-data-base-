@@ -23,6 +23,7 @@ const workspace = read("components/ringtone-creator/ringtone-creator-workspace.t
 const post = read("app/api/ringtones/route.ts");
 const patch = read("app/api/ringtones/[id]/route.ts");
 const jobs = read("lib/ringtone-jobs.ts");
+const processing = read("lib/ringtone-processing.ts");
 
 record(
     "play-url route issues songs bucket signed URL",
@@ -59,6 +60,11 @@ record(
 record(
     "mapRingtoneSaveError handles RINGTONE_SALE_NOT_AUTHORIZED",
     client.includes("RINGTONE_SALE_NOT_AUTHORIZED"),
+);
+record(
+    "planRingtoneProcessing allows songs bucket library source paths",
+    processing.includes("isAuthorizedLibrarySourcePath")
+        && processing.includes("librarySource"),
 );
 
 const failed = results.filter((r) => !r.passed).length;

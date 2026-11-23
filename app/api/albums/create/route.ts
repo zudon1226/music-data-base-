@@ -4,10 +4,11 @@ import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
 import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
+import { parseSalesPriceCentsFromBody } from "@/lib/sales-price-input";
 import { getSupabaseLibraryClient } from "@/lib/server-supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const ALBUM_SELECT = "id,user_id,title,creator_name,owner_type,artist_name,artist_id,producer_name,producer_id,producer_profile_id,cover_url,category,release_date,created_at,updated_at";
+const ALBUM_SELECT = "id,user_id,title,creator_name,owner_type,artist_name,artist_id,producer_name,producer_id,producer_profile_id,cover_url,category,release_date,price_cents,created_at,updated_at";
 function jsonResponse(body: Record<string, unknown>, status = 200) {
     return NextResponse.json(body, { status });
 }
@@ -70,6 +71,7 @@ function mapAlbumRow(row: Record<string, unknown>) {
         cover: String(row.cover_url || "/music-data-base-logo.png"),
         category: String(row.category || "Album"),
         releaseDate: String(row.release_date || ""),
+        priceCents: Math.max(0, Math.round(Number(row.price_cents) || 0)),
         createdAt: String(row.created_at || ""),
         updatedAt: String(row.updated_at || row.created_at || ""),
         songIds: [],
@@ -117,6 +119,10 @@ export async function POST(request: Request) {
             return jsonResponse({ error: "Album title is required." }, 400);
         if (!creatorName)
             return jsonResponse({ error: "Artist or producer name is required." }, 400);
+        const bundlePrice = parseSalesPriceCentsFromBody(body, { fieldPrefix: "bundle" });
+        if (!bundlePrice.ok) {
+            return jsonResponse({ error: bundlePrice.error, code: "VALIDATION_FAILED" }, 400);
+        }
         const now = new Date().toISOString();
         const albumRow = {
             id: albumId,
@@ -132,6 +138,7 @@ export async function POST(request: Request) {
             cover_url: coverUrl,
             category,
             release_date: releaseDate || null,
+            price_cents: bundlePrice.priceCents ?? 0,
             created_at: now,
             updated_at: now,
         };

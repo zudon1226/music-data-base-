@@ -1,6 +1,6 @@
 # Phase 29F — Song & Album Pricing (next implementation)
 
-**Status:** Planned (not started)  
+**Status:** Implemented (Preview) — creator upload pricing; checkout remains beta-locked  
 **Depends on:** Phase 29 ringtone pricing audit (Preview deploy)  
 **Constraint:** Reuse `lib/sales-catalog.ts` and existing DB columns — **no parallel price tables or duplicate checkout resolvers**.
 
