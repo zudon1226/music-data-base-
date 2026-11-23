@@ -23,7 +23,8 @@ The migration is **additive** (new tables, RPC, policy replacement on `songs`) a
 |------|--------|
 | **Harness commit** | `10008ff` |
 | **Parent** | `ee67536` |
-| **Pushed** | `origin/release/pwa-microsoft-store` *(after Phase 28I doc commit — confirm with `git status`)* |
+| **Pushed** | **yes** — `ee67536..accb4e8` on `origin/release/pwa-microsoft-store` |
+| **Readiness doc commit** | `accb4e8` (this file + `PHASE28I_PRODUCTION_PREFLIGHT_PLAY_DURABLE.sql`) |
 
 ### Files committed (harness scope only)
 
