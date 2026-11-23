@@ -45,6 +45,8 @@
     "verify:production-mobile-acceptance": "node scripts/verify-production-mobile-acceptance.mjs",
     "verify:production-upload-e2e": "node scripts/verify-production-upload-e2e.mjs",
     "verify:production-video-creator-db": "node scripts/verify-production-video-creator-db.mjs",
+    "verify:phase29k-production-acceptance": "node scripts/verify-phase29k-production-acceptance.mjs",
+    "provision:production-video-creator": "node scripts/provision-production-video-creator.mjs",
     "verify:listener": "node scripts/verify-listener-nav-workspace.mjs",
     "verify:mobile-listener": "node scripts/verify-mobile-listener-access.mjs",
     "verify:mobile-topbar": "node scripts/verify-mobile-topbar-actions.mjs",
