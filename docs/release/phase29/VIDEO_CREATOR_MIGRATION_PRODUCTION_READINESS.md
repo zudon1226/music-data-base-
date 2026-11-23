@@ -1,7 +1,7 @@
 # Video-only creator migration — Production readiness (read-only)
 
 **File:** `supabase/migrations/202611221200_video_creator_account_type.sql`  
-**Status:** **NOT APPLIED** on Production (2026-11-23)  
+**Status:** **APPLIED** on Production (2026-11-23) — see `PHASE29J_VIDEO_CREATOR_MIGRATION_REPORT.md`  
 **Application requires:** owner review + explicit approval + transactional apply with rollback plan.
 
 ---
