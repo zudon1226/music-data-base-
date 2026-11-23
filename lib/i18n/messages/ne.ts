@@ -63,6 +63,10 @@ export const neMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "गृह",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "मार्केटप्लेस",
             sales: "बिक्री",
             licenseHistory: "इजाजत इतिहास",

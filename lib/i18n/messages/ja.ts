@@ -63,6 +63,10 @@ export const jaMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "ホーム",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "マーケットプレイス",
             sales: "販売",
             licenseHistory: "ライセンス履歴",

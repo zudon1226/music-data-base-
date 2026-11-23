@@ -63,6 +63,10 @@ export const fiMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Koti",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Kauppapaikka",
             sales: "Myynnit",
             licenseHistory: "Lisenssihistoria",

@@ -63,6 +63,10 @@ export const viMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Trang chủ",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Chợ nhạc",
             sales: "Bán hàng",
             licenseHistory: "Lịch sử giấy phép",

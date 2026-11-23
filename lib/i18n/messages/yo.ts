@@ -63,6 +63,10 @@ export const yoMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Ilé",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Ajọ̀-ọ̀jà",
             sales: "Tíṣà",
             licenseHistory: "Ìtàn Ìwe-ẹṣẹ",

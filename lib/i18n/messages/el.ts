@@ -63,6 +63,10 @@ export const elMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Αρχική",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Αγορά",
             sales: "Πωλήσεις",
             licenseHistory: "Ιστορικό αδειών",

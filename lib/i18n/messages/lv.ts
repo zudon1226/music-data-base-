@@ -63,6 +63,10 @@ export const lvMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Sākums",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Tirgus",
             sales: "Pārdošana",
             licenseHistory: "Licenču vēsture",

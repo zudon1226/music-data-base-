@@ -63,6 +63,10 @@ export const idMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Beranda",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Pasar",
             sales: "Penjualan",
             licenseHistory: "Riwayat Lisensi",

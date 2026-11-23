@@ -63,6 +63,10 @@ export const trMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Ana Sayfa",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Pazar Yeri",
             sales: "Satışlar",
             licenseHistory: "Lisans Geçmişi",

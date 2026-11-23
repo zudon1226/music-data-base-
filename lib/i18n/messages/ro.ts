@@ -63,6 +63,10 @@ export const roMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Acasă",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Piață muzicală",
             sales: "Vânzări",
             licenseHistory: "Istoric licențe",

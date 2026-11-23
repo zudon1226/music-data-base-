@@ -63,6 +63,10 @@ export const csMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Domů",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Tržiště",
             sales: "Prodeje",
             licenseHistory: "Historie licencí",

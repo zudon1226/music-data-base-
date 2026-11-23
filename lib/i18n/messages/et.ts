@@ -63,6 +63,10 @@ export const etMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Avaleht",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Turg",
             sales: "Müük",
             licenseHistory: "Litsentside ajalugu",

@@ -63,6 +63,10 @@ export const zhTWMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "首頁",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "市集",
             sales: "銷售",
             licenseHistory: "授權歷史",

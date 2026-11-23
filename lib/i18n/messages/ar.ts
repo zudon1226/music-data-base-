@@ -63,6 +63,10 @@ export const arMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "الرئيسية",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "السوق",
             sales: "المبيعات",
             licenseHistory: "سجل التراخيص",

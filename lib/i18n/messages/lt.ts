@@ -63,6 +63,10 @@ export const ltMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Pradžia",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Prekyvietė",
             sales: "Pardavimai",
             licenseHistory: "Licencijų istorija",

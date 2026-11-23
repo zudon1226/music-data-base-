@@ -63,6 +63,10 @@ export const bgMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Начало",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Пазар",
             sales: "Продажби",
             licenseHistory: "История на лицензите",

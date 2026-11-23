@@ -63,6 +63,10 @@ export const ruMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Главная",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Маркетплейс",
             sales: "Продажи",
             licenseHistory: "История лицензий",

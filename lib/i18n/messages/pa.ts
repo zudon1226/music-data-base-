@@ -63,6 +63,10 @@ export const paMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "ਹੋਮ",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "ਮਾਰ੍ਕੇਟਪ੍ਲੇਸ",
             sales: "ਬਿਕ੍ਰੀ",
             licenseHistory: "ਲਾਇਸੇਂਸ ਇਤਿਹਾਸ",

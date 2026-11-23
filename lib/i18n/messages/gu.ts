@@ -63,6 +63,10 @@ export const guMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "હોમ",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "માર્કેટપ્લેસ",
             sales: "બિક્રી",
             licenseHistory: "લાઇસેંસ ઇતિહાસ",

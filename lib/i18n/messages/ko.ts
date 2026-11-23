@@ -63,6 +63,10 @@ export const koMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "홈",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "마켓플레이스",
             sales: "판매",
             licenseHistory: "라이선스 기록",

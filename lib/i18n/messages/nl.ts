@@ -63,6 +63,10 @@ export const nlMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Start",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Marktplaats",
             sales: "Verkoop",
             licenseHistory: "Licentiegeschiedenis",

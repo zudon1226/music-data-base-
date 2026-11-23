@@ -63,6 +63,10 @@ export const amMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "መነሻ",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "ገበያ",
             sales: "ሽያገዎት",
             licenseHistory: "የፈቃው ታአርክ",

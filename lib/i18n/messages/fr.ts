@@ -63,6 +63,10 @@ export const frMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Accueil",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Place de marché",
             sales: "Ventes",
             licenseHistory: "Historique des licences",

@@ -63,6 +63,10 @@ export const soMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Bogga hore",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Suuqa",
             sales: "Iibka",
             licenseHistory: "Taariikhda shatiga",

@@ -63,6 +63,10 @@ export const swMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Nyumbani",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Soko",
             sales: "Mauzo",
             licenseHistory: "Historia ya Leseni",

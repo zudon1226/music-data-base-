@@ -63,6 +63,10 @@ export const daMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Hjem",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Markedsplads",
             sales: "Salg",
             licenseHistory: "Licenshistorik",

@@ -63,6 +63,10 @@ export const filMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Pangunahing pahina",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Pamilihan",
             sales: "Mga benta",
             licenseHistory: "Kasaysayan ng Lisensya",

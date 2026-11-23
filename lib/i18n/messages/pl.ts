@@ -63,6 +63,10 @@ export const plMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Strona główna",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Rynek muzyczny",
             sales: "Sprzedaż",
             licenseHistory: "Historia licencji",

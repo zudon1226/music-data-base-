@@ -63,6 +63,10 @@ export const teMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "హోమ్",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "మార్కెట్‌ప్లేస్",
             sales: "అమ్మకాలు",
             licenseHistory: "లైసెన్స్ చరిత్ర",

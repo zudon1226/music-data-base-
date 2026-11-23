@@ -63,6 +63,10 @@ export const ptMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Início",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Mercado",
             sales: "Vendas",
             licenseHistory: "Histórico de licenças",

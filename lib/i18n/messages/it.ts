@@ -63,6 +63,10 @@ export const itMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Inizio",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Mercato",
             sales: "Vendite",
             licenseHistory: "Cronologia licenze",

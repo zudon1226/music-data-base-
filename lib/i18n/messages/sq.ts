@@ -63,6 +63,10 @@ export const sqMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Kryefaqja",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Tregu",
             sales: "Shitjet",
             licenseHistory: "Historia e licencave",

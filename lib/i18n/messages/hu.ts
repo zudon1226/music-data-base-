@@ -63,6 +63,10 @@ export const huMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Kezdőlap",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Piac",
             sales: "Eladások",
             licenseHistory: "Licenctörténet",

@@ -63,6 +63,10 @@ export const bnMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "হোম",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "মার্কেটপ্লেস",
             sales: "বিক্রয়",
             licenseHistory: "লাইসেন্স ইতিহাস",

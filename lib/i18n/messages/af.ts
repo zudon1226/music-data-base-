@@ -63,6 +63,10 @@ export const afMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Tuis",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Markplein",
             sales: "Verkope",
             licenseHistory: "Lisensiegeskiedenis",

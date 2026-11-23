@@ -63,6 +63,10 @@ export const msMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Laman Utama",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Pasaran",
             sales: "Jualan",
             licenseHistory: "Sejarah Lesen",

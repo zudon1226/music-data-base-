@@ -63,6 +63,10 @@ export const thMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "หน้าแรก",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "ตลาด",
             sales: "ยอดขาย",
             licenseHistory: "ประวัติใบอนุญาต",

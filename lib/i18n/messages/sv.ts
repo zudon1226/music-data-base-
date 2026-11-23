@@ -63,6 +63,10 @@ export const svMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Hem",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Marknadsplats",
             sales: "Försäljning",
             licenseHistory: "Licenshistorik",

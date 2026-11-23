@@ -63,6 +63,10 @@ export const taMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "முகப்பு",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "சந்தை",
             sales: "விற்பனை",
             licenseHistory: "உரிம வரலாறு",

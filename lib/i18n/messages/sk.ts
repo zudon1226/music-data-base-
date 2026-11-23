@@ -63,6 +63,10 @@ export const skMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Domov",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Trhovisko",
             sales: "Predaje",
             licenseHistory: "História licencií",

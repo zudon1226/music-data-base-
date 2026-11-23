@@ -63,6 +63,10 @@ export const bsMessages: LocaleMessageDictionary = {
     },
     nav: {
             home: "Početna",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
             marketplace: "Tržnica",
             sales: "Prodaja",
             licenseHistory: "Historija licenci",
