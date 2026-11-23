@@ -77,7 +77,12 @@ record(
         && ticketGet.includes("FILE_NOT_FOUND")
         && (ticketIssue.includes(", 404)") || ticketIssue.includes("404")),
 );
-record("auth + purchase gates remain", ticketIssue.includes("requireMatchingUserId") && ticketIssue.includes("PURCHASE_REQUIRED"));
+record(
+    "auth + entitlement download gates remain",
+    ticketIssue.includes("requireMatchingUserId")
+        && ticketIssue.includes("assertMarketplaceRingtoneDownloadAllowed")
+        && androidRoute.includes("assertMarketplaceRingtoneDownloadAllowed"),
+);
 record("client never trusts storage path from UI", !marketUi.includes("storage_path") && !client.includes("storagePath:"));
 record(
     "iphone client helper uses ticket navigation",

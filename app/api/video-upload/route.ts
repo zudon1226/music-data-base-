@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import { ACCESS_TOKEN_BODY_KEYS, getBearerToken, getSessionTokensFromRecord, REFRESH_TOKEN_BODY_KEYS, requireBearerOnlyMatchingUserId } from "@/lib/request-auth";
 import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
-import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
+import { requireVideoUploadAccess } from "@/lib/resolved-account-role";
 import { canUserUpload, UPLOAD_LOCK_MESSAGE, areUploadsLocked, UPLOAD_LOCK_OWNER_EMAIL } from "@/lib/upload-lock";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { getErrorMessage as sharedGetErrorMessage, getSupabaseLibraryClient, getSupabaseServerClient } from "@/lib/server-supabase";
@@ -218,7 +218,7 @@ async function requireAuthenticatedUploadUser(
 
     const accessToken = getBearerToken(request);
     const email = await lookupUploadUserEmail(auth.userId, accessToken);
-    const creatorAccess = await requireCreatorUploadAccess(auth.userId, email);
+    const creatorAccess = await requireVideoUploadAccess(auth.userId, email);
     if (!creatorAccess.ok) {
         return uploadAuthFailure(creatorAccess.status, creatorAccess.error, stage, "creator-role-required", {
             claimedUserId,

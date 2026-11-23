@@ -147,8 +147,8 @@ record("LISTENER_SELF_PROMOTION_DENIED", resolver.includes("canSelfServiceChange
     && producers.includes("canSelfServiceChangeAccountType")
     && page.includes("cannot be changed from Profile")
     && !/\(\[\"Listener\", \"Artist\", \"Producer\"\] as AccountRole\[\]\)/.test(page));
-record("LISTENER_UPLOAD_DENIED", uploadAudio.includes("requireCreatorUploadAccess")
-    && resolver.includes("requireCreatorUploadAccess")
+record("LISTENER_UPLOAD_DENIED", uploadAudio.includes("requireMusicUploadAccess")
+    && resolver.includes("requireMusicUploadAccess")
     && page.includes("shouldShowUploadControl(desktopNavAccess) ? ("));
 record("LISTENER_ARTIST_STUDIO_DENIED", page.includes("shouldShowArtistDashboardControl(desktopNavAccess)")
     && resolver.includes("canArtistDashboard"));
@@ -205,7 +205,8 @@ record("OVERVIEW_APPROVED_FOUNDING_ACCURATE", service.includes('["approval_statu
 record("FOUNDING_ARTIST_PRESERVED", foundingInvite.includes("resolveSignupAccountTypeGrants")
     && !foundingInvite.includes("delete from founding_members"));
 record("FOUNDING_PRODUCER_PRESERVED", read("lib/founding-onboarding.ts").includes("founding_producer"));
-record("video-upload creator gate", videoUpload.includes("requireCreatorUploadAccess"));
+record("video-upload video gate", videoUpload.includes("requireVideoUploadAccess"));
+record("video creator denied music album gate", read("app/api/albums/create/route.ts").includes("requireMusicUploadAccess"));
 record("overview service uses resolver counts", service.includes("listeners: roleCounts.listeners")
     && service.includes("admins: roleCounts.admins")
     && service.includes("launchNotificationSignups: roleCounts.launchNotificationSignups")

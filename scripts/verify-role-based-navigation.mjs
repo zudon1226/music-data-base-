@@ -23,7 +23,8 @@ function read(rel) {
 function normalizeNavRole(value) {
     const normalized = String(value || "").trim().toLowerCase();
     if (normalized === "admin") return "admin";
-    if (normalized === "artist" || normalized === "founding_artist" || normalized === "artist_pro" || normalized === "creator") return "artist";
+    if (normalized === "creator" || normalized === "founding_creator") return "creator";
+    if (normalized === "artist" || normalized === "founding_artist" || normalized === "artist_pro") return "artist";
     if (normalized === "producer" || normalized === "founding_producer" || normalized === "producer_pro") return "producer";
     return "listener";
 }
@@ -36,8 +37,11 @@ function resolveNavCapabilities(input = {}) {
             isArtist: false,
             isProducer: false,
             canUpload: false,
+            canUploadMusic: false,
+            canUploadVideo: false,
             canArtistDashboard: false,
             canProducerDashboard: false,
+            canCreatorDashboard: false,
             canPlatformControlCenter: false,
             canSales: false,
             canMyRingtones: false,
@@ -55,9 +59,14 @@ function resolveNavCapabilities(input = {}) {
 
     const isPlatformOwner = Boolean(input.isPlatformOwner);
     const isAdmin = isPlatformOwner || Boolean(input.isAdmin) || roles.has("admin");
-    const isArtist = isAdmin || roles.has("artist") || roles.has("founding_artist") || roles.has("artist_pro") || roles.has("creator");
+    const isVideoCreator = isAdmin
+        || primary === "creator"
+        || roles.has("creator")
+        || roles.has("founding_creator");
+    const isArtist = isAdmin || roles.has("artist") || roles.has("founding_artist") || roles.has("artist_pro");
     const isProducer = isAdmin || roles.has("producer") || roles.has("founding_producer") || roles.has("producer_pro");
-    const isCreator = isArtist || isProducer;
+    const isMusicCreator = isArtist || isProducer;
+    const isCreator = isMusicCreator || isVideoCreator;
 
     if (isPlatformOwner || isAdmin) {
         return {
@@ -66,11 +75,15 @@ function resolveNavCapabilities(input = {}) {
             isArtist: true,
             isProducer: true,
             canUpload: true,
+            canUploadMusic: true,
+            canUploadVideo: true,
             canArtistDashboard: true,
             canProducerDashboard: true,
+            canCreatorDashboard: true,
             canPlatformControlCenter: isPlatformOwner,
             canSales: true,
             canMyRingtones: true,
+            canPodcastStudio: true,
         };
     }
     return {
@@ -78,12 +91,16 @@ function resolveNavCapabilities(input = {}) {
         isAdmin: false,
         isArtist,
         isProducer,
-        canUpload: isCreator,
+        canUpload: isMusicCreator || isVideoCreator,
+        canUploadMusic: isMusicCreator,
+        canUploadVideo: isMusicCreator || isVideoCreator,
         canArtistDashboard: isArtist,
         canProducerDashboard: isProducer,
+        canCreatorDashboard: isVideoCreator,
         canPlatformControlCenter: false,
-        canSales: isCreator,
-        canMyRingtones: isCreator,
+        canSales: isMusicCreator,
+        canMyRingtones: isMusicCreator,
+        canPodcastStudio: isMusicCreator,
     };
 }
 
@@ -118,6 +135,7 @@ const LISTENER_ACCESSIBLE_VIEWS = [
 const ALL_NAV_VIEWS = [
     ...LISTENER_NAV_VIEWS,
     "Sales",
+    "Creator Dashboard",
     "Artist Dashboard",
     "Producer Dashboard",
     "Podcast Studio",
@@ -128,9 +146,10 @@ const ALL_NAV_VIEWS = [
 function canAccessNavView(view, capabilities) {
     if (capabilities.isPlatformOwner || capabilities.canPlatformControlCenter) return true;
     if (view === "Platform Control Center") return capabilities.canPlatformControlCenter;
+    if (view === "Creator Dashboard") return capabilities.canCreatorDashboard;
     if (view === "Artist Dashboard" || view === "Artist Profile") return capabilities.canArtistDashboard;
     if (view === "Producer Dashboard" || view === "Producer Profile") return capabilities.canProducerDashboard;
-    if (view === "Podcast Studio") return capabilities.canUpload;
+    if (view === "Podcast Studio") return capabilities.canPodcastStudio;
     if (view === "Sales") return capabilities.canSales;
     if (view === "My Ringtones") return capabilities.canMyRingtones;
     return LISTENER_ACCESSIBLE_VIEWS.includes(view);
@@ -151,6 +170,7 @@ record("role helper module present", roleLib.includes("resolveNavCapabilities") 
 record("listener accessible allowlist present", roleLib.includes("LISTENER_ACCESSIBLE_VIEWS"));
 record("nav items mark role requirements", navLib.includes("requiresArtistDashboard: true")
     && navLib.includes("requiresProducerDashboard: true")
+    && navLib.includes("requiresCreatorDashboard: true")
     && navLib.includes("requiresCreator: true")
     && navLib.includes("requiresOwner: true"));
 record("sidebar includes Favorite Ringtones", navLib.includes('"Favorite Ringtones"'));
@@ -193,14 +213,15 @@ record("page uses CreatorStudioUploadChrome", page.includes("CreatorStudioUpload
 record("studio copy present", en.includes("producerStudio:") && en.includes("uploadInstrumental:") && en.includes("artistStudio:"));
 
 const resolvedLib = read("lib/resolved-account-role.ts");
-record("authoritative role helper present", resolvedLib.includes("loadResolvedAccountCapabilities") && resolvedLib.includes("requireCreatorUploadAccess"));
+record("authoritative role helper present", resolvedLib.includes("loadResolvedAccountCapabilities") && resolvedLib.includes("requireMusicUploadAccess") && resolvedLib.includes("requireVideoUploadAccess"));
 record("profile API does not infer from profile tables", !profileApi.includes('from("artist_profiles")') && !profileApi.includes('from("producer_profiles")'));
 record("nav ignores profile-table elevation", roleLib.includes("hasArtistProfile?: boolean") && roleLib.includes("@deprecated Ignored"));
 record("page clears upload on destination nav", /function applyDesktopView[\s\S]*?setShowUpload\(false\)/.test(page));
 record("page waits for server roles", page.includes("accountRolesReady") && page.includes("rolesReady:"));
-record("upload APIs require creator role", read("app/api/upload-audio/route.ts").includes("requireCreatorUploadAccess")
-    && read("app/api/video-upload/route.ts").includes("requireCreatorUploadAccess")
-    && read("app/api/albums/create/route.ts").includes("requireCreatorUploadAccess"));
+record("upload APIs split music vs video gates", read("app/api/upload-audio/route.ts").includes("requireMusicUploadAccess")
+    && read("app/api/video-upload/route.ts").includes("requireVideoUploadAccess")
+    && read("app/api/upload-video/route.ts").includes("requireVideoUploadAccess")
+    && read("app/api/albums/create/route.ts").includes("requireMusicUploadAccess"));
 
 const listenerCaps = resolveNavCapabilities({ primaryRole: "listener" });
 const staleProfileCaps = resolveNavCapabilities({
@@ -217,6 +238,7 @@ record(
 const rolesNotReadyCaps = resolveNavCapabilities({ primaryRole: "artist", rolesReady: false });
 record("roles-not-ready forces listener chrome", !rolesNotReadyCaps.canUpload && !rolesNotReadyCaps.canArtistDashboard);
 const artistCaps = resolveNavCapabilities({ primaryRole: "artist" });
+const videoCreatorCaps = resolveNavCapabilities({ primaryRole: "creator" });
 const producerCaps = resolveNavCapabilities({ primaryRole: "producer" });
 const bothCaps = resolveNavCapabilities({ accountRoles: ["artist", "producer"] });
 const ownerCaps = resolveNavCapabilities({ isPlatformOwner: true });
@@ -224,6 +246,7 @@ const adminCaps = resolveNavCapabilities({ isAdmin: true, accountRoles: ["admin"
 
 const listenerViews = visibleViews(listenerCaps);
 const artistViews = visibleViews(artistCaps);
+const videoCreatorViews = visibleViews(videoCreatorCaps);
 const producerViews = visibleViews(producerCaps);
 const bothViews = visibleViews(bothCaps);
 const ownerViews = visibleViews(ownerCaps);
@@ -237,7 +260,7 @@ record(
 );
 record(
     "listener hides creator/admin destinations",
-    ["Artist Dashboard", "Producer Dashboard", "Podcast Studio", "Platform Control Center", "Sales", "My Ringtones"]
+    ["Creator Dashboard", "Artist Dashboard", "Producer Dashboard", "Podcast Studio", "Platform Control Center", "Sales", "My Ringtones"]
         .every((view) => !listenerViews.includes(view)),
     listenerViews.join(", "),
 );
@@ -267,6 +290,19 @@ record(
         && !producerViews.includes("Artist Dashboard")
         && !producerViews.includes("Platform Control Center")
         && producerCaps.canUpload,
+);
+
+record(
+    "video creator matrix",
+    LISTENER_NAV_VIEWS.every((view) => videoCreatorViews.includes(view))
+        && videoCreatorViews.includes("Creator Dashboard")
+        && !videoCreatorViews.includes("Artist Dashboard")
+        && !videoCreatorViews.includes("Producer Dashboard")
+        && !videoCreatorViews.includes("Sales")
+        && !videoCreatorViews.includes("Podcast Studio")
+        && videoCreatorCaps.canUploadVideo
+        && !videoCreatorCaps.canUploadMusic
+        && videoCreatorCaps.canCreatorDashboard,
 );
 
 record(

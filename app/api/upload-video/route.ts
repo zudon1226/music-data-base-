@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
 import { requireMatchingUserId } from "@/lib/request-auth";
+import { requireVideoUploadAccess } from "@/lib/resolved-account-role";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { NextResponse } from "next/server";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
@@ -143,6 +144,10 @@ export async function POST(request: Request) {
         const uploadLock = await requireUploadAllowedForUserId(authUserId);
         if (!uploadLock.ok) {
             return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
+        }
+        const videoAccess = await requireVideoUploadAccess(authUserId, uploadLock.email || "");
+        if (!videoAccess.ok) {
+            return jsonResponse({ error: videoAccess.error, code: "VIDEO_UPLOAD_FORBIDDEN" }, videoAccess.status);
         }
         if (sessionUserId && userId && sessionUserId !== userId) {
             return jsonResponse({ error: "Video upload user id does not match the signed-in session." }, 401);

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireMatchingUserId } from "@/lib/request-auth";
 import { requireCreatorUploadLegalAgreement } from "@/lib/legal-upload-gate";
-import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
+import { requireMusicUploadAccess } from "@/lib/resolved-account-role";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import { requireUploadAllowedForUserId, uploadLockJsonBody } from "@/lib/upload-lock-server";
 import { parseSalesPriceCentsFromBody } from "@/lib/sales-price-input";
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         if (!uploadLock.ok) {
             return jsonResponse(uploadLock.status === 503 ? uploadLockJsonBody() : { error: uploadLock.error }, uploadLock.status);
         }
-        const creatorAccess = await requireCreatorUploadAccess(ownerId, uploadLock.email || "");
+        const creatorAccess = await requireMusicUploadAccess(ownerId, uploadLock.email || "");
         if (!creatorAccess.ok) {
             return jsonResponse({ error: creatorAccess.error }, creatorAccess.status);
         }

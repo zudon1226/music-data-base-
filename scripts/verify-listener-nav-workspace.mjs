@@ -72,9 +72,9 @@ record(
     "profile API omits artist/producer profile inference",
     !profileApi.includes('from("artist_profiles")') && !profileApi.includes('from("producer_profiles")'),
 );
-record("upload-audio creator gate", audioUpload.includes("requireCreatorUploadAccess"));
-record("video-upload creator gate", videoUpload.includes("requireCreatorUploadAccess"));
-record("album-create creator gate", albumCreate.includes("requireCreatorUploadAccess"));
+record("upload-audio music gate", audioUpload.includes("requireMusicUploadAccess"));
+record("video-upload video gate", videoUpload.includes("requireVideoUploadAccess"));
+record("album-create music gate", albumCreate.includes("requireMusicUploadAccess"));
 record("sidebar uses role-visible items only", sidebar.includes("listVisibleDesktopNavItems"));
 record(
     "listener destinations remain in LISTENER_NAV_VIEWS",

@@ -11,6 +11,7 @@ export const ACCOUNT_ROLE_UNAVAILABLE_MESSAGE =
 
 /** Creator workspace destinations that Listeners must never open. */
 export const CREATOR_ONLY_NAV_VIEWS = [
+    "Creator Dashboard",
     "Artist Dashboard",
     "Producer Dashboard",
     "Podcast Studio",

@@ -10,7 +10,7 @@ import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-s
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PUBLIC_SONG_COLUMNS = "id,title,artist,producer,producer_id,beat_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id,streaming_enabled,ringtone_enabled,ringtone_creation_enabled,ringtone_sale_enabled,ringtone_price";
+const PUBLIC_SONG_COLUMNS = "id,title,artist,producer,producer_id,beat_id,category,type,audio_url,storage_path,cover_url,avatar_url,duration,plays,likes,created_at,user_id,price_cents,streaming_enabled,ringtone_enabled,ringtone_creation_enabled,ringtone_sale_enabled,ringtone_price";
 const PUBLIC_SONG_COLUMNS_WITH_HOLD = `${PUBLIC_SONG_COLUMNS},moderation_state`;
 const OWNER_RINGTONE_ONLY_COLUMNS = PUBLIC_SONG_COLUMNS_WITH_HOLD;
 

@@ -100,7 +100,7 @@ export async function GET(request: Request) {
         const { data, error, count } = await query.range(from, to);
         if (error) return json({ error: getErrorMessage(error) }, 500);
 
-        let rows = data || [];
+        const rows = data || [];
         const ringtoneIds = rows.map((row) => row.id).filter(Boolean);
         const creatorIds = [...new Set(rows.map((row) => row.creator_id).filter(Boolean))];
         const sourceSongIds = [...new Set(rows.map((row) => row.source_song_id).filter(Boolean))];

@@ -147,7 +147,7 @@ export async function GET(request: Request) {
             .filter((item) => item.item_type === "song")
             .map((item) => getString(item.item_id))
             .filter(Boolean);
-        let videoIds = itemResult.rows
+        const videoIds = itemResult.rows
             .filter((item) => item.item_type === "video")
             .map((item) => getString(item.item_id))
             .filter(Boolean);
