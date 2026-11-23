@@ -38,11 +38,18 @@ export function CreatorStudioUploadChrome({
 }: CreatorStudioUploadChromeProps) {
     const { t } = useTranslation();
     const modes = uploadModesForStudio(studio);
-    const title = studio === "producer" ? t("upload.producerStudio") : t("upload.artistStudio");
-    const subtitle = studio === "producer"
-        ? t("upload.producerStudioSubtitle")
-        : t("upload.artistStudioSubtitle");
-    const showStudioSwitcher = canArtistStudio || canProducerStudio || (canPodcastStudio && Boolean(onOpenPodcastStudio));
+    const title = studio === "video"
+        ? t("upload.videoCreatorStudio")
+        : studio === "producer"
+            ? t("upload.producerStudio")
+            : t("upload.artistStudio");
+    const subtitle = studio === "video"
+        ? t("upload.videoCreatorStudioSubtitle")
+        : studio === "producer"
+            ? t("upload.producerStudioSubtitle")
+            : t("upload.artistStudioSubtitle");
+    const showStudioSwitcher = studio !== "video"
+        && (canArtistStudio || canProducerStudio || (canPodcastStudio && Boolean(onOpenPodcastStudio)));
 
     return (
         <>
