@@ -4,9 +4,12 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as joinPath } from "node:path";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import { SongPlayEngagementModel } from "../lib/song-play-engagement.shared.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -40,6 +43,68 @@ function fail(message) {
 
 function pass(message) {
     console.log(`PASS ${message}`);
+}
+
+function isVercelDeploymentProtectionResponse(status, body) {
+    if (status !== 401) return false;
+  const text = typeof body === "string" ? body : JSON.stringify(body || {});
+    return /Protected by Vercel Authentication|vercel_auth_enabled|Protected deployment/i.test(text);
+}
+
+async function postJsonViaVercelCurl(baseUrl, path, payload) {
+    const bodyFile = joinPath(tmpdir(), `mdb-phase28e-play-${randomUUID()}.json`);
+    writeFileSync(bodyFile, JSON.stringify(payload), "utf8");
+    const dataArg = process.platform === "win32" ? `@${bodyFile}` : `@${bodyFile}`;
+    const args = [
+        "vercel",
+        "curl",
+        path,
+        "--deployment",
+        baseUrl.replace(/\/$/, ""),
+        "--yes",
+        "--",
+        "--request",
+        "POST",
+        "--header",
+        "Content-Type: application/json",
+        "--data",
+        dataArg,
+    ];
+    const result = spawnSync("npx", args, { encoding: "utf8", shell: true });
+    try {
+        unlinkSync(bodyFile);
+    } catch {
+        /* ignore */
+    }
+    const combined = `${result.stdout || ""}\n${result.stderr || ""}`;
+    const jsonLine = (result.stdout || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.startsWith("{"));
+    if (!jsonLine) {
+        return { ok: false, status: result.status || 1, body: { error: "vercel curl produced no JSON", detail: combined.slice(-400) } };
+    }
+    try {
+        return { ok: true, status: 200, body: JSON.parse(jsonLine) };
+    } catch {
+        return { ok: false, status: 500, body: { error: "vercel curl JSON parse failed" } };
+    }
+}
+
+async function postPlay(base, songId, sessionId) {
+    const url = `${base.replace(/\/$/, "")}/api/songs/${encodeURIComponent(songId)}/play`;
+    const payload = { playbackSessionId: sessionId, event: "qualified_start" };
+    const playRes = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    const playBody = await playRes.json().catch(() => ({}));
+    if (isVercelDeploymentProtectionResponse(playRes.status, playBody)) {
+        const viaCurl = await postJsonViaVercelCurl(base, `/api/songs/${encodeURIComponent(songId)}/play`, payload);
+        return { status: viaCurl.ok ? 200 : 401, body: viaCurl.body };
+    }
+    return { status: playRes.status, body: playBody };
 }
 
 const env = parseEnvFile(join(root, STAGING_ENV_FILE));
@@ -95,14 +160,9 @@ if (fixturePublic?.id) {
         "http://127.0.0.1:3099";
 
     try {
-        const playRes = await fetch(`${base.replace(/\/$/, "")}/api/songs/${encodeURIComponent(fixtureId)}/play`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playbackSessionId: sessionId, event: "qualified_start" }),
-        });
-        const playBody = await playRes.json().catch(() => ({}));
-        if (playRes.ok && playBody.ok === true) {
-            pass(`preview play API accepted fixture (${playRes.status})`);
+        const { status: playStatus, body: playBody } = await postPlay(base, fixtureId, sessionId);
+        if (playStatus >= 200 && playStatus < 300 && playBody.ok === true && !playBody.duplicate) {
+            pass(`preview play API accepted fixture (${playStatus})`);
             const { data: after } = await admin.from("songs").select("plays").eq("id", fixtureId).maybeSingle();
             const afterPlays = Number(after?.plays) || 0;
             if (afterPlays === beforePlays + 1) {
@@ -110,21 +170,17 @@ if (fixturePublic?.id) {
             } else {
                 fail(`fixture play count expected ${beforePlays + 1}, got ${afterPlays} (base=${base})`);
             }
-            const dupRes = await fetch(`${base.replace(/\/$/, "")}/api/songs/${encodeURIComponent(fixtureId)}/play`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ playbackSessionId: sessionId, event: "qualified_start" }),
-            });
-            const dupBody = await dupRes.json().catch(() => ({}));
-            if (dupRes.status === 200 && dupBody.duplicate === true) {
+            const dup = await postPlay(base, fixtureId, sessionId);
+            const dupBody = dup.body;
+            if (dup.status === 200 && dupBody.duplicate === true) {
                 pass("duplicate session dedup on play API");
             } else {
-                fail(`duplicate play response unexpected (${dupRes.status})`);
+                fail(`duplicate play response unexpected (${dup.status})`);
             }
         } else if (base.includes("127.0.0.1")) {
             console.log(`SKIP live play API — start server at ${base} for HTTP E2E`);
         } else {
-            fail(`play API ${playRes.status}: ${playBody.error || "unknown"}`);
+            fail(`play API ${playStatus}: ${playBody.error || JSON.stringify(playBody)}`);
         }
     } catch (error) {
         if (base.includes("127.0.0.1")) {
