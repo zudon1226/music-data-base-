@@ -698,9 +698,19 @@ export function PodcastDiscoveryWorkspace({
                 detail: "Like a published episode to collect it here.",
             };
         }
+        if (anonymousPublicListener && activeSection === "discover") {
+            return {
+                title: "No published podcasts yet",
+                detail:
+                    "Podcasters publish shows and episodes from Podcast Studio after founding approval. "
+                    + "Browse Music or Mixtapes while the first shows go live, or log in if you already have an account.",
+            };
+        }
         return {
             title: `No ${activeTab === "All" ? "" : `${activeTab.toLowerCase()} `}podcasts yet`,
-            detail: "Published podcasts will appear here as creators add them.",
+            detail: anonymousPublicListener
+                ? "Published podcasts will appear here as approved creators add them."
+                : "Publish a show from Podcast Studio to appear in discovery.",
         };
     }
 
@@ -922,7 +932,7 @@ export function PodcastDiscoveryWorkspace({
             ) : null}
 
             {isEmpty ? (
-                <div className={styles.statePanel} role="status">
+                <div className={styles.statePanel} role="status" data-podcast-discovery-empty="true">
                     {activeTab === "Video"
                         ? <Video size={32} aria-hidden="true" />
                         : <Headphones size={32} aria-hidden="true" />}

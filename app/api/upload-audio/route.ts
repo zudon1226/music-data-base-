@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionTokensFromRecord, requireMatchingUserId } from "@/lib/request-auth";
-import { requireCreatorUploadAccess } from "@/lib/resolved-account-role";
+import { requireMusicUploadAccess } from "@/lib/resolved-account-role";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
 import {
     isSongUsageColumnError,
@@ -103,7 +103,7 @@ async function requireAudioUploadUser(request: Request, body: Record<string, unk
         };
     }
 
-    const creatorAccess = await requireCreatorUploadAccess(auth.userId, uploadLock.email || "");
+    const creatorAccess = await requireMusicUploadAccess(auth.userId, uploadLock.email || "");
     if (!creatorAccess.ok) {
         return {
             ok: false as const,
@@ -137,17 +137,17 @@ function validateStorageFolder(storagePath: string, authUserId: string) {
 }
 
 async function handlePrepareStorageUpload(request: Request, body: Record<string, unknown>) {
-    const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
-    if (!storagePath) {
-        return jsonResponse({ error: "storagePath is required." }, 400);
-    }
-
     const auth = await requireAudioUploadUser(request, body);
     if (!auth.ok) {
         return jsonResponse(
             auth.uploadLockBlocked ? uploadLockJsonBody() : { error: auth.error },
             auth.status,
         );
+    }
+
+    const storagePath = getRecordString(body, ["storagePath", "storage_path"]);
+    if (!storagePath) {
+        return jsonResponse({ error: "storagePath is required." }, 400);
     }
 
     const folderCheck = validateStorageFolder(storagePath, auth.authUserId);
@@ -272,6 +272,14 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
     const producerId = getRecordString(body, ["producer_id", "producerId"]);
     const beatId = getRecordString(body, ["beat_id", "beatId"]);
     const albumId = getRecordString(body, ["album_id", "albumId"]);
+    const auth = await requireAudioUploadUser(request, body);
+    if (!auth.ok) {
+        return jsonResponse(
+            auth.uploadLockBlocked ? uploadLockJsonBody() : { error: auth.error },
+            auth.status,
+        );
+    }
+
     const usage = parseSongUsageFromBody(body);
     if ("error" in usage) {
         return jsonResponse({ error: usage.error }, 400);
@@ -282,14 +290,6 @@ async function handleSaveSongMetadata(request: Request, body: Record<string, unk
     }
     if (!publicUrl) {
         return jsonResponse({ error: "publicUrl is required after the Storage upload completes." }, 400);
-    }
-
-    const auth = await requireAudioUploadUser(request, body);
-    if (!auth.ok) {
-        return jsonResponse(
-            auth.uploadLockBlocked ? uploadLockJsonBody() : { error: auth.error },
-            auth.status,
-        );
     }
 
     const folderCheck = validateStorageFolder(storagePath, auth.authUserId);

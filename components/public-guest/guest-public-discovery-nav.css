@@ -3,9 +3,35 @@
   min-width: 0;
 }
 
+.guest-public-discovery-nav--horizontal {
+  width: 100%;
+  margin: 0;
+  padding: 8px 0 4px;
+  border-top: 1px solid color-mix(in srgb, var(--mdb-gold) 18%, transparent);
+  background: color-mix(in srgb, var(--mdb-bg) 94%, #000);
+}
+
+.guest-public-discovery-nav__scroller {
+  min-width: 0;
+}
+
+.guest-public-discovery-nav--horizontal .guest-public-discovery-nav__scroller {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 10px 4px;
+  gap: 8px;
+}
+
+.guest-public-discovery-nav--horizontal .guest-public-discovery-nav__scroller::-webkit-scrollbar {
+  display: none;
+}
+
 .guest-public-discovery-nav__list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
   margin: 0;
@@ -13,10 +39,15 @@
   list-style: none;
 }
 
+.guest-public-discovery-nav--inline .guest-public-discovery-nav__list {
+  flex-wrap: wrap;
+}
+
 .guest-public-discovery-nav__link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   min-height: 36px;
   padding: 6px 12px;
   border-radius: 999px;
@@ -29,6 +60,13 @@
   text-decoration: none;
   white-space: nowrap;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  flex: 0 0 auto;
+}
+
+.guest-public-discovery-nav--horizontal .guest-public-discovery-nav__link {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 11px;
 }
 
 .guest-public-discovery-nav__link:hover {
@@ -48,6 +86,19 @@
   color: #fff;
 }
 
+.guest-public-discovery-nav__beta {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--mdb-gold) 45%, transparent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--mdb-gold) 88%, #fff);
+}
+
 .guest-listener-search-wrap {
   display: flex;
   flex-wrap: wrap;
@@ -61,12 +112,16 @@
   margin-bottom: 14px;
 }
 
+.guest-public-discovery-nav--sidebar {
+  margin-top: 10px;
+}
+
 @media (max-width: 719px) {
-  .guest-public-discovery-nav__list {
+  .guest-public-discovery-nav--inline .guest-public-discovery-nav__list {
     gap: 4px;
   }
 
-  .guest-public-discovery-nav__link {
+  .guest-public-discovery-nav--inline .guest-public-discovery-nav__link {
     min-height: 40px;
     padding: 8px 10px;
     font-size: 11px;

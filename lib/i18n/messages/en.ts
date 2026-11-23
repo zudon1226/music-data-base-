@@ -32,6 +32,10 @@ export const enMessages = {
     },
     nav: {
         home: "Home",
+        music: "Music",
+        ringtones: "Ringtones",
+        betaBrowseOnly: "Beta",
+        ringtonesBetaPurchasesLocked: "Browse and preview only. Purchases unlock at full launch.",
         marketplace: "Marketplace",
         sales: "Sales",
         licenseHistory: "License History",

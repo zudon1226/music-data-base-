@@ -26,7 +26,11 @@ export function MdbPublicEntryHub({ onGetNotified, onJoinBeta, onLogin }: MdbPub
                 <h1 className="mdb-public-entry-title">MDB</h1>
                 <p className="mdb-public-entry-coming-soon">COMING SOON</p>
 
-                <GuestPublicDiscoveryNav activeSection="home" className="mdb-public-entry-discovery-nav" />
+                <GuestPublicDiscoveryNav
+                    activeSection="home"
+                    className="mdb-public-entry-discovery-nav"
+                    layout="horizontal"
+                />
 
                 <div className="mdb-public-entry-grid">
                     <article className="mdb-public-entry-card">

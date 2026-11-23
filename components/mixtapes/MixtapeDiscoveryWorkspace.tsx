@@ -58,6 +58,45 @@ export function MixtapeDiscoveryWorkspace({
     const [categories, setCategories] = useState<MixtapeCategory[]>([]);
     const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
+    const catalogQueryActive = Boolean(query.trim() || categoryId);
+
+    function renderEmptyState() {
+        if (catalogQueryActive) {
+            return (
+                <div className={styles.emptyState} data-mixtape-empty-reason="search">
+                    <strong>No mixtapes match your filters</strong>
+                    <p>Try another search term or category, or browse all categories.</p>
+                </div>
+            );
+        }
+        if (section === "favorites" && !userId) {
+            return (
+                <div className={styles.emptyState} data-mixtape-empty-reason="guest-favorites">
+                    <strong>Sign in to save mixtapes</strong>
+                    <p>Favorites sync across your devices once you log in. Browse Discover to hear what DJs publish.</p>
+                    {onSignInRequired ? (
+                        <button type="button" onClick={onSignInRequired}>
+                            Log in
+                        </button>
+                    ) : null}
+                </div>
+            );
+        }
+        return (
+            <div className={styles.emptyState} data-mixtape-empty-reason="catalog-empty">
+                <strong>No published mixtapes yet</strong>
+                <p>
+                    Mixtapes are curated DJ sets on MDB. Approved DJs can publish from Mixtape Studio after they log in.
+                </p>
+                {anonymousPublicListener ? (
+                    <p>Check back as founding creators add sets, or explore Music and Podcasts while the catalog grows.</p>
+                ) : (
+                    <p>Create a mixtape in Mixtape Studio to be first in this category.</p>
+                )}
+            </div>
+        );
+    }
+
     const loadCatalog = useCallback(async (signal?: AbortSignal) => {
         queueMicrotask(() => {
             setLoading(true);
@@ -209,7 +248,7 @@ export function MixtapeDiscoveryWorkspace({
             ) : error ? (
                 <div className={styles.errorState}>{error}</div>
             ) : visibleMixtapes.length === 0 ? (
-                <div className={styles.emptyState}>No mixtapes match your search.</div>
+                renderEmptyState()
             ) : (
                 <div className={styles.cardGrid}>
                     {visibleMixtapes.map((mixtape) => (

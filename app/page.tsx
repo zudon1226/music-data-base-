@@ -153,6 +153,19 @@ import {
     isPublicMixtapeDiscoveryPath,
     redirectAnonymousPublicMixtapeListenerToLoginHub,
 } from "../lib/public-mixtape-listener";
+import {
+    isAnonymousPublicGuestDiscoveryPath,
+    isAnonymousPublicMusicListenerPath,
+    isAnonymousPublicMusicListenerView,
+    isAnonymousPublicRingtonesListenerPath,
+    isAnonymousPublicRingtonesListenerView,
+    isAnonymousPublicVideosListenerPath,
+    isAnonymousPublicVideosListenerView,
+    isPublicMusicDiscoveryPath,
+    isPublicRingtonesDiscoveryPath,
+    isPublicVideosDiscoveryPath,
+    resolveGuestPublicDiscoverySection,
+} from "../lib/public-guest-discovery";
 import { isPodcastPath, parsePodcastPath, podcastEpisodePath, podcastShowPath } from "../lib/podcast-routes";
 import {
     podcastResumeStartSeconds,
@@ -1007,6 +1020,9 @@ type PodcastShellProps = {
     initialPublicPodcastDiscovery?: boolean;
     initialMixtapeId?: string;
     initialPublicMixtapeDiscovery?: boolean;
+    initialPublicMusicDiscovery?: boolean;
+    initialPublicVideosDiscovery?: boolean;
+    initialPublicRingtonesDiscovery?: boolean;
 };
 type PlatformErrorRow = {
     id: string;
@@ -3826,6 +3842,9 @@ export default function Page(props: PodcastShellProps = {}) {
                     initialPublicPodcastDiscovery={props.initialPublicPodcastDiscovery}
                     initialMixtapeId={props.initialMixtapeId}
                     initialPublicMixtapeDiscovery={props.initialPublicMixtapeDiscovery}
+                    initialPublicMusicDiscovery={props.initialPublicMusicDiscovery}
+                    initialPublicVideosDiscovery={props.initialPublicVideosDiscovery}
+                    initialPublicRingtonesDiscovery={props.initialPublicRingtonesDiscovery}
                 />
             </AppI18nShell>
         </DesktopAuthProvider>
@@ -3838,6 +3857,9 @@ function PageContent({
     initialPublicPodcastDiscovery = false,
     initialMixtapeId = "",
     initialPublicMixtapeDiscovery = false,
+    initialPublicMusicDiscovery = false,
+    initialPublicVideosDiscovery = false,
+    initialPublicRingtonesDiscovery = false,
 }: PodcastShellProps) {
     const { t, locale } = useTranslation();
     const router = useRouter();
@@ -3945,13 +3967,19 @@ function PageContent({
             ? "Podcasts"
             : initialPublicMixtapeDiscovery || (pathname || "").replace(/\/+$/, "") === "/mixtapes"
                 ? "Mixtapes"
-                : initialMixtapeId || mixtapeRoute?.kind === "mixtape"
-                    ? "Mixtape Show"
-                    : initialPodcastEpisodeId || podcastRoute?.kind === "episode"
-                        ? "Podcast Episode"
-                        : initialPodcastShowId || podcastRoute?.kind === "show"
-                            ? "Podcast Show"
-                            : "Home"
+                : initialPublicRingtonesDiscovery || isPublicRingtonesDiscoveryPath(pathname || "")
+                    ? "Ringtone Marketplace"
+                    : initialPublicVideosDiscovery || isPublicVideosDiscoveryPath(pathname || "")
+                        ? "Videos"
+                        : initialPublicMusicDiscovery || isPublicMusicDiscoveryPath(pathname || "")
+                            ? "Home"
+                            : initialMixtapeId || mixtapeRoute?.kind === "mixtape"
+                                ? "Mixtape Show"
+                                : initialPodcastEpisodeId || podcastRoute?.kind === "episode"
+                                    ? "Podcast Episode"
+                                    : initialPodcastShowId || podcastRoute?.kind === "show"
+                                        ? "Podcast Show"
+                                        : "Home"
     ));
     const [selectedPodcastShowId, setSelectedPodcastShowId] = useState(
         initialPodcastShowId || (podcastRoute?.kind === "show" ? podcastRoute.id : ""),
@@ -4112,7 +4140,28 @@ function PageContent({
         && !isAuthenticated
         && isAnonymousPublicMixtapeListenerPath(pathname || ""),
     );
-    const anonymousPublicGuestListener = anonymousPublicPodcastListener || anonymousPublicMixtapeListener;
+    const anonymousPublicMusicListener = Boolean(
+        authReady
+        && !isAuthenticated
+        && isAnonymousPublicMusicListenerPath(pathname || ""),
+    );
+    const anonymousPublicVideosListener = Boolean(
+        authReady
+        && !isAuthenticated
+        && isAnonymousPublicVideosListenerPath(pathname || ""),
+    );
+    const anonymousPublicRingtonesListener = Boolean(
+        authReady
+        && !isAuthenticated
+        && isAnonymousPublicRingtonesListenerPath(pathname || ""),
+    );
+    const anonymousPublicGuestDiscoveryListener = Boolean(
+        authReady
+        && !isAuthenticated
+        && isAnonymousPublicGuestDiscoveryPath(pathname || ""),
+    );
+    const anonymousPublicGuestListener = anonymousPublicGuestDiscoveryListener;
+    const guestPublicDiscoverySection = resolveGuestPublicDiscoverySection(pathname || "");
     useEffect(() => {
         if (!authReady || !isAuthenticated) return;
         const returnPath = consumeAnonymousPublicPodcastReturnPath() || consumeAnonymousPublicMixtapeReturnPath();
@@ -8941,6 +8990,18 @@ function PageContent({
         if (mixtapePathParsed?.kind === "mixtape") {
             setSelectedMixtapeId(mixtapePathParsed.id);
             if (viewRef.current !== "Mixtape Show") setView("Mixtape Show");
+            return;
+        }
+        if (isPublicRingtonesDiscoveryPath(window.location.pathname)) {
+            if (viewRef.current !== "Ringtone Marketplace") setView("Ringtone Marketplace");
+            return;
+        }
+        if (isPublicVideosDiscoveryPath(window.location.pathname)) {
+            if (viewRef.current !== "Videos") setView("Videos");
+            return;
+        }
+        if (isPublicMusicDiscoveryPath(window.location.pathname)) {
+            if (viewRef.current !== "Home") setView("Home");
         }
     }, []);
     useEffect(() => {
@@ -8991,6 +9052,30 @@ function PageContent({
             setView("Mixtapes");
         }
     }, [anonymousPublicMixtapeListener, pathname, view]);
+    useEffect(() => {
+        if (!anonymousPublicMusicListener) return;
+        if (!isAnonymousPublicMusicListenerPath(pathname || "")) {
+            redirectAnonymousPublicPodcastListenerToLoginHub();
+            return;
+        }
+        if (view !== "Home") setView("Home");
+    }, [anonymousPublicMusicListener, pathname, view]);
+    useEffect(() => {
+        if (!anonymousPublicVideosListener) return;
+        if (!isAnonymousPublicVideosListenerPath(pathname || "")) {
+            redirectAnonymousPublicPodcastListenerToLoginHub();
+            return;
+        }
+        if (view !== "Videos") setView("Videos");
+    }, [anonymousPublicVideosListener, pathname, view]);
+    useEffect(() => {
+        if (!anonymousPublicRingtonesListener) return;
+        if (!isAnonymousPublicRingtonesListenerPath(pathname || "")) {
+            redirectAnonymousPublicPodcastListenerToLoginHub();
+            return;
+        }
+        if (view !== "Ringtone Marketplace") setView("Ringtone Marketplace");
+    }, [anonymousPublicRingtonesListener, pathname, view]);
     useEffect(() => {
         function onPodcastRoutePopState(event: PopStateEvent) {
             if (isPublicPodcastDiscoveryPath(window.location.pathname)) {
@@ -17892,6 +17977,10 @@ function PageContent({
             redirectAnonymousPublicMixtapeListenerToLoginHub();
             return;
         }
+        if (anonymousPublicMusicListener || anonymousPublicVideosListener || anonymousPublicRingtonesListener) {
+            redirectAnonymousPublicPodcastListenerToLoginHub();
+            return;
+        }
         showToast(ACCOUNT_ROLE_UNAVAILABLE_MESSAGE, "error");
         if (view !== "Home") {
             applyDesktopView("Home");
@@ -17925,6 +18014,24 @@ function PageContent({
         if (anonymousPublicMixtapeListener) {
             if (!isAnonymousPublicMixtapeListenerView(nextView)) {
                 redirectAnonymousPublicMixtapeListenerToLoginHub();
+                return;
+            }
+        }
+        if (anonymousPublicMusicListener) {
+            if (!isAnonymousPublicMusicListenerView(nextView)) {
+                redirectAnonymousPublicPodcastListenerToLoginHub();
+                return;
+            }
+        }
+        if (anonymousPublicVideosListener) {
+            if (!isAnonymousPublicVideosListenerView(nextView)) {
+                redirectAnonymousPublicPodcastListenerToLoginHub();
+                return;
+            }
+        }
+        if (anonymousPublicRingtonesListener) {
+            if (!isAnonymousPublicRingtonesListenerView(nextView)) {
+                redirectAnonymousPublicPodcastListenerToLoginHub();
                 return;
             }
         }
@@ -20287,17 +20394,23 @@ function PageContent({
           <span>{BRAND_TAGLINE}</span>
         </button>
 
+        {anonymousPublicGuestDiscoveryListener ? (
+          <GuestPublicDiscoveryNav
+            key={`guest-sidebar-nav-${locale}`}
+            activeSection={guestPublicDiscoverySection}
+            layout="inline"
+            className="guest-public-discovery-nav--sidebar"
+          />
+        ) : (
         <DesktopAppSidebarNav
           key={`sidebar-nav-${locale}`}
           activeView={sidebarNavView(view)}
           access={desktopNavAccess}
-          publicPodcastListenerOnly={anonymousPublicPodcastListener}
-          publicMixtapeListenerOnly={anonymousPublicMixtapeListener}
-          onPublicPodcastLogin={() => (
-            anonymousPublicMixtapeListener
-                ? redirectAnonymousPublicMixtapeListenerToLoginHub()
-                : redirectAnonymousPublicPodcastListenerToLoginHub()
-          )}
+          publicPodcastListenerOnly={false}
+          publicMixtapeListenerOnly={false}
+          onPublicPodcastLogin={() => {
+            redirectAnonymousPublicPodcastListenerToLoginHub();
+          }}
           onNavigate={(nextView) => {
             handleNav(nextView as View);
           }}
@@ -20311,6 +20424,7 @@ function PageContent({
             denyUnauthorizedDesktopNav();
           }}
         />
+        )}
 
         {!anonymousPublicGuestListener ? (<section className="mini-stats" aria-label={t("stats.ariaLabel")}>
           <div>
@@ -20438,7 +20552,8 @@ function PageContent({
           </div>) : (
           <div className="search-wrap guest-listener-search-wrap" dir="ltr">
             <GuestPublicDiscoveryNav
-              activeSection={anonymousPublicMixtapeListener ? "mixtapes" : "podcasts"}
+              activeSection={guestPublicDiscoverySection}
+              layout="inline"
             />
             <LanguageSelector compact className="topbar-language-selector"/>
           </div>
@@ -20601,17 +20716,22 @@ function PageContent({
           </div>
         </header>
 
+        {anonymousPublicGuestDiscoveryListener ? (
+          <GuestPublicDiscoveryNav
+            key={`guest-mobile-nav-${locale}`}
+            activeSection={guestPublicDiscoverySection}
+            layout="horizontal"
+          />
+        ) : (
         <MobileAppHorizontalNav
           key={`mobile-nav-${locale}`}
           activeView={sidebarNavView(view)}
           access={desktopNavAccess}
-          publicPodcastListenerOnly={anonymousPublicPodcastListener}
-          publicMixtapeListenerOnly={anonymousPublicMixtapeListener}
-          onPublicPodcastLogin={() => (
-            anonymousPublicMixtapeListener
-                ? redirectAnonymousPublicMixtapeListenerToLoginHub()
-                : redirectAnonymousPublicPodcastListenerToLoginHub()
-          )}
+          publicPodcastListenerOnly={false}
+          publicMixtapeListenerOnly={false}
+          onPublicPodcastLogin={() => {
+            redirectAnonymousPublicPodcastListenerToLoginHub();
+          }}
           onNavigate={(nextView) => {
             handleNav(nextView as View);
           }}
@@ -20625,6 +20745,7 @@ function PageContent({
             denyUnauthorizedDesktopNav();
           }}
         />
+        )}
         </div>
 
         {renderSharedVideoPlayer()}
@@ -21918,9 +22039,9 @@ function PageContent({
                 ))}
               </DesktopHorizontalRail>
             </section>
-          </section>) : view === "Videos" && !search.trim() ? (<section className="video-page">
+          </section>) : view === "Videos" && !search.trim() ? (<section className="video-page" data-video-discovery-view="true">
             {renderUploadLockNotice()}
-            <form className="video-upload-card" onSubmit={addUploadedVideo}>
+            {!anonymousPublicVideosListener ? (<form className="video-upload-card" onSubmit={addUploadedVideo}>
               <div className="upload-brand">
                 <img src={BRAND_LOGO} alt="Music Data Base"/>
                 <div>
@@ -21992,16 +22113,18 @@ function PageContent({
               <button className="save-upload" type="submit" disabled={videoUploadBusy || uploadsBlockedForCurrentUser}>
                 {videoUploadBusy ? "Uploading..." : "Save Video"}
               </button>
-            </form>
+            </form>) : null}
 
             <section className="video-library-heading">
               <div>
-                <h3>Video Library</h3>
+                <h3>{anonymousPublicVideosListener ? "Video discovery" : "Video Library"}</h3>
+                {!anonymousPublicVideosListener ? (
                 <p className="video-library-stats" aria-label="Video Library statistics">
                   <span>{formatCount(videoLibraryStats.totalVideos)} Videos</span>
                   <span>{formatCount(videoLibraryStats.totalViews)} Views</span>
                   <span>{formatCount(videoLibraryStats.totalLikes)} Likes</span>
                 </p>
+                ) : null}
               </div>
             </section>
 
@@ -22009,11 +22132,18 @@ function PageContent({
                 <p>{videoLibraryError}</p>
               </div>)}
 
-            {visibleVideos.length === 0 ? (<div className="empty-state">
-                <h2>No videos found</h2>
-                <p>Upload a video here and it will appear in Video Library.</p>
-              </div>) : (<DesktopHorizontalRail className="video-grid" label="Video Library">
-                {visibleVideos.map((video) => renderVideoCard(video, { showRemove: true, sourceLabel: "Video Library" }))}
+            {visibleVideos.length === 0 ? (<div className="empty-state" data-video-discovery-empty="true">
+                <h2>{anonymousPublicVideosListener ? "No published videos yet" : "No videos found"}</h2>
+                <p>
+                  {anonymousPublicVideosListener
+                    ? "Artists and producers publish music videos here after founding approval. Explore Music or Podcasts while the catalog grows."
+                    : "Upload a video here and it will appear in Video Library."}
+                </p>
+              </div>) : (<DesktopHorizontalRail className="video-grid" label={anonymousPublicVideosListener ? "Video discovery" : "Video Library"}>
+                {visibleVideos.map((video) => renderVideoCard(video, {
+                    showRemove: !anonymousPublicVideosListener,
+                    sourceLabel: anonymousPublicVideosListener ? "Video discovery" : "Video Library",
+                }))}
               </DesktopHorizontalRail>)}
           </section>) : view === "Artists" && !search.trim() ? (<section className="artist-directory">
             {mergedArtistProfiles.length === 0 ? (<div className="empty-state">
