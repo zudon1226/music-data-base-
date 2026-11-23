@@ -37,7 +37,17 @@ export async function POST(request: Request) {
         const creator = await requireRingtoneCreator(userId);
         if (!creator.ok) return json({ error: creator.error }, creator.status);
         const legalAgreement = await requireCreatorUploadLegalAgreement(userId);
-        if (!legalAgreement.ok) return json({ error: legalAgreement.error }, legalAgreement.status);
+        if (!legalAgreement.ok) {
+            return json(
+                {
+                    error: legalAgreement.error,
+                    policyPath: legalAgreement.policyPath,
+                    policyType: legalAgreement.policyType,
+                    code: "CREATOR_UPLOAD_AGREEMENT_REQUIRED",
+                },
+                legalAgreement.status,
+            );
+        }
 
         if (body.ownershipConfirmed !== true) {
             return json({ error: "Ownership confirmation is required before uploading ringtone source audio." }, 400);

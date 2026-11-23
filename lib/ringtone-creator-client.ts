@@ -9,6 +9,7 @@ import {
     type RingtoneCurrency,
     type RingtoneStatus,
 } from "@/lib/ringtone-constants";
+import { getCurrentPolicyVersion } from "@/lib/legal-policies";
 import { getDesktopSupabaseClient } from "@/lib/supabase";
 
 export type RingtoneProduct = {
@@ -242,6 +243,54 @@ export async function fetchRingtoneSales(userId: string, _session: Session | nul
         }) as RingtoneSalesSummary,
         error: typeof parsed.body.error === "string" ? parsed.body.error : "",
     };
+}
+
+type LegalAcceptanceRow = {
+    policy_type?: string;
+    policy_version?: string;
+};
+
+export async function fetchUserLegalAcceptances(userId: string, _session: Session | null) {
+    return parseAuthJson(() => ringtoneAuthFetch(
+        `/api/legal/acceptances?userId=${encodeURIComponent(userId)}`,
+        { cache: "no-store" },
+    ));
+}
+
+export function hasCurrentCreatorUploadAcceptance(acceptances: unknown) {
+    const version = getCurrentPolicyVersion("creator_upload");
+    const rows = Array.isArray(acceptances) ? acceptances as LegalAcceptanceRow[] : [];
+    return rows.some((row) =>
+        row.policy_type === "creator_upload" && row.policy_version === version);
+}
+
+export async function recordCreatorUploadLegalAcceptance(userId: string, _session: Session | null) {
+    const version = getCurrentPolicyVersion("creator_upload");
+    return parseAuthJson(() => ringtoneAuthFetch("/api/legal/acceptances", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            userId,
+            acceptances: [{ policyType: "creator_upload", policyVersion: version }],
+        }),
+    }));
+}
+
+export function mapRingtoneUploadSourceError(
+    body: Record<string, unknown>,
+    status: number,
+    fallback: string,
+): string {
+    if (status === 403 && (
+        body.code === "CREATOR_UPLOAD_AGREEMENT_REQUIRED"
+        || body.policyType === "creator_upload"
+        || /Creator \/ Upload Agreement/i.test(String(body.error || ""))
+    )) {
+        return String(body.error || fallback);
+    }
+    const error = typeof body.error === "string" ? body.error.trim() : "";
+    if (error) return error;
+    return fallback;
 }
 
 export async function prepareRingtoneSourceUpload(input: {

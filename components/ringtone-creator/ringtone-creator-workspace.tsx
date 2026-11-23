@@ -21,6 +21,9 @@ import {
     fetchOwnedSourceSongs,
     fetchOwnedSongStudioPlayUrl,
     fetchRingtoneSales,
+    fetchUserLegalAcceptances,
+    hasCurrentCreatorUploadAcceptance,
+    mapRingtoneUploadSourceError,
     formToSavePayload,
     formatClipClock,
     formatRingtoneMoney,
@@ -35,6 +38,8 @@ import {
     type RingtoneSalesSummary,
     type RingtoneSourceSong,
 } from "@/lib/ringtone-creator-client";
+import { CreatorUploadAgreementPanel } from "@/components/legal/creator-upload-agreement-panel";
+import { inferRingtoneSourceMimeType } from "@/lib/ringtone-source-mime";
 import { validateRingtoneSubmitRequirements, normalizeRingtoneSourceDurationSeconds } from "@/lib/ringtone-validation";
 import {
     getMainScrollContainer,
@@ -140,6 +145,7 @@ export function RingtoneCreatorWorkspace({
     const [sourceFileName, setSourceFileName] = useState("");
     const [sourceSongsLoading, setSourceSongsLoading] = useState(false);
     const [sourceSongsError, setSourceSongsError] = useState("");
+    const [creatorUploadLegalReady, setCreatorUploadLegalReady] = useState<boolean | null>(null);
     const submitLockRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const workspaceRef = useRef<HTMLElement | null>(null);
@@ -245,6 +251,16 @@ export function RingtoneCreatorWorkspace({
         return map[ringtone.status] || ringtone.status;
     };
 
+    async function refreshCreatorUploadLegal() {
+        if (personalOnly) {
+            setCreatorUploadLegalReady(true);
+            return;
+        }
+        const legal = await fetchUserLegalAcceptances(userId, session);
+        const rows = Array.isArray(legal.body.acceptances) ? legal.body.acceptances : [];
+        setCreatorUploadLegalReady(legal.ok && hasCurrentCreatorUploadAcceptance(rows));
+    }
+
     async function reloadAll() {
         setLoading(true);
         setSourceSongsLoading(true);
@@ -255,6 +271,7 @@ export function RingtoneCreatorWorkspace({
             fetchOwnedSourceSongs(userId, session),
             fetchRingtoneSales(userId, session),
         ]);
+        await refreshCreatorUploadLegal();
         if (!mine.ok) {
             setError(mine.error || t("ringtones.creatorAccessDenied"));
             setRingtones([]);
@@ -432,7 +449,12 @@ export function RingtoneCreatorWorkspace({
             setError(t("ringtones.ownershipRequired"));
             return;
         }
-        const mimeType = (file.type || "").toLowerCase();
+        if (creatorUploadLegalReady === false) {
+            setError(t("ringtones.creatorUploadAgreementRequired"));
+            setProcessState("failed");
+            return;
+        }
+        const mimeType = inferRingtoneSourceMimeType(file);
         if (!(RINGTONE_ALLOWED_AUDIO_MIME_TYPES as readonly string[]).includes(mimeType)) {
             setError(t("ringtones.unsupportedAudioType"));
             return;
@@ -454,7 +476,11 @@ export function RingtoneCreatorWorkspace({
                 ownershipConfirmed: true,
             });
             if (!prepared.ok) {
-                throw new Error(String(prepared.body.error || t("ringtones.uploadFailed")));
+                throw new Error(mapRingtoneUploadSourceError(
+                    prepared.body,
+                    prepared.status,
+                    t("ringtones.uploadFailed"),
+                ));
             }
             const token = String(prepared.body.token || "");
             const storagePath = String(prepared.body.storagePath || "");
@@ -1261,6 +1287,24 @@ export function RingtoneCreatorWorkspace({
                                     </div>
                                 ) : (
                                     <div className="ringtone-upload-source">
+                                        {creatorUploadLegalReady === false ? (
+                                            <CreatorUploadAgreementPanel
+                                                userId={userId}
+                                                session={session}
+                                                onAccepted={() => {
+                                                    setCreatorUploadLegalReady(true);
+                                                    setError("");
+                                                    setProcessState("idle");
+                                                }}
+                                                labels={{
+                                                    review: t("ringtones.creatorUploadAgreementReview"),
+                                                    checkbox: t("ringtones.creatorUploadAgreementCheckbox"),
+                                                    accept: t("ringtones.creatorUploadAgreementAccept"),
+                                                    accepting: t("ringtones.creatorUploadAgreementAccepting"),
+                                                    failed: t("ringtones.creatorUploadAgreementFailed"),
+                                                }}
+                                            />
+                                        ) : null}
                                         <label className="ringtone-checkbox" htmlFor="ringtone-ownership-upload">
                                             <input
                                                 id="ringtone-ownership-upload"
@@ -1275,7 +1319,7 @@ export function RingtoneCreatorWorkspace({
                                                 ref={fileInputRef}
                                                 type="file"
                                                 accept={RINGTONE_ALLOWED_AUDIO_MIME_TYPES.join(",")}
-                                                disabled={!form.ownershipConfirmed || processState === "uploading"}
+                                                disabled={!form.ownershipConfirmed || processState === "uploading" || creatorUploadLegalReady !== true}
                                                 onChange={(event) => void handleSourceUpload(event.target.files?.[0] || null)}
                                             />
                                             {sourceFileName ? (
