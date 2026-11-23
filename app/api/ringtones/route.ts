@@ -134,10 +134,15 @@ export async function POST(request: Request) {
         }, { mode });
         if (!built.ok) return json({ error: built.error, code: "VALIDATION_FAILED" }, 400);
 
-        if (!isPersonal && built.row.price_cents > 0) {
+        let draftPriceCents = isPersonal ? 0 : built.row.price_cents;
+        if (!isPersonal && draftPriceCents > 0) {
             const saleOk = await assertSourceSongAllowsRingtoneSale(sourceSongId || null);
             if (!saleOk.ok) {
-                return json({ error: saleOk.error, code: saleOk.code }, 403);
+                if (mode === "submit") {
+                    return json({ error: saleOk.error, code: saleOk.code }, 403);
+                }
+                // Draft saves tolerate configured UI price; persist $0 until source song allows resale.
+                draftPriceCents = 0;
             }
         }
 
@@ -146,7 +151,7 @@ export async function POST(request: Request) {
             ...built.row,
             status: "draft" as const,
             is_personal: isPersonal,
-            price_cents: isPersonal ? 0 : built.row.price_cents,
+            price_cents: draftPriceCents,
         };
 
         const supabase = getSupabaseServerClient();

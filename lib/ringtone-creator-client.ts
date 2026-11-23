@@ -66,6 +66,8 @@ export type RingtoneSourceSong = {
     createdAt: string | null;
     ownerUserId?: string;
     producerId?: string;
+    ringtoneSaleEnabled?: boolean;
+    ringtonePriceDollars?: number | null;
 };
 
 export type RingtoneSalesSummary = {
@@ -257,6 +259,23 @@ export async function prepareRingtoneSourceUpload(input: {
             mimeType: input.mimeType,
             byteLength: input.byteLength,
             ownershipConfirmed: input.ownershipConfirmed,
+        }),
+    }));
+}
+
+export async function fetchOwnedSongStudioPlayUrl(input: {
+    userId: string;
+    session: Session | null;
+    songId: string;
+    personal?: boolean;
+}) {
+    return parseAuthJson(() => ringtoneAuthFetch("/api/ringtones/source-songs/play-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            userId: input.userId,
+            songId: input.songId,
+            personal: input.personal === true,
         }),
     }));
 }
@@ -459,7 +478,8 @@ export function mapRingtoneSaveError(
     if (
         status === 403
         || code === "SOURCE_NOT_AUTHORIZED"
-        || /not authorized|only manage your own|ownership|forbidden/i.test(safeError)
+        || code === "RINGTONE_SALE_NOT_AUTHORIZED"
+        || /not authorized|only manage your own|ownership|forbidden|not authorized for ringtone sale/i.test(safeError)
     ) {
         return safeError || "Source audio is not authorized for this account.";
     }

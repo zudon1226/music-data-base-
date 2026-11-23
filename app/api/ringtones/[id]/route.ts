@@ -200,13 +200,18 @@ export async function PATCH(request: Request, context: Params) {
                     price = validateRingtonePriceCents(0);
                 }
                 if (!price.ok) return json({ error: price.error, code: "VALIDATION_FAILED" }, 400);
-                if (price.priceCents > 0) {
+                let nextPriceCents = price.priceCents;
+                if (nextPriceCents > 0) {
                     const saleOk = await assertSourceSongAllowsRingtoneSale(String(existing.data.source_song_id || updates.source_song_id || ""));
                     if (!saleOk.ok) {
-                        return json({ error: saleOk.error, code: saleOk.code }, 403);
+                        if (isCreatorEditableStatus(currentStatus) && (currentStatus === "draft" || currentStatus === "rejected")) {
+                            nextPriceCents = 0;
+                        } else {
+                            return json({ error: saleOk.error, code: saleOk.code }, 403);
+                        }
                     }
                 }
-                updates.price_cents = price.priceCents;
+                updates.price_cents = nextPriceCents;
             }
             if (body.currency != null) {
                 const currency = normalizeRingtoneCurrency(body.currency);

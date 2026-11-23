@@ -19,6 +19,7 @@ import {
     returnRingtoneToReview,
     fetchMyRingtones,
     fetchOwnedSourceSongs,
+    fetchOwnedSongStudioPlayUrl,
     fetchRingtoneSales,
     formToSavePayload,
     formatClipClock,
@@ -167,6 +168,29 @@ export function RingtoneCreatorWorkspace({
         });
         return () => window.cancelAnimationFrame(frame);
     }, [mode, step, form.sourceSongId, form.sourceStoragePath]);
+
+    async function resolveStudioSourceAudioUrl(): Promise<string> {
+        if (form.sourceKind === "upload" && form.sourceStoragePath) {
+            const signed = await signRingtoneSourceUrl({
+                userId,
+                session,
+                storagePath: form.sourceStoragePath,
+            });
+            if (signed.ok) return String(signed.body.signedUrl || "");
+        }
+        if (form.sourceKind === "owned_song" && form.sourceSongId) {
+            const signed = await fetchOwnedSongStudioPlayUrl({
+                userId,
+                session,
+                songId: form.sourceSongId,
+                personal: personalOnly,
+            });
+            if (signed.ok) return String(signed.body.signedUrl || "");
+        }
+        const fallback = String(form.sourceAudioUrl || "").trim();
+        if (fallback && !fallback.startsWith("/api/audio")) return fallback;
+        return "";
+    }
 
     async function probeAudioDurationSeconds(audioUrl: string): Promise<number | null> {
         if (!audioUrl || typeof window === "undefined") return null;
@@ -355,6 +379,10 @@ export function RingtoneCreatorWorkspace({
             return;
         }
         const duration = clampRingtoneDuration(sourceDurationSeconds);
+        const saleEnabled = song.ringtoneSaleEnabled === true;
+        const suggestedPrice = saleEnabled && song.ringtonePriceDollars != null
+            ? String(song.ringtonePriceDollars)
+            : (personalOnly ? "0" : saleEnabled ? form.priceDollars : "0");
         updateForm({
             sourceKind: "owned_song",
             sourceSongId: song.id,
@@ -365,6 +393,7 @@ export function RingtoneCreatorWorkspace({
             ownershipConfirmed: true,
             artworkUrl: form.artworkUrl || song.artworkUrl,
             title: form.title || `${song.title} Ringtone`,
+            priceDollars: suggestedPrice,
             durationSeconds: duration,
             clipStartSeconds: 0,
         });
@@ -489,15 +518,7 @@ export function RingtoneCreatorWorkspace({
     }
 
     async function previewCurrentClip() {
-        let audioUrl = form.sourceAudioUrl;
-        if (form.sourceKind === "upload" && form.sourceStoragePath) {
-            const signed = await signRingtoneSourceUrl({
-                userId,
-                session,
-                storagePath: form.sourceStoragePath,
-            });
-            if (signed.ok) audioUrl = String(signed.body.signedUrl || audioUrl);
-        }
+        const audioUrl = await resolveStudioSourceAudioUrl();
         if (!audioUrl) {
             setError(t("ringtones.previewUnavailable"));
             return;
@@ -522,8 +543,11 @@ export function RingtoneCreatorWorkspace({
         let resolvedSourceDuration = normalizeRingtoneSourceDurationSeconds(form.sourceDurationSeconds);
 
         if (submitForReview || personalOnly) {
-            if (resolvedSourceDuration == null && form.sourceAudioUrl) {
-                resolvedSourceDuration = await probeAudioDurationSeconds(form.sourceAudioUrl);
+            if (resolvedSourceDuration == null) {
+                const probeUrl = await resolveStudioSourceAudioUrl();
+                if (probeUrl) {
+                    resolvedSourceDuration = await probeAudioDurationSeconds(probeUrl);
+                }
             }
             if (resolvedSourceDuration != null && resolvedSourceDuration !== form.sourceDurationSeconds) {
                 updateForm({ sourceDurationSeconds: resolvedSourceDuration });

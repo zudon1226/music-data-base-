@@ -21,6 +21,7 @@ import { SONGS_BUCKET } from "@/lib/song-storage-path";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 import { assertAuthorizedSourceSong } from "@/lib/ringtone-access";
 import { isPersonalRingtoneProduct } from "@/lib/personal-ringtone-access";
+import { assertSourceSongAllowsRingtoneSale } from "@/lib/ringtone-sale-permissions";
 
 export const RINGTONE_JOB_STATUSES = [
     "queued",
@@ -165,6 +166,20 @@ export async function enqueueRingtoneProcessingJob(input: {
                 error: RINGTONE_SOURCE_DURATION_MISSING_MESSAGE,
                 status: 400,
                 code: "SOURCE_DURATION_MISSING",
+            };
+        }
+    }
+
+    const isPersonal = isPersonalRingtoneProduct(row as Record<string, unknown>);
+    const priceCents = Number(row.price_cents) || 0;
+    if (!isPersonal && priceCents > 0) {
+        const saleOk = await assertSourceSongAllowsRingtoneSale(String(row.source_song_id || ""));
+        if (!saleOk.ok) {
+            return {
+                ok: false as const,
+                error: saleOk.error,
+                status: 403,
+                code: saleOk.code || "RINGTONE_SALE_NOT_AUTHORIZED",
             };
         }
     }

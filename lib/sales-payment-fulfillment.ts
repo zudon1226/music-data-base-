@@ -4,6 +4,7 @@
  */
 
 import { normalizeSalesLicenseType } from "@/lib/sales-catalog";
+import { expandAlbumPurchaseVaultRows } from "@/lib/sales-album-entitlements";
 import { recordCreatorSaleEarnings } from "@/lib/creator-earnings";
 import { getErrorMessage, getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
 import { safeRandomUUID } from "@/lib/safe-random-uuid";
@@ -74,22 +75,28 @@ export async function grantEntitlementsForCompletedPurchases(
         licenses = licenseRows.length;
     }
 
-    const vaultRows = completed.map((purchase) => ({
-        user_id: userId,
-        purchase_id: purchase.id,
-        item_id: purchase.item_id,
-        item_type: purchase.item_type,
-        title: purchase.title,
-        creator_name: purchase.creator_name,
-        cover_url: purchase.cover_url,
-        download_url: purchase.download_url,
-        price_cents: purchase.price_cents,
-        currency: purchase.currency,
-        license_type: purchase.license_type || "",
-        license_terms: Array.isArray(purchase.license_terms) ? purchase.license_terms : [],
-        license_id: purchase.license_id || "",
-        license_pdf_file_name: purchase.license_pdf_file_name || "",
-    }));
+    const vaultRows: Array<Record<string, unknown>> = [];
+    for (const purchase of completed) {
+        vaultRows.push({
+            user_id: userId,
+            purchase_id: purchase.id,
+            item_id: purchase.item_id,
+            item_type: purchase.item_type,
+            title: purchase.title,
+            creator_name: purchase.creator_name,
+            cover_url: purchase.cover_url,
+            download_url: purchase.download_url,
+            price_cents: purchase.price_cents,
+            currency: purchase.currency,
+            license_type: purchase.license_type || "",
+            license_terms: Array.isArray(purchase.license_terms) ? purchase.license_terms : [],
+            license_id: purchase.license_id || "",
+            license_pdf_file_name: purchase.license_pdf_file_name || "",
+        });
+        if (purchase.item_type === "album") {
+            vaultRows.push(...await expandAlbumPurchaseVaultRows(purchase, userId));
+        }
+    }
 
     let vault = 0;
     if (vaultRows.length > 0) {

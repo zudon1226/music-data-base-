@@ -38,6 +38,7 @@ async function mapEligibleSongRows(data: Array<Record<string, unknown>> | null) 
             excluded.knownTooShort += 1;
             continue;
         }
+        const ringtonePrice = record.ringtone_price != null ? Number(record.ringtone_price) : null;
         songs.push({
             id: String(record.id || ""),
             title: String(record.title || ""),
@@ -49,6 +50,8 @@ async function mapEligibleSongRows(data: Array<Record<string, unknown>> | null) 
             createdAt: record.created_at ? String(record.created_at) : null,
             ownerUserId: record.user_id ? String(record.user_id) : "",
             producerId: record.producer_id ? String(record.producer_id) : "",
+            ringtoneSaleEnabled: record.ringtone_sale_enabled === true,
+            ringtonePriceDollars: Number.isFinite(ringtonePrice) && ringtonePrice != null ? ringtonePrice : null,
             sourceScope: "library",
         });
     }
@@ -74,7 +77,7 @@ export async function GET(request: Request) {
         if (!useLibrarySources) {
             let query = supabase
                 .from("songs")
-                .select("id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id,streaming_enabled,ringtone_enabled,ringtone_creation_enabled")
+                .select("id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id,streaming_enabled,ringtone_enabled,ringtone_creation_enabled,ringtone_sale_enabled,ringtone_price")
                 .eq("ringtone_enabled", true)
                 .eq("ringtone_creation_enabled", true)
                 .order("created_at", { ascending: false })
@@ -151,7 +154,7 @@ export async function GET(request: Request) {
 
         const { data, error } = await supabase
             .from("songs")
-            .select("id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id,streaming_enabled,ringtone_enabled,ringtone_creation_enabled")
+            .select("id,title,artist,cover_url,audio_url,storage_path,duration,created_at,user_id,producer_id,streaming_enabled,ringtone_enabled,ringtone_creation_enabled,ringtone_sale_enabled,ringtone_price")
             .in("id", songIds)
             .eq("ringtone_enabled", true)
             .eq("ringtone_creation_enabled", true)
