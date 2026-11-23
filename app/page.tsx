@@ -259,6 +259,17 @@ import {
     PUBLIC_BETA_SUBSCRIPTION_LAUNCH_TITLE,
 } from "../lib/public-beta-subscription-checkout";
 import {
+    getPublicBetaPaidSalesCheckoutMessage,
+    isPublicBetaPaidSalesCheckoutLocked,
+} from "../lib/public-beta-sales-checkout";
+import {
+    formatBeatLicensePriceHint,
+    formatCatalogPriceLabel,
+    resolveAlbumDisplayPriceCents,
+    resolveBeatLeasePriceCents,
+    resolveSongDisplayPriceCents,
+} from "../lib/sales-display-price";
+import {
     FOUNDING_INVITE_REQUIRED_MESSAGE,
     FOUNDING_ROLE_LOCKED_MESSAGE,
     LISTENER_LAUNCH_WAITLIST_MESSAGE,
@@ -304,6 +315,8 @@ type Song = {
     video?: string;
     ownerId?: string;
     albumId?: string;
+    /** Catalog à-la-carte price from `songs.price_cents` (0 = free). */
+    priceCents?: number;
 };
 type SongTableRow = {
     id: string;
@@ -325,6 +338,7 @@ type SongTableRow = {
     created_at: string | null;
     user_id?: string | null;
     album_id?: string | null;
+    price_cents?: number | null;
 };
 type VideoItem = {
     id: string;
@@ -3177,6 +3191,7 @@ function mapSongRowToSong(row: SongTableRow): Song {
         audioPath: resolveSongStoragePath(row.storage_path, row.audio_url),
         ownerId: row.user_id || "",
         albumId: row.album_id || "",
+        priceCents: resolveSongDisplayPriceCents(row as Record<string, unknown>),
     };
 }
 function mapProducerProfileRow(row: ProducerProfileTableRow): ProducerProfile {
@@ -9570,7 +9585,7 @@ function PageContent({
             itemType: "album" as const,
             creatorType: "artist" as const,
             creatorName: album.creatorName,
-            priceCents: 499,
+            priceCents: resolveAlbumDisplayPriceCents(album),
             subscriberOnly: false,
             exclusive: false,
             cover: album.cover,
@@ -9581,7 +9596,7 @@ function PageContent({
             itemType: "song" as const,
             creatorType: "artist" as const,
             creatorName: song.artist,
-            priceCents: 129,
+            priceCents: resolveSongDisplayPriceCents(song),
             subscriberOnly: false,
             exclusive: false,
             cover: song.cover,
@@ -9813,6 +9828,7 @@ function PageContent({
             scrollMarketplaceResultsIntoView();
         }, 0);
     }, [scrollMarketplaceResultsIntoView]);
+    const salesPaidCheckoutLocked = isPublicBetaPaidSalesCheckoutLocked();
     const marketplaceReleases = useMemo<MarketplaceRelease[]>(() => {
         const keyword = search.trim().toLowerCase();
         const matchesText = (parts: string[]) => !keyword || parts.some((part) => part.toLowerCase().includes(keyword));
@@ -9847,7 +9863,7 @@ function PageContent({
             producerName: song.producer || producerBeats.find((beat) => beat.songId === song.id || beat.id === song.beatId)?.producerName || "",
             genre: song.type || song.category,
             cover: song.cover,
-            priceCents: 129,
+            priceCents: resolveSongDisplayPriceCents(song),
             premium: false,
             metricLabel: `${formatCount(song.plays)} plays | ${formatCount(song.likes)} likes`,
             dateLabel: song.uploaded,
@@ -9881,7 +9897,7 @@ function PageContent({
             producerName: album.producerName,
             genre: album.category,
             cover: getAlbumDisplayCover(album),
-            priceCents: 499,
+            priceCents: resolveAlbumDisplayPriceCents(album),
             premium: Boolean((album as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).subscriberOnly ||
                 (album as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).subscriber_only ||
                 (album as unknown as { subscriberOnly?: boolean; subscriber_only?: boolean; exclusive?: boolean; }).exclusive),
@@ -9892,7 +9908,7 @@ function PageContent({
             item: album,
         }));
         const beatReleases = producerBeats.map<MarketplaceRelease>((beat) => {
-            const priceCents = Math.max(0, Math.round((beat.license === "Exclusive" ? beat.exclusivePrice : beat.license === "Free" ? 0 : beat.leasePrice) * 100));
+            const priceCents = resolveBeatLeasePriceCents(beat);
             return {
                 id: beat.id,
                 releaseType: "beat",
@@ -10847,6 +10863,10 @@ function PageContent({
             showToast("Only songs, albums, and beats can be purchased right now.", "info");
             return;
         }
+        if (salesPaidCheckoutLocked && Math.max(0, release.priceCents || 0) > 0) {
+            showToast(getPublicBetaPaidSalesCheckoutMessage(), "info");
+            return;
+        }
         if (!user?.id) {
             setAuthMode("login");
             setAuthMessage("Log in before adding items to your cart.");
@@ -10983,6 +11003,10 @@ function PageContent({
         }
         const paidCartItems = cartItems.filter((item) => item.priceCents > 0);
         const freeCartItems = cartItems.filter((item) => item.priceCents <= 0);
+        if (isPublicBetaPaidSalesCheckoutLocked() && paidCartItems.length > 0) {
+            showToast(getPublicBetaPaidSalesCheckoutMessage(), "info");
+            return;
+        }
         const purchasedAt = new Date().toISOString();
         // Local optimistic rows stay pending for paid items; free items may complete after server confirmation.
         const optimisticPurchases = cartItems.map<PurchaseHistoryItem>((item) => ({
@@ -16567,6 +16591,21 @@ function PageContent({
             />
         );
     }
+    function getMarketplacePriceCaption(release: MarketplaceRelease) {
+        const beat = release.releaseType === "beat" ? release.item as ProducerBeat : null;
+        const base = beat
+            ? formatBeatLicensePriceHint(beat, formatCurrencyFromCents)
+            : formatCatalogPriceLabel(release.priceCents, formatCurrencyFromCents);
+        if (salesPaidCheckoutLocked && Math.max(0, release.priceCents || 0) > 0) {
+            return `${base} · ${getPublicBetaPaidSalesCheckoutMessage()}`;
+        }
+        return base;
+    }
+    function marketplacePurchaseEnabled(release: MarketplaceRelease) {
+        if (!getMarketplaceSalesType(release)) return false;
+        if (!salesPaidCheckoutLocked) return true;
+        return Math.max(0, release.priceCents) <= 0;
+    }
     function renderBeatLicenseButtons(beat: ProducerBeat, className = "") {
         const selectedLicense = getSelectedBeatLicense(beat);
         return (<div className={`license-button-grid ${className}`.trim()}>
@@ -16586,7 +16625,7 @@ function PageContent({
                     cover={getArtworkUrl(release.cover)}
                     title={release.title}
                     secondary={release.creatorName}
-                    tertiary={`${release.metricLabel} · ${formatCurrencyFromCents(release.priceCents)}`}
+                    tertiary={`${release.metricLabel} · ${getMarketplacePriceCaption(release)}`}
                     onPlay={() => playMarketplaceRelease(release)}
                     overflowLabel={`More actions for ${release.title}`}
                     onOpenOverflow={openDesktopListOverflow(
@@ -16594,7 +16633,7 @@ function PageContent({
                         [
                             { id: "play", label: "Play", onClick: () => playMarketplaceRelease(release) },
                             { id: "profile", label: "Store", onClick: () => openMarketplaceReleaseStore(release) },
-                            ...(getMarketplaceSalesType(release) ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
+                            ...(marketplacePurchaseEnabled(release) ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
                         ],
                     )}
                 />
@@ -16609,14 +16648,14 @@ function PageContent({
                 badge={release.releaseType}
                 title={release.title}
                 secondary={release.creatorName}
-                tertiary={`${release.metricLabel} · ${formatCurrencyFromCents(release.priceCents)}${release.premium ? " · Premium" : ""}`}
+                tertiary={`${release.metricLabel} · ${getMarketplacePriceCaption(release)}${release.premium ? " · Premium" : ""}`}
                 onPlay={() => playMarketplaceRelease(release)}
                 onOpen={() => openMarketplaceReleaseStore(release)}
                 overflowLabel={`More actions for ${release.title}`}
                 menuActions={[
                     { id: "play", label: "Play", onClick: () => playMarketplaceRelease(release) },
                     { id: "profile", label: "Store", onClick: () => openMarketplaceReleaseStore(release) },
-                    ...(getMarketplaceSalesType(release) ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
+                    ...(marketplacePurchaseEnabled(release) ? [{ id: "save" as const, label: "Buy", onClick: () => addMarketplaceReleaseToCart(release) }] : []),
                     ...(beat ? [{ id: "details" as const, label: "Details", onClick: () => setActiveBeatDetailId(beat.id) }] : []),
                 ]}
             />
@@ -16631,14 +16670,14 @@ function PageContent({
                 cover={getArtworkUrl(release.cover)}
                 title={release.title}
                 secondary={release.creatorName}
-                price={formatCurrencyFromCents(release.priceCents)}
+                price={getMarketplacePriceCaption(release)}
                 actions={(
                     <>
                         <button onClick={() => playMarketplaceRelease(release)} type="button">
                             <Play size={14} fill="currentColor"/>
                             Play
                         </button>
-                        {getMarketplaceSalesType(release) ? (
+                        {marketplacePurchaseEnabled(release) ? (
                             <button onClick={() => addMarketplaceReleaseToCart(release)} type="button">
                                 <Disc3 size={14}/>
                                 Buy
@@ -21632,7 +21671,10 @@ function PageContent({
               <div>
                 <span className="section-kicker">Phase 5C Sales</span>
                 <p className="destination-hero-lead">Shopping cart, purchase history, and download vault.</p>
-                <p>Buy songs, albums, and producer beats from the marketplace. Checkout is ready for payment gateway connection.</p>
+                <p>Buy songs, albums, and producer beats from the marketplace. Catalog prices come from the database; checkout honors beta locks.</p>
+                {salesPaidCheckoutLocked ? (
+                    <p className="sales-beta-lock-note" data-sales-beta-locked="true">{getPublicBetaPaidSalesCheckoutMessage()}</p>
+                ) : null}
               </div>
               <div className="sales-hero-stats">
                 <span><strong>{visibleSalesCart.length}</strong> Cart</span>
@@ -21661,7 +21703,12 @@ function PageContent({
                     </article>))}
                 </div>)}
               <div className="sales-actions">
-                <button onClick={checkoutSalesCart} type="button" disabled={visibleSalesCart.length === 0}>
+                <button
+                  onClick={checkoutSalesCart}
+                  type="button"
+                  disabled={visibleSalesCart.length === 0 || (salesPaidCheckoutLocked && salesCartSubtotalCents > 0)}
+                  title={salesPaidCheckoutLocked && salesCartSubtotalCents > 0 ? getPublicBetaPaidSalesCheckoutMessage() : undefined}
+                >
                   <Disc3 size={15}/>
                   Checkout
                 </button>
@@ -24603,7 +24650,7 @@ function PageContent({
             key: `song-${song.id}`,
             type: "song" as const,
             title: song.title,
-            subtitle: song.artist || detailAlbum.creatorName,
+            subtitle: `${song.artist || detailAlbum.creatorName}${resolveSongDisplayPriceCents(song) > 0 ? ` · Track ${formatCatalogPriceLabel(resolveSongDisplayPriceCents(song), formatCurrencyFromCents)}` : ""}`,
             play: () => playSong(song),
           })),
           ...detailAlbum.videos.map((video) => ({
@@ -24637,6 +24684,7 @@ function PageContent({
                     <small>
                       {detailSongCount} song{detailSongCount === 1 ? "" : "s"}
                       {detailVideoCount > 0 ? ` · ${detailVideoCount} video${detailVideoCount === 1 ? "" : "s"}` : ""}
+                      {" · Bundle "}{formatCatalogPriceLabel(detailAlbum.priceCents, formatCurrencyFromCents)}
                     </small>
                   </div>
                 </div>
