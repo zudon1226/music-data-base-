@@ -47,6 +47,7 @@ const DESKTOP_NAV_ICONS: Record<DesktopNavView, ReactNode> = {
     Liked: <Heart size={17}/>,
     Following: <UserPlus size={17}/>,
     Playlists: <ListMusic size={17}/>,
+    "Creator Dashboard": <Film size={17}/>,
     "Artist Dashboard": <BarChart3 size={17}/>,
     "Producer Dashboard": <Disc3 size={17}/>,
     "Podcast Studio": <Mic2 size={17}/>,
