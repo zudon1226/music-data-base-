@@ -3,7 +3,7 @@
  * Presentation-only — upload validation and storage stay in page handlers/APIs.
  */
 
-export type CreatorStudioKind = "artist" | "producer";
+export type CreatorStudioKind = "artist" | "producer" | "video";
 
 export type CreatorStudioUploadMode =
     | "song"
@@ -32,6 +32,10 @@ export const ARTIST_STUDIO_UPLOAD_MODES: CreatorStudioModeTab[] = [
     { mode: "album", labelKey: "upload.uploadAlbum" },
 ];
 
+export const VIDEO_CREATOR_STUDIO_UPLOAD_MODES: CreatorStudioModeTab[] = [
+    { mode: "video", labelKey: "upload.uploadVideo" },
+];
+
 export const PRODUCER_STUDIO_UPLOAD_MODES: CreatorStudioModeTab[] = [
     { mode: "song", labelKey: "upload.uploadSong" },
     { mode: "beat", labelKey: "upload.uploadBeat" },
@@ -41,10 +45,12 @@ export const PRODUCER_STUDIO_UPLOAD_MODES: CreatorStudioModeTab[] = [
 ];
 
 export function uploadModesForStudio(studio: CreatorStudioKind): CreatorStudioModeTab[] {
+    if (studio === "video") return VIDEO_CREATOR_STUDIO_UPLOAD_MODES;
     return studio === "producer" ? PRODUCER_STUDIO_UPLOAD_MODES : ARTIST_STUDIO_UPLOAD_MODES;
 }
 
 export function defaultUploadModeForStudio(studio: CreatorStudioKind): CreatorStudioUploadMode {
+    if (studio === "video") return "video";
     return studio === "producer" ? "beat" : "song";
 }
 
@@ -52,10 +58,20 @@ export function resolveCreatorStudio(input: {
     preferStudio?: CreatorStudioKind | null;
     canArtistDashboard: boolean;
     canProducerDashboard: boolean;
+    canCreatorDashboard?: boolean;
     view?: string;
 }): CreatorStudioKind {
+    if (input.view === "Creator Dashboard" && input.canCreatorDashboard) return "video";
     if (input.view === "Producer Dashboard" && input.canProducerDashboard) return "producer";
     if (input.view === "Artist Dashboard" && input.canArtistDashboard) return "artist";
+    if (
+        input.canCreatorDashboard
+        && !input.canArtistDashboard
+        && !input.canProducerDashboard
+    ) {
+        return "video";
+    }
+    if (input.preferStudio === "video" && input.canCreatorDashboard) return "video";
     if (input.preferStudio === "producer" && input.canProducerDashboard) return "producer";
     if (input.preferStudio === "artist" && input.canArtistDashboard) return "artist";
     if (input.canProducerDashboard && !input.canArtistDashboard) return "producer";
