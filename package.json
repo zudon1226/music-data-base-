@@ -113,6 +113,7 @@
     "verify:founding:pending": "node scripts/verify-founding-pending-approvals.mjs",
     "verify:phase28": "node lib/song-play-engagement.test.mjs && node scripts/verify-phase28-song-play-api.mjs && node scripts/verify-phase28-search-scope.mjs && node scripts/verify-phase28-publication.mjs",
     "verify:phase28g-preview": "node scripts/verify-phase28g-authenticated-preview.mjs",
+    "verify:phase28h": "node scripts/provision-phase28-staging-fixtures.mjs && node scripts/verify-phase28h-songs-rls.mjs && node scripts/verify-phase28h-song-play-durable.mjs",
     "verify:rls": "node scripts/verify-supabase-rls-security.mjs",
     "verify:listener-personal-ringtone": "node scripts/verify-listener-personal-ringtone.mjs",
     "verify:public-beta-support": "node scripts/verify-public-beta-support.mjs",

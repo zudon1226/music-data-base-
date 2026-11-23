@@ -13,7 +13,8 @@ const checks = [
     ["server increments plays", server.includes("currentPlays + 1")],
     ["invalid uuid song", server.includes("Invalid song id")],
     ["private playback deny", server.includes("not available for public playback")],
-    ["dedup model", server.includes("songPlayEngagementModel")],
+    ["durable play rpc", server.includes("recordDurableSongQualifiedPlay")],
+    ["dedup legacy fallback", server.includes("songPlayEngagementModel")],
 ];
 
 let fails = 0;

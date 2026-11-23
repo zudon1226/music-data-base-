@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { songAllowsStreaming } from "@/lib/song-usage-permissions";
 import { resolveRequestUserId } from "@/lib/request-auth";
 import { getSupabaseServerClient, isUuid } from "@/lib/server-supabase";
+import { recordDurableSongQualifiedPlay } from "@/lib/song-play-persistence";
 import { songPlayEngagementModel } from "./song-play-engagement.shared.mjs";
 
 export type SongPlayRequestBody = {
@@ -31,20 +32,13 @@ export function parseSongPlayRequestBody(body: Record<string, unknown>) {
     return { ok: true as const, playbackSessionId, event };
 }
 
-export async function recordSongPlay(request: Request, songId: string) {
-    if (!songId || !isUuid(songId)) {
-        return { status: 400, body: { error: "Invalid song id." } };
-    }
-
-    const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const parsedBody = parseSongPlayRequestBody(rawBody);
-    if (!parsedBody.ok) {
-        return { status: parsedBody.status, body: { error: parsedBody.error } };
-    }
-
-    const auth = await resolveRequestUserId(request);
-    const listenerKey = getListenerKeyFromRequest(request, auth.userId || null);
-
+async function recordSongPlayLegacyInMemory(
+    request: Request,
+    songId: string,
+    parsedBody: { playbackSessionId: string; event: string },
+    authUserId: string | null,
+) {
+    const listenerKey = getListenerKeyFromRequest(request, authUserId);
     const qualification = songPlayEngagementModel.recordQualifiedPlay({
         songId,
         listenerKey,
@@ -80,6 +74,7 @@ export async function recordSongPlay(request: Request, songId: string) {
             },
         };
     }
+
     const { data: song, error: readError } = await supabase
         .from("songs")
         .select("id,plays,user_id,streaming_enabled,ringtone_enabled")
@@ -93,7 +88,7 @@ export async function recordSongPlay(request: Request, songId: string) {
         return { status: 404, body: { error: "Song not found." } };
     }
 
-    const isOwner = Boolean(auth.userId && song.user_id === auth.userId);
+    const isOwner = Boolean(authUserId && song.user_id === authUserId);
     const isPublic = songAllowsStreaming(song as Record<string, unknown>);
     if (!isPublic && !isOwner) {
         return { status: 403, body: { error: "This song is not available for public playback." } };
@@ -117,6 +112,71 @@ export async function recordSongPlay(request: Request, songId: string) {
         body: {
             ok: true,
             plays: Number(updated.plays) || nextPlays,
+            songId,
+        },
+    };
+}
+
+export async function recordSongPlay(request: Request, songId: string) {
+    if (!songId || !isUuid(songId)) {
+        return { status: 400, body: { error: "Invalid song id." } };
+    }
+
+    const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const parsedBody = parseSongPlayRequestBody(rawBody);
+    if (!parsedBody.ok) {
+        return { status: parsedBody.status, body: { error: parsedBody.error } };
+    }
+
+    const auth = await resolveRequestUserId(request);
+    const listenerKey = getListenerKeyFromRequest(request, auth.userId || null);
+
+    const durable = await recordDurableSongQualifiedPlay(
+        songId,
+        listenerKey,
+        parsedBody.playbackSessionId,
+    );
+
+    if (!durable.ok) {
+        if (durable.missingRpc) {
+            return recordSongPlayLegacyInMemory(request, songId, parsedBody, auth.userId || null);
+        }
+        return { status: 500, body: { error: "Could not persist play count." } };
+    }
+
+    const result = durable.result;
+    if (result.reason === "not_found") {
+        return { status: 404, body: { error: "Song not found." } };
+    }
+    if (result.reason === "not_playable") {
+        return { status: 403, body: { error: "This song is not available for public playback." } };
+    }
+    if (result.reason === "database_error") {
+        return { status: 500, body: { error: "Could not persist play count." } };
+    }
+    if (!result.accepted) {
+        if (result.duplicate) {
+            return {
+                status: 200,
+                body: {
+                    ok: true,
+                    duplicate: true,
+                    reason: result.reason,
+                    plays: Math.max(0, Number(result.plays) || 0),
+                },
+            };
+        }
+        return {
+            status: 400,
+            body: { ok: false, duplicate: false, reason: result.reason },
+        };
+    }
+
+    return {
+        status: 200,
+        body: {
+            ok: true,
+            plays: Math.max(0, Number(result.plays) || 0),
             songId,
         },
     };

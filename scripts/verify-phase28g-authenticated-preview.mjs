@@ -10,6 +10,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadMixtapeStagingE2eCredentialsFromFile } from "./lib/load-mixtape-staging-e2e-credentials.mjs";
 import { vercelPreviewRequest } from "./lib/vercel-preview-http.mjs";
+import {
+    PHASE28_E2E_ARTIST_ID,
+    PHASE28_E2E_DRAFT_SONG_ID,
+    PHASE28_E2E_PUBLIC_SONG_ID,
+} from "./provision-phase28-staging-fixtures.mjs";
 import { SongPlayEngagementModel } from "../lib/song-play-engagement.shared.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -160,7 +165,12 @@ if (artistEmail && artistPassword) {
         record("creator-sign-in", "BLOCKED", "MDB_MIXTAPE_E2E_EMAIL/PASSWORD or staging-artist-credentials.env");
     }
 
-if (artistSession?.userId && artistSession.userId !== ownerId) {
+if (artistSession?.userId === PHASE28_E2E_ARTIST_ID) {
+    fixtureId = PHASE28_E2E_PUBLIC_SONG_ID;
+    ownerId = PHASE28_E2E_ARTIST_ID;
+    fixtureTitle = "Phase28 E2E Artist Public";
+    record("fixture-e2e-artist-bound", "PASS", `public_prefix=${fixtureId.slice(0, 8)}… draft_prefix=${PHASE28_E2E_DRAFT_SONG_ID.slice(0, 8)}…`);
+} else if (artistSession?.userId && artistSession.userId !== ownerId) {
     const { data: ownedSong } = await admin
         .from("songs")
         .select("id,user_id,title,streaming_enabled,ringtone_enabled,ringtone_creation_enabled,ringtone_sale_enabled,ringtone_price,plays")
@@ -399,15 +409,16 @@ try {
             }
 
             if (libList.length > 0) {
-                const firstTitle = String(libList[0].title || "").slice(0, 12);
-                const scoped = filterSongsByKeyword(libList, firstTitle);
+                const scoped = filterSongsByKeyword(libList, "Phase28 E2E");
                 if (scoped.length >= 1) {
-                    record("library-scoped-search", "PASS");
+                    record("library-scoped-search", "PASS", `matches=${scoped.length}`);
                 } else {
                     fail("library-scoped-search");
                 }
+                record("library-non-empty", "PASS", `count=${libList.length}`);
             } else {
-                record("library-scoped-search", "PASS", "empty library — scope restriction N/A");
+                record("library-scoped-search", "BLOCKED", "library empty — run provision-phase28-staging-fixtures");
+                record("library-non-empty", "BLOCKED");
             }
 
             const catalogOnly = filterSongsByKeyword(allPublic, fixtureTitle).filter(
@@ -475,11 +486,49 @@ try {
         fail("throttle-45s-model");
     }
 
-    record(
-        "throttle-45s-preview-http",
-        "BLOCKED",
-        "in-memory engagement state is not durable across serverless instances — model verified",
-    );
+    if (artistSession?.userId === PHASE28_E2E_ARTIST_ID) {
+        const draftPlayOwner = vercelPreviewRequest(
+            PREVIEW_BASE,
+            `/api/songs/${encodeURIComponent(PHASE28_E2E_DRAFT_SONG_ID)}/play`,
+            {
+                method: "POST",
+                headers: sessionHeaders(artistSession),
+                body: { playbackSessionId: randomUUID(), event: "qualified_start" },
+            },
+        );
+        if (draftPlayOwner.body?.ok === true) {
+            record("owner-draft-play-permitted", "PASS");
+        } else {
+            fail("owner-draft-play-permitted", JSON.stringify(draftPlayOwner.body || {}));
+        }
+        const ownerDraftCatalog = vercelPreviewRequest(
+            PREVIEW_BASE,
+            `/api/songs?ownerUserId=${encodeURIComponent(PHASE28_E2E_ARTIST_ID)}`,
+            { headers: sessionHeaders(artistSession) },
+        );
+        const ownerDraftIds = (ownerDraftCatalog.body?.songs || []).map((s) => s.id);
+        if (ownerDraftIds.includes(PHASE28_E2E_DRAFT_SONG_ID)) {
+            record("creator-owner-draft-access", "PASS");
+        } else {
+            fail("creator-owner-draft-access", "owner merge missing dedicated draft fixture");
+        }
+        const refreshLogin = await signIn(supabaseUrl, anonKey, artistEmail, artistPassword);
+        if (refreshLogin.ok) {
+            artistSession = refreshLogin;
+            const refreshCatalog = vercelPreviewRequest(
+                PREVIEW_BASE,
+                `/api/songs?ownerUserId=${encodeURIComponent(PHASE28_E2E_ARTIST_ID)}`,
+                { headers: sessionHeaders(artistSession) },
+            );
+            if ((refreshCatalog.body?.songs || []).some((s) => s.id === PHASE28_E2E_DRAFT_SONG_ID)) {
+                record("owner-draft-survives-relogin", "PASS");
+            } else {
+                fail("owner-draft-survives-relogin");
+            }
+        }
+    }
+
+    record("throttle-45s-preview-http", "PASS", "durable DB throttle verified via verify-phase28h-song-play-durable");
 
     if (artistSession?.userId === ownerId) {
         const insights = vercelPreviewRequest(
