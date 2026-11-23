@@ -1,8 +1,9 @@
 # Phase 29G — Creator & Listener Sales Experience
 
 **Branch:** `release/pwa-microsoft-store`  
-**Baseline commit:** `ca20a88` (+ 29G commit)  
-**Preview:** *(see deploy output)*  
+**Baseline commit:** `ca20a88` → **29G:** `7266fa7`  
+**Preview:** https://music-data-base-pwa-clean-git-baseline-recovered-9vm66v86h.vercel.app  
+**Inspector:** https://vercel.com/zudon1226-5137s-projects/music-data-base-pwa-clean-git-baseline-recovered/GV5Csqx3j2wbgMRGTNYrJBGi51tR  
 **Production:** unchanged
 
 ---
