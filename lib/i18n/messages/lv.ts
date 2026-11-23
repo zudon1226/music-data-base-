@@ -77,6 +77,8 @@ export const lvMessages: LocaleMessageDictionary = {
             queue: "Rinda",
             playlists: "Atskaņošanas saraksti",
             profile: "Profils",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Izpildītāja panelis",
             producerDashboard: "Producenta panelis",
             platformControlCenter: "Platformas vadības centrs",
@@ -151,6 +153,8 @@ export const lvMessages: LocaleMessageDictionary = {
             listView: "Saraksta skats",
             cardViewMode: "Karšu skata režīms",
             artistShort: "Izpildītājs",
+            creatorShort: "Creator",
+
             producerShort: "Producents",
             ownerAccessRequired: "Platformas vadībai nepieciešama īpašnieka administratora piekļuve."
         },
@@ -429,9 +433,23 @@ export const lvMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Augšupielādējiet dziesmas, albumus un video ar mākslinieka izlaiduma metadatiem.",
             producerStudioSubtitle: "Augšupielādējiet dziesmas, bitus, instrumentālus, albumus un video ar producēšanas metadatiem.",
             studioKicker: "Radītāja augšupielāde",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Mainīt studiju",
             lockedMessage: "Augšupielādes īslaicīgi atspējotas, kamēr Music Data Base tiek veidota."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Izpildītāja panelis",
             subtitle: "Pārvaldiet izpildītāja klātbūtni un izdevumus",

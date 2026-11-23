@@ -77,6 +77,8 @@ export const trMessages: LocaleMessageDictionary = {
             queue: "Kuyruk",
             playlists: "Çalma Listeleri",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Sanatçı Paneli",
             producerDashboard: "Prodüktör Paneli",
             platformControlCenter: "Platform Kontrol Merkezi",
@@ -151,6 +153,8 @@ export const trMessages: LocaleMessageDictionary = {
             listView: "Liste Görünümü",
             cardViewMode: "Kart görünüm modu",
             artistShort: "Sanatçı",
+            creatorShort: "Creator",
+
             producerShort: "Prodüktör",
             ownerAccessRequired: "Platform kontrolleri için sahip yönetici erişimi gereklidir."
         },
@@ -429,9 +433,23 @@ export const trMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Sanatçı yayın meta verileriyle şarkılar, albümler ve videolar yükleyin.",
             producerStudioSubtitle: "Prodüksiyon meta verileriyle şarkılar, beat'ler, enstrümantaller, albümler ve videolar yükleyin.",
             studioKicker: "İçerik üreticisi yükleme",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Stüdyo değiştir",
             lockedMessage: "Music Data Base yapım aşamasındayken yüklemeler geçici olarak devre dışı bırakıldı."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Sanatçı Paneli",
             subtitle: "Sanatçı varlığınızı ve yayınlarınızı yönetin",

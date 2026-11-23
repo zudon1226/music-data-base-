@@ -77,6 +77,8 @@ export const fiMessages: LocaleMessageDictionary = {
             queue: "Jono",
             playlists: "Soittolistat",
             profile: "Profiili",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Artistipaneeli",
             producerDashboard: "Tuottajapaneeli",
             platformControlCenter: "Alustan ohjauskeskus",
@@ -151,6 +153,8 @@ export const fiMessages: LocaleMessageDictionary = {
             listView: "Listanäkymä",
             cardViewMode: "Korttinäkymätila",
             artistShort: "Artisti",
+            creatorShort: "Creator",
+
             producerShort: "Tuottaja",
             ownerAccessRequired: "Omistajan ylläpitäjäoikeudet vaaditaan alustan hallintaan."
         },
@@ -429,9 +433,23 @@ export const fiMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Lataa kappaleita, albumeita ja videoita artistijulkaisun metatiedoilla.",
             producerStudioSubtitle: "Lataa kappaleita, biisejä, instrumentaaleja, albumeita ja videoita tuotannon metatiedoilla.",
             studioKicker: "Luojan lataus",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Vaihda studiota",
             lockedMessage: "Lataukset on tilapäisesti poistettu käytöstä, kun Music Data Base on rakenteilla."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Artistipaneeli",
             subtitle: "Hallitse artistiprofiiliasi ja julkaisuja",

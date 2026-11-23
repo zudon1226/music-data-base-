@@ -77,6 +77,8 @@ export const neMessages: LocaleMessageDictionary = {
             queue: "कतार",
             playlists: "प्लेलिस्टहरू",
             profile: "प्रोफाइल",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "कलाकार ड्यासबोर्ड",
             producerDashboard: "निर्माता ड्यासबोर्ड",
             platformControlCenter: "प्लेटफर्म नियन्त्रण केन्द्र",
@@ -151,6 +153,8 @@ export const neMessages: LocaleMessageDictionary = {
             listView: "सूची दृश्य",
             cardViewMode: "कार्ड दृश्य मोड",
             artistShort: "कलाकार",
+            creatorShort: "Creator",
+
             producerShort: "निर्माता",
             ownerAccessRequired: "प्लेटफर्म नियन्त्रणका लागि मालिक प्रशासक पहुँच आवश्यक छ।"
         },
@@ -429,9 +433,23 @@ export const neMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "कलाकार रिलीज मेटाडेटासह गीत, एल्बम र भिडियो अपलोड गर्नुहोस्।",
             producerStudioSubtitle: "प्रोडक्शन मेटाडेटासह गीत, बिट, इन्स्ट्रुमेन्टल, एल्बम र भिडियो अपलोड गर्नुहोस्।",
             studioKicker: "सिर्जनाकर्ता अपलोड",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "स्टुडियो बदल्नुहोस्",
             lockedMessage: "Music Data Base निर्माणाधीन हुँदा अपलोड अस्थायी रूपमा अक्षम छन्।"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "कलाकार ड्यासबोर्ड",
             subtitle: "आफ्नो कलाकार उपस्थिति र रिलिज व्यवस्थापन गर्नुहोस्",

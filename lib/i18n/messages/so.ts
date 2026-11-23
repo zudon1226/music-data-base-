@@ -77,6 +77,8 @@ export const soMessages: LocaleMessageDictionary = {
             queue: "Safka",
             playlists: "Liisaska heesaha",
             profile: "Muuqaalka",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Guddiga fanaanka",
             producerDashboard: "Guddiga soo saaraha",
             platformControlCenter: "Xarunta xakamaynta madal",
@@ -151,6 +153,8 @@ export const soMessages: LocaleMessageDictionary = {
             listView: "Muuqaalka liiska",
             cardViewMode: "Habka muuqaalka kaarka",
             artistShort: "Fanaan",
+            creatorShort: "Creator",
+
             producerShort: "Soo saare",
             ownerAccessRequired: "Helitaanka maamulaha milkiilaha ayaa loo baahan yahay xakamaynta madal."
         },
@@ -429,9 +433,23 @@ export const soMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Soo rar heeso, albamo iyo fiidiyowyo leh metadata daahfurka fanaanka.",
             producerStudioSubtitle: "Soo rar heeso, beat-yo, instrumental, albamo iyo fiidiyowyo leh metadata wax soo saarka.",
             studioKicker: "Soo rarida abuuraha",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Beddel istuudiyaha",
             lockedMessage: "Soo gelinta si ku meel gaar ah ayaa loo joojiyay inta Music Data Base la dhisanayo."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Guddiga fanaanka",
             subtitle: "Maamul joogitaankaaga fanaanka iyo daabacyada",

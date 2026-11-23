@@ -77,6 +77,8 @@ export const huMessages: LocaleMessageDictionary = {
             queue: "Várólista",
             playlists: "Lejátszási listák",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Előadói irányítópult",
             producerDashboard: "Producer irányítópult",
             platformControlCenter: "Platformvezérlő központ",
@@ -151,6 +153,8 @@ export const huMessages: LocaleMessageDictionary = {
             listView: "Listanézet",
             cardViewMode: "Kártyanézet mód",
             artistShort: "Előadó",
+            creatorShort: "Creator",
+
             producerShort: "Zenei producer",
             ownerAccessRequired: "A platformvezérléshez tulajdonosi admin hozzáférés szükséges."
         },
@@ -429,9 +433,23 @@ export const huMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Tölts fel dalokat, albumokat és videókat előadói megjelenési metaadatokkal.",
             producerStudioSubtitle: "Tölts fel dalokat, beat-eket, instrumentálokat, albumokat és videókat produkciós metaadatokkal.",
             studioKicker: "Alkotói feltöltés",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Stúdió váltása",
             lockedMessage: "A feltöltések átmenetileg le vannak tiltva, amíg a Music Data Base építés alatt áll."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Előadói irányítópult",
             subtitle: "Kezeld az előadói jelenlétedet és a kiadványaidat",

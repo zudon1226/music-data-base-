@@ -77,6 +77,8 @@ export const koMessages: LocaleMessageDictionary = {
             queue: "대기열",
             playlists: "플레이리스트",
             profile: "프로필",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "아티스트 대시보드",
             producerDashboard: "프로듀서 대시보드",
             platformControlCenter: "플랫폼 제어 센터",
@@ -151,6 +153,8 @@ export const koMessages: LocaleMessageDictionary = {
             listView: "목록 보기",
             cardViewMode: "카드 보기 모드",
             artistShort: "아티스트",
+            creatorShort: "Creator",
+
             producerShort: "프로듀서",
             ownerAccessRequired: "플랫폼 제어에는 소유자 관리자 권한이 필요합니다."
         },
@@ -429,9 +433,23 @@ export const koMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "아티스트 발매 메타데이터와 함께 노래, 앨범, 동영상을 업로드하세요.",
             producerStudioSubtitle: "프로덕션 메타데이터와 함께 노래, 비트, 연주곡, 앨범, 동영상을 업로드하세요.",
             studioKicker: "크리에이터 업로드",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "스튜디오 전환",
             lockedMessage: "Music Data Base 구축 중에는 업로드가 일시적으로 비활성화됩니다."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "아티스트 대시보드",
             subtitle: "아티스트 활동과 발매 관리",

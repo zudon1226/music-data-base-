@@ -77,6 +77,8 @@ export const roMessages: LocaleMessageDictionary = {
             queue: "Coadă",
             playlists: "Playlisturi",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Panou artist",
             producerDashboard: "Panou producător",
             platformControlCenter: "Centru de control platformă",
@@ -151,6 +153,8 @@ export const roMessages: LocaleMessageDictionary = {
             listView: "Vizualizare listă",
             cardViewMode: "Mod vizualizare carduri",
             artistShort: "Creator",
+            creatorShort: "Creator",
+
             producerShort: "Producător",
             ownerAccessRequired: "Acces de administrator proprietar necesar pentru controalele platformei."
         },
@@ -429,9 +433,23 @@ export const roMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Încarcă melodii, albume și videoclipuri cu metadate de lansare artist.",
             producerStudioSubtitle: "Încarcă melodii, beat-uri, instrumentale, albume și videoclipuri cu metadate de producție.",
             studioKicker: "Încărcare creator",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Schimbă studio",
             lockedMessage: "Încărcările sunt temporar dezactivate în timp ce Music Data Base este în construcție."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Panou artist",
             subtitle: "Gestionează prezența ta de artist și lansările",

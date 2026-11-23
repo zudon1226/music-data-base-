@@ -77,6 +77,8 @@ export const paMessages: LocaleMessageDictionary = {
             queue: "ਕਤਾਰ",
             playlists: "ਪ੍ਲੇਲਿਸ੍ਟ",
             profile: "ਪ੍ਰੋਫਾਈਲ",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "ਕਲਾਕਾਰ ਡੈਸ਼ਬੋਰ੍ਡ",
             producerDashboard: "ਨਿਰ੍ਮਾਤਾ ਡੈਸ਼ਬੋਰ੍ਡ",
             platformControlCenter: "ਪ੍ਲੇਟਫ਼੉ਰ੍ਮ ਨਿਯਂਤ੍ਰਣ ਕੇਂਦ੍ਰ",
@@ -151,6 +153,8 @@ export const paMessages: LocaleMessageDictionary = {
             listView: "ਸੂਚੀ ਦ੃ਸ਼੍ਯ",
             cardViewMode: "ਕਾਰ੍ਡ ਦ੃ਸ਼੍ਯ ਮੋਡ",
             artistShort: "ਕਲਾਕਾਰ",
+            creatorShort: "Creator",
+
             producerShort: "ਨਿਰ੍ਮਾਤਾ",
             ownerAccessRequired: "ਪ੍ਲੇਟਫ਼੉ਰ੍ਮ ਨਿਯਂਤ੍ਰਣ ਕੇ ਲਿਏ ਸ੍ਵਾਮੀ ਵ੍ਯਵਸ੍ਥਾਪਕ ਪਹੁਁਚ ਆਵਸ਼੍ਯਕ ਹੈ੤"
         },
@@ -429,9 +433,23 @@ export const paMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "ਕਲਾਕਾਰ ਰਿਲੀਚ਼ ਮੈਟਾਡੇਟਾ ਨਾਲ ਗਾਨੇ, ਐਲਬਮ ਅਤੇ ਵੀਡੀਓ ਅਪਲੋਡ ਕਰੋ।",
             producerStudioSubtitle: "ਪ੍ਰਾਡਕਸਨ ਮੈਟਾਡੇਟਾ ਨਾਲ ਗਾਨੇ, ਬੀਟ, ਇਂਸਟਰੂਮੇਂਟਲ, ਐਲਬਮ ਅਤੇ ਵੀਡੀਓ ਅਪਲੋਡ ਕਰੋ।",
             studioKicker: "ਕ੍ਰਿਏਟਰ ਅਪਲੋਡ",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "ਸਟੂਡੀਓ ਬਦਲੋ",
             lockedMessage: "Music Data Base ਨਿਰ੍ਮਾਣਾਧੀਨ ਹੋਨੇ ਕੇ ਦੌਰਾਨ ਅਪਲੋਡ ਅਸ੍ਥਾਯੀ ਰੂਪ ਸੇ ਅਕ੍਷ਮ ਹੈਂ੤"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "ਕਲਾਕਾਰ ਡੈਸ਼ਬੋਰ੍ਡ",
             subtitle: "ਅਪਨੀ ਕਲਾਕਾਰ ਉਪਸ੍ਥਿਤਿ ਔਰ ਰਿਲੀਜ਼ ਪ੍ਰਬਂਧਿਤ ਕਰੇਂ",

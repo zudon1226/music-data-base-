@@ -77,6 +77,8 @@ export const slMessages: LocaleMessageDictionary = {
             queue: "Čakalna vrsta",
             playlists: "Seznami predvajanja",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Nadzorna plošča izvajalca",
             producerDashboard: "Nadzorna plošča producenta",
             platformControlCenter: "Nadzorni center platforme",
@@ -151,6 +153,8 @@ export const slMessages: LocaleMessageDictionary = {
             listView: "Seznamski pogled",
             cardViewMode: "Način kartic",
             artistShort: "Izvajalec",
+            creatorShort: "Creator",
+
             producerShort: "Producent",
             ownerAccessRequired: "Za kontrole platforme je potreben dostop lastnika-skrbnika."
         },
@@ -429,9 +433,23 @@ export const slMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Naložite skladbe, albume in videoposnetke z metapodatki izdaje umetnika.",
             producerStudioSubtitle: "Naložite skladbe, bitce, instrumentale, albume in videoposnetke z metapodatki produkcije.",
             studioKicker: "Nalaganje ustvarjalca",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Zamenjaj studio",
             lockedMessage: "Nalaganja so začasno onemogočena, medtem ko se Music Data Base gradi."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Nadzorna plošča izvajalca",
             subtitle: "Upravljajte prisotnost in izdaje izvajalca",

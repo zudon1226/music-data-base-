@@ -77,6 +77,8 @@ export const msMessages: LocaleMessageDictionary = {
             queue: "Barisan",
             playlists: "Senarai main",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Papan Pemuka Artis",
             producerDashboard: "Papan Pemuka Pengeluar",
             platformControlCenter: "Pusat Kawalan Platform",
@@ -151,6 +153,8 @@ export const msMessages: LocaleMessageDictionary = {
             listView: "Paparan Senarai",
             cardViewMode: "Mod paparan kad",
             artistShort: "Artis",
+            creatorShort: "Creator",
+
             producerShort: "Pengeluar",
             ownerAccessRequired: "Akses pentadbir pemilik diperlukan untuk kawalan platform."
         },
@@ -429,9 +433,23 @@ export const msMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Muat naik lagu, album dan video dengan metadata keluaran artis.",
             producerStudioSubtitle: "Muat naik lagu, beat, instrumental, album dan video dengan metadata produksi.",
             studioKicker: "Muat naik pencipta",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Tukar studio",
             lockedMessage: "Muat naik dilumpuhkan sementara semasa Music Data Base sedang dibina."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Papan Pemuka Artis",
             subtitle: "Urus kehadiran dan keluaran artis anda",

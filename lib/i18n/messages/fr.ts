@@ -77,6 +77,8 @@ export const frMessages: LocaleMessageDictionary = {
             queue: "File d'attente",
             playlists: "Listes de lecture",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Tableau de bord artiste",
             producerDashboard: "Tableau de bord producteur",
             platformControlCenter: "Centre de contrôle de la plateforme",
@@ -151,6 +153,8 @@ export const frMessages: LocaleMessageDictionary = {
             listView: "Vue liste",
             cardViewMode: "Mode d'affichage des cartes",
             artistShort: "Artiste",
+            creatorShort: "Creator",
+
             producerShort: "Producteur",
             ownerAccessRequired: "L'accès administrateur propriétaire est requis pour les contrôles de la plateforme."
         },
@@ -429,9 +433,23 @@ export const frMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Mettez en ligne des chansons, albums et vidéos avec les métadonnées de sortie artiste.",
             producerStudioSubtitle: "Mettez en ligne des chansons, beats, instrumentaux, albums et vidéos avec les métadonnées de production.",
             studioKicker: "Mise en ligne créateur",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Changer de studio",
             lockedMessage: "Les téléversements sont temporairement désactivés pendant la construction de Music Data Base."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Tableau de bord artiste",
             subtitle: "Gérez votre présence artistique et vos sorties",

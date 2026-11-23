@@ -77,6 +77,8 @@ export const sqMessages: LocaleMessageDictionary = {
             queue: "Radha",
             playlists: "Listat e luajtjes",
             profile: "Profili",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Paneli i artistit",
             producerDashboard: "Paneli i producentit",
             platformControlCenter: "Qendra e kontrollit të platformës",
@@ -151,6 +153,8 @@ export const sqMessages: LocaleMessageDictionary = {
             listView: "Pamje liste",
             cardViewMode: "Mënyra e kartave",
             artistShort: "Artisti",
+            creatorShort: "Creator",
+
             producerShort: "Producenti",
             ownerAccessRequired: "Për kontrollët e platformës kërkohet qasja e administratorit pronar."
         },
@@ -429,9 +433,23 @@ export const sqMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Ngarko këngë, albume dhe video me metadata të publikimit të artistit.",
             producerStudioSubtitle: "Ngarko këngë, beat-e, instrumentale, albume dhe video me metadata të prodhimit.",
             studioKicker: "Ngarkim krijuesi",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Ndrysho studio",
             lockedMessage: "Ngarkimet janë çaktivizuar përkohësisht ndërsa Music Data Base është në ndërtim."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Paneli i artistit",
             subtitle: "Menaxho praninë dhe publikimet e artistit",

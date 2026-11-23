@@ -77,6 +77,8 @@ export const heMessages: LocaleMessageDictionary = {
             queue: "תור",
             playlists: "רשימות השמעה",
             profile: "פרופיל",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "לוח בקרה לאמן",
             producerDashboard: "לוח בקרה למפיק",
             platformControlCenter: "מרכז בקרת הפלטפורמה",
@@ -151,6 +153,8 @@ export const heMessages: LocaleMessageDictionary = {
             listView: "תצוגת רשימה",
             cardViewMode: "מצב תצוגת כרטיסים",
             artistShort: "אמן",
+            creatorShort: "Creator",
+
             producerShort: "מפיק",
             ownerAccessRequired: "נדרשת גישת מנהל בעלים לבקרות הפלטפורמה."
         },
@@ -429,9 +433,23 @@ export const heMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "העלה שירים, אלבומים וסרטונים עם מטא-נתוני פרסום של אמן.",
             producerStudioSubtitle: "העלה שירים, ביטים, אינסטרומנטלים, אלבומים וסרטונים עם מטא-נתוני הפקה.",
             studioKicker: "העלאת יוצר",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "החלף סטודיו",
             lockedMessage: "העלאות מושבתות זמנית בזמן ש-Music Data Base בבנייה."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "לוח בקרה לאמן",
             subtitle: "נהל את הנוכחות האמנותית והיציאות שלך",

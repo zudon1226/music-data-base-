@@ -77,6 +77,8 @@ export const amMessages: LocaleMessageDictionary = {
             queue: "ተራ",
             playlists: "የምጣከይት ዝርዝሮዎት",
             profile: "መገለለው",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "የአርቲስት ዳሻቦርድድ",
             producerDashboard: "የአምራዎት ዳሻቦርድድ",
             platformControlCenter: "የምድርከክ ኩጥጥር ማአክል",
@@ -151,6 +153,8 @@ export const amMessages: LocaleMessageDictionary = {
             listView: "የዝርዝር እይታ",
             cardViewMode: "የካርድ እይታ ሁነታ",
             artistShort: "አርቲስት",
+            creatorShort: "Creator",
+
             producerShort: "አምራች",
             ownerAccessRequired: "የመድረክ መቆጣጠሪያዎችን ለማግኘት የባለቤት አስተዳዳሪ መዳረሻ ያስፈልጋል ።"
         },
@@ -429,9 +433,23 @@ export const amMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "የአርቲስት ልቀት መረጃ ጋር ዘፈኖች፣ አልቦሞች እና ቪዲዮዎችን ይስቀሉ።",
             producerStudioSubtitle: "የምርት መረጃ ጋር ዘፈኖች፣ ቢት፣ መሣሪያዎች፣ አልቦሞች እና ቪዲዮዎችን ይስቀሉ።",
             studioKicker: "የፈጣሪ ስቀል",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "ስቱድዮ ቀይር",
             lockedMessage: "Uploads ለጊዜው የአካል ጉዳተኞች ሲሆኑ_TOK0__ በግንባታ ላይ ነው ።"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "አርቲስት ዳሽቦርድ",
             subtitle: "የአርቲስትዎን መገኘት እና መልቀቂያዎችን ያስተዳድሩ",

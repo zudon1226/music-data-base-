@@ -77,6 +77,8 @@ export const mrMessages: LocaleMessageDictionary = {
             queue: "रांग",
             playlists: "प्लेलिस्ट",
             profile: "प्रोफाइल",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "कलाकार डॅशबोर्ड",
             producerDashboard: "निर्माता डॅशबोर्ड",
             platformControlCenter: "प्लॅटफॉर्म नियंत्रण केंद्र",
@@ -151,6 +153,8 @@ export const mrMessages: LocaleMessageDictionary = {
             listView: "यादी दृश्य",
             cardViewMode: "कार्ड दृश्य मोड",
             artistShort: "कलाकार",
+            creatorShort: "Creator",
+
             producerShort: "निर्माता",
             ownerAccessRequired: "प्लॅटफॉर्म नियंत्रणांसाठी मालक प्रशासक प्रवेश आवश्यक आहे."
         },
@@ -429,9 +433,23 @@ export const mrMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "कलाकार रिलीज मेटाडेटासह गाणी, अल्बम आणि व्हिडिओ अपलोड करा.",
             producerStudioSubtitle: "प्रोडक्शन मेटाडेटासह गाणी, बीट, इन्स्ट्रुमेंटल, अल्बम आणि व्हिडिओ अपलोड करा.",
             studioKicker: "क्रिएटर अपलोड",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "स्टुडिओ बदला",
             lockedMessage: "Music Data Base बांधकामाधीन असताना अपलोड तात्पुरते अक्षम आहेत."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "कलाकार डॅशबोर्ड",
             subtitle: "तुमची कलाकार उपस्थिती आणि रिलीझ व्यवस्थापित करा",

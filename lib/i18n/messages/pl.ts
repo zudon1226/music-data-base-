@@ -77,6 +77,8 @@ export const plMessages: LocaleMessageDictionary = {
             queue: "Kolejka",
             playlists: "Playlisty",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Panel artysty",
             producerDashboard: "Panel producenta",
             platformControlCenter: "Centrum sterowania platformą",
@@ -151,6 +153,8 @@ export const plMessages: LocaleMessageDictionary = {
             listView: "Widok listy",
             cardViewMode: "Tryb widoku kart",
             artistShort: "Artysta",
+            creatorShort: "Creator",
+
             producerShort: "Producent",
             ownerAccessRequired: "Do sterowania platformą wymagany jest dostęp administratora właściciela."
         },
@@ -429,9 +433,23 @@ export const plMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Przesyłaj utwory, albumy i filmy z metadanymi wydania artysty.",
             producerStudioSubtitle: "Przesyłaj utwory, bity, instrumentale, albumy i filmy z metadanymi produkcji.",
             studioKicker: "Przesyłanie twórcy",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Zmień studio",
             lockedMessage: "Przesyłanie jest tymczasowo wyłączone, ponieważ Music Data Base jest w budowie."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Panel artysty",
             subtitle: "Zarządzaj swoją obecnością artysty i wydaniami",

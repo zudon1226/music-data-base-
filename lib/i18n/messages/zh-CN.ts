@@ -77,6 +77,8 @@ export const zhCNMessages: LocaleMessageDictionary = {
             queue: "队列",
             playlists: "播放列表",
             profile: "个人资料",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "艺人控制台",
             producerDashboard: "制作人控制台",
             platformControlCenter: "平台控制中心",
@@ -151,6 +153,8 @@ export const zhCNMessages: LocaleMessageDictionary = {
             listView: "列表视图",
             cardViewMode: "卡片视图模式",
             artistShort: "艺人",
+            creatorShort: "Creator",
+
             producerShort: "制作人",
             ownerAccessRequired: "平台控制需要所有者管理员权限。"
         },
@@ -429,9 +433,23 @@ export const zhCNMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "上传歌曲、专辑和视频，并填写艺人发行元数据。",
             producerStudioSubtitle: "上传歌曲、节拍、纯音乐、专辑和视频，并填写制作元数据。",
             studioKicker: "创作者上传",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "切换工作室",
             lockedMessage: "Music Data Base 建设期间，上传功能暂时禁用。"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "艺人控制台",
             subtitle: "管理你的艺人形象和发行",

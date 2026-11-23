@@ -77,6 +77,8 @@ export const thMessages: LocaleMessageDictionary = {
             queue: "คิว",
             playlists: "เพลย์ลิสต์",
             profile: "โปรไฟล์",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "แดชบอร์ดศิลปิน",
             producerDashboard: "แดชบอร์ดโปรดิวเซอร์",
             platformControlCenter: "ศูนย์ควบคุมแพลตฟอร์ม",
@@ -151,6 +153,8 @@ export const thMessages: LocaleMessageDictionary = {
             listView: "มุมมองรายการ",
             cardViewMode: "โหมดมุมมองการ์ด",
             artistShort: "ศิลปิน",
+            creatorShort: "Creator",
+
             producerShort: "โปรดิวเซอร์",
             ownerAccessRequired: "ต้องมีสิทธิ์ผู้ดูแลที่เป็นเจ้าของสำหรับควบคุมแพลตฟอร์ม"
         },
@@ -429,9 +433,23 @@ export const thMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "อัปโหลดเพลง อัลบั้ม และวิดีโอพร้อมข้อมูลเมตาของการปล่อยงานศิลปิน",
             producerStudioSubtitle: "อัปโหลดเพลง บีต อินสตรูเมนตอล อัลบั้ม และวิดีโอพร้อมข้อมูลเมตาการผลิต",
             studioKicker: "อัปโหลดของครีเอเตอร์",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "สลับสตูดิโอ",
             lockedMessage: "การอัปโหลดถูกปิดชั่วคราวขณะที่ Music Data Base อยู่ระหว่างการก่อสร้าง"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "แดชบอร์ดศิลปิน",
             subtitle: "จัดการการปรากฏตัวและการปล่อยผลงานของศิลปิน",

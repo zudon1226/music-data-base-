@@ -77,6 +77,8 @@ export const idMessages: LocaleMessageDictionary = {
             queue: "Antrean",
             playlists: "Daftar putar",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Dasbor Artis",
             producerDashboard: "Dasbor Produser",
             platformControlCenter: "Pusat Kontrol Platform",
@@ -151,6 +153,8 @@ export const idMessages: LocaleMessageDictionary = {
             listView: "Tampilan Daftar",
             cardViewMode: "Mode tampilan kartu",
             artistShort: "Artis",
+            creatorShort: "Creator",
+
             producerShort: "Produser",
             ownerAccessRequired: "Akses admin pemilik diperlukan untuk kontrol platform."
         },
@@ -429,9 +433,23 @@ export const idMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Unggah lagu, album, dan video dengan metadata rilis artis.",
             producerStudioSubtitle: "Unggah lagu, beat, instrumental, album, dan video dengan metadata produksi.",
             studioKicker: "Unggahan kreator",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Ganti studio",
             lockedMessage: "Unggahan dinonaktifkan sementara saat Music Data Base sedang dibangun."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Dasbor Artis",
             subtitle: "Kelola kehadiran dan rilis artis Anda",

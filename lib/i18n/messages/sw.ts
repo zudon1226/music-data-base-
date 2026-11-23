@@ -77,6 +77,8 @@ export const swMessages: LocaleMessageDictionary = {
             queue: "Foleni",
             playlists: "Orodha za kucheza",
             profile: "Wasifu",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Dashibodi ya Msanii",
             producerDashboard: "Dashibodi ya Mtayarishaji",
             platformControlCenter: "Kituo cha Udhibiti wa Jukwaa",
@@ -151,6 +153,8 @@ export const swMessages: LocaleMessageDictionary = {
             listView: "Mwonekano wa orodha",
             cardViewMode: "Hali ya mwonekano wa kadi",
             artistShort: "Msanii",
+            creatorShort: "Creator",
+
             producerShort: "Mtayarishaji",
             ownerAccessRequired: "Ufikiaji wa msimamizi wa mmiliki unahitajika kwa udhibiti wa jukwaa."
         },
@@ -429,9 +433,23 @@ export const swMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Pakia nyimbo, albamu na video zenye metadata ya kutolewa kwa msanii.",
             producerStudioSubtitle: "Pakia nyimbo, beat, instrumental, albamu na video zenye metadata ya uzalishaji.",
             studioKicker: "Upakiaji wa muundaji",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Badilisha studio",
             lockedMessage: "Upakiaji umezimwa kwa muda wakati Music Data Base inajengwa."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Dashibodi ya Msanii",
             subtitle: "Simamia uwepo na matoleo yako kama msanii",

@@ -77,6 +77,8 @@ export const ruMessages: LocaleMessageDictionary = {
             queue: "Очередь",
             playlists: "Плейлисты",
             profile: "Профиль",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Панель артиста",
             producerDashboard: "Панель продюсера",
             platformControlCenter: "Центр управления платформой",
@@ -151,6 +153,8 @@ export const ruMessages: LocaleMessageDictionary = {
             listView: "Список",
             cardViewMode: "Режим карточек",
             artistShort: "Артист",
+            creatorShort: "Creator",
+
             producerShort: "Продюсер",
             ownerAccessRequired: "Для управления платформой требуется доступ администратора-владельца."
         },
@@ -429,9 +433,23 @@ export const ruMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Загружайте песни, альбомы и видео с метаданными релиза артиста.",
             producerStudioSubtitle: "Загружайте песни, биты, инструменталы, альбомы и видео с метаданными продакшена.",
             studioKicker: "Загрузка создателя",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Сменить студию",
             lockedMessage: "Загрузки временно отключены, пока Music Data Base находится в разработке."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Панель артиста",
             subtitle: "Управляйте своим присутствием артиста и релизами",

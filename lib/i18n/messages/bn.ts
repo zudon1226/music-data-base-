@@ -77,6 +77,8 @@ export const bnMessages: LocaleMessageDictionary = {
             queue: "কিউ",
             playlists: "প্লেলিস্ট",
             profile: "প্রোফাইল",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "শিল্পী ড্যাশবোর্ড",
             producerDashboard: "প্রযোজক ড্যাশবোর্ড",
             platformControlCenter: "প্ল্যাটফর্ম নিয়ন্ত্রণ কেন্দ্র",
@@ -151,6 +153,8 @@ export const bnMessages: LocaleMessageDictionary = {
             listView: "তালিকা ভিউ",
             cardViewMode: "কার্ড ভিউ মোড",
             artistShort: "শিল্পী",
+            creatorShort: "Creator",
+
             producerShort: "প্রযোজক",
             ownerAccessRequired: "প্ল্যাটফর্ম নিয়ন্ত্রণের জন্য মালিক প্রশাসক প্রবেশাধিকার প্রয়োজন।"
         },
@@ -429,9 +433,23 @@ export const bnMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "শিল্পী রিলিজ মেটাডেটা সহ গান, অ্যালবাম ও ভিডিও আপলোড করুন।",
             producerStudioSubtitle: "প্রোডাকশন মেটাডেটা সহ গান, বিট, ইনস্ট্রুমেন্টাল, অ্যালবাম ও ভিডিও আপলোড করুন।",
             studioKicker: "ক্রিয়েটর আপলোড",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "স্টুডিও বদলান",
             lockedMessage: "Music Data Base নির্মাণাধীন থাকায় আপলোড সাময়িকভাবে নিষ্ক্রিয়।"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "শিল্পী ড্যাশবোর্ড",
             subtitle: "আপনার শিল্পী উপস্থিতি ও রিলিজ পরিচালনা করুন",

@@ -77,6 +77,8 @@ export const yoMessages: LocaleMessageDictionary = {
             queue: "Ìlà",
             playlists: "Àkójọ orin",
             profile: "Àkọrọ",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Pánélà àwọn orin",
             producerDashboard: "Pánélà olòṣẹ̀-ẹ̀",
             platformControlCenter: "Ilé Ìṣẹ́ṣẹ̀ Ọ̀nà",
@@ -151,6 +153,8 @@ export const yoMessages: LocaleMessageDictionary = {
             listView: "Ìwò àtòjọ",
             cardViewMode: "Ẹ̀ṣẹ̀ ìwọ̀n kaadi",
             artistShort: "Àwọn orin",
+            creatorShort: "Creator",
+
             producerShort: "Olòṣẹ̀-ẹ̀",
             ownerAccessRequired: "A nilo àṣẹ̀wọ́dẹ́ abajẹ̀ ọ̀nà láti ṣe àṣẹ̀wọ́dẹ́ Ọ̀nà."
         },
@@ -429,9 +433,23 @@ export const yoMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Gbe orin, awon album ati fidio soke pelu metadata tita onise.",
             producerStudioSubtitle: "Gbe orin, beat, instrumental, awon album ati fidio soke pelu metadata iseduro.",
             studioKicker: "Gbigbe olupilẹṣẹ",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Yi studio pada",
             lockedMessage: "A ti dá gbígbé sórọ́ fẹ́n ìgbà láṣẹ́ Music Data Base n ṣe kó."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Pánélà Àwọn Orin",
             subtitle: "Ṣe àkọ́jọ́ àwọn orin rẹ́ àti àwọn tí ṣe jáde",

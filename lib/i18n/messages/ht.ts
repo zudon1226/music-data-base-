@@ -77,6 +77,8 @@ export const htMessages: LocaleMessageDictionary = {
             queue: "Fil",
             playlists: "Lis mizik",
             profile: "Pwofil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Tablo atis",
             producerDashboard: "Tablo pwodiktè",
             platformControlCenter: "Sant kontwòl platfòm",
@@ -151,6 +153,8 @@ export const htMessages: LocaleMessageDictionary = {
             listView: "View lis",
             cardViewMode: "Mòd view kat",
             artistShort: "Atis",
+            creatorShort: "Creator",
+
             producerShort: "Pwodiktè",
             ownerAccessRequired: "Aksè administratè pwopriyetè nesesè pou kontwòl platfòm yo."
         },
@@ -429,9 +433,23 @@ export const htMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Telechaje chante, album ak videyo ak metadata lage atis.",
             producerStudioSubtitle: "Telechaje chante, beat, enstrimantal, album ak videyo ak metadata pwodiksyon.",
             studioKicker: "Telechajman kreyatè",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Chanje studio",
             lockedMessage: "Telechajman yo fèmen tanporèman pandan Music Data Base ap konstwi."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Tablo atis",
             subtitle: "Jere prezans atis ou ak piblikasyon yo",

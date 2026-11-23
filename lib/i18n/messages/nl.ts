@@ -77,6 +77,8 @@ export const nlMessages: LocaleMessageDictionary = {
             queue: "Wachtrij",
             playlists: "Afspeellijsten",
             profile: "Profiel",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Artiestendashboard",
             producerDashboard: "Producerdashboard",
             platformControlCenter: "Platformcontrolecentrum",
@@ -151,6 +153,8 @@ export const nlMessages: LocaleMessageDictionary = {
             listView: "Lijstweergave",
             cardViewMode: "Kaartweergavemodus",
             artistShort: "Artiest",
+            creatorShort: "Creator",
+
             producerShort: "Producent",
             ownerAccessRequired: "Owner-beheerderstoegang is vereist voor platformbediening."
         },
@@ -429,9 +433,23 @@ export const nlMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Upload nummers, albums en video's met metadata voor artiestreleases.",
             producerStudioSubtitle: "Upload nummers, beats, instrumentals, albums en video's met productiemetadata.",
             studioKicker: "Creator-upload",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Studio wisselen",
             lockedMessage: "Uploads zijn tijdelijk uitgeschakeld terwijl Music Data Base in aanbouw is."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Artiestendashboard",
             subtitle: "Beheer je artiestenpresence en releases",

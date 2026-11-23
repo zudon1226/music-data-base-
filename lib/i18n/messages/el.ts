@@ -77,6 +77,8 @@ export const elMessages: LocaleMessageDictionary = {
             queue: "Ουρά",
             playlists: "Λίστες αναπαραγωγής",
             profile: "Προφίλ",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Πίνακας καλλιτέχνη",
             producerDashboard: "Πίνακας παραγωγού",
             platformControlCenter: "Κέντρο ελέγχου πλατφόρμας",
@@ -151,6 +153,8 @@ export const elMessages: LocaleMessageDictionary = {
             listView: "Προβολή λίστας",
             cardViewMode: "Λειτουργία προβολής καρτών",
             artistShort: "Καλλιτέχνης",
+            creatorShort: "Creator",
+
             producerShort: "Παραγωγός",
             ownerAccessRequired: "Απαιτείται πρόσβαση διαχειριστή ιδιοκτήτη για τους ελέγχους της πλατφόρμας."
         },
@@ -429,9 +433,23 @@ export const elMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Ανεβάστε τραγούδια, άλμπουμ και βίντεο με μεταδεδομένα κυκλοφορίας καλλιτέχνη.",
             producerStudioSubtitle: "Ανεβάστε τραγούδια, beats, ορχηστρικά, άλμπουμ και βίντεο με μεταδεδομένα παραγωγής.",
             studioKicker: "Μεταφόρτωση δημιουργού",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Αλλαγή στούντιο",
             lockedMessage: "Οι μεταφορτώσεις είναι προσωρινά απενεργοποιημένες ενώ το Music Data Base βρίσκεται υπό κατασκευή."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Πίνακας καλλιτέχνη",
             subtitle: "Διαχειριστείτε την παρουσία σας ως καλλιτέχνης και τις κυκλοφορίες",

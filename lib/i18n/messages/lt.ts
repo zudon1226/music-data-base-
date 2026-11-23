@@ -77,6 +77,8 @@ export const ltMessages: LocaleMessageDictionary = {
             queue: "Eilė",
             playlists: "Grojaraščiai",
             profile: "Profilis",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Atlikėjo skydelis",
             producerDashboard: "Prodiuserio skydelis",
             platformControlCenter: "Platformos valdymo centras",
@@ -151,6 +153,8 @@ export const ltMessages: LocaleMessageDictionary = {
             listView: "Sąrašo vaizdas",
             cardViewMode: "Kortelių vaizdo režimas",
             artistShort: "Atlikėjas",
+            creatorShort: "Creator",
+
             producerShort: "Prodiuseris",
             ownerAccessRequired: "Platformos valdymui reikalinga savininko administratoriaus prieiga."
         },
@@ -429,9 +433,23 @@ export const ltMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Įkelkite dainas, albumus ir vaizdo įrašus su atlikėjo leidimo metaduomenimis.",
             producerStudioSubtitle: "Įkelkite dainas, bitus, instrumentines, albumus ir vaizdo įrašus su produkcijos metaduomenimis.",
             studioKicker: "Kūrėjo įkėlimas",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Perjungti studiją",
             lockedMessage: "Įkėlimai laikinai išjungti, kol kuriama Music Data Base."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Atlikėjo skydelis",
             subtitle: "Tvarkykite atlikėjo buvimą ir leidinius",

@@ -77,6 +77,8 @@ export const srMessages: LocaleMessageDictionary = {
             queue: "Red",
             playlists: "Plejliste",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Panel izvođača",
             producerDashboard: "Panel producenta",
             platformControlCenter: "Kontrolni centar platforme",
@@ -151,6 +153,8 @@ export const srMessages: LocaleMessageDictionary = {
             listView: "Prikaz liste",
             cardViewMode: "Režim kartica",
             artistShort: "Izvođač",
+            creatorShort: "Creator",
+
             producerShort: "Producent",
             ownerAccessRequired: "Za kontrole platforme potreban je pristup vlasnika-administratora."
         },
@@ -429,9 +433,23 @@ export const srMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Отпремајте песме, албуме и видео снимке са метаподацима издања уметника.",
             producerStudioSubtitle: "Отпремајте песме, битове, инструментале, албуме и видео снимке са метаподацима продукције.",
             studioKicker: "Отпремање креатора",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Промени студио",
             lockedMessage: "Otpremanja su privremeno onemogućena dok se Music Data Base gradi."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Panel izvođača",
             subtitle: "Upravljajte prisustvom i izdanjima izvođača",

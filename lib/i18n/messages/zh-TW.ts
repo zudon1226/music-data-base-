@@ -77,6 +77,8 @@ export const zhTWMessages: LocaleMessageDictionary = {
             queue: "佇列",
             playlists: "播放清單",
             profile: "個人資料",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "藝人控制台",
             producerDashboard: "製作人控制台",
             platformControlCenter: "平台控制中心",
@@ -151,6 +153,8 @@ export const zhTWMessages: LocaleMessageDictionary = {
             listView: "清單檢視",
             cardViewMode: "卡片檢視模式",
             artistShort: "藝人",
+            creatorShort: "Creator",
+
             producerShort: "製作人",
             ownerAccessRequired: "平台控制需要擁有者管理員權限。"
         },
@@ -429,9 +433,23 @@ export const zhTWMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "上傳歌曲、專輯與影片，並填寫藝人發行詮釋資料。",
             producerStudioSubtitle: "上傳歌曲、節拍、純音樂、專輯與影片，並填寫製作詮釋資料。",
             studioKicker: "創作者上傳",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "切換工作室",
             lockedMessage: "Music Data Base 建置期間，上傳功能暫時停用。"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "藝人控制台",
             subtitle: "管理你的藝人形象與發行",

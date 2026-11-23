@@ -77,6 +77,8 @@ export const ukMessages: LocaleMessageDictionary = {
             queue: "Черга",
             playlists: "Плейлисти",
             profile: "Профіль",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Панель артиста",
             producerDashboard: "Панель продюсера",
             platformControlCenter: "Центр керування платформою",
@@ -151,6 +153,8 @@ export const ukMessages: LocaleMessageDictionary = {
             listView: "Список",
             cardViewMode: "Режим карток",
             artistShort: "Артист",
+            creatorShort: "Creator",
+
             producerShort: "Продюсер",
             ownerAccessRequired: "Для керування платформою потрібен доступ адміністратора власника."
         },
@@ -429,9 +433,23 @@ export const ukMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Завантажуйте пісні, альбоми та відео з метаданими релізу артиста.",
             producerStudioSubtitle: "Завантажуйте пісні, біти, інструментали, альбоми та відео з метаданими продакшену.",
             studioKicker: "Завантаження творця",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Змінити студію",
             lockedMessage: "Завантаження тимчасово вимкнено, поки Music Data Base перебуває в розробці."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Панель артиста",
             subtitle: "Керуйте своєю присутністю артиста та релізами",

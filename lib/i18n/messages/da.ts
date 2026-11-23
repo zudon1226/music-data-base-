@@ -77,6 +77,8 @@ export const daMessages: LocaleMessageDictionary = {
             queue: "Kø",
             playlists: "Afspilningslister",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Kunstnerpanel",
             producerDashboard: "Producentpanel",
             platformControlCenter: "Platformkontrolcenter",
@@ -151,6 +153,8 @@ export const daMessages: LocaleMessageDictionary = {
             listView: "Listevisning",
             cardViewMode: "Kortvisningstilstand",
             artistShort: "Kunstner",
+            creatorShort: "Creator",
+
             producerShort: "Producent",
             ownerAccessRequired: "Ejeradministratoradgang er påkrævet til platformkontroller."
         },
@@ -429,9 +433,23 @@ export const daMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Upload sange, album og videoer med metadata for kunstnerudgivelse.",
             producerStudioSubtitle: "Upload sange, beats, instrumentals, album og videoer med produktionsmetadata.",
             studioKicker: "Upload for skaber",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Skift studio",
             lockedMessage: "Overførsler er midlertidigt deaktiveret, mens Music Data Base er under opbygning."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Kunstnerpanel",
             subtitle: "Administrer din kunstnertilstedeværelse og udgivelser",

@@ -77,6 +77,8 @@ export const jaMessages: LocaleMessageDictionary = {
             queue: "キュー",
             playlists: "プレイリスト",
             profile: "プロフィール",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "アーティストダッシュボード",
             producerDashboard: "プロデューサーダッシュボード",
             platformControlCenter: "プラットフォーム管理センター",
@@ -151,6 +153,8 @@ export const jaMessages: LocaleMessageDictionary = {
             listView: "リスト表示",
             cardViewMode: "カード表示モード",
             artistShort: "アーティスト",
+            creatorShort: "Creator",
+
             producerShort: "プロデューサー",
             ownerAccessRequired: "プラットフォーム管理にはオーナー管理者権限が必要です。"
         },
@@ -429,9 +433,23 @@ export const jaMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "アーティストリリースのメタデータ付きで曲、アルバム、動画をアップロードします。",
             producerStudioSubtitle: "制作メタデータ付きで曲、ビート、インスト、アルバム、動画をアップロードします。",
             studioKicker: "クリエイターアップロード",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "スタジオを切り替え",
             lockedMessage: "Music Data Base の構築中はアップロードが一時的に無効です。"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "アーティストダッシュボード",
             subtitle: "アーティスト活動とリリースを管理",

@@ -77,6 +77,8 @@ export const teMessages: LocaleMessageDictionary = {
             queue: "క్యూ",
             playlists: "ప్లేలిస్ట్‌లు",
             profile: "ప్రొఫైల్",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "కళాకారుని డాష్‌బోర్డ్",
             producerDashboard: "నిర్మాత డాష్‌బోర్డ్",
             platformControlCenter: "ప్లాట్‌ఫారమ్ నియంత్రణ కేంద్రం",
@@ -151,6 +153,8 @@ export const teMessages: LocaleMessageDictionary = {
             listView: "జాబితా వీక్షణ",
             cardViewMode: "కార్డ్ వీక్షణ మోడ్",
             artistShort: "కళాకారుడు",
+            creatorShort: "Creator",
+
             producerShort: "నిర్మాత",
             ownerAccessRequired: "ప్లాట్‌ఫారమ్ నియంత్రణలకు యజమాని నిర్వాహక యాక్సెస్ అవసరం."
         },
@@ -429,9 +433,23 @@ export const teMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "కళాకారుడు రిలీజ్ మెటాడేటాతో పాటలు, ఆల్బమ్‌లు మరియు వీడియోలను అప్‌లోడ్ చేయండి.",
             producerStudioSubtitle: "ప్రొడక్షన్ మెటాడేటాతో పాటలు, బీట్‌లు, ఇన్‌స్ట్రుమెంటల్‌లు, ఆల్బమ్‌లు మరియు వీడియోలను అప్‌లోడ్ చేయండి.",
             studioKicker: "సృష్టికర్త అప్‌లోడ్",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "స్టూడియో మార్చు",
             lockedMessage: "Music Data Base నిర్మాణంలో ఉన్నప్పుడు అప్‌లోడ్‌లు తాత్కాలికంగా నిలిపివేయబడ్డాయి."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "కళాకారుని డాష్‌బోర్డ్",
             subtitle: "మీ కళాకారుని ఉనికి మరియు విడుదలలను నిర్వహించండి",

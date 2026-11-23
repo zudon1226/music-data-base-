@@ -77,6 +77,8 @@ export const filMessages: LocaleMessageDictionary = {
             queue: "Pila",
             playlists: "Mga listahan ng kanta",
             profile: "Propayl",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Panel ng Artista",
             producerDashboard: "Panel ng Tagagawa",
             platformControlCenter: "Sentro ng Kontrol ng Platform",
@@ -151,6 +153,8 @@ export const filMessages: LocaleMessageDictionary = {
             listView: "Tanawing listahan",
             cardViewMode: "Mode ng tanawing card",
             artistShort: "Artista",
+            creatorShort: "Creator",
+
             producerShort: "Tagagawa",
             ownerAccessRequired: "Kailangan ng access ng owner admin para sa mga kontrol ng platform."
         },
@@ -429,9 +433,23 @@ export const filMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Mag-upload ng mga kanta, album, at video na may metadata ng artist release.",
             producerStudioSubtitle: "Mag-upload ng mga kanta, beat, instrumental, album, at video na may metadata ng produksyon.",
             studioKicker: "Pag-upload ng creator",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Magpalit ng studio",
             lockedMessage: "Pansamantalang hindi pinapagana ang mga pag-ikarga habang ginagawa ang Music Data Base."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Panel ng Artista",
             subtitle: "Pamahalaan ang presensya at release ng artista mo",

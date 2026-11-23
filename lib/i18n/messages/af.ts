@@ -77,6 +77,8 @@ export const afMessages: LocaleMessageDictionary = {
             queue: "Waglys",
             playlists: "Speellyste",
             profile: "Profiel",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Kunstenaarskontroleskerm",
             producerDashboard: "Produseerkontroleskerm",
             platformControlCenter: "Platformbeheersentrum",
@@ -151,6 +153,8 @@ export const afMessages: LocaleMessageDictionary = {
             listView: "Lys-aansig",
             cardViewMode: "Kaartaansigmodus",
             artistShort: "Kunstenaar",
+            creatorShort: "Creator",
+
             producerShort: "Produseerder",
             ownerAccessRequired: "Eienaar-admin-toegang word vereis vir platformbeheer."
         },
@@ -429,9 +433,23 @@ export const afMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Laai liedjies, albums en video's op met metadata vir kunstenaar-vrystelling.",
             producerStudioSubtitle: "Laai liedjies, beats, instrumentale, albums en video's op met produksiemetadata.",
             studioKicker: "Skepper-oplaai",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Wissel atelier",
             lockedMessage: "Oplaaie is tydelik gedeaktiveer terwyl Music Data Base gebou word."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Kunstenaarskontroleskerm",
             subtitle: "Bestuur jou kunstenaarsaanwesigheid en vrystellings",

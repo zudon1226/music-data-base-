@@ -77,6 +77,8 @@ export const guMessages: LocaleMessageDictionary = {
             queue: "કતાર",
             playlists: "પ્લેલિસ્ટ",
             profile: "પ્રોફાઇલ",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "કલાકાર ડૈશબોર્ડ",
             producerDashboard: "નિર્માતા ડૈશબોર્ડ",
             platformControlCenter: "પ્લેટફ઼ૉર્મ નિયંત્રણ કેંદ્ર",
@@ -151,6 +153,8 @@ export const guMessages: LocaleMessageDictionary = {
             listView: "સૂચી દૃશ્ય",
             cardViewMode: "કાર્ડ દૃશ્ય મોડ",
             artistShort: "કલાકાર",
+            creatorShort: "Creator",
+
             producerShort: "નિર્માતા",
             ownerAccessRequired: "પ્લેટફ઼ૉર્મ નિયંત્રણ કે લિએ સ્વામી વ્યવસ્થાપક પહુઁચ આવશ્યક હૈ૤"
         },
@@ -429,9 +433,23 @@ export const guMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "કલાકાર રિલીઝ મેટાડેટા સાથે ગીત, એલ્બમ અને વિડિઓ અપલોડ કરો.",
             producerStudioSubtitle: "પ્રોડક્શન મેટાડેટા સાથે ગીત, બીટ, ઇન્સ્ટ્રુમેન્ટલ, એલ્બમ અને વિડિઓ અપલોડ કરો.",
             studioKicker: "ક્રિએટર અપલોડ",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "સ્ટુડિયો બદલો",
             lockedMessage: "Music Data Base નિર્માણાધીન હોને કે દૌરાન અપલોડ અસ્થાયી રૂપ સે અક્ષમ હૈં૤"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "કલાકાર ડૈશબોર્ડ",
             subtitle: "અપની કલાકાર ઉપસ્થિતિ ઔર રિલીજ઼ પ્રબંધિત કરેં",

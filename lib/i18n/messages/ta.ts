@@ -77,6 +77,8 @@ export const taMessages: LocaleMessageDictionary = {
             queue: "வரிசை",
             playlists: "பிளேலிஸ்ட்கள்",
             profile: "சுயவிவரம்",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "கலைஞர் டாஷ்போர்டு",
             producerDashboard: "தயாரிப்பாளர் டாஷ்போர்டு",
             platformControlCenter: "மேடை கட்டுப்பாட்டு மையம்",
@@ -151,6 +153,8 @@ export const taMessages: LocaleMessageDictionary = {
             listView: "பட்டியல் காட்சி",
             cardViewMode: "அட்டை காட்சி முறை",
             artistShort: "கலைஞர்",
+            creatorShort: "Creator",
+
             producerShort: "தயாரிப்பாளர்",
             ownerAccessRequired: "மேடை கட்டுப்பாடுகளுக்கு உரிமையாளர் நிர்வாக அணுகல் தேவை."
         },
@@ -429,9 +433,23 @@ export const taMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "கலைஞர் வெளியீட்டு மெட்டாடேட்டாவுடன் பாடல்கள், ஆல்பங்கள் மற்றும் வீடியோக்களை பதிவேற்றுங்கள்.",
             producerStudioSubtitle: "தயாரிப்பு மெட்டாடேட்டாவுடன் பாடல்கள், பீட்கள், இன்ஸ்ட்ருமென்டல், ஆல்பங்கள் மற்றும் வீடியோக்களை பதிவேற்றுங்கள்.",
             studioKicker: "படைப்பாளர் பதிவேற்றல்",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "ஸ்டுடியோ மாற்று",
             lockedMessage: "Music Data Base கட்டுமானத்தில் இருக்கும்போது பதிவேற்றங்கள் தற்காலிகமாக முடக்கப்பட்டுள்ளன."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "கலைஞர் டாஷ்போர்டு",
             subtitle: "உங்கள் கலைஞர் இருப்பையும் வெளியீடுகளையும் நிர்வகியுங்கள்",

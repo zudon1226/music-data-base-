@@ -77,6 +77,8 @@ export const svMessages: LocaleMessageDictionary = {
             queue: "Kö",
             playlists: "Spellistor",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Artistpanel",
             producerDashboard: "Producentpanel",
             platformControlCenter: "Plattformskontrollcenter",
@@ -151,6 +153,8 @@ export const svMessages: LocaleMessageDictionary = {
             listView: "Listvy",
             cardViewMode: "Kortvy-läge",
             artistShort: "Musikartist",
+            creatorShort: "Creator",
+
             producerShort: "Producent",
             ownerAccessRequired: "Ägaradministratörsåtkomst krävs för plattformskontroller."
         },
@@ -429,9 +433,23 @@ export const svMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Ladda upp låtar, album och videor med metadata för artistrelease.",
             producerStudioSubtitle: "Ladda upp låtar, beats, instrumentals, album och videor med produktionsmetadata.",
             studioKicker: "Uppladdning för skapare",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Byt studio",
             lockedMessage: "Uppladdningar är tillfälligt inaktiverade medan Music Data Base byggs."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Artistpanel",
             subtitle: "Hantera din artistnärvaro och releaser",

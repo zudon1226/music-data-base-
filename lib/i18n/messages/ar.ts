@@ -77,6 +77,8 @@ export const arMessages: LocaleMessageDictionary = {
             queue: "قائمة الانتظار",
             playlists: "قوائم التشغيل",
             profile: "الملف الشخصي",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "لوحة الفنان",
             producerDashboard: "لوحة المنتج",
             platformControlCenter: "مركز التحكم بالمنصة",
@@ -151,6 +153,8 @@ export const arMessages: LocaleMessageDictionary = {
             listView: "عرض قائمة",
             cardViewMode: "وضع عرض البطاقات",
             artistShort: "فنان",
+            creatorShort: "Creator",
+
             producerShort: "منتج",
             ownerAccessRequired: "يلزم وصول المالك كمسؤول لعناصر التحكم بالمنصة."
         },
@@ -429,9 +433,23 @@ export const arMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "ارفع الأغاني والألبومات ومقاطع الفيديو مع بيانات إصدار الفنان.",
             producerStudioSubtitle: "ارفع الأغاني والإيقاعات والموسيقى الآلية والألبومات ومقاطع الفيديو مع بيانات الإنتاج.",
             studioKicker: "رفع المبدع",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "تبديل الاستوديو",
             lockedMessage: "الرفع معطّل مؤقتًا أثناء بناء Music Data Base."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "لوحة الفنان",
             subtitle: "أدر حضورك الفني وإصداراتك",

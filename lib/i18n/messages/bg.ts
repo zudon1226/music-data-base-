@@ -77,6 +77,8 @@ export const bgMessages: LocaleMessageDictionary = {
             queue: "Опашка",
             playlists: "Плейлисти",
             profile: "Профил",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Табло за артисти",
             producerDashboard: "Табло за продуценти",
             platformControlCenter: "Център за управление на платформата",
@@ -151,6 +153,8 @@ export const bgMessages: LocaleMessageDictionary = {
             listView: "Списъчен изглед",
             cardViewMode: "Режим на карти",
             artistShort: "Артист",
+            creatorShort: "Creator",
+
             producerShort: "Продуцент",
             ownerAccessRequired: "За управление на платформата се изисква достъп на собственик-администратор."
         },
@@ -429,9 +433,23 @@ export const bgMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Качвайте песни, албуми и видеа с метаданни за издаване на артист.",
             producerStudioSubtitle: "Качвайте песни, бийтове, инструментали, албуми и видеа с метаданни за продукция.",
             studioKicker: "Качване от създател",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Смени студиото",
             lockedMessage: "Качванията са временно деактивирани, докато Music Data Base е в процес на изграждане."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Табло за артисти",
             subtitle: "Управлявайте присъствието и изданията си като артист",

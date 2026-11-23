@@ -77,6 +77,8 @@ export const zuMessages: LocaleMessageDictionary = {
             queue: "Ulayini",
             playlists: "Uhlu lwengoma",
             profile: "Iphrofayili",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Ibhodi Yomculi",
             producerDashboard: "Ibhodi Yomkhiqizi",
             platformControlCenter: "Isikhungo SokuLawula Ipulatifomu",
@@ -151,6 +153,8 @@ export const zuMessages: LocaleMessageDictionary = {
             listView: "Ukubuka kohlu",
             cardViewMode: "Imodi yokubuka yekhadi",
             artistShort: "Umcuhi",
+            creatorShort: "Creator",
+
             producerShort: "Umkhiqizi",
             ownerAccessRequired: "Ukufinyelela komphathi womnikazi kuyadingeka ukuze kulawulwe ipulatifomu."
         },
@@ -429,9 +433,23 @@ export const zuMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Layisha izingoma, ama-albhamu namavidiyo anemethadatha yokukhishwa komculi.",
             producerStudioSubtitle: "Layisha izingoma, ama-beat, i-instrumental, ama-albhamu namavidiyo anemethadatha yokukhiqiza.",
             studioKicker: "Ukulayisha umdali",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Shintsha isitudiyo",
             lockedMessage: "Ukulayisha kukhutshaziwe okwesikhashana ngenkathi i-Music Data Base yakhiwa."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Ibhodi Yomculi",
             subtitle: "Phatha ukubonakala kwakho komculi nezinto ezishicilelwe",

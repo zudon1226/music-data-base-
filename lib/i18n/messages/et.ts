@@ -77,6 +77,8 @@ export const etMessages: LocaleMessageDictionary = {
             queue: "Järjekord",
             playlists: "Esitusloendid",
             profile: "Profiil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Artisti töölaud",
             producerDashboard: "Produtsendi töölaud",
             platformControlCenter: "Platvormi juhtimiskeskus",
@@ -151,6 +153,8 @@ export const etMessages: LocaleMessageDictionary = {
             listView: "Loendivaade",
             cardViewMode: "Kaardivaate režiim",
             artistShort: "Esineja",
+            creatorShort: "Creator",
+
             producerShort: "Produtsent",
             ownerAccessRequired: "Platvormi juhtimiseks on vaja omaniku-administraatori juurdepääsu."
         },
@@ -429,9 +433,23 @@ export const etMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Laadi üles laule, albumeid ja videoid artisti avaldamise metaandmetega.",
             producerStudioSubtitle: "Laadi üles laule, beate, instrumentaale, albumeid ja videoid tootmise metaandmetega.",
             studioKicker: "Looja üleslaadimine",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Vaheta stuudiot",
             lockedMessage: "Üleslaadimised on ajutiselt keelatud, kuna Music Data Base on ehitamisel."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Artisti töölaud",
             subtitle: "Halda oma artistiprofiili ja väljaandeid",

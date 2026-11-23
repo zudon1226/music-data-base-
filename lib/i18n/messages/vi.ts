@@ -77,6 +77,8 @@ export const viMessages: LocaleMessageDictionary = {
             queue: "Hàng đợi",
             playlists: "Danh sách phát",
             profile: "Hồ sơ",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Bảng điều khiển nghệ sĩ",
             producerDashboard: "Bảng điều khiển nhà sản xuất",
             platformControlCenter: "Trung tâm điều khiển nền tảng",
@@ -151,6 +153,8 @@ export const viMessages: LocaleMessageDictionary = {
             listView: "Dạng danh sách",
             cardViewMode: "Chế độ thẻ",
             artistShort: "Nghệ sĩ",
+            creatorShort: "Creator",
+
             producerShort: "Nhà sản xuất",
             ownerAccessRequired: "Cần quyền quản trị chủ sở hữu cho điều khiển nền tảng."
         },
@@ -429,9 +433,23 @@ export const viMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Tải lên bài hát, album và video kèm siêu dữ liệu phát hành của nghệ sĩ.",
             producerStudioSubtitle: "Tải lên bài hát, beat, nhạc không lời, album và video kèm siêu dữ liệu sản xuất.",
             studioKicker: "Tải lên của người sáng tạo",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Đổi studio",
             lockedMessage: "Tải lên tạm thời bị tắt trong khi Music Data Base đang xây dựng."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Bảng điều khiển nghệ sĩ",
             subtitle: "Quản lý hiện diện và phát hành nghệ sĩ",

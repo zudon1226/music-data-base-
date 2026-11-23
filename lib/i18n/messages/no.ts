@@ -77,6 +77,8 @@ export const noMessages: LocaleMessageDictionary = {
             queue: "Kø",
             playlists: "Spillelister",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Artistpanel",
             producerDashboard: "Produsentpanel",
             platformControlCenter: "Plattformkontrollsenter",
@@ -151,6 +153,8 @@ export const noMessages: LocaleMessageDictionary = {
             listView: "Listevisning",
             cardViewMode: "Kortvisningsmodus",
             artistShort: "Musikkartist",
+            creatorShort: "Creator",
+
             producerShort: "Produsent",
             ownerAccessRequired: "Eieradministrator-tilgang kreves for plattformkontroller."
         },
@@ -429,9 +433,23 @@ export const noMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Last opp sanger, album og videoer med metadata for artistutgivelse.",
             producerStudioSubtitle: "Last opp sanger, beats, instrumentals, album og videoer med produksjonsmetadata.",
             studioKicker: "Opplasting for skaper",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Bytt studio",
             lockedMessage: "Opplastinger er midlertidig deaktivert mens Music Data Base er under bygging."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Artistpanel",
             subtitle: "Administrer artisttilstedeværelse og utgivelser",

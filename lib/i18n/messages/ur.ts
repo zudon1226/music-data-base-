@@ -77,6 +77,8 @@ export const urMessages: LocaleMessageDictionary = {
             queue: "قطار",
             playlists: "پلے لسٹس",
             profile: "پروفائل",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "فنکار ڈیش بورڈ",
             producerDashboard: "پروڈیوسر ڈیش بورڈ",
             platformControlCenter: "پلیٹ فارم کنٹرول سینٹر",
@@ -151,6 +153,8 @@ export const urMessages: LocaleMessageDictionary = {
             listView: "فہرست منظر",
             cardViewMode: "کارڈ منظر موڈ",
             artistShort: "فنکار",
+            creatorShort: "Creator",
+
             producerShort: "پروڈیوسر",
             ownerAccessRequired: "پلیٹ فارم کنٹرولز کے لیے مالک ایڈمن رسائی درکار ہے۔"
         },
@@ -429,9 +433,23 @@ export const urMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "فنکار ریلیز میٹا چیٹا کے ساتھ گانے، البمز اور ویچیوز اپ لوڈ کریں۔",
             producerStudioSubtitle: "پروچیوشن میٹا چیٹا کے ساتھ گانے، بیٹس، انسٹرومینٹل، البمز اور ویچیوز اپ لوڈ کریں۔",
             studioKicker: "تخلیق کار اپ لوڈ",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "اسٹوڈیو تبدیل کریں",
             lockedMessage: "Music Data Base کی تعمیر کے دوران اپ لوڈ عارضی طور پر غیر فعال ہیں۔"
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "فنکار ڈیش بورڈ",
             subtitle: "اپنی فنکارانہ موجودگی اور ریلیزز کا انتظام کریں",

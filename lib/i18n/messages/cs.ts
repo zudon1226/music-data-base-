@@ -77,6 +77,8 @@ export const csMessages: LocaleMessageDictionary = {
             queue: "Fronta",
             playlists: "Playlisty",
             profile: "Profil",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Dashboard umělce",
             producerDashboard: "Dashboard producenta",
             platformControlCenter: "Řídicí centrum platformy",
@@ -151,6 +153,8 @@ export const csMessages: LocaleMessageDictionary = {
             listView: "Seznamové zobrazení",
             cardViewMode: "Režim zobrazení karet",
             artistShort: "Umělec",
+            creatorShort: "Creator",
+
             producerShort: "Producent",
             ownerAccessRequired: "Pro ovládání platformy je vyžadován přístup vlastníka (admin)."
         },
@@ -429,9 +433,23 @@ export const csMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Nahrajte skladby, alba a videa s metadaty vydání umělce.",
             producerStudioSubtitle: "Nahrajte skladby, beaty, instrumentály, alba a videa s produkčními metadaty.",
             studioKicker: "Nahrání tvůrce",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Přepnout studio",
             lockedMessage: "Nahrávání je dočasně vypnuté, protože Music Data Base je ve výstavbě."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Dashboard umělce",
             subtitle: "Spravujte svou uměleckou prezentaci a vydání",

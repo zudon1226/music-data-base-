@@ -77,6 +77,8 @@ export const itMessages: LocaleMessageDictionary = {
             queue: "Coda",
             playlists: "Playlist",
             profile: "Profilo",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Dashboard artista",
             producerDashboard: "Dashboard produttore",
             platformControlCenter: "Centro di controllo piattaforma",
@@ -151,6 +153,8 @@ export const itMessages: LocaleMessageDictionary = {
             listView: "Vista elenco",
             cardViewMode: "Modalità vista schede",
             artistShort: "Artista",
+            creatorShort: "Creator",
+
             producerShort: "Produttore",
             ownerAccessRequired: "Per i controlli della piattaforma è necessario l'accesso amministratore owner."
         },
@@ -429,9 +433,23 @@ export const itMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Carica brani, album e video con metadati di uscita artista.",
             producerStudioSubtitle: "Carica brani, beat, strumentali, album e video con metadati di produzione.",
             studioKicker: "Caricamento creator",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Cambia studio",
             lockedMessage: "I caricamenti sono temporaneamente disabilitati mentre Music Data Base è in costruzione."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Dashboard artista",
             subtitle: "Gestisci la tua presenza artistica e le uscite",

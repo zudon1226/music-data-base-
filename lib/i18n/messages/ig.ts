@@ -77,6 +77,8 @@ export const igMessages: LocaleMessageDictionary = {
             queue: "Ahịrị ọdụ",
             playlists: "Ndepụta ikwu egwu",
             profile: "Profaịlụ",
+            creatorDashboard: "Creator Studio",
+
             artistDashboard: "Dashbọọdụ Onye Egwu",
             producerDashboard: "Dashbọọdụ Onye Mmeputa",
             platformControlCenter: "Ebe Njikwa Ikpo Okwu",
@@ -151,6 +153,8 @@ export const igMessages: LocaleMessageDictionary = {
             listView: "Nlele nke ndepụta",
             cardViewMode: "Ụdị nlele kaadị",
             artistShort: "Onye egwu",
+            creatorShort: "Creator",
+
             producerShort: "Onye mmeputa",
             ownerAccessRequired: "Achọrọ ohere njikwa nke onye nwe maka njikwa ikpo okwu."
         },
@@ -429,9 +433,23 @@ export const igMessages: LocaleMessageDictionary = {
             artistStudioSubtitle: "Bulite egwu, albom na vidiyo nwere metadata mbipụta onye na-eme ihe.",
             producerStudioSubtitle: "Bulite egwu, beat, instrumental, albom na vidiyo nwere metadata mmepụta.",
             studioKicker: "Bulite onye okike",
+            videoCreatorStudio: "Video Creator Studio",
+
+            videoCreatorStudioSubtitle: "Upload and manage videos only.",
+
             switchStudio: "Gbanwee studio",
             lockedMessage: "Agbanyụrụ mbulite nwa oge ka e na-ewu Music Data Base."
         },
+    creatorDashboard: {
+
+        title: "Creator Studio",
+
+        subtitle: "Video studio, library, and performance",
+
+        pageSubtitle: "Upload and manage videos only.",
+
+    },
+
     artistDashboard: {
             title: "Dashbọọdụ Onye Egwu",
             subtitle: "Jikwaa ịdị gị dị ka onye egwu na mgbasa",
