@@ -172,7 +172,7 @@ Phase 29B–scoped paths:
 
 **Unrelated dirty work preserved** (album routes, billing, other docs) — not part of this commit.
 
-**Commit hash:** *(pending scoped commit in this branch)*
+**Commit hash:** `552b927bddeebe8017f2ae499774cbc91a855b19`
 
 ---
 
