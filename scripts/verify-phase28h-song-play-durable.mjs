@@ -45,20 +45,22 @@ const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_RO
 });
 
 const { data: rpcProbe } = await admin.rpc("record_song_qualified_play", {
-    p_song_id: PHASE28_E2E_PUBLIC_SONG_ID,
+    p_song_id: "00000000-0000-0000-0000-000000000001",
     p_listener_key: "anon:rpc-probe",
     p_playback_session_id: randomUUID(),
 });
-if (!rpcProbe || typeof rpcProbe !== "object") {
-    fail("record_song_qualified_play RPC missing");
+if (!rpcProbe || rpcProbe.reason !== "not_found") {
+    fail("record_song_qualified_play RPC missing or unexpected");
     process.exit(1);
 }
 pass("durable RPC present");
 
 const songId = PHASE28_E2E_PUBLIC_SONG_ID;
+await admin.from("song_play_qualified_events").delete().eq("song_id", songId);
+await admin.from("song_play_listener_throttle").delete().eq("song_id", songId);
 const { data: before } = await admin.from("songs").select("plays").eq("id", songId).maybeSingle();
 const beforePlays = Number(before?.plays) || 0;
-const listenerIp = "203.0.113.77";
+const listenerIp = `203.0.113.${110 + Math.floor(Math.random() * 80)}`;
 const sessionId = randomUUID();
 
 const play = (sid, ip = listenerIp) =>

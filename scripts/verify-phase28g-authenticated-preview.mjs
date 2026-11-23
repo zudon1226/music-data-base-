@@ -206,13 +206,18 @@ usageSnapshot = {
     ringtone_price: liveRow?.ringtone_price ?? fixtureRow.ringtone_price,
 };
 
+const useE2eDraftFixtures = fixtureId === PHASE28_E2E_PUBLIC_SONG_ID;
+const draftSongId = useE2eDraftFixtures ? PHASE28_E2E_DRAFT_SONG_ID : fixtureId;
+
 try {
     // --- Draft & catalog isolation (staging DB toggle + Preview API) ---
-    await admin.from("songs").update({ streaming_enabled: false, ringtone_enabled: false }).eq("id", fixtureId);
+    if (!useE2eDraftFixtures) {
+        await admin.from("songs").update({ streaming_enabled: false, ringtone_enabled: false }).eq("id", fixtureId);
+    }
 
     const publicCatalog = vercelPreviewRequest(PREVIEW_BASE, "/api/songs");
     const publicIds = (publicCatalog.body?.songs || []).map((s) => s.id);
-    if (!publicIds.includes(fixtureId)) {
+    if (!publicIds.includes(draftSongId)) {
         record("draft-excluded-public-catalog", "PASS");
     } else {
         fail("draft-excluded-public-catalog", "draft visible in guest catalog");
@@ -221,7 +226,7 @@ try {
     const { data: draftProbe } = await admin
         .from("songs")
         .select("id")
-        .eq("id", fixtureId)
+        .eq("id", draftSongId)
         .eq("streaming_enabled", false)
         .maybeSingle();
     if (draftProbe?.id) {
@@ -235,7 +240,7 @@ try {
             { headers: sessionHeaders(artistSession) },
         );
         const ownerIds = (ownerCatalog.body?.songs || []).map((s) => s.id);
-        if (ownerIds.includes(fixtureId)) {
+        if (ownerIds.includes(draftSongId)) {
             record("creator-owner-draft-access", "PASS");
         } else {
             fail("creator-owner-draft-access", "owner authenticated catalog missing draft");
@@ -247,7 +252,7 @@ try {
             { headers: sessionHeaders(artistSession) },
         );
         const wrongIds = (wrongOwnerCatalog.body?.songs || []).map((s) => s.id);
-        if (!wrongIds.includes(fixtureId)) {
+        if (!wrongIds.includes(draftSongId)) {
             record("cross-user-owner-filter", "PASS", `intruder_prefix=${String(intruderId).slice(0, 8)}…`);
         } else {
             fail("cross-user-owner-filter", "draft leaked via mismatched ownerUserId");
@@ -264,7 +269,7 @@ try {
             { headers: sessionHeaders(artistSession) },
         );
         const wrongIds = (wrongOwnerCatalog.body?.songs || []).map((s) => s.id);
-        if (!wrongIds.includes(fixtureId)) {
+        if (!wrongIds.includes(draftSongId)) {
             record("cross-user-owner-filter", "PASS", `intruder_prefix=${String(intruderId).slice(0, 8)}…`);
         } else {
             fail("cross-user-owner-filter", "draft leaked via mismatched ownerUserId");
@@ -276,13 +281,13 @@ try {
         `/api/songs?ownerUserId=${encodeURIComponent(ownerId)}`,
     );
     const guestIds = (guestOwnerParam.body?.songs || []).map((s) => s.id);
-    if (!guestIds.includes(fixtureId)) {
+    if (!guestIds.includes(draftSongId)) {
         record("guest-cannot-owner-draft-via-query", "PASS");
     } else {
         fail("guest-cannot-owner-draft-via-query", "unauthenticated ownerUserId exposed draft");
     }
 
-    const draftPlay = postPlayPreview(fixtureId, randomUUID());
+    const draftPlay = postPlayPreview(draftSongId, randomUUID());
     if (draftPlay.body?.error && String(draftPlay.body.error).toLowerCase().includes("not available")) {
         record("draft-play-denied", "PASS");
     } else {
@@ -372,7 +377,9 @@ try {
     // --- Catalog search (client-parity filter on Preview catalog) ---
     const catalog = vercelPreviewRequest(PREVIEW_BASE, "/api/songs");
     const allPublic = catalog.body?.songs || [];
-    const searchHits = filterSongsByKeyword(allPublic, "MDB Staging");
+    const catalogSearchKeyword =
+        artistSession?.userId === PHASE28_E2E_ARTIST_ID ? "Phase28 E2E" : "MDB Staging";
+    const searchHits = filterSongsByKeyword(allPublic, catalogSearchKeyword);
     if (searchHits.some((s) => s.id === fixtureId)) {
         record("catalog-search-public-song", "PASS", `matches=${searchHits.length}`);
     } else {
@@ -431,6 +438,8 @@ try {
     }
 
     // --- Playback persistence ---
+    await admin.from("song_play_qualified_events").delete().eq("song_id", fixtureId);
+    await admin.from("song_play_listener_throttle").delete().eq("song_id", fixtureId);
     const { data: beforePlay } = await admin.from("songs").select("plays").eq("id", fixtureId).maybeSingle();
     const beforeCount = Number(beforePlay?.plays) || 0;
     const listenerIp = `203.0.113.${Math.floor(Math.random() * 200) + 10}`;
@@ -552,15 +561,20 @@ try {
 
     // --- RLS spot check ---
     const anonClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
-    await admin.from("songs").update({ streaming_enabled: false }).eq("id", fixtureId);
-    const { data: anonDraft } = await anonClient.from("songs").select("id").eq("id", fixtureId);
-    const anonLeakInApi = (guestOwnerParam.body?.songs || []).some((s) => s.id === fixtureId);
+    const rlsDraftId = useE2eDraftFixtures ? PHASE28_E2E_DRAFT_SONG_ID : fixtureId;
+    if (!useE2eDraftFixtures) {
+        await admin.from("songs").update({ streaming_enabled: false }).eq("id", fixtureId);
+    }
+    const { data: anonDraft } = await anonClient.from("songs").select("id").eq("id", rlsDraftId);
+    const anonLeakInApi = (guestOwnerParam.body?.songs || []).some((s) => s.id === rlsDraftId);
     if (!anonDraft?.length && !anonLeakInApi) {
         record("rls-draft-not-selectable-anon", "PASS");
     } else {
         record("rls-draft-not-selectable-anon", "BLOCKED", "direct anon select may differ — Preview API did not leak");
     }
-    await admin.from("songs").update({ streaming_enabled: true, ringtone_enabled: false }).eq("id", fixtureId);
+    if (!useE2eDraftFixtures) {
+        await admin.from("songs").update({ streaming_enabled: true, ringtone_enabled: false }).eq("id", fixtureId);
+    }
 } finally {
     await restoreSongState(admin, fixtureId, usageSnapshot);
     record("fixture-restored", "PASS");

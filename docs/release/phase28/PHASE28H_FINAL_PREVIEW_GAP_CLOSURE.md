@@ -4,7 +4,9 @@
 **Branch:** `release/pwa-microsoft-store`  
 **Prior commit:** `5439006` (Phase 28G)  
 **Staging Supabase:** `jzlegcbotqfzevtczwhx` (migration applied **staging only**)  
-**Preview URL (pre-deploy at test):** `https://music-data-base-pwa-clean-git-baseline-recovered-p1ex4fyjt.vercel.app`
+**Preview URL (Ready, Phase 28H):** `https://music-data-base-pwa-clean-git-baseline-recovered-qt17l4if3.vercel.app`  
+**Deployment ID:** `dpl_2k5yujaKtTZ2dzZCcNzjo9UFmdxL`  
+**Prior Preview (28G):** `https://music-data-base-pwa-clean-git-baseline-recovered-p1ex4fyjt.vercel.app`
 
 ---
 
@@ -95,7 +97,7 @@ After Phase 28H code + **staging-only** migration and fixture provisioning, the 
 | `npm run verify:search` | **PASS** |
 | `npm run verify:phase28h` (provision + RLS + durable play) | **PASS** |
 | `node scripts/run-staging-preview-build.mjs` | **PASS** |
-| `npm run verify:phase28g-preview` | **PASS** (post-fix; re-run on new Preview after deploy) |
+| `npm run verify:phase28g-preview` (against `qt17l4if3`) | **PASS** — 37 PASS, 0 FAIL, 0 BLOCKED |
 
 ---
 
@@ -114,7 +116,8 @@ After Phase 28H code + **staging-only** migration and fixture provisioning, the 
 | `scripts/run-staging-preview-build.mjs` | Local preview build helper |
 | `package.json` | `verify:phase28h` |
 
-**Commit:** *(recorded on push — see `git log` on `release/pwa-microsoft-store`)*
+**Commit:** `ee67536` (Phase 28H application + migration + core verifiers)  
+**Harness hardening (Phase 28I scoped commit, after `ee67536`):** E2E dedicated draft row in 28G acceptance; play-throttle isolation; durable RPC probe without side effects — keeps re-runs deterministic on staging.
 
 ---
 
@@ -133,8 +136,8 @@ After Phase 28H code + **staging-only** migration and fixture provisioning, the 
 ## 8. Remaining risks
 
 1. **Production migration pending** — Durable play RPC + RLS policy change must ship to production before prod API relies on DB dedup (API fails safe with 500 if RPC errors; legacy fallback only when RPC **missing**).
-2. **Preview deploy lag** — Confirm latest commit Preview Ready before final sign-off (CLI deploy on push).
-3. **Fixture maintenance** — E2E song rows are staging test assets; keep out of production promotion checklists.
+2. **Fixture maintenance** — E2E song rows are staging test assets; keep out of production promotion checklists.
+3. **Acceptance harness** — Run `verify:phase28h` before `verify:phase28g-preview` when validating durable play (shared staging song); scripts now clear throttle rows before HTTP play checks.
 
 ---
 
