@@ -30,6 +30,7 @@ record("suggestion selection helper preserved", page.includes("function selectSe
 record("desktop search input font remains 14px", /\.search-box input\s*\{[\s\S]*?font-size:\s*14px/.test(page.split("@media (max-width: 820px)")[0] || ""));
 record("escape closes suggestions where supported", page.includes('event.key === "Escape"'));
 record("package exposes verify:search", pkg.includes('"verify:search"'));
+record("library vs catalog search scope banner", page.includes("search-scope-bar") && page.includes("librarySearchScope"));
 
 const fails = results.filter((item) => !item.ok);
 console.log(`\nSEARCH_FAILS=${fails.length}`);

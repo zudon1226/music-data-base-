@@ -36,6 +36,7 @@ import {
     SIGNUP_ACCOUNT_TYPES,
     type SignupAccountType,
     normalizeSignupAccountType,
+    signupAccountTypeDescription,
     signupAccountTypeLabel,
 } from "../lib/signup-account-type";
 import { SESSION_EXPIRED_MESSAGE } from "../lib/client-api-auth";
@@ -64,6 +65,8 @@ import { GuestPublicDiscoveryNav } from "../components/public-guest/GuestPublicD
 import { MobileViewToggle, MOBILE_VIEW_TOGGLE_VIEWS } from "../components/mobile-view-toggle";
 import { MobileDisplayModeProvider } from "../lib/mobile-display-mode";
 import { safeRandomUUID } from "../lib/safe-random-uuid";
+import { createSongPlaybackSessionId, recordQualifiedSongPlay } from "../lib/song-play-client";
+import type { SongPublicationMode as SongUploadPublicationMode } from "../lib/song-usage-permissions";
 import { useMobileAutoHideHeader } from "../lib/use-mobile-auto-hide-header";
 import { useMobileCompactLayout } from "../lib/use-mobile-compact-layout";
 import { DestinationPageHeading } from "../components/destination-page-heading";
@@ -164,6 +167,7 @@ import {
     type PodcastPlaybackRate,
     type PodcastSleepMode,
 } from "../lib/podcast-playback-controls";
+import { CreatorDashboardWorkspace } from "../components/creator/CreatorDashboardWorkspace";
 import { CreatorStudioUploadChrome } from "../components/studio/creator-studio-upload-chrome";
 import {
     defaultUploadModeForStudio,
@@ -174,6 +178,7 @@ import {
 import {
     evaluateDesktopNavAccess,
     shouldShowArtistDashboardControl,
+    shouldShowCreatorDashboardControl,
     shouldShowProducerDashboardControl,
     shouldShowUploadControl,
     type DesktopNavView,
@@ -995,7 +1000,7 @@ type MediaDownloadVaultItem = {
     downloadCount: number;
     downloadedAt: string;
 };
-type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Mixtapes" | "Mixtape Show" | "Mixtape Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Sponsor" | "Platform Control Center";
+type View = "Home" | "Marketplace" | "Podcasts" | "Podcast Show" | "Podcast Episode" | "Podcast Studio" | "Mixtapes" | "Mixtape Show" | "Mixtape Studio" | "Sales" | "License History" | "Trending" | "Beats" | "Artists" | "Videos" | "Library" | "Liked" | "Following" | "Recently Played" | "Queue" | "Playlists" | "Profile" | "Notifications" | "Creator Dashboard" | "Artist Dashboard" | "Artist Profile" | "Producer Dashboard" | "Producer Profile" | "My Ringtones" | "Ringtone Marketplace" | "My Purchased Ringtones" | "Favorite Ringtones" | "Sponsor" | "Platform Control Center";
 type PodcastShellProps = {
     initialPodcastShowId?: string;
     initialPodcastEpisodeId?: string;
@@ -1290,14 +1295,16 @@ function getDefaultPlayerCollapsed(): boolean {
     return window.matchMedia("(max-width: 768px)").matches;
 }
 const GLOBAL_SEARCH_VIEWS: View[] = ["Home", "Videos", "Library", "Beats", "Artists", "Trending"];
+type LibrarySearchScope = "library" | "catalog";
+type SongPublicationMode = "" | SongUploadPublicationMode;
 function usesGlobalSearchScope(view: View, searchQuery: string) {
     return Boolean(searchQuery.trim()) && GLOBAL_SEARCH_VIEWS.includes(view);
 }
-function usesLibrarySearchScope(view: View, searchQuery: string) {
-    return Boolean(searchQuery.trim()) && view === "Library";
+function usesLibrarySearchScope(view: View, searchQuery: string, librarySearchScope: LibrarySearchScope) {
+    return Boolean(searchQuery.trim()) && view === "Library" && librarySearchScope === "library";
 }
 function isDashboardView(view: View) {
-    return view === "Artist Dashboard" || view === "Producer Dashboard" || view === "Podcast Studio" || view === "Mixtape Studio";
+    return view === "Creator Dashboard" || view === "Artist Dashboard" || view === "Producer Dashboard" || view === "Podcast Studio" || view === "Mixtape Studio";
 }
 function isPodcastDetailView(view: View) {
     return view === "Podcast Show" || view === "Podcast Episode";
@@ -4356,6 +4363,10 @@ function PageContent({
         cover: "",
         producerId: "",
     });
+    const [songPublicationMode, setSongPublicationMode] = useState<SongPublicationMode>("");
+    const [librarySearchScope, setLibrarySearchScope] = useState<LibrarySearchScope>("library");
+    const songPlaybackSessionRef = useRef<{ songId: string; sessionId: string } | null>(null);
+    const songPlayPersistedSessionRef = useRef("");
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadBusy, setUploadBusy] = useState(false);
@@ -7132,7 +7143,10 @@ function PageContent({
         return () => window.clearTimeout(timer);
     }, [searchInput]);
     async function reloadSongLibraryFromSupabase() {
-        const response = await fetch("/api/songs", { cache: "no-store" });
+        const ownerQuery = accountUserId ? `?ownerUserId=${encodeURIComponent(accountUserId)}` : "";
+        const response = accountUserId
+            ? await desktopActionFetch(`/api/songs${ownerQuery}`, { cache: "no-store", requireAuth: true })
+            : await fetch("/api/songs", { cache: "no-store" });
         const data = (await response.json().catch(() => ({}))) as {
             songs?: SongTableRow[];
             error?: string;
@@ -8238,6 +8252,14 @@ function PageContent({
                 if (podcastAudioActive) {
                     applyPodcastAudioResume();
                     commitPodcastPlaybackMetric();
+                    return;
+                }
+                const mixtapeActive = activeMediaType === "song" && currentSong?.type === "Mixtape";
+                if (activeMediaType === "song" && currentSong && !mixtapeActive) {
+                    const session = songPlaybackSessionRef.current;
+                    if (session?.songId === currentSong.id) {
+                        void persistQualifiedSongPlay(session.songId, session.sessionId);
+                    }
                 }
             }).catch((error) => {
                 if (musicPlayRequestRef.current !== playRequestId)
@@ -8565,7 +8587,7 @@ function PageContent({
         .slice(0, 8), [mergedArtistProfiles]);
     const visibleSongs = useMemo(() => {
         let list = audioSongs;
-        if (usesLibrarySearchScope(view, search))
+        if (usesLibrarySearchScope(view, search, librarySearchScope))
             list = librarySongs;
         else if (!usesGlobalSearchScope(view, search)) {
             if (view === "Library")
@@ -8603,10 +8625,10 @@ function PageContent({
                 .map((entry) => entry.song);
         }
         return uniqueSongs(list);
-    }, [audioSongs, view, activeTab, search, librarySongs, likedSongs, followingSongs, cleanQueue, trendingSongs, isArtistVerified]);
+    }, [audioSongs, view, activeTab, search, librarySearchScope, librarySongs, likedSongs, followingSongs, cleanQueue, trendingSongs, isArtistVerified]);
     const visibleVideos = useMemo(() => {
         let list = uniqueVideos(videos);
-        if (usesLibrarySearchScope(view, search))
+        if (usesLibrarySearchScope(view, search, librarySearchScope))
             list = libraryVideos;
         else if (!usesGlobalSearchScope(view, search)) {
             if (view === "Library")
@@ -8626,12 +8648,12 @@ function PageContent({
                 .map((entry) => entry.video);
         }
         return list;
-    }, [isArtistVerified, libraryVideos, likedVideos, search, videos, view]);
+    }, [isArtistVerified, librarySearchScope, libraryVideos, likedVideos, search, videos, view]);
     const visibleAlbums = useMemo(() => {
         if (!search.trim())
             return [];
         const keyword = search.toLowerCase();
-        const albumPool = usesLibrarySearchScope(view, search) ? libraryAlbums : resolvedAlbums;
+        const albumPool = usesLibrarySearchScope(view, search, librarySearchScope) ? libraryAlbums : resolvedAlbums;
         return albumPool
             .map((album) => ({
             album,
@@ -8648,7 +8670,7 @@ function PageContent({
             .filter((entry) => entry.score > 0)
             .sort((a, b) => b.score - a.score)
             .map((entry) => entry.album);
-    }, [isArtistVerified, isProducerVerified, libraryAlbums, resolvedAlbums, search, view]);
+    }, [isArtistVerified, isProducerVerified, libraryAlbums, librarySearchScope, resolvedAlbums, search, view]);
     const searchableProducers = useMemo(() => {
         const profileNameIds = new Set(producerProfiles.map((profile) => createArtistId(profile.name)));
         const creditedNames = new Set<string>();
@@ -11252,10 +11274,24 @@ function PageContent({
             : payout));
         showToast(`Payout marked ${status}.`, "success");
     }
+    function applyPersistedSongPlayCount(songId: string, plays: number) {
+        setSongs((previous) => previous.map((item) => (item.id === songId ? { ...item, plays } : item)));
+    }
+    async function persistQualifiedSongPlay(songId: string, sessionId: string) {
+        if (!songId || !sessionId || songPlayPersistedSessionRef.current === sessionId) {
+            return;
+        }
+        const result = await recordQualifiedSongPlay(songId, sessionId);
+        if (typeof result.plays === "number") {
+            applyPersistedSongPlayCount(songId, result.plays);
+        }
+        if (result.ok) {
+            songPlayPersistedSessionRef.current = sessionId;
+        }
+    }
     function savePlay(song: Song) {
         const playedSong = {
             ...song,
-            plays: song.plays + 1,
         };
         const playedAt = new Date().toISOString();
         const recentEntry: RecentPlay = {
@@ -11880,7 +11916,13 @@ function PageContent({
         if (!options.preserveAlbumPlayback && !isActiveAlbumTrack("song", song.id)) {
             setActiveAlbumPlayback(null);
         }
-        setSongs((previous) => previous.map((item) => (item.id === song.id ? { ...item, plays: item.plays + 1 } : item)));
+        if (!isVideoSong(song) && song.type !== "Mixtape") {
+            songPlaybackSessionRef.current = {
+                songId: song.id,
+                sessionId: createSongPlaybackSessionId(),
+            };
+            songPlayPersistedSessionRef.current = "";
+        }
     }
     function playSongList(list: Song[], options: { preserveAlbumPlayback?: boolean } = {}) {
         const cleanList = uniqueSongs(list);
@@ -12145,7 +12187,11 @@ function PageContent({
         setActiveMediaType("song");
         setActiveMedia({ type: "song", item: currentSong });
         setActiveVideo(null);
-        setSongs((previous) => previous.map((item) => (item.id === currentSong.id ? { ...item, plays: item.plays + 1 } : item)));
+        songPlaybackSessionRef.current = {
+            songId: currentSong.id,
+            sessionId: createSongPlaybackSessionId(),
+        };
+        songPlayPersistedSessionRef.current = "";
         try {
             if (audioRef.current.getAttribute("src") !== audioUrl && audioUrl) {
                 audioRef.current.src = audioUrl;
@@ -12158,6 +12204,10 @@ function PageContent({
                 return;
             notePlaybackUserInitiated();
             setIsPlaying(true);
+            const session = songPlaybackSessionRef.current;
+            if (session?.songId === currentSong.id) {
+                void persistQualifiedSongPlay(session.songId, session.sessionId);
+            }
         }
         catch (error) {
             if (isAbortError(error)) {
@@ -14387,7 +14437,13 @@ function PageContent({
         });
         setUser((previous) => previous || session.user);
     }
-    async function uploadAudioToSupabase(file: File, songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">, uploadUser?: SupabaseUser | null, albumId = "") {
+    async function uploadAudioToSupabase(
+        file: File,
+        songDetails: Pick<UploadForm, "title" | "artist" | "type" | "cover" | "producerId">,
+        uploadUser?: SupabaseUser | null,
+        albumId = "",
+        publicationMode: Exclude<SongPublicationMode, ""> = "public_streaming",
+    ) {
         const fileError = getAudioFileError(file);
         if (fileError) {
             throw new Error(fileError);
@@ -14539,6 +14595,7 @@ function PageContent({
                 producer_id: producer?.id || "",
                 producer: producer?.name || "",
                 album_id: albumId || "",
+                publicationMode,
             }),
         }, { onSession: syncDesktopUploadSession });
 
@@ -14727,6 +14784,10 @@ function PageContent({
             setUploadError(fileError);
             return;
         }
+        if (!songPublicationMode) {
+            setUploadError("Choose whether this song is a private draft or public streaming before saving.");
+            return;
+        }
         setUploadBusy(true);
         setUploadProgress(1);
         setUploadStatus("Starting upload...");
@@ -14753,12 +14814,13 @@ function PageContent({
                 type: uploadForm.type,
                 cover: uploadForm.cover,
                 producerId: producerCreditId,
-            });
+            }, undefined, "", songPublicationMode);
             const databaseSongs = await reloadSongLibraryFromSupabase();
             const savedSong = databaseSongs.find((song) => song.id === newSong.id) || newSong;
             saveToLibrary(savedSong);
             setCurrentSong(savedSong);
             setShowUpload(false);
+            setSongPublicationMode("");
             setUploadForm({
                 title: "",
                 artist: "",
@@ -15009,7 +15071,7 @@ function PageContent({
                 type: category,
                 cover: uploadForm.cover,
                 producerId: profile.id,
-            });
+            }, undefined, "", "public_streaming");
             const beat = await saveProducerBeatMetadata(newSong, profile);
             await reloadSongLibraryFromSupabase();
             await reloadProducerDataFromSupabase();
@@ -15491,7 +15553,7 @@ function PageContent({
                     type: category,
                     cover: coverUrl,
                     producerId: producerProfile?.id || "",
-                }, uploadUser, albumRow.id);
+                }, uploadUser, albumRow.id, "public_streaming");
                 uploadedSongs.push(song);
                 completedSteps += 1;
                 setAlbumUploadProgress(Math.round((completedSteps / totalSteps) * 100));
@@ -17471,7 +17533,7 @@ function PageContent({
             }
             if (authMode === "signup" && !response.data.session) {
                 const selfServeCreator = creatorSelfSignupEnabled
-                    && (signupAccountType === "artist" || signupAccountType === "producer" || signupAccountType === "artist_producer");
+                    && (signupAccountType === "artist" || signupAccountType === "producer" || signupAccountType === "artist_producer" || signupAccountType === "creator");
                 setAuthMessage(selfServeCreator
                     ? "Account created. Confirm your email, then sign in to activate your creator dashboard."
                     : foundingBetaLocked && authInviteCode.trim() && !isPlatformOwnerEmail(email)
@@ -17583,6 +17645,7 @@ function PageContent({
             const primaryAfterLogin = String(profileAfterLogin?.role || "listener").trim().toLowerCase();
             const nextView = resolvePostAuthDestination({
                 isPlatformOwner: isPlatformOwnerEmail(activeSession.user.email),
+                canCreatorDashboard: primaryAfterLogin === "creator" || primaryAfterLogin === "founding_creator",
                 canArtistDashboard: primaryAfterLogin === "artist" || primaryAfterLogin === "admin",
                 canProducerDashboard: primaryAfterLogin === "producer" || primaryAfterLogin === "admin",
             }) as View;
@@ -17724,6 +17787,10 @@ function PageContent({
         setShowUpload(false);
         setShowNotificationCenter(false);
         setView(nextView);
+        if (nextView === "Creator Dashboard") {
+            setCreatorStudio("video");
+            setUploadMode("video");
+        }
         if (nextView === "Artist Dashboard") {
             setCreatorStudio("artist");
             setUploadMode("song");
@@ -17878,7 +17945,7 @@ function PageContent({
     }
     function toggleUploadPanel() {
         if (!shouldShowUploadControl(desktopNavAccess)) {
-            showToast("Upload is available for Artist and Producer accounts.", "error");
+            showToast("Upload is available for Video Creator, Artist, and Producer accounts.", "error");
             return;
         }
         if (uploadsBlockedForCurrentUser) {
@@ -17895,6 +17962,7 @@ function PageContent({
                 preferStudio: creatorStudio,
                 canArtistDashboard: shouldShowArtistDashboardControl(desktopNavAccess),
                 canProducerDashboard: shouldShowProducerDashboardControl(desktopNavAccess),
+                canCreatorDashboard: navCapabilities.canCreatorDashboard,
                 view,
             });
             setCreatorStudio(nextStudio);
@@ -17910,6 +17978,10 @@ function PageContent({
         }
     }
     function selectUploadMode(nextMode: typeof uploadMode) {
+        if (!navCapabilities.canUploadMusic && (nextMode === "song" || nextMode === "beat" || nextMode === "instrumental" || nextMode === "album" || nextMode === "producerAlbum")) {
+            setUploadMode("video");
+            return;
+        }
         setUploadMode(nextMode);
         if (nextMode === "instrumental") {
             setUploadForm((previous) => ({ ...previous, type: "Instrumental" }));
@@ -19522,7 +19594,7 @@ function PageContent({
                 : foundingBetaLocked && authMode === "signup" && !creatorSelfSignupEnabled
                     ? t("auth.foundingSignupSubtitle")
                     : (creatorSelfSignupEnabled && authMode === "signup"
-                        ? "Choose Listener, Artist, or Producer. Artist and Producer accounts activate after email confirmation — no invite code required."
+                        ? "Choose Listener, Video Creator, Artist, or Producer. Creator publishes videos only; Artist and Producer publish music and videos."
                         : t("auth.signupSubtitle"))}</p>
           </div>
 
@@ -19579,6 +19651,7 @@ function PageContent({
                           onChange={() => setAuthAccountType(type)}
                         />
                         <span>{signupAccountTypeLabel(type)}</span>
+                        <small className="auth-account-type-desc">{signupAccountTypeDescription(type)}</small>
                       </label>
                     );
                   })}
@@ -20484,6 +20557,13 @@ function PageContent({
             </button>
             ) : null}
 
+            {!anonymousPublicGuestListener && !isMobileCompact && shouldShowCreatorDashboardControl(desktopNavAccess) ? (
+            <button className="dashboard-btn creator-dashboard-btn" onClick={() => handleNav("Creator Dashboard")} title={t("nav.creatorDashboard")} type="button">
+              <Film size={17}/>
+              {t("header.creatorShort")}
+            </button>
+            ) : null}
+
             {!anonymousPublicGuestListener && !isMobileCompact && shouldShowArtistDashboardControl(desktopNavAccess) ? (
             <button className="dashboard-btn" onClick={() => handleNav("Artist Dashboard")} title={t("nav.artistDashboard")} type="button">
               <BarChart3 size={17}/>
@@ -20784,6 +20864,36 @@ function PageContent({
                 <p className="producer-credit-note wide">
                   Producer credit: {currentProducerProfile.name || "Your producer profile"}
                 </p>
+              ) : null}
+
+              {!isBeatLikeUploadMode(uploadMode) ? (
+                <fieldset className="upload-publication-field wide">
+                  <legend>Publication</legend>
+                  <p className="upload-publication-help">
+                    Public streaming makes your song visible and playable in the Music Data Base catalog for listeners.
+                    A private draft stays in your account only until you upload a new public version or change visibility later.
+                  </p>
+                  <label className="upload-publication-option">
+                    <input
+                      type="radio"
+                      name="songPublicationMode"
+                      value="draft"
+                      checked={songPublicationMode === "draft"}
+                      onChange={() => setSongPublicationMode("draft")}
+                    />
+                    <span>Private draft — not in the public catalog</span>
+                  </label>
+                  <label className="upload-publication-option">
+                    <input
+                      type="radio"
+                      name="songPublicationMode"
+                      value="public_streaming"
+                      checked={songPublicationMode === "public_streaming"}
+                      onChange={() => setSongPublicationMode("public_streaming")}
+                    />
+                    <span>Public streaming — listeners can discover and play this song</span>
+                  </label>
+                </fieldset>
               ) : null}
 
               <label className="audio-file-field wide">
@@ -21165,6 +21275,27 @@ function PageContent({
             </>
           )}
         />
+
+        {search.trim() ? (
+          <section className="search-scope-bar" aria-live="polite">
+            <p>
+              {view === "Library" && librarySearchScope === "library"
+                  ? "Searching your saved library only."
+                  : "Searching the public Music Data Base catalog."}
+            </p>
+            {view === "Library" ? (
+              <button
+                type="button"
+                className="search-scope-toggle"
+                onClick={() => {
+                    setLibrarySearchScope((current) => (current === "library" ? "catalog" : "library"));
+                }}
+              >
+                {librarySearchScope === "library" ? "Search all songs instead" : "Search my library only"}
+              </button>
+            ) : null}
+          </section>
+        ) : null}
 
         {view === "Sponsor" ? (
           <SponsorWorkspace
@@ -22490,6 +22621,16 @@ function PageContent({
             />
           ) : view === "Mixtape Studio" && navCapabilities.canMixtapeStudio ? (
             <MixtapeStudioWorkspace userId={accountUserId} />
+          ) : view === "Creator Dashboard" && navCapabilities.canCreatorDashboard ? (
+            <CreatorDashboardWorkspace
+              userId={accountUserId}
+              onOpenVideoUpload={() => {
+                setCreatorStudio("video");
+                setUploadMode("video");
+                setShowUpload(true);
+              }}
+              onOpenVideosLibrary={() => handleNav("Videos")}
+            />
           ) : view === "Producer Dashboard" ? (<section className="dashboard-page producer-dashboard">
             <div className="dashboard-brand">
               <img src={BRAND_LOGO} alt="Music Data Base"/>

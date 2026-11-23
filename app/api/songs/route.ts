@@ -41,7 +41,7 @@ async function loadPublicStreamingCatalog(supabase: ReturnType<typeof getSupabas
     };
 }
 
-async function loadOwnerRingtoneOnlySongs(
+async function loadOwnerNonPublicSongs(
     supabase: ReturnType<typeof getSupabaseServerClient>,
     ownerUserId: string,
 ) {
@@ -49,14 +49,13 @@ async function loadOwnerRingtoneOnlySongs(
         .from("songs")
         .select(OWNER_RINGTONE_ONLY_COLUMNS)
         .eq("streaming_enabled", false)
-        .eq("ringtone_enabled", true)
         .or(`user_id.eq.${ownerUserId},producer_id.eq.${ownerUserId}`)
         .order("created_at", { ascending: false });
     if (result.error) {
         const message = isModerationHoldColumnError(result.error)
             ? MODERATION_HOLD_MIGRATION_MESSAGE
             : getErrorMessage(result.error);
-        console.warn("[api/songs] owner ringtone-only load failed:", message);
+        console.warn("[api/songs] owner non-public load failed:", message);
         return [];
     }
     return (result.data || []) as Record<string, unknown>[];
@@ -78,7 +77,7 @@ export async function GET(request: Request) {
         if (ownerUserId && isUuid(ownerUserId)) {
             const auth = await requireMatchingUserId(request, "/api/songs", ownerUserId);
             if (auth.ok) {
-                const ownerExtras = await loadOwnerRingtoneOnlySongs(supabase, ownerUserId);
+                const ownerExtras = await loadOwnerNonPublicSongs(supabase, ownerUserId);
                 const seen = new Set(songs.map((row) => String(row.id || "")));
                 for (const row of ownerExtras) {
                     const id = String(row.id || "");

@@ -111,6 +111,7 @@
     "verify:founding": "node scripts/verify-founding-invite-gate.mjs",
     "verify:founding:live": "node scripts/verify-founding-onboarding.mjs",
     "verify:founding:pending": "node scripts/verify-founding-pending-approvals.mjs",
+    "verify:phase28": "node lib/song-play-engagement.test.mjs && node scripts/verify-phase28-song-play-api.mjs && node scripts/verify-phase28-search-scope.mjs && node scripts/verify-phase28-publication.mjs",
     "verify:rls": "node scripts/verify-supabase-rls-security.mjs",
     "verify:listener-personal-ringtone": "node scripts/verify-listener-personal-ringtone.mjs",
     "verify:public-beta-support": "node scripts/verify-public-beta-support.mjs",

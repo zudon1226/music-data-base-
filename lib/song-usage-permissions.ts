@@ -20,12 +20,66 @@ export const DEFAULT_EXISTING_SONG_USAGE: SongUsagePermissions = {
 };
 
 export const DEFAULT_NEW_UPLOAD_USAGE: SongUsagePermissions = {
-    streaming_enabled: true,
+    streaming_enabled: false,
     ringtone_enabled: false,
     ringtone_creation_enabled: false,
     ringtone_sale_enabled: false,
     ringtone_price: null,
 };
+
+export const SONG_PUBLICATION_MODES = ["public_streaming", "draft", "ringtone_only"] as const;
+export type SongPublicationMode = (typeof SONG_PUBLICATION_MODES)[number];
+
+function normalizePublicationMode(value: unknown): SongPublicationMode | null {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "public_streaming" || normalized === "public-streaming" || normalized === "public") {
+        return "public_streaming";
+    }
+    if (normalized === "draft" || normalized === "private") {
+        return "draft";
+    }
+    if (normalized === "ringtone_only" || normalized === "ringtone-only" || normalized === "ringtone") {
+        return "ringtone_only";
+    }
+    return null;
+}
+
+function hasExplicitLegacyUsageFlags(body: Record<string, unknown>) {
+    return (
+        body.streamingEnabled !== undefined
+        || body.streaming_enabled !== undefined
+        || body.ringtoneEnabled !== undefined
+        || body.ringtone_enabled !== undefined
+    );
+}
+
+export function publicationModeToUsage(mode: SongPublicationMode): SongUsagePermissions {
+    if (mode === "public_streaming") {
+        return {
+            streaming_enabled: true,
+            ringtone_enabled: false,
+            ringtone_creation_enabled: false,
+            ringtone_sale_enabled: false,
+            ringtone_price: null,
+        };
+    }
+    if (mode === "draft") {
+        return {
+            streaming_enabled: false,
+            ringtone_enabled: false,
+            ringtone_creation_enabled: false,
+            ringtone_sale_enabled: false,
+            ringtone_price: null,
+        };
+    }
+    return {
+        streaming_enabled: false,
+        ringtone_enabled: true,
+        ringtone_creation_enabled: false,
+        ringtone_sale_enabled: false,
+        ringtone_price: null,
+    };
+}
 
 const SONG_USAGE_COLUMN_NAMES = [
     "streaming_enabled",
@@ -57,6 +111,41 @@ function parseRingtonePrice(value: unknown): number | null {
 
 /** Normalize upload/API body into persisted song usage fields. */
 export function parseSongUsageFromBody(body: Record<string, unknown>): SongUsagePermissions | { error: string } {
+    const publicationMode = normalizePublicationMode(body.publicationMode ?? body.publication_mode);
+    if (publicationMode) {
+        const usage = publicationModeToUsage(publicationMode);
+        if (publicationMode === "ringtone_only") {
+            const ringtoneCreationEnabled = parseBooleanFlag(
+                body.ringtoneCreationEnabled ?? body.ringtone_creation_enabled,
+                false,
+            );
+            const ringtoneSaleEnabled = parseBooleanFlag(
+                body.ringtoneSaleEnabled ?? body.ringtone_sale_enabled,
+                false,
+            );
+            let ringtonePrice: number | null = null;
+            if (ringtoneSaleEnabled) {
+                ringtonePrice = parseRingtonePrice(body.ringtonePrice ?? body.ringtone_price);
+                if (ringtonePrice === null) {
+                    return { error: "Enter a valid ringtone price when offering a ringtone for sale." };
+                }
+            }
+            return {
+                ...usage,
+                ringtone_creation_enabled: ringtoneCreationEnabled,
+                ringtone_sale_enabled: ringtoneSaleEnabled,
+                ringtone_price: ringtonePrice,
+            };
+        }
+        return usage;
+    }
+
+    if (!hasExplicitLegacyUsageFlags(body)) {
+        return {
+            error: "Select a publication choice: public_streaming, draft, or ringtone_only.",
+        };
+    }
+
     const streamingEnabled = parseBooleanFlag(
         body.streamingEnabled ?? body.streaming_enabled,
         DEFAULT_NEW_UPLOAD_USAGE.streaming_enabled,
